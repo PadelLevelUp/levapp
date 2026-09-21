@@ -551,6 +551,11 @@ def bulk_create_presences(rows, coach):
 
             status = row.get("status") or None
             justification = row.get("justification") or None
+            # PAD-381 (B-152): a justification belongs to an absence. A sheet row that
+            # says "present" carries none, whatever its justification cell holds — the
+            # same rule `lesson_service.add_presences` applies to the coach's own mark.
+            if status == "present":
+                justification = None
 
             if existing:
                 # Update status/justification on re-import.

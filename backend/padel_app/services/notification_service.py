@@ -4708,8 +4708,10 @@ def _students_with_recent_absences(coach_players: list, lookback: int = 8) -> li
 def _students_with_justified_absences(coach_players: list) -> list:
     result = []
     for cp in coach_players:
+        # PAD-381 (B-152): an absence is a row whose STATUS says so — a justification
+        # left on a row the coach corrected to present does not list the student here.
         has_justified = Presence.query.filter_by(
-            player_id=cp.player_id, justification="justified"
+            player_id=cp.player_id, status="absent", justification="justified"
         ).first()
         if has_justified:
             result.append(cp)

@@ -189,7 +189,11 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     (`notification_service`) counted rows by `justification` **without** checking `status`, so a corrected
     row went on counting as a justified absence (a make-up owed) or an unjustified one. Both now also
     require `status == "absent"` — **an absence is a row whose status says so** — which makes the
-    engine right for the rows already stale without a data repair. An ABSENT row is unchanged: a
+    engine right for the rows already stale without a data repair. The same holds for the third
+    reader, `_students_with_justified_absences`, which fills the "Justified absences" group of the
+    coach's manual-invitation dialog on both shells (`GET /notify/groups`, enabled by default), and
+    for the second writer, the attendance import (`import_service.bulk_create_presences`): a sheet
+    row that says "present" is stored with no justification, whatever its justification cell holds. An ABSENT row is unchanged: a
     justification sent is written, an omitted one is left as it was. The stale rows themselves are
     not rewritten by this rule. Un-marking attendance (`status: null`) is a separate, open product
     question and is not decided here.

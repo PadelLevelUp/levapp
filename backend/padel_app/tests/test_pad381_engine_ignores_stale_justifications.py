@@ -132,3 +132,69 @@ def test_control_a_real_justified_absence_still_puts_a_student_in_the_makeup_wav
         _past_presence(ids, student, status="absent", justification="justified", days_ago=30)
 
     assert _in_makeup_wave(app, record) is True
+
+
+# ── the manual-invitation dialog's "Justified absences" group ────────────────
+# `GET /notify/groups` fills the coach's manual-invite dialog on web and iOS; the
+# group is enabled by default. It read `justification` alone, like the two above.
+
+def _in_manual_justified_group(app, build):
+    from padel_app.services.notification_service import get_notification_groups
+
+    ids = _seed(app)
+    with app.app_context():
+        student = _add_student(ids["coach_id"], "student", ids["level_ids"]["5"])
+        build(ids, student)
+        db.session.commit()
+        groups = get_notification_groups("LessonInstance", ids["instance_id"], None, ids["coach_id"])
+        by_id = {g["id"]: {p["id"] for p in g["players"]} for g in groups}
+        # The student is always offered under "All students" — what changes is this one group.
+        assert str(student) in by_id.get("all_students", set())
+        return str(student) in by_id.get("justified_absences", set())
+
+
+def test_a_corrected_absence_does_not_list_a_student_under_justified_absences(app):
+    def record(ids, student):
+        _past_presence(ids, student, status="present", justification="justified", days_ago=30)  # stale
+
+    assert _in_manual_justified_group(app, record) is False
+
+
+def test_control_a_real_justified_absence_still_lists_the_student(app):
+    def record(ids, student):
+        _past_presence(ids, student, status="absent", justification="justified", days_ago=30)
+
+    assert _in_manual_justified_group(app, record) is True
+
+
+# ── the second writer: the attendance import ─────────────────────────────────
+# Service level on purpose: the route is the multi-sheet onboarding import; the rule
+# under test is two lines of `bulk_create_presences`, which that route calls as is.
+
+def _imported(app, row_status, row_justification):
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.presences import Presence
+    from padel_app.services.import_service import bulk_create_presences
+
+    ids = _seed(app)
+    with app.app_context():
+        student = _add_student(ids["coach_id"], "student", ids["level_ids"]["5"])
+        db.session.add(Association_CoachLesson(coach_id=ids["coach_id"], lesson_id=ids["lesson_id"]))
+        db.session.commit()
+        lesson = Lesson.query.get(ids["lesson_id"])
+        rows = [{"lesson_title": lesson.title, "date": lesson.start_datetime.date().isoformat(),
+                 "player_name": "student", "status": row_status, "justification": row_justification}]
+        bulk_create_presences(rows, Coach.query.get(ids["coach_id"]))
+        row = Presence.query.filter_by(player_id=student).one()
+        return row.status, row.justification
+
+
+def test_an_imported_present_row_carries_no_justification(app):
+    assert _imported(app, "present", "justified") == ("present", None)
+
+
+def test_control_an_imported_absence_keeps_its_justification(app):
+    assert _imported(app, "absent", "justified") == ("absent", "justified")
+

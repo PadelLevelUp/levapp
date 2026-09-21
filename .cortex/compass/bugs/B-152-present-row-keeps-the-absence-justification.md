@@ -69,6 +69,20 @@ Add `attendance.validation` rule 21 + criterion; route-level tests first (they f
   wrongly skipping. Students with a corrected "absent, justified" stop being treated as owed a
   make-up — they leave the make-ups-first wave and are invited with everyone else, later, not
   never. Nobody with a real absence moves.
+- **Third commit — the writers and readers ENUMERATED, not asserted** (grep over the backend, each
+  one read). A third reader had no status check: `_students_with_justified_absences` →
+  `get_notification_groups` → `GET /notify/groups` → the manual-invitation dialog on web and iOS,
+  whose "Justified absences" group is enabled by default. A second writer could create the stale
+  shape: `import_service.bulk_create_presences` wrote status and justification from the sheet with
+  no coupling. Both fixed; 2×2 in the same test file — on the old code the stale row listed the
+  student in that group and the import stored `('present', 'justified')`, the two controls passed
+  before and after. The import test is SERVICE level (its route is the multi-sheet onboarding
+  import). Safe writers, read one by one: the decline path writes absent + justified together;
+  the PAD-313 re-take path, `notification_engine_api` and `lesson_service.enrol`'s reset only clear
+  it; seed data sets it only when absent; the admin editor can write any column (admin-only).
+- Found and NOT fixed here — B-143: `_students_with_justified_absences` and
+  `_students_with_recent_absences` are not scoped to the coach, so one coach's manual-invitation
+  dialog is shaped by another coach's attendance record.
 - NOT done here: the stale rows are not rewritten and not counted — for Session-A's queue:
   `SELECT justification, count(*) FROM presences WHERE status = 'present' AND justification IS NOT NULL GROUP BY justification`;
   un-marking attendance is an open product question.
