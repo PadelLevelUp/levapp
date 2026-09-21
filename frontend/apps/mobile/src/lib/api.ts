@@ -50,5 +50,7 @@ export const api = initApi({
   // PAD-352 (eligibility.open-spot-visibility rule 12): this app renders open
   // spots, so it asks for them. The App Store build made from this source
   // (PAD-351) must keep this line, or its students silently get none.
-  capabilities: ["open-spots"],
+  // PAD-364: `evaluations` is declared from slice 2 on and consumed by nothing yet — it will gate
+  // the student dashboard block of a shared evaluation. The next App Store build must keep it.
+  capabilities: ["open-spots", "evaluations"],
 });

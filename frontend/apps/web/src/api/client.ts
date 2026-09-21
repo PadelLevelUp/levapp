@@ -28,7 +28,10 @@ initApi({
   onUnauthorized: redirectToAuth,
   // PAD-352 (eligibility.open-spot-visibility rule 12): the web renders open
   // spots, so it asks for them. Without this, the server sends none.
-  capabilities: ["open-spots"],
+  // PAD-364: `evaluations` is declared from slice 2 on and consumed by nothing yet — it will gate
+  // the student dashboard block of a shared evaluation. Keep it: a missing token silently
+  // removes the feature, nothing crashes.
+  capabilities: ["open-spots", "evaluations"],
 });
 
 export const api = getApi();

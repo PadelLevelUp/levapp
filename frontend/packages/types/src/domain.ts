@@ -168,6 +168,137 @@ export interface EvaluationCategoryImpact {
   players: number;
 }
 
+// ── Evaluations v2 (PAD-364) ─────────────────────────────────────────────────
+// The record API. The types above (`EvaluationCategory`, `PlayerEvaluation`,
+// `EvaluationEntryPayload`) stay exactly as the old screens compile against them
+// until slices 3–4 replace those screens; note `EvaluationCategory.id` says
+// string there while the server has always sent a number — ids are numbers here.
+
+/** `null` = a legacy category (made by the old editor or the import): it keeps its own scale. */
+export type CompetencyGroup = "general" | "technique" | "tactics" | "custom";
+
+export interface EvaluationCompetency {
+  id: number;
+  /** Catalogue key — translate the label by it (en + pt). `null` for custom and legacy ones: show `name`. */
+  key: string | null;
+  name: string;
+  group: CompetencyGroup | null;
+  scaleMin: number;
+  scaleMax: number;
+  isActive: boolean;
+  sortOrder: number | null;
+  scoreCount: number;
+}
+
+/** A built-in competency the coach has not switched on. No row exists for it yet. */
+export interface EvaluationCatalogueEntry {
+  key: string;
+  group: Exclude<CompetencyGroup, "custom">;
+}
+
+export interface EvaluationCompetencies {
+  /** Every row the coach holds, active or not: general, technique, tactics, then custom and legacy; by sortOrder, then name. */
+  competencies: EvaluationCompetency[];
+  catalogue: EvaluationCatalogueEntry[];
+}
+
+/** `PATCH /app/evaluation_competency/:id`. Only the keys present are applied; `false` and `0` mean what they say. */
+export interface EvaluationCompetencyPatch {
+  name?: string;
+  isActive?: boolean;
+  sortOrder?: number | null;
+}
+
+export interface EvaluationRating {
+  categoryId: number;
+  name: string;
+  key: string | null;
+  score: number;
+  scaleMin: number;
+  scaleMax: number;
+}
+
+/** Slice 7 (sharing); always `null` until then. */
+export interface EvaluationShare {
+  sharedAt: string;
+  categoryIds: number[];
+  evolution: "last" | "6m" | "1y" | "none";
+  includeNote: boolean;
+}
+
+export interface EvaluationRecord {
+  /** `null` for a record-less row of history, shown as a single-rating record of its day. */
+  id: number | null;
+  /** Stable list key, for records and loose rows alike. */
+  key: string;
+  /** `YYYY-MM-DD`, the club's day. */
+  evaluatedOn: string;
+  classInstanceId: number | null;
+  className: string | null;
+  note: string | null;
+  /** True only on the day the record was made — the server decides. */
+  editable: boolean;
+  ratings: EvaluationRating[];
+  share: EvaluationShare | null;
+}
+
+export interface PlayerEvaluations {
+  lastEvaluatedOn: string | null;
+  /** Newest first. */
+  records: EvaluationRecord[];
+  competenciesWithData: number[];
+}
+
+/** An occurrence as the calendar identifies it: `CalendarEvent.model` / `originalId` / `date`. */
+export interface EvaluationClassRef {
+  model: string;
+  id: number;
+  date?: string | null;
+}
+
+/**
+ * `PUT /app/evaluation_record` — a merge into today's record. A competency absent
+ * from `ratings` is untouched and `null` clears it; an absent `note` is untouched
+ * and `""`/`null` clears it. `recordId` names the record the form has open: once
+ * its day has passed the server answers 409 instead of starting a new record.
+ */
+export interface EvaluationRecordInput {
+  playerId: number | string;
+  classRef?: EvaluationClassRef | null;
+  ratings?: Record<string, number | null>;
+  note?: string | null;
+  recordId?: number;
+}
+
+export type PutEvaluationRecordResult = EvaluationRecord | { deleted: true };
+
+/** Computed by the server only (R-048); one decimal everywhere. */
+export interface EvaluationEvolution {
+  scaleMin: number;
+  scaleMax: number;
+  series: { month: string; mean: number }[];
+  means: { m1: number | null; m6: number | null; m12: number | null };
+  delta: { value: number; sinceMonth: string } | null;
+}
+
+export interface ClassEvaluationParticipant {
+  playerId: number;
+  /** `null` when the player is not on this coach's roster: they cannot be rated by this coach. */
+  coachPlayerId: number | null;
+  name: string;
+  absent: boolean;
+  due: boolean;
+  record: EvaluationRecord | null;
+}
+
+export interface ClassEvaluations {
+  /** `null` while the occurrence has no row yet; reading never creates one. */
+  classInstanceId: number | null;
+  competencies: EvaluationCompetency[];
+  /** Absent last. */
+  participants: ClassEvaluationParticipant[];
+}
+
 export interface CoachPlayer {
   id: string;
   coachId: string;
