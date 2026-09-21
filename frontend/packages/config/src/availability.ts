@@ -24,6 +24,25 @@ export const DEFAULT_WORKING_WINDOW: Window = { startTime: "08:00", endTime: "22
 /** Minimum length of a window worth offering (a 30-minute class is the shortest request). */
 export const MIN_FREE_WINDOW_MINUTES = 30;
 
+/** The grid working hours sit on (settings.coach-working-hours rule 2; the server refuses anything else). */
+export const WORKING_HOURS_GRID_MINUTES = 15;
+
+/**
+ * settings.coach-working-hours rule 6 (PAD-369, B-141): an `HH:MM` brought to the nearest
+ * point of the grid, CAPPED at the last one a time field can show — 23:45 on the 15-minute
+ * grid. So 23:53–23:59 move DOWN, not to 24:00: the server accepts an end of 24:00 but
+ * neither editor can express it (a web time input cannot show it, the mobile picker's
+ * parser refuses it). A known limit, not an oversight: PAD-379 (B-142).
+ * Anything that is not a time — an emptied field, 25:00, 09:75, a value with seconds —
+ * comes back unchanged, as does any time when the grid is not a positive whole number.
+ */
+export function snapToGrid(hhmm: string, grid: number = WORKING_HOURS_GRID_MINUTES): string {
+  if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(hhmm) || !Number.isInteger(grid) || grid <= 0) return hhmm;
+  const snapped = Math.round(minutesOf(hhmm) / grid) * grid;
+  const last = Math.floor((24 * 60 - 1) / grid) * grid;
+  return hhmmOf(Math.min(snapped, last));
+}
+
 /** The break "add window" opens in a day that has no room left (settings.coach-working-hours rule 5). */
 export const WORKING_BREAK: Window = { startTime: "13:00", endTime: "14:00" };
 /** The shortest window "add window" creates, and the length of the break it leaves before it. */
@@ -31,37 +50,64 @@ export const ADDED_WINDOW_MINUTES = 60;
 
 /**
  * settings.coach-working-hours rule 5 (PAD-361, B-140): the day after the coach taps
- * "add window", or null when no window fits and the control is disabled. One answer
- * for web and iOS, and always a day the server accepts (rule 2): the editors used to
- * append `[last end, 22:00]`, which on an untouched 08:00–22:00 day is 22:00–22:00.
+ * "add window", sorted by start, or null when the control is disabled. One answer for
+ * web and iOS. Given a day the server accepts (rule 2), the answer is a day the server
+ * accepts: the editors used to append `[last end, 22:00]`, which on an untouched
+ * 08:00–22:00 day is 22:00–22:00.
  *
- * 1. Room after the last window: a new window from one hour after it ends to the
- *    default day's end, when that leaves at least an hour.
- * 2. Otherwise the last window splits around a one-hour break: lunch (13:00–14:00)
+ * It reads the WHOLE day, not the last row — the editors never sort their rows, only
+ * the server does on save (review of #347).
+ *
+ * 1. The largest free gap inside the default day (08:00–22:00) — before, between or
+ *    after the windows — once an hour's break is kept from each neighbouring window,
+ *    if an hour or more is left. The earliest wins a tie.
+ * 2. Otherwise the longest window splits around a one-hour break: lunch (13:00–14:00)
  *    when it sits inside the window with an hour on each side, else the window's
- *    middle, on the 15-minute grid.
- * 3. Otherwise (the last window is under three hours, or is not start < end): null.
+ *    middle, on the 15-minute grid. It must be three hours or longer.
+ * 3. Otherwise null. Null too for a day rule 2 refuses as it stands (a row that is
+ *    not a time, start >= end, off the grid, overlapping): the row is fixed first.
  */
 export function addWorkingWindow(windows: ReadonlyArray<readonly [string, string]>): [string, string][] | null {
-  const day = windows.map(([s, e]) => [s, e] as [string, string]);
-  if (day.length === 0) return [[DEFAULT_WORKING_WINDOW.startTime, DEFAULT_WORKING_WINDOW.endTime]];
+  if (windows.length === 0) return [[DEFAULT_WORKING_WINDOW.startTime, DEFAULT_WORKING_WINDOW.endTime]];
 
-  const [lastStart, lastEnd] = day[day.length - 1];
-  const s = minutesOf(lastStart);
-  const e = minutesOf(lastEnd);
+  const isTime = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t) || t === "24:00";
+  if (!windows.every(([s, e]) => isTime(s) && isTime(e))) return null;
+  const grid = WORKING_HOURS_GRID_MINUTES;
+  const day = windows.map(([s, e]) => [minutesOf(s), minutesOf(e)] as [number, number]).sort((a, b) => a[0] - b[0]);
+  const accepted =
+    day.every(([s, e]) => s % grid === 0 && e % grid === 0 && s < e) && day.every(([s], i) => i === 0 || s >= day[i - 1][1]);
+  if (!accepted) return null;
+
+  const hour = ADDED_WINDOW_MINUTES;
+  const dayStart = minutesOf(DEFAULT_WORKING_WINDOW.startTime);
   const dayEnd = minutesOf(DEFAULT_WORKING_WINDOW.endTime);
-  const gap = ADDED_WINDOW_MINUTES;
+  const done = (next: [number, number][]) =>
+    next.sort((a, b) => a[0] - b[0]).map(([s, e]) => [hhmmOf(s), hhmmOf(e)] as [string, string]);
 
-  if (s < e && dayEnd - (e + gap) >= gap) return [...day, [hhmmOf(e + gap), DEFAULT_WORKING_WINDOW.endTime]];
+  // 1. The largest gap, less an hour's break beside each window it touches.
+  let best: [number, number] | null = null;
+  let cursor = dayStart;
+  let touchesBefore = false;
+  for (const [s, e] of [...day, [dayEnd, dayEnd] as [number, number]]) {
+    const isDayEnd = s === dayEnd && e === dayEnd;
+    const from = cursor + (touchesBefore ? hour : 0);
+    const to = Math.min(s, dayEnd) - (isDayEnd ? 0 : hour);
+    if (to - from >= hour && (!best || to - from > best[1] - best[0])) best = [from, to];
+    if (e > cursor) { cursor = e; touchesBefore = true; }
+    if (cursor >= dayEnd) break;
+  }
+  if (best) return done([...day, best]);
 
+  // 2. Split the longest window around a break.
+  const longest = day.reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a));
+  const [s, e] = longest;
   const lunchStart = minutesOf(WORKING_BREAK.startTime);
   const lunchEnd = minutesOf(WORKING_BREAK.endTime);
   let breakStart: number | null = null;
-  if (s + gap <= lunchStart && lunchEnd + gap <= e) breakStart = lunchStart;
-  else if (e - s >= 3 * gap) breakStart = s + Math.floor((e - s - gap) / 2 / 15) * 15;
+  if (s + hour <= lunchStart && lunchEnd + hour <= e) breakStart = lunchStart;
+  else if (e - s >= 3 * hour) breakStart = s + Math.floor((e - s - hour) / 2 / grid) * grid;
   if (breakStart === null) return null;
-
-  return [...day.slice(0, -1), [lastStart, hhmmOf(breakStart)], [hhmmOf(breakStart + gap), lastEnd]];
+  return done([...day.filter((w) => w !== longest), [s, breakStart], [breakStart + hour, e]]);
 }
 
 type Interval = readonly [number, number];

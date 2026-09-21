@@ -17,8 +17,10 @@ import { Pressable, View } from "react-native";
 import {
   DEFAULT_WORKING_WINDOW,
   WORKING_DAY_KEYS,
+  WORKING_HOURS_GRID_MINUTES,
   addWorkingWindow,
   lightTheme,
+  snapToGrid,
   type WorkingDayKey,
 } from "@levelup/config";
 import { workingHoursApi } from "@levelup/api";
@@ -158,20 +160,22 @@ export function WorkingHoursSection() {
                           <View className="flex-1">
                             <TimePickerInput
                               testID={`working-hours-${key}-${i}-start`}
+                              minuteInterval={WORKING_HOURS_GRID_MINUTES}
                               label={t("settings.workingHours.startAria")}
                               value={w[0]}
                               onChange={(v) =>
-                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [v, x[1]] : x)) })
+                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [snapToGrid(v), x[1]] : x)) })
                               }
                             />
                           </View>
                           <View className="flex-1">
                             <TimePickerInput
                               testID={`working-hours-${key}-${i}-end`}
+                              minuteInterval={WORKING_HOURS_GRID_MINUTES}
                               label={t("settings.workingHours.endAria")}
                               value={w[1]}
                               onChange={(v) =>
-                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], v] : x)) })
+                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], snapToGrid(v)] : x)) })
                               }
                             />
                           </View>

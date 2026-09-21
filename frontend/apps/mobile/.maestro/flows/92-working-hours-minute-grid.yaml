@@ -1,0 +1,83 @@
+# PAD-369 (B-141) — settings.coach-working-hours rule 6: the editor's time controls
+# only offer values on the 15-minute grid rule 2 demands. Before the fix the iOS
+# wheel moved in one-minute steps: one nudge made 22:01 and the save was refused.
+#
+# Mirrors: apps/web/e2e/settings/coach-working-hours.spec.ts (the PAD-369 test;
+# web types the value and sees it snap, iOS can only turn the wheel).
+#
+# The minute wheel of Monday's end is nudged a row or two — how far does not
+# matter. What is asserted: the save is accepted, the stored end is on the grid,
+# and it is NOT 22:00, so a wheel that never moved cannot pass this flow.
+#
+# ios-only: Android shows the platform's clock dialog, which a swipe does not drive
+# (the same prop reaches it through DateTimePickerAndroid). The Android lane excludes
+# the tag (README, "Android lane").
+#
+# API steps clear the coach's hours before the flow and after it.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Order: not load bearing.
+# Flow number 92 is from Session D's range (2026-09-21 wave).
+appId: com.padellevelup.app
+tags:
+  - ios-only
+onFlowComplete:
+  - evalScript: "${output.tidy = (typeof output.coachTok === 'undefined') ? false : http.put(output.api + '/api/app/coach/working-hours', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ workingHours: null }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.reset = http.put(output.api + '/api/app/coach/working-hours', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ workingHours: null }) }).ok}"
+- assertTrue: "${output.reset == true}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-calendar"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "settings-nav-calendar"
+
+# ── Monday's end: turn the minute wheel a little ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-mon-0-end"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "working-hours-mon-0-end"
+- extendedWaitUntil:
+    visible:
+      id: "working-hours-mon-0-end-confirm"
+    timeout: 10000
+# The minute wheel is the dialog's middle column.
+- swipe:
+    start: "47%,48%"
+    end: "47%,42%"
+    duration: 600
+- tapOn:
+    id: "working-hours-mon-0-end-confirm"
+
+# ── Save: accepted ──
+- scrollUntilVisible:
+    element:
+      id: "working-hours-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "working-hours-save"
+- scrollUntilVisible:
+    element:
+      id: "working-hours-set"
+    direction: UP
+    timeout: 30000
+- assertNotVisible:
+    id: "working-hours-error-mon"
+
+# The stored end moved, and it sits on the quarter hour.
+- evalScript: "${output.end = json(http.get(output.api + '/api/app/coach/working-hours', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).workingHours.mon[0][1]}"
+- assertTrue: "${output.end != '22:00' && (parseInt(output.end.split(':')[1], 10) % 15) == 0}"
