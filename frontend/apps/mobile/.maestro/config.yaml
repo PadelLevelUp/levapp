@@ -134,6 +134,9 @@ executionOrder:
     # 93 makes a weekly personal event through the API, deletes ONE occurrence in the
     # UI and reads the server's calendar (PAD-371); it removes its blocks before and after.
     - 93-event-single-occurrence-delete
+    # 94 makes a weekly personal event through the API, switches repeat off in the UI
+    # and reads the server's calendar (PAD-377); it removes its block before and after.
+    - 94-event-made-one-off
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

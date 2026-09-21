@@ -149,7 +149,21 @@ def edit_event_service(block_id, user_id, data):
     # event silently cleared the student-availability-blocker flag (PAD-28).
     # Attendance marking has the same guard for the reminder flags (PAD-69).
     values.pop("blocks_auto_invitations", None)
+
+    # PAD-377 (B-150): recurrence changes only when the body says so. The form layer
+    # drops empty values, so a one-off's `recurrence_rule: ""` never cleared the old
+    # rule — the response said one-off while the feed and the invitation engine, which
+    # read the RULE, went on treating the block as weekly. And `_build_payload` reads
+    # an ABSENT `isRecurring` as False, which flipped the flag of a block still meant
+    # to be weekly. Done here, not in the shared form layer (PAD-367 owns that).
+    recurring = data.get("isRecurring")
+    if recurring is None:
+        for key in ("is_recurring", "recurrence_rule", "recurrence_end"):
+            values.pop(key, None)
     block.update_with_dict(values)
+    if recurring is False:
+        block.recurrence_rule = None
+        block.recurrence_end = None
     block.save()
     return block
 

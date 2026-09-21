@@ -1,0 +1,64 @@
+# PAD-377 (B-150) — calendar.blocks rule 10: a weekly personal event edited to a
+# one-off stops repeating. The edit used to answer "not recurring" while the old
+# recurrence rule stayed on the row, so the calendar went on serving it every week
+# (and the invitation engine went on skipping a student for a one-day unavailability).
+#
+# Setup through the API: four Mondays, starting the Monday BEFORE the seeded Monday.
+# The edit goes through the UI (event detail → edit → repeat off → save); the
+# server's calendar is the judge. Removes its own block before and after.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Order: not load bearing.
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad377-event-made-one-off.spec.ts
+# Flow number 94 is from Session D's range (2026-09-21 wave).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.tidy = (typeof output.coachTok === 'undefined') ? 0 : (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.d0 + 'T00:00:00&to=' + output.d3 + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var seen = {}; var n = 0; for (var i = 0; i < evs.length; i++) { if (evs[i].title === 'PAD-377 Weekly Event' && !seen[evs[i].originalId]) { seen[evs[i].originalId] = true; http.delete(output.api + '/api/app/calendar_block/' + evs[i].originalId, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }); n++; } } return n; })()}"
+---
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.days = (function () { var p = output.seededMonday.split('-'); var out = []; for (var k = -7; k <= 14; k += 7) { var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + k); var m = d.getMonth() + 1; var day = d.getDate(); out.push(d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day)); } return out; })()}"
+- evalScript: "${output.d0 = output.days[0]}"
+- evalScript: "${output.d3 = output.days[3]}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.made = http.post(output.api + '/api/app/add_event', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ type: 'personal', title: 'PAD-377 Weekly Event', date: output.d0, startTime: '12:00', endTime: '13:00', isRecurring: true, recurrenceRule: { frequency: 'weekly', daysOfWeek: [1] }, endDate: output.d3 }) }).status}"
+- assertTrue: "${output.made == 201}"
+- evalScript: "${output.before = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.d0 + 'T00:00:00&to=' + output.d3 + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var n = 0; for (var i = 0; i < evs.length; i++) { if (evs[i].title === 'PAD-377 Weekly Event') { n++; } } return n; })()}"
+- assertTrue: "${output.before == 4}"
+
+# ── Coach opens the event on the seeded Monday and switches repeat off ──
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- extendedWaitUntil:
+    visible:
+      text: "PAD-377 Weekly Event.*"
+    timeout: 20000
+- tapOn:
+    text: "PAD-377 Weekly Event.*"
+- extendedWaitUntil:
+    visible:
+      id: "event-detail"
+    timeout: 15000
+- tapOn:
+    id: "event-detail-edit"
+- scrollUntilVisible:
+    element:
+      id: "event-detail-recurring-switch"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "event-detail-recurring-switch"
+- scrollUntilVisible:
+    element:
+      id: "event-detail-save"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "event-detail-save"
+- extendedWaitUntil:
+    visible:
+      id: "event-detail-edit"
+    timeout: 15000
+
+# ── The server: one day, not four ──
+- evalScript: "${output.after = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.d0 + 'T00:00:00&to=' + output.d3 + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var n = 0; for (var i = 0; i < evs.length; i++) { if (evs[i].title === 'PAD-377 Weekly Event') { n++; } } return n; })()}"
+- assertTrue: "${output.after == 1}"

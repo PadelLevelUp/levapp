@@ -26,6 +26,7 @@ Users create personal calendar blocks to mark unavailability (breaks, holidays, 
 
 8. **Delete takes the same scope (PAD-371, B-139).** `DELETE /api/app/calendar_block/{id}` with `{occDate, scope}`: `single` removes that occurrence only, `future` ends the series the day before it, and no `occDate` (or a one-off block) deletes the block. Both shells offer "this one / this and following" on a recurring event; web also on drag-and-drop (rule 5). Editing (`PUT`) takes no scope and changes the whole series.
 9. **Changing ONE occurrence leaves every other occurrence as it was (PAD-371, B-139).** A `single` delete or move of a middle occurrence ends the original series the day before it and **resumes** the series, as a second block, from the next occurrence on a LATER DATE, keeping the original end (or none, for an endless series). The first occurrence advances the series' start instead; the last occurrence resumes nothing; the only occurrence deletes the block. "Next" excludes the whole of the occurrence's own date — a search from that date's midnight finds the occurrence itself. A series can therefore be two rows after one such change: anything that holds a block by id (a class-request hold, `classes.class-requests` rule 3) sees only the first — PAD-372.
+10. **An edit changes recurrence only when its body says so (PAD-377, B-150).** `PUT /api/app/calendar_block/{id}` (and `PUT /api/app/availability_blockers/{id}`, which shares the service): an explicit `isRecurring: false` makes the block a one-off AND clears `recurrence_rule` and `recurrence_end`; `isRecurring: true` writes the rule and end date sent; a body that OMITS the key (or sends null) leaves the flag, the rule and the end date exactly as they were. Everything that repeats a block reads the **rule**, not the flag — the calendar feed and the invitation engine (`calendar.student-blockers` rule 5) — so a rule left behind on a "one-off" keeps repeating it. The clearing is done in `edit_event_service`; the shared form layer, which drops empty values, is deliberately unchanged here (PAD-367). Rows already damaged are NOT repaired by this rule: that data repair is held by the coordinator.
 
 ### Acceptance Criteria
 
@@ -49,3 +50,10 @@ Users create personal calendar blocks to mark unavailability (breaks, holidays, 
 - **Then** the calendar serves Oct 8, 15, 22 and 29
 - **When** instead they delete the 2026-10-29 occurrence with scope `single`
 - **Then** the calendar serves Oct 1, 8, 15 and 22, and the block is still one row
+
+#### An event edited to a one-off stops repeating (PAD-377)
+- **Given** a weekly Monday block from 2026-10-05 to 2026-10-26
+- **When** its owner saves it with `isRecurring: false`
+- **Then** the row has no recurrence rule and no end date, and the calendar serves it on one day
+- **When** instead the owner saves an edit whose body has no `isRecurring` key
+- **Then** the block is still weekly, with the same rule and end date
