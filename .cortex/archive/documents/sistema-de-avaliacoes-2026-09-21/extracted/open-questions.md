@@ -158,3 +158,62 @@ first time enrols its whole roster as unmarked attendance and fills its waiting 
 class panel is offered for classes dated today or later and for any class already opened
 (attendance taken, edited); for a past class never opened the action is disabled with an
 explanation and the coach evaluates from the player.
+
+## Rulings taken while the slices were being built (2026-09-21)
+
+Build defaults like Q8–Q30: taken by the evaluation-system lead, reviewable by the Coordinator,
+each written into the leaf it governs by the slice that implements it.
+
+**Q31 — Where a coach's existing categories sit in "Gerir competências" (AV-022).** In a section
+of their own, FIRST — "As tuas categorias", each with its scale written out — then Geral, Técnica,
+Tática, Personalizada. The canvas models no such coach; following it literally put an existing
+coach's own categories at the bottom of 17 entries they had not chosen. The order is static:
+nothing moves when it is switched, including the first time a catalogue entry becomes a row, so
+inside Geral, Técnica and Tática the order is the catalogue's own fixed order with rows and
+not-yet-rows interleaved. A coach with no existing category sees exactly the canvas's order.
+Client-side sectioning; the API's order is unchanged.
+
+**Q32 — The three evolution figures are labelled by their window (AV-034).** "Médias: Último mês ·
+Últimos 6 meses · Último ano" (en: "Averages: Last month · Last 6 months · Last year"), not "Média
+mensal / semestral / anual". The arithmetic is the canvas's own and does not change (rolling
+windows over the ratings). What changes is the word: on the first real rendering, the chart's
+"Set: 7.0" (the calendar-month point) sat above "Média mensal 6.5" (the rolling figure) and read
+as a contradiction. The vocabulary is the owner's — the share flow already says "Últimos 6 meses"
+and "Último ano". "Último mês", not "30 dias": the window is calendar arithmetic. **The owner is
+told, because it changes the canvas's copy.**
+
+**Q33 — Nothing above a form that saves on tap changes shape in answer to that tap.** Found by the
+first simulator run of the evolution slice: the first rating made "Evolução" appear above the open
+form and moved the form about 350 pt under the coach's finger. The section keeps its shape while
+the form is open and follows the server when it closes; the class panel applies the same to the
+participant ORDER while a row is open. Same principle as Q31's static order. It governs
+`evaluations.history`, `evaluations.evolution` and `evaluations.class-panel`.
+
+**Q34 — A stepper's consecutive steps are one input (AV-004).** Stars save on tap, one request per
+tap. A legacy-scale category is a stepper, and stepping 5 → 8 is one write, not three: debounced
+about 400 ms per competency, and flushed on blur, on "Concluir avaliação", on close and on
+unmount, so a quick step-then-close is never lost.
+
+**Q35 — The class read says whether the class can be rated (`canRate`).** False exactly when the
+occurrence has no row and its date is before today on the club's clock — the case Q30 refuses.
+The clients disable the action from that fact and never compare a date with their own clock
+(the same reason the evolution figures are the server's).
+
+**Q36 — Two custom competency names that differ only in case.** Refused one after the other (409).
+If two such requests race, both can be created: the unique index is case-sensitive, and a
+case-insensitive one would need a migration that could fail on rows that are legal today. Left as
+it is, and said so where the rule is written (`evaluations.competencies` rule 6).
+
+**Q21 — outcome.** A web editor for strengths and weaknesses outside the evaluation form exists
+(the `PlayerStrengthsWeaknesses` card on the player page, saved through `add_coach_note` /
+`delete/coach_note`, the path iOS uses). Proven by Session-E before dropping them from the form:
+`e2e/evaluation-tools/player-notes.spec.ts`, 2 passed, at `ddf6b1f14`, 2026-09-21 19:20:34–19:21:37
+UTC (Session-E's run). So they leave the new web form and keep their own card on both clients.
+
+**Q1 — what production holds (Session-A's read, 2026-09-21 20:58 UTC; its word).** Two coaches with
+evaluations, 7 categories, 16 scores — all whole numbers on ONE scale, 1–10; no comments, no
+imported rows. Both settings editors offer 0–10 for a new category and production has not one
+`scale_min = 0` row: the shared form layer stores the default 1 (B-136, PAD-367). The default
+above stands; "convert to stars" is one mapping, 1–10 → 1–5, over 16 rows, and the owner can be
+shown every before and after.
+
