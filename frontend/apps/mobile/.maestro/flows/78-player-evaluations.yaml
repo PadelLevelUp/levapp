@@ -1,0 +1,138 @@
+# PAD-374 / evaluations.history + evaluations.records — the player's evaluations on iOS.
+# Mirrors apps/web/e2e/evaluation-tools/evaluation-persist.spec.ts and the component
+# tests of apps/web/src/components/evaluations/. (Flow number 78 reserved for this
+# slice by the Coordinator, 2026-09-21.)
+#
+# What it proves, by test id and by the server's own answers — never rendered copy:
+# - the profile card offers "Avaliações", which PUSHES a screen (not a native Modal)
+# - "Nova avaliação": a star tap saves at once; tapping the lit star clears it, and a
+#   record left with nothing is deleted; a legacy category is a stepper ("n/max")
+# - "Concluir avaliação" closes the form and the evaluation is a history card
+# - delete asks first, then the history is empty again and the server agrees
+# The private note is not typed here (the keyboard covers the form's lower half on the
+# pinned simulator); it is covered by the web component tests and the backend tests.
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/evaluations-setup.js
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+# ── The profile card: no evaluation yet, and the way in ──
+- scrollUntilVisible:
+    element:
+      id: "player-evaluations-open"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "evaluation-card-last"
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+- assertVisible:
+    id: "evaluation-history-empty"
+- assertVisible:
+    id: "evaluation-evolution-empty"
+
+# ── "Nova avaliação": the action hides while the form is open ──
+- tapOn:
+    id: "evaluation-new"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-form"
+    timeout: 15000
+- assertNotVisible:
+    id: "evaluation-new"
+
+# A star tap is a save: the server holds Técnica 4 before anything else is touched.
+- tapOn:
+    id: "evaluation-star-${output.techniqueId}-4"
+- evalScript: "${output.afterTap = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterTap.length === 1 && output.afterTap[0].ratings.length === 1 && output.afterTap[0].ratings[0].score === 4}"
+
+# Tapping the lit star clears it; a record left with no rating and no note is deleted.
+- tapOn:
+    id: "evaluation-star-${output.techniqueId}-4"
+- evalScript: "${output.afterClear = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterClear.length === 0}"
+
+# Rate again, and step the legacy category: a number, never stars.
+- tapOn:
+    id: "evaluation-star-${output.techniqueId}-3"
+- assertVisible:
+    id: "evaluation-stepper-.*-value-none"
+- tapOn:
+    id: "evaluation-stepper-.*-plus"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-stepper-.*-value-6"
+    timeout: 5000
+
+# ── "Concluir avaliação" flushes the pending step and only closes ──
+- scrollUntilVisible:
+    element:
+      id: "evaluation-finish"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "evaluation-finish"
+- extendedWaitUntil:
+    notVisible:
+      id: "evaluation-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "evaluation-history-card-.*"
+    direction: DOWN
+    timeout: 20000
+- evalScript: "${output.saved = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- assertTrue: "${output.saved.records.length === 1 && output.saved.records[0].ratings.length === 2 && output.saved.lastEvaluatedOn !== null}"
+
+# ── Delete asks first ──
+- tapOn:
+    id: "evaluation-history-delete-.*"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-delete-confirm"
+    timeout: 10000
+- tapOn:
+    id: "evaluation-delete-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-history-empty"
+    timeout: 15000
+- evalScript: "${output.gone = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- assertTrue: "${output.gone.records.length === 0 && output.gone.lastEvaluatedOn === null}"
+
+# Leave the coach's set as it was found: the catalogue competency is switched off again
+# (a built-in cannot be deleted), so other flows see only the seeded legacy category.
+- evalScript: "${output.off = http.request(output.api + '/api/app/evaluation_competency/' + output.techniqueId, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ isActive: false }) }).ok}"
+- assertTrue: "${output.off == true}"
+
+- tapOn:
+    id: "player-evaluations-back"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000

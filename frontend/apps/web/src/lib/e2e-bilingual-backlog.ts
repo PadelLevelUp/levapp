@@ -37,7 +37,6 @@ export const ALT_BACKLOG: readonly AltBacklogEntry[] = [
   { file: "pw:clubs/courts.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /new class|add class/" },
   { file: "pw:dashboard/needs-you-deep-links.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /convidar|invite/" },
   { file: "pw:dashboard/validation-count.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /review|rever/" },
-  { file: "pw:evaluation-tools/eval-categories.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /save|submit/" },
   { file: "pw:loading-states/ticket-pad-24-loading-states.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /add class|new class|\\+/" },
   { file: "pw:messaging/conversation-open-anchor.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /scroll to bottom|ir para o fim|new messages|novas mensagens/" },
   { file: "pw:messaging/conversation-paging.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /scroll to bottom|ir para o fim|new messages|novas mensagens/" },
