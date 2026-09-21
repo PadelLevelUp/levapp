@@ -24,6 +24,46 @@ export const DEFAULT_WORKING_WINDOW: Window = { startTime: "08:00", endTime: "22
 /** Minimum length of a window worth offering (a 30-minute class is the shortest request). */
 export const MIN_FREE_WINDOW_MINUTES = 30;
 
+/** The break "add window" opens in a day that has no room left (settings.coach-working-hours rule 5). */
+export const WORKING_BREAK: Window = { startTime: "13:00", endTime: "14:00" };
+/** The shortest window "add window" creates, and the length of the break it leaves before it. */
+export const ADDED_WINDOW_MINUTES = 60;
+
+/**
+ * settings.coach-working-hours rule 5 (PAD-361, B-140): the day after the coach taps
+ * "add window", or null when no window fits and the control is disabled. One answer
+ * for web and iOS, and always a day the server accepts (rule 2): the editors used to
+ * append `[last end, 22:00]`, which on an untouched 08:00–22:00 day is 22:00–22:00.
+ *
+ * 1. Room after the last window: a new window from one hour after it ends to the
+ *    default day's end, when that leaves at least an hour.
+ * 2. Otherwise the last window splits around a one-hour break: lunch (13:00–14:00)
+ *    when it sits inside the window with an hour on each side, else the window's
+ *    middle, on the 15-minute grid.
+ * 3. Otherwise (the last window is under three hours, or is not start < end): null.
+ */
+export function addWorkingWindow(windows: ReadonlyArray<readonly [string, string]>): [string, string][] | null {
+  const day = windows.map(([s, e]) => [s, e] as [string, string]);
+  if (day.length === 0) return [[DEFAULT_WORKING_WINDOW.startTime, DEFAULT_WORKING_WINDOW.endTime]];
+
+  const [lastStart, lastEnd] = day[day.length - 1];
+  const s = minutesOf(lastStart);
+  const e = minutesOf(lastEnd);
+  const dayEnd = minutesOf(DEFAULT_WORKING_WINDOW.endTime);
+  const gap = ADDED_WINDOW_MINUTES;
+
+  if (s < e && dayEnd - (e + gap) >= gap) return [...day, [hhmmOf(e + gap), DEFAULT_WORKING_WINDOW.endTime]];
+
+  const lunchStart = minutesOf(WORKING_BREAK.startTime);
+  const lunchEnd = minutesOf(WORKING_BREAK.endTime);
+  let breakStart: number | null = null;
+  if (s + gap <= lunchStart && lunchEnd + gap <= e) breakStart = lunchStart;
+  else if (e - s >= 3 * gap) breakStart = s + Math.floor((e - s - gap) / 2 / 15) * 15;
+  if (breakStart === null) return null;
+
+  return [...day.slice(0, -1), [lastStart, hhmmOf(breakStart)], [hhmmOf(breakStart + gap), lastEnd]];
+}
+
 type Interval = readonly [number, number];
 
 const toIntervals = (windows: ReadonlyArray<Window>): Interval[] =>

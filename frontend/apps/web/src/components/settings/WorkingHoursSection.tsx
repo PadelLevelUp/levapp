@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Clock, Loader2, Plus, X } from "lucide-react";
 import {
   DEFAULT_WORKING_WINDOW,
+  addWorkingWindow,
   WORKING_DAY_KEYS,
   type WorkingDayKey,
 } from "@levelup/config";
@@ -185,9 +186,11 @@ export function WorkingHoursSection() {
                           size="sm"
                           className="self-start gap-1"
                           data-testid={`working-hours-add-${key}`}
+                          disabled={addWorkingWindow(row.windows) === null}
                           onClick={() => {
-                            const last = row.windows[row.windows.length - 1];
-                            update(key, { ...row, windows: [...row.windows, [last[1], DEFAULT_WORKING_WINDOW.endTime]] });
+                            // Rule 5: always a day the server accepts, the same on iOS.
+                            const windows = addWorkingWindow(row.windows);
+                            if (windows) update(key, { ...row, windows });
                           }}
                         >
                           <Plus className="w-3.5 h-3.5" />

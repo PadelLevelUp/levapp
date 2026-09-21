@@ -3,9 +3,18 @@
 # success, and nothing is stored. Closes the iOS gap #338 left ("Not run").
 #
 # Mirrors: apps/web/e2e/settings/coach-working-hours.spec.ts (the refused save).
-# The invalid day is made without the iOS time spinner (not stable in Maestro, see
-# flows 13 and 69): "add window" on an untouched Monday appends 22:00–22:00 (the
-# last window's end to the default end), which breaks start < end.
+#
+# Making the invalid day (PAD-361): no button can any more — "add window" always
+# gives a day the server accepts (rule 5, flow 87). So Monday is split by "add
+# window" into 08:00–13:00 and 14:00–22:00, and the morning window's END is pushed
+# later on the hour wheel until it runs into the afternoon window. This does not
+# need the precision flows 13 and 69 avoid: from 13:00 any end from 15:00 to 23:00
+# overlaps, and 00:00 to 08:00 ends before it starts — 18 of the wheel's 24 hours.
+# Two swipes of about three rows each land near 19:00 (measured 2026-09-21: one
+# swipe took 13:00 to 16:00 on the iPhone 17 Pro).
+#
+# ios-only: Android shows the platform's clock dialog, which a swipe does not drive.
+# The Android lane excludes the tag (README, "Android lane").
 #
 # The seeded coach starts with no working hours. A first API step clears any left
 # by an earlier failed run; the flow stores nothing, and the last step proves it.
@@ -13,6 +22,8 @@
 # Backend: -e API_BASE=http://localhost:<port>, else :5001. Order: not load bearing.
 # Flow number 85 is from Session D's range (2026-09-21 wave).
 appId: com.padellevelup.app
+tags:
+  - ios-only
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
@@ -39,7 +50,7 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 30000
 
-# ── Monday gets a second window that starts when it ends ──
+# ── Monday splits in two, then the morning runs into the afternoon ──
 - scrollUntilVisible:
     element:
       id: "working-hours-add-mon"
@@ -49,9 +60,26 @@ appId: com.padellevelup.app
     id: "working-hours-add-mon"
 - scrollUntilVisible:
     element:
-      id: "working-hours-mon-1-start"
+      id: "working-hours-mon-0-end"
     direction: DOWN
     timeout: 20000
+- tapOn:
+    id: "working-hours-mon-0-end"
+- extendedWaitUntil:
+    visible:
+      id: "working-hours-mon-0-end-confirm"
+    timeout: 10000
+# The hour wheel is the dialog's left column; its selected row sits mid-dialog.
+- swipe:
+    start: "31%,50%"
+    end: "31%,36%"
+    duration: 500
+- swipe:
+    start: "31%,50%"
+    end: "31%,36%"
+    duration: 500
+- tapOn:
+    id: "working-hours-mon-0-end-confirm"
 
 # ── Save: refused, the error names Monday ──
 - scrollUntilVisible:
