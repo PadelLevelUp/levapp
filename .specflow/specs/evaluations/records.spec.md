@@ -127,8 +127,11 @@ what every writer — new, legacy and import — goes through.
     record has one value per competency, and an average never includes a number no card shows.
     The legacy reads (`current_evaluations`, `/player_profile`) are untouched. Only `record_id` is written on
     entry rows. The record's `created_at` / `updated_at` are the group's min / max
-    `evaluated_at`; `note` is NULL. Re-running changes nothing and never displaces a row already
-    in a record. Backfilled records are shareable like any other **(pending owner decision Q5)**.
+    `evaluated_at`; `note` is NULL. Re-running changes nothing. An **earlier** record-less row
+    never displaces the row that holds a slot; a record-less row **later** than the holder (one
+    written around the service during a deploy window) takes the slot and the former holder
+    becomes record-less — the same outcome as rule 12's runtime append, and what the migration
+    does by design, with a test (PAD-363). Backfilled records are shareable like any other **(pending owner decision Q5)**.
 14. **The endpoint parses JSON directly and distinguishes absent / null / falsy.** It must not
     read or write through the shared form layer (`tools/input_tools.py` `Field.set_value`,
     `JsonRequestAdapter`, `model.update_with_dict`), which reads falsy as "not sent" (B-136).

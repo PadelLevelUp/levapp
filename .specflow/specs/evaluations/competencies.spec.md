@@ -88,7 +88,7 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 8. **(build default Q18) Renaming is by id.** `PATCH … {name}` updates the row in place and keeps
    every rating, which resolves **B-125** for new clients (the legacy upsert keeps forking, as
    pinned). Same validation as rule 6. A catalogue competency accepts only `isActive` and
-   `sortOrder`; `name` on it → 409. `sortOrder` is an integer ≥ 0.
+   `sortOrder`; `name` on it → 409. `sortOrder` is an integer ≥ 0, or `null` to un-order the competency (it then sorts last in its group, by name); `null` is a value here, not an absence (rule 10).
 9. **(build default Q18) Deleting.** `GET /api/app/evaluation_competency/<id>/impact` →
    `{name, scores, players}`; `DELETE /api/app/evaluation_competency/<id>` deletes a **custom or
    legacy** competency and every score on it, with today's safeguards: the client asks for the
