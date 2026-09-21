@@ -1,0 +1,7 @@
+id: archive.sistema-de-avaliacoes-2026-09-21
+kind: design-canvas
+ingested_at: 2026-09-21T18:04:05Z
+version: "2026-09-21"
+status: active
+source_filename: Sistema de Avaliações.dc.html
+origin: Claude Design canvas handed over by the product owner on 2026-09-21 as the new evaluation system and evaluation style — an interactive desktop prototype of the coach's web app (per-class evaluation panel, 1–5 star ratings saved on tap, a grouped padel competency catalogue, per-player evolution and history, a two-step "Partilhar avaliação" flow, and a reminder-frequency setting). Most behaviour lives in the script, not the markup. sha256 a8a1f102340f33a84b84ebc58f43e9989dbc8c7eb1dd4defec21b9b16b0eb788. The design-system bundle it imports was not on disk, so it was read, not rendered.

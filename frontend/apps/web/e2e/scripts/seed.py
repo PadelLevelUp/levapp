@@ -62,6 +62,25 @@ def _utcnow_naive() -> datetime:
 # anchor with E2E_SEED_TODAY=YYYY-MM-DD to reproduce a run on another weekday.
 DATES = seed_dates(seed_today())
 
+
+# PAD-362: past-dated evaluation entries. The API always stamps utcnow, so an
+# E2E spec cannot produce history through it. OFF unless
+# E2E_SEED_EVALUATION_HISTORY=1, so nothing an existing spec sees changes (the
+# evaluation specs expect Forehand to open "not rated", and the category-delete
+# spec counts scores). The spec that first needs history turns it on and runs the
+# suite with it. (days before DATES.today, score) — never the wall clock.
+EVALUATION_HISTORY_POINTS = [(120, 3), (90, 4), (60, 4), (30, 6), (7, 7)]
+
+
+def seed_e2e_evaluation_history(coach_player, category):
+    """Five past-dated scores for one coach-player link in one category."""
+    if os.environ.get("E2E_SEED_EVALUATION_HISTORY") != "1":
+        return []
+    # Imported here so the default seed never depends on the tests package.
+    from padel_app.tests.evaluation_history import seed_evaluation_history
+
+    return seed_evaluation_history(coach_player.id, category.id, EVALUATION_HISTORY_POINTS, anchor=DATES.today)
+
 app = create_app()
 
 with app.app_context(), unit_of_work():
@@ -852,6 +871,10 @@ with app.app_context(), unit_of_work():
     )
     for upcoming_member in filler_players[20:22]:
         _enrol(upcoming_instance, upcoming_member, invited=True, confirmed=True)
+
+    # ── Evaluation history (PAD-362; off by default, see the function) ────────
+    db.session.flush()
+    seed_e2e_evaluation_history(student2_assoc, forehand_category)
 
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
