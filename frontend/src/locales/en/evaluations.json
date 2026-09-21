@@ -24,6 +24,38 @@
       "technique": "Technique",
       "tactics": "Tactics",
       "custom": "Custom"
+    },
+    "manager": {
+      "title": "Manage competencies",
+      "open": "Manage competencies",
+      "settingsTitle": "Evaluation competencies",
+      "settingsDescription": "Choose what you rate your players on: switch on the built-in ones, add your own, and keep the ones you already had.",
+      "customTitle": "Custom competency",
+      "namePlaceholder": "Competency name",
+      "add": "Add",
+      "caption": "Changes apply immediately to the next evaluations.",
+      "done": "Done",
+      "close": "Close",
+      "legacyScale": "Scale {{scale}}",
+      "scoreCount_one": "{{count}} rating",
+      "scoreCount_other": "{{count}} ratings",
+      "rename": "Rename",
+      "renameSave": "Save name",
+      "renameCancel": "Cancel",
+      "delete": "Delete",
+      "duplicateName": "You already have a competency with this name.",
+      "nameInvalid": "Enter a name of up to 100 characters.",
+      "saveFailed": "Could not save. Try again.",
+      "loadFailed": "Could not load your competencies.",
+      "retry": "Try again",
+      "noneActive": "You have no active competency. The next evaluations will ask for no rating until you switch at least one on; the history stays.",
+      "deleteTitle": "Delete \"{{name}}\"?",
+      "deleteImpact": "This deletes {{scores}} ratings across {{players}} players. It cannot be undone.",
+      "deleteImpactNone": "This competency has no ratings yet.",
+      "deleteTypeName": "Type the competency's name to confirm",
+      "deleteConfirm": "Delete competency",
+      "cancel": "Cancel",
+      "impactFailed": "Could not check what would be deleted. Try again."
     }
   }
 }
