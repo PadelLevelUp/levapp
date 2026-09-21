@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { EvaluationCatalogueEntry, EvaluationCompetencies, EvaluationCompetency } from "@levelup/types";
 
-import { activeCount, competencyKind, legacyScaleLabel, managerSections } from "./competency-manager";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+import { activeCount, CATALOGUE_ORDER, competencyKind, legacyScaleLabel, managerSections, type ManagerRow } from "./competency-manager";
 
 // evaluations.competencies rules 2 and 5 (PAD-373): what "Gerir competências" lists,
 // in which order, and which of the three kinds each row is. Q31 (Session-B, 2026-09-21):
@@ -20,6 +23,8 @@ const CATALOGUE: EvaluationCatalogueEntry[] = [
 function competency(over: Partial<EvaluationCompetency>): EvaluationCompetency {
   return { id: 1, key: null, name: "x", group: null, scaleMin: 1, scaleMax: 5, isActive: true, sortOrder: null, scoreCount: 0, ...over };
 }
+
+const keyOf = (row: ManagerRow) => (row.kind === "available" ? row.entry.key : row.competency.key);
 
 const FOREHAND_LEGACY = competency({ id: 7, name: "Forehand", group: null, scaleMin: 1, scaleMax: 10, scoreCount: 12 });
 
@@ -64,7 +69,7 @@ describe("managerSections", () => {
     expect(sections[0].rows.map((row) => row.kind)).toEqual(["existing", "existing", "existing"]);
   });
 
-  it("lists switched-on rows before the entries still available, each in the order the API gave", () => {
+  it("lists a catalogue group in the catalogue's fixed order, rows and not-yet-rows interleaved", () => {
     const bandeja = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique", isActive: false });
     const data: EvaluationCompetencies = {
       competencies: [bandeja],
@@ -74,9 +79,30 @@ describe("managerSections", () => {
     const technique = managerSections(data).find((s) => s.group === "technique");
 
     expect(technique).toBeDefined();
-    expect(technique!.rows[0]).toEqual({ kind: "existing", competency: bandeja, rowKind: "catalogue" });
-    expect(technique!.rows.slice(1).map((row) => (row.kind === "available" ? row.entry.key : "?"))).toEqual(
-      ["forehand", "backhand", "volley", "vibora", "smash", "glass_exit", "double_glass", "serve"]);
+    expect(technique!.rows.map(keyOf)).toEqual(
+      ["forehand", "backhand", "volley", "bandeja", "vibora", "smash", "glass_exit", "double_glass", "serve"]);
+    expect(technique!.rows[3]).toEqual({ kind: "existing", competency: bandeja, rowKind: "catalogue" });
+  });
+
+  it("switching an entry on for the FIRST time does not move it: it becomes a row in the same place", () => {
+    const before: EvaluationCompetencies = { competencies: [], catalogue: CATALOGUE };
+    // What the API answers after POST {catalogueKey: "smash"}: smash is a row now, and gone from catalogue[].
+    const smash = competency({ id: 21, key: "smash", name: "Smash", group: "technique" });
+    const after: EvaluationCompetencies = { competencies: [smash], catalogue: CATALOGUE.filter((e) => e.key !== "smash") };
+
+    const orderOf = (data: EvaluationCompetencies) => managerSections(data).find((s) => s.group === "technique")!.rows.map(keyOf);
+
+    expect(orderOf(before).indexOf("smash")).toBe(5);
+    expect(orderOf(after)).toEqual(orderOf(before));
+    // ...and switching it off again (it stays a row) moves nothing either.
+    expect(orderOf({ ...after, competencies: [{ ...smash, isActive: false }] })).toEqual(orderOf(before));
+  });
+
+  it("a catalogue key this client does not know sorts after the known ones, in the order the API gave", () => {
+    const lob = competency({ id: 30, key: "lob", name: "Lob", group: "technique" });
+    const data: EvaluationCompetencies = { competencies: [lob], catalogue: [{ key: "drop_shot", group: "technique" }, { key: "serve", group: "technique" }] };
+
+    expect(managerSections(data)[0].rows.map(keyOf)).toEqual(["serve", "lob", "drop_shot"]);
   });
 
   it("never re-adds a catalogue entry the API left out (the coach's own 'bandeja' hides its twin)", () => {
@@ -119,5 +145,18 @@ describe("activeCount", () => {
 
     expect(activeCount(data)).toBe(1);
     expect(activeCount({ competencies: [], catalogue: CATALOGUE })).toBe(0);
+  });
+});
+
+describe("CATALOGUE_ORDER", () => {
+  it("is the server's catalogue, key for key and in its order (one list, two copies — this is the tie)", () => {
+    const python = readFileSync(
+      join(__dirname, "..", "..", "..", "..", "backend", "padel_app", "services", "evaluation_catalogue.py"), "utf8");
+    const block = python.slice(python.indexOf("CATALOGUE = ("), python.indexOf("BY_KEY"));
+    const serverKeys = [...block.matchAll(/^\s+\("([a-z_]+)",/gm)].map((m) => m[1]);
+
+    expect(serverKeys).toHaveLength(17);
+    expect([...CATALOGUE_ORDER]).toEqual(serverKeys);
+    expect(CATALOGUE.map((entry) => entry.key)).toEqual(serverKeys);
   });
 });
