@@ -90,6 +90,14 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    trimmed; empty after trimming → 400; longer than 100 → 400; a name the coach already holds on
    any row, compared case-insensitively → **409** (PAD-273; the canvas has no duplicate check —
    mock defect). Accented characters are kept as typed; nothing is keyed on a slug (AV-078).
+   **(Q36, ruled 2026-09-21 — a known limit, left as it is.)** The case-insensitive refusal is
+   a read-then-write check in the service; the database's unique index
+   (`uq_evaluation_categories_coach_name`) is on `(coach_id, name)` as typed, so it is
+   case-SENSITIVE. Two names that differ only in case are refused one after the other, but two
+   such requests that RACE can both be created. A case-insensitive index was ruled out: it
+   needs a migration slot and could fail to build on rows that are legal today (a legacy
+   "Serve" beside "serve", created through the name-keyed legacy upsert). The same holds for a
+   rename (rule 8).
 7. **(AV-022, AV-023, AV-025) Switching on and off.** `PATCH /api/app/evaluation_competency/<id>`
    with `{isActive}`. Off removes the competency from the next entry form that opens and changes
    nothing else: its ratings stay in their records, show on every history card that holds them,
