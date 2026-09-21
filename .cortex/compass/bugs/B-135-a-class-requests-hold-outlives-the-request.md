@@ -77,6 +77,25 @@ same as the dev spec: no layer drift.
   (`models/class_request.py`); `close_open_requests_silently` (`class_request_service.py`)
   called from `delete_account_service` before the coach's blocks are bulk-deleted.
 
+### Review (Session-B, 2026-09-21, on 9ecd238a2) — each finding run before acting
+
+- **F1 confirmed, fixed:** `revert_import` bulk-deletes players with no hook; an imported student
+  who activated and asked for a class left a ghost hold. `release_holds_of_players` runs first.
+  The first version of rule 18 said the revert "deletes placeholders that cannot hold a request";
+  that was read, not run, and it was false.
+- **F3 confirmed, fixed:** one malformed `invitee_player_ids` value in any open request made every
+  student deletion raise `ValueError`; ids are now compared as text and the table-wide row lock
+  is gone.
+- **F7 confirmed, fixed:** an editor PATCH of `status` to a closed value left the hold; a
+  `before_update` hook releases it, and an edit that leaves the request open keeps it.
+- **F2 confirmed via reschedule only, NOT fixed:** moving one occurrence of a weekly hold clones
+  the block; the clone survives every release path. Rule 18 now names it; known-gap pin in the
+  test file; own ticket. Via single-occurrence delete it does not reproduce, because
+  `_split_block` computes the next occurrence after shortening `recurrence_end` and so drops every
+  later occurrence — a separate, generic calendar defect with its own ticket.
+- 2×2 for the three fixes (18:40 UTC): old product code → exactly the three trigger-present tests
+  fail, 24 pass; new code → 27 pass on sqlite and Postgres.
+
 ### Resolution
 
 _Open — filled in when PAD-360 lands._

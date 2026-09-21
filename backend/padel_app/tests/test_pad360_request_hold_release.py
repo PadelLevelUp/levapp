@@ -308,3 +308,223 @@ def test_day_is_in_the_future():
     from padel_app.utils.dates import utcnow_naive
 
     assert DAY > utcnow_naive().date()
+
+
+# ── #345 review (Session-B, 2026-09-21): each finding verified by running it ──
+
+def _spy_on_every_channel(monkeypatch):
+    """Silent means nothing on ANY channel, not only no Message row (review F6)."""
+    calls = []
+    import padel_app.realtime as realtime
+    import padel_app.utils.expo_push as expo_push
+    import padel_app.utils.push_notifications as web_push
+
+    monkeypatch.setattr(realtime, "publish", lambda *a, **k: calls.append(("sse", a)))
+    monkeypatch.setattr(web_push, "send_push_notification", lambda *a, **k: calls.append(("web-push", k)))
+    monkeypatch.setattr(expo_push, "send_expo_push_to_user", lambda *a, **k: calls.append(("expo", k)))
+    return calls
+
+
+def _weekly_request(app, ids):
+    from datetime import timedelta
+
+    from padel_app.services.class_request_service import create_class_request_service
+
+    with app.app_context():
+        row = create_class_request_service(_player(ids["player_id"]), {
+            "coachId": ids["coach_id"], "date": DAY.isoformat(), "startTime": "11:00", "endTime": "12:00",
+            "recurrence": {"weekdays": [DAY.isoweekday()], "startDate": DAY.isoformat(),
+                           "endDate": (DAY + timedelta(days=28)).isoformat()},
+        })
+        return row.id, row.hold_block_id
+
+
+def _second_coach_for_the_student(app, ids):
+    from padel_app.models import Association_CoachClub, Association_CoachPlayer, Club, Coach, User
+
+    with app.app_context():
+        user = User(name="Coach B", username="coach-b", password="x", status="active")
+        db.session.add(user)
+        db.session.flush()
+        coach = Coach(user_id=user.id)
+        db.session.add(coach)
+        db.session.flush()
+        db.session.add(Association_CoachClub(coach_id=coach.id, club_id=Club.query.first().id))
+        db.session.add(Association_CoachPlayer(coach_id=coach.id, player_id=ids["player_id"]))
+        db.session.commit()
+        return {"coach_id": coach.id, "coach_user_id": user.id}
+
+
+def _import_record(app, ids, *, players, users=(), coach_players=()):
+    import json
+
+    from padel_app.models.bulk_import import BulkImport
+
+    with app.app_context():
+        record = BulkImport(coach_id=ids["coach_id"], filename="roster.xlsx", status="active", summary="{}",
+                            record_ids=json.dumps({"coach_players": list(coach_players), "players": list(players),
+                                                   "users": list(users)}))
+        db.session.add(record)
+        db.session.commit()
+        return record.id
+
+
+def _revert(app, ids, import_id):
+    from padel_app.models import Coach
+    from padel_app.services.import_service import revert_import
+
+    with app.app_context():
+        return revert_import(import_id, db.session.get(Coach, ids["coach_id"]))
+
+
+def test_F1_reverting_an_import_releases_the_holds_of_the_students_it_deletes(app):
+    """An imported student activates in place (same Player id) and asks for a
+    class; the revert bulk-deletes the Player — no ORM hook — and the database
+    cascades the request away. Observed before the fix (18:37 UTC, 9ecd238a2):
+    request gone, hold still on the calendar."""
+    ids = _setup(app)
+    rid = _request(app, ids)
+    hold = _hold_of(app, rid)
+    import_id = _import_record(app, ids, players=[ids["player_id"]], users=[_user_id_of_player(app, ids["player_id"])])
+
+    result = _revert(app, ids, import_id)
+
+    assert result["status"] == "reverted"
+    assert _state(app, rid) is None
+    assert not _block_exists(app, hold), "hold block outlived its request"
+
+
+def test_F1_reverting_an_import_with_no_requests_touches_no_calendar_block(app):
+    """Trigger absent."""
+    ids = _setup(app)
+    _busy(app, ids, block_at=(time(15, 0), time(16, 0)))
+    import_id = _import_record(app, ids, players=[ids["player_id"]], users=[_user_id_of_player(app, ids["player_id"])])
+
+    assert _revert(app, ids, import_id)["status"] == "reverted"
+
+    assert _blocks_of_coach(app, ids) == 1
+
+
+def test_F3_a_malformed_invitee_list_elsewhere_cannot_fail_an_account_deletion(app):
+    """Observed before the fix: ValueError from int('abc') aborted the deletion."""
+    from padel_app.models import ClassRequest
+
+    ids = _setup(app)
+    with app.app_context():
+        carla = _add_student(ids["coach_id"], "carla", level_id=ids["level_ids"]["5"])
+        db.session.commit()
+    hers = _request(app, ids, pid=carla)
+    with app.app_context():
+        db.session.get(ClassRequest, hers).invitee_player_ids = ["abc", str(ids["player_id"])]
+        db.session.commit()
+
+    _delete_account(app, _user_id_of_player(app, ids["player_id"]))
+
+    assert _state(app, hers)["invitees"] == ["abc"], "the deleted student is gone; what we cannot read is left alone"
+
+
+def test_F7_an_editor_edit_that_closes_a_request_releases_its_hold(app, client):
+    """Observed before the fix: PATCH status=declined left the hold in place."""
+    ids = _setup(app)
+    rid = _request(app, ids)
+    hold = _hold_of(app, rid)
+
+    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"status": "declined"}}, headers=_root(app))
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    state = _state(app, rid)
+    assert (state["status"], state["hold"]) == ("declined", None)
+    assert not _block_exists(app, hold)
+
+
+def test_F7_an_editor_edit_that_leaves_a_request_open_keeps_its_hold(app, client):
+    """Trigger absent: the hook must not fire on every update of an open request."""
+    ids = _setup(app)
+    rid = _request(app, ids)
+    hold = _hold_of(app, rid)
+
+    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"note": "edited by an admin"}}, headers=_root(app))
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert (_state(app, rid)["status"], _state(app, rid)["hold"]) == ("pending", hold)
+    assert _block_exists(app, hold)
+
+
+def test_F6_silent_means_no_channel_at_all(app, monkeypatch):
+    ids = _setup(app)
+    rid = _request(app, ids)
+    calls = _spy_on_every_channel(monkeypatch)  # after the request, whose own notice is not under test
+
+    _delete_account(app, _user_id_of_player(app, ids["player_id"]))
+
+    assert _state(app, rid)["status"] == "withdrawn"
+    assert calls == [], f"something was sent: {calls}"
+
+
+def test_F6_a_deleting_coach_leaves_the_students_request_to_another_coach_alone(app):
+    from padel_app.services.class_request_service import create_class_request_service
+
+    ids = _setup(app)
+    other = _second_coach_for_the_student(app, ids)
+    to_a = _request(app, ids, start="11:00", end="12:00")
+    with app.app_context():
+        to_b = create_class_request_service(_player(ids["player_id"]), {
+            "coachId": other["coach_id"], "date": DAY.isoformat(), "startTime": "13:00", "endTime": "14:00"}).id
+    hold_b = _hold_of(app, to_b)
+
+    _delete_account(app, ids["coach_user_id"])
+
+    assert _state(app, to_a)["status"] == "declined"
+    assert _state(app, to_b)["status"] == "pending" and _block_exists(app, hold_b)
+
+
+def test_F6_a_countered_request_and_a_weekly_hold_are_closed_and_released_too(app):
+    ids = _setup(app)
+    countered = _request(app, ids, start="11:00", end="12:00")
+    _decide(app, ids, countered, "propose", date=DAY.isoformat(), startTime="15:00", endTime="16:00")
+    assert _state(app, countered)["status"] == "countered"
+    countered_hold = _hold_of(app, countered)
+
+    _delete_account(app, _user_id_of_player(app, ids["player_id"]))
+
+    assert (_state(app, countered)["status"], _state(app, countered)["by"]) == ("withdrawn", "student")
+    assert not _block_exists(app, countered_hold)
+    assert _blocks_of_coach(app, ids) == 0
+
+
+def test_F6_a_weekly_requests_recurring_hold_is_released_by_account_deletion(app):
+    ids = _setup(app)
+    rid, hold = _weekly_request(app, ids)
+    assert _block_exists(app, hold)
+
+    _delete_account(app, _user_id_of_player(app, ids["player_id"]))
+
+    assert _state(app, rid)["status"] == "withdrawn"
+    assert _blocks_of_coach(app, ids) == 0
+
+
+def test_F2_KNOWN_GAP_a_moved_occurrence_of_a_weekly_hold_is_a_clone_nothing_releases(app):
+    """DEFECT PINNED, NOT FIXED (review F2; rule 18 names it). Moving one occurrence
+    of a recurring hold goes through `calendar_service._clone_block`: the clone
+    copies the title and no request points at it, so no release path deletes it.
+    Consequence for any cleanup: a hold-titled block that no request references
+    can be the clone of a LIVE hold — never delete it on the title alone."""
+    from datetime import timedelta
+
+    from padel_app.services.calendar_service import reschedule_block_service
+    from padel_app.services.class_request_service import withdraw_class_request_service
+
+    ids = _setup(app)
+    rid, hold = _weekly_request(app, ids)
+    moved = (DAY + timedelta(days=14)).isoformat()
+    with app.app_context():
+        reschedule_block_service(hold, ids["coach_user_id"], {
+            "occDate": moved, "newDate": moved, "newStartTime": "15:00", "newEndTime": "16:00", "scope": "single"})
+        db.session.commit()
+    assert _blocks_of_coach(app, ids) == 2, "the hold, and its unlinked clone"
+
+    with app.app_context():
+        withdraw_class_request_service(rid, _player(ids["player_id"]))
+
+    assert not _block_exists(app, hold)
+    assert _blocks_of_coach(app, ids) == 1, "the clone outlives the request"

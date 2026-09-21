@@ -495,8 +495,8 @@ def _close(row: ClassRequest, status: str, by: str, now) -> None:
 def close_open_requests_silently(*, status: str, by: str, player_id=None, coach_id=None, now_utc=None) -> int:
     """Rule 18 (PAD-360, B-135): the person behind a request is going away.
 
-    Every open request of ``player_id`` (as the requester) or to ``coach_id``
-    closes with its hold released. Silent: no notification in either direction —
+    Every open request of ``player_id`` (as the requester) and/or to ``coach_id``
+    (both given narrows to that pair) closes with its hold released. Silent: no notification in either direction —
     one side no longer exists. No commit; the caller owns the transaction.
     """
     from padel_app.utils.dates import utcnow_naive
@@ -518,17 +518,38 @@ def close_open_requests_silently(*, status: str, by: str, player_id=None, coach_
 
 
 def drop_invitee_from_open_requests(player_id: int) -> int:
-    """Rule 18: an accept never enrols a deleted account. No commit."""
+    """Rule 18: an accept never enrols a deleted account. No commit.
+
+    No row lock: nothing else rewrites `invitee_player_ids` after a request is
+    created, and locking every open group request table-wide let two concurrent
+    account deletions deadlock (#345 review F3). Ids are compared as text, so a
+    malformed value in someone else's request cannot fail this deletion.
+    """
     rows = ClassRequest.query.filter(
         ClassRequest.status.in_(("pending", "countered")), ClassRequest.invitee_player_ids.isnot(None)
-    ).with_for_update().all()
+    ).all()
     changed = 0
     for row in rows:
-        kept = [pid for pid in (row.invitee_player_ids or []) if int(pid) != int(player_id)]
-        if len(kept) != len(row.invitee_player_ids or []):
+        current = row.invitee_player_ids if isinstance(row.invitee_player_ids, list) else []
+        kept = [pid for pid in current if str(pid) != str(player_id)]
+        if len(kept) != len(current):
             row.invitee_player_ids = kept or None
             changed += 1
     return changed
+
+
+def release_holds_of_players(player_ids) -> int:
+    """Rule 18: these players are about to be deleted in bulk (`Query.delete()`
+    runs no ORM hook), and ON DELETE CASCADE will take their requests. No commit."""
+    ids = [int(pid) for pid in (player_ids or [])]
+    if not ids:
+        return 0
+    rows = ClassRequest.query.filter(
+        ClassRequest.player_id.in_(ids), ClassRequest.hold_block_id.isnot(None)
+    ).all()
+    for row in rows:
+        _release_hold(row)
+    return len(rows)
 
 
 def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequest:

@@ -154,8 +154,9 @@ held on the coach's calendar while the request is open.
     there, `endDate` unchanged) and only the future occurrences are re-validated. Only when no
     occurrence is left does accept answer `409 in_the_past`, and the request stays open for the
     coach to decline.
-18. **A hold never outlives its request (PAD-360, B-135).** Rule 3 names the status transitions;
-    the same is true however the request goes away. Before PAD-360 only withdraw, decline and
+18. **The hold a request points at never outlives it (PAD-360, B-135).** Rule 3 names the status
+    transitions; the same is true however the request goes away — for the block in
+    `hold_block_id`. A block cloned from a hold is a known gap (last bullet). Before PAD-360 only withdraw, decline and
     accept released the hold, and every path below left a ghost block on the coach's calendar.
     - **The row is deleted.** Deleting a ClassRequest through the ORM — both generic editor
       routes, `DELETE /api/editor/classrequest/<id>` and `POST /api/delete/classrequest/<id>` —
@@ -169,11 +170,24 @@ held on the coach's calendar while the request is open.
       notification in either direction** (rule 6 does not apply: one side no longer exists). A
       deleting student is also taken off `invitee_player_ids` of other people's open requests,
       so an accept never enrols a deleted account.
-    - **Not covered:** a bulk `Query.delete()` runs no ORM hook. The only one that reaches
-      players is the import undo, which deletes placeholders — accounts that cannot sign in and
-      so cannot hold a request. A coach **disconnecting** a student leaves the open request and
+    - **The row is closed by an edit.** The admin editor can PATCH `status` straight to a closed
+      value; any ORM update that leaves a request closed while it still points at a hold deletes
+      the hold. An edit that leaves the request open keeps it (#345 review F7).
+    - **The import is reverted.** `revert_import` bulk-deletes the players it created with
+      `Query.delete()`, which runs no ORM hook, and an imported student can have activated in
+      place and asked for a class. The revert releases those players' holds first (#345 review
+      F1). No other bulk delete of players or coaches exists today; a new one must do the same.
+    - **Known gap — a moved occurrence of a weekly hold (#345 review F2, not fixed here).**
+      Moving one occurrence of a recurring hold (`calendar_service.reschedule_block_service`)
+      clones the block: the clone copies the hold's title and no request points at it, so no
+      path above releases it, and it outlives the request under the student's name. It follows
+      that a hold-titled block no request references may be the clone of a LIVE hold — a cleanup
+      must never delete one on its title alone. Pinned as a known gap in
+      `test_pad360_request_hold_release.py`; its own ticket.
+    - **Left out on purpose:** a coach **disconnecting** a student leaves the open request and
       its hold in place (the hold is legitimate while the request is open); whether a disconnect
-      should decline it is an owner decision, recorded on PAD-360.
+      should decline it is an owner decision, recorded on PAD-360. A pending request whose slot
+      has passed keeps its hold — there is no expiry; also with the owner.
     - **No client change (web and iOS).** Both already render `withdrawn` and `declined`; nothing
       new reaches a screen, so PAD-360 ships backend-only.
 
