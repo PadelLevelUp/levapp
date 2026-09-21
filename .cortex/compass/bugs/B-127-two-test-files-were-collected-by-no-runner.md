@@ -40,7 +40,7 @@ runner's own listing against every test-looking file git knows:
 | vitest × 3 | `vitest list --filesOnly --json` per config | 116 | 1 |
 | pytest (both CI lanes) | the workflow's pytest command line + pytest's `python_files` | 180 | 1 |
 | Maestro | existing guard `apps/mobile/src/lib/maestro-flow-numbers.test.ts` (green in `unit`) | — | covered, not re-derived |
-| Playwright | static only: no test-named file under `apps/web/e2e/` has an extension the default `testMatch` skips | 146 specs | none found; `playwright test --list` **not run** (machine quiet for the wave-1 integrator) |
+| Playwright | `playwright test --list --reporter=json` (run 2026-09-21T21:34:49Z, once the machine-quiet lifted) | 146 | 0 — 146 listed, 146 on disk |
 
 **The rescued tests, run for the first time by a runner's config:**
 
@@ -70,7 +70,15 @@ the same family one level up: a guard that cannot run is not a guard.
    Each was seen **failing on the defect** (old include → names `useCalendarEvents.test.tsx`;
    old workflow → names `test_seed_dates.py`) **and passing on the fix**.
 
+**Playwright became the fourth runner in the frontend guard** (same PR): it is asked what it
+lists, exactly like the vitest configs — no server, no browser, about two seconds. One lesson
+from validating it: my first mutant, a stray `e2e/zz-stray.test.tsx`, did NOT fail the guard —
+because Playwright's default `testMatch` does take `.tsx`, which the name-only check this
+replaced had denied in a comment and a regex. A second instrument, and a wrong one. The mutant
+that does fail it is a file the candidate pattern flags and Playwright does not list
+(`e2e/__tests__/zz-helper.ts`): guard red naming it (21:39:14Z), green once removed (21:39:17Z).
+
 **Not proven here:** the full-session `session.items` check can only run in CI's full
-invocation; Playwright's own listing was not used. Adding a runner means adding it to the
+invocation. Adding a runner means adding it to the
 guard's `RUNNERS` list — a new vitest config the guard does not know would make its files look
 orphaned, which fails loudly, the safe direction.

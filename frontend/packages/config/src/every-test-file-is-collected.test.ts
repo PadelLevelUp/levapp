@@ -19,10 +19,10 @@ import { describe, expect, it } from "vitest";
  * pattern, and it is deliberately wider than any runner's: anything that looks
  * like a test by name. Add a runner → add it to RUNNERS; nothing else changes.
  *
- * NOT covered here, so silence is not read as coverage: Playwright. The second test
- * only checks file NAMES under apps/web/e2e; it never asks Playwright what it collects
- * (`playwright test --list`), so a spec excluded by testDir / testMatch / testIgnore or
- * a project filter is an orphan this guard cannot see. Maestro IS covered, elsewhere:
+ * Playwright is the fourth runner and is asked the same way: `playwright test --list
+ * --reporter=json` starts no server and no browser, takes about two seconds, and says
+ * which files it would run — so a spec excluded by testDir / testMatch / testIgnore or a
+ * project filter shows up here as an orphan. Maestro is covered elsewhere:
  * apps/mobile/src/lib/maestro-flow-numbers.test.ts asserts every flow on disk is in
  * config.yaml's flowsOrder and every listed flow exists.
  */
@@ -60,6 +60,32 @@ function collectedBy(runner: (typeof RUNNERS)[number]): string[] {
   return files.map(({ file }) => relative(FRONTEND, realpathSync(file)).split("\\").join("/"));
 }
 
+/** What Playwright would run, from Playwright itself. Paths relative to frontend/. */
+function collectedByPlaywright(): string[] {
+  const require = createRequire(import.meta.url);
+  const cli = join(dirname(require.resolve("@playwright/test/package.json")), "cli.js");
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("VITEST")));
+  const out = execFileSync(process.execPath, [cli, "test", "--list", "--reporter=json"], {
+    cwd: join(FRONTEND, "apps", "web"),
+    env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  type Suite = { file?: string; suites?: Suite[]; specs?: { file?: string }[] };
+  const report = JSON.parse(out.slice(out.indexOf("{"))) as { suites?: Suite[]; config?: { rootDir?: string } };
+  const files = new Set<string>();
+  const walk = (suite: Suite) => {
+    if (suite.file) files.add(suite.file);
+    for (const spec of suite.specs ?? []) if (spec.file) files.add(spec.file);
+    for (const child of suite.suites ?? []) walk(child);
+  };
+  for (const suite of report.suites ?? []) walk(suite);
+  // The report's paths are relative to the config's testDir.
+  const testDir = report.config?.rootDir ?? join(FRONTEND, PLAYWRIGHT_DIR);
+  return [...files].map((f) => relative(FRONTEND, realpathSync(join(testDir, f))).split("\\").join("/"));
+}
+
 /** Every file git knows or would add (tracked + untracked, minus ignored), relative to frontend/. */
 function filesOnDisk(): string[] {
   return execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "--", "."], {
@@ -95,11 +121,17 @@ describe("every test file is collected by a runner (B-127)", () => {
     expect(twice, "collected by more than one vitest config").toEqual([]);
   }, 180_000);
 
-  it("nothing under the Playwright folder is named for a runner Playwright is not", () => {
-    // Playwright's default testMatch takes `.test.` and `.spec.` with js/ts/mjs only.
-    const strays = filesOnDisk().filter(
-      (f) => f.startsWith(PLAYWRIGHT_DIR) && LOOKS_LIKE_A_TEST.test(f) && !/\.(test|spec)\.(js|ts|mjs)$/.test(f)
-    );
-    expect(strays, "test-named files under e2e/ that Playwright's testMatch would skip").toEqual([]);
-  });
+  it("no test-looking file under the Playwright folder is left out by Playwright", () => {
+    const listed = collectedByPlaywright();
+    expect(listed.length, "playwright --list listed no test files").toBeGreaterThan(0);
+
+    const candidates = filesOnDisk().filter((f) => f.startsWith(PLAYWRIGHT_DIR) && LOOKS_LIKE_A_TEST.test(f));
+    expect(candidates.length).toBeGreaterThan(0);
+
+    const orphans = candidates.filter((f) => !listed.includes(f));
+    expect(
+      orphans,
+      "under e2e/ and looks like a test, but `playwright test --list` does not list it — check its name against the config's testMatch / testIgnore and the project filters, move it out of e2e/, or delete it if it is a stray"
+    ).toEqual([]);
+  }, 180_000);
 });
