@@ -41,6 +41,12 @@ Coaches record evaluation scores for players over time, tracking progress across
    those builds keep writing it until they update. **Known gap:** a never-scored category saved from a 1.0/1.1.0 App Store client still gets a midpoint entry; the next App Store build (PAD-351) removes it. Rows already written from midpoint seeds stay as
    they are: nothing in the database tells a fabricated midpoint from an intended one (Coordinator
    decision, 2026-09-16).
+8. **A score is recorded only in one of the calling coach's own categories (PAD-370, B-145, compass
+   R-002).** `POST /api/app/add_evaluation_entry` ignores a score whose `categoryId` is another coach's
+   category, an id that does not exist, or not a number: nothing is written for it and the response is
+   the same `200 {status, playerId}`. Ignored rather than refused because App Store 1.0/1.1.0 post
+   every category in one body, the save is not atomic, and they treat any non-2xx as a failed save — a
+   build still holding a category that was deleted on another device must keep being able to save.
 
 ### Acceptance Criteria
 
@@ -63,6 +69,12 @@ Coaches record evaluation scores for players over time, tracking progress across
 - **Given** the coach has moved an unrated category's control in the open form
 - **When** they press its reset control and save
 - **Then** that category reads "not rated" again and no entry is written for it
+
+#### A score for a category that is not the coach's own is ignored (rule 8)
+- **Given** coach Ana with category Forehand and her student Rui, and coach Bea with category Serve
+- **When** Ana posts `{"playerId": Rui, "scores": [{"categoryId": <Bea's Serve>, "value": 3}, {"categoryId": 987654, "value": 3}, {"categoryId": <Forehand>, "value": 6}]}`
+- **Then** the response is `200 {"status": "ok", "playerId": Rui}`, exactly one entry is written — Forehand 6 — and
+  Rui's profile for Ana carries no Serve evaluation
 
 #### Null and unchanged scores are not written (rule 7)
 - **Given** Forehand's latest score for the player is 8
