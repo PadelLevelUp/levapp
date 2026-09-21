@@ -480,6 +480,36 @@ def _import(app, ids, rows):
         return bulk_create_evaluation_entries(rows, db.session.get(Coach, ids["coach_id"]))
 
 
+def test_6_an_imported_category_keeps_a_zero_minimum_only_when_it_arrives_as_a_string(app, client):
+    """DEFECT PINNED, NOT FIXED (B-136). `bulk_create_evaluation_categories` goes
+    through the same form layer as the settings upsert: the number 0 is read as
+    "not sent" and the model default 1 is stored; the string "0" (a spreadsheet
+    cell) survives. A category that does hold 0 is listed with `scaleMin: 0` — the
+    freeze must not "normalise" it."""
+    from padel_app.models import Coach
+    from padel_app.services.import_service import bulk_create_evaluation_categories
+
+    ids = _seed(app)
+    with app.app_context():
+        result = bulk_create_evaluation_categories([
+            {"name": "Lob", "scale_min": "0", "scale_max": "10"},
+            {"name": "Smash", "scale_min": 0, "scale_max": 10},
+            {"name": "Serve", "scale_max": 5},
+            {"name": "Forehand", "scale_min": 0, "scale_max": 3},   # exists: found, never updated
+        ], db.session.get(Coach, ids["coach_id"]))
+
+    assert (result["imported"], result["errors"]) == (3, [])
+    listed = {c["name"]: (c["scaleMin"], c["scaleMax"])
+              for c in client.get("/api/app/evaluation_categories", headers=_coach_headers(app, ids)).get_json()}
+    assert listed == {
+        "Lob": (0, 10),        # the string "0" is stored and listed as 0
+        "Smash": (1, 10),      # the number 0 is dropped
+        "Serve": (1, 5),       # no minimum sent: the model default
+        "Forehand": (1, 10),   # an existing category's scale is never touched by the import
+        "Volley": (0, 10),     # written directly by the fixture
+    }
+
+
 def test_6_import_wide_rows_one_entry_per_category_column(app):
     ids = _seed(app)
 
