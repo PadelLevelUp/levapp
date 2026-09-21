@@ -15,8 +15,9 @@ import { StarRating } from "./star-rating";
 interface HistoryCardProps {
   record: EvaluationRecord;
   isStars: (categoryId: number) => boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  /** Both absent = a read-only card (the class panel's earlier-day record, PAD-376): no actions at all. */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 /**
@@ -39,16 +40,18 @@ export function HistoryCard({ record, isStars, onEdit, onDelete }: HistoryCardPr
           ) : null}
         </Text>
         <View className="flex-row">
-          {record.editable ? (
+          {record.editable && onEdit ? (
             <Button variant="ghost" size="icon" onPress={onEdit} testID={`evaluation-history-edit-${id}`}
               accessibilityLabel={t("players.evaluationHistory.edit")}>
               <Ionicons name="pencil-outline" size={18} color={lightTheme.foreground} />
             </Button>
           ) : null}
-          <Button variant="ghost" size="icon" onPress={onDelete} testID={`evaluation-history-delete-${id}`}
-            accessibilityLabel={t("players.evaluationHistory.delete")}>
-            <Ionicons name="trash-outline" size={18} color={lightTheme.destructive} />
-          </Button>
+          {onDelete ? (
+            <Button variant="ghost" size="icon" onPress={onDelete} testID={`evaluation-history-delete-${id}`}
+              accessibilityLabel={t("players.evaluationHistory.delete")}>
+              <Ionicons name="trash-outline" size={18} color={lightTheme.destructive} />
+            </Button>
+          ) : null}
         </View>
       </View>
 
