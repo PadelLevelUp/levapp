@@ -597,3 +597,32 @@ def test_coach_levels_a_display_order_of_zero_means_unordered_by_design(app, cli
     with app.app_context():
         orders = sorted(l.display_order for l in CoachLevel.query.filter_by(coach_id=ids["coach_id"]).all())
         assert orders == list(range(1, len(orders) + 1)) and 0 not in orders
+
+
+# ── POST /api/edit/<model>/<id> — the legacy admin editor (HTML form body) ────
+
+def test_legacy_html_editor_a_zero_survives_as_a_string_and_an_empty_box_cannot_clear(app, client):
+    """The same form layer, fed by an HTML form: every value is a string, so "0" is
+    truthy and IS written — which is how a category can hold a minimum of 0 at all —
+    while an emptied box is still read as "not sent" (DEFECT PINNED, NOT FIXED, B-136).
+    The JSON branch of this same route skips the form, like PATCH /api/editor."""
+    from padel_app.models import Association_CoachPlayer, EvaluationCategory
+
+    ids = _seed(app)
+    root = _root_headers(app)
+    with app.app_context():
+        category = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=10)
+        db.session.add(category)
+        db.session.commit()
+        category_id = category.id
+
+    zero = client.post(f"/api/edit/evaluationcategory/{category_id}", headers=root,
+                       data={"name": "Forehand", "scale_min": "0", "scale_max": "10"})
+    emptied = client.post(f"/api/edit/association_coachplayer/{ids['rel_id']}", headers=root,
+                          data={"notes": "", "side": ""})
+
+    assert (zero.status_code, emptied.status_code) == (200, 200), zero.get_data(as_text=True) + emptied.get_data(as_text=True)
+    with app.app_context():
+        assert db.session.get(EvaluationCategory, category_id).scale_min == 0
+        rel = db.session.get(Association_CoachPlayer, ids["rel_id"])
+        assert (rel.notes, rel.side) == ("left-handed, bad knee", "right")
