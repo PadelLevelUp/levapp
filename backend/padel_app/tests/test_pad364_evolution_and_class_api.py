@@ -322,3 +322,48 @@ def test_another_coachs_player_competency_and_record_are_403_and_untouched(app, 
     with app.app_context():
         assert db.session.get(EvaluationCategory, ids["forehand_id"]).is_active is True
         assert EvaluationRecord.query.count() == 1
+
+
+# ── evaluations.evolution: the leaf's own dataset (the criterion a reader will look for) ──
+
+LEAF_DATASET = ((2, "2026-01-08"), (3, "2026-01-22"), (3, "2026-03-05"), (3, "2026-03-19"),
+                (3, "2026-06-04"), (4, "2026-06-18"), (4, "2026-09-21"))
+
+
+def _leaf_bandeja(app, ids, extra=()):
+    from padel_app.models import EvaluationCategory
+
+    with app.app_context():
+        bandeja = EvaluationCategory(coach_id=ids["coach_id"], name="Bandeja", scale_min=1, scale_max=5,
+                                     competency_group="technique", catalogue_key="bandeja")
+        db.session.add(bandeja)
+        db.session.commit()
+        for score, day in LEAF_DATASET + tuple(extra):
+            _rated(ids, bandeja.id, score, dt.datetime.fromisoformat(day + "T09:00:00"))
+        return bandeja.id
+
+
+def test_the_leafs_dataset_monthly_means_rolling_means_and_delta(app, client):
+    ids = _seed(app)
+    bandeja = _leaf_bandeja(app, ids)
+
+    assert _evolution(app, client, ids, bandeja).get_json() == {
+        "scaleMin": 1, "scaleMax": 5,
+        "series": [{"month": "2026-01", "mean": 2.5}, {"month": "2026-03", "mean": 3.0},
+                   {"month": "2026-06", "mean": 3.5}, {"month": "2026-09", "mean": 4.0}],
+        "means": {"m1": 4.0, "m6": 3.7, "m12": 3.1},  # m6 = (3+4+4)/3: 2026-03-19 is before the 2026-03-21 cutoff
+        "delta": {"value": 1.5, "sinceMonth": "2026-01"},
+    }
+
+
+def test_the_boundary_day_is_inside_the_window_and_the_hour_does_not_matter(app, client, monkeypatch):
+    ids = _seed(app)
+    bandeja = _leaf_bandeja(app, ids, extra=((5, "2026-03-21"),))
+
+    answers = []
+    for local_hour_utc in (dt.datetime(2026, 9, 20, 23, 5), dt.datetime(2026, 9, 21, 22, 55)):  # 00:05 and 23:55 in Lisbon
+        pin_clock(monkeypatch, local_hour_utc)
+        answers.append(_evolution(app, client, ids, bandeja).get_json()["means"])
+
+    assert answers[0] == answers[1]
+    assert answers[0]["m6"] == 4.0  # (5+3+4+4)/4: the rating dated exactly on the cutoff counts
