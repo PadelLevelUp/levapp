@@ -773,6 +773,14 @@ def add_presences(lesson_instance, payload):
 
         was_absent = presence_obj.status == "absent"
         presence_obj.update_with_dict(values)
+        # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
+        # none, whatever the body carries. It has to be said here and not in the form
+        # layer: on this route "no justification" is expressed by ABSENCE (the App
+        # Store builds mark present with the key omitted), and the form layer rightly
+        # leaves an absent key alone — which is what kept "absent, justified" on a row
+        # the coach had corrected to present.
+        if presence_obj.status == "present":
+            presence_obj.justification = None
         presence_obj.save()
 
         # PAD-316: the coach reversing their own absent mark is a return too.

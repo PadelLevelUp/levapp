@@ -179,6 +179,18 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     another. The coach's *mark* controls (rule 6's prefill, the present/absent toggle)
     are unchanged: they are an action, not a second status word. No row shows two state
     words at once.
+21. **A justification belongs to an absence (PAD-381, B-152).** When `POST /class_instance/presences/confirm`
+    records `status: "present"`, the row's `justification` is cleared, whatever the body carries — empty,
+    null, a stale value, or (what both shells and the App Store builds send) no `justification` key at
+    all. The rule lives in the service (`lesson_service.add_presences`), not in the form layer: on this
+    route "no justification" is expressed by ABSENCE, and the form layer leaves an absent key alone
+    (PAD-367) — which is what used to keep "absent, justified" on a row the coach had corrected to
+    present. It is not cosmetic: `_has_makeups` and `_unjustified_absence_count`
+    (`notification_service`) count rows by `justification` **without** checking `status`, so a corrected
+    row went on counting as a justified absence (a make-up owed) or an unjustified one. An ABSENT row
+    is unchanged: a justification sent is written, an omitted one is left as it was. Rows already stale
+    are not repaired by this rule. Un-marking attendance (`status: null`) is a separate, open product
+    question and is not decided here.
 
 ### Acceptance Criteria
 
@@ -335,3 +347,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
   linked into the shipped binary (`apps/mobile/src/lib/api.ts` imports it at startup), so the
   export needed no native rebuild. This mirrors the trade `app/player/[playerId].tsx` already
   records for share/clipboard.
+
+#### Correcting an absence to present clears its justification (PAD-381)
+- **Given** the coach recorded Rui as absent, justified
+- **When** the coach records Rui as present, with no `justification` key in the body
+- **Then** the row is `present` with no justification
+- **When** instead the coach records Rui as absent, unjustified
+- **Then** the row is `absent`, `unjustified`
