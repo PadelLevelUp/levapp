@@ -100,8 +100,11 @@ replacing today's category editor there.
 **Q20 — Two coaches, one player.** As today, evaluations belong to the coach–player link; each
 coach sees and shares only their own; the player's cards name the coach.
 
-**Q21 — Strengths and weaknesses.** Out of scope per the canvas (AV-090) and left working. They
-leave the web evaluation form (the canvas form has none) and stay on the profile card, as on iOS.
+**Q21 — Strengths and weaknesses.** Out of scope per the canvas (AV-090) and left working. The
+canvas's evaluation form has none, but today the web evaluation form is where a coach edits them
+(iOS uses a separate profile card). They leave the web form only once a coach can edit them
+somewhere else on web, proven to work; otherwise they stay in the form. Removing a working
+capability is not a build default (Coordinator, 2026-09-21).
 
 **Q22 — Bulk import.** Keeps writing the same tables; imported rows keep their scale (Q1) and are
 grouped into records by player and date.
@@ -109,7 +112,15 @@ grouped into records by player and date.
 **Q23 — Phone layouts.** The canvas is desktop only. Drawers become full pages at phone width on
 web and pushed screens on iOS; modals become sheets. Web and iOS ship in the same ticket.
 
-**Q24 — Old App Store builds.** Competencies an old build cannot handle (switched off, catalogue,
-grouped) are withheld from clients that do not declare the evaluations capability.
+**Q24 — Old App Store builds.** Withholding is **by endpoint, not by capability token**
+(Coordinator-approved, 2026-09-21). The five endpoints App Store 1.0/1.1.0 call — `GET
+/app/evaluation_categories`, `POST /app/add_evaluation_entry`, `GET /app/player_profile/<id>`
+(`evaluations[]`), `POST /app/add_evaluation_categories`, `POST /app/delete/evaluation_category` —
+keep their shape and list, return, accept and delete **legacy categories only**, unconditionally,
+whatever headers a client sends; `evaluations[].evaluatedAt` is always a valid ISO instant. New
+clients reach catalogue, custom and switched-off competencies through new endpoints only. A
+catalogue competency is a row created when a coach switches it on, so an unused one exists for no
+client. The `X-LevApp-Capabilities` token `evaluations` has one job: gating server-driven surfaces
+an old build could mis-render — the student dashboard block of a shared evaluation (Q2).
 
 **Q25 — iOS dark mode (AV-060).** Not part of this project; web already has a theme selector.
