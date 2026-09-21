@@ -492,6 +492,43 @@ def _close(row: ClassRequest, status: str, by: str, now) -> None:
     db.session.commit()
 
 
+def close_open_requests_silently(*, status: str, by: str, player_id=None, coach_id=None, now_utc=None) -> int:
+    """Rule 18 (PAD-360, B-135): the person behind a request is going away.
+
+    Every open request of ``player_id`` (as the requester) or to ``coach_id``
+    closes with its hold released. Silent: no notification in either direction —
+    one side no longer exists. No commit; the caller owns the transaction.
+    """
+    from padel_app.utils.dates import utcnow_naive
+
+    query = ClassRequest.query.filter(ClassRequest.status.in_(("pending", "countered")))
+    if player_id is not None:
+        query = query.filter(ClassRequest.player_id == player_id)
+    if coach_id is not None:
+        query = query.filter(ClassRequest.coach_id == coach_id)
+    rows = query.with_for_update().all()
+    for row in rows:
+        _release_hold(row)
+        row.status = status
+        row.decided_by = by
+        row.decided_at = now_utc or utcnow_naive()
+    return len(rows)
+
+
+def drop_invitee_from_open_requests(player_id: int) -> int:
+    """Rule 18: an accept never enrols a deleted account. No commit."""
+    rows = ClassRequest.query.filter(
+        ClassRequest.status.in_(("pending", "countered")), ClassRequest.invitee_player_ids.isnot(None)
+    ).with_for_update().all()
+    changed = 0
+    for row in rows:
+        kept = [pid for pid in (row.invitee_player_ids or []) if int(pid) != int(player_id)]
+        if len(kept) != len(row.invitee_player_ids or []):
+            row.invitee_player_ids = kept or None
+            changed += 1
+    return changed
+
+
 def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequest:
     row = _lock(request_id)
     if player is None or row.player_id != player.id:

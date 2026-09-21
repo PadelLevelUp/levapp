@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text
+from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, delete, event, select
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -87,3 +87,47 @@ class ClassRequest(db.Model, model.Model):
             {"field": "status", "label": "Status"},
         ]
         return searchable, columns
+
+
+# ── classes.class-requests rule 18 (PAD-360, B-135): a hold never outlives its request ──
+#
+# The status transitions release the hold in class_request_service. These hooks
+# cover the request going away as a row. They run inside the flush, so they
+# issue SQL on the flush's own connection instead of touching the session.
+
+def _delete_blocks(connection, block_ids) -> None:
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    ids = [block_id for block_id in block_ids if block_id is not None]
+    if ids:
+        connection.execute(delete(CalendarBlock.__table__).where(CalendarBlock.__table__.c.id.in_(ids)))
+
+
+@event.listens_for(ClassRequest, "after_delete")
+def _release_hold_with_the_row(mapper, connection, target):
+    """Both generic editor routes end in ``instance.delete()``."""
+    _delete_blocks(connection, [target.hold_block_id])
+
+
+def _release_holds_before_cascade(column):
+    def _listener(mapper, connection, target):
+        # ON DELETE CASCADE takes the requests away inside the database, where
+        # no hook on ClassRequest runs — so the holds go first.
+        table = ClassRequest.__table__
+        held = connection.execute(
+            select(table.c.hold_block_id).where(column == target.id, table.c.hold_block_id.isnot(None))
+        ).scalars().all()
+        _delete_blocks(connection, held)
+
+    return _listener
+
+
+def _register_cascade_hooks() -> None:
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+
+    event.listen(Player, "before_delete", _release_holds_before_cascade(ClassRequest.__table__.c.player_id))
+    event.listen(Coach, "before_delete", _release_holds_before_cascade(ClassRequest.__table__.c.coach_id))
+
+
+_register_cascade_hooks()
