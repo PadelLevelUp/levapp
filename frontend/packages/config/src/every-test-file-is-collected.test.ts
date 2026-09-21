@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { realpathSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -18,10 +19,16 @@ import { describe, expect, it } from "vitest";
  * pattern, and it is deliberately wider than any runner's: anything that looks
  * like a test by name. Add a runner → add it to RUNNERS; nothing else changes.
  *
- * Playwright's files (apps/web/e2e) are Playwright's to list, not vitest's; the
- * second test only pins that nothing named like a vitest test hides in there.
+ * NOT covered here, so silence is not read as coverage: Playwright. The second test
+ * only checks file NAMES under apps/web/e2e; it never asks Playwright what it collects
+ * (`playwright test --list`), so a spec excluded by testDir / testMatch / testIgnore or
+ * a project filter is an orphan this guard cannot see. Maestro IS covered, elsewhere:
+ * apps/mobile/src/lib/maestro-flow-numbers.test.ts asserts every flow on disk is in
+ * config.yaml's flowsOrder and every listed flow exists.
  */
-const FRONTEND = join(__dirname, "..", "..", "..");
+// Real paths on both sides: on a symlinked checkout (/tmp → /private/tmp, a linked worktree)
+// vitest may spell the path differently from __dirname, and every file would look foreign.
+const FRONTEND = realpathSync(join(__dirname, "..", "..", ".."));
 
 const RUNNERS: { name: string; cwd: string; args: string[] }[] = [
   { name: "packages", cwd: FRONTEND, args: ["--config", "vitest.packages.config.ts"] },
@@ -50,7 +57,7 @@ function collectedBy(runner: (typeof RUNNERS)[number]): string[] {
     maxBuffer: 32 * 1024 * 1024,
   });
   const files = JSON.parse(out.slice(out.indexOf("["))) as { file: string }[];
-  return files.map(({ file }) => file.slice(FRONTEND.length + 1).split("\\").join("/"));
+  return files.map(({ file }) => relative(FRONTEND, realpathSync(file)).split("\\").join("/"));
 }
 
 /** Every file git knows or would add (tracked + untracked, minus ignored), relative to frontend/. */
@@ -78,7 +85,10 @@ describe("every test file is collected by a runner (B-127)", () => {
     expect(candidates.length).toBeGreaterThan(0);
 
     const orphans = candidates.filter((f) => !collected.has(f));
-    expect(orphans, "collected by no vitest config — widen an include or move the file").toEqual([]);
+    expect(
+      orphans,
+      "collected by no vitest config — widen an include, move the file, or delete it if it is a stray (untracked files count)"
+    ).toEqual([]);
 
     // The other direction: a file two configs both run is a test that runs twice.
     const twice = [...collected].filter(([, by]) => by.length > 1).map(([f, by]) => `${f} (${by.join(", ")})`);

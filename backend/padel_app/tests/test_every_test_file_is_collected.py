@@ -20,6 +20,7 @@ Python file in the repository that defines a test.
 """
 import fnmatch
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -35,18 +36,25 @@ OPTIONS_WITH_A_VALUE = {"-p", "-k", "-m", "-o", "-c", "-n", "-W", "--rootdir", "
 
 
 def ci_pytest_commands() -> list[str]:
-    """Every `python -m pytest …` command line in the backend workflow."""
+    """Every `python -m pytest …` command line in the backend workflow — wherever it
+    sits: a one-line `- run:` or a line inside a `run: |` block. Comments are not commands."""
     commands = []
     for line in WORKFLOW.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip().removeprefix("- ")
-        if stripped.startswith("run:") and "python -m pytest" in stripped:
-            commands.append(stripped.removeprefix("run:").strip())
+        stripped = line.strip()
+        if stripped.startswith("#") or "python -m pytest" not in stripped:
+            continue
+        commands.append(stripped[stripped.index("python -m pytest"):])
     return commands
+
+
+def ci_pytest_jobs() -> list[str]:
+    """The workflow's pytest lanes, by their `name: pytest (…)` line."""
+    return re.findall(r"^\s+name:\s*(pytest\b.*)$", WORKFLOW.read_text(encoding="utf-8"), re.MULTILINE)
 
 
 def ci_roots(command: str) -> list[Path]:
     """The paths a CI command hands to pytest, resolved from its working directory."""
-    tokens = command.split()
+    tokens = shlex.split(command)  # a quoted `-k "a or b"` is one token, not three paths
     tokens = tokens[tokens.index("pytest") + 1:]
     roots, skip = [], False
     for token in tokens:
@@ -84,7 +92,10 @@ def test_the_workflow_still_says_what_this_guard_reads():
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "working-directory: backend" in text, "ci_roots() resolves paths from backend/"
     commands = ci_pytest_commands()
-    assert len(commands) >= 2, f"expected a pytest line per lane (sqlite, postgres), found {commands}"
+    jobs = ci_pytest_jobs()
+    assert len(jobs) >= 2, f"expected the sqlite and postgres lanes, found {jobs}"
+    # One pytest command per lane — a third lane, however its `run:` is written, must show up here.
+    assert len(commands) == len(jobs), f"{len(jobs)} pytest lanes {jobs} but {len(commands)} pytest commands {commands}"
     roots = [sorted(map(str, ci_roots(c))) for c in commands]
     assert all(r == roots[0] for r in roots), f"the lanes do not run the same paths: {roots}"
     assert all(Path(r).exists() for r in roots[0]), f"a CI path does not exist: {roots[0]}"
@@ -115,5 +126,15 @@ def test_a_full_session_collected_every_file_that_defines_a_test(request):
     if not all(_under(root, invoked) for root in roots):
         pytest.skip("partial session: not the full CI invocation")
     collected = {Path(str(item.path)).resolve() for item in request.session.items}
-    missing = sorted(str(p.relative_to(REPO)) for p in files_defining_tests() if p not in collected)
-    assert missing == [], f"defined tests, collected none of them: {missing}"
+    missing = [p for p in files_defining_tests() if p not in collected]
+    # A module skipped at module level (pytest.skip(allow_module_level=True),
+    # pytest.importorskip) WAS collected but leaves no items — it is not an orphan.
+    skips_itself = re.compile(r"allow_module_level\s*=\s*True|pytest\.importorskip\(")
+    missing = sorted(
+        str(p.relative_to(REPO)) for p in missing
+        if not skips_itself.search(p.read_text(encoding="utf-8", errors="replace"))
+    )
+    assert missing == [], (
+        f"these files define tests and this full session holds no item from them: {missing}. "
+        "If a file skips itself wholesale, prefer `pytestmark = pytest.mark.skipif(...)` so its tests still show as skipped."
+    )
