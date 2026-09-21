@@ -78,8 +78,12 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    opens onto their own things, switched on, and scrolls down to discover the catalogue; a coach
    with no legacy row sees exactly the canvas's order. This is client-side sectioning of the
    same response (`packages/config/src/competency-manager.ts`, shared by both shells); the
-   API's order is unchanged. The order is static — a row never moves when it is switched —
-   and inside a section the coach's rows come before the entries still available.
+   API's order is unchanged. The order is static — nothing moves when it is switched, including
+   the FIRST time, when a catalogue entry that was not a row becomes one: "Geral", "Técnica"
+   and "Tática" list rule 1's fixed catalogue order, rows and not-yet-rows interleaved (the
+   shells hold that order as `CATALOGUE_ORDER`, tied to the server's list by a test; a key a
+   client does not know sorts last). Only "As tuas categorias" and "Personalizada", which
+   hold rows only, are ordered by `sortOrder` then `name`.
 6. **(AV-024) Creating.** `POST /api/app/evaluation_competency` with `{catalogueKey}` or `{name}`
    → the competency, 1–5 and active. `{catalogueKey}` for an unknown key → 400; for one already a
    row → that row is **set active if it was off** and returned (switching on is idempotent). `{name}` is
@@ -202,6 +206,12 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 - **Then** the first section is "As tuas categorias" with Forehand, switched on, showing "1–10"
   and no stars; "Geral", "Técnica" and "Tática" follow with every entry switched off; there is
   no empty "Personalizada"
+
+#### Switching an entry on for the first time does not move it (rule 5)
+- **Given** coach Bruno, for whom Smash has never been a row — it is the sixth entry of "Técnica"
+- **When** he switches Smash on, and the list is read again
+- **Then** Smash is a row now and is still the sixth entry of "Técnica"; switching it off again
+  moves nothing either
 
 #### A student sees no manager (rule 11)
 - **Given** an authenticated student
