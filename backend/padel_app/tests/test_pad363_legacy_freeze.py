@@ -284,3 +284,49 @@ def test_evaluated_at_is_never_null_on_the_profile_even_for_a_drifted_row():
     assert evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=created)) == "2026-02-03T04:05:06"
     assert NAIVE_ISO.match(evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=None)))
     assert evaluated_at_iso(SimpleNamespace(evaluated_at=created, created_at=None)) == "2026-02-03T04:05:06"
+
+
+# ── a LEGACY category the coach switched off (Coordinator rulings, 2026-09-21; legacy-client-contract rules 3 and 5) ──
+
+
+def _switch_off(app, category_id):
+    from padel_app.models import EvaluationCategory
+
+    with app.app_context():
+        db.session.get(EvaluationCategory, category_id).is_active = False
+        db.session.commit()
+
+
+def test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category(app, client):
+    """A build holding a list fetched before the switch-off still posts its
+    midpoint for it; a hidden category must not collect scores nobody chose."""
+    from padel_app.models import EvaluationRecord
+
+    ids = _seed(app)
+    _switch_off(app, ids["volley_id"])
+
+    res = _save(app, client, ids, [
+        {"categoryId": ids["forehand_id"], "value": 9},
+        {"categoryId": ids["volley_id"], "value": 6},
+    ])
+
+    assert res.status_code == 200 and res.get_json() == {"status": "ok", "playerId": ids["student_id"]}
+    assert _all_entries(app, ids) == [(ids["forehand_id"], 9.0)]
+    with app.app_context():
+        (record,) = EvaluationRecord.query.all()
+        assert [e.category_id for e in record.entries] == [ids["forehand_id"]]
+
+
+def test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legacy_category(app, client):
+    from padel_app.models import EvaluationCategory
+
+    ids = _seed(app)
+    _switch_off(app, ids["volley_id"])
+    body = [{"name": "Volley", "scaleMin": 1, "scaleMax": 5}]
+
+    res = client.post("/api/app/add_evaluation_categories", json=body, headers=_coach_headers(app, ids))
+
+    assert res.status_code == 200 and res.get_json() == body
+    with app.app_context():
+        rows = EvaluationCategory.query.filter_by(coach_id=ids["coach_id"], name="Volley").all()
+        assert [(c.scale_min, c.scale_max, c.is_active) for c in rows] == [(0, 10, False)]
