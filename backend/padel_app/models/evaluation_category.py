@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Index
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Index, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -11,6 +11,11 @@ class EvaluationCategory(db.Model, model.Model):
     # PAD-273 (audit M14): uniqueness the domain implies, enforced by the database.
     __table_args__ = (
         Index("uq_evaluation_categories_coach_name", "coach_id", "name", unique=True),
+        # PAD-363 (evaluations.competencies): a coach switches a catalogue entry on once.
+        Index(
+            "uq_evaluation_categories_coach_catalogue_key", "coach_id", "catalogue_key", unique=True,
+            postgresql_where=text("catalogue_key IS NOT NULL"), sqlite_where=text("catalogue_key IS NOT NULL"),
+        ),
         {"extend_existing": True},
     )
 
@@ -28,10 +33,26 @@ class EvaluationCategory(db.Model, model.Model):
     scale_min = Column(Integer, default=1)
     scale_max = Column(Integer, default=10)
 
+    # PAD-363 (evaluations.competencies). `competency_group` NULL = a LEGACY
+    # category: one made by the old editor or the import, and the only kind the
+    # five endpoints App Store 1.0/1.1.0 call may list, accept, return or delete
+    # (evaluations.legacy-client-contract, R-047). A catalogue competency is a row
+    # created when the coach switches it on; `catalogue_key` names the entry.
+    # Deliberately NOT in `get_create_form`: the form layer drops falsy values
+    # (B-136), and `is_active=False` / `sort_order=0` are legitimate here.
+    catalogue_key = Column(String(64), nullable=True)
+    competency_group = Column(String(16), nullable=True)  # general | technique | tactics | custom
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    sort_order = Column(Integer, nullable=True)
+
     entries = relationship(
         "EvaluationEntry", back_populates="category", cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+    @property
+    def is_legacy(self):
+        return self.competency_group is None
 
     @property
     def display_name(self):

@@ -316,6 +316,18 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     }
 
 
+def evaluated_at_iso(entry) -> str:
+    """`evaluations[].evaluatedAt`: the NAIVE ISO timestamp it has always been — no
+    offset, no "Z" — and never null (evaluations.legacy-client-contract, R-047).
+    App Store 1.0/1.1.0 call `parseISO` on it unguarded and read it as device-local
+    time. The column is NOT NULL since PAD-273, but that migration is guarded and
+    production drifts, so a missing value falls back rather than reach a client."""
+    from padel_app.utils.dates import utcnow_naive
+
+    instant = entry.evaluated_at or entry.created_at or utcnow_naive()
+    return instant.replace(tzinfo=None).isoformat()
+
+
 def get_player_profile(coach, player_id):
     """Returns evaluation profile data for a player under a coach."""
     coach_player = (
@@ -324,6 +336,8 @@ def get_player_profile(coach, player_id):
         .first_or_404()
     )
 
+    from padel_app.services.evaluation_record_service import latest_legacy_entries
+
     evaluations = [
         {
             "categoryId": entry.category_id,
@@ -331,9 +345,10 @@ def get_player_profile(coach, player_id):
             "score": entry.score,
             "scaleMin": entry.category.scale_min,
             "scaleMax": entry.category.scale_max,
-            "evaluatedAt": entry.evaluated_at.isoformat(),
+            "evaluatedAt": evaluated_at_iso(entry),
         }
-        for entry in coach_player.current_evaluations
+        # R-047 (PAD-363): legacy categories only — never a competency's rating.
+        for entry in latest_legacy_entries(coach_player)
     ]
 
     return {

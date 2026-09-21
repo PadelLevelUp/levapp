@@ -970,7 +970,13 @@ def delete_season_route():
 @jwt_required()
 def evaluation_categories():
     coach = require_coach()
-    return jsonify([ec.frontend_dict() for ec in coach.evaluation_categories])
+    # evaluations.legacy-client-contract (R-047, PAD-363): App Store 1.0/1.1.0
+    # post a score — a midpoint, when unrated — for every category listed here. So
+    # this endpoint lists the coach's active LEGACY categories only, whatever
+    # headers the client sends; competencies are served by their own endpoints.
+    return jsonify([
+        ec.frontend_dict() for ec in coach.evaluation_categories if ec.is_legacy and ec.is_active
+    ])
 
 
 @bp.get("/lesson_instances")
@@ -2651,6 +2657,10 @@ def delete_evaluation_category():
     rel = EvaluationCategory.query.filter_by(id=_required_int_id(data)).first_or_404()
     if rel.coach_id != coach.id:
         abort(403, "Not authorized to delete this evaluation category")
+    # evaluations.legacy-client-contract (R-047, PAD-363): an App Store build
+    # cannot delete what it cannot see. Competencies have their own delete.
+    if not rel.is_legacy:
+        abort(403, "Not a legacy evaluation category")
     # evaluations.categories rule 7 (PAD-274): the scores go with it; audited.
     from padel_app.services.coach_service import delete_evaluation_category_service
 
