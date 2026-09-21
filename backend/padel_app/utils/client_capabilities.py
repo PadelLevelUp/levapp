@@ -16,6 +16,14 @@ HEADER = "X-LevApp-Capabilities"
 # declaring one is in use.
 OPEN_SPOTS = "open-spots"
 
+# PAD-364 (evaluations.sharing, Q24): declared by the web and iOS shells from
+# slice 2 on; NOTHING consumes it yet. Its one job is to gate server-driven
+# surfaces an App Store 1.0/1.1.0 build would mis-render — the student dashboard
+# block of a shared evaluation. It does NOT guard the legacy evaluation
+# endpoints: those are frozen by endpoint (R-047), whatever a client declares.
+# Retire once no App Store build older than the first declaring one is in use.
+EVALUATIONS = "evaluations"
+
 
 def declared_capabilities() -> frozenset:
     """The tokens the current request declares, lower-cased; empty outside a request."""
