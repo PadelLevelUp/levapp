@@ -1,6 +1,6 @@
 ---
 id: evaluations.evolution
-status: implementing
+status: implemented
 depends_on: [evaluations.records, evaluations.history]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: [R-048]
@@ -44,9 +44,16 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
    at least one such rating; `mean` is the arithmetic mean of that month's ratings. A rating's
    month is the month of its local day (`evaluations.records` rule 3). A month with no rating is
    **absent** — never zero — and the line connects across the gap.
-6. **(AV-034) Three rolling means** — "Média mensal" (`m1`), "Média semestral" (`m6`), "Média
-   anual" (`m12`): the mean of the **raw ratings** (not of the monthly points) whose local day is
-   inside the window; null when the window holds none, rendered "—".
+6. **(AV-034) Three rolling means** — `m1`, `m6`, `m12`: the mean of the **raw ratings** (not of
+   the monthly points) whose local day is inside the window; null when the window holds none,
+   rendered "—". **(build default Q32) They are labelled by their WINDOW**, under one small
+   heading: "Médias" — "Último mês", "Últimos 6 meses", "Último ano" (en: "Averages" — "Last
+   month", "Last 6 months", "Last year"); the canvas's "Média mensal / semestral / anual" is
+   overruled. Why: the chart's points are calendar-month means, and the first real rendering read
+   "Set: 7.0" on the chart with "Média mensal: 6.5" under it — both correct, and a contradiction
+   to a coach. The arithmetic and the API keys `m1` / `m6` / `m12` are unchanged; the words are
+   the owner's own (the share flow already says "Últimos 6 meses" and "Último ano"), and it is
+   "Último mês", not "30 dias", because rule 7's window is calendar arithmetic.
 7. **(AV-074) A window is whole local days.** It runs from `today − N months` (calendar
    arithmetic, day of month clamped: 31 Mar − 1 month = 28 or 29 Feb) to today, both inclusive,
    on the club-zone calendar. The time of day plays no part, so the same call returns the same
@@ -68,6 +75,10 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
     tap (iOS). The year is added to the month labels once the series spans two calendar years.
     A single point draws one dot, no line and no delta. Each shell uses the chart library it
     already ships. Same ticket for web and iOS (build default Q23).
+12. **(build default Q33) The section keeps its shape while the evaluation form is open** —
+    `evaluations.history` rule 11 is the statement; here it means the pills and the selected
+    competency's figures are held (`useHeldWhile`) and released when the form closes. Choosing
+    another pill still works while held.
 
 ### Acceptance Criteria
 

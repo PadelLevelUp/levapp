@@ -86,6 +86,17 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
 10. **(AV-077) The drawer owns its state.** Closing it closes the form and resets the evolution
     selection; opening it for another player never shows the previous player's form or
     selection. It is not rendered outside the player view.
+11. **(build default Q33) Nothing drawn above a form that saves on tap changes shape in answer
+    to that tap.** The section keeps its shape while the form is open and follows the server
+    when it closes; whatever is drawn BELOW the form (the history cards) follows at once. The
+    mechanism is `useHeldWhile` (`packages/hooks`): it holds what is SHOWN, never the queries.
+    Found on the first simulator run of this screen (PAD-375): the first rating made "Evolução"
+    appear above the open form and pushed it ~350 pt down, so the coach's next tap landed on
+    nothing. One principle, three places: here; `evaluations.evolution` rule 12 (its pills and
+    figures); `evaluations.class-panel` (the participant ORDER while a row is open). The same
+    family as `evaluations.competencies` rule 5 (Q31: sections and rows never move under the
+    finger) and as a control whose place is kept before it has anything to do (the stepper's
+    clear control).
 
 ### Touches
 - `evaluations.player-view` — the shipped card it describes is replaced by rule 2 when this leaf
