@@ -269,7 +269,6 @@ def serialize_record(record, *, on=None) -> dict:
     instance = record.lesson_instance
     return {
         "id": record.id,
-        "key": f"r{record.id}",
         "evaluatedOn": record.evaluated_on.isoformat(),
         "classInstanceId": record.lesson_instance_id,
         "className": instance.title if instance is not None else None,
@@ -281,20 +280,12 @@ def serialize_record(record, *, on=None) -> dict:
     }
 
 
-def _loose_record(entry) -> dict:
-    """A record-less row of history, shown as a single-rating record of its day."""
-    return {
-        "id": None, "key": f"e{entry.id}", "evaluatedOn": records.record_day(entry.evaluated_at).isoformat(),
-        "classInstanceId": None, "className": None, "note": None, "editable": False,
-        "ratings": [_rating(entry)], "share": None,
-    }
-
-
 def latest_entries(coach_player_id) -> dict:
-    """category_id → its latest entry. "Latest" is ONE definition in v2: the
-    greatest `(evaluated_at, id)`."""
+    """category_id → its latest rating. "Latest" is ONE definition in v2: the
+    greatest `(evaluated_at, id)` among the rows that sit in a record."""
     latest = {}
-    for entry in EvaluationEntry.query.filter_by(coach_player_id=coach_player_id):
+    rated = EvaluationEntry.query.filter_by(coach_player_id=coach_player_id).filter(EvaluationEntry.record_id.isnot(None))
+    for entry in rated:
         held = latest.get(entry.category_id)
         if held is None or (entry.evaluated_at, entry.id) > (held.evaluated_at, held.id):
             latest[entry.category_id] = entry
@@ -302,19 +293,23 @@ def latest_entries(coach_player_id) -> dict:
 
 
 def player_evaluations(coach, player_id) -> dict:
+    """The player's records, newest first. Record-less entries are served NOWHERE
+    in v2 (Q28): an earlier score of a day that the record's slot moved on from —
+    or the loser of a slot race — stays in the table, untouched, and is not read.
+    What a card shows is what an average counts."""
     link = coach_player_for(coach, player_id)
     on = today()
-    items = [(r.evaluated_on, 1, r.id, serialize_record(r, on=on))
-             for r in EvaluationRecord.query.filter_by(coach_player_id=link.id)]
-    loose = EvaluationEntry.query.filter_by(coach_player_id=link.id).filter(EvaluationEntry.record_id.is_(None))
-    items += [(records.record_day(e.evaluated_at), 0, e.id, _loose_record(e)) for e in loose]
-    items.sort(key=lambda item: item[:3], reverse=True)
+    found = (
+        EvaluationRecord.query.filter_by(coach_player_id=link.id)
+        .order_by(EvaluationRecord.evaluated_on.desc(), EvaluationRecord.id.desc()).all()
+    )
     with_data = (
-        db.session.query(EvaluationEntry.category_id).filter_by(coach_player_id=link.id).distinct()
+        db.session.query(EvaluationEntry.category_id)
+        .filter_by(coach_player_id=link.id).filter(EvaluationEntry.record_id.isnot(None)).distinct()
     )
     return {
-        "lastEvaluatedOn": items[0][0].isoformat() if items else None,
-        "records": [item[3] for item in items],
+        "lastEvaluatedOn": found[0].evaluated_on.isoformat() if found else None,
+        "records": [serialize_record(r, on=on) for r in found],
         "competenciesWithData": sorted(row[0] for row in with_data),
     }
 
@@ -467,10 +462,14 @@ def evolution(coach, player_id, category_id) -> dict:
         raise ApiError(400, "category_id_required")
     category = own_competency(coach, category_id)
 
+    # Only the ratings that sit in a record count (Q28), each on its record's day:
+    # what is averaged is exactly what the history cards show.
     rows = [
-        (records.record_day(e.evaluated_at), e.score)
-        for e in EvaluationEntry.query.filter_by(coach_player_id=link.id, category_id=category.id)
-    ]  # every row counts, the record-less ones included
+        (day, score) for day, score in
+        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
+        .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
+        .filter(EvaluationRecord.coach_player_id == link.id, EvaluationEntry.category_id == category.id)
+    ]
     by_month = defaultdict(list)
     for day, score in rows:
         by_month[day.strftime("%Y-%m")].append(score)
@@ -497,7 +496,7 @@ def evolution(coach, player_id, category_id) -> dict:
 
 
 def class_evaluations(coach, ref) -> dict:
-    """A READ: who is in the class, and today's record for each. Never materialises."""
+    """A READ: who is in the class, and each one's most recent record in it. Never materialises."""
     ensure_starting_set(coach)
     instance = _resolve_class(coach, ref, materialise=False)
     if instance is not None:
@@ -517,8 +516,12 @@ def class_evaluations(coach, ref) -> dict:
         link = links.get(player.id)
         record = None
         if link is not None and instance is not None:
-            record = EvaluationRecord.query.filter_by(
-                coach_player_id=link.id, lesson_instance_id=instance.id, evaluated_on=on).first()
+            # Q29: the participant's MOST RECENT record for this occurrence, not only
+            # today's — its `editable` says which. A PUT still files under today.
+            record = (
+                EvaluationRecord.query.filter_by(coach_player_id=link.id, lesson_instance_id=instance.id)
+                .order_by(EvaluationRecord.evaluated_on.desc(), EvaluationRecord.id.desc()).first()
+            )
         participants.append({
             "playerId": player.id,
             "coachPlayerId": link.id if link is not None else None,

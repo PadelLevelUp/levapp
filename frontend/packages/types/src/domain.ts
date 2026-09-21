@@ -227,10 +227,7 @@ export interface EvaluationShare {
 }
 
 export interface EvaluationRecord {
-  /** `null` for a record-less row of history, shown as a single-rating record of its day. */
-  id: number | null;
-  /** Stable list key, for records and loose rows alike. */
-  key: string;
+  id: number;
   /** `YYYY-MM-DD`, the club's day. */
   evaluatedOn: string;
   classInstanceId: number | null;

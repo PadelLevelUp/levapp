@@ -29,6 +29,14 @@ def _clock(monkeypatch, app):
     pin_clock(monkeypatch, NOW)
 
 
+def _rated(ids, category_id, score, when):
+    """A rating as the record API files it: in the class-less record of its club day."""
+    from padel_app.services import evaluation_record_service as svc
+
+    record = svc.get_or_create_record(ids["rel_id"], day=svc.record_day(when))
+    return svc.upsert_rating(record, category_id, score, evaluated_at=when)
+
+
 def _bandeja(app, ids):
     """João / Bandeja, the canvas's worked example, as rows: monthly means 2.5, 3, 3.5, 4."""
     from padel_app.models import EvaluationCategory, EvaluationEntry
@@ -43,10 +51,12 @@ def _bandeja(app, ids):
         bandeja = EvaluationCategory(coach_id=ids["coach_id"], name="Bandeja", scale_min=1, scale_max=5,
                                      competency_group="technique", catalogue_key="bandeja")
         db.session.add(bandeja)
-        db.session.flush()
+        db.session.commit()
         for score, day in rows:
-            db.session.add(EvaluationEntry(coach_player_id=ids["rel_id"], category_id=bandeja.id, score=score,
-                                           evaluated_at=dt.datetime.fromisoformat(day + "T18:00:00")))
+            _rated(ids, bandeja.id, score, dt.datetime.fromisoformat(day + "T18:00:00"))
+        # a record-less row of the same competency: in the table, read by nothing in v2 (Q28)
+        db.session.add(EvaluationEntry(coach_player_id=ids["rel_id"], category_id=bandeja.id, score=1,
+                                       evaluated_at=dt.datetime(2026, 9, 10, 9, 0)))
         db.session.commit()
         return bandeja.id
 
@@ -77,9 +87,7 @@ def test_one_month_has_no_delta_and_an_empty_window_no_mean(app, client):
 
     ids = _seed(app)
     with app.app_context():
-        db.session.add(EvaluationEntry(coach_player_id=ids["rel_id"], category_id=ids["forehand_id"], score=6,
-                                       evaluated_at=dt.datetime(2026, 2, 10, 9, 0)))
-        db.session.commit()
+        _rated(ids, ids["forehand_id"], 6, dt.datetime(2026, 2, 10, 9, 0))
 
     body = _evolution(app, client, ids, ids["forehand_id"]).get_json()
 
@@ -98,9 +106,7 @@ def test_a_month_is_the_clubs_month_and_a_half_rounds_up(app, client):
         for score, when in ((2, dt.datetime(2026, 7, 31, 23, 30)),   # 00:30 on 1 August in Lisbon
                             (3, dt.datetime(2026, 8, 10, 9, 0)), (2, dt.datetime(2026, 8, 11, 9, 0)),
                             (2, dt.datetime(2026, 8, 12, 9, 0))):
-            db.session.add(EvaluationEntry(coach_player_id=ids["rel_id"], category_id=ids["forehand_id"],
-                                           score=score, evaluated_at=when))
-        db.session.commit()
+            _rated(ids, ids["forehand_id"], score, when)
 
     body = _evolution(app, client, ids, ids["forehand_id"]).get_json()
 
@@ -124,7 +130,7 @@ def _class(app, client, ids, query):
     return client.post(f"{BASE}/class_instance/evaluations?{query}", headers=_coach_headers(app, ids))
 
 
-def test_the_class_roster_lists_participants_absent_last_with_todays_record(app, client):
+def test_the_class_roster_lists_participants_absent_last_with_their_most_recent_record(app, client, monkeypatch):
     from padel_app.models.presences import Presence
 
     ids = _seed(app)
@@ -145,6 +151,17 @@ def test_the_class_roster_lists_participants_absent_last_with_todays_record(app,
         "playerId": ids["student_id"], "coachPlayerId": ids["rel_id"], "name": "Test Student", "absent": False, "due": False,
     }
     assert participant["record"]["id"] == put.get_json()["id"]
+
+    # Q29: the next day the coach opens the same class — the record made in it is still there, read-only
+    pin_clock(monkeypatch, NOW + dt.timedelta(days=1))
+    later = _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()["participants"][0]["record"]
+    assert (later["id"], later["evaluatedOn"], later["editable"]) == (put.get_json()["id"], "2026-09-21", False)
+    # ... and the first tap that day starts that day's record for the same occurrence, which the next read returns
+    second = client.put(f"{BASE}/evaluation_record", headers=_coach_headers(app, ids), json={
+        "playerId": ids["student_id"], "classRef": {"model": "LessonInstance", "id": instance_id},
+        "ratings": {str(ids["forehand_id"]): 9}}).get_json()
+    latest = _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()["participants"][0]["record"]
+    assert second["id"] != put.get_json()["id"] and (latest["id"], latest["editable"]) == (second["id"], True)
 
     with app.app_context():
         Presence.query.filter_by(lesson_instance_id=instance_id, player_id=ids["student_id"]).update({"status": "absent"})

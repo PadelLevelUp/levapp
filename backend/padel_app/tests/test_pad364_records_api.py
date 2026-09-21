@@ -150,25 +150,42 @@ def test_a_put_on_a_later_day_never_edits_yesterdays_record(app, client, monkeyp
     ]
 
 
-def test_the_history_is_newest_first_and_record_less_rows_are_single_rating_records(app, client):
+def test_the_history_lists_records_only_newest_first(app, client, monkeypatch):
+    """Q28: record-less entries are served NOWHERE in v2. A same-day superseded
+    legacy score stays in the table (data survives) and is simply not read: the
+    day's record has one value per competency, and what is averaged is what the
+    cards show."""
     from padel_app.tests.evaluation_history import seed_evaluation_history
 
     ids = _seed(app)
-    with app.app_context():  # written around the service: record-less history, 40 and 10 days ago
+    with app.app_context():  # written around the service: record-less rows, 40 and 10 days ago
         seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(40, 5), (10, 6)], anchor=NOW)
         db.session.commit()
+    pin_clock(monkeypatch, NOW - dt.timedelta(days=3))
+    assert _put(app, client, ids, {"ratings": {str(ids["volley_id"]): 3}}).status_code == 200
+    pin_clock(monkeypatch, NOW)
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 7, str(ids["volley_id"]): 0}}).status_code == 200
 
     body = _history(app, client, ids)
 
     assert body["lastEvaluatedOn"] == TODAY
     assert sorted(body["competenciesWithData"]) == sorted([ids["forehand_id"], ids["volley_id"]])
-    assert [(r["evaluatedOn"], r["id"] is None, r["editable"], [x["score"] for x in r["ratings"]]) for r in body["records"]] == [
-        (TODAY, False, True, [7, 0]),
-        ("2026-09-11", True, False, [6]),
-        ("2026-08-12", True, False, [5]),
+    assert [(r["evaluatedOn"], r["editable"], [x["score"] for x in r["ratings"]]) for r in body["records"]] == [
+        (TODAY, True, [7, 0]),
+        ("2026-09-18", False, [3]),
     ]
-    assert len({r["key"] for r in body["records"]}) == 3  # a stable list key, records and loose rows alike
+    assert all(r["id"] is not None for r in body["records"])
+
+
+def test_a_competency_with_only_record_less_rows_has_no_data_in_v2(app, client):
+    from padel_app.tests.evaluation_history import seed_evaluation_history
+
+    ids = _seed(app)
+    with app.app_context():
+        seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(40, 5)], anchor=NOW)
+        db.session.commit()
+
+    assert _history(app, client, ids) == {"lastEvaluatedOn": None, "records": [], "competenciesWithData": []}
 
 
 def test_an_empty_history_has_no_last_evaluation(app, client):
@@ -186,17 +203,22 @@ def test_a_legacy_save_shows_up_in_the_history(app, client):
     assert record["id"] is not None and [x["score"] for x in record["ratings"]] == [7]
 
 
-def test_latest_is_the_greatest_evaluated_at_then_id(app, client):
-    """One definition of "latest" everywhere in v2: two rows at the same instant → the greater id."""
+def test_latest_is_the_greatest_evaluated_at_then_id(app, client, monkeypatch):
+    """One definition of "latest" everywhere in v2, over the rows that sit in a
+    record: two records' rows at the same instant → the greater id."""
     from padel_app.models import EvaluationEntry
+    from padel_app.services import evaluation_record_service as svc
     from padel_app.services.evaluation_api_service import latest_entries
 
     ids = _seed(app)
     with app.app_context():
         instant = NOW - dt.timedelta(days=2)
-        first = EvaluationEntry(coach_player_id=ids["rel_id"], category_id=ids["forehand_id"], score=3, evaluated_at=instant)
-        second = EvaluationEntry(coach_player_id=ids["rel_id"], category_id=ids["forehand_id"], score=9, evaluated_at=instant)
-        db.session.add_all([first, second])
+        yesterday = svc.get_or_create_record(ids["rel_id"], day=dt.date(2026, 9, 19))
+        earlier = svc.get_or_create_record(ids["rel_id"], day=dt.date(2026, 9, 18))
+        first = svc.upsert_rating(earlier, ids["forehand_id"], 3, evaluated_at=instant)
+        second = svc.upsert_rating(yesterday, ids["forehand_id"], 9, evaluated_at=instant)
+        loose = EvaluationEntry(coach_player_id=ids["rel_id"], category_id=ids["forehand_id"], score=1, evaluated_at=NOW)
+        db.session.add(loose)  # later than both, but in no record: not read by v2
         db.session.commit()
 
         assert latest_entries(ids["rel_id"])[ids["forehand_id"]].id == max(first.id, second.id)
@@ -242,3 +264,23 @@ def test_a_same_day_re_rating_moves_the_rows_evaluated_at(app, client, monkeypat
     with app.app_context():
         (entry,) = EvaluationEntry.query.all()
         assert (entry.score, entry.evaluated_at) == (5.0, NOW + dt.timedelta(hours=3))
+
+
+def test_a_legacy_save_after_a_v2_re_rating_compares_against_the_v2_value(app, client, monkeypatch):
+    """Review N4: PUT moves the row's evaluated_at, so the legacy equal-to-latest
+    skip reads the v2 value as the latest — a stale 4 from an old build is written
+    as a change, a 5 is skipped."""
+    ids = _seed(app)
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
+    pin_clock(monkeypatch, NOW + dt.timedelta(hours=2))
+    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5}}).status_code == 200
+    pin_clock(monkeypatch, NOW + dt.timedelta(hours=3))
+
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 5}]).status_code == 200
+    from padel_app.models import EvaluationEntry
+    with app.app_context():
+        assert [e.score for e in EvaluationEntry.query.order_by(EvaluationEntry.id)] == [5.0]  # equal to latest: skipped
+
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
+    with app.app_context():
+        assert sorted(e.score for e in EvaluationEntry.query.all()) == [4.0, 5.0]  # a change: appended
