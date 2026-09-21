@@ -95,6 +95,10 @@ export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetency
           <AlertDialogAction
             testID="competency-delete-confirm"
             className="bg-destructive"
+            // AlertDialogAction, unlike Button, does not dim itself when disabled: seen on the
+            // simulator (2026-09-21) as a full-red "Delete" beside an empty name field. A style,
+            // not a class swap — the opacity changes while the dialog is open.
+            style={{ opacity: !nameMatches || remove.isPending ? 0.5 : 1 }}
             disabled={!nameMatches || remove.isPending}
             onPress={() => void confirm()}
           >
