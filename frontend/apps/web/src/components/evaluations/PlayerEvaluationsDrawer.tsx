@@ -101,6 +101,7 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
               playerId={playerId}
               competencies={competencies}
               competenciesWithData={history.data?.competenciesWithData ?? []}
+              held={target !== null}
             />
           </section>
 
