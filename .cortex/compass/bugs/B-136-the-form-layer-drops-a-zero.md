@@ -72,4 +72,23 @@ their settings, and App Store builds clamp their stepper to `scaleMin`.
 
 ### Resolution
 
-_Open._
+_Open — being resolved in six steps, one ticket and one PR each (children of PAD-367; design:
+`docs/plans/2026-09-21-pad-367-absent-vs-present-design-note.md`). Status stays `triaged` until the
+last lands._
+
+- **Step 0 — PAD-385 (2026-09-21): the layer can tell absent from present-and-falsy; nobody uses
+  it yet.** `JsonRequestAdapter(data, form, mode="present")` holds a key iff the JSON body held it;
+  `Form.set_values` then answers only those keys ("" / null clear, 0 / false are values, an absent
+  Boolean is left out, an empty password never clears); `update_with_dict(values, write_none=True)`
+  sets a nullable column or ManyToOne to NULL and raises `NotNullableFieldError` — before anything
+  is written — for one that cannot be NULL. `mode="legacy"` stays the default and is unchanged,
+  proven cell by cell against a frozen copy of the old adapter. **No production caller was
+  switched**: `test_pad385_adapter_call_sites.py` scans every call site and its `PRESENT` set is
+  empty, so every symptom above still reproduces and every pin in
+  `test_pad367_falsy_values_at_the_route.py` still passes unflipped.
+- Step 1 — PAD-386: `PUT /calendar_block`, `PUT /availability_blockers`. _Pending._
+- Step 2 — PAD-387: `POST /edit_class`. _Pending._
+- Step 3 — PAD-388: `POST /edit_player` (web and iOS send null). _Pending._
+- Step 4 — PAD-389: `POST /activate/user`. _Pending._
+- Step 5 — PAD-390: `POST /add_class`, `POST /message`. _Pending._
+- Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).
