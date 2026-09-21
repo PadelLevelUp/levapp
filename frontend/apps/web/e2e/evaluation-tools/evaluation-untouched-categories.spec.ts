@@ -31,6 +31,21 @@ async function studentId(request: APIRequestContext, token: string): Promise<str
   return String(found!.playerId);
 }
 
+// R-040: a spec removes what it wrote. Every category made here is deleted after its test through the
+// record API's delete (legal for a legacy category; it takes the scores with it and the server prunes the
+// evaluation record they leave empty), so neither the player's history nor the coach's competency set
+// grows with each run. Until PAD-374 these rows were simply left behind.
+const created: string[] = [];
+
+test.afterEach(async ({ request }) => {
+  if (created.length === 0) return;
+  const token = await coachToken(request);
+  for (const id of created.splice(0)) {
+    const gone = await request.delete(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(token) });
+    expect(gone.ok(), `category ${id} was cleaned up`).toBeTruthy();
+  }
+});
+
 async function newCategories(request: APIRequestContext, token: string, count: number): Promise<string[]> {
   const stamp = Date.now().toString().slice(-6);
   const names = Array.from({ length: count }, (_, i) => `E2E Unrated ${stamp} ${i}`);
@@ -42,11 +57,13 @@ async function newCategories(request: APIRequestContext, token: string, count: n
   const all: { id: string | number; name: string }[] = await (
     await request.get(`${API_APP}/evaluation_categories`, { headers: bearer(token) })
   ).json();
-  return names.map((name) => {
+  const ids = names.map((name) => {
     const cat = all.find((c) => c.name === name);
     expect(cat, `${name} was saved`).toBeTruthy();
     return String(cat!.id);
   });
+  created.push(...ids);
+  return ids;
 }
 
 type Rating = { categoryId: number; score: number };
