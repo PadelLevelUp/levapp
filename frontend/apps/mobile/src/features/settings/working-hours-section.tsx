@@ -14,7 +14,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import { DEFAULT_WORKING_WINDOW, WORKING_DAY_KEYS, lightTheme, type WorkingDayKey } from "@levelup/config";
+import {
+  DEFAULT_WORKING_WINDOW,
+  WORKING_DAY_KEYS,
+  addWorkingWindow,
+  lightTheme,
+  type WorkingDayKey,
+} from "@levelup/config";
 import { workingHoursApi } from "@levelup/api";
 import type { CoachWorkingHours } from "@levelup/types";
 import { Button } from "@/components/ui/button";
@@ -188,9 +194,11 @@ export function WorkingHoursSection() {
                         size="sm"
                         className="self-start"
                         testID={`working-hours-add-${key}`}
+                        disabled={addWorkingWindow(row.windows) === null}
                         onPress={() => {
-                          const last = row.windows[row.windows.length - 1];
-                          update(key, { ...row, windows: [...row.windows, [last[1], DEFAULT_WORKING_WINDOW.endTime]] });
+                          // Rule 5: always a day the server accepts, the same on web.
+                          const windows = addWorkingWindow(row.windows);
+                          if (windows) update(key, { ...row, windows });
                         }}
                       >
                         <Ionicons name="add" size={16} color={lightTheme.primary} />

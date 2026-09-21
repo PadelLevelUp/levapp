@@ -38,6 +38,19 @@ otherwise.
    calendar, blocks and the existing `free-blocks` endpoint (`classes.class-requests` rule 1) are
    unchanged; a coach may still put a class outside their working hours.
 
+5. **"Add window" always gives a day the server accepts (PAD-361, B-140).** Both shells call one
+   function, `addWorkingWindow` (`@levelup/config`), so they cannot disagree: (a) when there is
+   room after the day's last window, the new window runs from one hour after it ends to the
+   default day's end (22:00), provided that leaves at least an hour; (b) otherwise the last window
+   splits around a one-hour break — 13:00–14:00 when that sits inside it with an hour on each
+   side, else its middle on the 15-minute grid; (c) otherwise (the last window is under three
+   hours, or is not `start < end`) the control is disabled. An untouched day therefore becomes
+   08:00–13:00 and 14:00–22:00. **Why this default:** a second window exists only to express a
+   break (rule 2's lunch break), so the control should hand the coach a break they can save as
+   it is and then adjust; the first version appended `[last end, 22:00]`, which on an untouched
+   day is the zero-length 22:00–22:00 and was refused on save. Decided by Session D on the
+   coordinator's instruction, 2026-09-21; the owner was not asked.
+
 ### Acceptance Criteria
 
 #### A coach sets a week and a student sees it
@@ -56,3 +69,10 @@ otherwise.
 - **Given** Ana saved hours earlier
 - **When** she saves `workingHours: null`
 - **Then** `GET` answers `workingHours: null`, and a student's availability for Ana falls back to 08:00–22:00 with `workingHoursSource: "default"`
+
+#### Add window gives a day that saves (PAD-361)
+- **Given** coach Ana has never saved working hours, so Monday shows the default 08:00–22:00
+- **When** she taps "add window" on Monday and saves
+- **Then** Monday holds `[["08:00","13:00"],["14:00","22:00"]]`, the save is accepted and the editor shows the success, on web and iOS alike
+- **Given** a day whose only window is 20:00–22:00
+- **Then** "add window" is disabled on that day
