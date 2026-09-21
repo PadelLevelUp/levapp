@@ -57,8 +57,9 @@ class Association_CoachPlayer(db.Model, model.Model):
         seen = {}
         # PAD-363: `evaluated_at` is NOT NULL since PAD-273, but that migration is
         # guarded and production drifts; a NULL must not turn the profile into a 500.
+        # Ties keep the order they always had (the sort is stable): no tiebreak.
         def when(e):
-            return (e.evaluated_at or e.created_at or datetime.min, e.id or 0)
+            return e.evaluated_at or e.created_at or datetime.min
 
         for entry in sorted(self.evaluations, key=when, reverse=True):
             if entry.category_id not in seen:
