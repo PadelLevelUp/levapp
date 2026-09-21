@@ -91,6 +91,23 @@ def test_r047_evaluation_categories_ignores_a_declared_capability(app, client):
     assert names == ["Forehand", "Volley"]
 
 
+def test_r047_the_save_and_the_profile_ignore_a_declared_capability_too(app, client):
+    """The freeze reads no header on any of the endpoints, not only on the list."""
+    ids = _with_competencies(app, _seed(app))
+    headers = {**_coach_headers(app, ids), "X-LevApp-Capabilities": "evaluations, open-spots"}
+    _rate_directly(app, ids, "serve_id", 4)
+
+    saved = client.post("/api/app/add_evaluation_entry", headers=headers, json={
+        "playerId": ids["student_id"], "strengths": [], "weaknesses": [],
+        "scores": [{"categoryId": ids["forehand_id"], "value": 8}, {"categoryId": ids["grit_id"], "value": 3}],
+    })
+    profile = client.get(f"/api/app/player_profile/{ids['student_id']}", headers=headers).get_json()
+
+    assert saved.status_code == 200
+    assert sorted(_all_entries(app, ids)) == sorted([(ids["serve_id"], 4.0), (ids["forehand_id"], 8.0)])
+    assert [e["categoryName"] for e in profile["evaluations"]] == ["Forehand"]
+
+
 def test_r047_evaluation_categories_hides_a_legacy_category_that_was_switched_off(app, client):
     from padel_app.models import EvaluationCategory
 
@@ -282,7 +299,8 @@ def test_evaluated_at_is_never_null_on_the_profile_even_for_a_drifted_row():
 
     created = dt.datetime(2026, 2, 3, 4, 5, 6)
     assert evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=created)) == "2026-02-03T04:05:06"
-    assert NAIVE_ISO.match(evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=None)))
+    # nothing to fall back on: a FIXED instant, the same on every read — never "now"
+    assert evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=None)) == "1970-01-01T00:00:00"
     assert evaluated_at_iso(SimpleNamespace(evaluated_at=created, created_at=None)) == "2026-02-03T04:05:06"
 
 

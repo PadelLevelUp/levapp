@@ -275,6 +275,14 @@ def test_downgrade_refuses_to_discard_what_only_the_new_schema_holds(monkeypatch
         _run(conn, "downgrade")
     assert "evaluation_records" in sa.inspect(conn).get_table_names()
 
+    # a category the coach switched off: dropping is_active would show it to the old builds again
+    hidden = _scratch()
+    _run(hidden, "upgrade")
+    hidden.exec_driver_sql(f"UPDATE evaluation_categories SET is_active = 0 WHERE id = {VOLLEY}")
+    with pytest.raises(RuntimeError, match="switched-off categories"):
+        _run(hidden, "downgrade")
+    assert "is_active" in _cols(hidden, "evaluation_categories")
+
     monkeypatch.setenv("PAD363_DOWNGRADE_DISCARDS_DATA", "1")
     _run(conn, "downgrade")
     assert "evaluation_records" not in sa.inspect(conn).get_table_names()
