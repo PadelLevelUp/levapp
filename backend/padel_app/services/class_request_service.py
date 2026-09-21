@@ -255,8 +255,11 @@ def _slot_is_free(coach: Coach, start: datetime, end: datetime, *, now, exclude_
 # ── rule 3: the hold ─────────────────────────────────────────────────────────
 
 def _hold_title(row: ClassRequest, locale: str) -> str:
+    from padel_app.models.class_request import HOLD_TITLE_PREFIXES
+
     who = _name(row.player.user if row.player else None)
-    return f"Pedido de aula · {who}" if locale == "pt" else f"Class request · {who}"
+    pt, en = HOLD_TITLE_PREFIXES  # the hooks recognise a hold by these (rule 18)
+    return f"{pt}{who}" if locale == "pt" else f"{en}{who}"
 
 
 def _place_hold(row: ClassRequest, coach: Coach, locale: str) -> None:
@@ -490,6 +493,77 @@ def _close(row: ClassRequest, status: str, by: str, now) -> None:
     row.decided_by = by
     row.decided_at = wall_to_utc_naive(now)  # PAD-256: an event timestamp, in UTC
     db.session.commit()
+
+
+def close_open_requests_silently(*, status: str, by: str, player_id=None, coach_id=None, now_utc=None) -> int:
+    """Rule 18 (PAD-360, B-135): the person behind a request is going away.
+
+    Every open request of ``player_id`` (as the requester) and/or to ``coach_id``
+    (both given narrows to that pair) closes with its hold released. Silent: no notification in either direction —
+    one side no longer exists. No commit; the caller owns the transaction.
+    """
+    from padel_app.utils.dates import utcnow_naive
+
+    if player_id is None and coach_id is None:
+        raise ValueError("close_open_requests_silently needs a player_id or a coach_id")
+    query = ClassRequest.query.filter(ClassRequest.status.in_(("pending", "countered")))
+    if player_id is not None:
+        query = query.filter(ClassRequest.player_id == player_id)
+    if coach_id is not None:
+        query = query.filter(ClassRequest.coach_id == coach_id)
+    rows = query.with_for_update().all()
+    for row in rows:
+        _release_hold(row)
+        row.status = status
+        row.decided_by = by
+        row.decided_at = now_utc or utcnow_naive()
+    return len(rows)
+
+
+def drop_invitee_from_open_requests(player_id: int) -> int:
+    """Rule 18: an accept never enrols a deleted account. No commit.
+
+    No row lock: nothing else rewrites `invitee_player_ids` after a request is
+    created, and locking every open group request table-wide let two concurrent
+    account deletions deadlock (#345 review F3). Ids are compared as text, so a
+    malformed value in someone else's request cannot fail this deletion.
+    """
+    rows = ClassRequest.query.filter(
+        ClassRequest.status.in_(("pending", "countered")), ClassRequest.invitee_player_ids.isnot(None)
+    ).all()
+    changed = 0
+    for row in rows:
+        current = row.invitee_player_ids if isinstance(row.invitee_player_ids, list) else []
+        kept = [pid for pid in current if str(pid) != str(player_id)]
+        if len(kept) != len(current):
+            row.invitee_player_ids = kept or None
+            changed += 1
+    return changed
+
+
+def release_holds_of_players(player_ids) -> int:
+    """Rule 18: these players are about to be deleted in bulk (`Query.delete()`
+    runs no ORM hook), and ON DELETE CASCADE will take their requests. No commit."""
+    ids = [int(pid) for pid in (player_ids or [])]
+    if not ids:
+        return 0
+    from padel_app.models.class_request import HOLD_TITLE_PREFIXES
+
+    rows = ClassRequest.query.filter(
+        ClassRequest.player_id.in_(ids), ClassRequest.hold_block_id.isnot(None)
+    ).all()
+    released = 0
+    for row in rows:
+        if not row.is_open:
+            # A closed request's leftover pointer: only a block that is still a hold goes.
+            block = db.session.get(CalendarBlock, row.hold_block_id)
+            if block is None or block.type != "personal" or not (block.title or "").startswith(HOLD_TITLE_PREFIXES):
+                row.hold_block_id = None
+                continue
+        _release_hold(row)
+        released += 1
+    db.session.flush()
+    return released
 
 
 def withdraw_class_request_service(request_id, player, *, now=None) -> ClassRequest:
