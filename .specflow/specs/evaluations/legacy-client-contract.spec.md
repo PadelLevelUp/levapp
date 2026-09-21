@@ -1,6 +1,6 @@
 ---
 id: evaluations.legacy-client-contract
-status: draft
+status: implemented
 depends_on: [evaluations.categories, evaluations.entries]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: [R-047]
