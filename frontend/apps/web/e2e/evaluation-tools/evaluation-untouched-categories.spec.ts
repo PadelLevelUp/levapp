@@ -31,6 +31,21 @@ async function studentId(request: APIRequestContext, token: string): Promise<str
   return String(found!.playerId);
 }
 
+// R-040: a spec removes what it wrote. Every category made here is deleted after its test through the
+// record API's delete (legal for a legacy category; it takes the scores with it and the server prunes the
+// evaluation record they leave empty), so neither the player's history nor the coach's competency set
+// grows with each run. Until PAD-374 these rows were simply left behind.
+const created: string[] = [];
+
+test.afterEach(async ({ request }) => {
+  if (created.length === 0) return;
+  const token = await coachToken(request);
+  for (const id of created.splice(0)) {
+    const gone = await request.delete(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(token) });
+    expect(gone.ok(), `category ${id} was cleaned up`).toBeTruthy();
+  }
+});
+
 async function newCategories(request: APIRequestContext, token: string, count: number): Promise<string[]> {
   const stamp = Date.now().toString().slice(-6);
   const names = Array.from({ length: count }, (_, i) => `E2E Unrated ${stamp} ${i}`);
@@ -42,11 +57,13 @@ async function newCategories(request: APIRequestContext, token: string, count: n
   const all: { id: string | number; name: string }[] = await (
     await request.get(`${API_APP}/evaluation_categories`, { headers: bearer(token) })
   ).json();
-  return names.map((name) => {
+  const ids = names.map((name) => {
     const cat = all.find((c) => c.name === name);
     expect(cat, `${name} was saved`).toBeTruthy();
     return String(cat!.id);
   });
+  created.push(...ids);
+  return ids;
 }
 
 type Rating = { categoryId: number; score: number };
@@ -66,7 +83,10 @@ async function openForm(page: Page, playerId: string) {
   await page.getByTestId("player-evaluations-open").click();
   await expect(page.getByTestId("player-evaluations-drawer")).toBeVisible({ timeout: 10_000 });
   await page.getByTestId("evaluation-new").click();
-  await expect(page.getByTestId("evaluation-form")).toBeVisible({ timeout: 10_000 });
+  const form = page.getByTestId("evaluation-form");
+  await expect(form).toBeVisible({ timeout: 10_000 });
+  // Every locator below is scoped to the form: a history card draws the same competency with the same test id.
+  return form;
 }
 
 test("PAD-337: finishing the form without touching anything sends no request and writes nothing", async ({ page, request }) => {
@@ -79,9 +99,9 @@ test("PAD-337: finishing the form without touching anything sends no request and
   page.on("request", (r) => {
     if (r.method() === "PUT" && r.url().includes("/evaluation_record")) writes.push(r.url());
   });
-  await openForm(page, playerId);
+  const form = await openForm(page, playerId);
   // The new category opens unrated, not at a midpoint score.
-  await expect(page.getByTestId(`evaluation-stepper-${catId}-value`)).toHaveAttribute("data-score", "");
+  await expect(form.getByTestId(`evaluation-stepper-${catId}-value`)).toHaveAttribute("data-score", "");
   await page.getByTestId("evaluation-finish").click();
   await expect(page.getByTestId("evaluation-form")).toHaveCount(0);
 
@@ -99,24 +119,30 @@ test("PAD-337: only the category the coach scored is written, and clearing retur
   const playerId = await studentId(request, token);
   const [scored, cleared, untouched] = await newCategories(request, token, 3);
 
-  await openForm(page, playerId);
+  const form = await openForm(page, playerId);
   for (const catId of [scored, cleared]) {
     // A stepper's consecutive steps are one input, written after a quiet period: wait for that PUT.
     const put = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
-    await page.getByTestId(`evaluation-stepper-${catId}-plus`).click();
+    await form.getByTestId(`evaluation-stepper-${catId}-plus`).click();
     expect((await put).status()).toBe(200);
-    await expect(page.getByTestId(`evaluation-stepper-${catId}-value`)).not.toHaveAttribute("data-score", "");
+    await expect(form.getByTestId(`evaluation-stepper-${catId}-value`)).not.toHaveAttribute("data-score", "");
   }
   const clearedPut = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
-  await page.getByTestId(`evaluation-stepper-${cleared}-clear`).click();
+  await form.getByTestId(`evaluation-stepper-${cleared}-clear`).click();
   expect((await clearedPut).status()).toBe(200);
-  await expect(page.getByTestId(`evaluation-stepper-${cleared}-value`)).toHaveAttribute("data-score", "");
-  await expect(page.getByTestId(`evaluation-stepper-${untouched}-value`)).toHaveAttribute("data-score", "");
+  await expect(form.getByTestId(`evaluation-stepper-${cleared}-value`)).toHaveAttribute("data-score", "");
+  await expect(form.getByTestId(`evaluation-stepper-${untouched}-value`)).toHaveAttribute("data-score", "");
   await page.getByTestId("evaluation-finish").click();
+  await expect(form).toHaveCount(0);
 
   const record = await todaysRecord(request, token, playerId);
   const ids = (record?.ratings ?? []).map((r) => String(r.categoryId));
   expect(ids).toContain(scored);
   expect(ids).not.toContain(cleared);
   expect(ids).not.toContain(untouched);
+
+  // The history card follows the writes: the cleared competency leaves it, the scored one stays.
+  const card = page.getByTestId(`evaluation-history-card-${record?.id}`);
+  await expect(card.getByTestId(`evaluation-stepper-${scored}-value`)).not.toHaveAttribute("data-score", "");
+  await expect(card.getByTestId(`evaluation-stepper-${cleared}-value`)).toHaveCount(0);
 });
