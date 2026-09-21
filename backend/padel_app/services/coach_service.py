@@ -160,7 +160,9 @@ def upsert_evaluation_categories(coach, data):
         # of the five App Store 1.0/1.1.0 call. It never updates a non-legacy
         # competency, and a name one already holds is skipped — (coach, name) is
         # unique, so it could only collide.
-        if evaluation_category is not None and not evaluation_category.is_legacy:
+        # A legacy category the coach switched off is skipped the same way: no
+        # rescale and NO reactivation (rule 5, Coordinator ruling 2026-09-21).
+        if evaluation_category is not None and not (evaluation_category.is_legacy and evaluation_category.is_active):
             continue
         if evaluation_category:
             _apply_form(evaluation_category.get_edit_form(), payload, evaluation_category)
@@ -226,7 +228,9 @@ def add_evaluation_entry_service(coach, data):
     # a midpoint for every category it knows of; a competency it should never
     # have seen — or another coach's category, or an id that does not exist — is
     # ignored, and the response is the same.
-    legacy_ids = {c.id for c in coach.evaluation_categories if c.is_legacy}
+    # A legacy category the coach switched off is ignored too (rule 3): a build
+    # holding a list fetched before the switch-off still posts its midpoint for it.
+    legacy_ids = {c.id for c in coach.evaluation_categories if c.is_legacy and c.is_active}
     for score in scores:
         value = score.get("value")
         if value is None:

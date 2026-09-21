@@ -31,10 +31,10 @@ FK guaranteed) are skipped with a WARNING. A record's created_at / updated_at
 are the first and last evaluated_at it groups.
 
 Downgrade drops the three additions, each guarded. It is lossless while nothing
-lives only in the new schema; it REFUSES when a non-legacy competency, a record
-note or a class-linked record exists (dropping competency_group would show those
-competencies to App Store 1.0/1.1.0, which post a midpoint for whatever they
-list) unless PAD363_DOWNGRADE_DISCARDS_DATA=1.
+lives only in the new schema; it REFUSES when a non-legacy competency, a
+switched-off category, a record note or a class-linked record exists (dropping
+competency_group or is_active would show those to App Store 1.0/1.1.0, which
+post a midpoint for whatever they list) unless PAD363_DOWNGRADE_DISCARDS_DATA=1.
 
 Revision ID: 21c864b3dd59
 Revises: 8da963ad8591
@@ -287,6 +287,9 @@ def _only_in_the_new_schema():
     if _has_column("evaluation_categories", "competency_group"):
         n = bind.execute(sa.text("SELECT count(*) FROM evaluation_categories WHERE competency_group IS NOT NULL")).scalar()
         found.append(("non-legacy competencies (would become visible to App Store 1.0/1.1.0)", n))
+    if _has_column("evaluation_categories", "is_active"):
+        n = bind.execute(sa.text("SELECT count(*) FROM evaluation_categories WHERE is_active IS NOT TRUE")).scalar()
+        found.append(("switched-off categories (would become visible again to App Store 1.0/1.1.0)", n))
     if _has_table("evaluation_records"):
         n = bind.execute(sa.text("SELECT count(*) FROM evaluation_records WHERE note IS NOT NULL")).scalar()
         found.append(("record notes", n))

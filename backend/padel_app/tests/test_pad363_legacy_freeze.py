@@ -91,6 +91,23 @@ def test_r047_evaluation_categories_ignores_a_declared_capability(app, client):
     assert names == ["Forehand", "Volley"]
 
 
+def test_r047_the_save_and_the_profile_ignore_a_declared_capability_too(app, client):
+    """The freeze reads no header on any of the endpoints, not only on the list."""
+    ids = _with_competencies(app, _seed(app))
+    headers = {**_coach_headers(app, ids), "X-LevApp-Capabilities": "evaluations, open-spots"}
+    _rate_directly(app, ids, "serve_id", 4)
+
+    saved = client.post("/api/app/add_evaluation_entry", headers=headers, json={
+        "playerId": ids["student_id"], "strengths": [], "weaknesses": [],
+        "scores": [{"categoryId": ids["forehand_id"], "value": 8}, {"categoryId": ids["grit_id"], "value": 3}],
+    })
+    profile = client.get(f"/api/app/player_profile/{ids['student_id']}", headers=headers).get_json()
+
+    assert saved.status_code == 200
+    assert sorted(_all_entries(app, ids)) == sorted([(ids["serve_id"], 4.0), (ids["forehand_id"], 8.0)])
+    assert [e["categoryName"] for e in profile["evaluations"]] == ["Forehand"]
+
+
 def test_r047_evaluation_categories_hides_a_legacy_category_that_was_switched_off(app, client):
     from padel_app.models import EvaluationCategory
 
@@ -282,5 +299,52 @@ def test_evaluated_at_is_never_null_on_the_profile_even_for_a_drifted_row():
 
     created = dt.datetime(2026, 2, 3, 4, 5, 6)
     assert evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=created)) == "2026-02-03T04:05:06"
-    assert NAIVE_ISO.match(evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=None)))
+    # nothing to fall back on: a FIXED instant, the same on every read — never "now"
+    assert evaluated_at_iso(SimpleNamespace(evaluated_at=None, created_at=None)) == "1970-01-01T00:00:00"
     assert evaluated_at_iso(SimpleNamespace(evaluated_at=created, created_at=None)) == "2026-02-03T04:05:06"
+
+
+# ── a LEGACY category the coach switched off (Coordinator rulings, 2026-09-21; legacy-client-contract rules 3 and 5) ──
+
+
+def _switch_off(app, category_id):
+    from padel_app.models import EvaluationCategory
+
+    with app.app_context():
+        db.session.get(EvaluationCategory, category_id).is_active = False
+        db.session.commit()
+
+
+def test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category(app, client):
+    """A build holding a list fetched before the switch-off still posts its
+    midpoint for it; a hidden category must not collect scores nobody chose."""
+    from padel_app.models import EvaluationRecord
+
+    ids = _seed(app)
+    _switch_off(app, ids["volley_id"])
+
+    res = _save(app, client, ids, [
+        {"categoryId": ids["forehand_id"], "value": 9},
+        {"categoryId": ids["volley_id"], "value": 6},
+    ])
+
+    assert res.status_code == 200 and res.get_json() == {"status": "ok", "playerId": ids["student_id"]}
+    assert _all_entries(app, ids) == [(ids["forehand_id"], 9.0)]
+    with app.app_context():
+        (record,) = EvaluationRecord.query.all()
+        assert [e.category_id for e in record.entries] == [ids["forehand_id"]]
+
+
+def test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legacy_category(app, client):
+    from padel_app.models import EvaluationCategory
+
+    ids = _seed(app)
+    _switch_off(app, ids["volley_id"])
+    body = [{"name": "Volley", "scaleMin": 1, "scaleMax": 5}]
+
+    res = client.post("/api/app/add_evaluation_categories", json=body, headers=_coach_headers(app, ids))
+
+    assert res.status_code == 200 and res.get_json() == body
+    with app.app_context():
+        rows = EvaluationCategory.query.filter_by(coach_id=ids["coach_id"], name="Volley").all()
+        assert [(c.scale_min, c.scale_max, c.is_active) for c in rows] == [(0, 10, False)]

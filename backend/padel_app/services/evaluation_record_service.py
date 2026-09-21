@@ -18,6 +18,11 @@ Two ways a rating is written, because two kinds of caller exist:
 - **in place** — `upsert_rating` without `append`, for the record API: re-rating
   a category in the same record updates its one row.
 
+Bulk deletes that go around this module (an import revert deletes its entries by
+id) can remove a slot's holder without giving the slot back to the row it had
+displaced: that row stays record-less. Harmless — record-less rows are history —
+and deliberate: a revert restores the rows, not the bookkeeping.
+
 Everything here flushes or commits through `commit_or_flush`, like `Model.create()`.
 """
 from datetime import date, datetime, timezone
@@ -82,14 +87,31 @@ def _holder(record, category_id):
 
 
 def _take_slot(record, entry):
-    """Give `entry` its category's slot in `record` unless a later row holds it."""
-    holder = _holder(record, entry.category_id)
-    if holder is not None and holder.id != entry.id:
-        if (holder.evaluated_at, holder.id) > (entry.evaluated_at, entry.id):
-            return  # an older score arriving late (an import): it is history
-        holder.record_id = None
-        db.session.flush()  # free the slot before the unique index sees two holders
-    entry.record_id = record.id
+    """Give `entry` its category's slot in `record` unless a later row holds it.
+
+    Never fails the caller. Two saves for the same coach-player, category and day
+    in flight together both read "nobody holds the slot" and both take it; the
+    unique (record_id, category_id) index lets one win. The loser's savepoint is
+    rolled back and its entry simply stays record-less: the score is kept (no
+    legacy save may fail, or lose a score, over record bookkeeping — the endpoint
+    is frozen), it is history like any earlier row of the day, and the record API
+    does not read record-less rows. Returns whether the entry holds the slot.
+    """
+    try:
+        with db.session.begin_nested():
+            holder = _holder(record, entry.category_id)
+            if holder is not None and holder.id != entry.id:
+                if (holder.evaluated_at, holder.id) > (entry.evaluated_at, entry.id):
+                    return False  # an older score arriving late (an import): it is history
+                holder.record_id = None
+                db.session.flush()  # free the slot before the unique index sees two holders
+            entry.record_id = record.id
+            db.session.flush()
+        return True
+    except IntegrityError:
+        # The savepoint rollback expired what it touched; the entry row itself was
+        # flushed before it and stands, with record_id NULL.
+        return False
 
 
 def append_entry(entry: EvaluationEntry, *, lesson_instance_id=None) -> EvaluationEntry:
@@ -122,22 +144,43 @@ def upsert_rating(record, category_id, score, *, evaluated_at: datetime | None =
     """Rate `category_id` in `record`. In place by default; `append=True` keeps
     the previous score as a row of history (see the module docstring)."""
     category = _category_of(record, category_id)
-    if not append:
+    when = evaluated_at or utcnow_naive()
+
+    def in_place():
         holder = _holder(record, category.id)
         if holder is not None:
             holder.score = float(score)
             if evaluated_at is not None:
                 holder.evaluated_at = evaluated_at
+        return holder
+
+    if not append:
+        holder = in_place()
+        if holder is not None:
             commit_or_flush()
             return holder
 
     entry = EvaluationEntry(
-        coach_player_id=record.coach_player_id, category_id=category.id, score=float(score),
-        evaluated_at=evaluated_at or utcnow_naive(),
+        coach_player_id=record.coach_player_id, category_id=category.id, score=float(score), evaluated_at=when,
     )
-    db.session.add(entry)
-    db.session.flush()
-    _take_slot(record, entry)
+    if append:
+        db.session.add(entry)
+        db.session.flush()
+        _take_slot(record, entry)
+        commit_or_flush()
+        return entry
+
+    # In place, and the record has no rating yet: a double tap can race here too.
+    # The loser must not leave a second row behind — it re-reads and updates the winner's.
+    try:
+        with db.session.begin_nested():
+            entry.record_id = record.id
+            db.session.add(entry)
+            db.session.flush()
+    except IntegrityError:
+        entry = in_place()
+        if entry is None:
+            raise
     commit_or_flush()
     return entry
 

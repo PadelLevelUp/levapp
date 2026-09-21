@@ -322,9 +322,10 @@ def evaluated_at_iso(entry) -> str:
     App Store 1.0/1.1.0 call `parseISO` on it unguarded and read it as device-local
     time. The column is NOT NULL since PAD-273, but that migration is guarded and
     production drifts, so a missing value falls back rather than reach a client."""
-    from padel_app.utils.dates import utcnow_naive
+    from datetime import datetime
 
-    instant = entry.evaluated_at or entry.created_at or utcnow_naive()
+    # A FIXED last resort, never "now": the same row must read the same on every call.
+    instant = entry.evaluated_at or entry.created_at or datetime(1970, 1, 1)
     return instant.replace(tzinfo=None).isoformat()
 
 
