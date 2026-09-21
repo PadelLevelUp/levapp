@@ -140,8 +140,14 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
             </tbody>
           </table>
 
+          {/* Q32: labelled by their WINDOW. They are rolling means over the ratings; the chart's points are
+              calendar-month means — "Monthly average 6.5" under a point reading "Sep: 7.0" read as a contradiction. */}
+          <div className="space-y-2" data-testid="evolution-means">
+          <h4 className="text-xs font-medium text-muted-foreground" data-testid="evolution-means-heading">
+            {t("players.evaluationHistory.meansHeading")}
+          </h4>
           <dl className="grid grid-cols-3 gap-2">
-            {([["m1", "meanMonthly"], ["m6", "meanSemester"], ["m12", "meanYear"]] as const).map(([key, label]) => (
+            {([["m1", "meanLastMonth"], ["m6", "meanLast6Months"], ["m12", "meanLastYear"]] as const).map(([key, label]) => (
               <div key={key} className="rounded-lg border p-3">
                 <dt className="text-xs text-muted-foreground">{t(`players.evaluationHistory.${label}`)}</dt>
                 <dd className="text-xl font-semibold tabular-nums" data-testid={`evolution-mean-${key}`} data-value={formatMean(data.means[key])}>
@@ -150,6 +156,7 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
               </div>
             ))}
           </dl>
+          </div>
 
           {delta && (
             <p
