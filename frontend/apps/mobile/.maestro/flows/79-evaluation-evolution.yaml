@@ -68,14 +68,14 @@ appId: com.padellevelup.app
       id: "evolution-point-caption-0"
     timeout: 5000
 
-# ── The seeded history is there too, and none of it is editable ──
+# ── The seeded history is there too ──
+# (Whether a card offers "edit" is the server's `editable`; flow 78 covers it on its own rows. Not
+# asserted here: another flow rating this player today must not be able to turn this one red.)
 - scrollUntilVisible:
     element:
       id: "evaluation-history-card-.*"
     direction: DOWN
     timeout: 20000
-- assertNotVisible:
-    id: "evaluation-history-edit-.*"
 
 - tapOn:
     id: "player-evaluations-back"

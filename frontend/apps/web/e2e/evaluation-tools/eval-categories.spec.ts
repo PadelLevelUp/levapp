@@ -24,11 +24,11 @@ test("US-46: evaluation categories page/section is accessible", async ({ page })
 
 // US-47: Coach can submit an evaluation for a player
 //
-// Uses "E2E Student Two" (not "E2E Student") because this test optionally
-// saves an evaluation as a side effect, and evaluation-persist.spec.ts
-// asserts "E2E Student" starts with zero evaluations. Sharing a player
-// between the two specs made evaluation-persist.spec.ts order-dependent
-// and flaky depending on whether this save actually fired.
+// Uses "E2E Student Two" (not "E2E Student"), as it always has. Until PAD-374 this test could
+// SAVE an evaluation as a side effect; it no longer writes anything — it opens the form and
+// closes it, and an untouched form sends no request (PAD-337's guarantee). Since PAD-375 this
+// player carries the seeded past-dated history that evaluation-evolution.spec.ts reads, so keep
+// it that way: a spec that rates this player must remove what it wrote (R-040).
 test("US-47: coach opens the evaluation form from a player's evaluations", async ({ page }) => {
   await loginAsCoach(page);
   await page.goto("/players");
