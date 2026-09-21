@@ -311,3 +311,102 @@ def test_edit_class_any_edit_clears_is_recurring_while_the_rule_stays(app, clien
                       headers=world["headers"]).get_json()
     served = [e["isRecurring"] for e in feed if e.get("title") == "Thursday group B" or e.get("name") == "Thursday group B"]
     assert served and all(served), "what clients see is unaffected — today"
+
+
+# ── POST /api/app/add_player (player_service.create_player_helper) ───────────
+
+def _add_player(client, world, **fields):
+    body = {"coachId": world["ids"]["coach_id"], "name": "New Player", **fields}
+    return client.post("/api/app/add_player", json=body, headers=world["headers"])
+
+
+def _new_players(app):
+    from padel_app.models import Association_CoachPlayer, User
+
+    with app.app_context():
+        users = User.query.filter(User.name.like("New Player%")).order_by(User.id).all()
+        out = []
+        for user in users:
+            rel = Association_CoachPlayer.query.filter_by(player_id=user.player.id).first()
+            out.append({"email": user.email, "phone": user.phone, "notes": rel.notes, "side": rel.side})
+        return out
+
+
+def test_add_player_empty_strings_are_stored_as_null_and_two_of_them_do_not_collide(app, client):
+    """NOT a defect — the behaviour a fix must KEEP on create. `email: ""` reaches the
+    column as NULL, so any number of players without an email can exist. A fix that
+    "honours the empty string" on create would store "" and (where the column is
+    unique) refuse the second one."""
+    world = _class_world(app, client)
+
+    first = _add_player(client, world, email="", phone="", notes="", side="")
+    second = _add_player(client, world, name="New Player 2", email="", phone="", notes="", side="")
+
+    assert (first.status_code, second.status_code) == (200, 200), second.get_data(as_text=True)
+    assert _new_players(app) == [{"email": None, "phone": None, "notes": None, "side": None}] * 2
+
+
+def test_add_player_absent_keys_and_real_values(app, client):
+    world = _class_world(app, client)
+
+    assert _add_player(client, world).status_code == 200
+    assert _add_player(client, world, name="New Player 2", email="np2@test.com", phone="+351922222222",
+                       notes="serves well", side="left").status_code == 200
+
+    assert _new_players(app) == [
+        {"email": None, "phone": None, "notes": None, "side": None},
+        {"email": "np2@test.com", "phone": "+351922222222", "notes": "serves well", "side": "left"},
+    ]
+
+
+# ── POST /api/app/add_coach_note — validates before the form; a control ──────
+
+def test_add_coach_note_refuses_an_empty_text_itself(app, client):
+    ids = _seed(app)
+    headers = _headers(app, ids["coach_user_id"])
+
+    empty = client.post("/api/app/add_coach_note", headers=headers,
+                        json={"playerId": ids["student_id"], "type": "strength", "text": "   "})
+    real = client.post("/api/app/add_coach_note", headers=headers,
+                       json={"playerId": ids["student_id"], "type": "strength", "text": "Fast feet"})
+
+    assert (empty.status_code, empty.get_json()) == (400, {"error": "text is required"})
+    assert real.status_code == 200 and real.get_json()["text"] == "Fast feet"
+
+
+# ── PATCH /api/editor/<model>/<id> — JSON admin editor, NOT on the form layer ─
+
+def _root_headers(app):
+    from padel_app.models import User
+
+    with app.app_context():
+        user = User(name="root", username="root", password="x", status="active", is_superadmin=True)
+        db.session.add(user)
+        db.session.commit()
+        return _headers(app, user.id)
+
+
+def test_json_admin_editor_can_clear_a_text_and_write_a_zero(app, client):
+    """The second control: this route hands the JSON body to `update_with_dict`
+    without `Field.set_value`, so "" and 0 arrive as themselves. Only `None` is
+    skipped (by `update_with_dict`), so `null` still cannot clear."""
+    from padel_app.models import Association_CoachPlayer, EvaluationCategory
+
+    ids = _seed(app)
+    root = _root_headers(app)
+    with app.app_context():
+        category = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=10)
+        db.session.add(category)
+        db.session.commit()
+        category_id = category.id
+
+    notes = client.patch(f"/api/editor/association_coachplayer/{ids['rel_id']}", json={"values": {"notes": ""}}, headers=root)
+    zero = client.patch(f"/api/editor/evaluationcategory/{category_id}", json={"values": {"scale_min": 0}}, headers=root)
+    null = client.patch(f"/api/editor/association_coachplayer/{ids['rel_id']}", json={"values": {"side": None}}, headers=root)
+
+    assert (notes.status_code, zero.status_code, null.status_code) == (200, 200, 200), notes.get_data(as_text=True)
+    with app.app_context():
+        rel = db.session.get(Association_CoachPlayer, ids["rel_id"])
+        assert rel.notes == "", "cleared — to an empty string, not NULL"
+        assert rel.side == "right", "null is skipped by update_with_dict: still not a way to clear"
+        assert db.session.get(EvaluationCategory, category_id).scale_min == 0
