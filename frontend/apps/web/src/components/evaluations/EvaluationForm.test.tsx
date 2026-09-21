@@ -104,6 +104,19 @@ describe("a legacy category is a number with a stepper, never stars", () => {
     expect(screen.getByTestId("evaluation-stepper-2-value").getAttribute("data-score")).toBe("7");
   });
 
+  it("the clear control appearing moves nothing: its place is kept while the category is unrated", () => {
+    // jsdom has no layout, so this pins the structure that makes the layout stable: one slot of a
+    // fixed size, always there, holding the control only once there is something to clear. Without
+    // it the first "+" pushed "−" and "+" sideways under the finger (iOS, and web at phone width).
+    setup();
+    const slot = screen.getByTestId("evaluation-stepper-2-clear-slot");
+    expect(slot.querySelector("button")).toBeNull();
+    fireEvent.click(screen.getByTestId("evaluation-stepper-2-plus"));
+    expect(screen.getByTestId("evaluation-stepper-2-clear-slot")).toBe(slot);
+    expect(slot.contains(screen.getByTestId("evaluation-stepper-2-clear"))).toBe(true);
+    expect(slot.className).toContain("h-9 w-9");
+  });
+
   it("consecutive steps are one save, after the quiet period", async () => {
     const { onSave } = setup({ record: record({ ratings: [
       { categoryId: 2, name: "Forehand", key: null, score: 5, scaleMin: 1, scaleMax: 10 },
