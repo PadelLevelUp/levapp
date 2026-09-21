@@ -27,8 +27,13 @@ def _clone_block(src, *, user_id, **overrides):
 
 
 def _next_occurrence_after(block, after_date):
-    """Return the first occurrence datetime of block after after_date (exclusive)."""
-    after_dt = _datetime.combine(after_date, _datetime.min.time()).replace(tzinfo=timezone.utc)
+    """Return the first occurrence datetime of block on a date AFTER after_date.
+
+    The whole of after_date is excluded (PAD-371, B-139): searching from its midnight
+    found the occurrence later that same day, so deleting the first occurrence
+    "advanced" the series to where it already was.
+    """
+    after_dt = _datetime.combine(after_date + timedelta(days=1), _datetime.min.time()).replace(tzinfo=timezone.utc)
     end_dt = _datetime.combine(
         block.recurrence_end if block.recurrence_end else (after_date + timedelta(days=400)),
         _datetime.max.time(),
@@ -60,10 +65,14 @@ def _split_block(block, occ_date):
             block.delete()
         return
 
+    # Where the series resumes is asked BEFORE the series is shortened (PAD-371,
+    # B-139): the search is bounded by recurrence_end, so asking afterwards found
+    # nothing and every occurrence after occ_date was silently dropped.
+    next_occ = _next_occurrence_after(block, occ_date)
+
     block.recurrence_end = occ_date - timedelta(days=1)
     block.save()
 
-    next_occ = _next_occurrence_after(block, occ_date)
     if next_occ:
         _clone_block(
             block,
