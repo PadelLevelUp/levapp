@@ -1,6 +1,6 @@
 ---
 id: evaluations.evolution
-status: draft
+status: implementing
 depends_on: [evaluations.records, evaluations.history]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: [R-048]
