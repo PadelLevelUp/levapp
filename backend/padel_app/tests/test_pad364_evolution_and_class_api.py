@@ -144,7 +144,7 @@ def test_the_class_roster_lists_participants_absent_last_with_their_most_recent_
 
     body = _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()
 
-    assert body["classInstanceId"] == instance_id
+    assert body["classInstanceId"] == instance_id and body["canRate"] is True  # it has a row: rateable whatever its date
     assert [c["name"] for c in body["competencies"]] == ["Forehand", "Volley"]
     (participant,) = body["participants"]
     assert {k: participant[k] for k in ("playerId", "coachPlayerId", "name", "absent", "due")} == {
@@ -220,6 +220,12 @@ def test_the_class_read_never_materialises_an_occurrence(app, client):
 
     assert body["classInstanceId"] is None
     assert [(p["playerId"], p["absent"], p["record"]) for p in body["participants"]] == [(ids["student_id"], False, None)]
+    # a PAST occurrence with no row: the read still answers 200 with the series roster, and says it cannot
+    # be rated — the one case PUT answers 409 class_not_materialised. No client compares a date with its own clock.
+    assert body["canRate"] is False
+    today = _class(app, client, ids, f"model=Lesson&id={lesson_id}&date=2026-09-21").get_json()
+    later = _class(app, client, ids, f"model=Lesson&id={lesson_id}&date=2026-09-28").get_json()
+    assert (today["canRate"], later["canRate"]) == (True, True)
     with app.app_context():
         assert LessonInstance.query.count() == 0
 

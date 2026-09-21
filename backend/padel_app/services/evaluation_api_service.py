@@ -181,7 +181,11 @@ def create_competency(coach, body):
     """`{catalogueKey}` switches a built-in on; `{name}` adds a custom one. Both
     are 1-5 and active. With `ensure_starting_set` this is what can create a
     NON-LEGACY row — the rollback boundary named in PAD-363. Switching on a
-    built-in that is already a row is idempotent. Returns `(competency, created)`."""
+    built-in that is already a row is idempotent. Returns `(competency, created)`.
+
+    Known and accepted: two custom names that differ only in case, submitted at the
+    same instant, both insert — the unique (coach_id, name) index is case-sensitive,
+    as the shipped legacy upsert is; one after the other the second is a 409."""
     if not isinstance(body, dict):
         raise ApiError(400, "body_invalid")
     key = body.get("catalogueKey", MISSING)
@@ -339,8 +343,10 @@ def _resolve_class(coach, ref):
     """`{model, id, date}` → `(instance, pending)`. NEVER materialises: `instance` is
     the occurrence's row when it has one; otherwise `pending` is `(lesson, date)`
     for `_materialise` to use immediately before a write. Validates the ref, the
-    coach's ownership of the class and — for an occurrence with no row — that it is
-    not in the past and that the series really produces that date."""
+    coach's ownership of the class and — for an occurrence with no row — that the
+    series really produces that date. Whether a PAST occurrence may be written to is
+    the caller's question: the class read serves it (`canRate: false`), `put_record`
+    refuses it (409 class_not_materialised)."""
     from padel_app.modules.frontend_api import coach_owns_instance, coach_owns_lesson
 
     if not isinstance(ref, dict) or str(ref.get("model", "")).lower() not in ("lesson", "lessoninstance"):
@@ -586,6 +592,10 @@ def class_evaluations(coach, ref) -> dict:
     counts = _score_counts(active)
     return {
         "classInstanceId": instance.id if instance is not None else None,
+        # False exactly when PUT would answer 409 class_not_materialised: the occurrence
+        # has no row AND its date is before today on the club's clock. The server says
+        # it, so no client compares a date with its own clock (R-048).
+        "canRate": not (pending is not None and pending[1] < on),
         "competencies": [serialize_competency(c, counts.get(c.id, 0)) for c in active],
         "participants": participants,
     }

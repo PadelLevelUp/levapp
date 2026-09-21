@@ -291,6 +291,8 @@ export interface ClassEvaluationParticipant {
 export interface ClassEvaluations {
   /** `null` while the occurrence has no row yet; reading never creates one. */
   classInstanceId: number | null;
+  /** False only for a past occurrence that has no row: rating it would be refused (409). The server decides — never compare dates on the client. */
+  canRate: boolean;
   competencies: EvaluationCompetency[];
   /** Absent last. */
   participants: ClassEvaluationParticipant[];
