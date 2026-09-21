@@ -213,9 +213,20 @@ def add_evaluation_entry_service(coach, data):
     # App Store builds still post every category, which this keeps harmless for
     # categories that already hold a score.
     latest = {e.category_id: e.score for e in coach_player.current_evaluations}
+    # evaluations.entries rule 8 (PAD-370, B-145, compass R-002): a score is
+    # recorded only in one of the coach's OWN categories. Another coach's
+    # category, an id that does not exist or is not a number is ignored, and the
+    # response is the same — App Store builds post every category in one body and
+    # read any non-2xx as a failed save, with the earlier scores already written.
+    own_ids = {c.id for c in coach.evaluation_categories}
     for score in scores:
         value = score.get("value")
         if value is None:
+            continue
+        try:
+            if int(score.get("categoryId")) not in own_ids:
+                continue
+        except (TypeError, ValueError):
             continue
         try:
             unchanged = float(latest[int(score.get("categoryId"))]) == float(value)

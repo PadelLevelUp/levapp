@@ -3,7 +3,8 @@ id: B-145
 title: "A coach can write an evaluation score into another coach's category; an unknown category id is a 500 after the earlier scores were kept"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-09-21T18:43:00Z
 affects:
   - evaluations.entries
   - R-002
@@ -70,4 +71,13 @@ Not in this change: finding or repairing rows already written (count first — s
 
 ### Resolution
 
-Filled in by PAD-370's PR.
+- Spec changes: `.specflow/specs/evaluations/entries.spec.md` — rule 8 and its criterion.
+- Tests added: `backend/padel_app/tests/test_pad370_evaluation_entry_own_categories.py` (5). The 2×2, run
+  2026-09-21 18:42–18:43 UTC: on the old code (`00e53375f`) the two own-category tests pass and the three
+  foreign/unknown tests fail — `assert [(1, 2, 3.0)] == []`, `['Forehand', 'Serve'] == ['Forehand']`, and
+  `IntegrityError`; on the fix all five pass, sqlite and Postgres. PAD-362's 30 pins pass on the fix.
+- Code changes: `add_evaluation_entry_service` builds the set of the coach's own category ids and skips a
+  score outside it (`backend/padel_app/services/coach_service.py`).
+- Not done: counting or repairing rows already written on production (statement 2c of
+  `docs/reference/evaluations-prod-counts.sql` is waiting with Session-A).
+- Resolved: 2026-09-21 (PAD-370).
