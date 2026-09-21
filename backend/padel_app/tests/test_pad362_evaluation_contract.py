@@ -596,3 +596,21 @@ def test_6_the_import_revert_deletes_what_the_import_created_and_nothing_else(ap
     assert reverted == {"deleted": {"evaluation_entries": 2}, "status": "reverted"}
     assert [score for score, _ in _rows(app, ids, "forehand_id")] == [5.0]
     assert _rows(app, ids, "volley_id") == []
+
+
+# ── the history helper (pytest and the E2E seed share it) ────────────────────
+
+def test_the_history_helper_hangs_every_date_off_the_anchor_it_is_given(app):
+    ids = _seed(app)
+    with app.app_context():
+        created = seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(7, 7), (120, 3), (30, 6)], anchor=ANCHOR)
+        db.session.commit()
+        with pytest.raises(TypeError):
+            seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(1, 1)], anchor="2026-06-15")
+
+    assert len(created) == 3
+    assert _rows(app, ids, "forehand_id") == [
+        (3.0, datetime(2026, 2, 15, 10, 30)),   # oldest first, whatever order the points came in
+        (6.0, datetime(2026, 5, 16, 10, 30)),
+        (7.0, datetime(2026, 6, 8, 10, 30)),
+    ]
