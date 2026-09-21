@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   EvaluationCompetencies,
+  EvaluationEvolution,
   EvaluationRecordInput,
   PlayerEvaluations,
   PutEvaluationRecordResult,
@@ -27,6 +28,15 @@ export function useEvaluationCompetencies(enabled = true) {
   });
 }
 
+/** "Evolução" of one competency (PAD-375). Every figure in it is the server's (R-048). */
+export function usePlayerEvolution(playerId: string | null | undefined, categoryId: number | null, enabled = true) {
+  return useQuery<EvaluationEvolution>({
+    queryKey: queryKeys.playerEvolution(playerId ?? "none", categoryId ?? undefined),
+    queryFn: () => evaluationRecordsApi.getEvaluationEvolution(playerId as string, categoryId as number),
+    enabled: !!playerId && categoryId !== null && enabled,
+  });
+}
+
 /**
  * One input = one `PUT /evaluation_record`. The answer IS today's record (or
  * `{deleted: true}`), so the history is refreshed from the server rather than
@@ -36,7 +46,10 @@ export function usePutEvaluationRecord(playerId: string) {
   const queryClient = useQueryClient();
   return useMutation<PutEvaluationRecordResult, unknown, Omit<EvaluationRecordInput, "playerId">>({
     mutationFn: (input) => evaluationRecordsApi.putEvaluationRecord({ playerId, ...input }),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvolution(playerId) }); // a rating moves the means
+    },
   });
 }
 
@@ -44,6 +57,9 @@ export function useDeleteEvaluationRecord(playerId: string) {
   const queryClient = useQueryClient();
   return useMutation<void, unknown, number>({
     mutationFn: (recordId) => evaluationRecordsApi.deleteEvaluationRecord(recordId),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvolution(playerId) }); // a rating moves the means
+    },
   });
 }

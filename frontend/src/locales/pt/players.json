@@ -320,7 +320,19 @@
       "stepUp": "Aumentar {{name}}",
       "stepDown": "Diminuir {{name}}",
       "clearScore": "Tirar a classificação de {{name}}",
-      "loadFailed": "Não foi possível carregar as avaliações."
+      "loadFailed": "Não foi possível carregar as avaliações.",
+      "evolutionPills": "Competência",
+      "meanMonthly": "Média mensal:",
+      "meanSemester": "Média semestral:",
+      "meanYear": "Média anual:",
+      "deltaUp": "↑ {{value}} desde {{month}}",
+      "deltaDown": "↓ {{value}} desde {{month}}",
+      "deltaFlat": "= desde {{month}}",
+      "chartLabel": "Média mensal de {{name}}, de {{min}} a {{max}}",
+      "pointCaption": "{{month}}: {{mean}}",
+      "tableMonth": "Mês",
+      "tableMean": "Média",
+      "evolutionLoadFailed": "Não foi possível carregar a evolução."
     }
   }
 }

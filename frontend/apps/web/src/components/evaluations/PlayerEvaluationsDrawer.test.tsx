@@ -18,6 +18,7 @@ vi.mock("@levelup/hooks", () => ({
   useEvaluationCompetencies: () => ({ data: state.competencies, isLoading: false, isError: false }),
   usePutEvaluationRecord: () => ({ mutateAsync: state.put }),
   useDeleteEvaluationRecord: () => ({ mutateAsync: state.remove, isPending: false }),
+  usePlayerEvolution: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({

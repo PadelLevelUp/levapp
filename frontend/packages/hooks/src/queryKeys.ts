@@ -19,6 +19,9 @@ export const queryKeys = {
   // PAD-374: the v2 evaluation API. One key per coach-player history; the competency set is the coach's.
   playerEvaluations: (playerId: string) => ["player-evaluations", playerId] as const,
   evaluationCompetencies: ["evaluation-competencies"] as const,
+  // PAD-375: one evolution per (player, competency); the two-part prefix invalidates a player's.
+  playerEvolution: (playerId: string, categoryId?: number) =>
+    (categoryId === undefined ? ["player-evolution", playerId] : ["player-evolution", playerId, categoryId]) as readonly unknown[],
   conversations: (page = 1, limit = 20) =>
     ["conversations", { page, limit }] as const,
   conversation: (conversationId: string) =>

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { EvaluationEvolution } from "./EvaluationEvolution";
 import { EvaluationForm } from "./EvaluationForm";
 import { EvaluationHistoryCard } from "./EvaluationHistoryCard";
 import { formatEvaluationDate } from "./formatEvaluationDate";
@@ -34,7 +35,7 @@ type FormTarget = "new" | EvaluationRecord | null;
 
 /**
  * "Avaliações — {nome}" (evaluations.history rule 3): a 520 px drawer on desktop,
- * the full width of a phone. Two sections — "Evolução" (PAD-375 fills the slot) and
+ * the full width of a phone. Two sections — "Evolução" (`EvaluationEvolution`, PAD-375) and
  * "Histórico". The drawer owns its state (rule 10): closing it closes the form, and
  * it is keyed by player so another player never inherits a form.
  */
@@ -96,10 +97,11 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {t("players.evaluationHistory.evolution")}
             </h3>
-            {/* PAD-375 (evaluations.evolution) renders the pills, the chart and the means here. */}
-            <p className="text-sm text-muted-foreground" data-testid="evaluation-evolution-empty">
-              {t("players.evaluationHistory.evolutionEmpty")}
-            </p>
+            <EvaluationEvolution
+              playerId={playerId}
+              competencies={competencies}
+              competenciesWithData={history.data?.competenciesWithData ?? []}
+            />
           </section>
 
           <section className="space-y-3" data-testid="evaluation-history">
