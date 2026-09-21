@@ -29,6 +29,9 @@ executionOrder:
     # 57 (PAD-337) needs E2E Student with no evaluations (fresh seed) and writes none
     # itself, so it sits early, beside the other player-detail flow.
     - 57-evaluation-untouched-categories
+    # 78 (PAD-374) resets E2E Student's evaluations through the API before it starts and deletes
+    # what it writes, so its position is not load bearing; it must not run between 57's steps.
+    - 78-player-evaluations
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages

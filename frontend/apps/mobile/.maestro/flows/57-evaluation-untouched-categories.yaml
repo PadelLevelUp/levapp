@@ -1,13 +1,15 @@
-# PAD-337 / evaluations.entries rule 6 — mirrors
+# PAD-337's guarantee, carried into the record form (PAD-374) — mirrors
 # apps/web/e2e/evaluation-tools/evaluation-untouched-categories.spec.ts.
-# (Flow number 57 is from Session E's reserved range, unconfirmed.)
+# (Flow number 57 is from Session E's reserved range.)
 #
-# The evaluation form used to seed every category at its scale midpoint and
-# post all of them on save, so saving without touching anything wrote a score
-# the coach never gave. Now an untouched category submits nothing.
-# - open E2E Student (seeded with no evaluations), open Add Evaluation
-# - step the seeded category once → its reset control appears; reset → gone
-# - save without a score → the Evaluations card is still empty
+# The old dialog had a save button and once posted a midpoint for every category. The
+# new form saves each input as it is made, so the guarantee reads: a category the coach
+# rated and then cleared holds nothing, and finishing the form with nothing rated writes
+# no evaluation.
+# - open E2E Student's evaluations (the flow assumes no evaluation of theirs exists;
+#   78-player-evaluations cleans up after itself), open "Nova avaliação"
+# - step the seeded legacy category once → its clear control appears; clear → gone
+# - finish with nothing rated → the history is still empty
 # NOTE: player-card-1 is deterministic (see 04-attendance.yaml). Asserts test
 # ids only; the rendered copy differs between locales.
 appId: com.padellevelup.app
@@ -34,61 +36,57 @@ appId: com.padellevelup.app
     timeout: 15000
 - scrollUntilVisible:
     element:
-      id: "player-evaluations-empty"
+      id: "player-evaluations-open"
     direction: DOWN
     timeout: 30000
-
-# ── Open the form: nothing is rated, so no reset control shows ──
-# The actions sit in a horizontal bar at the top; Add Evaluation is last, so
-# bring the bar back into view (top of the screen, ~15% down), then swipe it
-# left along that row. Swiping from a button fails once it scrolls away.
-- scrollUntilVisible:
-    element:
-      id: "player-attendance-link"
-    direction: UP
-    timeout: 30000
-- repeat:
-    times: 4
-    while:
-      notVisible:
-        id: "player-add-evaluation"
-    commands:
-      - swipe:
-          start: "85%, 15%"
-          end: "15%, 15%"
 - tapOn:
-    id: "player-add-evaluation"
+    id: "player-evaluations-open"
 - extendedWaitUntil:
     visible:
-      id: "add-evaluation-dialog"
+      id: "player-evaluations"
     timeout: 15000
+- assertVisible:
+    id: "evaluation-history-empty"
+
+# ── Open the form: nothing is rated, so no clear control shows ──
+- tapOn:
+    id: "evaluation-new"
 - extendedWaitUntil:
     visible:
-      id: "evaluation-score-value-.*"
+      id: "evaluation-form"
     timeout: 15000
+- assertVisible:
+    id: "evaluation-stepper-.*-value-none"
 - assertNotVisible:
-    id: "evaluation-score-reset-.*"
+    id: "evaluation-stepper-.*-clear"
 
 # ── Rate, then return to unrated ──
-- tapOn: "Increase Forehand"
+- tapOn:
+    id: "evaluation-stepper-.*-plus"
 - extendedWaitUntil:
     visible:
-      id: "evaluation-score-reset-.*"
+      id: "evaluation-stepper-.*-clear"
     timeout: 5000
 - tapOn:
-    id: "evaluation-score-reset-.*"
-- assertNotVisible:
-    id: "evaluation-score-reset-.*"
-
-# ── Save with nothing rated: no evaluation is written ──
-- tapOn:
-    id: "evaluation-save"
+    id: "evaluation-stepper-.*-clear"
 - extendedWaitUntil:
-    notVisible:
-      id: "add-evaluation-dialog"
-    timeout: 15000
+    visible:
+      id: "evaluation-stepper-.*-value-none"
+    timeout: 5000
+- assertNotVisible:
+    id: "evaluation-stepper-.*-clear"
+
+# ── Finish with nothing rated: no evaluation is written ──
 - scrollUntilVisible:
     element:
-      id: "player-evaluations-empty"
+      id: "evaluation-finish"
     direction: DOWN
-    timeout: 30000
+    timeout: 20000
+- tapOn:
+    id: "evaluation-finish"
+- extendedWaitUntil:
+    notVisible:
+      id: "evaluation-form"
+    timeout: 15000
+- assertVisible:
+    id: "evaluation-history-empty"
