@@ -335,6 +335,27 @@ def test_3_a_numeric_score_of_zero_cannot_be_saved(app, client):
     assert [score for score, _ in _rows(app, ids, "volley_id")] == [0.0]
 
 
+def test_3_a_save_is_not_atomic_the_scores_before_a_failing_one_stay_written(app, client):
+    """Each score is its own commit. When one fails (here B-136's numeric 0), the
+    request fails and the scores before it are already saved — which is why a
+    range check must never be added to this endpoint while old builds post every
+    category in one body (B-126)."""
+    from sqlalchemy.exc import IntegrityError
+
+    ids = _seed(app)
+
+    with pytest.raises(IntegrityError):
+        _save(app, client, ids, [
+            {"categoryId": ids["forehand_id"], "value": 5},
+            {"categoryId": ids["volley_id"], "value": 0},
+        ])
+    with app.app_context():
+        db.session.rollback()
+
+    assert [score for score, _ in _rows(app, ids, "forehand_id")] == [5.0]
+    assert _rows(app, ids, "volley_id") == []
+
+
 def test_3_add_evaluation_entry_is_coach_only_and_roster_scoped(app, client):
     ids = _seed(app)
     other = _other_coach(app)
@@ -575,3 +596,21 @@ def test_6_the_import_revert_deletes_what_the_import_created_and_nothing_else(ap
     assert reverted == {"deleted": {"evaluation_entries": 2}, "status": "reverted"}
     assert [score for score, _ in _rows(app, ids, "forehand_id")] == [5.0]
     assert _rows(app, ids, "volley_id") == []
+
+
+# ── the history helper (pytest and the E2E seed share it) ────────────────────
+
+def test_the_history_helper_hangs_every_date_off_the_anchor_it_is_given(app):
+    ids = _seed(app)
+    with app.app_context():
+        created = seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(7, 7), (120, 3), (30, 6)], anchor=ANCHOR)
+        db.session.commit()
+        with pytest.raises(TypeError):
+            seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(1, 1)], anchor="2026-06-15")
+
+    assert len(created) == 3
+    assert _rows(app, ids, "forehand_id") == [
+        (3.0, datetime(2026, 2, 15, 10, 30)),   # oldest first, whatever order the points came in
+        (6.0, datetime(2026, 5, 16, 10, 30)),
+        (7.0, datetime(2026, 6, 8, 10, 30)),
+    ]
