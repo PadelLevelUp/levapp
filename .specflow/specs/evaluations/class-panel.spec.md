@@ -36,9 +36,12 @@ leaving it. Today the only entry point is the player's page.
    name, absent, due, record: Record|null}]}`. It is a **read and materialises nothing**:
    `classInstanceId` is null for an occurrence with no row yet; the first write materialises it
    (`evaluations.records` rule 4). `competencies` items are `{id, key|null, name, group|null,
-   scaleMin, scaleMax}` in `evaluations.competencies` rule 5's order. `record` is the
-   participant's record for **this occurrence, today** (`Record`, `evaluations.records` rule 8),
-   or null. A coach who does not own the class → 403; a caller with no coach profile → 403 with
+   scaleMin, scaleMax}` in `evaluations.competencies` rule 5's order. **(build default Q28)**
+   `record` is the participant's **most recent record for this occurrence** — the one with the
+   greatest `evaluated_on` — (`Record`, `evaluations.records` rule 8), or null; its `editable`
+   says whether it is today's. Otherwise a coach opening yesterday's class would read "Sem
+   avaliação" for players they rated in it yesterday. An unmaterialised occurrence has no
+   record. A coach who does not own the class → 403; a caller with no coach profile → 403 with
    no participant data; an unknown class → 404. It takes no body.
 4. **(AV-012, build default Q14) Who is listed.** Everyone enrolled in that dated occurrence —
    its `presences` rows once materialised, the series roster (`player_in_lesson`) before.
@@ -48,11 +51,14 @@ leaving it. Today the only entry point is the player's page.
    avatar, the name, the rule 5 summary and an expand control.
 5. **(AV-013, AV-070, build default Q26) The row summary never hides a rating.** The row lists
    the coach's active competencies **plus any switched-off competency that already holds a
-   rating in today's record** for this participant and occurrence. `M` is the size of that list
+   rating in the row's record** (rule 3) for this participant and occurrence. `M` is the size of that list
    and `N` the number of them rated in the record: `N > 0` → "`N`/`M` avaliadas"; `N = 0` → "Sem
    avaliação". So the summary cannot read "Sem avaliação" while a rating exists (the canvas does:
    AV-070, mock defect). A record holding only a note counts `N = 0`; its note shows pre-filled
-   when the row opens.
+   when the row opens. When the row's record is **not** `editable` (it was made on an earlier
+   day) the summary and the expanded ratings come from it, shown read-only with its date; the
+   first tap today starts today's record for the same occurrence (`evaluations.records` rule 2),
+   which the next read returns.
 6. **(AV-014, AV-071) The expanded row** has one line per listed competency (rule 5) — five stars
    for a 1–5 competency, a number with a stepper for a legacy scale (`evaluations.competencies`
    rule 3) — then "Nota privada (opcional)". Each input saves as it is made; tapping the lit star
@@ -67,6 +73,15 @@ leaving it. Today the only entry point is the player's page.
 9. **(AV-077) The panel owns its state.** Closing the surface, or moving to another class or
    view, collapses the open row and unmounts the panel; reopening starts collapsed from a fresh
    read. Nothing typed is lost, because it was already saved (rule 6).
+
+10. **When the action is offered.** For an occurrence dated today or later on the club-zone
+    calendar, and for any occurrence that is already materialised (attendance taken, edited…).
+    For a **past occurrence that was never materialised** the action is not offered — disabled
+    with a one-line explanation — and the coach evaluates from the player instead: a write
+    would answer 409 (`evaluations.records` rule 4), because materialising a class that is over
+    enrols its roster and fills its waiting list. The building slice may propose something less
+    restrictive to the evaluation-system lead; it never materialises a past class as a side
+    effect of rating.
 
 ### Touches
 - `classes.detail-visibility` — gains a rule that the class payload itself carries no evaluation
@@ -103,6 +118,23 @@ leaving it. Today the only entry point is the player's page.
 - **Then** it reads "3/6 avaliadas", not "Sem avaliação"; expanded, it lists six competencies,
   three of them rated, and the note pre-filled
 - **And** tomorrow's panel for João lists the three active competencies only
+
+#### Yesterday's class still shows what was rated in it (rules 3, 5, Q28)
+- **Given** class 88 took place on 2026-09-20 and Ana rated Rui Técnica 4 in it that day; today
+  is 2026-09-21
+- **When** she opens the panel of class 88
+- **Then** Rui's `record` is the 2026-09-20 one with `editable: false`, his row reads "1/3
+  avaliadas", and expanded it shows Técnica 4 read-only with that date
+- **When** she taps Tática 3 for Rui
+- **Then** a second record exists for Rui and class 88 with `evaluated_on` 2026-09-21 holding
+  Tática 3, and the next read returns it as his `record`
+
+#### A past class that was never opened offers no panel (rule 10)
+- **Given** the 2026-09-14 occurrence of weekly class 7 has no `lesson_instances` row and today
+  is 2026-09-21
+- **When** Ana opens that occurrence's class detail on web and on iOS
+- **Then** the "Avaliações" action is disabled with its explanation (`data-testid`
+  `class-eval-unavailable`), and no instance, presence or waiting-list entry was created
 
 #### No competency to list shows the way to the editor (rule 6, AV-071)
 - **Given** Ana has switched every competency off and Tiago has no record today

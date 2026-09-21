@@ -135,3 +135,21 @@ control (AV-072).
 
 **Q27 — Two records on one day (AV-073).** A class record and a class-less record of the same day
 are two history cards, as in the canvas.
+
+**Q28 — Which record a class row shows (AV-013).** The participant's most recent record for that
+occurrence, not only today's; it is editable only if it is today's, otherwise shown read-only with
+its date, and the first tap today starts today's record for the same occurrence. The canvas only
+models "today"; without this a coach opening yesterday's class reads "Sem avaliação" for players
+they rated in it yesterday.
+
+**Q29 — Same-day superseded scores (AV-001, AV-033).** Existing data can hold two scores of one
+category on one day (the table was append-only). The latest sits in the day's record; the earlier
+one is kept in the database and read by nothing in the new screens — no history card, no average,
+no share. A day's evaluation has one value per competency, as in the canvas, and an average never
+includes a number no card shows. The old App Store screens are untouched.
+
+**Q30 — Past classes that were never opened (AV-010).** Opening a class that is over for the
+first time enrols its whole roster as unmarked attendance and fills its waiting list. So the
+class panel is offered for classes dated today or later and for any class already opened
+(attendance taken, edited); for a past class never opened the action is disabled with an
+explanation and the coach evaluates from the player.

@@ -76,7 +76,7 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    (AV-022).
 6. **(AV-024) Creating.** `POST /api/app/evaluation_competency` with `{catalogueKey}` or `{name}`
    → the competency, 1–5 and active. `{catalogueKey}` for an unknown key → 400; for one already a
-   row → that row is returned with `isActive: true` (switching on is idempotent). `{name}` is
+   row → that row is **set active if it was off** and returned (switching on is idempotent). `{name}` is
    trimmed; empty after trimming → 400; longer than 100 → 400; a name the coach already holds on
    any row, compared case-insensitively → **409** (PAD-273; the canvas has no duplicate check —
    mock defect). Accented characters are kept as typed; nothing is keyed on a slug (AV-078).
@@ -105,7 +105,7 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
     reached from the class panel (twice: the eyebrow action and the "+ Gerir competências"
     button), from the player's evaluations drawer, and from Settings → Preferences, where it
     replaces today's category editor. Coach-only.
-12. **(AV-072, build default Q26) No dirty state, explicit close.** Every toggle, rename and
+12. **(AV-072) No dirty state, explicit close.** Every toggle, rename and
     creation applies when made and each is individually reversible, so there is nothing to
     discard; the editor has an explicit close control ("Concluído") besides the scrim. Delete
     keeps its own confirmation (rule 9).
