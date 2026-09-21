@@ -74,7 +74,11 @@ what every writer — new, legacy and import — goes through.
    note with no rating still creates a record. The note reaches a player only if the coach
    includes it in a share (`evaluations.sharing`).
 7. **(AV-004) Tap to save.** Every star tap and every note edit (debounced on the client) is its
-   own `PUT`; there is no save button and no dirty state. "Concluir avaliação" only closes the
+   own `PUT`; there is no save button and no dirty state. **(build default Q34) Stars save on tap,
+   one request per tap; a legacy-scale stepper's consecutive steps are ONE input** — debounced
+   about 400 ms per competency (stepping A and then B writes both), the note about 800 ms — and
+   whatever is pending is flushed on blur, on "Concluir avaliação", on close and on unmount, so a
+   quick step-then-close is never lost. "Concluir avaliação" only flushes and closes the
    form. The write is a get-or-create on rule 2's identity, so a repeated or concurrent call
    never creates a second record (the unique indexes are the backstop; a lost race re-reads).
 8. **The write endpoint.** `PUT /api/app/evaluation_record` (JWT, coach). Request
