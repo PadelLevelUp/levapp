@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, delete, event, inspect, or_, select
+from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, delete, event, inspect, select
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -100,10 +100,18 @@ OPEN_STATUSES = ("pending", "countered")
 HOLD_TITLE_PREFIXES = ("Pedido de aula · ", "Class request · ")
 
 
+def _is_hold(block_type, title) -> bool:
+    """PAD-378's definition, THE one predicate for "still recognisably a hold": personal,
+    and the title still starts with a hold prefix — case-sensitively. A coach who retitles
+    a hold has made it theirs (rule 18). Both the refusal/marker path and the release-time
+    delete go through here: a SQL `LIKE` would be case-insensitive on sqlite and
+    case-sensitive on Postgres, and a lower-cased retitle would then be the coach's in one
+    lane and a hold in the other (#380 review)."""
+    return block_type == "personal" and (title or "").startswith(HOLD_TITLE_PREFIXES)
+
+
 def _still_a_hold(block) -> bool:
-    """PAD-378's definition, the same one `_delete_blocks` applies in SQL: a coach who
-    retitles a hold has made it theirs (rule 18)."""
-    return block.type == "personal" and (block.title or "").startswith(HOLD_TITLE_PREFIXES)
+    return _is_hold(block.type, block.title)
 
 
 def live_hold_index(block_ids) -> dict:
@@ -144,13 +152,14 @@ def _delete_blocks(connection, block_ids, *, only_if_still_a_hold=False) -> None
     if not ids:
         return
     table = CalendarBlock.__table__
-    statement = delete(table).where(table.c.id.in_(ids))
     if only_if_still_a_hold:
-        statement = statement.where(
-            table.c.type == "personal",
-            or_(*[table.c.title.like(prefix + "%") for prefix in HOLD_TITLE_PREFIXES]),
-        )
-    connection.execute(statement)
+        # The candidate set is one row per request; filter it with `_is_hold` in Python
+        # so this path and `live_hold_index` cannot disagree by dialect.
+        rows = connection.execute(select(table.c.id, table.c.type, table.c.title).where(table.c.id.in_(ids))).all()
+        ids = [row_id for row_id, block_type, title in rows if _is_hold(block_type, title)]
+        if not ids:
+            return
+    connection.execute(delete(table).where(table.c.id.in_(ids)))
 
 
 @event.listens_for(ClassRequest, "before_delete")

@@ -182,3 +182,39 @@ def test_an_ordinary_block_and_a_closed_requests_leftover_pointer_say_null(clien
         db.session.commit()
     assert _detail(client, app, ids, hold)["requestHoldOf"] is None
     assert {e["requestHoldOf"] for e in _feed_items(client, app, ids, hold)} == {None}
+
+
+# ── one predicate for "still a hold", on both lanes (#380 review) ────────────
+
+def test_a_lower_cased_retitle_is_the_coachs_on_the_release_path_too(client, app):
+    """`_delete_blocks(only_if_still_a_hold=True)` used to test the title with SQL `LIKE`,
+    which is case-insensitive on sqlite and case-sensitive on Postgres, while the refusal
+    and `requestHoldOf` use Python `startswith`. A coach who retitled a hold to a
+    lower-cased "pedido de aula · sábado" was therefore the block's owner for the refusal
+    (allowed to move it, marker null) yet still "a hold" for a closed request's lazy
+    release on sqlite only — the block vanished in one lane and survived in the other.
+    Now both paths ask `_is_hold`: the block survives, on sqlite and on Postgres."""
+    from sqlalchemy import text
+
+    from padel_app.models.calendar_blocks import CalendarBlock
+    from padel_app.models.class_request import ClassRequest
+
+    ids = _setup(app)
+    rid, hold = _weekly_request(app, ids)
+    with app.app_context():
+        CalendarBlock.query.get(hold).title = "pedido de aula · sábado"   # lower-cased prefix: the coach's now
+        db.session.commit()
+        # A pre-PAD-360 shape: closed, pointer never cleared (raw SQL so no hook runs).
+        db.session.execute(text("UPDATE class_requests SET status = 'declined' WHERE id = :rid"), {"rid": rid})
+        db.session.commit()
+    assert _detail(client, app, ids, hold)["requestHoldOf"] is None, "the marker already treats it as the coach's"
+
+    with app.app_context():
+        # A later ORM write to the already-closed request: the lazy release runs with
+        # only_if_still_a_hold=True and must leave a block the coach made theirs.
+        row = db.session.get(ClassRequest, rid)
+        row.status = "withdrawn"
+        db.session.commit()
+        assert db.session.get(ClassRequest, rid).hold_block_id is None, "the stale pointer goes"
+    # By id: the ORIGINAL block, not anything else that may carry the title.
+    assert _hold_row(app, hold) is not None, "the retitled block survives the release"
