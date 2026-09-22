@@ -354,6 +354,17 @@ export default function PlayersPage() {
                         {t("players.pendingRegistration")}
                       </Badge>
                     )}
+                    {/* evaluations.reminders rule 4 (PAD-404): the server's `due`; the list is not re-sorted by it. */}
+                    {cs.due === true && (
+                      <Badge
+                        variant="outline"
+                        className="border-primary/40 text-primary"
+                        data-testid={`player-due-${cs.playerId}`}
+                        aria-label={t("evaluations.reminder.dueLabel")}
+                      >
+                        {t("evaluations.reminder.dueLabel")}
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>

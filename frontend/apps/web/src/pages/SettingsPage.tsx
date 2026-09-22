@@ -48,6 +48,7 @@ import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { SeasonsSection } from "@/components/settings/SeasonsSection";
 import { WorkingHoursSection } from "@/components/settings/WorkingHoursSection";
 import { CompetenciesSettingsEntry } from "@/components/evaluations/competency-manager/CompetenciesSettingsEntry";
+import { EvaluationReminderSetting } from "@/components/evaluations/EvaluationReminderSetting";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
@@ -623,6 +624,10 @@ export default function SettingsPage() {
                       <Separator />
 
                       <CompetenciesSettingsEntry />
+
+                      <Separator />
+
+                      <EvaluationReminderSetting />
                     </>
                   )}
                 </CardContent>

@@ -165,6 +165,13 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
                 <Text>{t("calendar.attendance.absent")}</Text>
               </Badge>
             ) : null}
+            {/* evaluations.reminders rule 4 (PAD-404): the server's `due`. */}
+            {participant.due === true ? (
+              <Badge variant="outline" className="border-primary/40" testID={`class-eval-due-${id}`}
+                accessibilityLabel={t("evaluations.reminder.dueLabel")}>
+                <Text className="text-primary">{t("evaluations.reminder.dueLabel")}</Text>
+              </Badge>
+            ) : null}
           </View>
           {/* The counts ride in the testID: Maestro reads ids, and the copy differs by locale. */}
           <Text className="text-xs text-muted-foreground" testID={`class-eval-summary-${id}-${summary.rated}-${summary.total}`}>

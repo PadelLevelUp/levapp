@@ -153,6 +153,13 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
                 {t("calendar.attendance.absent")}
               </Badge>
             )}
+            {/* evaluations.reminders rule 4 (PAD-404): the server's `due`. */}
+            {participant.due === true && (
+              <Badge variant="outline" className="shrink-0 border-primary/40 text-primary"
+                data-testid={`class-eval-due-${id}`} aria-label={t("evaluations.reminder.dueLabel")}>
+                {t("evaluations.reminder.dueLabel")}
+              </Badge>
+            )}
           </span>
           <span className="block text-xs text-muted-foreground" data-testid={`class-eval-summary-${id}`}
             data-rated={summary.rated} data-total={summary.total}>
