@@ -493,7 +493,7 @@ def test_resharing_moves_sharedat_updates_the_card_and_clears_staleness_with_no_
 
     time.sleep(0.1)
     edit = client.put(f"{BASE}/evaluation_record", headers=headers, json={
-        "playerId": ids["student_id"], "recordId": record_id, "ratings": {str(ids["forehand_id"]): 9},
+        "playerId": ids["student_id"], "recordId": record_id, "ratings": {str(ids["forehand_id"]): 5},  # 4 → 5, in range on 1–10 and on PAD-403's 1–5
     })
     assert edit.status_code == 200, edit.get_data(as_text=True)
     assert _record_share(app, client, ids, record_id)["stale"] is True  # unchanged card, but stale now
