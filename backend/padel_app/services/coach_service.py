@@ -300,14 +300,23 @@ def add_evaluation_entry_service(coach, data):
     if any(n > LEGACY_BODY_ABOVE for n in numbers):
         if not all(0 <= n <= 10 for n in numbers):
             return {"error": "score_out_of_range"}, 400
-        numbers = [float(legacy_value_to_stars(n)) for n in numbers]
-    elif not all(NEW_SCALE[0] <= n <= NEW_SCALE[1] for n in numbers):
-        return {"error": "score_out_of_range"}, 400
+        # "Equal to latest" (R-047 point 5) compares the converted value: the latest is stars.
+        compared = stored = [float(legacy_value_to_stars(n)) for n in numbers]
+    else:
+        # Stored scores are whole stars (the Coordinator's ruling on non-integers). These builds step +/-1 from `existing?.score`
+        # (add-evaluation-form.tsx :59-62, :68-71), so a fractional score already on file (an
+        # import's 3.5) is posted back untouched. That must not loop on a 400, so it is ceiled
+        # to a whole star before the range check; and it must not become a rating the coach
+        # never gave, so "equal to latest" compares the value AS SENT.
+        compared = numbers
+        stored = [float(math.ceil(n)) for n in numbers]
+        if not all(NEW_SCALE[0] <= n <= NEW_SCALE[1] for n in stored):
+            return {"error": "score_out_of_range"}, 400
 
     # 3. Write what changed.
-    for (category_id, _value), number in zip(candidates, numbers):
+    for (category_id, _value), sent, number in zip(candidates, compared, stored):
         try:
-            unchanged = float(latest[category_id]) == number
+            unchanged = float(latest[category_id]) == sent
         except (KeyError, TypeError, ValueError):
             unchanged = False  # a category with no score yet
         if unchanged:

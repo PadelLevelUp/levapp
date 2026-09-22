@@ -126,8 +126,11 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
     Then, **if any value is above 5**, the body comes from a form still on the old 1–10 scale:
     an App Store 1.0/1.1.0 dialog opened before PAD-403's migration refills stale scores on every
     reopen, while a 1–5 form clamps at 5. Every value in that body must lie in 0–10 and is
-    converted with the migration's rule, `max(1, ceil(v / 2))`. Otherwise every value must lie in
-    1–5. Anything else is a 400 `score_out_of_range`, and **nothing** from that body is written.
+    converted with the migration's rule, `max(1, ceil(v / 2))`. Otherwise each value is **ceiled
+    to a whole star** and must then lie in 1–5. Stored scores are whole stars. The pinned builds
+    can post a non-integer (they step ±1 from `existing?.score`, `add-evaluation-form.tsx`
+    :59-62, :68-71, so an imported 3.5 comes back untouched), and it must not loop on a 400.
+    "Equal to latest" compares the value **as sent**, so an untouched 3.5 is not rewritten as 4. Anything else is a 400 `score_out_of_range`, and **nothing** from that body is written.
     The rule-5 "equal to latest" skip compares the converted value. The residual case is a stale
     1–10 body whose values are all ≤ 5, which is stored as stars. The conversion is retired with
     point 8. Pinned in `test_pad362_evaluation_contract.py` ("R-047 pin update, part 3").
