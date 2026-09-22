@@ -1,6 +1,6 @@
 ---
 id: evaluations.history
-status: draft
+status: implemented
 depends_on: [evaluations.records, evaluations.competencies, evaluations.player-view, players.notes]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -77,6 +77,12 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
    ticket or keeps a strengths/weaknesses section in the new web form, saved through the
    existing `POST /add_evaluation_entry` call with an empty `scores` array. They are never
    dropped. `PUT /evaluation_record` does not carry them.
+   **Outcome (PAD-374): they left the web form, on proof.** A web editor outside the sheet
+   already existed — the `PlayerStrengthsWeaknesses` profile card (`PlayerDetailPage`, test id
+   `sw-section`), saving through `POST /add_coach_note` and `POST /delete/coach_note`, the path
+   iOS's card uses — and was proven to work before the commit that dropped them from the form:
+   `e2e/evaluation-tools/player-notes.spec.ts`, 2 passed (US-44, US-45), at `ddf6b1f14`,
+   2026-09-21 19:20:34–19:21:37 UTC. Recorded in `players.notes` rule 5.
 10. **(AV-077) The drawer owns its state.** Closing it closes the form and resets the evolution
     selection; opening it for another player never shows the previous player's form or
     selection. It is not rendered outside the player view.

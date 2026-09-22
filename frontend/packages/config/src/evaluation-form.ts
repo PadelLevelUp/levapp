@@ -33,6 +33,8 @@ export function nextStarScore(current: number | null, tapped: number): number | 
 /** A stepper press. An unrated category starts at the middle of its scale — a starting
  *  position the coach then moves — and every later press steps within the scale. */
 export function stepScore(current: number | null, delta: 1 | -1, scaleMin: number, scaleMax: number): number {
+  // R-048's grep check hits this Math.round BY DESIGN: it is a starting POSITION for the control (the
+  // middle of the scale), not an evaluation figure. No mean, delta or window is ever computed here.
   if (current === null) return Math.round((scaleMin + scaleMax) / 2);
   return Math.min(scaleMax, Math.max(scaleMin, current + delta));
 }

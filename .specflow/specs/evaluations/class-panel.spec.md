@@ -32,8 +32,11 @@ leaving it. Today the only entry point is the player's page.
    screen, not a native `Modal` sheet. Web and iOS ship in the same ticket.
 3. **The read.** `POST /api/app/class_instance/evaluations?model=&id=&date=` (JWT, coach; the same
    occurrence addressing as `POST /class_instance`) →
-   `{classInstanceId|null, competencies: [active], participants: [{playerId, coachPlayerId,
-   name, absent, due, record: Record|null}]}`. It is a **read and materialises nothing**:
+   `{classInstanceId|null, canRate, competencies: [active], participants: [{playerId,
+   coachPlayerId, name, absent, due, record: Record|null}]}`. **(build default Q35)** `canRate`
+   is `false` exactly when the occurrence has no row **and** its date is before today on
+   `CLUB_TZ` — the one case a write would answer 409 (rule 10) — and `true` otherwise. It is a
+   **read and materialises nothing**:
    `classInstanceId` is null for an occurrence with no row yet; the first write materialises it
    (`evaluations.records` rule 4). `competencies` items are `{id, key|null, name, group|null,
    scaleMin, scaleMax}` in `evaluations.competencies` rule 5's order. **(build default Q28)**
@@ -79,9 +82,13 @@ leaving it. Today the only entry point is the player's page.
     For a **past occurrence that was never materialised** the action is not offered — disabled
     with a one-line explanation — and the coach evaluates from the player instead: a write
     would answer 409 (`evaluations.records` rule 4), because materialising a class that is over
-    enrols its roster and fills its waiting list. The building slice may propose something less
-    restrictive to the evaluation-system lead; it never materialises a past class as a side
-    effect of rating.
+    enrols its roster and fills its waiting list. **(build default Q35) The clients decide this
+    from the read's `canRate` alone:** `false` → the action is disabled with its explanation;
+    a 403 from the read (the coach does not own the class) → the action is absent altogether, so
+    a non-owner never sees a control to be refused by; no client compares a date with its own
+    clock (R-048's principle: the server is the one instrument). The building slice may propose
+    something less restrictive to the evaluation-system lead; it never materialises a past class
+    as a side effect of rating.
 
 ### Touches
 - `classes.detail-visibility` — gains a rule that the class payload itself carries no evaluation

@@ -91,9 +91,11 @@ export async function deleteClassRequests(
 
 /**
  * Withdraw class requests as the student who sent them, so their calendar hold
- * is released (only withdraw / decline / accept release it; an editor delete
- * leaves the hold on the coach's calendar). A request already closed answers
- * 4xx, which is fine here. Call it before `deleteClassRequests`.
+ * is released. Since PAD-360 an editor delete releases the hold too
+ * (classes.class-requests rule 18), so this is no longer what keeps the
+ * coach's calendar clean; it is kept because it is harmless and exercises the
+ * product path. A request already closed answers 4xx, which is fine here.
+ * Call it before `deleteClassRequests`.
  */
 export async function withdrawClassRequests(
   request: APIRequestContext,

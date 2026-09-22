@@ -202,6 +202,17 @@ def add_coach_note_service(coach, data):
     return {"status": "ok", "id": note.id, "type": note_type, "text": note.text}, 200
 
 
+def _log_ignored_score(coach, category_id):
+    """An ignored score is silent to the client by design (rule 8); leave a trace for us."""
+    from flask import current_app, has_app_context
+
+    if has_app_context():
+        current_app.logger.warning(
+            "add_evaluation_entry: coach %s posted a score for category %r, which is not theirs — ignored (B-145)",
+            coach.id, category_id,
+        )
+
+
 def add_evaluation_entry_service(coach, data):
     """Records evaluation scores and notes for a player."""
     player_id = data.get("playerId")
@@ -226,19 +237,31 @@ def add_evaluation_entry_service(coach, data):
     # evaluations.legacy-client-contract (R-047, PAD-363): this endpoint accepts
     # scores for the coach's own LEGACY categories only. An App Store build posts
     # a midpoint for every category it knows of; a competency it should never
-    # have seen — or another coach's category, or an id that does not exist — is
-    # ignored, and the response is the same.
+    # have seen is ignored, and the response is the same.
     # A legacy category the coach switched off is ignored too (rule 3): a build
     # holding a list fetched before the switch-off still posts its midpoint for it.
     legacy_ids = {c.id for c in coach.evaluation_categories if c.is_legacy and c.is_active}
+    # evaluations.entries rule 8 (PAD-370, B-145, compass R-002): a score is
+    # recorded only in one of the coach's OWN categories. Another coach's
+    # category, an id that does not exist or is not a number is ignored AND
+    # logged; the response is the same — App Store builds post every category in
+    # one body and read any non-2xx as a failed save, with the earlier scores
+    # already written. An own category this endpoint does not serve (above) is
+    # the expected case and is not logged.
+    own_ids = {c.id for c in coach.evaluation_categories}
     for score in scores:
         value = score.get("value")
         if value is None:
             continue
         try:
-            if int(score.get("categoryId")) not in legacy_ids:
+            category_id = int(score.get("categoryId"))
+            if category_id not in own_ids:
+                _log_ignored_score(coach, score.get("categoryId"))
                 continue
-        except (TypeError, ValueError):
+            if category_id not in legacy_ids:
+                continue
+        except (TypeError, ValueError, OverflowError):  # OverflowError: int(1e999)
+            _log_ignored_score(coach, score.get("categoryId"))
             continue
         try:
             unchanged = float(latest[int(score.get("categoryId"))]) == float(value)
