@@ -8,8 +8,8 @@ affects:
   - .claude/skills/weekly-qa/SKILL.md
   - docs/qa/scripts/reset-qa-db.sh
 proposed_fix: "A tracked reset script next to the skill that takes QA_CHECKOUT and QA_COMMIT explicitly and refuses before touching the database; step 2 calls it from the QA checkout; step 13 names the schema head."
-opened: 2026-09-22T20:10:00Z
-resolved: 2026-09-22T20:30:00Z
+opened: 2026-09-22T10:29:15Z
+resolved: 2026-09-22T20:10:35Z
 ---
 
 # B-171 — the weekly QA reset built the QA database from the wrong tree
