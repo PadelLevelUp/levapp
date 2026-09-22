@@ -316,13 +316,12 @@ def test_edit_class_an_emptied_not_null_value_is_refused_and_nothing_is_written(
 
 @pytest.mark.parametrize("updates,column", [
     ({"levelId": None}, "level"), ({"levelId": ""}, "level"),
-    ({"recurrenceEnd": None}, "recurrence_end"), ({"recurrenceEnd": ""}, "recurrence_end"),
     ({"color": ""}, "color"), ({"color": None}, "color"),
-], ids=["null-level", "empty-level", "null-end-date", "empty-end-date", "empty-color", "null-color"])
+], ids=["null-level", "empty-level", "empty-color", "null-color"])
 def test_edit_class_an_emptied_nullable_value_clears_it(app, client, updates, column):
     """FIXED in PAD-387 (B-136 step 2): a coach CAN take the level off a class ("all
-    levels"), remove a series' end date or its colour — both null and "" clear (decided
-    2026-09-21). Was: 201 and nothing changed."""
+    levels") or its colour — both null and "" clear (decided 2026-09-21). Was: 201 and
+    nothing changed. The end date is the exception: see the next test."""
     world = _class_world(app, client)
     before = _class_row(app, world["lesson_id"])
     assert before[column] not in (None, "None"), "the seed gives the column a value to clear"
@@ -333,6 +332,64 @@ def test_edit_class_an_emptied_nullable_value_clears_it(app, client, updates, co
     assert after[column] in (None, "None")
     untouched = [k for k in ("title", "max_players", "level", "color", "recurrence_end") if k != column]
     assert {k: after[k] for k in untouched} == {k: before[k] for k in untouched}
+
+
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string (a cleared web date input)", "null"])
+def test_edit_class_refuses_to_empty_the_end_date_of_a_recurring_class(app, client, cleared):
+    """Session-B's review of #368: a NULL recurrence_end means "recurs forever"
+    downstream, the create path refuses to make one (PAD-90) and calendar.seasons
+    rule 10 forbids it on a flagged lesson — so the edit route must not become
+    the one way to make an unbounded series. The exact web body: ClassDetailSheet's
+    native date input yields "" when cleared or half-typed, and the diff sends it."""
+    world = _class_world(app, client)
+    before = _class_row(app, world["lesson_id"])
+    assert before["has_rule"] and before["recurrence_end"] != "None"
+
+    res = _edit_class(client, world, {"recurrenceEnd": cleared, "color": "#abcdef"})
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["recurrence_end"]}
+    assert _class_row(app, world["lesson_id"]) == before
+
+
+def test_edit_class_an_explicit_end_date_is_the_coachs_and_the_season_no_longer_caps_it(app, client):
+    """Session-B's F2 on #368: the legacy path reset `recurs_until_season_end` on
+    every edit by accident (PAD-93's family); present mode leaves it alone — so an
+    edit that SETS an end date must clear the flag on purpose, or the next season
+    save re-caps the coach's date (season_service.recap_flagged_lessons)."""
+    from padel_app.models.lessons import Lesson
+
+    world = _class_world(app, client)
+    with app.app_context():
+        db.session.get(Lesson, world["lesson_id"]).recurs_until_season_end = True
+        db.session.commit()
+
+    assert _edit_class(client, world, {"recurrenceEnd": "2027-01-15"}).status_code == 201
+
+    with app.app_context():
+        row = db.session.get(Lesson, world["lesson_id"])
+        assert (str(row.recurrence_end), row.recurs_until_season_end, row.is_recurring) == ("2027-01-15", False, True)
+
+
+def test_edit_class_single_scope_a_cleared_level_makes_the_occurrence_inherit_the_series_level(app, client):
+    """Session-B's F3 on #368 (classes.edit rule 7 as narrowed): an occurrence has
+    no colour, end date or court of its own, and a NULL level on it INHERITS the
+    series' (rule 4) — so on `single` a cleared level is not "all levels"."""
+    from padel_app.models.lesson_instances import LessonInstance
+
+    world = _class_world(app, client)
+    series = _class_row(app, world["lesson_id"])
+    single = {"event": {"model": "Lesson", "originalId": world["lesson_id"], "date": world["day"].isoformat()},
+              "scope": "single"}
+    res = client.post("/api/app/edit_class", headers=world["headers"],
+                      json={**single, "updates": {"levelId": None, "color": ""}})
+    assert res.status_code == 201, res.get_data(as_text=True)
+
+    with app.app_context():
+        instance = LessonInstance.query.filter_by(lesson_id=world["lesson_id"]).one()
+        assert instance.level_id is None
+        assert instance.effective_level_id == series["level"]
+    assert _class_row(app, world["lesson_id"]) == series, "a single-scope edit never touches the series"
 
 
 def test_edit_class_leaves_the_booleans_it_was_not_sent_alone(app, client):

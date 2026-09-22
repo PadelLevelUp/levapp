@@ -22,12 +22,22 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    it must belong to the class's club (`clubs.courts` rule 6). A "this and future" split copies the court.
 
 7. **What was sent is what is written (PAD-387, B-136).** `POST /api/app/edit_class` writes only the
-   keys present in `updates`; an omitted key — `isRecurring` included — is left alone on every scope.
-   A present `null` or `""` clears a nullable field: `levelId` ("all levels"), `recurrenceEnd`,
-   `color`, `courtId` (rule 6). For `name` and `maxPlayers`, which cannot be empty — and 0 is not a
-   legal capacity — a present empty value is answered `400 {"error": "invalid_fields", "fields":
-   [...]}` naming every such field, and nothing is written, on any scope. An occurrence's title
-   override is touched only by an edit that sent `name`.
+   keys present in `updates`; an omitted key — `isRecurring` and `recursUntilSeasonEnd` included — is
+   left alone. What a present `null` or `""` does depends on the column, decided per key:
+   - **Series scopes (`future`, `all`, and a `Lesson` event):** `levelId` clears to "all levels";
+     `color` clears; `courtId` clears (rule 6). `recurrenceEnd` may NOT be emptied while the lesson
+     has a recurrence rule — a NULL end means "recurs forever" downstream, the create path refuses to
+     make one (PAD-90) and `calendar.seasons` rule 10 forbids it — so it is answered 400. An explicit
+     `recurrenceEnd` is the coach's: it sets `recurs_until_season_end` to false, so a later season
+     save does not re-cap it. `name` and `maxPlayers` cannot be empty (0 is not a legal capacity): a
+     present empty value is answered `400 {"error": "invalid_fields", "fields": [...]}` naming every
+     such field, and nothing is written. The 400 is decided on the whole payload before any path
+     writes or forks the series.
+   - **A single occurrence (`single`):** an occurrence has no colour, end date or court of its own —
+     those keys are accepted and ignored; a cleared `levelId` sets the occurrence's level to NULL,
+     which INHERITS the series level (rule 4), not "all levels". An empty `name` is refused as above;
+     the title override is dropped only by resending the series title (rule 4), and it is touched
+     only by an edit that sent `name`.
 
 ### Acceptance Criteria
 
@@ -51,11 +61,27 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 
 #### An emptied nullable field clears; an emptied required one is refused (rule 7)
 - **Given** a weekly class "Thursday group" with level 5, colour #112233 and an end date
-- **When** the coach sends `updates: {"levelId": null}`, then `{"recurrenceEnd": ""}`, then `{"color": ""}`
-- **Then** each answers 201 and the class has no level, no end date and no colour, the other
-  fields unchanged; it is still recurring
+- **When** the coach sends `updates: {"levelId": null}`, then `{"color": ""}`, on scope `future`
+- **Then** each answers 201 and the class has no level and no colour, the other fields unchanged;
+  it is still recurring, and its end date is still there
 - **When** the coach sends `{"name": "", "color": "#abcdef"}` or `{"maxPlayers": 0, "color": "#abcdef"}`
 - **Then** the answer is 400 with `fields` `["title"]` / `["max_players"]` and the colour is unchanged
+
+#### A recurring class cannot lose its end date through an edit (rule 7)
+- **Given** the same weekly class, ending 2027-03-01
+- **When** the coach's web sheet sends `{"recurrenceEnd": ""}` (a cleared date input) or `null`
+- **Then** the answer is 400 with `fields` `["recurrence_end"]`, and the end date is unchanged
+
+#### An explicit end date is the coach's (rule 7)
+- **Given** a class created "until season end" (flag set, end 2027-07-31)
+- **When** the coach sends `{"recurrenceEnd": "2027-01-15"}`
+- **Then** the end is 2027-01-15, the flag is cleared, and the class is still recurring
+
+#### On a single occurrence a cleared level inherits (rule 7)
+- **Given** the weekly class with level 5
+- **When** the coach sends `{"levelId": null, "color": ""}` on scope `single`
+- **Then** the answer is 201, the occurrence's own level is NULL and its effective level is 5, and
+  the series is untouched
 
 #### An edit without a name keeps the occurrence's title override (rule 7)
 - **Given** an occurrence renamed "Just today" through a single-scope edit

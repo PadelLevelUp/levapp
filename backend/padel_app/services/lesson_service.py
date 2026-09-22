@@ -1286,12 +1286,16 @@ _EDIT_CLASS_FIELDS = {
 }
 
 
-def _refused_class_fields(payload):
+def _refused_class_fields(payload, *, recurring):
     """The sent-empty values a class cannot hold, named for a 400 (PAD-387).
 
     `title` and `max_players` are NOT NULL on lessons; 0 is not a legal capacity
-    (decided 2026-09-21). Checked here, on the whole payload and before any
-    path writes, rather than left to the model's NotNullableFieldError — a
+    (decided 2026-09-21). `recurrence_end` may not be emptied on a recurring
+    lesson: a NULL end means "recurs forever" everywhere downstream and the
+    create path refuses to make one (PAD-90, calendar.seasons rule 10) — the
+    edit route must not become the one way to make an unbounded series
+    (Session-B's review of #368). Checked here, on the whole payload and before
+    any path writes, rather than left to the model's NotNullableFieldError — a
     "future" edit forks the series before it edits, and an instance's
     max_players is derived, so the model would see it too late or not at all.
     """
@@ -1306,6 +1310,8 @@ def _refused_class_fields(payload):
             legal = False
         if not legal:
             refused.append("max_players")
+    if recurring and "recurrence_end" in payload and payload["recurrence_end"] in (None, ""):
+        refused.append("recurrence_end")
     return refused
 
 
@@ -1343,13 +1349,24 @@ def edit_class_service(data):
     }
     payload["add_player_ids"] = updates.get("addPlayers", [])
     payload["remove_player_ids"] = updates.get("removePlayers", [])
-    refused = _refused_class_fields(payload)
+    model = event.get("model")
+    original_id = event.get("originalId")
+
+    _series = (
+        LessonInstance.query.get_or_404(original_id).lesson
+        if model == "LessonInstance"
+        else Lesson.query.get_or_404(original_id)
+    )
+    refused = _refused_class_fields(payload, recurring=bool(_series.recurrence_rule))
     if refused:
         # Before any write — a "future" edit splits the series before it edits.
         return {"error": "invalid_fields", "fields": refused}, 400
-
-    model = event.get("model")
-    original_id = event.get("originalId")
+    if "recurrence_end" in payload:
+        # An explicit end date is the coach's: the season must not re-cap it
+        # (calendar.seasons rule 10; season_service.recap_flagged_lessons re-caps
+        # every flagged lesson). The legacy path reset the flag on EVERY edit by
+        # accident; present mode leaves it alone, so this is now said on purpose.
+        payload["recurs_until_season_end"] = False
 
     # clubs.courts rule 6 (PAD-194): null clears the court, omitted leaves it.
     # Validated against the class's club before anything is written.
