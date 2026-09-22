@@ -11,6 +11,7 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  errorStatusOf,
   lisbonNowMs,
   wallClockISOMs,
   type StateTone,
@@ -188,6 +189,7 @@ export default function ClassDetailScreen() {
     isClass: isClassEvent,
     data: classEvaluations.data,
     isError: classEvaluations.isError,
+    errorStatus: errorStatusOf(classEvaluations.error),
   });
 
   const { data: levels } = useCoachLevels();
@@ -1584,6 +1586,7 @@ export default function ClassDetailScreen() {
               <Separator />
               <ClassEvaluationsAction
                 state={evaluationsAction}
+                onRetry={() => void classEvaluations.refetch()}
                 onOpen={() => {
                   if (!evaluationsRef) return;
                   router.push({

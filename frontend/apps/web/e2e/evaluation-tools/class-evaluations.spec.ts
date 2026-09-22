@@ -30,13 +30,13 @@ function isoDaysFromToday(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-async function studentPlayerId(request: APIRequestContext, coachTok: string): Promise<number> {
+async function studentPlayerId(request: APIRequestContext, coachTok: string, name = STUDENT_NAME): Promise<number> {
   const res = await request.get(`${API_APP}/coach_players`, { headers: bearer(coachTok) });
   expect(res.ok()).toBeTruthy();
   const data = await res.json();
   const players: { playerId: number | string; name: string }[] = Array.isArray(data) ? data : data.items;
-  const found = players.find((p) => p.name === STUDENT_NAME);
-  expect(found, `${STUDENT_NAME} is on the coach's roster`).toBeTruthy();
+  const found = players.find((p) => p.name === name);
+  expect(found, `${name} is on the coach's roster`).toBeTruthy();
   return Number(found!.playerId);
 }
 
@@ -183,4 +183,46 @@ test("US-376c: a student never sees the action, and the endpoint answers 403 wit
   await openClassDetail(page, title);
   await expect(page.getByTestId("class-evaluations-open")).toHaveCount(0);
   await expect(page.getByTestId("class-eval-unavailable")).toHaveCount(0);
+});
+
+test("US-376d: a participant whose latest record is from an earlier day — the card above the form stays put when today's record arrives (review F1)", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
+  const playerId = await studentPlayerId(request, coachTok, "E2E Student Two");
+  const techniqueId = await starCompetency(request, coachTok);
+  const title = "E2E Eval Yesterday Class"; // the seed's: materialised yesterday, one Forehand rating in its record
+
+  await loginAsCoach(page);
+  await openClassDetail(page, title, 1);
+  await page.getByTestId("class-evaluations-open").click(); // materialised: ratable whatever the date
+  await expect(page.getByTestId("class-evaluations-panel")).toBeVisible({ timeout: 10_000 });
+  const row = page.getByTestId(`class-eval-row-${playerId}`);
+  await expect(row.getByTestId(`class-eval-summary-${playerId}`)).toHaveAttribute("data-rated", "1"); // yesterday's Forehand counts (Q28)
+  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
+  const earlier = row.getByTestId(`class-eval-earlier-${playerId}`);
+  await expect(earlier).toBeVisible();
+  const form = row.getByTestId("evaluation-form");
+  await expect(form.getByTestId(`evaluation-stars-${techniqueId}`)).toHaveAttribute("data-score", ""); // the form starts empty
+
+  const put = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
+  await form.getByTestId(`evaluation-star-${techniqueId}-4`).click();
+  const response = await put;
+  expect(response.status()).toBe(200);
+  const todays = await response.json();
+  recordIds.push(todays.id);
+  expect(todays.className).toBe(title);
+
+  // The read is refetched and now returns TODAY's record as the row's most recent — the
+  // earlier-day card must still be there while the row is open, so the form did not move.
+  await expect(row.getByTestId(`class-eval-summary-${playerId}`)).toHaveAttribute("data-rated", "1");
+  await expect(earlier).toBeVisible();
+  await expect(form.getByTestId(`evaluation-stars-${techniqueId}`)).toHaveAttribute("data-score", "4");
+  // Closing the row releases the hold: reopened, today's record alone.
+  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
+  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
+  await expect(row.getByTestId(`class-eval-earlier-${playerId}`)).toHaveCount(0);
+
+  const history = await (await request.get(`${API_APP}/player/${playerId}/evaluations`, { headers: bearer(coachTok) })).json();
+  const inClass = (history.records as { id: number; className: string | null; editable: boolean }[]).filter((r) => r.className === title);
+  expect(inClass.map((r) => r.editable).sort()).toEqual([false, true]); // yesterday's and today's, two records
 });

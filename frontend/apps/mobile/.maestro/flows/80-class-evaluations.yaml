@@ -5,8 +5,9 @@
 #   legacy stepper "Forehand"), so the row lists 2 and a STAR can be tapped; teardown switches it off
 # - calendar (opens on today) → the class → "Avaliações" (a pushed screen) → the student's row
 #   reads "Sem avaliação" (0/2) → open it → tap the technique star → the SERVER holds one record carrying the class
-# - "Concluir avaliação" collapses the row; the summary reads 1/3
-# - teardown removes the record and the class
+# - "Concluir avaliação" collapses the row; the summary reads 1/2
+# - second half: yesterday's seeded class — the earlier-day card stays when today's record arrives
+# - teardown removes the records the flow made and the class; the seeded rows stay
 # Rows are opened by id (never by a name a field may also hold); the summary's counts ride in its
 # testID because the copy differs by locale. player id 1 is E2E Student on a fresh seed.
 appId: com.padellevelup.app
@@ -77,5 +78,63 @@ appId: com.padellevelup.app
       id: "class-evaluations-panel"
     timeout: 10000
 
+# ── Second half (review F1): a participant whose latest record is from an EARLIER day ──
+# The seed's "E2E Eval Yesterday Class" (materialised yesterday, Student Two present, one Forehand
+# rating in that occurrence's record). The card above the form must not move when today's record
+# arrives after the first tap: the row stays open, the earlier card stays, the summary stays 1/2.
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.yesterday}"
+    commands:
+      - tapOn:
+          id: "calendar-prev-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.yesterday}"
+- scrollUntilVisible:
+    element:
+      text: "${output.yesterdayTitle}"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: "${output.yesterdayTitle}"
+- extendedWaitUntil:
+    visible:
+      id: "class-evaluations-open"
+    timeout: 20000
+- tapOn:
+    id: "class-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "class-evaluations-panel"
+    timeout: 15000
+- assertVisible:
+    id: "class-eval-summary-${output.student2Id}-1-2"
+- tapOn:
+    id: "class-eval-row-toggle-${output.student2Id}"
+- extendedWaitUntil:
+    visible:
+      id: "class-eval-earlier-${output.student2Id}"
+    timeout: 10000
+- tapOn:
+    id: "evaluation-star-${output.techniqueId}-4"
+- evalScript: "${output.two = json(http.get(output.api + '/api/app/player/' + output.student2Id + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records.filter(function (r) { return r.className === output.yesterdayTitle; })}"
+- assertTrue: "${output.two.length === 2}"
+# after the read refetched with today's record as the most recent, the earlier card is still there
+- assertVisible:
+    id: "class-eval-summary-${output.student2Id}-1-2"
+- assertVisible:
+    id: "class-eval-earlier-${output.student2Id}"
+- tapOn:
+    id: "class-eval-back"
+
 - runScript: ../scripts/class-evaluations-teardown.js
-- assertTrue: "${output.left === 0}"
+- assertTrue: "${output.left === 0 && output.yesterdayLeft === 1}"

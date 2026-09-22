@@ -52,22 +52,35 @@ export function classRowSummary(active: EvaluationCompetency[], record: Rated): 
   return { rated: ratings.length, total: active.length + extra };
 }
 
-export type ClassEvaluationsActionState = "hidden" | "loading" | "unavailable" | "available";
+export type ClassEvaluationsActionState = "hidden" | "loading" | "error" | "unavailable" | "available";
 
 /**
  * Whether the class detail offers "Avaliações" (rules 1, 10). Hidden for a student, for
- * an event that is not a class, and when the read was refused (the coach does not own
- * the class). Otherwise it waits for the read and follows its `canRate`: a past
- * occurrence that was never opened is `unavailable` — shown disabled with a one-line
- * explanation, because rating it would have to materialise a class that is over.
+ * an event that is not a class, and when the read was REFUSED — a 403, the coach does
+ * not own the class — whatever was held before. Any other failure is `error`: its own
+ * state with a retry, never "not the owner" (a 502 during a deploy, a dropped
+ * connection). A failure while the last good read is still held changes nothing — the
+ * panel stays mounted on that data, so a failed post-write refetch never unmounts an
+ * open panel mid-edit. Otherwise it follows the read's `canRate`: a past occurrence
+ * that was never opened is `unavailable` — shown disabled with a one-line explanation,
+ * because rating it would have to materialise a class that is over.
  */
 export function classEvaluationsAction(input: {
   isCoach: boolean;
   isClass: boolean;
   data: ClassEvaluations | undefined;
   isError: boolean;
+  /** The failed read's HTTP status, when it had one. */
+  errorStatus?: number;
 }): ClassEvaluationsActionState {
-  if (!input.isCoach || !input.isClass || input.isError) return "hidden";
-  if (!input.data) return "loading";
-  return input.data.canRate ? "available" : "unavailable";
+  if (!input.isCoach || !input.isClass) return "hidden";
+  if (input.isError && input.errorStatus === 403) return "hidden";
+  if (input.data) return input.data.canRate ? "available" : "unavailable";
+  return input.isError ? "error" : "loading";
+}
+
+/** The HTTP status of a failed request, when the error carries one (axios shape). */
+export function errorStatusOf(error: unknown): number | undefined {
+  const status = (error as { response?: { status?: unknown } } | null)?.response?.status;
+  return typeof status === "number" ? status : undefined;
 }

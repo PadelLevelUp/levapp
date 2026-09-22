@@ -128,7 +128,12 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
   // Today's record is edited in place; an earlier day's is shown read-only and the form
   // starts empty — its first tap starts today's record for the same occurrence.
   const todays = record?.editable ? record : null;
-  const earlier = record && !record.editable ? record : null;
+  // Nothing drawn above the form changes shape in answer to a tap (Q33): the first tap makes
+  // TODAY's record the row's most recent one (Q28) and the earlier-day card would unmount,
+  // dropping the form under the finger. The card is held while the row is open; closing
+  // the row releases it. The form's session is created once, so today's id arriving does
+  // not touch what the coach is editing.
+  const earlier = useHeldWhile(record && !record.editable ? record : null, open, `${id}:${open}`);
 
   return (
     <li data-testid={`class-eval-row-${id}`}>
