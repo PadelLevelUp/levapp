@@ -3,12 +3,13 @@ id: B-125
 title: "Renaming an evaluation category in Settings creates a new category and strands the old one's scores"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - evaluations.categories
   - backend/padel_app/services/coach_service.py
 proposed_fix: "Rename by id on the new PATCH /evaluation_competency/<id> (PAD-364). The legacy name-keyed upsert stays exactly as it is while App Store 1.0 / 1.1.0 live."
 opened: 2026-09-21T18:22:40Z
+resolved: 2026-09-22T20:39:42Z
 ---
 
 # B-125: a rename is an insert
@@ -51,3 +52,19 @@ cannot change; making the legacy upsert guess at renames would change what that 
 ### Resolution
 
 _Open — resolved by PAD-364._
+
+### Resolution — fixed for every current client; the legacy path stays by design (2026-09-22)
+
+Resolved by Session-C when PAD-365 closed as Done (Linear, 20:39:42Z), on the coordinator's
+ruling:
+- **Server:** rename by id, `PATCH /api/app/evaluation_competency/<id>`, landed in `ce4e27a3d`
+  (PAD-364) and is on origin/main. `test_pad364_competencies_api.py::test_a_rename_is_by_id_and_keeps_the_scores`
+  pins that the renamed competency keeps its scores.
+- **Clients:** the current web and iOS apps rename only through it (PAD-373's competency manager,
+  PR #361). No screen calls `POST /add_evaluation_categories`, and two
+  `no-legacy-endpoints` tests (web `components/evaluations/` and `competency-manager/`) forbid it.
+- **Unchanged, by design (R-047):** App Store 1.0 / 1.1.0 still post the name-keyed body, and
+  a rename from those builds still inserts a new category, pinned by
+  `test_4_renaming_a_category_creates_a_new_one_and_strands_the_old_scores`. The categories
+  those builds already duplicated on production are not counted.
+
