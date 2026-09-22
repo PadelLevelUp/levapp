@@ -1,0 +1,79 @@
+# PAD-376 (evaluations.class-panel) — mirrors apps/web/e2e/evaluation-tools/class-evaluations.spec.ts
+# (Flow number 80 is from Session E's reserved range.)
+# - setup: a one-off class TODAY with E2E Student enrolled, a clean slate for their evaluations
+# - calendar (opens on today) → the class → "Avaliações" (a pushed screen) → the student's row
+#   reads "Sem avaliação" → open it → tap a star → the SERVER holds one record carrying the class
+# - "Concluir avaliação" collapses the row; the summary reads 1/3
+# - teardown removes the record and the class
+# Rows are opened by id (never by a name a field may also hold); the summary's counts ride in its
+# testID because the copy differs by locale. player id 1 is E2E Student on a fresh seed.
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/class-evaluations-setup.js
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "${output.classTitle}"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: "${output.classTitle}"
+- extendedWaitUntil:
+    visible:
+      id: "class-evaluations-open"
+    timeout: 20000
+- assertNotVisible:
+    id: "class-eval-unavailable"
+- tapOn:
+    id: "class-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "class-evaluations-panel"
+    timeout: 15000
+- assertVisible:
+    id: "class-eval-summary-1-0-3"
+- tapOn:
+    id: "class-eval-row-toggle-1"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-form"
+    timeout: 10000
+
+# ── One star tap = one PUT carrying the class ──
+- tapOn:
+    id: "evaluation-star-.*-4"
+- extendedWaitUntil:
+    visible:
+      id: "class-eval-summary-1-1-3"
+    timeout: 10000
+- evalScript: "${output.records = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.records.length === 1 && output.records[0].classInstanceId !== null && output.records[0].className === output.classTitle && output.records[0].ratings.length === 1 && output.records[0].ratings[0].score === 4}"
+
+# ── Finish collapses the row; back leaves the panel ──
+- scrollUntilVisible:
+    element:
+      id: "evaluation-finish"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "evaluation-finish"
+- extendedWaitUntil:
+    notVisible:
+      id: "evaluation-form"
+    timeout: 10000
+- tapOn:
+    id: "class-eval-back"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-evaluations-panel"
+    timeout: 10000
+
+- runScript: ../scripts/class-evaluations-teardown.js
+- assertTrue: "${output.left === 0}"

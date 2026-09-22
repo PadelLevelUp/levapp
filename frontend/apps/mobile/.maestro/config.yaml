@@ -35,6 +35,8 @@ executionOrder:
     - 78-player-evaluations
     # 79 (PAD-375) only reads E2E Student Two's seeded evaluation history; position not load bearing.
     - 79-evaluation-evolution
+    # 80 (PAD-376) makes its own class for today and removes it and its record afterwards.
+    - 80-class-evaluations
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages
