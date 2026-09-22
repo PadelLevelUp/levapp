@@ -63,6 +63,7 @@ test("US-388a: emptying the notes box deletes the note — the body says null an
   await page.getByRole("button", { name: ui("common.save") }).click();
   expect((await wrote).postDataJSON().updates.notes).toBe("E2E note to be deleted");
   await expect.poll(() => studentNotes(request, token)).toBe("E2E note to be deleted");
+  await expect(page.getByTestId("player-notes-text")).toHaveText("E2E note to be deleted"); // read mode shows it
 
   // Now empty it. The body carries `notes: null` — an omitted key would mean keep.
   await page.getByRole("button", { name: ui("common.edit") }).first().click({ timeout: 5000 });
@@ -76,6 +77,6 @@ test("US-388a: emptying the notes box deletes the note — the body says null an
 
   await expect.poll(() => studentNotes(request, token)).toBeNull();
   await page.reload();
-  await expect(page.getByTestId("player-side-badge").first()).toBeVisible(); // the page is back
-  await expect(page.getByTestId("player-notes")).toHaveCount(0); // the notes block hides when there is none
+  await expect(page.getByTestId("player-side-badge").first()).toBeVisible(); // the page is back, in read mode
+  await expect(page.getByTestId("player-notes-text")).toHaveCount(0); // the read-mode note is gone (it was there above)
 });

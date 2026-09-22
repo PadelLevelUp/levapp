@@ -182,7 +182,8 @@ export default function PlayerDetailScreen() {
           userId: player.userId,
           // PAD-388: an emptied box is sent as null so the server CLEARS it (an
           // omitted key still means keep). Level and side have no clear control.
-          email: values.email || null,
+          // An account holder's e-mail is locked in the form and never sent (the server refuses it).
+          email: player.validated ? undefined : values.email || null,
           phone: values.phone || null,
           levelId: values.levelId,
           side: values.side,
@@ -439,6 +440,7 @@ export default function PlayerDetailScreen() {
               <PlayerForm
                 levels={levels ?? []}
                 coachId={user?.coachId}
+                lockEmail={player.validated}
                 initialValues={{
                   name: player.name ?? "",
                   email: player.email ?? "",

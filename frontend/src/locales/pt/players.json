@@ -285,6 +285,7 @@
     "removalImpactPresences": "Registos de presença: {{count}}",
     "removeRefusedHasAccount": "{{name}} tem conta, por isso só te podes desassociar.",
     "removeRefusedOtherCoaches": "Outro treinador também tem {{name}}, por isso só te podes desassociar.",
-    "invalidFields": "Alguns dos dados introduzidos não são válidos."
+    "invalidFields": "Alguns dos dados introduzidos não são válidos.",
+    "emailIsTheStudents": "O aluno gere o seu próprio e-mail."
   }
 }

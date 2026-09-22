@@ -102,8 +102,10 @@ last lands._
   clears `recurs_until_season_end` on purpose; `is_recurring` no longer reset by every edit; per scope.
 - **Step 3 — PAD-388 (2026-09-22): `POST /edit_player`, web and iOS in the same ticket.** Whitelist
   `name/email/phone` (user) and `levelId/side/notes` (relation) — nothing else on the user form is
-  reachable; `""`/`null` clear notes, side, phone, e-mail and level (through `set_roster_level`, no
-  history row); an empty name is 400 `["name"]`. Both shells now send `null` for an emptied notes,
+  reachable; `""`/`null` clear notes, side, phone and level (through `set_roster_level`, no history
+  row); an empty name is 400 `["name"]`; **an account holder's e-mail (password set) is the
+  student's own — a coach may neither clear nor change it, 400 `["email"]`; a placeholder's is the
+  coach's** (Coordinator, 2026-09-22); a 0/false level is 400 before any write. Both shells now send `null` for an emptied notes,
   phone or e-mail box (they dropped the key before, so nothing could ever be cleared); an omitted
   key still means keep, which is what App Store 1.0/1.1.0 send. Level and side have no clear
   control in either shell — server-ready, UI not asked for.

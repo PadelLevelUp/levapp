@@ -162,7 +162,7 @@ export default function PlayerDetailPage() {
       userId: player.userId,
       // PAD-388: an emptied box is sent as null so the server CLEARS it (an
       // omitted key still means keep). Level and side have no clear control.
-      email: draftEmail.trim() || null,
+      email: player.validated ? undefined : draftEmail.trim() || null, // an account holder's e-mail is the student's own
       phone: draftPhone.trim() || null,
       levelId: draftLevelId || undefined,
       side: (draftSide || undefined) as PlayerSide | undefined,
