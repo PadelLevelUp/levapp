@@ -8,6 +8,7 @@ from . import (
     api_auth,
     notifications_api,
     notification_engine_api,
+    evaluations_api,
     startup,
 )
 
@@ -27,6 +28,7 @@ def register_blueprints(app):
     app.register_blueprint(api_auth.bp)
     app.register_blueprint(notifications_api.bp)
     app.register_blueprint(notification_engine_api.bp)
+    app.register_blueprint(evaluations_api.bp)  # PAD-364: the v2 evaluation API
     return True
 
 
