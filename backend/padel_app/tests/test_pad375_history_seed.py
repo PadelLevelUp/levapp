@@ -42,7 +42,7 @@ def test_history_seeded_in_records_is_what_the_new_surfaces_show(app, client):
     assert [r["evaluatedOn"] for r in history["records"]] == ["2026-09-14", "2026-08-22", "2026-07-23", "2026-06-23", "2026-05-24"]
     assert history["competenciesWithData"] == [ids["forehand_id"]]
     assert [p["month"] for p in evolution["series"]] == ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]
-    assert (evolution["scaleMin"], evolution["scaleMax"], evolution["delta"]) == (1, 10, {"value": 4.0, "sinceMonth": "2026-05"})
+    assert (evolution["scaleMin"], evolution["scaleMax"], evolution["delta"]) == (1, 5, {"value": 4.0, "sinceMonth": "2026-05"})
 
 
 def test_the_default_stays_record_less_and_is_shown_nowhere_in_v2(app, client):
