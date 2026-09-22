@@ -9,8 +9,8 @@ affects:
   - backend/padel_app/services/class_request_service.py
   - backend/padel_app/models/class_request.py
 proposed_fix: "Every release path deletes the block only while it is still recognisably a hold; otherwise it clears the pointer and keeps the block."
-opened: 2026-09-21T19:13:00Z
-resolved: 2026-09-22T20:45:00Z
+opened: 2026-09-21T19:13:33Z
+resolved: 2026-09-22T20:17:43Z
 ---
 
 # B-151 — a retitled hold was deleted when the request closed
