@@ -15,9 +15,9 @@ provenance:
 A player can see what their coach chose to show them about how they are doing, in one place, and
 go back to it.
 
-**The whole outcome is pending the owner (Q2).** The owner's canvas shows only the coach's
-preview, never the player's side, and today a player sees no evaluation anywhere. Everything
-below is the recommended default; nothing is built before the owner answers.
+**Decided by the owner on 2026-09-22 (PAD-402, Q2):** the player's side is a section on their
+dashboard, on web and iOS. The owner's canvas shows only the coach's preview, and today a player
+sees no evaluation anywhere.
 
 ## Who This Is For
 
@@ -25,7 +25,8 @@ Players (students). A player with more than one coach sees each coach's evaluati
 
 ## User Journey
 
-1. The player gets a message saying their coach shared an evaluation.
+1. The player gets a message in their conversation saying their coach shared an evaluation (no
+   phone or browser notification).
 2. Their dashboard shows the newest shared evaluations, with a way to the full list.
 3. Each card names the coach and the date, and shows the competencies the coach chose with their
    scores, how they have moved, and the coach's comment if the coach included it.
@@ -51,4 +52,5 @@ A player profile page, which does not exist on web or iOS. Anything not shared.
 
 ## Notes
 
-- OPEN: owner question Q2 — whether the player sees anything, and where.
+- Owner answer of 2026-09-22 (Q2): the player sees only what a coach shares, on their dashboard,
+  web and iOS; App Store builds from before the feature are not shown the section.
