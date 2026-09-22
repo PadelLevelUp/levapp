@@ -1,0 +1,102 @@
+# unconfirmed — not yet run
+# PAD-404 / evaluations.reminders rule 4 — the "Frequência de avaliações" setting
+# and the server-computed `due` marker reach iOS too, not only web.
+#
+# Mirrors: apps/web/e2e/settings/evaluation-reminder.spec.ts. "E2E Student"
+# (player-card-1, per flow 82) is never evaluated by e2e-coach in the seed, so
+# `monthly` marks it due (rule 3: a never-evaluated player is due) and switching
+# back to `never` clears it. Same shape as flow 95/69: Settings → Preferences →
+# a radio option, checked on the players list; `onFlowComplete` PUTs
+# `{"reminder":"never"}` through the API so the coach's setting is never left on
+# `monthly` for a later flow, whether this one passes or fails (R-040).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.restore = (typeof output.coachTok === 'undefined') ? false : http.put(output.api + '/api/app/evaluation_settings', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ reminder: 'never' }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+# Start from `never` whatever an earlier failed run left behind.
+- evalScript: "${output.reset = http.put(output.api + '/api/app/evaluation_settings', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ reminder: 'never' }) }).ok}"
+- assertTrue: "${output.reset == true}"
+- evalScript: "${output.studentId = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student'; })[0].playerId}"
+- evalScript: "${output.dueId = 'player-due-' + output.studentId}"
+
+- runFlow: ../subflows/login-coach.yaml
+
+# ── Monthly marks E2E Student (never evaluated by this coach) as due ──
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-reminder"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-reminder-option-monthly"
+- evalScript: "${output.afterMonthly = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).reminder}"
+- assertTrue: "${output.afterMonthly == 'monthly'}"
+
+# Leave the pushed Settings screen (native stack back) and switch to Players.
+- back
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "${output.dueId}"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "${output.dueId}"
+
+# ── Never clears the marker ──
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-reminder"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-reminder-option-never"
+- evalScript: "${output.afterNever = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).reminder}"
+- assertTrue: "${output.afterNever == 'never'}"
+
+- back
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- assertNotVisible:
+    id: "${output.dueId}"

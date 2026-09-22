@@ -170,6 +170,10 @@ executionOrder:
     # whole delete on it (PAD-372); it cancels the delete and withdraws the request
     # in onFlowComplete, so nothing of the seed changes.
     - 96-hold-occurrence-locked
+    # 97 (PAD-404) picks "monthly" in Settings → Preferences, asserts the never-evaluated
+    # seeded student is marked due on the Players list, then clears it with "never";
+    # onFlowComplete restores `{"reminder":"never"}` through the API. Unconfirmed — not yet run.
+    - 97-evaluation-reminder-setting
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
