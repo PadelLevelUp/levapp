@@ -67,9 +67,11 @@ stays private.
    with every box clear; an empty `categoryIds`, or an id not rated in the record → 400.
 7. **(AV-043, build default Q11) Sharing stores a snapshot.** `POST
    /api/app/evaluation_record/<id>/share` with the same body → the `Record`, its `share` now
-   `{sharedAt, categoryIds, evolution, includeNote}`. The `card` is frozen: scores, deltas and
+   `{sharedAt, categoryIds, evolution, includeNote, stale}`. The `card` is frozen: scores, deltas and
    note as they were. A later edit of the record the same day does not change what the player
-   sees; the coach's card then offers "Atualizar partilha", which is the same `POST` again — it
+   sees; the server then sets `share.stale` true (`record.updated_at > sharedAt`, both from the
+   late-bound clock, so the client compares no timestamps), and the coach's card offers
+   "Atualizar partilha" when `stale`, which is the same `POST` again — it
    replaces the snapshot, moves `sharedAt` and sends **no** message. Switching a competency off
    later changes no shared card. The history card reads "✓ Partilhada com o aluno em {data}",
    formatted client-side from `sharedAt`.
