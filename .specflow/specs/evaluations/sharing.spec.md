@@ -1,6 +1,6 @@
 ---
 id: evaluations.sharing
-status: implementing
+status: implemented
 depends_on: [evaluations.records, evaluations.history, evaluations.evolution, messaging.messages]
 implements: ../../specs-business/evaluations/coach-shares-an-evaluation.business.md
 governed_by: []

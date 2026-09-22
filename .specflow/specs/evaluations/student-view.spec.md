@@ -1,6 +1,6 @@
 ---
 id: evaluations.student-view
-status: implementing
+status: implemented
 depends_on: [evaluations.sharing, dashboard.blocks]
 implements: ../../specs-business/evaluations/student-sees-their-evaluations.business.md
 governed_by: []
