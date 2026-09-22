@@ -34,6 +34,10 @@ describe("nativeRouteForWebPath (dashboard.blocks rule 10, shared with push rout
     expect(nativeRouteForWebPath("/absences")).toEqual({ pathname: "/absences" });
     expect(nativeRouteForWebPath("/nowhere")).toBeNull();
   });
+
+  it("opens the evaluations page from the student dashboard block (PAD-402, evaluations.student-view rule 4)", () => {
+    expect(nativeRouteForWebPath("/evaluations")).toEqual({ pathname: "/evaluations" });
+  });
 });
 
 describe("PAD-327: the request alerts' destinations", () => {

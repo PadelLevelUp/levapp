@@ -161,6 +161,8 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
                 key={record.id}
                 record={record}
                 isStars={isStars}
+                playerId={playerId}
+                playerName={playerName}
                 onEdit={() => setTarget(record)}
                 onDelete={() => setDeleting(record)}
               />
@@ -178,6 +180,11 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
                 : ""}
             </AlertDialogTitle>
             <AlertDialogDescription>{t("players.evaluationHistory.deleteDescription")}</AlertDialogDescription>
+            {deleting?.share ? (
+              <Text testID="evaluation-delete-shared-warning" className="text-sm text-destructive">
+                {t("players.evaluationSharing.share.deleteSharedWarning")}
+              </Text>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel><Text>{t("common.cancel")}</Text></AlertDialogCancel>
