@@ -71,10 +71,19 @@ and nothing in it said so. Everything below flows from that.
    ```
    Record the PID of every server this run starts (`$!` after each `&`) and kill only those at
    teardown.
-2. Reset + seed the isolated QA database:
+2. Reset + seed the isolated QA database **from the code under test** (PAD-398). The script is
+   tracked next to this skill, so the QA checkout carries the copy that matches its own
+   migrations and seed; it takes the checkout and the commit explicitly, checks both before it
+   touches the database, and prints the schema head it built:
    ```bash
-   bash "$MAIN/docs/qa/scripts/reset-qa-db.sh"
+   QA_SCHEMA_HEAD=$(QA_CHECKOUT="$QA_CHECKOUT" QA_COMMIT="$QA_COMMIT" \
+     bash "$QA_CHECKOUT/.claude/skills/weekly-qa/scripts/reset-qa-db.sh" | tee /dev/stderr \
+     | sed -n 's/^QA_SCHEMA_HEAD=//p')
+   [ -n "$QA_SCHEMA_HEAD" ] || { echo "QA ABORT: the QA database was not built"; exit 1; }
    ```
+   Never run `$MAIN/docs/qa/scripts/reset-qa-db.sh`: it resolved the backend from its own path,
+   so it migrated `levelup_qa` with whatever branch the main checkout was parked on (46
+   migrations against staging's 84 on 2026-09-22). An abort here is the run's result — no report.
 3. Boot the QA backend (from `levelup_backend`, `.venv` active):
    ```bash
    cd "$QA_CHECKOUT/backend"
@@ -131,7 +140,8 @@ and nothing in it said so. Everything below flows from that.
     prose home did not) (pass a timestamp in — do not call Date.now()). Sections: **Regressions │ Functional bugs │ Design findings**, each severity-ranked, with inline screenshot references. Include a week-over-week delta vs baseline (new / fixed / persisting).
 13. **Every artefact states what it ran against, as its FIRST line, not an appendix** — the
     line a reader sees before deciding whether to believe the rest:
-    `Ran against: <QA_COMMIT> (<QA_REF>, <QA_STARTED_AT>)`. It goes at the top of the dated
+    `Ran against: <QA_COMMIT> (<QA_REF>, <QA_STARTED_AT>), schema <QA_SCHEMA_HEAD>` — the code
+    and the database it ran against (PAD-398). It goes at the top of the dated
     report, as the first line of every filed Linear ticket, and as a `ranAgainst` field in
     `baseline-latest.json`. A finding without it is not filed.
 14. Auto-file **only P0/P1** findings to Linear team PadelLevelUP:
