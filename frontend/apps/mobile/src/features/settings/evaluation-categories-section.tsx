@@ -64,6 +64,12 @@ export function EvaluationCategoriesSection() {
   const [impactFailed, setImpactFailed] = React.useState(false);
   const [typedName, setTypedName] = React.useState("");
 
+  // PAD-392 (B-155): loaded ONCE, as the web section already does. `t` was in this
+  // effect's deps; it changes identity whenever the language changes, the effect re-ran,
+  // and the reload replaced names and scales the coach had typed and not yet saved.
+  const tRef = React.useRef(t);
+  tRef.current = t;
+
   React.useEffect(() => {
     let cancelled = false;
     evaluationApi
@@ -80,7 +86,7 @@ export function EvaluationCategoriesSection() {
         );
       })
       .catch(() => {
-        if (!cancelled) setStatus(t("common.somethingWentWrong"));
+        if (!cancelled) setStatus(tRef.current("common.somethingWentWrong"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -88,7 +94,7 @@ export function EvaluationCategoriesSection() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
   const handleAdd = () => {
     setCategories((prev) => [

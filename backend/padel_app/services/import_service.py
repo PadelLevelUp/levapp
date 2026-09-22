@@ -551,6 +551,11 @@ def bulk_create_presences(rows, coach):
 
             status = row.get("status") or None
             justification = row.get("justification") or None
+            # PAD-381 (B-152): a justification belongs to an absence. A sheet row that
+            # says "present" carries none, whatever its justification cell holds — the
+            # same rule `lesson_service.add_presences` applies to the coach's own mark.
+            if status == "present":
+                justification = None
 
             if existing:
                 # Update status/justification on re-import.
@@ -601,6 +606,11 @@ def bulk_create_evaluation_entries(rows, coach):
 
     ``imported`` counts the number of rows that produced at least one new entry.
     """
+    # PAD-363 (evaluations.records): imported scores are written by the one
+    # writer, so the rows of one player and date share that day's record. The
+    # form layer stays in front, as on the legacy endpoint.
+    from padel_app.services.evaluation_record_service import append_entry
+
     imported = 0
     errors = []
     created_ids = {"evaluation_entries": []}
@@ -654,7 +664,7 @@ def bulk_create_evaluation_entries(rows, coach):
                 }
                 entry = EvaluationEntry()
                 _apply_form(entry.get_create_form(), ev_payload, entry)
-                entry.create()
+                append_entry(entry)
                 created_ids["evaluation_entries"].append(entry.id)
                 imported += 1
 
@@ -683,7 +693,7 @@ def bulk_create_evaluation_entries(rows, coach):
                     }
                     entry = EvaluationEntry()
                     _apply_form(entry.get_create_form(), ev_payload, entry)
-                    entry.create()
+                    append_entry(entry)
                     created_ids["evaluation_entries"].append(entry.id)
                     row_imported += 1
 
@@ -829,7 +839,17 @@ def revert_import(import_id, coach):
 
     # Delete in reverse dependency order to avoid FK violations
     _delete_by_ids(CoachPlayerNote, record_ids.get("coach_notes", []), deleted, "coach_notes")
-    _delete_by_ids(EvaluationEntry, record_ids.get("evaluation_entries", []), deleted, "evaluation_entries")
+    # PAD-363: the records those entries leave empty go with them.
+    from padel_app.services.evaluation_record_service import prune_empty_records
+
+    _entry_ids = record_ids.get("evaluation_entries", [])
+    _touched_links = [
+        row[0] for row in
+        EvaluationEntry.query.with_entities(EvaluationEntry.coach_player_id)
+        .filter(EvaluationEntry.id.in_(_entry_ids)).distinct()
+    ] if _entry_ids else []
+    _delete_by_ids(EvaluationEntry, _entry_ids, deleted, "evaluation_entries")
+    prune_empty_records(_touched_links, commit=False)  # the revert commits once, below
     _delete_by_ids(Presence, record_ids.get("presences", []), deleted, "presences")
     _delete_by_ids(Association_PlayerLesson, record_ids.get("player_lessons", []), deleted, "player_lessons")
     _delete_by_ids(PlayerLevelHistory, record_ids.get("player_level_history", []), deleted, "player_level_history")

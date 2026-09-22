@@ -14,7 +14,15 @@ import { Ionicons } from "@expo/vector-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import { DEFAULT_WORKING_WINDOW, WORKING_DAY_KEYS, lightTheme, type WorkingDayKey } from "@levelup/config";
+import {
+  DEFAULT_WORKING_WINDOW,
+  WORKING_DAY_KEYS,
+  WORKING_HOURS_GRID_MINUTES,
+  addWorkingWindow,
+  lightTheme,
+  snapToGrid,
+  type WorkingDayKey,
+} from "@levelup/config";
 import { workingHoursApi } from "@levelup/api";
 import type { CoachWorkingHours } from "@levelup/types";
 import { Button } from "@/components/ui/button";
@@ -63,19 +71,28 @@ export function WorkingHoursSection() {
     setWeek(weekFromWorkingHours(value));
   };
 
+  // PAD-392 (B-155): loaded ONCE, and a load never replaces a week the coach has
+  // touched. `t` was in the deps; it gets a new identity whenever the language changes
+  // (at sign-in, or from the language selector in these same Settings), the effect
+  // re-ran, and the reload silently undid unsaved edits. Same fix as web.
+  const tRef = React.useRef(t);
+  tRef.current = t;
+  const touched = React.useRef(false);
+
   React.useEffect(() => {
     let active = true;
     workingHoursApi
       .getCoachWorkingHours()
-      .then((res) => active && apply(res.workingHours))
-      .catch(() => active && toast.error(t("settings.workingHours.loadFailed")))
+      .then((res) => active && !touched.current && apply(res.workingHours))
+      .catch(() => active && toast.error(tRef.current("settings.workingHours.loadFailed")))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [t]);
+  }, []);
 
   const update = (key: WorkingDayKey, row: Row) => {
+    touched.current = true;
     setErrorDay(null);
     setWeek((w) => ({ ...w, [key]: row }));
   };
@@ -86,6 +103,7 @@ export function WorkingHoursSection() {
     try {
       const res = await workingHoursApi.putCoachWorkingHours(value);
       apply(res.workingHours);
+      touched.current = false; // what is shown is what the server holds again
       toast.success(t(value === null ? "settings.workingHours.cleared" : "settings.workingHours.saved"));
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { code?: string; day?: WorkingDayKey } } })?.response?.data;
@@ -152,20 +170,22 @@ export function WorkingHoursSection() {
                           <View className="flex-1">
                             <TimePickerInput
                               testID={`working-hours-${key}-${i}-start`}
+                              minuteInterval={WORKING_HOURS_GRID_MINUTES}
                               label={t("settings.workingHours.startAria")}
                               value={w[0]}
                               onChange={(v) =>
-                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [v, x[1]] : x)) })
+                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [snapToGrid(v), x[1]] : x)) })
                               }
                             />
                           </View>
                           <View className="flex-1">
                             <TimePickerInput
                               testID={`working-hours-${key}-${i}-end`}
+                              minuteInterval={WORKING_HOURS_GRID_MINUTES}
                               label={t("settings.workingHours.endAria")}
                               value={w[1]}
                               onChange={(v) =>
-                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], v] : x)) })
+                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], snapToGrid(v)] : x)) })
                               }
                             />
                           </View>
@@ -188,9 +208,11 @@ export function WorkingHoursSection() {
                         size="sm"
                         className="self-start"
                         testID={`working-hours-add-${key}`}
+                        disabled={addWorkingWindow(row.windows) === null}
                         onPress={() => {
-                          const last = row.windows[row.windows.length - 1];
-                          update(key, { ...row, windows: [...row.windows, [last[1], DEFAULT_WORKING_WINDOW.endTime]] });
+                          // Rule 5: always a day the server accepts, the same on web.
+                          const windows = addWorkingWindow(row.windows);
+                          if (windows) update(key, { ...row, windows });
                         }}
                       >
                         <Ionicons name="add" size={16} color={lightTheme.primary} />

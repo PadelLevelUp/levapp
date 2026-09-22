@@ -74,3 +74,57 @@ test("PAD-357: a coach sets, corrects and clears their working hours", async ({ 
     await clearWorkingHours(request);
   }
 });
+
+test("PAD-361 (B-140): 'add window' on an untouched day gives a day the server accepts", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await clearWorkingHours(request);
+  try {
+    await loginAsCoach(page);
+    await page.goto("/settings?tab=calendar");
+    const card = page.getByTestId("working-hours");
+    await expect(card).toHaveAttribute("data-state", "default", { timeout: 15_000 });
+
+    // Monday still holds the default 08:00–22:00: there is no room after it, so
+    // the day splits around the lunch break (rule 5).
+    await card.getByTestId("working-hours-add-mon").click();
+    await expect(card.getByTestId("working-hours-mon-0-end")).toHaveValue("13:00");
+    await expect(card.getByTestId("working-hours-mon-1-start")).toHaveValue("14:00");
+    await expect(card.getByTestId("working-hours-mon-1-end")).toHaveValue("22:00");
+
+    const saved = page.waitForResponse(isPut);
+    await card.getByTestId("working-hours-save").click();
+    const res = await saved;
+    const { workingHours } = res.request().postDataJSON();
+    expect(res.status(), `sent mon=${JSON.stringify(workingHours.mon)} → ${await res.text()}`).toBeLessThan(300);
+    expect(workingHours.mon).toEqual([["08:00", "13:00"], ["14:00", "22:00"]]);
+    await expect(card).toHaveAttribute("data-state", "set");
+  } finally {
+    await clearWorkingHours(request);
+  }
+});
+
+test("PAD-369 (B-141): a time typed off the 15-minute grid is brought onto it before it is saved", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await clearWorkingHours(request);
+  try {
+    await loginAsCoach(page);
+    await page.goto("/settings?tab=calendar");
+    const card = page.getByTestId("working-hours");
+    await expect(card).toHaveAttribute("data-state", "default", { timeout: 15_000 });
+
+    // step={900} only drives the arrows: a typed 22:07 reaches the editor's state.
+    const end = card.getByTestId("working-hours-tue-0-end");
+    await end.fill("22:07");
+    const saved = page.waitForResponse(isPut);
+    await card.getByTestId("working-hours-save").click();
+    const res = await saved;
+    const { workingHours } = res.request().postDataJSON();
+    expect(res.status(), `sent tue=${JSON.stringify(workingHours.tue)} → ${await res.text()}`).toBeLessThan(300);
+    // Rule 6: the coach sees the value that was saved, the nearest quarter hour.
+    expect(workingHours.tue).toEqual([["08:00", "22:00"]]);
+    await expect(end).toHaveValue("22:00");
+    await expect(card).toHaveAttribute("data-state", "set");
+  } finally {
+    await clearWorkingHours(request);
+  }
+});

@@ -32,7 +32,7 @@ rules describe intended behaviour, not shipped behaviour, and any spec that lean
 ### Rules
 1. Students manage blockers from a dedicated `/availability` page (player-only nav item).
 2. Blocker CRUD (student-scoped): `GET`/`POST` `/api/app/availability_blockers`, `PUT`/`DELETE` `/api/app/availability_blockers/{id}`. Non-student users get 403.
-3. Both one-time and recurring (weekly) blockers are supported, using the same recurrence machinery as calendar blocks.
+3. Both one-time and recurring (weekly) blockers are supported, using the same recurrence machinery as calendar blocks. A recurring blocker edited to one-time stops suppressing on every later week: the edit clears the recurrence rule the engine (rule 5) reads, not only the flag (`calendar.blocks` rule 10; PAD-377 — before it, a student who reduced a weekly "away" to one day went on being skipped for invitations every week).
 4. Scope of suppression (PAD-107): a blocker suppresses EVERY class-slot solicitation during its window — automatic invitations, manual invitations, reminders and waiting-list offers. A coach may still ADD the student to a class in that window (enrolment is a coach decision), but only after explicitly confirming a warning, and the student is never notified about it.
 5. The auto-invitation eligibility engine (`get_eligible_students` and `_get_eligible_students_for_group`) filters out any candidate whose owning user has a blocker occurrence overlapping the class instance window.
 6. Timezone: datetimes stored as UTC; recurring occurrences evaluated against the club / Lisbon timezone.

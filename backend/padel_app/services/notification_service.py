@@ -630,6 +630,11 @@ def _unjustified_absence_count(player_id: int, coach_id: int) -> int:
     return Presence.query.filter(
         Presence.player_id == player_id,
         Presence.lesson_instance_id.in_(coach_instance_ids),
+        # PAD-381 (B-152): an absence is a row whose STATUS says so. Rows corrected
+        # from "absent" to "present" kept their justification until PAD-381, and
+        # counting by justification alone shut students out for absences the coach
+        # had corrected.
+        Presence.status == "absent",
         Presence.justification == "unjustified",
     ).count()
 
@@ -648,6 +653,9 @@ def _has_makeups(player_id: int, coach_id: int) -> bool:
     justified = Presence.query.filter(
         Presence.player_id == player_id,
         Presence.lesson_instance_id.in_(coach_instance_ids),
+        # PAD-381 (B-152): as above — a justification left on a PRESENT row is not
+        # a justified absence, and must not earn a place in the make-up wave.
+        Presence.status == "absent",
         Presence.justification == "justified",
     ).count()
     accepted = NotificationEvent.query.filter_by(
@@ -4700,8 +4708,10 @@ def _students_with_recent_absences(coach_players: list, lookback: int = 8) -> li
 def _students_with_justified_absences(coach_players: list) -> list:
     result = []
     for cp in coach_players:
+        # PAD-381 (B-152): an absence is a row whose STATUS says so — a justification
+        # left on a row the coach corrected to present does not list the student here.
         has_justified = Presence.query.filter_by(
-            player_id=cp.player_id, justification="justified"
+            player_id=cp.player_id, status="absent", justification="justified"
         ).first()
         if has_justified:
             result.append(cp)

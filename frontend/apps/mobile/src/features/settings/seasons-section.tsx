@@ -86,6 +86,12 @@ export function SeasonsSection() {
   const [status, setStatus] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
+  // PAD-392 (B-155): loaded ONCE. `t` was in this effect's deps; it changes identity
+  // whenever the language changes (at sign-in, or from the language selector in these
+  // same Settings), the effect re-ran, and the reload silently replaced unsaved edits.
+  const tRef = React.useRef(t);
+  tRef.current = t;
+
   React.useEffect(() => {
     let cancelled = false;
     seasonsApi
@@ -96,7 +102,7 @@ export function SeasonsSection() {
         setDraft(draftFrom(data));
       })
       .catch(() => {
-        if (!cancelled) setStatus(t("common.somethingWentWrong"));
+        if (!cancelled) setStatus(tRef.current("common.somethingWentWrong"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -104,7 +110,7 @@ export function SeasonsSection() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
   const monthName = React.useMemo(() => {
     const fmt = new Intl.DateTimeFormat(i18n.language, { month: "long", timeZone: "UTC" });

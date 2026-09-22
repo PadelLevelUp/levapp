@@ -169,6 +169,13 @@ test.describe("PAD-247: phone calendar Semana view", () => {
   }) => {
     await loginAsCoach(page);
     await mockCalendar(page);
+    // B-128: which class is "next" depends on the clock, and "next" is drawn
+    // differently from "scheduled". On the real clock the Tuesday class was "next"
+    // from Monday 09:30 to Tuesday 11:30, and this test — which wrongly expected a
+    // filled surface for it — went red for those 26 hours every week. Pinned, as
+    // mobile-day-view.spec.ts does (PAD-253); setFixedTime keeps timers running.
+    // Scoped to this test: US-247-6 compares with the real today.
+    await page.clock.setFixedTime(new Date(`${WED}T08:00:00`));
     await openWeek(page);
 
     const grid = page.getByTestId("calendar-time-grid");
@@ -189,16 +196,45 @@ test.describe("PAD-247: phone calendar Semana view", () => {
     }));
     expect(tueBox.top).toBeCloseTo(2 * rowHeight, 5);
     expect(tueBox.height).toBeCloseTo(1.5 * rowHeight, 5);
-    // The coach colour is the surface. This week's Tuesday may already be
-    // over when the suite runs, in which case the block is the faded teal —
-    // never the raw hue, never the muted block treatment.
-    const tueState = await tue.getAttribute("data-event-state");
-    expect(["scheduled", "next", "past"]).toContain(tueState);
-    if (tueState === "past") {
-      await expect(tue).not.toHaveCSS("background-color", "rgb(13, 148, 136)");
-    } else {
-      await expect(tue).toHaveCSS("background-color", "rgb(13, 148, 136)");
-    }
+
+    // calendar.mobile-views rule 5 — the coach colour identifies, the STATE treats.
+    // With the clock pinned to Wednesday 08:00 (above) the mocked week holds all
+    // three treatments at once, so each is asserted as the spec states it rather
+    // than whichever one the day of the run happens to produce (B-128):
+    //   Tuesday 10:00–11:30 is over      → `past`: the faded hue, never the raw one;
+    //   Thursday 15:00 is the soonest    → `next`: OUTLINED, not filled — card surface,
+    //     class that has not finished       outline in the coach colour (#6366F1, the
+    //                                        spec criterion's own example);
+    //   Thursday 15:30 comes after it    → `scheduled`: the solid coach colour.
+    await expect(tue).toHaveAttribute("data-event-state", "past");
+    await expect(tue).not.toHaveCSS("background-color", "rgb(13, 148, 136)");
+
+    const next = grid.locator("[data-testid='calendar-grid-block'][data-event-id='class-2002']");
+    await expect(next).toHaveAttribute("data-event-state", "next");
+    await expect(next).not.toHaveCSS("background-color", "rgb(99, 102, 241)");
+    await expect(next).toHaveCSS("border-top-style", "solid");
+    await expect(next).toHaveCSS("border-top-color", "rgb(99, 102, 241)");
+
+    const scheduled = grid.locator("[data-testid='calendar-grid-block'][data-event-id='class-2003']");
+    await expect(scheduled).toHaveAttribute("data-event-state", "scheduled");
+    await expect(scheduled).toHaveCSS("background-color", "rgb(19, 85, 220)");
+
+    // The positive half of `past` and `next` (Session-C's review of #362): the
+    // assertions above only say what they are NOT. A Tuesday block drawn white,
+    // transparent or with the muted BLOCK treatment would have passed. No literal
+    // faded value is asserted — that would just restate fadeColor — only that the
+    // four treatments are four different surfaces.
+    const bg = (locator: typeof tue) =>
+      locator.evaluate((el) => getComputedStyle(el as HTMLElement).backgroundColor);
+    const lunchBlock = grid.locator("[data-testid='calendar-grid-block'][data-event-id='block-91']");
+    const [pastBg, nextBg, scheduledBg, blockBg] = await Promise.all([
+      bg(tue),
+      bg(next),
+      bg(scheduled),
+      bg(lunchBlock),
+    ]);
+    expect(new Set([pastBg, nextBg, scheduledBg, blockBg]).size).toBe(4);
+    expect(pastBg).not.toBe("rgba(0, 0, 0, 0)");
 
     // Two overlapping Thursday classes share the column width.
     const thuA = grid.locator("[data-testid='calendar-grid-block'][data-event-id='class-2002']");
