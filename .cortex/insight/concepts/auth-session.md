@@ -9,6 +9,7 @@ The login / silent-restore / rolling-refresh / 401-logout session contract that 
 `frontend/apps/mobile/src/lib/api.ts`
 `frontend/apps/mobile/src/lib/push/index.ts`
 `frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts`
+`frontend/apps/mobile/src/lib/push/types.ts`
 
 ## Related concepts
 [[coach-scoped-authorization]]

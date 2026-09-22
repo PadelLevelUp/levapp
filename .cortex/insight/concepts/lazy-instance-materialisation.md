@@ -11,6 +11,7 @@ A recurring `Lesson` template only becomes a concrete `LessonInstance` row the f
 `frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts`
 `frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts`
 `frontend/apps/web/e2e/schedule-calendar/class-deletion.spec.ts`
+`backend/padel_app/scheduler.py`
 
 ## Related concepts
 [[effective-seat-count]]

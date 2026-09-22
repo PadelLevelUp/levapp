@@ -23,6 +23,16 @@ The deliberate, comment-documented practice of porting a web component or featur
 `frontend/apps/mobile/src/components/ui/card.tsx`
 `frontend/apps/web/src/components/ui/badge.tsx`
 `frontend/apps/mobile/src/components/ui/badge.tsx`
+`frontend/apps/mobile/src/features/calendar/class-scope-dialog.tsx`
+`frontend/apps/mobile/src/features/calendar/edit-class-diff.ts`
+`frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx`
+`frontend/apps/mobile/src/features/calendar/notify-modal.tsx`
+`frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx`
+`frontend/apps/mobile/src/features/calendar/planning-section.tsx`
+`frontend/apps/mobile/src/features/players/LevelLabel.tsx`
+`frontend/apps/mobile/src/features/players/PlayerForm.tsx`
+`frontend/apps/mobile/src/features/messages/components/message-bubble.tsx`
+`frontend/apps/web/src/components/messages/MessageBubble.tsx`
 
 ## Related concepts
 [[design-tokens]]

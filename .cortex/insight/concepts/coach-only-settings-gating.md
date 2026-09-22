@@ -3,6 +3,11 @@ A single source of truth decides which Settings sections a coach-only vs. a play
 ## Implemented by
 `frontend/apps/web/src/pages/SettingsPage.tsx`
 `frontend/apps/mobile/src/features/settings/settings-sections.ts`
+`frontend/apps/mobile/src/features/settings/preferences-section.tsx`
+`frontend/apps/mobile/src/features/settings/club-section.tsx`
+`frontend/apps/mobile/src/features/settings/seasons-section.tsx`
+`frontend/apps/mobile/src/features/settings/auto-invite-section.tsx`
+`frontend/apps/mobile/src/features/settings/import-section.tsx`
 
 ## Related concepts
 [[web-mobile-parity]]

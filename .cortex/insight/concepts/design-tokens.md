@@ -6,6 +6,7 @@ The single source of truth for LevApp's navy-and-blue brand palette and type sca
 `frontend/apps/web/src/index.css`
 `frontend/apps/web/tailwind.config.ts`
 `frontend/apps/mobile/tailwind.config.js`
+`frontend/packages/config/src/calendar-status.ts`
 
 ## Related concepts
 [[levapp-visual-design-conventions]]

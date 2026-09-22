@@ -1,7 +1,7 @@
 {
  "schemaVersion": "3.0",
- "generated": "2026-09-03T14:51:05Z",
- "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "generated": "2026-09-22T10:43:19Z",
+ "built_at_commit": "c8020f3e7",
  "clusters": [
   {
    "id": "cluster:attendance-and-presence",
@@ -20,11 +20,23 @@
    "members": [
     "concept:auth-session",
     "concept:coach-scoped-authorization",
-    "concept:sse-streaming",
-    "concept:dual-roster-cache"
+    "concept:dual-roster-cache",
+    "concept:jwt-auth",
+    "concept:route-guards-are-ux-only",
+    "concept:sse-streaming"
    ],
    "rationale": "Everything that decides who a request is from, what they may see, how their session survives across requests and app backgrounding, and how their client caches the data that authorization shapes.",
    "scope": "global"
+  },
+  {
+   "id": "cluster:backend-api-operational-safety",
+   "label": "Backend-api operational safety guards",
+   "members": [
+    "concept:cors-origin-allowlist",
+    "concept:production-migration-guard"
+   ],
+   "rationale": "Two independent fail-closed startup guards in create_app: a hardcoded CORS origin allowlist and a check that refuses to run migrations against a production host.",
+   "scope": "backend-api"
   },
   {
    "id": "cluster:backend-models-domain-shape",
@@ -73,10 +85,11 @@
    "id": "cluster:invitation-and-eligibility-engine",
    "label": "Invitation, vacancy and eligibility engine",
    "members": [
-    "concept:invitation-engine",
     "concept:eligibility-bar",
-    "concept:semi-automatic-approval",
+    "concept:invitation-engine",
     "concept:level-ladder-adjacency",
+    "concept:notification-engine-settings",
+    "concept:semi-automatic-approval",
     "concept:student-notification-blocking"
    ],
    "rationale": "Every mechanism that decides whether and in what order a vacant class seat gets offered to a student, end to end across backend models/services/api and the web client.",
@@ -103,23 +116,53 @@
    "scope": "global"
   },
   {
+   "id": "cluster:mobile-accessibility-pressable-composition",
+   "label": "Mobile Pressable/Portal accessibility composition",
+   "members": [
+    "concept:floating-portal-menu",
+    "concept:sibling-pressables-not-nested"
+   ],
+   "rationale": "Two scopes independently document the same iOS accessibility-subtree-collapse constraint on nested Pressables, connected by a semantically-similar-to edge rather than a merge (distinct concrete patterns: hand-rolled Portal overlays vs. plain sibling toggles).",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:mobile-app-shell-and-liveness",
+   "label": "Mobile app shell bootstrap and live-data resume",
+   "members": [
+    "concept:app-shell-bootstrap",
+    "concept:live-data-resume"
+   ],
+   "rationale": "The fixed startup sequence app/_layout.tsx runs before any screen mounts, and the paired AppState/SSE fix that keeps a backgrounded-then-foregrounded app's data and socket alive.",
+   "scope": "mobile-app"
+  },
+  {
    "id": "cluster:mobile-design-system-divergence",
    "label": "Mobile ui/ primitives vs. their web source of truth",
    "members": [
-    "file:frontend/apps/mobile/src/components/ui/card.tsx",
-    "file:frontend/apps/web/src/components/ui/card.tsx",
     "file:frontend/apps/mobile/src/components/ui/badge.tsx",
-    "file:frontend/apps/web/src/components/ui/badge.tsx"
+    "file:frontend/apps/mobile/src/components/ui/card.tsx",
+    "file:frontend/apps/web/src/components/ui/badge.tsx",
+    "file:frontend/apps/web/src/components/ui/card.tsx"
    ],
    "rationale": "Two documented, unresolved divergences between the mobile react-native-reusables port and its web shadcn/ui source: card.tsx applies a shadow web's source comment forbids, and badge.tsx uses rounded-full where web reserves that shape for filter controls only.",
    "scope": "global"
   },
   {
+   "id": "cluster:mobile-native-rendering-constraints",
+   "label": "Mobile native-rendering platform constraints",
+   "members": [
+    "concept:nativewind-interop-crash-avoidance",
+    "concept:reanimated-svg-limitation"
+   ],
+   "rationale": "Two documented, non-obvious react-native-reusables/Reanimated/NativeWind rendering limits this app has hit and worked around in its ui/ primitives.",
+   "scope": "mobile-components"
+  },
+  {
    "id": "cluster:player-lifecycle-and-access",
    "label": "Player identity and access boundaries",
    "members": [
-    "concept:player-username-ownership",
-    "concept:coach-scoped-authorization"
+    "concept:coach-scoped-authorization",
+    "concept:player-username-ownership"
    ],
    "rationale": "Who owns a player's credential (PAD-105) sits alongside the broader coach-scoped authorization boundary that governs everything else a coach can and cannot do to a player's record.",
    "scope": "global"
@@ -128,9 +171,9 @@
    "id": "cluster:reminder-and-scheduling",
    "label": "Reminder and scheduling lifecycle",
    "members": [
-    "concept:reminder-lifecycle",
     "concept:club-local-day-boundary",
-    "concept:notification-template-fallback"
+    "concept:notification-template-fallback",
+    "concept:reminder-lifecycle"
    ],
    "rationale": "The APScheduler-driven reminder state machine and the two correctness guarantees it depends on: DST-safe club-local day boundaries and non-blank locale-correct message rendering.",
    "scope": "global"
@@ -139,23 +182,64 @@
    "id": "cluster:season-and-recurrence",
    "label": "Season-bounded recurring classes",
    "members": [
-    "concept:season-bounded-recurrence",
-    "concept:lazy-instance-materialisation"
+    "concept:lazy-instance-materialisation",
+    "concept:season-bounded-recurrence"
    ],
    "rationale": "A recurring class's occurrences are capped by its covering season and only materialize into concrete rows on demand - two halves of the same recurrence-safety story.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:web-calendar-interaction-safety",
+   "label": "Web calendar interaction safety and scope choice",
+   "members": [
+    "concept:non-blocking-booking-warnings",
+    "concept:single-occurrence-vs-series-scope"
+   ],
+   "rationale": "Two coach-facing calendar interaction guarantees: warnings that inform but never hard-block a risky booking action, and the single/future scope choice offered on every edit of a recurring item.",
+   "scope": "web-components-a"
+  },
+  {
+   "id": "cluster:web-duplicated-ui-surfaces",
+   "label": "Duplicated web UI editing surfaces",
+   "members": [
+    "concept:dual-report-mount-points",
+    "concept:player-edit-duplication"
+   ],
+   "rationale": "Two independently-built-and-not-reconciled duplications in the web client: two report-dialog mount points with no shared state, and two separately-implemented player-edit surfaces (plus a second strengths/weaknesses duplication).",
    "scope": "global"
   },
   {
    "id": "cluster:web-mobile-design-system",
    "label": "Cross-platform design system",
    "members": [
+    "concept:calendar-visual-state",
     "concept:design-tokens",
     "concept:levapp-visual-design-conventions",
-    "concept:calendar-visual-state",
-    "concept:web-mobile-parity",
-    "concept:parallel-toast-systems"
+    "concept:parallel-toast-systems",
+    "concept:web-mobile-parity"
    ],
    "rationale": "The single token source, the visual conventions built on it, and the platform-by-platform porting discipline (and occasional drift) that keeps web and iOS looking like one product.",
+   "scope": "global"
+  },
+  {
+   "id": "cluster:web-mock-data-layer",
+   "label": "Web mock/real data switch and thin re-export barrels",
+   "members": [
+    "concept:mock-real-data-switch",
+    "concept:thin-resource-reexport-barrel"
+   ],
+   "rationale": "The dominant USE_MOCK_DATA branch pattern across apps/web/src/api/*.ts, and its sibling pattern for the subset of resources with no mock behavior to add.",
+   "scope": "web-api-hooks"
+  },
+  {
+   "id": "cluster:web-settings-surface",
+   "label": "Settings page authoring patterns",
+   "members": [
+    "concept:coach-only-settings-gating",
+    "concept:editable-ordered-list-sections",
+    "concept:notification-engine-settings"
+   ],
+   "rationale": "The Settings page's three cross-cutting concerns: the reimplemented-three-times editable-ordered-list card pattern, the invitation engine's coach-facing config surface, and the single source of truth gating which sections a coach-only vs. player account can reach.",
    "scope": "global"
   }
  ]
