@@ -23,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
 
 type Row = { off: boolean; windows: [string, string][] };
 type Week = Record<WorkingDayKey, Row>;
@@ -56,12 +57,22 @@ export function WorkingHoursSection() {
   const [saving, setSaving] = useState(false);
   const [isSet, setIsSet] = useState(false);
   const [week, setWeek] = useState<Week>(() => weekFromWorkingHours(null));
+  // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved week,
+  // compared BY VALUE against `week` — deliberately NOT the `touched` ref above,
+  // which only answers "did a load ever need blocking", not "is there an edit
+  // right now" (a day switched off then back on again must read as clean).
+  const [baseline, setBaseline] = useState<Week>(() => weekFromWorkingHours(null));
   const [errorDay, setErrorDay] = useState<WorkingDayKey | null>(null);
 
   const apply = (value: CoachWorkingHours) => {
     setIsSet(value !== null);
-    setWeek(weekFromWorkingHours(value));
+    const wk = weekFromWorkingHours(value);
+    setWeek(wk);
+    setBaseline(wk);
   };
+
+  const unsaved = JSON.stringify(week) !== JSON.stringify(baseline);
+  useReportUnsaved("workingHours", unsaved);
 
   // PAD-392 (B-155): the week is loaded ONCE, and a load never replaces a week the
   // coach has touched. `t` was in this effect's deps, and `t` gets a new identity when
