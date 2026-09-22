@@ -8,6 +8,7 @@ affects:
   - messaging.conversations
   - backend/padel_app/services/notification_service.py
   - backend/padel_app/services/replacement_approval_service.py
+  - backend/padel_app/services/messaging_service.py
   - backend/padel_app/models/conversations.py
 proposed_fix: "Conversation.get_or_insert: insert in a savepoint; on the unique key's IntegrityError, re-read the winner's row. Both system get-or-create paths use it."
 opened: 2026-09-22T19:17:00Z
@@ -52,6 +53,8 @@ B-161 hit students who already had a conversation, and after PAD-407 those passe
 ### Resolution
 - The race cells now pass on Postgres (3/3). The 41 test files that touch conversations, system
   messages or replacement approvals: 403 passed, 3 skipped on SQLite.
-- Not changed: `POST /api/app/conversation` (user-driven, rule 6). The same check-then-insert
-  sits there; a double submit could 500. That is a separate question, reported to the
-  coordinator.
+- The same check-then-insert sat in `POST /api/app/conversation` (user-driven, rule 6). On the
+  coordinator's ruling it is folded into this fix: `create_conversation_service` creates through
+  `Conversation.get_or_insert`. A forced double submit on staging's code failed with the same
+  `UniqueViolation`; with the fix both POSTs answer 201 with the same conversation and shape.
+  The 50 files touching conversations give 465 passed, 4 skipped on SQLite.

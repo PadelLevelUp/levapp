@@ -157,3 +157,35 @@ def test_the_second_caller_after_the_first_committed_reuses_the_conversation(app
         again = _get_or_create_direct_conversation(coach_uid, student_uid).id
     assert first == again
     assert _conversations(app, Conversation.build_participant_key([coach_uid, student_uid]))[0] == 1
+
+
+def test_a_double_submit_of_post_conversation_answers_the_same_conversation_twice(app):
+    """The user-facing path (rule 6): two POSTs for the same participants at once both answer 201
+    with the same conversation and the same shape — an App Store build that double-taps sees the
+    existing thread, not a 500."""
+    from flask_jwt_extended import create_access_token
+
+    from padel_app.models import Conversation
+    from padel_app.tests.test_pad237_post_conversation_paged import _roster
+
+    app.config["JWT_SECRET_KEY"] = "test-secret"
+    with app.app_context():
+        coach, student = _roster(app)
+        coach_uid, student_uid = coach.id, student.id
+        headers = {"Authorization": f"Bearer {create_access_token(identity=str(coach_uid))}"}
+
+    def post():
+        res = app.test_client().post("/api/app/conversation", json={"otherParticipants": [student_uid]},
+                                     headers=headers)
+        return res.status_code, res.get_json()
+
+    with _both_threads_reach_the_insert(app):
+        answers, errors = _race(app, post)
+
+    assert not errors, errors
+    assert [status for status, _ in answers] == [201, 201]
+    (_, first), (_, second) = answers
+    assert first["id"] == second["id"]
+    assert sorted(first) == sorted(second), "the same response shape either way"
+    assert _conversations(app, Conversation.build_participant_key([coach_uid, student_uid])) == (
+        1, {coach_uid, student_uid})

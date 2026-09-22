@@ -30,7 +30,9 @@ Manage conversations between users (1:1 or group chats).
    `Conversation.get_or_insert`, which inserts in a savepoint and, when the unique
    `participant_key` refuses it because another caller got there first, re-reads that caller's
    row. Neither caller fails and no message is lost. The user-facing `POST /api/app/conversation`
-   (rule 6) keeps its own look-up; a double submit there is a separate, open question.
+   (rule 6) creates through the same helper, so a double submit answers `201` with the existing
+   conversation in the same shape as a fresh create, on every client including the App Store
+   builds, never a 500.
 3. `is_group=True` allows group_name display
 4. `last_read_at` per participant tracks read status
 5. `GET /api/app/conversations` returns all user's conversations
