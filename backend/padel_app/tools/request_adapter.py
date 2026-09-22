@@ -22,7 +22,7 @@ class JsonRequestAdapter:
             raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
         if mode == "present" and not form:
             raise ValueError("present mode needs the form: it is what says which keys are fields")
-        self.mode = mode
+        self._mode = mode
         self._raw = data or {}
 
         if mode == "present":
@@ -33,15 +33,26 @@ class JsonRequestAdapter:
                 for field in form.fields
                 if field.name in self._raw
             }
-            self.present = frozenset(normalized)
+            self._present = frozenset(normalized)
         elif form:
             normalized = {}
             for field in form.fields:
                 normalized[field.name] = self._raw.get(field.name, '')
-            self.present = frozenset(normalized) & frozenset(self._raw)
         else:
             normalized = self._raw
-            self.present = frozenset(self._raw)
 
         self.form = MultiDict(normalized)
         self.files = MultiDict()
+
+    # The mode is fixed at construction and `present` exists only in present mode, so
+    # the only way to read a request in present mode is the constructor keyword — the
+    # one thing the call-site guard (test_pad385_adapter_call_sites.py) can see.
+    @property
+    def mode(self):
+        return self._mode
+
+    @property
+    def present(self):
+        if self._mode != "present":
+            raise AttributeError("a legacy-mode request has no `present` set")
+        return self._present

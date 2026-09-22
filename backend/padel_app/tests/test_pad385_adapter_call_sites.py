@@ -9,9 +9,16 @@ the two call sites it names" has to be mechanical, not a promise:
 * `LEGACY_MAX` is a ratchet per file. More legacy calls than listed fails (a new caller
   must choose present mode, or argue here); FEWER fails too, with "lower the max" —
   headroom would let a new legacy caller in silently.
-* A mode that is not a string literal fails: a variable mode cannot be audited.
-* The name imported under an alias, or used other than as a direct call, fails: the
-  scanner would not see those calls.
+* A call the scanner cannot classify FAILS instead of counting as legacy: a mode that is
+  not a string literal, `*args` / `**kwargs` in the call, the name imported under an
+  alias, reached through `getattr`, or referenced (by name or through its module) other
+  than as the callee of a direct call — bound to a variable, subclassed, passed around.
+* The adapter itself closes the other door: `mode` is read-only and `present` exists only
+  in present mode, so no legacy call can be turned into a present one after the fact.
+* Out of reach by design, and said so: a name built at run time (`"Json" + "…"`), and
+  files outside `backend/padel_app` (`backend/scripts/`, `migrations/`) — none calls the
+  adapter today. LEGACY_MAX is a drift alarm a developer can bump with a reason in the
+  diff; PRESENT is the mechanical part.
 
 `LEGACY_MAX` is the scanner's own output on origin/staging 589f1977d (27 calls in 8 service
 files; a grep made beforehand gave the same 27, as a cross-check, not as the source). To
@@ -19,6 +26,8 @@ regenerate: print `_scan()[0]` and paste it.
 """
 import ast
 from pathlib import Path
+
+import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1]  # backend/padel_app
 NAME = "JsonRequestAdapter"
@@ -69,10 +78,17 @@ class _Scan(ast.NodeVisitor):
         )
         if named:
             where = ".".join(self.stack) or "<module>"
+            unpacked = any(isinstance(arg, ast.Starred) for arg in node.args) or any(
+                kw.arg is None for kw in node.keywords
+            )
             mode = next((kw.value for kw in node.keywords if kw.arg == "mode"), None)
             if mode is None and len(node.args) >= 3:
                 mode = node.args[2]
-            if mode is None:
+            if unpacked:
+                self.problems.append(
+                    f"{self.file}:{node.lineno} ({where}): *args / **kwargs in the call — the mode cannot be read"
+                )
+            elif mode is None:
                 self.legacy += 1
             elif isinstance(mode, ast.Constant) and mode.value == "legacy":
                 self.legacy += 1
@@ -85,14 +101,27 @@ class _Scan(ast.NodeVisitor):
             for child in list(node.args) + [kw.value for kw in node.keywords]:
                 self.visit(child)
             return
+        if isinstance(callee, ast.Name) and callee.id == "getattr":
+            if any(isinstance(arg, ast.Constant) and arg.value == NAME for arg in node.args):
+                self.problems.append(
+                    f"{self.file}:{node.lineno}: {NAME} reached through getattr; the scanner cannot follow it"
+                )
         self.generic_visit(node)
 
-    def visit_Name(self, node):
+    def _indirect(self, node, how):
         # Reached only for a use that is NOT the callee of a direct call (visit_Call skips its func).
+        self.problems.append(
+            f"{self.file}:{node.lineno}: {NAME} {how} other than as a direct call; the scanner cannot follow it"
+        )
+
+    def visit_Name(self, node):
         if node.id == NAME:
-            self.problems.append(
-                f"{self.file}:{node.lineno}: {NAME} used other than as a direct call; the scanner cannot follow it"
-            )
+            self._indirect(node, "used")
+
+    def visit_Attribute(self, node):
+        if node.attr == NAME:
+            self._indirect(node, "referenced through its module")
+        self.generic_visit(node)
 
 
 def _scan_source(source, file):
@@ -147,6 +176,34 @@ def test_the_scanner_sees_each_kind_of_call_it_claims_to():
 
     aliased = _scan_source("from padel_app.tools.request_adapter import JsonRequestAdapter as J\n", "alias.py")
     assert aliased.problems and "imported as 'J'" in aliased.problems[0]
+
+
+EVASIONS = {
+    # Session-B's review of #366 (2026-09-22): each of these ran as PRESENT, or could not be
+    # told apart, while the first scanner counted it as legacy or saw nothing at all.
+    "bound-through-the-module": (
+        "from padel_app.tools import request_adapter\n"
+        "def f(d, f):\n    build = request_adapter.JsonRequestAdapter\n    return build(d, f, mode='present')\n"),
+    "subclass-through-the-module": (
+        "from padel_app.tools import request_adapter\n"
+        "class P(request_adapter.JsonRequestAdapter):\n    pass\n"),
+    "getattr": (
+        "from padel_app.tools import request_adapter\n"
+        "def f(d, f):\n    return getattr(request_adapter, 'JsonRequestAdapter')(d, f, mode='present')\n"),
+    "double-star-kwargs": (
+        "from padel_app.tools.request_adapter import JsonRequestAdapter\n"
+        "def f(d, f):\n    return JsonRequestAdapter(d, f, **{'mode': 'present'})\n"),
+    "star-args": (
+        "from padel_app.tools.request_adapter import JsonRequestAdapter\n"
+        "def f(d, a):\n    return JsonRequestAdapter(d, *a)\n"),
+}
+
+
+@pytest.mark.parametrize("evasion", sorted(EVASIONS), ids=sorted(EVASIONS))
+def test_a_call_the_scanner_cannot_classify_fails_instead_of_counting_as_legacy(evasion):
+    scan = _scan_source(EVASIONS[evasion], "evasion.py")
+    assert scan.legacy == 0 and scan.present == set()
+    assert scan.problems, f"{evasion}: the scanner saw nothing wrong"
 
 
 def test_every_call_site_can_be_audited():
