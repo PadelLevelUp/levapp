@@ -420,19 +420,78 @@ def _edit_class(client, world, updates):
         "scope": "future", "updates": updates})
 
 
-def test_add_class_with_a_capacity_of_zero_fails_on_the_not_null_column(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). `maxPlayers: 0` is read as "not sent" and
-    `lessons.max_players` is NOT NULL: an unhandled IntegrityError, not a 400 and
-    not a stored 0. Whether 0 is a legal capacity is a product question; a 500 is not."""
-    from sqlalchemy.exc import IntegrityError
+def _add_class(client, world, **over):
+    body = {**world["body"], "name": "Zero", "startTime": "20:00", "endTime": "21:00", **over}
+    for key, value in list(over.items()):
+        if value is ABSENT_KEY:
+            body.pop(key)
+    return client.post("/api/app/add_class", headers=world["headers"], json=body)
 
+
+ABSENT_KEY = object()
+
+
+def _lesson_count(app):
+    from padel_app.models.lessons import Lesson
+
+    with app.app_context():
+        return Lesson.query.count()
+
+
+@pytest.mark.parametrize("capacity", [0, None, "", "0", -1, "abc", 2.5, "6.0", True, ABSENT_KEY],
+                         ids=["zero", "null", "empty", "string-zero", "negative", "text", "fraction", "string-float", "true", "absent"])
+def test_add_class_a_capacity_that_is_not_a_positive_integer_is_refused(app, client, capacity):
+    """FIXED in PAD-390 (B-136 step 5). Was: `maxPlayers: 0` read as "not sent" and
+    `lessons.max_players` NOT NULL → an unhandled IntegrityError (a 500); an absent
+    key → KeyError (a 500). 0 is not a legal capacity (decided 2026-09-21): 400
+    naming the field, and no lesson row."""
+    world = _class_world(app, client)
+    before = _lesson_count(app)
+
+    res = _add_class(client, world, maxPlayers=capacity)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["max_players"]}
+    assert _lesson_count(app) == before
+
+
+@pytest.mark.parametrize("name", ["", "   ", None, ABSENT_KEY], ids=["empty", "blank", "null", "absent"])
+def test_add_class_without_a_name_is_refused(app, client, name):
+    """PAD-390: `lessons.title` is NOT NULL; an empty name used to reach the column
+    as NULL (a 500), an absent key a KeyError. The same 400 the edit route gives."""
+    world = _class_world(app, client)
+    before = _lesson_count(app)
+
+    res = _add_class(client, world, name=name)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["title"]}
+    assert _lesson_count(app) == before
+
+
+def test_add_class_with_both_wrong_names_both_fields(app, client):
     world = _class_world(app, client)
 
-    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
-        client.post("/api/app/add_class", headers=world["headers"],
-                    json={**world["body"], "name": "Zero", "maxPlayers": 0, "startTime": "20:00", "endTime": "21:00"})
+    res = _add_class(client, world, name="", maxPlayers=0)
+
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["title", "max_players"]}
+
+
+def test_add_class_a_capacity_sent_as_a_numeric_string_is_stored_as_the_number(app, client):
+    """The control: what the shells send (an integer) and what an old build might
+    (an integer string) both create the class with that capacity. "6.0" is refused
+    above: the check parses exactly as the write does (Session-B, #373), so nothing
+    it admits can fail to convert."""
+    from padel_app.models.lessons import Lesson
+
+    world = _class_world(app, client)
+    assert _add_class(client, world, maxPlayers="6").status_code == 200
+    assert _add_class(client, world, name="Seven", maxPlayers=7).status_code == 200
+
     with app.app_context():
-        db.session.rollback()
+        rows = Lesson.query.order_by(Lesson.id.desc()).limit(2).all()
+        assert sorted(r.max_players for r in rows) == [6, 7]
 
 
 def test_edit_class_absent_keys_are_kept(app, client):
@@ -745,31 +804,70 @@ def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly
 
 # ── POST /api/app/message (messaging_service.create_message_service) ─────────
 
-def test_message_an_empty_text_fails_on_the_not_null_column_and_blank_or_zero_are_stored(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). Nothing validates the text: `""` is read as
-    "not sent" and `messages.text` is NOT NULL — an unhandled IntegrityError where
-    a 400 belongs. A whitespace-only text and the text "0" are truthy strings and
-    are stored as sent."""
-    from sqlalchemy.exc import IntegrityError
-
-    from padel_app.models import Message
-
+def _conversation(app, client):
     ids = _seed(app)
     headers = _headers(app, ids["coach_user_id"])
     conversation = client.post("/api/app/conversation", json={"otherParticipants": [ids["student_user_id"]]}, headers=headers)
     assert conversation.status_code == 201, conversation.get_data(as_text=True)
-    conversation_id = conversation.get_json()["id"]
+    return conversation.get_json()["id"], headers
 
-    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
-        client.post("/api/app/message", json={"conversationId": conversation_id, "text": ""}, headers=headers)
+
+def _message_texts(app):
+    from padel_app.models import Message
+
     with app.app_context():
-        db.session.rollback()
-    for text in ("   ", "0", "hello"):
+        return [m.text for m in Message.query.order_by(Message.id)]
+
+
+@pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+def test_message_with_no_text_is_refused_and_nothing_is_written(app, client, text):
+    """FIXED in PAD-390 (B-136 step 5). Was: `""` read as "not sent" and
+    `messages.text` NOT NULL → an unhandled IntegrityError; an absent key a
+    KeyError — a 500 either way where a 400 belongs. Whitespace-only is refused
+    too, as every blank rule of this family does (both composers trim and block)."""
+    conversation_id, headers = _conversation(app, client)
+    body = {"conversationId": conversation_id, "text": text}
+    if text is ABSENT_KEY:
+        body.pop("text")
+
+    res = client.post("/api/app/message", json=body, headers=headers)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["text"]}
+    assert _message_texts(app) == []
+
+
+def test_message_a_text_that_is_there_is_stored_as_sent(app, client):
+    """The control: "0" is a text, and a text is stored as sent (no trimming —
+    what the message says is the sender's)."""
+    conversation_id, headers = _conversation(app, client)
+    for text in ("0", "hello", " spaced "):
         assert client.post("/api/app/message", json={"conversationId": conversation_id, "text": text},
                            headers=headers).status_code == 201
 
-    with app.app_context():
-        assert [m.text for m in Message.query.order_by(Message.id)] == ["   ", "0", "hello"]
+    assert _message_texts(app) == ["0", "hello", " spaced "]
+
+
+@pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+def test_message_edit_with_no_text_is_refused_and_the_message_is_unchanged(app, client, text):
+    """Session-B on #373: the same defect on the same column, three lines away —
+    PUT /message/<id> with `""` hit the NOT NULL column, an absent key a KeyError."""
+    conversation_id, headers = _conversation(app, client)
+    created = client.post("/api/app/message", json={"conversationId": conversation_id, "text": "hello"}, headers=headers)
+    assert created.status_code == 201
+    message_id = created.get_json()["id"]
+    body = {"text": text}
+    if text is ABSENT_KEY:
+        body = {}
+
+    res = client.put(f"/api/app/message/{message_id}", json=body, headers=headers)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["text"]}
+    assert _message_texts(app) == ["hello"]
+
+    assert client.put(f"/api/app/message/{message_id}", json={"text": "hello, edited"}, headers=headers).status_code == 200
+    assert _message_texts(app) == ["hello, edited"]
 
 
 # ── POST /api/app/class_instance/presences/confirm (lesson_service.add_presences) ──

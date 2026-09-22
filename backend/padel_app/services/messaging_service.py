@@ -17,6 +17,7 @@ from padel_app.models import (
     User,
     Coach,
 )
+from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.realtime import publish
@@ -292,6 +293,11 @@ def create_message_service(data, user_id, now=None):
         if _is_blocked_either_way(user_id, participant.user_id):
             abort(403, "Cannot message a blocked user")
 
+    # PAD-390 (B-136 step 5): a message with no text is refused, 400 naming the
+    # field — `""` used to reach the NOT NULL column (an IntegrityError) and an
+    # absent key a KeyError, a 500 either way. What text there is, is stored as sent.
+    _require_text(data)
+
     payload = {
         "text": data["text"],
         "conversation": conversation_id,
@@ -358,8 +364,21 @@ def create_message_service(data, user_id, now=None):
     return message
 
 
+def _require_text(data):
+    """PAD-390 (B-136 step 5): a message has text. A missing, null, empty or
+    whitespace-only `text` is refused, 400 naming the field, before any write —
+    `""` used to reach the NOT NULL column (an IntegrityError) and an absent key a
+    KeyError, a 500 either way. What text there is, is stored as sent (untrimmed)."""
+    text = (data or {}).get("text")
+    if text is None or not str(text).strip():
+        raise NotNullableFieldError(["text"])
+    return text
+
+
 def edit_message_service(message_id, new_text, user_id):
-    """Edit a message. Only the sender may edit."""
+    """Edit a message. Only the sender may edit. A missing/blank text is refused
+    (PAD-390) — the signature is kept: tests call it directly."""
+    new_text = _require_text({"text": new_text})
     message = Message.query.get_or_404(message_id)
     require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:

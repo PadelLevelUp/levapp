@@ -27,6 +27,15 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 7. **Court (PAD-194).** The payload may carry `courtId`; it must be one of the class's club's courts
    (`clubs.courts` rule 6), else 400 `court_not_in_club`. The court is optional and defaults to none.
 
+8. **A class needs a name and a capacity (PAD-390, B-136).** `POST /api/app/add_class` refuses,
+   before anything is written, a missing, empty or blank `name` and a `maxPlayers` that is not a
+   positive integer — 0, null, `""`, a fraction, text, or an absent key (0 is not a legal capacity,
+   decided 2026-09-21) — with `400 {"error": "invalid_fields", "fields": [...]}` naming every such
+   field (`title`, `max_players`); both used to reach the NOT NULL column as an IntegrityError, or
+   a KeyError — a 500. The check parses exactly as the write does: an integer string ("6") is the
+   number; "6.0" is refused, never a 500. The same check guards
+   `POST /edit_class` (`classes.edit` rule 7).
+
 ### Acceptance Criteria
 
 #### Create one-off class
@@ -40,3 +49,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **When** they POST with `is_recurring=true` and `recurrence_rule={"frequency": "weekly", "daysOfWeek": [1]}`
 - **Then** a Lesson record is created with the recurrence config
 - **And** reminder jobs are scheduled for the next 60 days of occurrences
+
+#### A class without a name or a legal capacity is refused (rule 8)
+- **Given** the coach's usual class body
+- **When** it is sent with `"maxPlayers": 0` (or null, `""`, 2.5, "abc", or no key), or with `"name": ""`
+- **Then** the answer is 400 with `fields` `["max_players"]` / `["title"]` — both when both — and no class exists
+- **When** it is sent with `"maxPlayers": "6"`
+- **Then** the class is created with capacity 6

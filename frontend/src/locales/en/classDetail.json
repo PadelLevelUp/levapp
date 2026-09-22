@@ -40,7 +40,8 @@
       "dateRequired": "Date is required",
       "pickAtLeastOneDay": "Pick at least one day",
       "endDateRequired": "End date is required",
-      "typeLabel": "Type"
+      "typeLabel": "Type",
+      "nameRequired": "Give the class a name"
     },
     "spotReleased": "Your spot was released",
     "couldNotCancelAttendance": "Could not cancel attendance",

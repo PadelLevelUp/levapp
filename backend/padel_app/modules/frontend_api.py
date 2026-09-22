@@ -1517,7 +1517,7 @@ def create_message():
 @jwt_required()
 def edit_message(message_id):
     data = request.get_json() or {}
-    edit_message_service(message_id, data["text"], current_user().id)
+    edit_message_service(message_id, data.get("text"), current_user().id)
     return jsonify({"ok": True})
 
 

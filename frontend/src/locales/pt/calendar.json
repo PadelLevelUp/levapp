@@ -76,7 +76,8 @@
       "fieldDays": "Dias da semana",
       "fieldEndDate": "Data de fim",
       "court": "Campo",
-      "noCourt": "Sem campo"
+      "noCourt": "Sem campo",
+      "fieldName": "Nome"
     },
     "overlap": {
       "title": "Horário sobreposto",

@@ -14,6 +14,7 @@ from padel_app.models import (
     Association_PlayerLesson,
     Association_CoachLessonInstance,
 )
+from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.tools.calendar_tools import build_datetime, _format_time, _format_date
 from padel_app.helpers.calendar_helpers import (
@@ -704,7 +705,7 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     # PAD-275 (classes.edit rule 4): a capacity equal to the lesson's clears the
     # override; the shadow column follows the effective value.
     if 'max_players' in data and data.get('max_players') not in (None, ''):
-        _cap = int(data['max_players'])
+        _cap = _capacity(data['max_players'])  # refused up front when None; the same parser
         _lesson_cap = lesson_instance.lesson.max_players if lesson_instance.lesson else None
         lesson_instance.max_players_override = _cap if _cap != _lesson_cap else None
     lesson_instance.max_players = lesson_instance.effective_max_players
@@ -1074,13 +1075,24 @@ def edit_lesson_from_data(lesson, data):
 
 
 def add_class_service(data, coach, club, *, notify_students=True):
-    """Builds a lesson payload from frontend add_class data and creates the lesson."""
+    """Builds a lesson payload from frontend add_class data and creates the lesson.
+
+    PAD-390 (B-136 step 5): a missing, empty or blank name and a capacity that is
+    not a positive integer (0, null, "", a fraction, text — an absent key too)
+    are refused before anything is written, 400 naming the fields; both used to
+    reach the NOT NULL column (an IntegrityError) or a KeyError — a 500 either way.
+    """
+    refused = _refused_class_fields(
+        {"title": data.get("name"), "max_players": data.get("maxPlayers")}, recurring=False,
+    )
+    if refused:
+        raise NotNullableFieldError(refused)
     lesson_payload = {
         "title": data["name"],
         "type": data["classType"],
         "status": "active",
         "color": data.get("color"),
-        "max_players": data["maxPlayers"],
+        "max_players": _capacity(data["maxPlayers"]),
         "level": data.get("levelId"),
         "is_recurring": data.get("isRecurring", False),
         "start_datetime": build_datetime(data["date"], data["startTime"]),
@@ -1294,6 +1306,24 @@ _EDIT_CLASS_FIELDS = {
 }
 
 
+def _capacity(value):
+    """A capacity as the routes store it: an int > 0, or the integer string an old
+    build may send ("6"). None for anything else — a bool, a fraction, "6.0", text
+    (PAD-390; Session-B on #368 and #373: ONE parser, the same one the write uses,
+    so nothing the check admits can fail to convert)."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _is_positive_integer(value):
+    return _capacity(value) is not None
+
+
 def _refused_class_fields(payload, *, recurring):
     """The sent-empty values a class cannot hold, named for a 400 (PAD-387).
 
@@ -1310,14 +1340,8 @@ def _refused_class_fields(payload, *, recurring):
     refused = []
     if "title" in payload and (payload["title"] is None or not str(payload["title"]).strip()):
         refused.append("title")
-    if "max_players" in payload:
-        cap = payload["max_players"]
-        try:
-            legal = cap is not None and str(cap).strip() != "" and int(cap) > 0
-        except (TypeError, ValueError):
-            legal = False
-        if not legal:
-            refused.append("max_players")
+    if "max_players" in payload and not _is_positive_integer(payload["max_players"]):
+        refused.append("max_players")
     if recurring and "recurrence_end" in payload and payload["recurrence_end"] in (None, ""):
         refused.append("recurrence_end")
     return refused
