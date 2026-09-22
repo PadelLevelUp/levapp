@@ -9,7 +9,8 @@ from sqlalchemy import func, case
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
-from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach, _is_placeholder_user
+from padel_app.model import NotNullableFieldError
+from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
 from padel_app.tools.unit_of_work import transactional
 from padel_app.tools.username_tools import unique_placeholder_username
 
@@ -390,7 +391,8 @@ _EDIT_PLAYER_RELATION = {"levelId": "level", "side": "side", "notes": "notes"}
 def edit_player_service(data):
     """Computes changed fields and delegates to edit_player_helper.
 
-    Returns the coach-player info, or ``(error_dict, 400)`` for a sent-empty name.
+    Raises NotNullableFieldError (→ 400 naming the fields) for what may not be
+    written: an empty name, an account holder's e-mail, a 0/false level.
     """
     updates = data['updates']
     player_info = data['player']
@@ -402,18 +404,22 @@ def edit_player_service(data):
     # PAD-388 (B-136 step 3): each dict holds a key iff the client sent it AND it
     # is whitelisted — nothing is invented for an unchanged key (the old None
     # placeholders would now CLEAR), and nothing else on the user form is reachable.
+    player = Player.query.get_or_404(player_info['playerId'])
     refused = []
     if 'name' in changes and (changes['name'] is None or not str(changes['name']).strip()):
         refused.append("name")
-    # PAD-388 (Coordinator, 2026-09-22): once a student has an account the e-mail is
-    # their login and password recovery — the student's own field, not the coach's.
-    # A placeholder's e-mail is the coach's to clear.
-    if 'email' in changes and changes['email'] in (None, "") and not _is_placeholder_user(
-        Player.query.get_or_404(player_info['playerId']).user
-    ):
+    # PAD-388 (Coordinator, 2026-09-22, widened after review): once a student has an
+    # account (a password), the e-mail is their login and password recovery — the
+    # student's own field. A coach may neither clear nor CHANGE it; the student does,
+    # from their own settings. A placeholder's e-mail is the coach's.
+    if 'email' in changes and player.user.password is not None:
         refused.append("email")
+    # 0 / false are not a level: the old code read them as "not sent"; present mode
+    # would hand them to set_roster_level and hit the FK after the user part committed.
+    if 'levelId' in changes and changes['levelId'] in (0, False, "0"):
+        refused.append("level")
     if refused:
-        return {"error": "invalid_fields", "fields": refused}, 400
+        raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     payload = {
         'coach': player_info['coachId'],
         'relation': {
@@ -424,13 +430,12 @@ def edit_player_service(data):
         },
     }
 
-    player = Player.query.get_or_404(player_info['playerId'])
     rel = Association_CoachPlayer.query.filter_by(
         coach_id=player_info['coachId'],
         player_id=player_info["playerId"],
     ).first_or_404()
 
-    return edit_player_helper(player, rel, payload), 200
+    return edit_player_helper(player, rel, payload)
 
 
 REMOVE_ACTIONS = ("disconnect", "delete")

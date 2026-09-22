@@ -212,21 +212,51 @@ def test_edit_player_a_placeholders_email_is_the_coachs_to_clear(app, client, cl
     assert _roster_row(app, ids)["email"] is None
 
 
-@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
-def test_edit_player_an_account_holders_email_cannot_be_cleared_by_the_coach(app, client, cleared):
-    """Coordinator, 2026-09-22: once a student has an account the e-mail is their
-    login and password recovery — the student's own field. 400, nothing written
-    (the note sent beside it included)."""
-    ids = _seed(app)  # activated: password set, status active
+@pytest.mark.parametrize("sent", ["", None, "   ", "other@test.com"],
+                         ids=["empty-string", "null", "whitespace", "another-address"])
+def test_edit_player_an_account_holders_email_is_the_students_own(app, client, sent):
+    """Coordinator, 2026-09-22 (widened after Session-B's review): once a student has
+    an account (a password) the e-mail is their login and password recovery — the
+    student's own field. A coach may neither clear nor change it: 400, nothing
+    written (the note sent beside it included). Whitespace is a clear."""
+    ids = _seed(app)  # activated: password set
     before = _roster_row(app, ids)
 
     player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
               "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
-    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"email": cleared, "notes": "new note"}},
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"email": sent, "notes": "new note"}},
                       headers=_headers(app, ids["coach_user_id"]))
 
     assert res.status_code == 400, res.get_data(as_text=True)
     assert res.get_json() == {"error": "invalid_fields", "fields": ["email"]}
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_a_placeholders_email_may_be_changed_by_the_coach(app, client):
+    ids = _seed(app)
+    _make_placeholder(app, ids)
+
+    _edit_player(app, client, ids, {"email": "corrected@test.com"})
+
+    assert _roster_row(app, ids)["email"] == "corrected@test.com"
+
+
+@pytest.mark.parametrize("zero", [0, False, "0"], ids=["zero", "false", "string-zero"])
+def test_edit_player_a_zero_level_is_refused_before_anything_is_written(app, client, zero):
+    """Session-B's F3 on #371: the old code read 0 as "not sent"; present mode would
+    have handed it to set_roster_level after the user part had already committed —
+    a rename persisted, then a 500 on the level's FK. Refused up front, with the
+    name beside it not written."""
+    ids = _seed(app)
+    before = _roster_row(app, ids)
+
+    player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
+              "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"name": "Renamed", "levelId": zero}},
+                      headers=_headers(app, ids["coach_user_id"]))
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["level"]}
     assert _roster_row(app, ids) == before
 
 
@@ -296,12 +326,14 @@ def test_edit_player_nothing_on_the_user_form_beyond_name_email_phone_is_reachab
         user = db.session.get(User, ids["student_user_id"])
         before = (user.username, user.status, user.is_admin, user.password)
 
-    _edit_player(app, client, ids, {"username": "hacked", "status": "disabled", "is_admin": True,
-                                    "password": "x", "notes": "still just a note"})
+    _edit_player(app, client, ids, {"username": "hacked", "status": "disabled", "is_admin": True, "is_superadmin": True,
+                                    "generated_code": 4321, "password": "x", "user": {"is_admin": True, "email": "x@y"},
+                                    "notes": "still just a note"})
 
     with app.app_context():
         user = db.session.get(User, ids["student_user_id"])
         assert (user.username, user.status, user.is_admin, user.password) == before
+        assert (user.is_superadmin, user.email) == (False, "student@test.com")
     assert _roster_row(app, ids)["notes"] == "still just a note"
 
 

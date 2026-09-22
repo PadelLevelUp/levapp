@@ -47,6 +47,11 @@ interface PlayerFormProps {
    * an existing player has no creation-time invitation to issue.
    */
   onInvite?: (values: PlayerFormValues) => void;
+  /**
+   * PAD-388: once the student has an account (a password) the e-mail is their own —
+   * login and password recovery — and the coach's box is read-only.
+   */
+  lockEmail?: boolean;
   /** Spinner state for the invite action, kept separate from `saving`. */
   inviting?: boolean;
 }
@@ -76,6 +81,7 @@ export function PlayerForm({
   onSubmit,
   onCancel,
   onInvite,
+  lockEmail = false,
   inviting = false,
 }: PlayerFormProps) {
   const { t } = useTranslation();
@@ -214,7 +220,8 @@ export function PlayerForm({
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
-            className={emailCheck.error ? "border-destructive" : undefined}
+            editable={!lockEmail}
+            className={emailCheck.error ? "border-destructive" : lockEmail ? "opacity-60" : undefined}
           />
           {emailCheck.checking ? (
             <View className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -228,6 +235,11 @@ export function PlayerForm({
             testID={`field-conflict-${emailCheck.conflict?.reason ?? "unknown"}`}
           >
             {fieldConflictText(emailCheck.conflict, t)}
+          </Text>
+        ) : null}
+        {lockEmail ? (
+          <Text className="text-xs text-muted-foreground" testID="player-email-locked">
+            {t("players.emailIsTheStudents")}
           </Text>
         ) : null}
       </View>

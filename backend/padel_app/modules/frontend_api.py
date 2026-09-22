@@ -2614,9 +2614,10 @@ def edit_player():
     require_own_roster_relation(coach, player_info.get("playerId"))
     player_info["coachId"] = coach.id
     data["player"] = player_info
-    # PAD-388: a sent-empty name is refused before any write.
-    coach_player_info, status = edit_player_service(data)
-    return jsonify(coach_player_info), status
+    # PAD-388: an empty name, an account holder's e-mail or a 0 level raises
+    # NotNullableFieldError before any write; the blueprint handler answers 400.
+    coach_player_info = edit_player_service(data)
+    return jsonify(coach_player_info)
 
 
 @bp.post("/remove_player")

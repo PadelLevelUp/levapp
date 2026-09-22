@@ -99,4 +99,4 @@ onFlowComplete:
       id: "player-save"
     timeout: 15000
 - evalScript: "${output.noteAfterClear = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
-- assertTrue: "${output.noteAfterClear == null || output.noteAfterClear == ''}"
+- assertTrue: "${output.noteAfterClear === null}"
