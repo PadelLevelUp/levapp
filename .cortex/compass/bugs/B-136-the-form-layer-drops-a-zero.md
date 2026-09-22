@@ -107,6 +107,11 @@ last lands._
   phone or e-mail box (they dropped the key before, so nothing could ever be cleared); an omitted
   key still means keep, which is what App Store 1.0/1.1.0 send. Level and side have no clear
   control in either shell — server-ready, UI not asked for.
-- Step 4 — PAD-389: `POST /activate/user`. _Pending._
+- **Step 4 — PAD-389 (2026-09-22): `POST /activate/user/<id>`.** The five-field whitelist applied
+  BEFORE the form; present mode: an emptied pre-filled e-mail or phone box clears (was: the
+  coach-typed phone silently kept), an omitted key keeps; a blank name/username or an empty/ABSENT
+  password is 400 (an empty password used to leave the account active with none); a taken username
+  is 409 as the sibling flows answer (was a 500). No client change: both screens already send every
+  key, "" when emptied, and their zod blocks an empty name/username/e-mail/password.
 - Step 5 — PAD-390: `POST /add_class`, `POST /message`. _Pending._
 - Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).

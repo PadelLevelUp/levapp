@@ -771,30 +771,104 @@ def test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undon
 
 # ── POST /api/app/activate/user/<id> (user_service.activate_user_service) ────
 
-def test_activation_an_empty_field_keeps_what_the_coach_entered(app, client):
-    """The falsy rule doing something arguably useful: a student who activates with
-    an empty phone or e-mail box does NOT wipe what the coach typed when adding
-    them. A fix that honours "" would start wiping it — the activation form has to
-    be read (what does it send for an untouched box?) before this route changes."""
+def _inactive_user(app, **over):
     from padel_app.models import User
     from padel_app.tools.activation_token import activation_token_for
 
     with app.app_context():
-        user = User(name="Invited", username="pending-abc", password="x", status="inactive",
-                    email="coach-typed@test.com", phone="+351933333333")
+        fields = dict(name="Invited", username="pending-abc", password=None, status="inactive",
+                      email="coach-typed@test.com", phone="+351933333333")
+        fields.update(over)
+        user = User(**fields)
         db.session.add(user)
         db.session.commit()
-        user_id, token = user.id, activation_token_for(user)
+        return user.id, activation_token_for(user)
 
-    res = client.post(f"/api/app/activate/user/{user_id}", json={
-        "token": token, "name": "Invited Player", "username": "invited", "password": "S3cret-pass!",
-        "email": "", "phone": ""})
 
-    assert res.status_code == 200, res.get_data(as_text=True)
+def _user_row(app, user_id):
+    from padel_app.models import User
+
     with app.app_context():
         row = db.session.get(User, user_id)
-        assert (row.status, row.username, row.name) == ("active", "invited", "Invited Player")
-        assert (row.email, row.phone) == ("coach-typed@test.com", "+351933333333")
+        return {"status": row.status, "name": row.name, "username": row.username, "email": row.email,
+                "phone": row.phone, "has_password": row.password is not None}
+
+
+ACTIVATION_BODY = {"name": "Invited Player", "username": "invited", "password": "S3cret-pass!"}
+
+
+def test_activation_an_emptied_prefilled_phone_or_email_is_cleared(app, client):
+    """FIXED in PAD-389 (B-136 step 4). The activation form is PRE-FILLED with what
+    the coach typed (GET /register/user), so an emptied box is the student's intent
+    (design note, step 4). Was: "" dropped, the coach's phone silently kept. Both
+    shells send every key, "" when emptied; zod stops an empty e-mail on the client,
+    so only the phone is reachable today — the e-mail rule is the server's own."""
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, "email": "", "phone": ""})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _user_row(app, user_id) == {"status": "active", "name": "Invited Player", "username": "invited",
+                                      "email": None, "phone": None, "has_password": True}
+
+
+def test_activation_an_absent_key_keeps_what_the_coach_entered(app, client):
+    """An omitted key still means keep — a body that does not mention the e-mail or
+    phone (a partial client, or a future one that sends a diff) changes neither."""
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    row = _user_row(app, user_id)
+    assert (row["status"], row["email"], row["phone"]) == ("active", "coach-typed@test.com", "+351933333333")
+
+
+@pytest.mark.parametrize("bad,fields", [
+    ({"name": ""}, ["name"]), ({"name": "   "}, ["name"]), ({"name": None}, ["name"]),
+    ({"username": ""}, ["username"]), ({"username": "  "}, ["username"]),
+    ({"password": ""}, ["password"]), ({"password": "   "}, ["password"]),
+    ({"name": "", "password": ""}, ["name", "password"]),
+], ids=["empty-name", "blank-name", "null-name", "empty-username", "blank-username", "empty-password",
+        "blank-password", "two-at-once"])
+def test_activation_a_blank_name_username_or_password_is_refused_and_nothing_is_written(app, client, bad, fields):
+    """PAD-389: name and username are NOT NULL, and activation IS setting the password
+    — an empty one used to leave the account active with no password at all. A
+    whitespace-only name passes the shells' zod (min(2) on the untrimmed string)."""
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, **bad, "phone": ""})
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": fields}
+    row = _user_row(app, user_id)
+    assert (row["status"], row["name"], row["username"], row["phone"], row["has_password"]) == \
+           ("inactive", "Invited", "pending-abc", "+351933333333", False), "nothing written, the phone included"
+
+
+def test_activation_without_a_password_is_refused(app, client):
+    """PAD-389: an absent password is not "keep" — a placeholder has none to keep."""
+    user_id, token = _inactive_user(app)
+    body = {k: v for k, v in ACTIVATION_BODY.items() if k != "password"}
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **body})
+
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["password"]}
+    assert _user_row(app, user_id)["status"] == "inactive"
+
+
+def test_activation_with_a_taken_username_is_409_and_writes_nothing(app, client):
+    """PAD-389: the same answer as invite-completion and self-signup give (was an
+    IntegrityError on the unique index — a 500)."""
+    _inactive_user(app, username="taken-one", email="other@test.com", phone=None)
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, "username": "taken-one"})
+
+    assert res.status_code == 409, res.get_data(as_text=True)
+    assert res.get_json()["error"] == "Username already taken"
+    assert _user_row(app, user_id)["status"] == "inactive"
 
 
 # ── POST /api/app/add_coach_level (coach_service.upsert_coach_levels) ────────

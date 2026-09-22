@@ -105,15 +105,40 @@ def activate_user_service(user_id, data, *, token):
     if user.status != "inactive":
         abort(410, "Account already activated")
 
+    # PAD-389 (B-136 step 4): the whitelist is applied BEFORE the form (rule 7 — the
+    # privilege flags and every other column never reach it), and the form is read in
+    # present mode: the form is PRE-FILLED from GET /register/user, so an emptied
+    # e-mail or phone box is the student's intent and clears; an absent key keeps.
+    sent = {key: data[key] for key in ACTIVATION_FIELDS if key in (data or {})}
+    refused = _refused_activation_fields(sent)
+    if refused:
+        return {"error": "invalid_fields", "fields": refused}, 400
+    if "username" in sent:
+        taken = User.query.filter_by(username=str(sent["username"]).strip()).first()
+        if taken is not None and taken.id != user.id:
+            abort(409, "Username already taken")  # as invite-completion and self-signup answer
+
     form = user.get_edit_form()
-    fake_request = JsonRequestAdapter(dict(data or {}), form)
+    fake_request = JsonRequestAdapter(sent, form, mode="present")
     values = _strip_privilege_fields(form.set_values(fake_request))
-    values = {key: value for key, value in values.items() if key in ACTIVATION_FIELDS}
     values["status"] = "active"
 
-    user.update_with_dict(values)
+    user.update_with_dict(values, write_none=True)
     user.save()
-    return user
+    return user, 200
+
+
+def _refused_activation_fields(sent):
+    """A sent-empty name or username (NOT NULL), and an empty OR ABSENT password —
+    activation IS setting the password; an empty one used to leave the account
+    active with none at all (PAD-389)."""
+    refused = []
+    for key in ("name", "username"):
+        if key in sent and (sent[key] is None or not str(sent[key]).strip()):
+            refused.append(key)
+    if "password" not in sent or sent["password"] is None or not str(sent["password"]).strip():
+        refused.append("password")
+    return refused
 
 
 # ── PAD-81: self-service profile editing ─────────────────────────────────────
