@@ -9,6 +9,16 @@ governed_by: []
 # evaluations.player-view
 
 
+### Superseded (PAD-374)
+The card and the add-evaluation sheet this leaf describes were replaced on web and iOS by
+`evaluations.history` (the "Avaliação" card, the "Avaliações — {nome}" drawer / pushed screen and
+the record form). The at-a-glance score list left the profile, following the owner's canvas; whether
+it returns is an open owner question (Q7) — web keeps `PlayerEvaluations.tsx` unmounted with the
+restoring line written in `PlayerDetailPage.tsx`. What is still true below: `GET /player_profile`
+keeps serving `evaluations[]` for legacy categories (`evaluations.legacy-client-contract`), and
+strengths and weaknesses live in the profile card (`players.notes` rule 5). This tree's status
+enum has no "deprecated"; the leaf is kept for the contract it records and is not to be built from.
+
 ### Intent
 Show a player's current scores on the coach's player detail page, and let the coach add an
 evaluation from there. Coach-only: the player sees nothing.

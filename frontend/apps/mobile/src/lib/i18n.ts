@@ -41,6 +41,7 @@ import classRequestWizardEn from "../../../../src/locales/en/classRequestWizard.
 import classDetailEn from "../../../../src/locales/en/classDetail.json";
 import commonEn from "../../../../src/locales/en/common.json";
 import dashboardEn from "../../../../src/locales/en/dashboard.json";
+import evaluationsEn from "../../../../src/locales/en/evaluations.json";
 import messagesEn from "../../../../src/locales/en/messages.json";
 import miscEn from "../../../../src/locales/en/misc.json";
 import navEn from "../../../../src/locales/en/nav.json";
@@ -62,6 +63,7 @@ import classRequestWizardPt from "../../../../src/locales/pt/classRequestWizard.
 import classDetailPt from "../../../../src/locales/pt/classDetail.json";
 import commonPt from "../../../../src/locales/pt/common.json";
 import dashboardPt from "../../../../src/locales/pt/dashboard.json";
+import evaluationsPt from "../../../../src/locales/pt/evaluations.json";
 import messagesPt from "../../../../src/locales/pt/messages.json";
 import miscPt from "../../../../src/locales/pt/misc.json";
 import navPt from "../../../../src/locales/pt/nav.json";
@@ -107,6 +109,7 @@ const enNamespaces: Dict[] = [
   classDetailEn,
   commonEn,
   dashboardEn,
+  evaluationsEn,
   messagesEn,
   miscEn,
   navEn,
@@ -130,6 +133,7 @@ const ptNamespaces: Dict[] = [
   classDetailPt,
   commonPt,
   dashboardPt,
+  evaluationsPt,
   messagesPt,
   miscPt,
   navPt,

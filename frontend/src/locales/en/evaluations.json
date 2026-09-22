@@ -1,0 +1,29 @@
+{
+  "evaluations": {
+    "catalogue": {
+      "technique": "Technique",
+      "tactics": "Tactics",
+      "consistency": "Consistency",
+      "forehand": "Forehand",
+      "backhand": "Backhand",
+      "volley": "Volley",
+      "bandeja": "Bandeja",
+      "vibora": "Víbora",
+      "smash": "Smash",
+      "glass_exit": "Off the glass",
+      "double_glass": "Double glass",
+      "serve": "Serve",
+      "defensive_position": "Defensive position",
+      "attacking_position": "Attacking position",
+      "transition": "Transition",
+      "decision_making": "Decision making",
+      "doubles_play": "Playing as a pair"
+    },
+    "groups": {
+      "general": "General",
+      "technique": "Technique",
+      "tactics": "Tactics",
+      "custom": "Custom"
+    }
+  }
+}

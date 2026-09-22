@@ -52,6 +52,8 @@ describe("queryKeys", () => {
 
   it("id-based keys embed the id", () => {
     expect(queryKeys.playerProfile("p1")).toEqual(["player-profile", "p1"]);
+    expect(queryKeys.playerEvaluations("p1")).toEqual(["player-evaluations", "p1"]);
+    expect(queryKeys.evaluationCompetencies).toEqual(["evaluation-competencies"]);
     expect(queryKeys.conversation("c1")).toEqual(["conversation", "c1"]);
     expect(queryKeys.exercise("e1")).toEqual(["exercises", "e1"]);
   });

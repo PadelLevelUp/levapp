@@ -224,7 +224,7 @@ with app.app_context(), unit_of_work():
     db.session.flush()
 
     # ── Evaluation categories ─────────────────────────────────────────────────
-    # At least one category so the Add Evaluation sheet renders a scorable slider
+    # At least one (legacy) category so the evaluation form renders a scorable stepper
     # (PAD-56: without a category, saving is a silent no-op / false success).
     forehand_category = EvaluationCategory(
         coach_id=coach.id,
