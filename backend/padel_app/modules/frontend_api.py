@@ -26,6 +26,7 @@ from padel_app.serializers.conversation import (
     serialize_conversations,
 )
 from padel_app.serializers.coach_level import serialize_coach_level
+from padel_app.model import NotNullableFieldError
 from padel_app.services.season_service import (
     InvalidSeasonError,
     delete_definition,
@@ -326,6 +327,20 @@ def _json_http_error(exc):
     Flask's default HTML error page would hide them.
     """
     return jsonify({"error": exc.description}), exc.code
+
+
+@bp.errorhandler(NotNullableFieldError)
+def _json_not_nullable(exc):
+    """PAD-385 (B-136): a client sent an empty value for a field that cannot be empty.
+
+    Raised by ``update_with_dict(write_none=True)`` before anything is written; the
+    session is rolled back all the same so a half-built request leaves nothing behind.
+    Inert until a route reads its form in present mode (PAD-386 onwards).
+    """
+    from padel_app.sql_db import db
+
+    db.session.rollback()
+    return jsonify({"error": "invalid_fields", "fields": exc.fields}), 400
 
 
 def assert_acting_coach(coach, claimed_coach_id):
@@ -970,7 +985,13 @@ def delete_season_route():
 @jwt_required()
 def evaluation_categories():
     coach = require_coach()
-    return jsonify([ec.frontend_dict() for ec in coach.evaluation_categories])
+    # evaluations.legacy-client-contract (R-047, PAD-363): App Store 1.0/1.1.0
+    # post a score — a midpoint, when unrated — for every category listed here. So
+    # this endpoint lists the coach's active LEGACY categories only, whatever
+    # headers the client sends; competencies are served by their own endpoints.
+    return jsonify([
+        ec.frontend_dict() for ec in coach.evaluation_categories if ec.is_legacy and ec.is_active
+    ])
 
 
 @bp.get("/lesson_instances")
@@ -2462,6 +2483,8 @@ def edit_class():
     except CourtNotInClubError as e:
         # clubs.courts rule 6 (PAD-194).
         return jsonify({"error": str(e), "code": e.code}), 400
+    # PAD-387: the service refuses a sent-empty NOT NULL value before writing; any
+    # other NotNullableFieldError is answered 400 by the blueprint handler (PAD-385).
     return jsonify(result), status
 
 
@@ -2651,6 +2674,10 @@ def delete_evaluation_category():
     rel = EvaluationCategory.query.filter_by(id=_required_int_id(data)).first_or_404()
     if rel.coach_id != coach.id:
         abort(403, "Not authorized to delete this evaluation category")
+    # evaluations.legacy-client-contract (R-047, PAD-363): an App Store build
+    # cannot delete what it cannot see. Competencies have their own delete.
+    if not rel.is_legacy:
+        abort(403, "Not a legacy evaluation category")
     # evaluations.categories rule 7 (PAD-274): the scores go with it; audited.
     from padel_app.services.coach_service import delete_evaluation_category_service
 

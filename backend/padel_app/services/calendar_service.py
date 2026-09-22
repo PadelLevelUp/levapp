@@ -27,8 +27,13 @@ def _clone_block(src, *, user_id, **overrides):
 
 
 def _next_occurrence_after(block, after_date):
-    """Return the first occurrence datetime of block after after_date (exclusive)."""
-    after_dt = _datetime.combine(after_date, _datetime.min.time()).replace(tzinfo=timezone.utc)
+    """Return the first occurrence datetime of block on a date AFTER after_date.
+
+    The whole of after_date is excluded (PAD-371, B-139): searching from its midnight
+    found the occurrence later that same day, so deleting the first occurrence
+    "advanced" the series to where it already was.
+    """
+    after_dt = _datetime.combine(after_date + timedelta(days=1), _datetime.min.time()).replace(tzinfo=timezone.utc)
     end_dt = _datetime.combine(
         block.recurrence_end if block.recurrence_end else (after_date + timedelta(days=400)),
         _datetime.max.time(),
@@ -60,10 +65,14 @@ def _split_block(block, occ_date):
             block.delete()
         return
 
+    # Where the series resumes is asked BEFORE the series is shortened (PAD-371,
+    # B-139): the search is bounded by recurrence_end, so asking afterwards found
+    # nothing and every occurrence after occ_date was silently dropped.
+    next_occ = _next_occurrence_after(block, occ_date)
+
     block.recurrence_end = occ_date - timedelta(days=1)
     block.save()
 
-    next_occ = _next_occurrence_after(block, occ_date)
     if next_occ:
         _clone_block(
             block,
@@ -140,7 +149,21 @@ def edit_event_service(block_id, user_id, data):
     # event silently cleared the student-availability-blocker flag (PAD-28).
     # Attendance marking has the same guard for the reminder flags (PAD-69).
     values.pop("blocks_auto_invitations", None)
+
+    # PAD-377 (B-150): recurrence changes only when the body says so. The form layer
+    # drops empty values, so a one-off's `recurrence_rule: ""` never cleared the old
+    # rule — the response said one-off while the feed and the invitation engine, which
+    # read the RULE, went on treating the block as weekly. And `_build_payload` reads
+    # an ABSENT `isRecurring` as False, which flipped the flag of a block still meant
+    # to be weekly. Done here, not in the shared form layer (PAD-367 owns that).
+    recurring = data.get("isRecurring")
+    if recurring is None:
+        for key in ("is_recurring", "recurrence_rule", "recurrence_end"):
+            values.pop(key, None)
     block.update_with_dict(values)
+    if recurring is False:
+        block.recurrence_rule = None
+        block.recurrence_end = None
     block.save()
     return block
 

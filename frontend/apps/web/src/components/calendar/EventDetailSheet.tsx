@@ -288,6 +288,7 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
             </div>
             {isEditing ? (
               <Switch
+                data-testid="event-detail-recurring-switch"
                 checked={active.isRecurring}
                 onCheckedChange={(v) => setDraft(d => d ? { ...d, isRecurring: v } : d)}
               />
@@ -330,11 +331,11 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
 
           {!isEditing ? (
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={startEdit}>
+              <Button variant="outline" className="flex-1" data-testid="event-detail-edit" onClick={startEdit}>
                 <Edit className="w-4 h-4 mr-2" />
                 {t("common.edit")}
               </Button>
-              <Button variant="outline" className="text-destructive" onClick={handleDelete}>
+              <Button variant="outline" className="text-destructive" data-testid="event-detail-delete" onClick={handleDelete}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
@@ -344,7 +345,7 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
                 <X className="w-4 h-4 mr-2" />
                 {t("common.cancel")}
               </Button>
-              <Button className="flex-1" onClick={handleSave} disabled={saving}>
+              <Button className="flex-1" data-testid="event-detail-save" onClick={handleSave} disabled={saving}>
                 <Save className="w-4 h-4 mr-2" />
                 {saving ? t("calendar.eventDetail.saving") : t("common.save")}
               </Button>

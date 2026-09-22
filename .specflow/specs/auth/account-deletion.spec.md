@@ -1,7 +1,7 @@
 ---
 id: auth.account-deletion
 status: implemented
-depends_on: [auth.login, auth.logout, auth.push-subscription, classes.instance-enrollment, notifications.invitations, notifications.waiting-list]
+depends_on: [auth.login, auth.logout, auth.push-subscription, classes.instance-enrollment, classes.class-requests, notifications.invitations, notifications.waiting-list]
 implements: ../../specs-business/auth/user-deletes-their-account.business.md
 governed_by: []
 ---
@@ -39,7 +39,12 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    - reminders stop as a consequence: they go to an instance's enrolled players;
    - every standing waiting-list entry and every active per-class entry (including the ones a
      standing entry fanned out) is deactivated in the same transaction as the rest of the cascade,
-     so no credit is spent and no placement picks them.
+     so no credit is spent and no placement picks them;
+   - every open class request they sent (`pending` or `countered`) closes as `withdrawn` /
+     `decided_by: student` and its hold leaves the coach's calendar, and they are taken off the
+     invitee list of other people's open requests — silently: no notification in either direction
+     (PAD-360, `classes.class-requests` rule 18). Before PAD-360 the request stayed open and the
+     hold stayed on the coach's calendar under the deleted person's real name (B-135).
 7. **The engine never picks a deleted account.** In invitation candidate selection a `disabled`
    account is always an `inactive_account` verdict — never invited, never counted in a round —
    whether or not `restrictions.excludeUnpaidSubscription` is on (that setting still governs
@@ -62,7 +67,10 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 9. **The copy says exactly this** on web and iOS (`settings.account.deleteAccountDescription`,
    `settings.account.deleteDialogDescription`, pt and en): what is deleted, what is kept and why.
 10. **A deleting coach** gets rules 1–5 and 8; their classes, roster and club are left untouched
-    (see Open items).
+    (see Open items). The open class requests sent to them close as `declined` /
+    `decided_by: coach` — silently: no notification in either direction — so no student waits on
+    an answer that can never come (PAD-360, `classes.class-requests` rule 18). Their holds go
+    with the rest of the coach's calendar blocks (rule 5).
 
 ### Acceptance Criteria
 
@@ -118,6 +126,13 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 #### The coach keeps their records
 - **Given** a deleted student with past attendance, an evaluation and a message to their coach
 - **Then** those rows still exist and show "Deleted user"
+
+#### Open class requests do not outlive the account (PAD-360)
+- **Given** a student with a pending class request holding 11:00–12:00 on their coach's calendar
+- **When** the student deletes their account
+- **Then** the request is `withdrawn`, the hold block is gone, and the coach is sent nothing
+- **Given** instead the coach deletes their account
+- **Then** the request is `declined` and the student is sent nothing
 
 ### Open items
 - A deleting **coach**'s classes, roster and club are untouched; what should happen to them (hand
