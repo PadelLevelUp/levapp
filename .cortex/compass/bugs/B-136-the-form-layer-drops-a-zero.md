@@ -95,7 +95,13 @@ last lands._
   `user: {name, email, phone}` with None for unchanged values and must stop; `_build_payload` invents
   `""` for title/description/recurrence_end and must stop. A 0/false into a String/Enum column is a
   dialect error, not a 400 — the route validates.
-- Step 1 — PAD-386: `PUT /calendar_block`, `PUT /availability_blockers`. _Pending._
+- **Step 1 — PAD-386 (2026-09-22): `PUT /calendar_block/<id>`, `PUT /availability_blockers/<id>`.** The
+  edit payload is a whitelist of the nine body keys read in present mode (`_edit_block_payload`); the old
+  builder's `""` inventions are gone (a coach can clear a title/description; an absent `isRecurring` leaves
+  flag, rule and end alone by construction — #356's post-write patches replaced); missing/empty
+  type/date/times → 400 (were 500s); a null end on a block that still recurs → 400 (D83: NULL = forever;
+  drop the end by making it one-off); both edit sheets check the end before the request. The CREATE path
+  keeps the legacy builder (nothing to keep). `calendar_blocks.user_id` and the PAD-93 flag unreachable, pinned.
 - Step 2 — PAD-387: `POST /edit_class`. _Pending._
 - Step 3 — PAD-388: `POST /edit_player` (web and iOS send null). _Pending._
 - Step 4 — PAD-389: `POST /activate/user`. _Pending._

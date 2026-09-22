@@ -106,6 +106,18 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
 
   const handleSave = async () => {
     if (!draft) return;
+    // PAD-386 (D83): a recurring block keeps an end date — the server refuses a cleared
+    // one (400 ["endDate"]) and this sheet says so before the request, as the create
+    // sheet does. The way to drop the end is to make the block one-off.
+    if (draft.isRecurring && (!draft.endDate || draft.selectedDays.length === 0)) {
+      const missing = [
+        draft.selectedDays.length === 0 && t('calendar.addEvent.fieldDays'),
+        !draft.endDate && t('calendar.addEvent.fieldEndDate'),
+      ].filter(Boolean).join(', ');
+      toast({ variant: 'destructive', title: t('calendar.addEvent.missingFieldsTitle'),
+        description: t('calendar.addEvent.missingFieldsDescription', { fields: missing }) });
+      return;
+    }
     setSaving(true);
     try {
       const updated = await editCalendarBlock(event.originalId, {

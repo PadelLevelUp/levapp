@@ -75,16 +75,83 @@ def test_calendar_edit_absent_title_and_description_are_kept(app, client):
     assert after["startTime"] == "12:00", "the control: a truthy value is written"
 
 
-def test_calendar_edit_an_empty_title_or_description_cannot_clear_it(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). `_build_payload` sends `""` for an absent
-    key too, so today the two cases are indistinguishable — which is also why a
-    naive fix would wipe both fields on every edit that omits them."""
+@pytest.mark.parametrize("cleared", [None, ""], ids=["null (what both shells send)", "empty-string"])
+def test_calendar_edit_an_emptied_title_or_description_is_cleared(app, client, cleared):
+    """FIXED in PAD-386 (B-136 step 1). Was: `_build_payload` sent `""` for an absent
+    key too, so the two cases were indistinguishable and neither cleared. Both
+    shells send `null` for an emptied box (EventDetailSheet / event-draft.ts)."""
     ids = _seed(app)
     block = _event(app, client, ids)
 
-    after = _edit_event(app, client, ids, block["id"], {**EVENT, "title": "", "description": ""})
+    after = _edit_event(app, client, ids, block["id"], {**EVENT, "title": cleared, "description": cleared})
 
-    assert (after["title"], after["description"]) == ("Dentist", "bring x-rays")
+    assert (after["title"], after["description"]) == (None, None)
+
+
+def _put_event(app, client, ids, block_id, body):
+    return client.put(f"/api/app/calendar_block/{block_id}", json=body, headers=_headers(app, ids["coach_user_id"]))
+
+
+def _block_row(app, block_id):
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    with app.app_context():
+        row = db.session.get(CalendarBlock, block_id)
+        return {"title": row.title, "type": row.type, "start": row.start_datetime.isoformat(), "user_id": row.user_id,
+                "is_recurring": row.is_recurring, "rule": row.recurrence_rule, "end": str(row.recurrence_end),
+                "auto": row.blocks_auto_invitations}
+
+
+WEEKLY = {**EVENT, "isRecurring": True, "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [1]}, "endDate": "2026-12-01"}
+
+
+@pytest.mark.parametrize("end", [None, ""], ids=["null (what both edit sheets send when cleared)", "empty-string"])
+def test_calendar_edit_cannot_remove_the_end_date_of_a_block_that_still_recurs(app, client, end):
+    """PAD-386, D83 (Coordinator, 2026-09-22): a NULL recurrence_end means "forever"
+    downstream (the feed expands 400 days ahead; reminders and blocked windows
+    likewise) and nothing creates one on purpose — the create sheets default the end.
+    The only way to drop the end is to make the block one-off (#356's rule)."""
+    ids = _seed(app)
+    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT})
+    before = _block_row(app, block["id"])
+
+    res = _put_event(app, client, ids, block["id"], {**WEEKLY, "title": "Physio", "endDate": end})
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["endDate"]}
+    assert _block_row(app, block["id"]) == before, "nothing written, the title beside it included"
+
+
+@pytest.mark.parametrize("missing", ["type", "date", "startTime", "endTime"])
+def test_calendar_edit_without_a_required_key_is_refused_not_a_500(app, client, missing):
+    """PAD-386: `_build_payload` hard-subscripted these (KeyError → 500); a cleared web
+    date/time input sends "" (ValueError → 500). 400 naming the field, nothing written."""
+    ids = _seed(app)
+    block = _event(app, client, ids)
+    before = _block_row(app, block["id"])
+    body = {k: v for k, v in EVENT.items() if k != missing}
+
+    for bad in (body, {**EVENT, missing: ""}, {**EVENT, missing: None}):
+        res = _put_event(app, client, ids, block["id"], {**bad, "title": "Physio"})
+        assert res.status_code == 400, res.get_data(as_text=True)
+        assert res.get_json()["error"] == "invalid_fields" and missing in res.get_json()["fields"]
+    assert _block_row(app, block["id"]) == before
+
+
+def test_calendar_edit_ignores_what_is_not_the_blocks_own_form(app, client):
+    """PAD-386 (the binding rule from #366's review): present mode writes every key it
+    is given, so the whitelist is the guard — the owner (`user`, a nullable ManyToOne)
+    and the PAD-93 flag must be unreachable from the body."""
+    ids = _seed(app)
+    block = _event(app, client, ids)
+    before = _block_row(app, block["id"])
+
+    after = _edit_event(app, client, ids, block["id"], {**EVENT, "title": "Physio", "user": None, "user_id": 999,
+                                                        "blocks_auto_invitations": True, "blocksAutoInvitations": True})
+
+    assert after["title"] == "Physio"
+    row = _block_row(app, block["id"])
+    assert (row["user_id"], row["auto"]) == (before["user_id"], before["auto"])
 
 
 def test_calendar_edit_a_new_title_and_description_are_written(app, client):
@@ -567,6 +634,28 @@ def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitat
     assert blocked_on(5) is True, "the day they asked for"
     assert blocked_on(19) is False, "PAD-377: two Mondays later they are free again"
     assert blocked_on(20) is False, "the control: a Tuesday was never blocked"
+
+
+def test_a_students_blocker_edit_clears_an_emptied_title_and_refuses_a_null_end_while_recurring(app, client):
+    """PAD-386: the blockers share edit_event_service. The shared client builder
+    sends `title: null` for an emptied reason and never a null end while recurring
+    (it defaults +3 months); the server rule is the same either way (D83)."""
+    ids = _seed(app)
+    headers = _headers(app, ids["student_user_id"])
+    away = {"title": "Away", "date": "2026-10-05", "startTime": "18:00", "endTime": "20:00",
+            "isRecurring": True, "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [1]}, "endDate": "2026-12-01"}
+    created = client.post("/api/app/availability_blockers", headers=headers, json=away)
+    assert created.status_code == 201, created.get_data(as_text=True)
+    blocker_id = created.get_json()["id"]
+
+    edited = client.put(f"/api/app/availability_blockers/{blocker_id}", headers=headers, json={**away, "title": None})
+    assert edited.status_code == 200, edited.get_data(as_text=True)
+    assert edited.get_json()["title"] is None
+
+    refused = client.put(f"/api/app/availability_blockers/{blocker_id}", headers=headers, json={**away, "endDate": None})
+    assert refused.status_code == 400, refused.get_data(as_text=True)
+    assert refused.get_json() == {"error": "invalid_fields", "fields": ["endDate"]}
+    assert _block_row(app, blocker_id)["end"] == "2026-12-01"
 
 
 def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly_block(app, client):

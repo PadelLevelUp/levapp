@@ -151,6 +151,16 @@ export default function EventDetailScreen() {
 
   const handleSave = async () => {
     if (!draft) return;
+    // PAD-386 (D83): a recurring block keeps an end date — the server refuses a cleared
+    // one (400 ["endDate"]); said here before the request, as the create screen does.
+    if (draft.isRecurring && (!draft.endDate || draft.selectedDays.length === 0)) {
+      const missing = [
+        draft.selectedDays.length === 0 ? t("calendar.addEvent.fieldDays") : null,
+        !draft.endDate ? t("calendar.addEvent.fieldEndDate") : null,
+      ].filter(Boolean).join(", ");
+      toast.error(t("calendar.addEvent.missingFieldsTitle"), t("calendar.addEvent.missingFieldsDescription", { fields: missing }));
+      return;
+    }
     try {
       await editEvent.mutateAsync({
         blockId: originalId,
