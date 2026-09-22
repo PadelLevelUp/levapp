@@ -272,16 +272,13 @@ def test_a_legacy_save_lands_in_the_days_classless_record(app, client):
 
 
 def test_a_failed_legacy_save_leaves_no_empty_record_behind(app, client):
-    """B-136 stays as pinned (a numeric 0 fails); it must not strand a record."""
-    from sqlalchemy.exc import IntegrityError
-
+    """A refused legacy save must not strand a record. Since PAD-366 (D120) the numeric 0
+    is refused with a 400 before anything is written; before, it was B-136's IntegrityError."""
     from padel_app.models import EvaluationRecord
 
     ids = _seed(app)
-    with pytest.raises(IntegrityError):
-        _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 0}])
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 0}]).status_code == 400
     with app.app_context():
-        db.session.rollback()
         assert EvaluationRecord.query.count() == 0
 
 

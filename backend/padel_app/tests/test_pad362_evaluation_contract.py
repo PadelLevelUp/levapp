@@ -303,58 +303,108 @@ def test_3_an_old_build_body_is_harmless_for_scored_categories_and_writes_the_mi
     assert len(_rows(app, ids, "volley_id")) == 1
 
 
-def test_3_the_server_enforces_no_score_range(app, client):
-    """DEFECT PINNED, NOT FIXED (B-126). `evaluations.entries` rule 4 says a score
-    falls within the category's scale; only the client controls enforce it. Any
-    number is written, and a non-integer too."""
+def test_3_the_server_enforces_the_1_5_range_before_writing(app, client):
+    """PAD-366 (B-126 fixed; D120; evaluations.legacy-client-contract rule 10). Every
+    category is 1-5 after PAD-403, and the server checks every score in the body before
+    writing any. Out of range is a 400 and nothing is written; a non-integer inside the
+    range is accepted, as it always was. Before PAD-403 this pin said "any number is
+    written" (99, -3 and 2.5 all stored)."""
     ids = _seed(app)  # Volley is 1-5
 
-    for value in (99, -3, 2.5):
-        assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": value}]).status_code == 200
+    for value in (-3, 99):
+        res = _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": value}])
+        assert (res.status_code, res.get_json()) == (400, {"error": "score_out_of_range"})
+    assert _rows(app, ids, "volley_id") == []
 
-    assert [score for score, _ in _rows(app, ids, "volley_id")] == [99.0, -3.0, 2.5]
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 2.5}]).status_code == 200
     assert _profile(app, client, ids)["evaluations"][0]["score"] == 2.5, "and the profile serves it"
 
 
-def test_3_a_numeric_score_of_zero_cannot_be_saved(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). JSON `0` is falsy, the form layer reads it
-    as "not sent", the NOT NULL `score` column refuses the row and the request
-    fails. The string "0" goes through. Reachable on any category whose minimum is
-    0: the import creates those (the settings API cannot, section 4), and every
-    client posts a number, so a coach who scores 0 there gets a failed save."""
-    from sqlalchemy.exc import IntegrityError
+@pytest.mark.parametrize("value", ["abc", True, float("nan")])
+def test_3_a_value_that_is_not_a_score_is_a_400_not_an_error(app, client, value):
+    """PAD-366. Before, "abc" was an unhandled ValueError (a 500) and `true` read as 1."""
+    ids = _seed(app)
+    res = _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": value}])
+    assert (res.status_code, res.get_json()) == (400, {"error": "score_invalid"})
+    assert _rows(app, ids, "volley_id") == []
 
+
+def test_3_a_numeric_score_of_zero_cannot_be_saved(app, client):
+    """PAD-366. No category starts at 0 after PAD-403, so 0 is out of range: a 400 with
+    nothing written, for the number and for the string alike. Before, the number was
+    B-136's IntegrityError (the form layer read it as "not sent") and the string "0" was
+    stored."""
     ids = _seed(app)  # Volley is 1-5
 
-    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
-        _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 0}])
-    with app.app_context():
-        db.session.rollback()
+    for value in (0, "0"):
+        res = _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": value}])
+        assert (res.status_code, res.get_json()) == (400, {"error": "score_out_of_range"})
     assert _rows(app, ids, "volley_id") == []
 
-    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": "0"}]).status_code == 200
-    assert [score for score, _ in _rows(app, ids, "volley_id")] == [0.0]
 
-
-def test_3_a_save_is_not_atomic_the_scores_before_a_failing_one_stay_written(app, client):
-    """Each score is its own commit. When one fails (here B-136's numeric 0), the
-    request fails and the scores before it are already saved — which is why a
-    range check must never be added to this endpoint while old builds post every
-    category in one body (B-126)."""
-    from sqlalchemy.exc import IntegrityError
-
+def test_3_a_save_is_atomic_one_refused_score_writes_nothing(app, client):
+    """PAD-366 (D120). Every score is checked before any is written, so a body with one
+    refused score writes none of them. This makes the non-atomic save (PAD-368) unreachable:
+    before, the Forehand 5 below was committed and then the Volley 0 failed."""
     ids = _seed(app)
 
-    with pytest.raises(IntegrityError):
-        _save(app, client, ids, [
-            {"categoryId": ids["forehand_id"], "value": 5},
-            {"categoryId": ids["volley_id"], "value": 0},
-        ])
-    with app.app_context():
-        db.session.rollback()
+    res = _save(app, client, ids, [
+        {"categoryId": ids["forehand_id"], "value": 5},
+        {"categoryId": ids["volley_id"], "value": 0},
+    ])
 
-    assert [score for score, _ in _rows(app, ids, "forehand_id")] == [5.0]
+    assert res.status_code == 400
+    assert _rows(app, ids, "forehand_id") == []
     assert _rows(app, ids, "volley_id") == []
+
+
+@pytest.mark.parametrize("body, stored", [
+    ([7, 6], [4.0, 3.0]),   # a stale 1-10 form: any value above 5 converts the whole body
+    ([10, 0], [5.0, 1.0]),  # the 0-10 ends map to 5 and 1, never 0 stars
+    ([8.5, 2], [5.0, 1.0]), # on the real value, as the migration does
+    ([3, 4], [3.0, 4.0]),   # every value on 1-5: stars, stored as sent
+])
+def test_3_a_stale_1_10_body_is_converted_whole_before_writing(app, client, body, stored):
+    """PAD-366 (D121): an App Store 1.0/1.1.0 dialog opened before PAD-403's migration still
+    holds 1-10 scores, and it refills them from the unrefreshed profile on every reopen. A
+    body holding any value above 5 can only come from such a form (a 1-5 form clamps at 5),
+    so every value in it is converted with `legacy_value_to_stars`, the migration's rule. A
+    body with every value on 1-5 is taken as stars. Retired with R-047 point 8."""
+    ids = _seed(app)
+    res = _save(app, client, ids, [
+        {"categoryId": ids["forehand_id"], "value": body[0]},
+        {"categoryId": ids["volley_id"], "value": body[1]},
+    ])
+    assert res.status_code == 200
+    assert [s for s, _ in _rows(app, ids, "forehand_id")] == [stored[0]]
+    assert [s for s, _ in _rows(app, ids, "volley_id")] == [stored[1]]
+
+
+@pytest.mark.parametrize("body", [[7, 11], [7, -1], [6, 99]])
+def test_3_a_stale_body_off_the_old_scale_writes_nothing(app, client, body):
+    """PAD-366 (D121): a stale body must still be on 0-10; anything else is refused whole."""
+    ids = _seed(app)
+    res = _save(app, client, ids, [
+        {"categoryId": ids["forehand_id"], "value": body[0]},
+        {"categoryId": ids["volley_id"], "value": body[1]},
+    ])
+    assert (res.status_code, res.get_json()) == (400, {"error": "score_out_of_range"})
+    assert _rows(app, ids, "forehand_id") == [] and _rows(app, ids, "volley_id") == []
+
+
+def test_3_a_stale_midpoint_equal_to_the_converted_latest_writes_nothing(app, client):
+    """PAD-366 + R-047 point 5: the old builds post every category, the unrated ones at the
+    midpoint. A stale form's 6 converts to 3; if the category's latest is 3, it is "equal to
+    latest", so it is skipped and no history row is added."""
+    ids = _seed(app)
+    _history(app, ids, "forehand_id", [(30, 3)])
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 7},
+                                    {"categoryId": ids["volley_id"], "value": 6}]).status_code == 200
+    assert len(_rows(app, ids, "forehand_id")) == 2          # 3 then 4: a real change
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 8},
+                                    {"categoryId": ids["volley_id"], "value": 6}]).status_code == 200
+    assert len(_rows(app, ids, "forehand_id")) == 2, "8 -> 4 equals the latest 4: nothing written"
+    assert [s for s, _ in _rows(app, ids, "volley_id")] == [3.0], "6 -> 3 equals the latest 3: once"
 
 
 def test_3_add_evaluation_entry_is_coach_only_and_roster_scoped(app, client):
