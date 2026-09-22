@@ -1,9 +1,15 @@
 /**
- * evaluations.records rule 7 (PAD-396): a stepper step still inside its quiet period reaches
- * the server when the page is hidden. The spec presses "+" once and, before the ~400 ms quiet
- * period can elapse, hides the page (`visibilitychange` → hidden) and then closes it; the
- * server — not the screen — is asked whether the step arrived. R-040: the category it makes
- * is deleted afterwards, which takes the record with it.
+ * evaluations.records rule 7 (PAD-396): a debounced write still inside its quiet period reaches
+ * the server when the page is hidden. Originally exercised through a legacy category's stepper
+ * (`step`, debounced ~400ms); PAD-403 makes every category 1-5 stars, and a star tap saves at
+ * once (`rate`, no quiet period — see `EvaluationFormSession.rate` in
+ * packages/config/src/evaluation-form-session.ts) — so there is no longer a rating write that can
+ * be caught mid-debounce. The note field is still debounced (~800ms, `useFlushOnPageHide`'s own
+ * doc comment: "a stepper's step or the note's text inside their quiet period"), so this spec now
+ * edits the note instead: it types once and, before the quiet period can elapse, hides the page
+ * (`visibilitychange` → hidden) and then closes it; the server — not the screen — is asked
+ * whether the note arrived. R-040: the category it makes (only so the form has a row to render,
+ * never rated) is deleted afterwards, which takes the record with it.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
@@ -27,9 +33,11 @@ async function studentId(request: APIRequestContext, token: string): Promise<str
   return String(found!.playerId);
 }
 
-/** One legacy (stepper) category of this spec's own, so the step has a row and the cleanup is exact.
- *  Deliberately through the FROZEN `POST /add_evaluation_categories` (R-047): only a legacy category has a
- *  stepper, and the stepper's quiet period is what these tests exercise. A test helper, not the new UI. */
+/** One category of this spec's own, so the form has a row to render (an empty competency list
+ *  shows no note field at all) and the cleanup is exact. Deliberately through the FROZEN
+ *  `POST /add_evaluation_categories` (R-047) — PAD-403: the server stores and echoes it 1-5
+ *  regardless of the body, so this is a star row like any other; this spec never taps it, only
+ *  the shared note field below it. A test helper, not the new UI. */
 async function newCategory(request: APIRequestContext, token: string): Promise<string> {
   const name = `E2E Flush ${Date.now()}`;
   const saved = await request.post(`${API_APP}/add_evaluation_categories`, {
@@ -42,7 +50,7 @@ async function newCategory(request: APIRequestContext, token: string): Promise<s
   return String(mine!.id);
 }
 
-type EvalRecord = { id: number; editable: boolean; classInstanceId: number | null; ratings: { categoryId: number; score: number }[] };
+type EvalRecord = { id: number; editable: boolean; classInstanceId: number | null; note: string; ratings: { categoryId: number; score: number }[] };
 async function todaysRecord(request: APIRequestContext, token: string, playerId: string): Promise<EvalRecord | undefined> {
   const res = await request.get(`${API_APP}/player/${playerId}/evaluations`, { headers: bearer(token) });
   expect(res.ok()).toBeTruthy();
@@ -69,17 +77,19 @@ async function openForm(page: Page, playerId: string) {
   return page.getByTestId("evaluation-form");
 }
 
-test("PAD-396: a step made just before the page is hidden still reaches the server", async ({ page, request }) => {
+test("PAD-396: a note edit made just before the page is hidden still reaches the server", async ({ page, request }) => {
   const token = await coachToken(request);
   const playerId = await studentId(request, token);
   const catId = await newCategory(request, token);
   created.push(catId);
-  expect((await todaysRecord(request, token, playerId))?.ratings.find((r) => String(r.categoryId) === catId)).toBeUndefined();
+  expect((await todaysRecord(request, token, playerId))?.note ?? "").toBe("");
 
   const form = await openForm(page, playerId);
   await expect(form).toBeVisible({ timeout: 10_000 });
   const put = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"), { timeout: 10_000 });
-  await form.getByTestId(`evaluation-stepper-${catId}-plus`).click(); // the step starts its ~400 ms quiet period
+  // PAD-403: a star tap on this category would save at once (no quiet period); the note field is
+  // still debounced (~800ms), so it is the note that starts its quiet period here.
+  await form.getByTestId("evaluation-note").fill("PAD-396 quiet period");
   // Hide the page at once — the tab switched away — then close it: the flush must have STARTED the PUT
   // before the page is gone, through the session's own queue.
   await page.evaluate(() => {
@@ -90,12 +100,10 @@ test("PAD-396: a step made just before the page is hidden still reaches the serv
   await page.close();
 
   const after = await todaysRecord(request, token, playerId);
-  const rating = after?.ratings.find((r) => String(r.categoryId) === catId);
-  expect(rating, "the step reached the server").toBeTruthy();
-  expect(rating!.score).toBe(6); // an unrated 1-10 stepper starts at the middle
+  expect(after?.note, "the note reached the server").toBe("PAD-396 quiet period");
 });
 
-test("PAD-396: a step made just before the tab is CLOSED still reaches the server — without waiting for the request first", async ({ page, request }) => {
+test("PAD-396: a note edit made just before the tab is CLOSED still reaches the server — without waiting for the request first", async ({ page, request }) => {
   const token = await coachToken(request);
   const playerId = await studentId(request, token);
   const catId = await newCategory(request, token);
@@ -103,15 +111,16 @@ test("PAD-396: a step made just before the tab is CLOSED still reaches the serve
 
   const form = await openForm(page, playerId);
   await expect(form).toBeVisible({ timeout: 10_000 });
-  await form.getByTestId(`evaluation-stepper-${catId}-plus`).click(); // inside its ~400 ms quiet period
+  // PAD-403: the note field, not the (now immediate) star tap, is what still has a quiet period.
+  await form.getByTestId("evaluation-note").fill("PAD-396 closed tab");
   // Close at once: pagehide fires, the flush sends the PUT with keepalive, the page is gone. Nothing is awaited
   // on the page side — the server is the only witness.
   await page.close();
 
   await expect
-    .poll(async () => (await todaysRecord(request, token, playerId))?.ratings.find((r) => String(r.categoryId) === catId)?.score ?? null, {
+    .poll(async () => (await todaysRecord(request, token, playerId))?.note ?? null, {
       timeout: 10_000,
-      message: "the step made just before the tab closed reached the server",
+      message: "the note made just before the tab closed reached the server",
     })
-    .toBe(6);
+    .toBe("PAD-396 closed tab");
 });

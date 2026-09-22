@@ -72,7 +72,8 @@ test("US-373a: deleting a category the coach already had shows what it holds and
   const token = await coachToken(request);
   const name = `E2E Delete Cat ${Date.now().toString().slice(-6)}`;
   // Set up as an OLD client would have: a legacy category with one score (the frozen
-  // endpoints are the only way to make one). The UI under test never calls them.
+  // endpoints are the only way to make one). PAD-403: the server stores and echoes it 1-5
+  // regardless of the scale the body sends. The UI under test never calls them.
   const saved = await request.post(`${API_APP}/add_evaluation_categories`, {
     headers: bearer(token),
     data: [{ name, scaleMin: 1, scaleMax: 10 }],
@@ -100,8 +101,10 @@ test("US-373a: deleting a category the coach already had shows what it holds and
   await expect(row).toBeVisible({ timeout: 10_000 });
   await expect(row).toHaveAttribute("data-kind", "legacy");
   await expect(row).toHaveAttribute("data-active", "true");
-  // A legacy category writes its own scale out; it is never stars (rule 3).
-  await expect(page.getByTestId(`competency-scale-${rowId}`)).toContainText("1–10");
+  // A legacy category still writes its own scale out in the manager row (rule 3); PAD-403 means that
+  // scale is always 1-5 now, whatever an old client's POST body asked for — the rating control itself
+  // (the evaluation form, not this row) draws it as stars, never a stepper.
+  await expect(page.getByTestId(`competency-scale-${rowId}`)).toContainText("1–5");
 
   await page.getByTestId(`competency-delete-${rowId}`).click();
   const dialog = page.getByTestId("competency-delete-dialog"); // nested Radix dialogs: by test id, never by role

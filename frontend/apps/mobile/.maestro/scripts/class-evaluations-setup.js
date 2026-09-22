@@ -13,7 +13,7 @@ var login = http.post(api + "/api/auth/login", {
 var token = json(login.body).accessToken;
 var auth = { "Content-Type": "application/json", Authorization: "Bearer " + token };
 
-// The seeded coach owns ONE competency, the legacy "Forehand" (a stepper). A STAR row needs a
+// The seeded coach owns ONE competency, the legacy "Forehand" (stars since PAD-403). A second STAR row needs a
 // catalogue competency switched on: "technique" (idempotent POST); the teardown switches it off.
 var technique = json(
   http.post(api + "/api/app/evaluation_competency", { headers: auth, body: JSON.stringify({ catalogueKey: "technique" }) }).body

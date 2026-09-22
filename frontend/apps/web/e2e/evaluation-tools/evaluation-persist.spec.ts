@@ -19,23 +19,24 @@ test("PAD-56: an evaluation given in the form persists and survives a reload", a
   await expect(page.getByTestId("player-evaluations-drawer")).toBeVisible({ timeout: 8000 });
   await page.getByTestId("evaluation-new").click();
 
-  // The seeded "Forehand" category is a legacy 1-10 one: a number with a stepper, never stars.
-  const plus = page.getByTestId("evaluation-form").getByTestId(/^evaluation-stepper-\d+-plus$/).first();
-  await expect(plus).toBeVisible({ timeout: 8000 });
+  // PAD-403: the seeded "Forehand" category is legacy (group/competency_group null), and every
+  // legacy category is now 1-5 stars, never a stepper.
+  const star = page.getByTestId("evaluation-form").getByTestId(/^evaluation-star-\d+-4$/).first();
+  await expect(star).toBeVisible({ timeout: 8000 });
   // Armed BEFORE the click: the save landing is the observable, not a toast.
   const saved = page.waitForResponse(
     (r) => /\/evaluation_record/.test(r.url()) && r.request().method() === "PUT" && r.ok(),
     { timeout: 8000 },
   );
-  await plus.click();
+  await star.click();
   await saved;
   await page.getByTestId("evaluation-finish").click();
   await expect(page.getByTestId("evaluation-form")).toHaveCount(0);
 
-  // The evaluation is a history card now, holding a rated stepper value.
+  // The evaluation is a history card now, holding a rated star score.
   const card = page.getByTestId(/^evaluation-history-card-\d+$/).first();
   await expect(card).toBeVisible();
-  await expect(card.getByTestId(/^evaluation-stepper-\d+-value$/).first()).not.toHaveAttribute("data-score", "");
+  await expect(card.getByTestId(/^evaluation-stars-\d+$/).first()).not.toHaveAttribute("data-score", "");
 
   // Core assertion: it persisted — a hard reload still shows it.
   await page.reload();
