@@ -661,6 +661,12 @@
         "sat": "Sábado",
         "sun": "Domingo"
       }
+    },
+    "unsavedChanges": {
+      "title": "Descartar alterações?",
+      "body": "As alterações que fizeste nesta secção ainda não foram guardadas.",
+      "discard": "Descartar",
+      "keepEditing": "Continuar a editar"
     }
   }
 }
