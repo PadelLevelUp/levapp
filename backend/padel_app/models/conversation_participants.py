@@ -9,6 +9,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
@@ -46,7 +47,7 @@ class ConversationParticipant(db.Model, model.Model):
         nullable=False,
     )
 
-    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    joined_at = Column(DateTime, default=lambda: utcnow_naive(), nullable=False)
     last_read_at = Column(DateTime, nullable=True)
 
     conversation = relationship("Conversation", back_populates="participants")

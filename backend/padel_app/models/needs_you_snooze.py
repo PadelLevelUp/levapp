@@ -27,4 +27,4 @@ class NeedsYouSnooze(db.Model):
     item_id = Column(String(64), nullable=False)
     # Naive UTC, like every other datetime in the schema.
     snoozed_until = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=utcnow_naive)
+    created_at = Column(DateTime, nullable=False, default=lambda: utcnow_naive())
