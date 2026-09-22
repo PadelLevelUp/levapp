@@ -334,7 +334,7 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
                 <Edit className="w-4 h-4 mr-2" />
                 {t("common.edit")}
               </Button>
-              <Button variant="outline" className="text-destructive" onClick={handleDelete}>
+              <Button variant="outline" className="text-destructive" data-testid="event-detail-delete" onClick={handleDelete}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>

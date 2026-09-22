@@ -508,7 +508,16 @@ def test_F2_KNOWN_GAP_a_moved_occurrence_of_a_weekly_hold_is_a_clone_nothing_rel
     of a recurring hold goes through `calendar_service._clone_block`: the clone
     copies the title and no request points at it, so no release path deletes it.
     Consequence for any cleanup: a hold-titled block that no request references
-    can be the clone of a LIVE hold — never delete it on the title alone."""
+    can be the clone of a LIVE hold — never delete it on the title alone.
+
+    Counts FLIPPED by PAD-371 (B-139), by its author, 2 -> 3 and 1 -> 2: `_split_block`
+    used to look for the series' resume point AFTER shortening it, found nothing, and
+    silently dropped every later occurrence — so this pin counted two rows only because
+    a third was being lost. With the split fixed, moving a MIDDLE occurrence leaves the
+    truncated hold, the one-off at the new time AND the resumed series: two unlinked
+    clones survive the request instead of one. The gap is still open and is wider —
+    PAD-372 (B-138), decided as REFUSAL: a live hold's single/future change will be
+    refused, and this scenario changes again in that ticket's PR."""
     from datetime import timedelta
 
     from padel_app.services.calendar_service import reschedule_block_service
@@ -521,13 +530,13 @@ def test_F2_KNOWN_GAP_a_moved_occurrence_of_a_weekly_hold_is_a_clone_nothing_rel
         reschedule_block_service(hold, ids["coach_user_id"], {
             "occDate": moved, "newDate": moved, "newStartTime": "15:00", "newEndTime": "16:00", "scope": "single"})
         db.session.commit()
-    assert _blocks_of_coach(app, ids) == 2, "the hold, and its unlinked clone"
+    assert _blocks_of_coach(app, ids) == 3, "the truncated hold, the one-off clone, and the resumed series (PAD-371)"
 
     with app.app_context():
         withdraw_class_request_service(rid, _player(ids["player_id"]))
 
     assert not _block_exists(app, hold)
-    assert _blocks_of_coach(app, ids) == 1, "the clone outlives the request"
+    assert _blocks_of_coach(app, ids) == 2, "both clones outlive the request (PAD-372)"
 
 
 # ── #345 review, 2nd round: a coach can make a hold their own (rule 3) ────────
