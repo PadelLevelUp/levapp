@@ -93,6 +93,37 @@ class Conversation(db.Model, model.Model):
         return ",".join(map(str, sorted(set(participant_ids))))
 
     @classmethod
+    def get_or_insert(cls, participant_ids: list[int], *, is_group: bool = False) -> "Conversation":
+        """The conversation of exactly these participants, created with them if missing.
+
+        PAD-411: race-safe by `participant_key`'s unique index. The insert runs in a SAVEPOINT,
+        and a concurrent winner's IntegrityError rolls back only that savepoint and re-reads the
+        winner's row, the `lesson_service._get_or_insert` shape. Before this, two first
+        messages at once both inserted and one was lost. Flushes and never commits: the caller
+        owns the transaction."""
+        from sqlalchemy.exc import IntegrityError
+
+        from padel_app.models.conversation_participants import ConversationParticipant
+
+        key = cls.build_participant_key(participant_ids)
+        conv = cls.query.filter_by(participant_key=key).first()
+        if conv is not None:
+            return conv
+        savepoint = db.session.begin_nested()
+        try:
+            conv = cls(participant_key=key, is_group=is_group)
+            db.session.add(conv)
+            db.session.flush()
+            for uid in sorted(set(participant_ids)):
+                db.session.add(ConversationParticipant(conversation_id=conv.id, user_id=uid))
+            db.session.flush()
+            savepoint.commit()
+            return conv
+        except IntegrityError:
+            savepoint.rollback()
+            return cls.query.filter_by(participant_key=key).one()
+
+    @classmethod
     def get_create_form(cls):
         def get_field(name, label, type, required=False):
             return Field(
