@@ -52,6 +52,8 @@ onFlowComplete:
     timeout: 15000
 - tapOn:
     id: "players-search"
+# The Players tab keeps its search across the link (Session-D, 4489c6368): clear it first.
+- eraseText: 40
 - inputText: "E2E Student"
 - extendedWaitUntil:
     visible:
@@ -91,6 +93,8 @@ onFlowComplete:
     timeout: 15000
 - tapOn:
     id: "players-search"
+# The Players tab keeps its search across the link (Session-D, 4489c6368): clear it first.
+- eraseText: 40
 - inputText: "E2E Student"
 - extendedWaitUntil:
     visible:
