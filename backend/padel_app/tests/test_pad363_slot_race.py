@@ -99,14 +99,15 @@ def test_an_import_racing_a_save_keeps_every_row(app, monkeypatch):
 
     ids = _seed(app)
     with app.app_context():
-        fired = _race(app, monkeypatch, ids, "forehand_id", 8)
+        fired = _race(app, monkeypatch, ids, "forehand_id", 4)
         today = dt.datetime.utcnow().date().isoformat()
 
+        # 1-5 stars: an import refuses a score outside 1-5 (D111, PAD-403)
         result = bulk_create_evaluation_entries(
-            [{"player_name": "Test Student", "date": today, "Forehand": 6}], db.session.get(Coach, ids["coach_id"]))
+            [{"player_name": "Test Student", "date": today, "Forehand": 3}], db.session.get(Coach, ids["coach_id"]))
 
         assert fired and result["errors"] == [] and result["imported"] == 1
-        assert sorted(e.score for e in EvaluationEntry.query.all()) == [6.0, 8.0]
+        assert sorted(e.score for e in EvaluationEntry.query.all()) == [3.0, 4.0]
 
 
 @racing

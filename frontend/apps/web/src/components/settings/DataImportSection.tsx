@@ -38,6 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getCoachPlayers } from "@/api/players";
 import { Phase, ImportTableRow, ImportTable, ThinkingLine } from "@/types";
+import { importRowErrorText, type ImportRowError } from "./import-row-error";
 
 const TABLE_ICONS: Record<string, string> = {
   "Coach Levels": "🏷️",
@@ -578,7 +579,7 @@ function ImportTableView({
 
 interface TableImportResult {
   imported: number;
-  errors: Array<{ row: number; error: string }>;
+  errors: ImportRowError[];
 }
 
 function ImportResultsView({
@@ -696,7 +697,7 @@ function ImportResultsView({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {result.errors.map(({ row: rowIdx, error }) => {
+                      {result.errors.map(({ row: rowIdx, error, code, category, value }) => {
                         const row = sentRows[rowIdx];
                         if (!row) return null;
                         return (
@@ -706,8 +707,12 @@ function ImportResultsView({
                                 {row.cells[col] || "—"}
                               </TableCell>
                             ))}
-                            <TableCell className="text-xs py-1.5 text-destructive font-medium max-w-[240px]">
-                              {error}
+                            <TableCell
+                              className="text-xs py-1.5 text-destructive font-medium max-w-[240px]"
+                              data-testid="import-row-error"
+                              data-error-code={code}
+                            >
+                              {importRowErrorText(t, { row: rowIdx, error, code, category, value })}
                             </TableCell>
                           </TableRow>
                         );
