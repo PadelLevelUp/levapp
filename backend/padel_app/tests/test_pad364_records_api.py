@@ -196,11 +196,11 @@ def test_an_empty_history_has_no_last_evaluation(app, client):
 
 def test_a_legacy_save_shows_up_in_the_history(app, client):
     ids = _seed(app)
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 7}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200  # 1-5 since PAD-403
 
     (record,) = _history(app, client, ids)["records"]
 
-    assert record["id"] is not None and [x["score"] for x in record["ratings"]] == [7]
+    assert record["id"] is not None and [x["score"] for x in record["ratings"]] == [4]
 
 
 def test_latest_is_the_greatest_evaluated_at_then_id(app, client, monkeypatch):
