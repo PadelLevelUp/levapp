@@ -97,7 +97,8 @@ def test_calendar_edit_a_new_title_and_description_are_written(app, client):
 
 
 def test_calendar_edit_recurring_to_one_off_leaves_the_rule_and_the_end_date_on_the_row(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). `is_recurring` has its own Boolean handler
+    """FLIPPED by PAD-377 (B-150), by the fix's author — this pin asserted the DEFECT and went red when
+    `edit_event_service` began clearing the rule on an explicit `isRecurring: false`. Was: DEFECT PINNED, NOT FIXED (B-136). `is_recurring` has its own Boolean handler
     and flips; `recurrence_rule: ""` and `recurrence_end: ""` are falsy and dropped."""
     from padel_app.models.calendar_blocks import CalendarBlock
 
@@ -111,12 +112,13 @@ def test_calendar_edit_recurring_to_one_off_leaves_the_rule_and_the_end_date_on_
     assert after["isRecurring"] is False
     with app.app_context():
         row = db.session.get(CalendarBlock, block["id"])
-        assert row.recurrence_rule is not None and "weekly" in row.recurrence_rule
-        assert row.recurrence_end is not None and row.recurrence_end.isoformat() == "2026-12-01"
+        assert row.recurrence_rule is None, "PAD-377: an explicit one-off clears the rule"
+        assert row.recurrence_end is None, "PAD-377: and the end date with it"
 
 
 def test_calendar_edit_a_block_made_one_off_still_repeats_in_the_calendar_feed(app, client):
-    """DEFECT PINNED, NOT FIXED (B-150) — the user-visible end of the test above. The
+    """FLIPPED by PAD-377 (B-150), by the fix's author — this pin asserted the DEFECT and went red when
+    `edit_event_service` began clearing the rule on an explicit `isRecurring: false`. Was: DEFECT PINNED, NOT FIXED (B-150) — the user-visible end of the test above. The
     feed expands `recurrence_rule` (serializers/calendar_event.py), and the rule was
     never cleared, so a block the user made one-off is still served every week."""
     ids = _seed(app)
@@ -134,7 +136,7 @@ def test_calendar_edit_a_block_made_one_off_still_repeats_in_the_calendar_feed(a
     after = _edit_event(app, client, ids, block["id"], {**EVENT, "isRecurring": False})
 
     assert after["isRecurring"] is False, "the edit's own response says one-off"
-    assert dentist_days() == weekly, "and the calendar goes on repeating it"
+    assert dentist_days() == [(weekly[0][0], False)], "PAD-377: and the calendar serves that ONE day, as a one-off"
 
 
 # ── POST /api/app/edit_player (player_service.edit_player_helper) ────────────
@@ -437,7 +439,8 @@ def test_json_admin_editor_can_clear_a_text_and_write_a_zero(app, client):
 # ── POST / PUT /api/app/availability_blockers (a student's unavailability) ───
 
 def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week(app, client):
-    """DEFECT PINNED, NOT FIXED (B-150, the consequence that costs someone a class).
+    """FLIPPED by PAD-377 (B-150), by the fix's author — this pin asserted the DEFECT and went red when
+    `edit_event_service` began clearing the rule on an explicit `isRecurring: false`. Was: DEFECT PINNED, NOT FIXED (B-150, the consequence that costs someone a class).
     Same service as the calendar edit above. The notification engine's own
     predicate, `user_is_blocked_for_window`, expands the leftover rule: two weeks
     after the ONE day the student said they were away, they are still "blocked"."""
@@ -461,12 +464,15 @@ def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitat
             return user_is_blocked_for_window(ids["student_user_id"], datetime(2026, 10, day, 18, 30), datetime(2026, 10, day, 19, 30))
 
     assert blocked_on(5) is True, "the day they asked for"
-    assert blocked_on(19) is True, "and, wrongly, every Monday after it"
+    assert blocked_on(19) is False, "PAD-377: two Mondays later they are free again"
     assert blocked_on(20) is False, "the control: a Tuesday was never blocked"
 
 
 def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly_block(app, client):
-    """DEFECT PINNED, NOT FIXED — and the reason no bulk repair may use the flag.
+    """FLAG ASSERTION FLIPPED by PAD-377 (B-150), by the fix's author: an edit that OMITS `isRecurring` now
+    leaves the flag alone as well as the rule and the end date. The rule-and-end-date assertions
+    are UNCHANGED — an absent key must never clear them. The flag is still not a safe key for a
+    bulk repair of rows written BEFORE the fix. Was: DEFECT PINNED, NOT FIXED — and the reason no bulk repair may use the flag.
     `_build_payload` reads `data.get("isRecurring", False)`: a client that edits only
     the title and leaves the key out produces EXACTLY the row a deliberate one-off
     produces (`is_recurring` False, rule and end date still there). On production
@@ -482,7 +488,7 @@ def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly
     after = _edit_event(app, client, ids, block["id"], {**body, "title": "Dentist (new clinic)"})
 
     assert after["title"] == "Dentist (new clinic)"
-    assert after["isRecurring"] is False, "the user never asked for that"
+    assert after["isRecurring"] is True, "PAD-377: a rename says nothing about repetition, so nothing about it changes"
     with app.app_context():
         row = db.session.get(CalendarBlock, block["id"])
         assert row.recurrence_rule is not None and row.recurrence_end.isoformat() == "2026-12-01"
