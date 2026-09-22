@@ -56,6 +56,18 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     leak an internal detail and nudge the user into keeping a machine-generated login. A username
     the user already chose IS returned and prefilled.
 
+11. **What was sent is what is written (PAD-389, B-136).** The five fields of rule 7 are read as
+    the body holds them: an omitted key keeps what the coach entered; a present `null` or `""` for
+    `email` or `phone` CLEARS it — the form is pre-filled from rule 4's GET, so an emptied box is
+    the student's intent. `name` and `username` cannot be empty, and activation IS setting the
+    `password`, so an empty or blank name/username, or an empty or absent password, is answered
+    `400 {"error": "invalid_fields", "fields": [...]}` naming every such field, and nothing is
+    written — the account stays `inactive`. A username another account holds is answered 409
+    "Username already taken" (as `players.invite-completion` and self-signup do). The web and iOS
+    screens already send every field, `""` when emptied (their own validation stops an empty name,
+    username, e-mail or password before the request), so the one visible change is that an emptied
+    phone box now removes the coach-typed phone instead of silently keeping it.
+
 ### Acceptance Criteria
 
 #### Activate user
@@ -118,3 +130,22 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
   only the person holding the coach's link can read the lookup, so it prefills their own contact
   details again. The public user shape still governs the users list and the messageable picker
   (`messaging.conversations` rule 15). Decided in the 2026-09-10 batch merge.
+
+#### An emptied pre-filled phone or e-mail is cleared; an omitted one is kept (rule 11)
+- **Given** an inactive account the coach created with an e-mail and a phone
+- **When** the student activates with the right token, a name, a username, a password, `"email": ""` and `"phone": ""`
+- **Then** the account is `active` and both are NULL
+- **When** instead the body mentions neither
+- **Then** both are still what the coach entered
+
+#### A blank name, username or password is refused (rule 11)
+- **Given** the same inactive account
+- **When** the body carries `"name": "   "` and `"password": ""`
+- **Then** the answer is 400 with `fields` `["name", "password"]`, the account is still `inactive`, and its phone is untouched
+- **When** the body carries no `password` at all
+- **Then** the answer is 400 with `fields` `["password"]`
+
+#### A taken username is refused (rules 9, 11)
+- **Given** another account holds the username `taken-one`
+- **When** the student activates with `"username": "taken-one"`
+- **Then** the answer is 409 "Username already taken" and the account is still `inactive`
