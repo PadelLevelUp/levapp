@@ -272,7 +272,9 @@ def test_monthly_counts_today_inclusive_and_only_this_coachs_records(app, client
     from padel_app.models.coaches import Coach
 
     ids = _world(app)
-    _record(app, ids["rui"]["rel_id"], _day(30))     # exactly 30 days ago, inside the window → not due
+    # Rule 3's boundary: "the last 30 days, today inclusive" is today and the 29 days before it.
+    _record(app, ids["rui"]["rel_id"], _day(30))     # exactly 30 days ago: outside the window → due
+    _record(app, ids["tiago"]["rel_id"], _day(29))   # 29 days ago: inside → not due
     # Sara was evaluated yesterday, but by ANOTHER coach — it does not count for Ana.
     with app.app_context():
         other_user = User(name="Other Coach", username="other-coach-404", password="x", status="active")
@@ -289,7 +291,7 @@ def test_monthly_counts_today_inclusive_and_only_this_coachs_records(app, client
     occ = _panel_with_everyone(app, ids)
     _set(app, client, ids, "monthly")
 
-    assert _due_by_name(ids, _panel(app, client, ids, occ)) == {"rui": False, "sara": True, "tiago": True}
+    assert _due_by_name(ids, _panel(app, client, ids, occ)) == {"rui": True, "sara": True, "tiago": False}
 
 
 def test_every_n_classes_counts_attendance_since_the_newest_record(app, client):
@@ -307,6 +309,21 @@ def test_every_n_classes_counts_attendance_since_the_newest_record(app, client):
     _set(app, client, ids, "every_n_classes", 2)
 
     expected = {"rui": True, "sara": False, "tiago": False}
+    assert _due_by_name(ids, _panel(app, client, ids, occ)) == expected
+    assert _due_by_name(ids, _roster(app, client, ids)) == expected
+
+
+def test_every_n_classes_never_counts_an_occurrence_that_has_not_happened_yet(app, client):
+    """A future class pre-marked `present` was not attended: it cannot make anyone due."""
+    ids = _world(app)
+    ahead = _occurrence(app, ids["coach_id"], NOW + dt.timedelta(days=3), title="Ainda não")
+    _presence(app, ahead["instance_id"], ids["tiago"]["player_id"], "present")
+    today = _occurrence(app, ids["coach_id"], NOW - dt.timedelta(hours=2), title="Hoje")
+    _presence(app, today["instance_id"], ids["sara"]["player_id"], "present")   # today's class counts
+    occ = _panel_with_everyone(app, ids)
+    _set(app, client, ids, "every_n_classes", 1)
+
+    expected = {"rui": False, "sara": True, "tiago": False}
     assert _due_by_name(ids, _panel(app, client, ids, occ)) == expected
     assert _due_by_name(ids, _roster(app, client, ids)) == expected
 

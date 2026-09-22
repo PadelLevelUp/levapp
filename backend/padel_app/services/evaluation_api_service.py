@@ -707,7 +707,9 @@ def due_for_links(coach, links, on=None) -> dict:
         )
     }
     if kind == "monthly":
-        floor = on - timedelta(days=MONTHLY_WINDOW_DAYS)   # a record on the floor day is still "in the last 30 days"
+        # "The last 30 days, today inclusive" is on-29 … on: a record 29 days ago is inside,
+        # one exactly 30 days ago is not — that player is due.
+        floor = on - timedelta(days=MONTHLY_WINDOW_DAYS - 1)
         return {link.id: newest.get(link.id) is None or newest[link.id] < floor for link in links}
 
     # every_n_classes: present in >= N of this coach's occurrences dated after the newest record.
@@ -731,6 +733,7 @@ def due_for_links(coach, links, on=None) -> dict:
     for player_id, start in rows:
         link_id = by_player[player_id]
         last = newest.get(link_id)
-        if start is not None and (last is None or start.date() > last):   # start is club wall-clock (R-023)
+        # start is club wall-clock (R-023); an occurrence not yet reached cannot have been attended.
+        if start is not None and start.date() <= on and (last is None or start.date() > last):
             attended[link_id] += 1                                          # every occurrence counts on its own
     return {link.id: attended[link.id] >= value for link in links}

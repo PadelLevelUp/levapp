@@ -38,6 +38,8 @@ due. It is a marker inside the app, never a message to anyone.
    "O lembrete só ajuda a manter o histórico atualizado — a avaliação continua opcional."
    "A cada 2/4 aulas" and "Personalizado" are all `every_n_classes` with `everyN` 2, 4 or the
    typed number. Coach-only (`settings.role-scope` rule 3); web and iOS in the same ticket.
+   The control reads back what is stored, not what was tapped: "Personalizado" with 2 or 4
+   is the same setting as "A cada 2/4 aulas" and reopens as that option — intended, not a bug.
 2. **The endpoint.** `GET /api/app/evaluation_settings` and `PUT /api/app/evaluation_settings`
    (JWT, coach) with `{reminder: 'never' | 'monthly' | 'every_n_classes', everyN?}` → the same
    shape. `everyN` is an integer 1–99, required with `every_n_classes` (else 400) and ignored
@@ -47,11 +49,14 @@ due. It is a marker inside the app, never a message to anyone.
    calendar (R-048; no client re-derives it from dates):**
    - `never` → never due;
    - `monthly` → no record by this coach for this player with `evaluated_on` in the last 30
-     days (today inclusive); a player never evaluated is due;
+     days (today inclusive: today and the 29 days before it — a record exactly 30 days ago
+     is outside, so that player is due; 29 days ago is inside); a player never evaluated is due;
    - `every_n_classes` → the player was marked present (`presences.status = 'present'`) in N or
      more occurrences of this coach's classes dated after the link's newest `evaluated_on`; a
      player never evaluated is due once present in N. Unmarked and absent presences do not count.
-     Every occurrence counts on its own: two weekly classes in one week are two.
+     Every occurrence counts on its own: two weekly classes in one week are two. Only
+     occurrences dated today or earlier count — a future class marked `present` in advance
+     was not attended.
    Nothing is stored and nothing expires; `due` is derived on read, in **one query per surface,
    never one per row** (pinned by a query-count assertion).
 4. **Where the marker shows.** `due` on each participant of the class panel
