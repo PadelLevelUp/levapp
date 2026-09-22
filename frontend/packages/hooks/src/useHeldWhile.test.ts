@@ -47,3 +47,23 @@ describe("useHeldWhile", () => {
     expect(h.result.current).toEqual([9]);
   });
 });
+
+describe("holdEmpty: a hold that began with nothing keeps showing nothing (review #359 (2))", () => {
+  it("does not let a first load through while held, and releases it afterwards", () => {
+    const h = renderHook(({ value, held }: { value: number[] | undefined; held: boolean }) => useHeldWhile(value, held, "k", { holdEmpty: true }), {
+      initialProps: { value: undefined as number[] | undefined, held: true },
+    });
+    h.rerender({ value: [1, 2, 3], held: true });
+    expect(h.result.current).toBeUndefined();
+    h.rerender({ value: [1, 2, 3], held: false });
+    expect(h.result.current).toEqual([1, 2, 3]);
+  });
+
+  it("without the option a first load still passes through (the default stays)", () => {
+    const h = renderHook(({ value, held }: { value: number[] | undefined; held: boolean }) => useHeldWhile(value, held, "k"), {
+      initialProps: { value: undefined as number[] | undefined, held: true },
+    });
+    h.rerender({ value: [1], held: true });
+    expect(h.result.current).toEqual([1]);
+  });
+});

@@ -66,3 +66,16 @@ export function chartPoints(series: EvaluationEvolution["series"], box: ChartBox
     y: box.paddingTop + plotHeight * (1 - (point.mean - box.scaleMin) / span),
   }));
 }
+
+/**
+ * The point a tap selected, as an index into the CURRENT series (iOS: the caption under the
+ * chart). The selection is kept by MONTH, never by index: a series can shrink under it —
+ * the coach deletes the tapped month's only record from the history card below — and an
+ * index would then dangle (a render crash) or name another month. A month that is gone,
+ * or no tap at all, resolves to the last point; an empty series to null.
+ */
+export function resolveActivePoint(series: EvaluationEvolution["series"], activeMonth: string | null): number | null {
+  if (series.length === 0) return null;
+  const index = activeMonth === null ? -1 : series.findIndex((point) => point.month === activeMonth);
+  return index === -1 ? series.length - 1 : index;
+}

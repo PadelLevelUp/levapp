@@ -39,7 +39,7 @@ def seed_evaluation_history(coach_player_id: int, category_id: int, points, *, a
         # PAD-375: the record API reads ONLY ratings that sit in a record (Q29), so history meant
         # for the new surfaces — the "Histórico" cards, "Evolução" — is filed the way the one writer
         # files it: each row in the class-less record of its club-local day. Inside a unit of work
-        # (the E2E seed) this only flushes; outside one, get_or_create_record commits.
+        # (the E2E seed) this only flushes; the caller commits when its unit of work ends.
         from padel_app.services import evaluation_record_service as records
 
         for entry in entries:
