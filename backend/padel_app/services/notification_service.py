@@ -34,6 +34,7 @@ Handles reminders, vacancy-based invitations, waiting list, and manual notificat
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 
@@ -2358,7 +2359,61 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
 # Reminder flow
 # ---------------------------------------------------------------------------
 
-def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> dict:
+# PAD-407: the advisory-lock namespace for reminder passes (`pg_advisory_lock(ns, instance_id)`).
+_REMINDER_PASS_LOCK_NS = 407
+
+
+@contextmanager
+def _reminder_pass_lock(instance_id: int):
+    """Serialise reminder passes for ONE occurrence, across threads and processes.
+
+    PAD-407. A pass counts a student's attempts and then sends — two passes at once
+    both counted 0 and both sent. The pass commits several times (the message, the
+    attempt row, supersedes), so a row lock inside the session's transaction would be
+    released half-way; the lock is a session-level advisory lock on a connection of its
+    own, in autocommit, held for the whole pass. A crash releases it with the connection.
+    SQLite (tests) has no such lock and runs one writer at a time anyway.
+    """
+    from flask import has_app_context
+    from sqlalchemy import text as _sql
+
+    if not has_app_context() or db.engine.dialect.name != "postgresql":
+        yield
+        return
+    key = {"ns": _REMINDER_PASS_LOCK_NS, "id": int(instance_id)}
+    with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.execute(_sql("SELECT pg_advisory_lock(:ns, :id)"), key)
+        try:
+            yield
+        finally:
+            conn.execute(_sql("SELECT pg_advisory_unlock(:ns, :id)"), key)
+
+
+def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
+    """PAD-407: whether this student's latest counted reminder is younger than the
+    spacing — a SCHEDULED pass then sends nothing to them. A legitimate retry fires
+    `hours` after the pass that sent it, so it is never inside the window; a duplicate
+    chain's pass fires within seconds of its twin and always is. The tolerance keeps a
+    retry that fires a moment early from being mistaken for a duplicate."""
+    from padel_app.services import reminder_attempt_service as attempts
+
+    last = attempts.latest_counted_attempt(instance_id, player_id)
+    if last is None or last.sent_at is None:
+        return False
+    tolerance = min(timedelta(minutes=5), timedelta(hours=hours) / 2)
+    return now - last.sent_at < timedelta(hours=hours) - tolerance
+
+
+def send_class_reminders(instance_id: int, *, now: datetime | None = None, scheduled: bool = False) -> dict:
+    """PAD-407: one pass at a time per occurrence (see `_reminder_pass_lock`). A
+    ``scheduled`` pass (the scheduler's runners) also skips a student reminded less than
+    ``hoursBetweenReminders`` ago, so duplicate retry chains already persisted in
+    ``apscheduler_jobs`` send once. The coach's manual send keeps its old behaviour."""
+    with _reminder_pass_lock(instance_id):
+        return _send_class_reminders(instance_id, now=now, scheduled=scheduled)
+
+
+def _send_class_reminders(instance_id: int, *, now: datetime | None = None, scheduled: bool = False) -> dict:
     """
     Send 'Are you coming?' messages to all enrolled players.
     Called by APScheduler at the configured reminder time.
@@ -2496,6 +2551,12 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None) -> di
         sent_count = attempts.count_attempts(instance_id, player_id)
 
         if sent_count >= reminder_count:
+            continue
+        # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
+        # It sends nothing and does not report `more_due`, so the twin chain ends here.
+        if scheduled and sent_count > 0 and _sent_within_spacing(
+            instance_id, player_id, config.get_hours_between_reminders(), _now,
+        ):
             continue
 
         player = Player.query.get(player_id)

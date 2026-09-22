@@ -192,7 +192,12 @@ def test_two_reminders_are_two_passes_not_one_minute(app, live_scheduler):
         expected = datetime.utcnow() + timedelta(hours=hours)
         assert abs((retry.trigger.run_date.replace(tzinfo=None) - expected).total_seconds()) < 120
 
-        # The retry delivers the second reminder.
+        # The retry delivers the second reminder. It fires `hours` after the first;
+        # this test runs it at once, so the first attempt is dated back by the gap —
+        # PAD-407: a scheduled pass inside the gap is a duplicate chain and sends nothing.
+        for attempt in ReminderAttempt.query.filter_by(lesson_instance_id=inst.id).all():
+            attempt.sent_at = attempt.sent_at - timedelta(hours=hours)
+        db.session.commit()
         second = _run_job(live_scheduler, retry).get(ids["student_user_id"], 0)
         assert second == 1
         assert ReminderAttempt.query.filter_by(
