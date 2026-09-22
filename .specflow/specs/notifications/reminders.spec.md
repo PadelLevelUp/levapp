@@ -119,7 +119,9 @@ Automatically send class reminders to enrolled players at a configured time befo
     chains already stored in `apscheduler_jobs` — sends nothing and ends. The coach's manual
     send (`POST /send_reminders`) keeps rule 3's behaviour;
     (c) **the occurrence job arms no ask passes while it materialises** — its own pass asks the
-    roster a moment later. Every other enrolment still arms rule 18's ask pass.
+    roster a moment later. Every other enrolment still arms rule 18's ask pass — so an
+    occurrence whose job misfired (never ran) is still asked by the ask passes of whatever
+    materialises it later. Ledger: B-161.
 
 ### Acceptance Criteria
 
