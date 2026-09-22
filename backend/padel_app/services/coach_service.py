@@ -194,6 +194,17 @@ def add_coach_note_service(coach, data):
     return {"status": "ok", "id": note.id, "type": note_type, "text": note.text}, 200
 
 
+def _log_ignored_score(coach, category_id):
+    """An ignored score is silent to the client by design (rule 8); leave a trace for us."""
+    from flask import current_app, has_app_context
+
+    if has_app_context():
+        current_app.logger.warning(
+            "add_evaluation_entry: coach %s posted a score for category %r, which is not theirs — ignored (B-145)",
+            coach.id, category_id,
+        )
+
+
 def add_evaluation_entry_service(coach, data):
     """Records evaluation scores and notes for a player."""
     player_id = data.get("playerId")
@@ -213,9 +224,22 @@ def add_evaluation_entry_service(coach, data):
     # App Store builds still post every category, which this keeps harmless for
     # categories that already hold a score.
     latest = {e.category_id: e.score for e in coach_player.current_evaluations}
+    # evaluations.entries rule 8 (PAD-370, B-145, compass R-002): a score is
+    # recorded only in one of the coach's OWN categories. Another coach's
+    # category, an id that does not exist or is not a number is ignored, and the
+    # response is the same — App Store builds post every category in one body and
+    # read any non-2xx as a failed save, with the earlier scores already written.
+    own_ids = {c.id for c in coach.evaluation_categories}
     for score in scores:
         value = score.get("value")
         if value is None:
+            continue
+        try:
+            if int(score.get("categoryId")) not in own_ids:
+                _log_ignored_score(coach, score.get("categoryId"))
+                continue
+        except (TypeError, ValueError, OverflowError):  # OverflowError: int(1e999)
+            _log_ignored_score(coach, score.get("categoryId"))
             continue
         try:
             unchanged = float(latest[int(score.get("categoryId"))]) == float(value)
