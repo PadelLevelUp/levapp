@@ -147,6 +147,8 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
                 isStars={isStars}
                 onEdit={() => setTarget(record)}
                 onDelete={() => setDeleting(record)}
+                playerId={playerId}
+                playerName={playerName}
               />
             ))}
           </section>
@@ -158,7 +160,15 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
               <AlertDialogTitle data-testid="evaluation-delete-title">
                 {deleting && t("players.evaluationHistory.deleteTitle", { date: formatEvaluationDate(deleting.evaluatedOn, i18n.language) })}
               </AlertDialogTitle>
-              <AlertDialogDescription>{t("players.evaluationHistory.deleteDescription")}</AlertDialogDescription>
+              <AlertDialogDescription>
+                {t("players.evaluationHistory.deleteDescription")}
+                {/* sharing rule 9: deleting a shared record un-shares it with it — say so. */}
+                {deleting?.share && (
+                  <span className="mt-1 block" data-testid="evaluation-delete-shared-warning">
+                    {t("players.evaluationSharing.share.deleteSharedWarning")}
+                  </span>
+                )}
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
