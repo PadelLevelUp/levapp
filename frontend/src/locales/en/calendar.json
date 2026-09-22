@@ -76,7 +76,8 @@
       "fieldDays": "Days of the week",
       "fieldEndDate": "End date",
       "court": "Court",
-      "noCourt": "No court"
+      "noCourt": "No court",
+      "fieldName": "Name"
     },
     "overlap": {
       "title": "Overlapping event",
@@ -293,6 +294,7 @@
       "failedUpdateEvent": "Failed to update event",
       "eventDeleted": "Event deleted",
       "failedDeleteEvent": "Failed to delete event",
+      "holdOccurrenceLocked": "This is a class request's hold: only the whole block can be deleted. Propose a new time on the request instead.",
       "repeatOnDay": "Repeat on day {{day}}",
       "delete": "Delete",
       "deleteTitle": "Delete event",
@@ -343,6 +345,7 @@
       "updateFailedDescription": "Changes could not be saved.",
       "eventRescheduled": "Event rescheduled",
       "failedReschedule": "Failed to reschedule event",
+      "holdOccurrenceLocked": "This time is held for a class request — propose a new time on the request instead.",
       "eventCreated": "Event created",
       "failedCreateEvent": "Failed to create event",
       "classCreated": "Class created",

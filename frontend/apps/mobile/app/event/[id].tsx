@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { isHoldOccurrenceLocked, lightTheme } from "@levelup/config";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -151,6 +151,16 @@ export default function EventDetailScreen() {
 
   const handleSave = async () => {
     if (!draft) return;
+    // PAD-386 (D83): a recurring block keeps an end date — the server refuses a cleared
+    // one (400 ["endDate"]); said here before the request, as the create screen does.
+    if (draft.isRecurring && (!draft.endDate || draft.selectedDays.length === 0)) {
+      const missing = [
+        draft.selectedDays.length === 0 ? t("calendar.addEvent.fieldDays") : null,
+        !draft.endDate ? t("calendar.addEvent.fieldEndDate") : null,
+      ].filter(Boolean).join(", ");
+      toast.error(t("calendar.addEvent.missingFieldsTitle"), t("calendar.addEvent.missingFieldsDescription", { fields: missing }));
+      return;
+    }
     try {
       await editEvent.mutateAsync({
         blockId: originalId,
@@ -166,8 +176,10 @@ export default function EventDetailScreen() {
 
   const handleDelete = () => {
     // Recurring blocks get the same this-one / all-future choice a recurring
-    // class does; a one-off just confirms.
-    if (active.isRecurring) setDeleteScopeOpen(true);
+    // class does; a one-off just confirms. PAD-372: the live hold of an open class
+    // request is deleted whole or not at all — the server refuses the scopes on it
+    // (409 HOLD_OCCURRENCE_LOCKED), so the scope dialog is not offered there.
+    if (active.isRecurring && !block?.requestHoldOf) setDeleteScopeOpen(true);
     else setDeleteOpen(true);
   };
 
@@ -178,8 +190,10 @@ export default function EventDetailScreen() {
       await removeEvent.mutateAsync({ blockId: originalId, occDate, scope });
       toast.success(t("calendar.eventDetail.eventDeleted"));
       router.back();
-    } catch {
-      toast.error(t("calendar.eventDetail.failedDeleteEvent"));
+    } catch (err) {
+      toast.error(
+        t(isHoldOccurrenceLocked(err) ? "calendar.eventDetail.holdOccurrenceLocked" : "calendar.eventDetail.failedDeleteEvent")
+      );
     }
   };
 

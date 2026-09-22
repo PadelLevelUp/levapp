@@ -99,9 +99,9 @@ test.describe("PAD-103: student settings surface", () => {
     await expect(
       page.getByRole("heading", { name: /coach levels/i }),
     ).toHaveCount(0);
-    await expect(
-      page.getByRole("heading", { name: /evaluation categories/i }),
-    ).toHaveCount(0);
+    // PAD-373: the evaluation-categories editor became the entry to "Gerir competências".
+    // By test id — the old heading matcher would now pass for EVERYONE, the heading being gone.
+    await expect(page.getByTestId("settings-competencies")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /^season$/i })).toHaveCount(0);
   });
 });
@@ -128,9 +128,9 @@ test.describe("PAD-103: coach settings surface is unchanged", () => {
     await expect(
       page.getByRole("heading", { name: /coach levels/i }),
     ).toBeVisible({ timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: /evaluation categories/i }),
-    ).toBeVisible();
+    // PAD-373 (settings.role-scope rule 3): the entry that opens "Gerir competências".
+    await expect(page.getByTestId("settings-competencies")).toBeVisible();
+    await expect(page.getByTestId("settings-competencies-open")).toBeEnabled();
 
     await page.getByTestId("settings-nav-calendar").click();
     await expect(

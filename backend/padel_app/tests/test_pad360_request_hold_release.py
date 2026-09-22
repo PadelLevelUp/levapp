@@ -503,22 +503,26 @@ def test_F6_a_weekly_requests_recurring_hold_is_released_by_account_deletion(app
     assert _blocks_of_coach(app, ids) == 0
 
 
-def test_F2_KNOWN_GAP_a_moved_occurrence_of_a_weekly_hold_is_a_clone_nothing_releases(app):
-    """DEFECT PINNED, NOT FIXED (review F2; rule 18 names it). Moving one occurrence
-    of a recurring hold goes through `calendar_service._clone_block`: the clone
-    copies the title and no request points at it, so no release path deletes it.
-    Consequence for any cleanup: a hold-titled block that no request references
-    can be the clone of a LIVE hold — never delete it on the title alone.
+def test_F2_a_moved_occurrence_of_a_weekly_hold_is_refused_so_nothing_outlives_the_request(app):
+    """Review F2, closed by PAD-372 (B-138). This pin used to record the defect: moving one
+    occurrence of a recurring hold went through `calendar_service._clone_block`, the
+    clone copied the title and no request pointed at it, so no release path deleted it
+    (2 blocks then 1; after PAD-371's split 3 then 2 — two unlinked clones outliving
+    the request under the student's name).
 
-    Counts FLIPPED by PAD-371 (B-139), by its author, 2 -> 3 and 1 -> 2: `_split_block`
-    used to look for the series' resume point AFTER shortening it, found nothing, and
-    silently dropped every later occurrence — so this pin counted two rows only because
-    a third was being lost. With the split fixed, moving a MIDDLE occurrence leaves the
-    truncated hold, the one-off at the new time AND the resumed series: two unlinked
-    clones survive the request instead of one. The gap is still open and is wider —
-    PAD-372 (B-138), decided as REFUSAL: a live hold's single/future change will be
-    refused, and this scenario changes again in that ticket's PR."""
+    Decided as REFUSAL: on accept the class is built from the REQUEST's recurrence and a
+    proposal moves the SERIES, so a `single`/`future` change to a live hold alters
+    nothing the product honours. The service now raises 409 `HOLD_OCCURRENCE_LOCKED`,
+    the hold is untouched, and withdraw leaves the coach's calendar empty. The route-level
+    2×2 lives in `test_pad372_hold_occurrence_change_is_refused.py`.
+
+    What still holds for any cleanup: a hold-titled block that no request references may
+    be a clone left by the OLD code on production — never delete one on its title alone
+    (PAD-360's v2 count reports those separately)."""
     from datetime import timedelta
+
+    import pytest
+    from werkzeug.exceptions import Conflict
 
     from padel_app.services.calendar_service import reschedule_block_service
     from padel_app.services.class_request_service import withdraw_class_request_service
@@ -527,16 +531,17 @@ def test_F2_KNOWN_GAP_a_moved_occurrence_of_a_weekly_hold_is_a_clone_nothing_rel
     rid, hold = _weekly_request(app, ids)
     moved = (DAY + timedelta(days=14)).isoformat()
     with app.app_context():
-        reschedule_block_service(hold, ids["coach_user_id"], {
-            "occDate": moved, "newDate": moved, "newStartTime": "15:00", "newEndTime": "16:00", "scope": "single"})
-        db.session.commit()
-    assert _blocks_of_coach(app, ids) == 3, "the truncated hold, the one-off clone, and the resumed series (PAD-371)"
+        with pytest.raises(Conflict, match="HOLD_OCCURRENCE_LOCKED"):
+            reschedule_block_service(hold, ids["coach_user_id"], {
+                "occDate": moved, "newDate": moved, "newStartTime": "15:00", "newEndTime": "16:00", "scope": "single"})
+        db.session.rollback()
+    assert _blocks_of_coach(app, ids) == 1, "the hold alone: nothing split, nothing cloned"
 
     with app.app_context():
         withdraw_class_request_service(rid, _player(ids["player_id"]))
 
     assert not _block_exists(app, hold)
-    assert _blocks_of_coach(app, ids) == 2, "both clones outlive the request (PAD-372)"
+    assert _blocks_of_coach(app, ids) == 0, "nothing outlives the request"
 
 
 # ── #345 review, 2nd round: a coach can make a hold their own (rule 3) ────────

@@ -3,10 +3,9 @@ import type { PlayerRemovalImpact } from "@levelup/types";
 import { playersApi } from "@levelup/api";
 import { Platform, ScrollView, Share, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { format, parseISO } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { lightTheme } from "@levelup/config";
-import { useCoachLevels, usePlayerProfile } from "@levelup/hooks";
+import { useCoachLevels, usePlayerEvaluations, usePlayerProfile } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/auth/AuthContext";
@@ -14,7 +13,6 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import { WEB_APP_URL } from "@/lib/config";
-import { useDateLocale } from "@/lib/date-locale";
 import { registerLink } from "@/lib/web-links";
 import {
   AlertDialog,
@@ -39,7 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
-import { AddEvaluationForm } from "@/features/players/add-evaluation-form";
+import { formatEvaluationDate } from "@/features/evaluations/format-date";
 import { AddToClassesDialog } from "@/features/players/add-to-classes-dialog";
 import { ClaimLinkAction } from "@/features/players/claim-link-dialog";
 import {
@@ -69,8 +67,7 @@ function getInitials(name: string) {
 }
 
 export default function PlayerDetailScreen() {
-  const { t } = useTranslation();
-  const locale = useDateLocale();
+  const { t, i18n } = useTranslation();
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -83,6 +80,10 @@ export default function PlayerDetailScreen() {
   } = useCoachPlayers();
   const { data: levels } = useCoachLevels();
   const { data: profile } = usePlayerProfile(playerId);
+  // evaluations.history rule 2: the card's date is the server's `lastEvaluatedOn`.
+  const { data: evaluationHistory } = usePlayerEvaluations(playerId);
+  const openEvaluations = () =>
+    router.push({ pathname: "/player-evaluations/[playerId]", params: { playerId: String(playerId), name: player?.name ?? "" } });
   const { data: standingList } = useStandingWaitingList();
 
   const editPlayer = useEditPlayer();
@@ -95,7 +96,6 @@ export default function PlayerDetailScreen() {
   const [removalImpact, setRemovalImpact] =
     React.useState<PlayerRemovalImpact | null>(null);
   const [removalImpactFailed, setRemovalImpactFailed] = React.useState(false);
-  const [isEvalOpen, setIsEvalOpen] = React.useState(false);
   const [isWaitingListOpen, setIsWaitingListOpen] = React.useState(false);
   const [isClassesOpen, setIsClassesOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -180,16 +180,22 @@ export default function PlayerDetailScreen() {
         updates: {
           name: values.name || undefined,
           userId: player.userId,
-          email: values.email || undefined,
-          phone: values.phone || undefined,
+          // PAD-388: an emptied box is sent as null so the server CLEARS it (an
+          // omitted key still means keep). Level and side have no clear control.
+          // An account holder's e-mail is locked in the form and never sent (the server refuses it).
+          email: player.validated ? undefined : values.email || null,
+          phone: values.phone || null,
           levelId: values.levelId,
           side: values.side,
-          notes: values.notes,
+          notes: values.notes ?? null,
         },
       });
       setIsEditing(false);
-    } catch {
-      setError(t("players.saveChangesFailedRetry"));
+    } catch (err) {
+      // PAD-388: a 400 names the fields the server refused (today only an empty name).
+      setError(
+        playersApi.editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailedRetry"),
+      );
     }
   };
 
@@ -406,18 +412,19 @@ export default function PlayerDetailScreen() {
             <Text>{t("players.waitingList")}</Text>
           </Button>
         )}
+        {/* evaluations.history rule 3: "Avaliações" is a primary action; it pushes a screen. */}
         <Button
           size="sm"
-          testID="player-add-evaluation"
-          accessibilityLabel={t("players.addEvaluation")}
-          onPress={() => setIsEvalOpen(true)}
+          testID="player-evaluations-action"
+          accessibilityLabel={t("players.evaluationHistory.open")}
+          onPress={openEvaluations}
         >
           <Ionicons
             name="clipboard-outline"
             size={16}
             color={lightTheme.primaryForeground}
           />
-          <Text>{t("players.addEvaluation")}</Text>
+          <Text>{t("players.evaluationHistory.open")}</Text>
         </Button>
       </ScrollView>
       <ScrollView
@@ -434,6 +441,7 @@ export default function PlayerDetailScreen() {
               <PlayerForm
                 levels={levels ?? []}
                 coachId={user?.coachId}
+                lockEmail={player.validated}
                 initialValues={{
                   name: player.name ?? "",
                   email: player.email ?? "",
@@ -648,40 +656,27 @@ export default function PlayerDetailScreen() {
           <Text className="text-sm text-destructive">{error}</Text>
         ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("players.evaluations")}</CardTitle>
+        {/* The profile card "Avaliação" (evaluations.history rule 2). Owner question Q7 is open: the
+            at-a-glance list of latest scores this replaces left the profile, following the canvas.
+            To restore it, render `profile?.evaluations` here again (`GET /player_profile` still
+            serves it, legacy categories only) — the removed block is in this file's history (PAD-374). */}
+        <Card testID="evaluation-card">
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle>{t("players.evaluationHistory.cardTitle")}</CardTitle>
+            <Button size="sm" testID="player-evaluations-open" onPress={openEvaluations}>
+              <Text>{t("players.evaluationHistory.open")}</Text>
+            </Button>
           </CardHeader>
-          <CardContent className="gap-3">
-            {(profile?.evaluations ?? []).length === 0 ? (
-              <Text
-                testID="player-evaluations-empty"
-                className="text-sm text-muted-foreground"
-              >
-                {t("players.noEvaluations")}
-              </Text>
-            ) : (
-              (profile?.evaluations ?? []).map((ev) => (
-                <View
-                  key={ev.categoryId}
-                  className="flex-row items-center justify-between gap-2"
-                >
-                  <View className="min-w-0 flex-1">
-                    <Text className="text-sm font-medium" numberOfLines={1}>
-                      {ev.categoryName}
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      {format(parseISO(ev.evaluatedAt), "d MMM yyyy", { locale })}
-                    </Text>
-                  </View>
-                  <Badge variant="outline">
-                    <Text>
-                      {ev.score}/{ev.scaleMax}
-                    </Text>
-                  </Badge>
-                </View>
-              ))
-            )}
+          <CardContent>
+            <Text className="text-sm text-muted-foreground" testID="evaluation-card-last">
+              {evaluationHistory === undefined
+                ? " "
+                : evaluationHistory.lastEvaluatedOn === null
+                  ? t("players.evaluationHistory.none")
+                  : t("players.evaluationHistory.lastEvaluated", {
+                      date: formatEvaluationDate(evaluationHistory.lastEvaluatedOn, i18n.language),
+                    })}
+            </Text>
           </CardContent>
         </Card>
 
@@ -769,13 +764,6 @@ export default function PlayerDetailScreen() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AddEvaluationForm
-        open={isEvalOpen}
-        onClose={() => setIsEvalOpen(false)}
-        playerId={String(player.playerId)}
-        currentEvaluations={profile?.evaluations ?? []}
-      />
 
       <WaitingListDialog
         open={isWaitingListOpen}

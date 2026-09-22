@@ -61,9 +61,13 @@ def _court_ref(lesson):
     return {"id": court.id, "name": court.name} if court else None
 
 
-def serialize_calendar_event(obj, *, override_id: str | None = None, override_date: str | None = None, now: Optional[datetime] = None) -> dict:
+def serialize_calendar_event(obj, *, override_id: str | None = None, override_date: str | None = None, now: Optional[datetime] = None, hold_index: Optional[dict] = None) -> dict:
     """
     Serialize LessonInstance, Lesson or CalendarBlock into a CalendarEvent-compatible dict.
+
+    ``hold_index``: ``{block_id: request_id}`` from `live_hold_index`, so a feed of many
+    block occurrences answers `requestHoldOf` with one query; without it a block asks for
+    itself (PAD-372).
     """
 
     # --- Base fields shared by all events ---
@@ -134,11 +138,18 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
 
     # --- CalendarBlock ---
     if obj.model_name == "CalendarBlock":
+        from padel_app.models.class_request import live_hold_request_id
+
         event.update(
             {
                 "type": "block",
                 "blockType": obj.type,
-                "isRecurring": True if obj.recurrence_rule else False
+                "isRecurring": True if obj.recurrence_rule else False,
+                # PAD-372 (classes.class-requests rule 3): the drag starts from a feed
+                # item, so the marker rides here as well as on the block detail.
+                "requestHoldOf": (
+                    hold_index.get(obj.id) if hold_index is not None else live_hold_request_id(obj)
+                ),
             }
         )
 

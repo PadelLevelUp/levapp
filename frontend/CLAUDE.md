@@ -87,11 +87,18 @@ without dragging react-native's Flow sources into vitest; extend the stub when a
 more of the API, and keep the behaviour honest (its `remove()` really unsubscribes, so
 cleanup assertions mean something). Consequences:
 
-- **Pure modules and hooks only.** Component rendering is out: `@testing-library/react-native`
-  needs the real `react-native` package, which is exactly what the alias removes. Screens stay
-  Maestro's job. Hooks are driven with `react-test-renderer` (React's own DOM-free renderer;
-  its deprecation notice is filtered in `src/test/setup.ts`).
-- `.test.tsx` is not in the include glob — that is deliberate, not an oversight.
+- **Pure modules, hooks, and — since PAD-393 — sections.** A section mounts through
+  `src/test/render-native.tsx` (`renderNative`, on `react-test-renderer` over the stub's host
+  primitives; `byTestId` / `press` / `toggle` / `changeText` / `rerender` / `flush`), in a
+  `*.test.tsx` under `src/`. Native pieces beyond the primitives (icons, nativewind, the
+  `@/components/ui/*` wrappers, the toast, reanimated) are `vi.mock`ed in the test, as the web
+  tests mock Radix — `@rn-primitives/*` itself renders (its raw-JSX `.js` is transformed by the
+  config). The real `react-native` package stays out: it is Flow-typed at its entry.
+  `@testing-library/react-native` is NOT installed. Screens, layout, motion and gestures stay
+  Maestro's job. Hooks are driven with `react-test-renderer` as before (its deprecation notice
+  is filtered in `src/test/setup.ts`).
+- Keep component tests under `src/`, never `app/` — expo-router bundles `app/*.test.tsx` into
+  the Metro bundle.
 - `format()` helpers render in **local** time; assert on timezone-less ISO strings
   (`"2026-09-04T14:30:00"`, no trailing `Z`) and pin "today" with `vi.setSystemTime`.
 

@@ -37,4 +37,10 @@ describe("mobile API client declares its capabilities (PAD-352)", () => {
   it("declares open-spots to the shared client", () => {
     expect(initApiCall()).toMatch(/capabilities:\s*\[[^\]]*["']open-spots["'][^\]]*\]/);
   });
+
+  // PAD-364: declared from slice 2 on, consumed by nothing yet — it will gate the student
+  // dashboard block of a shared evaluation. A build that drops it loses that block silently.
+  it("declares evaluations to the shared client", () => {
+    expect(initApiCall()).toMatch(/capabilities:\s*\[[^\]]*["']evaluations["'][^\]]*\]/);
+  });
 });

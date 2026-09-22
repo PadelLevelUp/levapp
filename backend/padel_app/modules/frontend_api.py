@@ -729,6 +729,8 @@ def get_user_for_registration(user_id):
 def activate_user(user_id):
     data = request.get_json(silent=True) or {}
     token = data.pop("token", None)
+    # PAD-389: a blank name/username, a missing username on a placeholder, or no
+    # password raises NotNullableFieldError before any write; the blueprint answers 400.
     activate_user_service(user_id, data, token=token)
     return jsonify(success=True)
 
@@ -1515,7 +1517,7 @@ def create_message():
 @jwt_required()
 def edit_message(message_id):
     data = request.get_json() or {}
-    edit_message_service(message_id, data["text"], current_user().id)
+    edit_message_service(message_id, data.get("text"), current_user().id)
     return jsonify({"ok": True})
 
 
@@ -2620,6 +2622,8 @@ def edit_player():
     require_own_roster_relation(coach, player_info.get("playerId"))
     player_info["coachId"] = coach.id
     data["player"] = player_info
+    # PAD-388: an empty name, an account holder's e-mail or a 0 level raises
+    # NotNullableFieldError before any write; the blueprint handler answers 400.
     coach_player_info = edit_player_service(data)
     return jsonify(coach_player_info)
 

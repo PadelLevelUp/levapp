@@ -1,6 +1,6 @@
 ---
 id: evaluations.competencies
-status: implementing
+status: implemented
 depends_on: [evaluations.categories, evaluations.legacy-client-contract]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -72,14 +72,32 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    custom and legacy together, each by `sortOrder` then `name`. `catalogue` is the built-in
    entries the coach has not switched on (minus rule 4's hidden twins). `scoreCount` is the
    number of `evaluation_entries` rows on it. Shells show the groups as "Geral", "Técnica",
-   "Tática", "Personalizada" (legacy rows sit under "Personalizada"); an empty group is hidden
-   (AV-022).
+   "Tática", "Personalizada"; an empty group is hidden (AV-022). **(Q31, ruled 2026-09-21)** The
+   manager does NOT put legacy rows under "Personalizada": they are a section of their own,
+   "As tuas categorias", FIRST, each with its scale written out ("1–10") — an existing coach
+   opens onto their own things, switched on, and scrolls down to discover the catalogue; a coach
+   with no legacy row sees exactly the canvas's order. This is client-side sectioning of the
+   same response (`packages/config/src/competency-manager.ts`, shared by both shells); the
+   API's order is unchanged. The order is static — nothing moves when it is switched, including
+   the FIRST time, when a catalogue entry that was not a row becomes one: "Geral", "Técnica"
+   and "Tática" list rule 1's fixed catalogue order, rows and not-yet-rows interleaved (the
+   shells hold that order as `CATALOGUE_ORDER`, tied to the server's list by a test; a key a
+   client does not know sorts last). Only "As tuas categorias" and "Personalizada", which
+   hold rows only, are ordered by `sortOrder` then `name`.
 6. **(AV-024) Creating.** `POST /api/app/evaluation_competency` with `{catalogueKey}` or `{name}`
    → the competency, 1–5 and active. `{catalogueKey}` for an unknown key → 400; for one already a
    row → that row is **set active if it was off** and returned (switching on is idempotent). `{name}` is
    trimmed; empty after trimming → 400; longer than 100 → 400; a name the coach already holds on
    any row, compared case-insensitively → **409** (PAD-273; the canvas has no duplicate check —
    mock defect). Accented characters are kept as typed; nothing is keyed on a slug (AV-078).
+   **(Q36, ruled 2026-09-21 — a known limit, left as it is.)** The case-insensitive refusal is
+   a read-then-write check in the service; the database's unique index
+   (`uq_evaluation_categories_coach_name`) is on `(coach_id, name)` as typed, so it is
+   case-SENSITIVE. Two names that differ only in case are refused one after the other, but two
+   such requests that RACE can both be created. A case-insensitive index was ruled out: it
+   needs a migration slot and could fail to build on rows that are legal today (a legacy
+   "Serve" beside "serve", created through the name-keyed legacy upsert). The same holds for a
+   rename (rule 8).
 7. **(AV-022, AV-023, AV-025) Switching on and off.** `PATCH /api/app/evaluation_competency/<id>`
    with `{isActive}`. Off removes the competency from the next entry form that opens and changes
    nothing else: its ratings stay in their records, show on every history card that holds them,
@@ -104,7 +122,14 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 11. **(AV-015, build default Q19) Where the editor lives.** One screen, "Gerir competências",
     reached from the class panel (twice: the eyebrow action and the "+ Gerir competências"
     button), from the player's evaluations drawer, and from Settings → Preferences, where it
-    replaces today's category editor. Coach-only.
+    replaces today's category editor. Coach-only. Every entry goes through one function
+    (`openCompetencyManager`): on web it adds `?competencies=open` to the page the coach is on
+    and a host in the authenticated layout shows the manager OVER that page — closing removes
+    the flag and nothing else, replacing the history entry; on iOS it pushes `/competencies`.
+    The manager calls only the endpoints of rules 5–9, never a legacy one
+    (`evaluations.legacy-client-contract`). A row is disabled while its own request is in
+    flight, and a failed change rolls back visibly with the reason on the row (a duplicate
+    name: on the name field, what was typed kept).
 12. **(AV-072) No dirty state, explicit close.** Every toggle, rename and
     creation applies when made and each is individually reversible, so there is nothing to
     discard; the editor has an explicit close control ("Concluído") besides the scrim. Delete
@@ -176,7 +201,37 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 - **Then** the impact is `{"name": "Saque cruzado", "scores": 5, "players": 2}`, the row and its
   5 scores are gone, and one `deletion_audit` row names it with `"scores": 5`
 
+#### The manager opens over the page and applies each change when made (rules 11, 12)
+- **Given** coach Ana on Rui's player page, and the catalogue competency Smash switched off
+- **When** she opens "Gerir competências", switches Smash on and presses "Concluído"
+- **Then** the server held Smash as active before she closed, she is back on Rui's page with
+  no flag in the URL, and the next "Nova avaliação" form lists Smash
+- **And** the manager called no legacy evaluation endpoint
+
+#### An existing coach opens onto their own categories (rule 5, Q31)
+- **Given** Ana holds the legacy "Forehand" (1–10) and has switched nothing else on
+- **When** she opens the manager
+- **Then** the first section is "As tuas categorias" with Forehand, switched on, showing "1–10"
+  and no stars; "Geral", "Técnica" and "Tática" follow with every entry switched off; there is
+  no empty "Personalizada"
+
+#### Switching an entry on for the first time does not move it (rule 5)
+- **Given** coach Bruno, for whom Smash has never been a row — it is the sixth entry of "Técnica"
+- **When** he switches Smash on, and the list is read again
+- **Then** Smash is a row now and is still the sixth entry of "Técnica"; switching it off again
+  moves nothing either
+
+#### A student sees no manager (rule 11)
+- **Given** an authenticated student
+- **When** they open a link carrying `?competencies=open` (web) or `/competencies` (iOS)
+- **Then** no manager is shown
+
 ### Notes
+- ASSUMED by the building slice (PAD-373), none of them in the canvas: (1) "Técnica" and
+  "Tática" as both a group and a competency get no disambiguation beyond the group heading;
+  (2) reordering (`sortOrder`) has no UI — the API accepts it, the manager never sends it;
+  (3) rename is an inline edit on the row (pencil → field → save or Enter), for custom and
+  legacy rows only.
 - OPEN: AV-020 makes "Técnica" and "Tática" both a group and a competency inside "Geral". They
   are specified as ordinary competencies that share a label with a group; whether the UI needs
   to disambiguate the label is left to the building slice.

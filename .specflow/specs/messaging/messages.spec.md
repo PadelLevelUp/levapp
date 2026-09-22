@@ -51,6 +51,12 @@ Send, edit, and delete messages within conversations, with support for replies a
     this one, and the conversation id is taken from the target row — never trusted
     from the request body as proof of access (B-026)
 
+11. **A message has text (PAD-390, B-136).** `POST /api/app/message` and `PUT /api/app/message/{id}`
+    refuse a missing, `null`, `""` or whitespace-only `text` with `400 {"error": "invalid_fields",
+    "fields": ["text"]}` and write nothing; `""` used to reach the NOT NULL column as an
+    IntegrityError and an absent key a KeyError — a 500 either way. What text there is, is stored
+    as sent, untrimmed: "0" and " spaced " are messages.
+
 ### Acceptance Criteria
 
 #### Timestamp reflects viewer's local timezone
@@ -121,3 +127,10 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Given** a conversation between users 1 and 5, and a connected user 9
 - **When** user 1 sends a message in it
 - **Then** the `message_created` event is delivered to users 1 and 5 only
+
+#### A message with no text is refused (rule 11)
+- **Given** a conversation the sender is in
+- **When** they POST `{"conversationId": …, "text": ""}`, `null`, `"   "`, or no `text` key — or PUT the same to a message of theirs
+- **Then** the answer is 400 with `fields` `["text"]` and no message row exists (the edited one is unchanged)
+- **When** they POST `"text": "0"`
+- **Then** the message "0" is created

@@ -2,18 +2,22 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, removePlayer, getPlayerRemovalImpact, removePlayerErrorCode } from "@/api/players";
+import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, editPlayerInvalidFields, removePlayer, getPlayerRemovalImpact, removePlayerErrorCode } from "@/api/players";
 import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
-import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
-import type { CoachPlayer, CoachLevel, PlayerProfile, EvaluationCategory, CoachNote, PlayerSide } from "@/types";
-import { AddEvaluationSheet } from "@/components/players/detail/AddEvaluationSheet";
+import type { CoachPlayer, CoachLevel, PlayerProfile, PlayerSide } from "@/types";
+import { usePlayerEvaluations } from "@levelup/hooks";
+import { EvaluationSummaryCard } from "@/components/evaluations/EvaluationSummaryCard";
+import { PlayerEvaluationsDrawer } from "@/components/evaluations/PlayerEvaluationsDrawer";
 import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
-import { PlayerEvaluations } from "@/components/players/detail/PlayerEvaluations";
+// Owner question Q7 (open): does the at-a-glance list of latest scores leave the profile? The build
+// default follows the canvas — it does. `PlayerEvaluations` is kept, unmounted: to restore it, import it
+// here and render `<PlayerEvaluations evaluations={profile?.evaluations ?? []} />` under the summary card
+// (`GET /player_profile` still serves that list — legacy categories only).
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarCheck, CalendarX, ClipboardPlus, CalendarPlus, ListX, Loader2, Trash2, Unlink } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CalendarX, ClipboardList, CalendarPlus, ListX, Loader2, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
@@ -43,10 +47,10 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<CoachPlayer | null>(null);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [categories, setCategories] = useState<EvaluationCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEvalOpen, setIsEvalOpen] = useState(false);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  // evaluations.history rule 2: the card's date is the server's `lastEvaluatedOn`; the drawer shares this query.
+  const evaluations = usePlayerEvaluations(player?.playerId ?? null);
   const [isClassesOpen, setIsClassesOpen] = useState(false);
 
   // Inline edit state
@@ -160,11 +164,13 @@ export default function PlayerDetailPage() {
     const updates = {
       name: draftName.trim() || undefined,
       userId: player.userId,
-      email: draftEmail.trim() || undefined,
-      phone: draftPhone.trim() || undefined,
+      // PAD-388: an emptied box is sent as null so the server CLEARS it (an
+      // omitted key still means keep). Level and side have no clear control.
+      email: player.validated ? undefined : draftEmail.trim() || null, // an account holder's e-mail is the student's own
+      phone: draftPhone.trim() || null,
       levelId: draftLevelId || undefined,
       side: (draftSide || undefined) as PlayerSide | undefined,
-      notes: draftNotes.trim() || undefined,
+      notes: draftNotes.trim() || null,
     };
 
     setSavingPlayer(true);
@@ -185,53 +191,13 @@ export default function PlayerDetailPage() {
 
       setPlayer(updated);
       setIsEditing(false);
-    } catch {
-      toast.error(t("players.saveChangesFailed"));
+    } catch (err) {
+      // PAD-388: a 400 names the fields the server refused (today only an empty name).
+      toast.error(
+        editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailed"),
+      );
     } finally {
       setSavingPlayer(false);
-    }
-  };
-
-  const handleOpenEval = async () => {
-    if (categories.length === 0) {
-      setCategoriesLoading(true);
-      try {
-        const cats = await getEvaluationCategories();
-        setCategories(cats);
-      } finally {
-        setCategoriesLoading(false);
-      }
-    }
-    setIsEvalOpen(true);
-  };
-
-  const handleEvalSave = async (data: {
-    scores: { categoryId: string; value: number }[];
-    strengths: CoachNote[];
-    weaknesses: CoachNote[];
-  }) => {
-    if (!player) return;
-
-    try {
-      await postEvaluationEntry({
-        playerId: player.playerId,
-        scores: data.scores,
-        strengths: data.strengths,
-        weaknesses: data.weaknesses,
-      });
-
-      // Refetch the persisted profile so the Evaluation panel reflects the true
-      // server state (and survives a hard reload) rather than a hand-built
-      // optimistic guess.
-      const refreshed = await getPlayerProfile(player.playerId);
-      if (refreshed) {
-        setProfile(refreshed);
-      }
-    } catch (err) {
-      toast.error(t("players.saveEvaluationFailed"));
-      // Re-throw so the awaiting sheet knows the save failed and can stay open
-      // instead of flashing a false-success toast and closing.
-      throw err;
     }
   };
 
@@ -322,11 +288,11 @@ export default function PlayerDetailPage() {
                     onClick: () => setIsWaitingListOpen(true),
                   },
               {
-                label: categoriesLoading ? t("players.loading") : t("players.addEvaluation"),
-                icon: <ClipboardPlus className="mr-2 h-4 w-4" />,
-                onClick: handleOpenEval,
-                disabled: categoriesLoading,
-                testId: "player-add-evaluation",
+                // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
+                label: t("players.evaluationHistory.open"),
+                icon: <ClipboardList className="mr-2 h-4 w-4" />,
+                onClick: () => setIsEvalOpen(true),
+                testId: "player-evaluations-action",
                 variant: "default" as const,
               },
               {
@@ -357,7 +323,7 @@ export default function PlayerDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <PlayerEvaluations evaluations={profile?.evaluations ?? []} />
+            <EvaluationSummaryCard lastEvaluatedOn={evaluations.data?.lastEvaluatedOn} onOpen={() => setIsEvalOpen(true)} />
             <PlayerStrengthsWeaknesses
               strengths={profile?.strengths ?? []}
               weaknesses={profile?.weaknesses ?? []}
@@ -412,14 +378,13 @@ export default function PlayerDetailPage() {
           </div>
         </div>
 
-        <AddEvaluationSheet
+        {/* Keyed by player: another player never inherits a form or a selection (rule 10). */}
+        <PlayerEvaluationsDrawer
+          key={player.playerId}
           open={isEvalOpen}
+          playerId={player.playerId}
+          playerName={player.name}
           onClose={() => setIsEvalOpen(false)}
-          onSave={handleEvalSave}
-          categories={categories}
-          currentEvaluations={profile?.evaluations ?? []}
-          currentStrengths={profile?.strengths ?? []}
-          currentWeaknesses={profile?.weaknesses ?? []}
         />
 
         <AddToClassesDialog

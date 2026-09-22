@@ -9,7 +9,9 @@ import {
   attendanceStateTone,
   canComeBack,
   reminderAnswerOutcome,
+  classEvaluationsAction,
   effectiveFilledSpots,
+  errorStatusOf,
   lisbonNowMs,
   wallClockISOMs,
   type StateTone,
@@ -23,6 +25,7 @@ import {
   queryKeys,
   useAutoInviteEnabled,
   useCalendarEvents,
+  useClassEvaluations,
   useClassInstance,
   useCoachLevels,
   useLessonInstanceById,
@@ -72,6 +75,7 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { ClassEvaluationsAction } from "@/features/evaluations/class-evaluations-action";
 import {
   canCancelAttendance,
   hasClassStarted,
@@ -169,6 +173,24 @@ export default function ClassDetailScreen() {
     isError,
     refetch,
   } = useClassInstance(event);
+
+  // PAD-376 (evaluations.class-panel): whether "Avaliações" is offered is the SERVER's
+  // answer — its read never materialises the occurrence and its `canRate` is false for
+  // a past class that was never opened — so nothing here compares a date with the
+  // device's clock. A student never fires the read and never sees the action.
+  const isClassEvent = event?.type === "class";
+  const evaluationsRef = React.useMemo(
+    () => (event && isClassEvent ? { model: event.model, id: Number(event.originalId), date: event.date } : null),
+    [event, isClassEvent]
+  );
+  const classEvaluations = useClassEvaluations(evaluationsRef, isCoach);
+  const evaluationsAction = classEvaluationsAction({
+    isCoach,
+    isClass: isClassEvent,
+    data: classEvaluations.data,
+    isError: classEvaluations.isError,
+    errorStatus: errorStatusOf(classEvaluations.error),
+  });
 
   const { data: levels } = useCoachLevels();
   const autoInviteEnabled = useAutoInviteEnabled(isCoach);
@@ -1562,6 +1584,17 @@ export default function ClassDetailScreen() {
           {isCoach && !isEditing ? (
             <>
               <Separator />
+              <ClassEvaluationsAction
+                state={evaluationsAction}
+                onRetry={() => void classEvaluations.refetch()}
+                onOpen={() => {
+                  if (!evaluationsRef) return;
+                  router.push({
+                    pathname: "/class-evaluations",
+                    params: { model: evaluationsRef.model, id: String(evaluationsRef.id), date: evaluationsRef.date ?? "", name: title },
+                  });
+                }}
+              />
               <View className="flex-row flex-wrap gap-2">
                 <Button
                   variant="outline"

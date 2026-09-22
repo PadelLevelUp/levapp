@@ -51,6 +51,6 @@ test("US-39: coach can open player profile", async ({ page }) => {
   // Should navigate to the player detail page which shows the Evaluation and
   // Strengths & Weaknesses sections
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
-  await expect(page.getByTestId("player-evaluations-section").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("evaluation-card").first()).toBeVisible({ timeout: 5000 });
   await expect(page.getByText(/strengths.*weaknesses/i).first()).toBeVisible();
 });

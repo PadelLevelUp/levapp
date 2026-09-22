@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
 import * as playerInvitationsApi from "@levelup/api/src/resources/playerInvitations";
-import * as evaluationApi from "@levelup/api/src/resources/evaluation";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import * as classesApi from "@levelup/api/src/resources/classes";
 import { queryKeys } from "@levelup/hooks";
@@ -9,7 +8,7 @@ import type {
   CalendarEvent,
   CoachNote,
   CoachPlayer,
-  EvaluationEntryPayload, PlayerRemovalAction } from "@levelup/types";
+  PlayerRemovalAction } from "@levelup/types";
 
 /**
  * Feature-local hooks for the Players screens. Query hooks that already exist
@@ -92,15 +91,16 @@ export function useCreateIncompletePlayer() {
   });
 }
 
-/** Updates for POST /app/edit_player — mirrors the web PlayerDetailPage. */
+/** Updates for POST /app/edit_player — mirrors the web PlayerDetailPage.
+ *  PAD-388: `null` clears a field on the server; an omitted key keeps it. */
 export interface EditPlayerUpdates {
   name?: string;
   userId?: string;
-  email?: string;
-  phone?: string;
+  email?: string | null;
+  phone?: string | null;
   levelId?: string;
   side?: string;
-  notes?: string;
+  notes?: string | null;
 }
 
 export function useEditPlayer() {
@@ -156,41 +156,6 @@ export function useDeleteCoachNote() {
     mutationFn: ({ note }: { playerId: string; note: CoachNote }) =>
       playersApi.deleteCoachNote(note),
     onSuccess: (_data, variables) => invalidate(variables.playerId),
-  });
-}
-
-// ── Evaluations ──
-
-export const evaluationCategoriesKey = ["evaluation-categories"] as const;
-
-/**
- * Lazy-friendly by design: pass `enabled: true` only once the "Add
- * Evaluation" sheet is opened, mirroring web's `handleOpenEval`
- * (`PlayerDetailPage.tsx`), which fetches categories on first open rather
- * than eagerly on mount.
- */
-export function useEvaluationCategories(enabled: boolean) {
-  return useQuery({
-    queryKey: evaluationCategoriesKey,
-    queryFn: evaluationApi.getEvaluationCategories,
-    enabled,
-  });
-}
-
-export function usePostEvaluationEntry() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: EvaluationEntryPayload) =>
-      evaluationApi.postEvaluationEntry(payload),
-    onSuccess: (_data, variables) => {
-      // The player-detail screen reads evaluations off the player-profile
-      // query (`profile.evaluations`, see [playerId].tsx), same as web
-      // reads `profile?.evaluations` — invalidate that key so the new
-      // entry shows up.
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.playerProfile(String(variables.playerId)),
-      });
-    },
   });
 }
 

@@ -1,0 +1,63 @@
+{
+  "evaluations": {
+    "catalogue": {
+      "technique": "Técnica",
+      "tactics": "Tática",
+      "consistency": "Consistência",
+      "forehand": "Direita",
+      "backhand": "Esquerda",
+      "volley": "Volley",
+      "bandeja": "Bandeja",
+      "vibora": "Víbora",
+      "smash": "Smash",
+      "glass_exit": "Saída de vidro",
+      "double_glass": "Duplo vidro",
+      "serve": "Serviço",
+      "defensive_position": "Posição defensiva",
+      "attacking_position": "Posição atacante",
+      "transition": "Transição",
+      "decision_making": "Tomada de decisão",
+      "doubles_play": "Jogo em dupla"
+    },
+    "groups": {
+      "general": "Geral",
+      "technique": "Técnica",
+      "tactics": "Tática",
+      "custom": "Personalizada"
+    },
+    "manager": {
+      "title": "Gerir competências",
+      "open": "Gerir competências",
+      "settingsTitle": "Competências de avaliação",
+      "settingsDescription": "Escolha em que competências avalia os seus jogadores: ative as do catálogo, crie as suas e mantenha as que já tinha.",
+      "legacyTitle": "As tuas categorias",
+      "legacyCaption": "Mantêm a escala que definiste.",
+      "customTitle": "Competência personalizada",
+      "namePlaceholder": "Nome da competência",
+      "add": "Adicionar",
+      "caption": "As alterações aplicam-se imediatamente às próximas avaliações.",
+      "done": "Concluído",
+      "close": "Fechar",
+      "legacyScale": "Escala {{scale}}",
+      "scoreCount_one": "{{count}} avaliação",
+      "scoreCount_other": "{{count}} avaliações",
+      "rename": "Mudar o nome",
+      "renameSave": "Guardar nome",
+      "renameCancel": "Cancelar",
+      "delete": "Eliminar",
+      "duplicateName": "Já tem uma competência com este nome.",
+      "nameInvalid": "Escreva um nome com até 100 caracteres.",
+      "saveFailed": "Não foi possível guardar. Tente novamente.",
+      "loadFailed": "Não foi possível carregar as competências.",
+      "retry": "Tentar novamente",
+      "noneActive": "Não tem nenhuma competência ativa. Não será pedida nenhuma nota nas próximas avaliações até ativar pelo menos uma; o histórico mantém-se.",
+      "deleteTitle": "Eliminar \"{{name}}\"?",
+      "deleteImpact": "Vai eliminar {{scores}} notas de {{players}} jogadores. Esta ação não pode ser desfeita.",
+      "deleteImpactNone": "Esta competência ainda não tem notas.",
+      "deleteTypeName": "Escreva o nome da competência para confirmar",
+      "deleteConfirm": "Eliminar competência",
+      "cancel": "Cancelar",
+      "impactFailed": "Não foi possível verificar o que seria eliminado. Tente novamente."
+    }
+  }
+}

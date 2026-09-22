@@ -20,7 +20,7 @@ import {
 } from "@/components/calendar/AddClassSheet";
 import { AddEventSheet } from "@/components/calendar/AddEventSheet";
 import { EventDetailSheet } from "@/components/calendar/EventDetailSheet";
-import { effectiveFilledSpots } from "@levelup/config";
+import { effectiveFilledSpots, isHoldOccurrenceLocked } from "@levelup/config";
 import { getCalendarEvents, addCalendarBlock, rescheduleCalendarBlock } from "@/api/calendar";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getCoachPlayers } from "@/api/players";
@@ -363,6 +363,13 @@ export default function CalendarPage() {
 
     if (newDate === event.date && newStartTime === event.startTime) return;
 
+    // PAD-372: the card of a live class-request hold is not draggable, but a feed loaded
+    // before the request was made still is — say why instead of opening the scope dialog.
+    if (event.type === 'block' && event.requestHoldOf) {
+      toast({ variant: 'destructive', title: t('calendar.page.holdOccurrenceLocked') });
+      return;
+    }
+
     setPendingDrop({ event, newDate, newStartTime, newEndTime });
   };
 
@@ -385,8 +392,13 @@ export default function CalendarPage() {
       }
       await refreshEvents();
       toast({ title: t('calendar.page.eventRescheduled') });
-    } catch {
-      toast({ variant: 'destructive', title: t('calendar.page.failedReschedule') });
+    } catch (err) {
+      // PAD-372: 409 HOLD_OCCURRENCE_LOCKED — the card never moved (this drop is not
+      // optimistic), so only the reason is owed.
+      toast({
+        variant: 'destructive',
+        title: t(isHoldOccurrenceLocked(err) ? 'calendar.page.holdOccurrenceLocked' : 'calendar.page.failedReschedule'),
+      });
     }
   };
 

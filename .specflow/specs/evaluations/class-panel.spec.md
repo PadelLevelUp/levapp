@@ -1,6 +1,6 @@
 ---
 id: evaluations.class-panel
-status: draft
+status: implemented
 depends_on: [evaluations.records, evaluations.competencies, classes.detail-visibility, attendance.presence]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -32,8 +32,11 @@ leaving it. Today the only entry point is the player's page.
    screen, not a native `Modal` sheet. Web and iOS ship in the same ticket.
 3. **The read.** `POST /api/app/class_instance/evaluations?model=&id=&date=` (JWT, coach; the same
    occurrence addressing as `POST /class_instance`) →
-   `{classInstanceId|null, competencies: [active], participants: [{playerId, coachPlayerId,
-   name, absent, due, record: Record|null}]}`. It is a **read and materialises nothing**:
+   `{classInstanceId|null, canRate, competencies: [active], participants: [{playerId,
+   coachPlayerId, name, absent, due, record: Record|null}]}`. **(build default Q35)** `canRate`
+   is `false` exactly when the occurrence has no row **and** its date is before today on
+   `CLUB_TZ` — the one case a write would answer 409 (rule 10) — and `true` otherwise. It is a
+   **read and materialises nothing**:
    `classInstanceId` is null for an occurrence with no row yet; the first write materialises it
    (`evaluations.records` rule 4). `competencies` items are `{id, key|null, name, group|null,
    scaleMin, scaleMax}` in `evaluations.competencies` rule 5's order. **(build default Q28)**
@@ -47,7 +50,7 @@ leaving it. Today the only entry point is the player's page.
    its `presences` rows once materialised, the series roster (`player_in_lesson`) before.
    Participants marked absent (`presences.status = absent`) come last and can still be rated;
    the rest keep the class detail's order. A participant with no coach–player link to this coach
-   is left out. One row is open at a time; opening another collapses the first. A row shows the
+   is left out. One row is open at a time; opening another collapses the first. **(build default Q33)** While a row is open the participant ORDER is held (`useHeldWhile`) — someone marked absent elsewhere does not jump to the end under the coach's finger; each row's data still follows (`evaluations.history` rule 11 is the statement). A row shows the
    avatar, the name, the rule 5 summary and an expand control.
 5. **(AV-013, AV-070, build default Q26) The row summary never hides a rating.** The row lists
    the coach's active competencies **plus any switched-off competency that already holds a
@@ -58,7 +61,11 @@ leaving it. Today the only entry point is the player's page.
    when the row opens. When the row's record is **not** `editable` (it was made on an earlier
    day) the summary and the expanded ratings come from it, shown read-only with its date; the
    first tap today starts today's record for the same occurrence (`evaluations.records` rule 2),
-   which the next read returns.
+   which the next read returns. **(Q33, PAD-376 review F1) The earlier-day card does not move the
+   form while the row is open:** that first tap makes today's record the row's most recent one, so
+   the card would otherwise unmount and drop the form under the coach's finger; the card is held
+   until the row is closed (`useHeldWhile`, keyed on the open row), and the reopened row shows
+   today's record alone.
 6. **(AV-014, AV-071) The expanded row** has one line per listed competency (rule 5) — five stars
    for a 1–5 competency, a number with a stepper for a legacy scale (`evaluations.competencies`
    rule 3) — then "Nota privada (opcional)". Each input saves as it is made; tapping the lit star
@@ -79,9 +86,16 @@ leaving it. Today the only entry point is the player's page.
     For a **past occurrence that was never materialised** the action is not offered — disabled
     with a one-line explanation — and the coach evaluates from the player instead: a write
     would answer 409 (`evaluations.records` rule 4), because materialising a class that is over
-    enrols its roster and fills its waiting list. The building slice may propose something less
-    restrictive to the evaluation-system lead; it never materialises a past class as a side
-    effect of rating.
+    enrols its roster and fills its waiting list. **(build default Q35) The clients decide this
+    from the read's `canRate` alone:** `false` → the action is disabled with its explanation;
+    a 403 from the read (the coach does not own the class) → the action is absent altogether, so
+    a non-owner never sees a control to be refused by; **(PAD-376 review F2) any other failure of
+    the read is its own state — an error with a retry — never "not the owner", and a failure while
+    the last good read is still held changes nothing, so a failed post-write refetch never unmounts
+    an open panel mid-edit;** no client compares a date with its own
+    clock (R-048's principle: the server is the one instrument). The building slice may propose
+    something less restrictive to the evaluation-system lead; it never materialises a past class
+    as a side effect of rating.
 
 ### Touches
 - `classes.detail-visibility` — gains a rule that the class payload itself carries no evaluation
@@ -153,6 +167,23 @@ leaving it. Today the only entry point is the player's page.
 - **When** she closes the surface and opens the panel of class 89
 - **Then** every row is collapsed and no note text is shown; Rui's record for class 88 holds
   "Boa sessão"
+
+### Runs cited for `implemented` (PAD-376, #370)
+- Web, Playwright `evaluation-tools/class-evaluations.spec.ts` (US-376a–d), `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports:
+  **4 passed** at `557b509a1`, 2026-09-22 12:42:59–12:43:50 UTC (42.8 s). US-376a: rate from today's class → one PUT with the panel's
+  `classRef`, a class-linked record and history card; US-376b: a past never-opened class — `canRate` false, the action disabled, no
+  instance created, a write 409; US-376c: a student sees no action and the read answers 403 with no participant name; US-376d (review
+  F1) on the seed's `E2E Eval Yesterday Class`: the summary reads 1 before the tap, the earlier-day card is visible, one star tap is one
+  PUT with the class, the card and the summary are unchanged after the refetch, two records for the class on the server, the seeded
+  row untouched. (3 passed at `a99fd9290`'s tree, 08:05:47 UTC, before US-376d existed.)
+- iOS, Maestro `80-class-evaluations` on the iPhone 17 Pro simulator (Session-D): **PASSED, both halves, at `557b509a1`**,
+  2026-09-22 10:23:58–10:26:50 UTC, 60 steps, under load ~490, DB reseeded from that head — first half 0/2 → star → 1/2 → one record
+  carrying the class; second half on the yesterday class: summary 1/2, the earlier-day card visible, the technique star, two records on
+  the server, **the earlier card still visible after the refetch**, the teardown left the seed as found. (First run at `5d92ef781`,
+  10:08:49–10:10:33 UTC: first half green, second half red on the flow's own navigation — fixed in `557b509a1`; the flow's prev-week
+  loop was skipped on these runs, yesterday being on screen, and is not yet exercised.)
+- Unit at `a99fd9290`: `npm test` web 274, packages 557, mobile 538 (08:07:20–08:07:37 UTC); at `ee8555aae`: config 14, web evaluation
+  components 67, both `tsc` clean. Backend unchanged by this slice; the read and the write are PAD-364's (#353).
 
 ### Notes
 - Criteria name Portuguese copy for the reader; tests locate by test id and `ui()`, never by
