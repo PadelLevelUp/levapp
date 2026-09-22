@@ -110,6 +110,15 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
      endpoints, because a fix changes what old builds store.
 8. **Retirement.** When neither 1.0 nor 1.1.0 is in use, the five endpoints may be retired or
    opened in one deliberate change; until then rules 1–7 hold whatever else ships.
+9. **Legacy categories are 1–5 (PAD-403, `evaluations.legacy-conversion` rule 7, Option A).**
+   After the conversion, the five endpoints serve every legacy category's stored scale, which is
+   `scaleMin 1, scaleMax 5`, with the shapes of rules 2–4 unchanged. `POST /add_evaluation_categories`
+   stores **and echoes** `scaleMin 1, scaleMax 5` for every item, whatever the body sends. That
+   includes an item skipped under rule 5, whose stored scale is 1–5 too. So rule 5's "echoes the
+   body" holds for every key except the two scale keys, and rule 7's B-136 bullet (`scaleMin: 0`
+   stored as 1) no longer decides anything on this endpoint. The form-layer mechanism itself is
+   still unfixed. The pins changed as an audited update under R-047 point 7: "R-047 pin update",
+   commits `e9303b373` and `b6fd48408`, reviewed by Session-C.
 
 ### Touches
 - `players.profile` — its rule on the profile payload must say `evaluations[]` is legacy-only

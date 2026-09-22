@@ -1,6 +1,6 @@
 ---
 id: evaluations.legacy-conversion
-status: draft
+status: implementing
 depends_on: [evaluations.records, evaluations.competencies, evaluations.legacy-client-contract, evaluations.history, evaluations.evolution]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: [R-047, R-048]
@@ -12,8 +12,9 @@ provenance:
 
 > **Owner decision, 2026-09-22 (Q1, the non-default).** Every legacy 1–10 evaluation score
 > becomes 1–5 stars in ONE data migration, with one fixed mapping, and the 1–10 scale is
-> dropped. Not coach-triggered, not per category. Ticket PAD-403. The rule that decides what
-> the App Store builds see (rule 7) is **pending the Coordinator's choice** and marked so.
+> dropped. Not coach-triggered, not per category. Ticket PAD-403. What the App Store builds see
+> (rule 7) is Option A, the Coordinator's ruling D106. The owner's yes on the mapping is D104.
+> The import's handling of off-scale scores (rule 9) is ruling D111.
 
 ### Intent
 The new evaluation system rates on 1–5 stars everywhere. The categories coaches created before
@@ -24,9 +25,11 @@ endpoints (R-047) keep working.
 
 ### Entities
 - **WRITES:** EvaluationEntry (`score`, new column `score_before_conversion INTEGER NULL`),
-  EvaluationCategory (`scale_min`, `scale_max`, new column `scale_max_before_conversion INTEGER
-  NULL`). Migration slot 4; parent = slice 8's revision (`evaluations.reminders`); developed on
-  `21c864b3dd59` and re-parented before the PR.
+  EvaluationCategory (`scale_min`, `scale_max`, new columns `scale_min_before_conversion` and
+  `scale_max_before_conversion`, both `INTEGER NULL`). The models declare all three, so
+  `flask db check` sees no drift. Migration `e25428020888`, slot 4, parent `2240837cb663`
+  (slice 8, `evaluations.reminders`). The chain is 21c864b3dd59 → 6a6ac64d814b → 2240837cb663 →
+  e25428020888.
 - **READS:** nothing else. **Never touches:** `evaluated_at`, `record_id`, `created_at`,
   `updated_at`, `evaluation_records`, `evaluation_shares`.
 
@@ -39,9 +42,10 @@ endpoints (R-047) keep working.
 2. **One migration converts everything.** For every `evaluation_categories` row with
    `competency_group IS NULL` and `scale_max = 10`, and every `evaluation_entries` row under it
    whose `score_before_conversion IS NULL`: copy `score` into `score_before_conversion`, set
-   `score = ceil(score / 2)`; then copy the category's `scale_max` into
-   `scale_max_before_conversion` and set `scale_min = 1, scale_max = 5`. Record-less rows (Q29)
-   convert with the rest: read by nothing, but not left on a dropped scale.
+   `score = ceil(score / 2)`; then copy the category's `scale_min` and `scale_max` into the two
+   `*_before_conversion` columns and set `scale_min = 1, scale_max = 5`. The mapping is total: a
+   score below 2, including a 0 on a 0–10 category, becomes 1★. Record-less rows (Q29) convert
+   with the rest: read by nothing, but not left on a dropped scale.
 3. **Nothing is lost, and the migration walks both ways.** The original values live in the
    two `*_before_conversion` columns for as long as the rows exist; `downgrade` restores `score`
    and the scale from them and nulls both; `upgrade` again re-converts. The `IS NULL` guards make
@@ -49,17 +53,19 @@ endpoints (R-047) keep working.
    or re-dated. Proof: the migration-walk test on Postgres — upgrade / downgrade / upgrade with
    the seeded rows checksummed equal at each return — and Session-A's production-shaped dry-run
    on a fresh dump, a promotion gate.
-4. **The owner's yes on the row table is a precondition, not a formality.** The 16 production
-   rows before → after under rule 1 are on the ticket (entry ids only); the migration reaches
+4. **The owner's yes on the row table is a precondition, not a formality.** The 17 production
+   rows before → after under rule 1 are on the ticket (entry ids only). Entry 17 is a real
+   coach's rating, per the owner's ruling, and converts like the rest (6 → 3★); the migration reaches
    production only after the owner has seen them and said yes (the Coordinator carries it). The
    table names the collapses: 7/8 → 4★, 9/10 → 5★, 5/6 → 3★.
 5. **After conversion, no category is 1–10.** `_scale()`'s legacy default and every "n/max
    with a stepper" path (`evaluations.history` rule on legacy rendering, `ScoreStepper` on web,
    `score-stepper` on iOS) are retired or left dormant with the reason written at the line; the
-   backend pins that no `evaluation_categories` row holds `scale_max ≠ 5` on the seeded and on
-   the converted fixtures. A legacy category created AFTER conversion by an App Store build
-   (1.1.0's `add_evaluation_categories`) is created **1–5** (rule 7 decides how that build sees
-   it).
+   backend pins that no `evaluation_categories` row is off 1–5 after the migration and after
+   every write path. A legacy category created AFTER conversion is created **1–5** whatever
+   scale it arrives with, whether by an App Store build (1.1.0's `add_evaluation_categories`;
+   rule 7 decides how that build sees it) or by the spreadsheet or AI import
+   (`bulk_create_evaluation_categories`). `EvaluationCategory.scale_max` defaults to 5.
 6. **Figures follow the new values.** Monthly means, rolling means, deltas, "latest", the class
    panel's summaries and the history cards read the converted scores (R-048, on read; nothing is
    cached). **Share snapshots keep the numbers they froze** (`evaluations.sharing` rule 7): a
@@ -85,10 +91,13 @@ endpoints (R-047) keep working.
      pin file: 0/10 in → 1/5 out, and the midpoint 3 that build then posts is stored as 3.
    - **The R-047 pin files change** (`test_pad362_evaluation_contract.py`,
      `test_pad363_legacy_freeze.py`): they seed legacy categories as 1–10 and assert those
-     numbers; the update is an explicit, audited pin update under R-047 point 7 — a separate,
-     FIRST commit on the branch, its diff limited to the seeded scale and the expected numbers,
-     reviewed by Session-C (the pins' author) as a change to R-047 and named "R-047 pin update"
-     in the PR body.
+     numbers; the update is an explicit, audited pin update under R-047 point 7, in its own
+     named commits (`e9303b373`, then `b6fd48408` after review). The Coordinator ruled that
+     separate named commits satisfy D106(b) without a force-push. The diff is limited to the
+     seeded scale and the expected numbers, it was reviewed by Session-C (the pins' author) as a
+     change to R-047, and it is named "R-047 pin update" in the PR body. Five other files seed
+     through pad362's `_seed` (pad364 ×4, pad375) and move to 1–5 in their own commit. They are
+     not R-047 pins.
    - Option B (the five handlers mapping 2 × stars out and ceil(v / 2) in) was rejected: it
      keeps two numbers for one rating alive in five handlers until R-047 retires, and every
      future reader of those handlers inherits the mapping.
@@ -96,6 +105,17 @@ endpoints (R-047) keep working.
    unit tests assert the rendering of fixed responses (never the mapping — that is the server's
    pin); Playwright and Maestro (flow number agreed with E and C) exercise a converted category
    in history, evolution and the class panel.
+9. **The import refuses a score outside 1–5 (Coordinator's ruling D111).** Every category is
+   1–5 after the conversion, so a score outside 1–5 in an imported sheet (spreadsheet or AI, both
+   ending in `bulk_create_evaluation_entries`, wide or normalized format) is a row error in the
+   import's errors list. It carries `code: "score_out_of_range"` with the category and the
+   value, and nothing is stored for that cell; the row's in-range cells still import. Nothing is
+   guessed: a 1–10 sheet whose scores are all ≤ 5 would otherwise be misread as stars. The web
+   renders the error from `settings.import.rowErrors.score_out_of_range` (pt + en), which says
+   what to do (rescale the sheet and import it again). **Web only, with the reason:** the iOS
+   import pane is history and revert only; it has no uploader
+   (`apps/mobile/src/features/settings/import-section.tsx`), so no iOS surface shows a row
+   error. This is a user-visible change and is stated as such in the PR body.
 
 ### Touches
 - `evaluations.legacy-client-contract` — gains the rule that rule 7's choice produces; its pins
@@ -123,9 +143,24 @@ endpoints (R-047) keep working.
 - **Then** the rows are byte-identical to before the first upgrade after the downgrade, and to
   after the first upgrade after the second — and a third upgrade changes nothing
 
-#### No category is 1–10 afterwards (rule 5)
-- **Given** the converted fixtures
-- **Then** `select count(*) from evaluation_categories where scale_max <> 5` is 0
+#### A 0–10 category converts totally (rule 2)
+- **Given** the legacy category "Volley" (0–10) with entries 0 and 10
+- **When** the migration upgrades
+- **Then** Volley is 1–5 with `scale_min_before_conversion = 0`, `scale_max_before_conversion =
+  10`, and its entries read 1 and 5; a downgrade restores 0–10 and the entries 0 and 10
+
+#### No category is off 1–5 afterwards (rule 5)
+- **Given** the converted fixtures, or a category written by the frozen upsert (0/10 or 1/10 in),
+  by the import ("0"/"10", 0/10, 1/7) or with no scale at all
+- **Then** `select count(*) from evaluation_categories where scale_min <> 1 or scale_max <> 5` is 0
+
+#### The import refuses a score off 1–5 (rule 9)
+- **Given** a sheet row scoring Forehand 8 (or 0, 0.5, 5.5, 10) and Volley 4
+- **When** it is imported, in the wide or the normalized format
+- **Then** the errors list holds one `score_out_of_range` error for Forehand with the value, no
+  Forehand entry is stored, Volley 4 is stored, and 1, 1.5, 3, "4" and 5 all import
+- **And** the web shows the error in the coach's language, naming the category, the value and
+  what to do
 
 #### The figures follow, the snapshot does not (rule 6)
 - **Given** a shared card frozen with Forehand 7/10 before the conversion
@@ -140,5 +175,7 @@ endpoints (R-047) keep working.
 
 ### Notes
 - Production rows (Session-A, 2026-09-22 08:50:35 UTC): 16 entries, all 1–10; five midpoint 6s;
-  three same-day-history rows; the table is on PAD-403.
+  three same-day-history rows. Session-A's fresh read at 17:42:22 UTC found 17 entries (entry 17
+  was rated at 17:35:40 UTC), with checksum `5b8e0790e0fc516291527a97e851d5a5`, re-read at cut
+  time. The table is on PAD-403.
 - Playwright and unit tests locate by test id; criteria quote copy for the reader only.
