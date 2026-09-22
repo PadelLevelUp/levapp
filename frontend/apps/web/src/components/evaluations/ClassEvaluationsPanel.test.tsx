@@ -18,6 +18,9 @@ vi.mock("@levelup/hooks", async () => ({
   ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useHeldWhile")>(
     "../../../../../packages/hooks/src/useHeldWhile"
   )),
+  ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useEvaluationFormSession")>(
+    "../../../../../packages/hooks/src/useEvaluationFormSession"
+  )),
   useClassEvaluations: (ref: unknown) => {
     state.asked.push(ref);
     return { data: state.read ?? undefined, isLoading: state.read === null, isError: false };

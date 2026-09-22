@@ -1,6 +1,6 @@
 ---
 id: evaluations.history
-status: implemented
+status: implementing
 depends_on: [evaluations.records, evaluations.competencies, evaluations.player-view, players.notes]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []

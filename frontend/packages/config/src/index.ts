@@ -30,3 +30,4 @@ export * from "./club-date";
 export * from "./evaluation-form";
 export * from "./evaluation-evolution";
 export * from "./evaluation-class-panel";
+export * from "./evaluation-form-session";
