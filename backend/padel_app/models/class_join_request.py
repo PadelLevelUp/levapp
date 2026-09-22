@@ -66,7 +66,7 @@ class ClassJoinRequest(db.Model, model.Model):
     # PAD-358: the student's optional note to the coach (column shipped by
     # PAD-357's migration 8da963ad8591; the behaviour is PAD-358's).
     note = Column(String(500), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=utcnow_naive)
+    created_at = Column(DateTime, nullable=False, default=lambda: utcnow_naive())
     decided_at = Column(DateTime, nullable=True)
 
     decided_by_coach_id = Column(

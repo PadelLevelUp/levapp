@@ -1,8 +1,8 @@
-from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 
 
 class TokenBlocklist(db.Model):
@@ -16,5 +16,5 @@ class TokenBlocklist(db.Model):
         nullable=False,
         # PAD-273: naive UTC like every other column; a timezone-aware value
         # was being written into this naive column.
-        default=datetime.utcnow,
+        default=lambda: utcnow_naive(),
     )

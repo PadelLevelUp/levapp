@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 
 from padel_app import model
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 
 
 class Vacancy(db.Model, model.Model):
@@ -77,7 +78,7 @@ class Vacancy(db.Model, model.Model):
     # Updated on every send or response; used to determine maxInactiveTime
     last_activity_at = Column(DateTime, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: utcnow_naive())
     filled_at = Column(DateTime, nullable=True)
 
     lesson_instance = relationship("LessonInstance")

@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
@@ -23,7 +23,7 @@ class CoachPlayerNote(db.Model, model.Model):
 
     type = Column(Enum("strength", "weakness", name="note_type"), nullable=False)
     text = Column(String(500), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: utcnow_naive())
 
     @property
     def name(self):
