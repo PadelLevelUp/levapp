@@ -878,6 +878,34 @@ def test_activation_a_blank_name_username_or_password_is_refused_and_nothing_is_
            ("inactive", "Invited", "pending-abc", "+351933333333", False), "nothing written, the phone included"
 
 
+def test_activation_without_a_username_keeps_no_placeholder_login(app, client):
+    """Session-B on #372: an ABSENT username would have activated the account under
+    its generated `pending-…` placeholder — rule 10 blanks it in the form exactly so
+    the student chooses one. A user who already chose a username may omit it."""
+    user_id, token = _inactive_user(app)  # username "pending-abc": a placeholder
+    body = {k: v for k, v in ACTIVATION_BODY.items() if k != "username"}
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **body})
+
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["username"]}
+    assert _user_row(app, user_id)["status"] == "inactive"
+
+    chosen_id, chosen_token = _inactive_user(app, username="chosen-already", email="c@test.com", phone=None)
+    res = client.post(f"/api/app/activate/user/{chosen_id}", json={"token": chosen_token, **body})
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _user_row(app, chosen_id)["username"] == "chosen-already"
+
+
+def test_activation_stores_the_username_it_checked(app, client):
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, "username": "  spaced  "})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _user_row(app, user_id)["username"] == "spaced"
+
+
 def test_activation_without_a_password_is_refused(app, client):
     """PAD-389: an absent password is not "keep" — a placeholder has none to keep."""
     user_id, token = _inactive_user(app)

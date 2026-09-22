@@ -4,6 +4,7 @@ from flask import abort
 
 from padel_app.models import User
 from padel_app.sql_db import db
+from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
 
 
@@ -110,11 +111,15 @@ def activate_user_service(user_id, data, *, token):
     # present mode: the form is PRE-FILLED from GET /register/user, so an emptied
     # e-mail or phone box is the student's intent and clears; an absent key keeps.
     sent = {key: data[key] for key in ACTIVATION_FIELDS if key in (data or {})}
-    refused = _refused_activation_fields(sent)
+    if isinstance(sent.get("username"), str):
+        # The check and the write look at the same value (Session-B, #372): a login
+        # with a leading space could never be typed.
+        sent["username"] = sent["username"].strip()
+    refused = _refused_activation_fields(sent, user)
     if refused:
-        return {"error": "invalid_fields", "fields": refused}, 400
+        raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     if "username" in sent:
-        taken = User.query.filter_by(username=str(sent["username"]).strip()).first()
+        taken = User.query.filter_by(username=sent["username"]).first()
         if taken is not None and taken.id != user.id:
             abort(409, "Username already taken")  # as invite-completion and self-signup answer
 
@@ -125,17 +130,23 @@ def activate_user_service(user_id, data, *, token):
 
     user.update_with_dict(values, write_none=True)
     user.save()
-    return user, 200
+    return user
 
 
-def _refused_activation_fields(sent):
-    """A sent-empty name or username (NOT NULL), and an empty OR ABSENT password —
-    activation IS setting the password; an empty one used to leave the account
-    active with none at all (PAD-389)."""
+def _refused_activation_fields(sent, user):
+    """A sent-empty name or username (NOT NULL); an ABSENT username while the account
+    still holds its generated placeholder (rule 10 blanks it in the form exactly so
+    the student chooses one — activating under `pending-…` is not a login); and an
+    empty OR ABSENT password — activation IS setting it; an empty one used to leave
+    the account active with none at all (PAD-389)."""
+    from padel_app.tools.username_tools import is_placeholder_username
+
     refused = []
     for key in ("name", "username"):
         if key in sent and (sent[key] is None or not str(sent[key]).strip()):
             refused.append(key)
+    if "username" not in sent and is_placeholder_username(user.username):
+        refused.append("username")
     if "password" not in sent or sent["password"] is None or not str(sent["password"]).strip():
         refused.append("password")
     return refused

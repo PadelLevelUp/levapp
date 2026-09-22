@@ -729,10 +729,9 @@ def get_user_for_registration(user_id):
 def activate_user(user_id):
     data = request.get_json(silent=True) or {}
     token = data.pop("token", None)
-    # PAD-389: a sent-empty name/username, or no password, is refused before any write.
-    result, status = activate_user_service(user_id, data, token=token)
-    if status != 200:
-        return jsonify(result), status
+    # PAD-389: a blank name/username, a missing username on a placeholder, or no
+    # password raises NotNullableFieldError before any write; the blueprint answers 400.
+    activate_user_service(user_id, data, token=token)
     return jsonify(success=True)
 
 
