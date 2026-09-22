@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
 import type { EvaluationRecord } from "@levelup/types";
-import { competencyLabel } from "@levelup/config";
+import { competencyLabel, isStarScale } from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "./StarRating";
 import { ScoreStepper } from "./ScoreStepper";
@@ -9,8 +9,6 @@ import { formatEvaluationDate } from "./formatEvaluationDate";
 
 interface EvaluationHistoryCardProps {
   record: EvaluationRecord;
-  /** A rating is drawn as stars when its competency is a 1-5 one; legacy scales are "n/max". */
-  isStars: (categoryId: number) => boolean;
   /** Both absent = a read-only card (the class panel's earlier-day record, PAD-376): no actions at all. */
   onEdit?: () => void;
   onDelete?: () => void;
@@ -23,7 +21,7 @@ interface EvaluationHistoryCardProps {
  * quotes. "Edit" only while the server says `editable`; "delete" always. No share
  * control — that is `evaluations.sharing` (slice 7).
  */
-export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete }: EvaluationHistoryCardProps) {
+export function EvaluationHistoryCard({ record, onEdit, onDelete }: EvaluationHistoryCardProps) {
   const { t, i18n } = useTranslation();
   const id = record.id;
   return (
@@ -57,7 +55,7 @@ export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete }: Eva
           return (
             <li key={rating.categoryId} className="flex items-center justify-between gap-2 text-sm">
               <span>{name}</span>
-              {isStars(rating.categoryId) ? (
+              {isStarScale(rating) ? (
                 <StarRating id={rating.categoryId} name={name} score={rating.score} max={rating.scaleMax} size="sm" />
               ) : (
                 <ScoreStepper id={rating.categoryId} name={name} score={rating.score} scaleMin={rating.scaleMin} scaleMax={rating.scaleMax} />

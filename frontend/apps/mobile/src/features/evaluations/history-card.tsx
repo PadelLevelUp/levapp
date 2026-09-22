@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { competencyLabel, lightTheme } from "@levelup/config";
+import { competencyLabel, isStarScale, lightTheme } from "@levelup/config";
 import type { EvaluationRecord } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,6 @@ import { StarRating } from "./star-rating";
 
 interface HistoryCardProps {
   record: EvaluationRecord;
-  isStars: (categoryId: number) => boolean;
   /** Both absent = a read-only card (the class panel's earlier-day record, PAD-376): no actions at all. */
   onEdit?: () => void;
   onDelete?: () => void;
@@ -27,7 +26,7 @@ interface HistoryCardProps {
  * quotes. "Edit" only while the server says `editable`; "delete" always. No share
  * control — that is slice 7.
  */
-export function HistoryCard({ record, isStars, onEdit, onDelete }: HistoryCardProps) {
+export function HistoryCard({ record, onEdit, onDelete }: HistoryCardProps) {
   const { t, i18n } = useTranslation();
   const id = record.id;
   return (
@@ -61,7 +60,7 @@ export function HistoryCard({ record, isStars, onEdit, onDelete }: HistoryCardPr
           return (
             <View key={rating.categoryId} className="flex-row items-center justify-between gap-2">
               <Text className="flex-1 text-sm" numberOfLines={1}>{name}</Text>
-              {isStars(rating.categoryId) ? (
+              {isStarScale(rating) ? (
                 <StarRating id={rating.categoryId} name={name} score={rating.score} max={rating.scaleMax} size="sm" />
               ) : (
                 <ScoreStepper id={rating.categoryId} name={name} score={rating.score} scaleMin={rating.scaleMin} scaleMax={rating.scaleMax} />

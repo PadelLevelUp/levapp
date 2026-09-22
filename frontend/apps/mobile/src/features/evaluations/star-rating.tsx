@@ -21,7 +21,8 @@ interface StarRatingProps {
  * The star row on iOS (PAD-374) — the evaluation form and the history cards use
  * it, and slice 6's class panel will. It draws and reports taps; what a tap MEANS
  * (`nextStarScore`: the lit star clears) is the caller's, from `@levelup/config`.
- * Only for 1-5 competencies: a legacy category is a number (`ScoreStepper`).
+ * For every 1-5 scale, converted legacy categories included (PAD-403); `ScoreStepper` is
+ * dormant, kept only for a scale that is not 1-5 (`isStarScale`).
  *
  * Each star is its own Pressable with `accessibilityState.selected`, so Maestro
  * can assert which one is lit (the pattern `PresenceMarkToggle` uses).

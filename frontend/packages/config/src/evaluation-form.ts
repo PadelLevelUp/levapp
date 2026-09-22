@@ -4,10 +4,18 @@ import type { EvaluationCompetency, EvaluationRecord } from "@levelup/types";
 // rules 4-5, evaluations.records rules 7 and 10). Nothing here computes a figure or
 // compares a date: "today", `editable`, means and deltas are the server's (R-048).
 
-/** Stars for catalogue and custom competencies (1-5). A legacy category keeps its
- *  own scale and is a number with a stepper — never stars, whatever its scale. */
-export function isStarCompetency(competency: Pick<EvaluationCompetency, "group">): boolean {
-  return competency.group !== null;
+/** A 1-5 scale is drawn as stars. Since PAD-403 (evaluations.legacy-conversion rule 5)
+ *  every category is 1-5, legacy ones included, so every rating is stars. The number
+ *  with a stepper remains only for a scale that is not 1-5, which the server no longer
+ *  holds. It is dormant, kept so that a row the migration has not reached yet (the
+ *  deploy window) never draws an 8 as stars. */
+export function isStarScale(scale: Pick<EvaluationCompetency, "scaleMin" | "scaleMax">): boolean {
+  return scale.scaleMin === 1 && scale.scaleMax === 5;
+}
+
+/** A competency in the form: stars when its scale is 1-5 (see `isStarScale`). */
+export function isStarCompetency(competency: Pick<EvaluationCompetency, "scaleMin" | "scaleMax">): boolean {
+  return isStarScale(competency);
 }
 
 /** What "Nova avaliação" lists: the active competencies plus any switched-off one
