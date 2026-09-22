@@ -60,7 +60,7 @@ const TYPE_OPTIONS = [
 const NO_SEASON_COVERS_DATE = "no_season_covers_date";
 
 type FieldErrors = Partial<
-  Record<"date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate", string>
+  Record<"name" | "date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate", string>
 >;
 
 export default function NewClassScreen() {
@@ -159,6 +159,8 @@ export default function NewClassScreen() {
   const validate = (): boolean => {
     const next: FieldErrors = {};
 
+    // PAD-390: a class needs a name — the server refuses an empty one (400 ["title"]).
+    if (!name.trim()) next.name = t("classDetail.new.nameRequired");
     if (!DATE_RE.test(date)) next.date = t("ui.validation.useDateFormat");
     if (!TIME_RE.test(startTime))
       next.startTime = t("ui.validation.useTimeFormat");
@@ -309,8 +311,16 @@ export default function NewClassScreen() {
                   : t("calendar.addClass.namePlaceholderAcademy")
               }
               value={name}
-              onChangeText={setName}
+              onChangeText={(value) => {
+                setName(value);
+                setErrors((prev) => ({ ...prev, name: undefined }));
+              }}
             />
+            {errors.name ? (
+              <Text className="text-sm text-destructive" testID="class-name-error">
+                {errors.name}
+              </Text>
+            ) : null}
           </View>
 
           {/* Type */}

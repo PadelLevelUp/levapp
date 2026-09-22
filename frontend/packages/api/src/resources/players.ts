@@ -120,6 +120,18 @@ export async function addPlayer(data: any) {
   return res.data;
 }
 
+/**
+ * PAD-388: the fields a 400 from POST /app/edit_player refused (`{"error":
+ * "invalid_fields", "fields": [...]}`), or null for any other failure.
+ */
+export function editPlayerInvalidFields(err: unknown): string[] | null {
+  const res = (err as { response?: { status?: number; data?: unknown } } | null)?.response;
+  const data = res?.data;
+  if (res?.status !== 400 || !data || typeof data !== "object") return null;
+  const body = data as { error?: unknown; fields?: unknown };
+  return body.error === "invalid_fields" && Array.isArray(body.fields) ? body.fields.map(String) : null;
+}
+
 export async function editPlayer(player: CoachPlayer, updates: any) {
   const res = await getApi().post("/app/edit_player", { player, updates });
   invalidateCoachPlayersCache();

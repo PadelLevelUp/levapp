@@ -33,6 +33,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { subscribeAppEvents } from "@/api/events";
+import { CompetencyManagerHost } from "@/components/evaluations/competency-manager/CompetencyManagerHost";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -482,6 +483,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+      {/* PAD-373: "Gerir competências" opens over any page via ?competencies=open (coach only). */}
+      <CompetencyManagerHost />
     </div>
   );
 }

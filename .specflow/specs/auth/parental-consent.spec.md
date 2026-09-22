@@ -48,7 +48,9 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
    yet, stores `birth_date` and `country`, creates the GuardianConsent row, and mails the guardian
    (rule 6). The response is 201 `{"guardianConsent": "pending", "guardianEmail": "<masked>",
    "resendAvailableInSeconds": 60, "user": {id, name, role, "guardianConsent": "pending"}}` with **no
-   `accessToken`**. A pending coach's admin notification (`auth.coach-approval` rule 4) is deferred to
+   `accessToken`**. The link is stamped and the countdown computed from **one** instant, read once
+   per request (B-130): the body says 60 however long the request itself took — a second clock
+   read would let a runner's slow second show up as 59. A pending coach's admin notification (`auth.coach-approval` rule 4) is deferred to
    the moment of consent. An adult's sign-up is unchanged apart from storing birth date and country.
 4. **No session before consent** (`auth.login` rule 10). Right credentials of a `pending` user answer
    403 `{"error": "GUARDIAN_CONSENT_PENDING", "guardianEmail": "<masked>",

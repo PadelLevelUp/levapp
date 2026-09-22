@@ -1,5 +1,21 @@
 import path from "node:path";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type Plugin } from "vitest/config";
+import { transformWithEsbuild } from "vite";
+
+function rnPrimitivesJsx(): Plugin {
+  return {
+    name: "rn-primitives-jsx",
+    enforce: "pre",
+    async transform(code, id) {
+      if (!/node_modules\/@rn-primitives\/.*\.m?js$/.test(id)) return null;
+      // Hand the map over as a JSON string: vite's SourceMap allows null entries in
+      // sourcesContent, the rollup types behind `vitest/config`'s Plugin do not, and a
+      // string is a SourceMapInput both accept (CI typecheck, #375).
+      const out = await transformWithEsbuild(code, id, { loader: "jsx", jsx: "automatic" });
+      return { code: out.code, map: JSON.stringify(out.map) };
+    },
+  };
+}
 
 // Unit tests for the Expo shell (apps/mobile). Sibling of vitest.packages.config.ts
 // at the repo root: a plain Node environment, no Metro, no bundler, no simulator.
@@ -10,21 +26,31 @@ import { defineConfig } from "vitest/config";
 // into vitest. The alias matches `react-native` exactly (and `react-native/…`), so
 // react-native-svg, react-native-safe-area-context et al. resolve normally.
 //
-// Scope is deliberately narrow: pure modules and hooks that render nothing. Component
-// rendering stays out — @testing-library/react-native needs the real react-native
-// package, which is precisely what the alias removes. Screens remain Maestro's job.
+// Scope: pure modules and hooks, and — since PAD-393 — SECTIONS mounted through
+// src/test/render-native.tsx on react-test-renderer over the stub's host primitives
+// (*.test.tsx). The real react-native package stays out (it is Flow-typed at its entry).
+// Screens, layout, motion and gestures remain Maestro's job.
 export default defineConfig({
+  // `@rn-primitives/*` ships RAW JSX in its .js/.mjs files (Metro transforms them for the app).
+  // vite's import analysis runs before esbuild and rejects it, so a small plugin transforms
+  // those files first; `deps.inline` below makes vitest process them at all (PAD-393).
+  esbuild: { jsx: "automatic" },
+  plugins: [rnPrimitivesJsx()],
   test: {
+    server: { deps: { inline: [/@rn-primitives\//] } },
     name: "mobile",
     environment: "node",
     // `app/` too: Expo Router screens live there, and so will the helpers a
     // screen-level sweep wants to pin.
-    include: ["src/**/*.test.ts", "app/**/*.test.ts"],
+    // *.test.tsx mounts a component through src/test/render-native.tsx (PAD-393).
+    include: ["src/**/*.test.ts", "app/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["./src/test/setup.ts"],
   },
   resolve: {
     alias: {
       "react-native": path.resolve(__dirname, "src/test/mocks/react-native.ts"),
+      // reaches TurboModuleRegistry at load; animations are the simulator's job (PAD-393)
+      "react-native-reanimated": path.resolve(__dirname, "src/test/mocks/react-native-reanimated.ts"),
       "@": path.resolve(__dirname, "src"),
     },
   },

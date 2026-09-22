@@ -16,6 +16,17 @@ export const queryKeys = {
   coachPlayersPaginated: (params: PlayersQueryParams = {}) =>
     ["coach-players-paginated", params] as const,
   playerProfile: (playerId: string) => ["player-profile", playerId] as const,
+  // PAD-374: the v2 evaluation API. One key per coach-player history; the competency set is the coach's.
+  playerEvaluations: (playerId: string) => ["player-evaluations", playerId] as const,
+  evaluationCompetencies: ["evaluation-competencies"] as const,
+  // PAD-375: one evolution per (player, competency); the two-part prefix invalidates a player's.
+  playerEvolution: (playerId: string, categoryId?: number) =>
+    (categoryId === undefined ? ["player-evolution", playerId] : ["player-evolution", playerId, categoryId]) as readonly unknown[],
+  // PAD-376: the class panel's read, per dated occurrence; without a ref, the prefix every evaluation write invalidates.
+  classEvaluations: (ref?: { model: string; id: number; date?: string | null }) =>
+    (ref === undefined ? ["class-evaluations"] : ["class-evaluations", ref.model, ref.id, ref.date ?? null]) as readonly unknown[],
+  // PAD-373: what deleting one competency would remove (scores, players) — read before the typed-name step.
+  evaluationCompetencyImpact: (competencyId: number) => ["evaluation-competency-impact", competencyId] as const,
   conversations: (page = 1, limit = 20) =>
     ["conversations", { page, limit }] as const,
   conversation: (conversationId: string) =>

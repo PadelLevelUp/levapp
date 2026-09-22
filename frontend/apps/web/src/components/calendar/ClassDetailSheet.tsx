@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   UserX,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listCurrentClubCourts } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
@@ -39,6 +39,10 @@ import type {
 } from "@/types";
 
 
+import { classEvaluationsAction, errorStatusOf } from "@levelup/config";
+import { useClassEvaluations } from "@levelup/hooks";
+import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
+import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
 import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpots, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
@@ -195,6 +199,29 @@ export function ClassDetailSheet({
     if (open && openNotify && canManage && event?.type === "class") setShowNotifyModal(true);
   }, [open, openNotify, canManage, event?.type]);
   const [sendingReminders, setSendingReminders] = useState(false);
+
+  // PAD-376 (evaluations.class-panel): "Avaliações" swaps this surface for the class's
+  // participants. Whether it is offered is the SERVER's answer — its read never
+  // materialises the occurrence, and `canRate` is false for a past class that was never
+  // opened — so nothing here compares a date with this device's clock. The panel owns its
+  // state: closing the sheet or moving to another class unmounts it (rule 9).
+  const [showEvaluations, setShowEvaluations] = useState(false);
+  const isClassEvent = event?.type === "class";
+  const evaluationsRef = useMemo(
+    () => (event && isClassEvent ? { model: event.model, id: Number(event.originalId), date: event.date } : null),
+    [event, isClassEvent]
+  );
+  const classEvaluations = useClassEvaluations(evaluationsRef, open && canManage);
+  const evaluationsAction = classEvaluationsAction({
+    isCoach: canManage,
+    isClass: isClassEvent,
+    data: classEvaluations.data,
+    isError: classEvaluations.isError,
+    errorStatus: errorStatusOf(classEvaluations.error),
+  });
+  useEffect(() => {
+    setShowEvaluations(false);
+  }, [open, event?.id]);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
@@ -830,6 +857,19 @@ export function ClassDetailSheet({
   // so this handler never has to reason about the reminder cutoff itself.
   // PAD-313 rule 25: `handleProactiveDecline` is gone — it called the same
   // endpoint with the same payload as `handleCancelAttendance`.
+
+  if (showEvaluations && evaluationsRef && evaluationsAction === "available") {
+    return (
+      <Sheet open={open} onOpenChange={onClose}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{t("players.classEvaluations.title", { name: active.name })}</SheetTitle>
+          </SheetHeader>
+          <ClassEvaluationsPanel classRef={evaluationsRef} className={active.name} onBack={() => setShowEvaluations(false)} />
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -1483,6 +1523,7 @@ export function ClassDetailSheet({
 
           {!isEditing ? (
             <>
+              <ClassEvaluationsAction state={evaluationsAction} onOpen={() => setShowEvaluations(true)} onRetry={() => void classEvaluations.refetch()} />
               {canManage && (
                 <div className="flex gap-2 flex-wrap">
                   <Button

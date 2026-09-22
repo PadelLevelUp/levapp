@@ -75,16 +75,99 @@ def test_calendar_edit_absent_title_and_description_are_kept(app, client):
     assert after["startTime"] == "12:00", "the control: a truthy value is written"
 
 
-def test_calendar_edit_an_empty_title_or_description_cannot_clear_it(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). `_build_payload` sends `""` for an absent
-    key too, so today the two cases are indistinguishable — which is also why a
-    naive fix would wipe both fields on every edit that omits them."""
+@pytest.mark.parametrize("cleared", [None, ""], ids=["null (what both shells send)", "empty-string"])
+def test_calendar_edit_an_emptied_title_or_description_is_cleared(app, client, cleared):
+    """FIXED in PAD-386 (B-136 step 1). Was: `_build_payload` sent `""` for an absent
+    key too, so the two cases were indistinguishable and neither cleared. Both
+    shells send `null` for an emptied box (EventDetailSheet / event-draft.ts)."""
     ids = _seed(app)
     block = _event(app, client, ids)
 
-    after = _edit_event(app, client, ids, block["id"], {**EVENT, "title": "", "description": ""})
+    after = _edit_event(app, client, ids, block["id"], {**EVENT, "title": cleared, "description": cleared})
 
-    assert (after["title"], after["description"]) == ("Dentist", "bring x-rays")
+    assert (after["title"], after["description"]) == (None, None)
+
+
+def _put_event(app, client, ids, block_id, body):
+    return client.put(f"/api/app/calendar_block/{block_id}", json=body, headers=_headers(app, ids["coach_user_id"]))
+
+
+def _block_row(app, block_id):
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    with app.app_context():
+        row = db.session.get(CalendarBlock, block_id)
+        return {"title": row.title, "type": row.type, "start": row.start_datetime.isoformat(), "user_id": row.user_id,
+                "is_recurring": row.is_recurring, "rule": row.recurrence_rule, "end": str(row.recurrence_end),
+                "auto": row.blocks_auto_invitations}
+
+
+WEEKLY = {**EVENT, "isRecurring": True, "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [1]}, "endDate": "2026-12-01"}
+
+
+@pytest.mark.parametrize("end", [None, ""], ids=["null (what both edit sheets send when cleared)", "empty-string"])
+def test_calendar_edit_cannot_remove_the_end_date_of_a_block_that_still_recurs(app, client, end):
+    """PAD-386, D83 (Coordinator, 2026-09-22): a NULL recurrence_end means "forever"
+    downstream (the feed expands 400 days ahead; reminders and blocked windows
+    likewise) and nothing creates one on purpose — the create sheets default the end.
+    The only way to drop the end is to make the block one-off (#356's rule)."""
+    ids = _seed(app)
+    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT or k == "isRecurring"})
+    before = _block_row(app, block["id"])
+
+    res = _put_event(app, client, ids, block["id"], {**WEEKLY, "title": "Physio", "endDate": end})
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["endDate"]}
+    assert _block_row(app, block["id"]) == before, "nothing written, the title beside it included"
+
+
+@pytest.mark.parametrize("missing", ["type", "date", "startTime", "endTime"])
+def test_calendar_edit_without_a_required_key_is_refused_not_a_500(app, client, missing):
+    """PAD-386: `_build_payload` hard-subscripted these (KeyError → 500); a cleared web
+    date/time input sends "" (ValueError → 500). 400 naming the field, nothing written."""
+    ids = _seed(app)
+    block = _event(app, client, ids)
+    before = _block_row(app, block["id"])
+    body = {k: v for k, v in EVENT.items() if k != missing}
+
+    for bad in (body, {**EVENT, missing: ""}, {**EVENT, missing: None}):
+        res = _put_event(app, client, ids, block["id"], {**bad, "title": "Physio"})
+        assert res.status_code == 400, res.get_data(as_text=True)
+        assert res.get_json()["error"] == "invalid_fields" and missing in res.get_json()["fields"]
+    assert _block_row(app, block["id"]) == before
+
+
+def test_calendar_edit_a_recurring_block_keeps_its_rule_when_the_body_does_not_mention_it(app, client):
+    """Session-B on #378: rule and end are judged the same way — a sent-empty value is
+    refused, an absent one against the row. A weekly block edited with
+    `isRecurring: true` and no rule key keeps its rule; with `recurrenceRule: null` it is refused."""
+    ids = _seed(app)
+    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT or k == "isRecurring"})
+    body = {k: v for k, v in WEEKLY.items() if k != "recurrenceRule"}
+
+    after = _edit_event(app, client, ids, block["id"], {**body, "title": "Physio"})
+    assert after["isRecurring"] is True
+    assert "weekly" in _block_row(app, block["id"])["rule"]
+
+    res = _put_event(app, client, ids, block["id"], {**WEEKLY, "recurrenceRule": None})
+    assert res.status_code == 400 and res.get_json()["fields"] == ["recurrenceRule"]
+
+
+def test_calendar_edit_ignores_what_is_not_the_blocks_own_form(app, client):
+    """PAD-386 (the binding rule from #366's review): present mode writes every key it
+    is given, so the whitelist is the guard — the owner (`user`, a nullable ManyToOne)
+    and the PAD-93 flag must be unreachable from the body."""
+    ids = _seed(app)
+    block = _event(app, client, ids)
+    before = _block_row(app, block["id"])
+
+    after = _edit_event(app, client, ids, block["id"], {**EVENT, "title": "Physio", "user": None, "user_id": 999,
+                                                        "blocks_auto_invitations": True, "blocksAutoInvitations": True})
+
+    assert after["title"] == "Physio"
+    row = _block_row(app, block["id"])
+    assert (row["user_id"], row["auto"]) == (before["user_id"], before["auto"])
 
 
 def test_calendar_edit_a_new_title_and_description_are_written(app, client):
@@ -178,17 +261,165 @@ def test_edit_player_absent_fields_are_kept(app, client):
                    "phone": "+351900000000", "email": "student@test.com"}
 
 
-def test_edit_player_empty_notes_side_and_phone_cannot_be_cleared(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). The route diffs `updates` against `player`,
-    so an emptied field IS a change and reaches the form as `""` — where it is
-    dropped. A coach cannot delete a note about a player, only overwrite it."""
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+def test_edit_player_an_emptied_note_side_or_phone_is_cleared(app, client, cleared):
+    """FIXED in PAD-388 (B-136 step 3). Was: the route diffed `updates` against
+    `player`, so an emptied field WAS a change and reached the form as "" — where
+    it was dropped; a coach could not delete a note, only overwrite it. Both null
+    and "" clear (decided 2026-09-21); the shells send null (this ticket)."""
     ids = _seed(app)
     _give_the_student_a_phone(app, ids)
 
-    _edit_player(app, client, ids, {"notes": "", "side": "", "phone": ""})
+    _edit_player(app, client, ids, {"notes": cleared, "side": cleared, "phone": cleared})
 
     row = _roster_row(app, ids)
-    assert (row["notes"], row["side"], row["phone"]) == ("left-handed, bad knee", "right", "+351900000000")
+    assert row == {"notes": None, "side": None, "phone": None, "email": "student@test.com", "name": "Test Student"}
+
+
+def _make_placeholder(app, ids):
+    """The seed's student is an account holder; a placeholder has never activated and has no password."""
+    from padel_app.models import User
+
+    with app.app_context():
+        user = db.session.get(User, ids["student_user_id"])
+        user.password = None
+        user.status = "inactive"
+        db.session.commit()
+
+
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+def test_edit_player_a_placeholders_email_is_the_coachs_to_clear(app, client, cleared):
+    ids = _seed(app)
+    _make_placeholder(app, ids)
+
+    _edit_player(app, client, ids, {"email": cleared})
+
+    assert _roster_row(app, ids)["email"] is None
+
+
+@pytest.mark.parametrize("sent", ["", None, "   ", "other@test.com"],
+                         ids=["empty-string", "null", "whitespace", "another-address"])
+def test_edit_player_an_account_holders_email_is_the_students_own(app, client, sent):
+    """Coordinator, 2026-09-22 (widened after Session-B's review): once a student has
+    an account (a password) the e-mail is their login and password recovery — the
+    student's own field. A coach may neither clear nor change it: 400, nothing
+    written (the note sent beside it included). Whitespace is a clear."""
+    ids = _seed(app)  # activated: password set
+    before = _roster_row(app, ids)
+
+    player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
+              "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"email": sent, "notes": "new note"}},
+                      headers=_headers(app, ids["coach_user_id"]))
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["email"]}
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_a_placeholders_email_may_be_changed_by_the_coach(app, client):
+    ids = _seed(app)
+    _make_placeholder(app, ids)
+
+    _edit_player(app, client, ids, {"email": "corrected@test.com"})
+
+    assert _roster_row(app, ids)["email"] == "corrected@test.com"
+
+
+@pytest.mark.parametrize("zero", [0, False, "0"], ids=["zero", "false", "string-zero"])
+def test_edit_player_a_zero_level_is_refused_before_anything_is_written(app, client, zero):
+    """Session-B's F3 on #371: the old code read 0 as "not sent"; present mode would
+    have handed it to set_roster_level after the user part had already committed —
+    a rename persisted, then a 500 on the level's FK. Refused up front, with the
+    name beside it not written."""
+    ids = _seed(app)
+    before = _roster_row(app, ids)
+
+    player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
+              "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"name": "Renamed", "levelId": zero}},
+                      headers=_headers(app, ids["coach_user_id"]))
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["level"]}
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_a_cleared_level_is_no_level_and_writes_no_history_row(app, client):
+    """PAD-388: `levelId: null` clears through the one writer (players.level-history
+    rule 1): history records assignments, so a clear writes no row."""
+    from padel_app.models import Association_CoachPlayer, CoachLevel, PlayerLevelHistory
+
+    ids = _seed(app)
+    with app.app_context():
+        level = CoachLevel(coach_id=ids["coach_id"], label="Five", code="L5", display_order=5)
+        db.session.add(level)
+        db.session.flush()
+        rel = db.session.get(Association_CoachPlayer, ids["rel_id"])
+        rel.level_id = level.id
+        db.session.commit()
+        level_id = level.id
+        rows_before = PlayerLevelHistory.query.filter_by(coach_id=ids["coach_id"], player_id=ids["student_id"]).count()
+
+    _edit_player(app, client, ids, {"levelId": None}, levelId=str(level_id))
+
+    with app.app_context():
+        assert db.session.get(Association_CoachPlayer, ids["rel_id"]).level_id is None
+        assert PlayerLevelHistory.query.filter_by(coach_id=ids["coach_id"], player_id=ids["student_id"]).count() == rows_before
+
+
+@pytest.mark.parametrize("emptied", ["", None, "   "], ids=["empty-string", "null", "blank"])
+def test_edit_player_an_emptied_name_is_refused_and_nothing_is_written(app, client, emptied):
+    """PAD-388: users.name is NOT NULL — 400 naming the field, before any write; the
+    note sent beside it is not written either. No shell can send this (Save is
+    disabled on an empty name); it is the route's own guarantee."""
+    ids = _seed(app)
+    before = _roster_row(app, ids)
+    player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
+              "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"name": emptied, "notes": "new note"}},
+                      headers=_headers(app, ids["coach_user_id"]))
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["name"]}
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_an_old_build_body_with_omitted_keys_keeps_everything(app, client):
+    """PAD-388: App Store 1.0 / 1.1.0 (and the current shells before this ticket)
+    send the FULL form with every emptied box OMITTED — an omitted key still
+    means keep, so those builds go on working unchanged."""
+    ids = _seed(app)
+    _give_the_student_a_phone(app, ids)
+    before = _roster_row(app, ids)
+
+    # what the old build sends after the coach emptied the note box: name and the untouched
+    # fields, `notes` dropped by JSON.stringify
+    _edit_player(app, client, ids, {"name": "Test Student", "userId": ids["student_user_id"],
+                                    "email": "student@test.com", "phone": "+351900000000", "side": "right"})
+
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_nothing_on_the_user_form_beyond_name_email_phone_is_reachable(app, client):
+    """PAD-388: present mode writes every key it is given, so the whitelist is the
+    guard — `username`, `status`, `is_admin` are on the user form and must not be."""
+    from padel_app.models import User
+
+    ids = _seed(app)
+    with app.app_context():
+        user = db.session.get(User, ids["student_user_id"])
+        before = (user.username, user.status, user.is_admin, user.password)
+
+    _edit_player(app, client, ids, {"username": "hacked", "status": "disabled", "is_admin": True, "is_superadmin": True,
+                                    "generated_code": 4321, "password": "x", "user": {"is_admin": True, "email": "x@y"},
+                                    "notes": "still just a note"})
+
+    with app.app_context():
+        user = db.session.get(User, ids["student_user_id"])
+        assert (user.username, user.status, user.is_admin, user.password) == before
+        assert (user.is_superadmin, user.email) == (False, "student@test.com")
+    assert _roster_row(app, ids)["notes"] == "still just a note"
 
 
 def test_edit_player_new_values_are_written(app, client):
@@ -272,19 +503,78 @@ def _edit_class(client, world, updates):
         "scope": "future", "updates": updates})
 
 
-def test_add_class_with_a_capacity_of_zero_fails_on_the_not_null_column(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). `maxPlayers: 0` is read as "not sent" and
-    `lessons.max_players` is NOT NULL: an unhandled IntegrityError, not a 400 and
-    not a stored 0. Whether 0 is a legal capacity is a product question; a 500 is not."""
-    from sqlalchemy.exc import IntegrityError
+def _add_class(client, world, **over):
+    body = {**world["body"], "name": "Zero", "startTime": "20:00", "endTime": "21:00", **over}
+    for key, value in list(over.items()):
+        if value is ABSENT_KEY:
+            body.pop(key)
+    return client.post("/api/app/add_class", headers=world["headers"], json=body)
 
+
+ABSENT_KEY = object()
+
+
+def _lesson_count(app):
+    from padel_app.models.lessons import Lesson
+
+    with app.app_context():
+        return Lesson.query.count()
+
+
+@pytest.mark.parametrize("capacity", [0, None, "", "0", -1, "abc", 2.5, "6.0", True, ABSENT_KEY],
+                         ids=["zero", "null", "empty", "string-zero", "negative", "text", "fraction", "string-float", "true", "absent"])
+def test_add_class_a_capacity_that_is_not_a_positive_integer_is_refused(app, client, capacity):
+    """FIXED in PAD-390 (B-136 step 5). Was: `maxPlayers: 0` read as "not sent" and
+    `lessons.max_players` NOT NULL → an unhandled IntegrityError (a 500); an absent
+    key → KeyError (a 500). 0 is not a legal capacity (decided 2026-09-21): 400
+    naming the field, and no lesson row."""
+    world = _class_world(app, client)
+    before = _lesson_count(app)
+
+    res = _add_class(client, world, maxPlayers=capacity)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["max_players"]}
+    assert _lesson_count(app) == before
+
+
+@pytest.mark.parametrize("name", ["", "   ", None, ABSENT_KEY], ids=["empty", "blank", "null", "absent"])
+def test_add_class_without_a_name_is_refused(app, client, name):
+    """PAD-390: `lessons.title` is NOT NULL; an empty name used to reach the column
+    as NULL (a 500), an absent key a KeyError. The same 400 the edit route gives."""
+    world = _class_world(app, client)
+    before = _lesson_count(app)
+
+    res = _add_class(client, world, name=name)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["title"]}
+    assert _lesson_count(app) == before
+
+
+def test_add_class_with_both_wrong_names_both_fields(app, client):
     world = _class_world(app, client)
 
-    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
-        client.post("/api/app/add_class", headers=world["headers"],
-                    json={**world["body"], "name": "Zero", "maxPlayers": 0, "startTime": "20:00", "endTime": "21:00"})
+    res = _add_class(client, world, name="", maxPlayers=0)
+
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["title", "max_players"]}
+
+
+def test_add_class_a_capacity_sent_as_a_numeric_string_is_stored_as_the_number(app, client):
+    """The control: what the shells send (an integer) and what an old build might
+    (an integer string) both create the class with that capacity. "6.0" is refused
+    above: the check parses exactly as the write does (Session-B, #373), so nothing
+    it admits can fail to convert."""
+    from padel_app.models.lessons import Lesson
+
+    world = _class_world(app, client)
+    assert _add_class(client, world, maxPlayers="6").status_code == 200
+    assert _add_class(client, world, name="Seven", maxPlayers=7).status_code == 200
+
     with app.app_context():
-        db.session.rollback()
+        rows = Lesson.query.order_by(Lesson.id.desc()).limit(2).all()
+        assert sorted(r.max_players for r in rows) == [6, 7]
 
 
 def test_edit_class_absent_keys_are_kept(app, client):
@@ -569,6 +859,28 @@ def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitat
     assert blocked_on(20) is False, "the control: a Tuesday was never blocked"
 
 
+def test_a_students_blocker_edit_clears_an_emptied_title_and_refuses_a_null_end_while_recurring(app, client):
+    """PAD-386: the blockers share edit_event_service. The shared client builder
+    sends `title: null` for an emptied reason and never a null end while recurring
+    (it defaults +3 months); the server rule is the same either way (D83)."""
+    ids = _seed(app)
+    headers = _headers(app, ids["student_user_id"])
+    away = {"title": "Away", "date": "2026-10-05", "startTime": "18:00", "endTime": "20:00",
+            "isRecurring": True, "recurrenceRule": {"frequency": "weekly", "daysOfWeek": [1]}, "endDate": "2026-12-01"}
+    created = client.post("/api/app/availability_blockers", headers=headers, json=away)
+    assert created.status_code == 201, created.get_data(as_text=True)
+    blocker_id = created.get_json()["id"]
+
+    edited = client.put(f"/api/app/availability_blockers/{blocker_id}", headers=headers, json={**away, "title": None})
+    assert edited.status_code == 200, edited.get_data(as_text=True)
+    assert edited.get_json()["title"] is None
+
+    refused = client.put(f"/api/app/availability_blockers/{blocker_id}", headers=headers, json={**away, "endDate": None})
+    assert refused.status_code == 400, refused.get_data(as_text=True)
+    assert refused.get_json() == {"error": "invalid_fields", "fields": ["endDate"]}
+    assert _block_row(app, blocker_id)["end"] == "2026-12-01"
+
+
 def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly_block(app, client):
     """FLAG ASSERTION FLIPPED by PAD-377 (B-150), by the fix's author: an edit that OMITS `isRecurring` now
     leaves the flag alone as well as the rule and the end date. The rule-and-end-date assertions
@@ -597,31 +909,70 @@ def test_a_block_edit_that_OMITS_isRecurring_rots_the_flag_of_a_genuinely_weekly
 
 # ── POST /api/app/message (messaging_service.create_message_service) ─────────
 
-def test_message_an_empty_text_fails_on_the_not_null_column_and_blank_or_zero_are_stored(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). Nothing validates the text: `""` is read as
-    "not sent" and `messages.text` is NOT NULL — an unhandled IntegrityError where
-    a 400 belongs. A whitespace-only text and the text "0" are truthy strings and
-    are stored as sent."""
-    from sqlalchemy.exc import IntegrityError
-
-    from padel_app.models import Message
-
+def _conversation(app, client):
     ids = _seed(app)
     headers = _headers(app, ids["coach_user_id"])
     conversation = client.post("/api/app/conversation", json={"otherParticipants": [ids["student_user_id"]]}, headers=headers)
     assert conversation.status_code == 201, conversation.get_data(as_text=True)
-    conversation_id = conversation.get_json()["id"]
+    return conversation.get_json()["id"], headers
 
-    with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
-        client.post("/api/app/message", json={"conversationId": conversation_id, "text": ""}, headers=headers)
+
+def _message_texts(app):
+    from padel_app.models import Message
+
     with app.app_context():
-        db.session.rollback()
-    for text in ("   ", "0", "hello"):
+        return [m.text for m in Message.query.order_by(Message.id)]
+
+
+@pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+def test_message_with_no_text_is_refused_and_nothing_is_written(app, client, text):
+    """FIXED in PAD-390 (B-136 step 5). Was: `""` read as "not sent" and
+    `messages.text` NOT NULL → an unhandled IntegrityError; an absent key a
+    KeyError — a 500 either way where a 400 belongs. Whitespace-only is refused
+    too, as every blank rule of this family does (both composers trim and block)."""
+    conversation_id, headers = _conversation(app, client)
+    body = {"conversationId": conversation_id, "text": text}
+    if text is ABSENT_KEY:
+        body.pop("text")
+
+    res = client.post("/api/app/message", json=body, headers=headers)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["text"]}
+    assert _message_texts(app) == []
+
+
+def test_message_a_text_that_is_there_is_stored_as_sent(app, client):
+    """The control: "0" is a text, and a text is stored as sent (no trimming —
+    what the message says is the sender's)."""
+    conversation_id, headers = _conversation(app, client)
+    for text in ("0", "hello", " spaced "):
         assert client.post("/api/app/message", json={"conversationId": conversation_id, "text": text},
                            headers=headers).status_code == 201
 
-    with app.app_context():
-        assert [m.text for m in Message.query.order_by(Message.id)] == ["   ", "0", "hello"]
+    assert _message_texts(app) == ["0", "hello", " spaced "]
+
+
+@pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+def test_message_edit_with_no_text_is_refused_and_the_message_is_unchanged(app, client, text):
+    """Session-B on #373: the same defect on the same column, three lines away —
+    PUT /message/<id> with `""` hit the NOT NULL column, an absent key a KeyError."""
+    conversation_id, headers = _conversation(app, client)
+    created = client.post("/api/app/message", json={"conversationId": conversation_id, "text": "hello"}, headers=headers)
+    assert created.status_code == 201
+    message_id = created.get_json()["id"]
+    body = {"text": text}
+    if text is ABSENT_KEY:
+        body = {}
+
+    res = client.put(f"/api/app/message/{message_id}", json=body, headers=headers)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["text"]}
+    assert _message_texts(app) == ["hello"]
+
+    assert client.put(f"/api/app/message/{message_id}", json={"text": "hello, edited"}, headers=headers).status_code == 200
+    assert _message_texts(app) == ["hello, edited"]
 
 
 # ── POST /api/app/class_instance/presences/confirm (lesson_service.add_presences) ──
@@ -666,30 +1017,132 @@ def test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undon
 
 # ── POST /api/app/activate/user/<id> (user_service.activate_user_service) ────
 
-def test_activation_an_empty_field_keeps_what_the_coach_entered(app, client):
-    """The falsy rule doing something arguably useful: a student who activates with
-    an empty phone or e-mail box does NOT wipe what the coach typed when adding
-    them. A fix that honours "" would start wiping it — the activation form has to
-    be read (what does it send for an untouched box?) before this route changes."""
+def _inactive_user(app, **over):
     from padel_app.models import User
     from padel_app.tools.activation_token import activation_token_for
 
     with app.app_context():
-        user = User(name="Invited", username="pending-abc", password="x", status="inactive",
-                    email="coach-typed@test.com", phone="+351933333333")
+        fields = dict(name="Invited", username="pending-abc", password=None, status="inactive",
+                      email="coach-typed@test.com", phone="+351933333333")
+        fields.update(over)
+        user = User(**fields)
         db.session.add(user)
         db.session.commit()
-        user_id, token = user.id, activation_token_for(user)
+        return user.id, activation_token_for(user)
 
-    res = client.post(f"/api/app/activate/user/{user_id}", json={
-        "token": token, "name": "Invited Player", "username": "invited", "password": "S3cret-pass!",
-        "email": "", "phone": ""})
 
-    assert res.status_code == 200, res.get_data(as_text=True)
+def _user_row(app, user_id):
+    from padel_app.models import User
+
     with app.app_context():
         row = db.session.get(User, user_id)
-        assert (row.status, row.username, row.name) == ("active", "invited", "Invited Player")
-        assert (row.email, row.phone) == ("coach-typed@test.com", "+351933333333")
+        return {"status": row.status, "name": row.name, "username": row.username, "email": row.email,
+                "phone": row.phone, "has_password": row.password is not None}
+
+
+ACTIVATION_BODY = {"name": "Invited Player", "username": "invited", "password": "S3cret-pass!"}
+
+
+def test_activation_an_emptied_prefilled_phone_or_email_is_cleared(app, client):
+    """FIXED in PAD-389 (B-136 step 4). The activation form is PRE-FILLED with what
+    the coach typed (GET /register/user), so an emptied box is the student's intent
+    (design note, step 4). Was: "" dropped, the coach's phone silently kept. Both
+    shells send every key, "" when emptied; zod stops an empty e-mail on the client,
+    so only the phone is reachable today — the e-mail rule is the server's own."""
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, "email": "", "phone": ""})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _user_row(app, user_id) == {"status": "active", "name": "Invited Player", "username": "invited",
+                                      "email": None, "phone": None, "has_password": True}
+
+
+def test_activation_an_absent_key_keeps_what_the_coach_entered(app, client):
+    """An omitted key still means keep — a body that does not mention the e-mail or
+    phone (a partial client, or a future one that sends a diff) changes neither."""
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    row = _user_row(app, user_id)
+    assert (row["status"], row["email"], row["phone"]) == ("active", "coach-typed@test.com", "+351933333333")
+
+
+@pytest.mark.parametrize("bad,fields", [
+    ({"name": ""}, ["name"]), ({"name": "   "}, ["name"]), ({"name": None}, ["name"]),
+    ({"username": ""}, ["username"]), ({"username": "  "}, ["username"]),
+    ({"password": ""}, ["password"]), ({"password": "   "}, ["password"]),
+    ({"name": "", "password": ""}, ["name", "password"]),
+], ids=["empty-name", "blank-name", "null-name", "empty-username", "blank-username", "empty-password",
+        "blank-password", "two-at-once"])
+def test_activation_a_blank_name_username_or_password_is_refused_and_nothing_is_written(app, client, bad, fields):
+    """PAD-389: name and username are NOT NULL, and activation IS setting the password
+    — an empty one used to leave the account active with no password at all. A
+    whitespace-only name passes the shells' zod (min(2) on the untrimmed string)."""
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, **bad, "phone": ""})
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": fields}
+    row = _user_row(app, user_id)
+    assert (row["status"], row["name"], row["username"], row["phone"], row["has_password"]) == \
+           ("inactive", "Invited", "pending-abc", "+351933333333", False), "nothing written, the phone included"
+
+
+def test_activation_without_a_username_keeps_no_placeholder_login(app, client):
+    """Session-B on #372: an ABSENT username would have activated the account under
+    its generated `pending-…` placeholder — rule 10 blanks it in the form exactly so
+    the student chooses one. A user who already chose a username may omit it."""
+    user_id, token = _inactive_user(app)  # username "pending-abc": a placeholder
+    body = {k: v for k, v in ACTIVATION_BODY.items() if k != "username"}
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **body})
+
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["username"]}
+    assert _user_row(app, user_id)["status"] == "inactive"
+
+    chosen_id, chosen_token = _inactive_user(app, username="chosen-already", email="c@test.com", phone=None)
+    res = client.post(f"/api/app/activate/user/{chosen_id}", json={"token": chosen_token, **body})
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _user_row(app, chosen_id)["username"] == "chosen-already"
+
+
+def test_activation_stores_the_username_it_checked(app, client):
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, "username": "  spaced  "})
+
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert _user_row(app, user_id)["username"] == "spaced"
+
+
+def test_activation_without_a_password_is_refused(app, client):
+    """PAD-389: an absent password is not "keep" — a placeholder has none to keep."""
+    user_id, token = _inactive_user(app)
+    body = {k: v for k, v in ACTIVATION_BODY.items() if k != "password"}
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **body})
+
+    assert res.status_code == 400
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["password"]}
+    assert _user_row(app, user_id)["status"] == "inactive"
+
+
+def test_activation_with_a_taken_username_is_409_and_writes_nothing(app, client):
+    """PAD-389: the same answer as invite-completion and self-signup give (was an
+    IntegrityError on the unique index — a 500)."""
+    _inactive_user(app, username="taken-one", email="other@test.com", phone=None)
+    user_id, token = _inactive_user(app)
+
+    res = client.post(f"/api/app/activate/user/{user_id}", json={"token": token, **ACTIVATION_BODY, "username": "taken-one"})
+
+    assert res.status_code == 409, res.get_data(as_text=True)
+    assert res.get_json()["error"] == "Username already taken"
+    assert _user_row(app, user_id)["status"] == "inactive"
 
 
 # ── POST /api/app/add_coach_level (coach_service.upsert_coach_levels) ────────

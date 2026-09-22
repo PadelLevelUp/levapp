@@ -1,4 +1,5 @@
 import json
+from padel_app.models.class_request import live_hold_request_id
 from padel_app.tools.tools import iso_date
 
 def serialize_calendar_block(block):
@@ -22,6 +23,12 @@ def serialize_calendar_block(block):
         "recurrenceEnd": iso_date(block.recurrence_end),
 
         "blocksAutoInvitations": bool(getattr(block, "blocks_auto_invitations", False)),
+
+        # PAD-372 (classes.class-requests rule 3): the OPEN request this block is the live
+        # hold of, else null. The shells stop offering "this one / this and following" on
+        # it; the server refuses those anyway (409 HOLD_OCCURRENCE_LOCKED). Additive —
+        # installed builds ignore it and meet the refusal.
+        "requestHoldOf": live_hold_request_id(block),
 
         "date": (
             block.start_datetime.date().isoformat()

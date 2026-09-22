@@ -27,5 +27,6 @@ describe("web API client declares its capabilities (PAD-352)", () => {
       .split(",")
       .map((token) => token.trim().toLowerCase());
     expect(declared).toContain("open-spots");
+    expect(declared).toContain("evaluations"); // PAD-364: declared, consumed by nothing yet
   });
 });

@@ -9,6 +9,7 @@ from sqlalchemy import func, case
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
+from padel_app.model import NotNullableFieldError
 from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
 from padel_app.tools.unit_of_work import transactional
 from padel_app.tools.username_tools import unique_placeholder_username
@@ -62,24 +63,32 @@ def create_player_helper(data):
     return player.coach_player_info(data["coach"])
 
 
+_LEVEL_NOT_SENT = object()
+
+
 def edit_player_helper(player, rel, data):
+    # PAD-388 (B-136 step 3): both forms are read in present mode — the keys the
+    # client sent, and only those; "" / null clear, an absent key is left alone.
+    # `data['user']` and `data['relation']` are whitelisted by edit_player_service,
+    # so nothing else on the user form (username, status, password…) is reachable.
     user_form = player.user.get_edit_form()
-    user_fake_request = JsonRequestAdapter(data['user'], user_form)
+    user_fake_request = JsonRequestAdapter(data['user'], user_form, mode="present")
     user_values = user_form.set_values(user_fake_request)
 
-    player.user.update_with_dict(user_values)
+    player.user.update_with_dict(user_values, write_none=True)
     player.user.save()
 
     # PAD-270 (B-061): the level goes through the one writer, which records the
-    # history row an edit used to skip. Only a changed level reaches here.
+    # history row an edit used to skip. Only a SENT level reaches here — sent
+    # empty clears it (no history row: history records assignments).
     relation = dict(data['relation'])
-    level = relation.pop('level', None)
+    level = relation.pop('level', _LEVEL_NOT_SENT)
     rel_form = rel.get_edit_form()
-    rel_fake_request = JsonRequestAdapter(relation, rel_form)
+    rel_fake_request = JsonRequestAdapter(relation, rel_form, mode="present")
     rel_values = rel_form.set_values(rel_fake_request)
 
-    rel.update_with_dict(rel_values)
-    if level is not None:
+    rel.update_with_dict(rel_values, write_none=True)
+    if level is not _LEVEL_NOT_SENT:
         set_roster_level(rel, level)
     rel.save()
 
@@ -389,8 +398,18 @@ def add_player_service(data):
     return create_player_helper(payload)
 
 
+#: `updates` keys a coach may write, and where (PAD-388). `userId` is sent by
+#: every shell and read by nobody.
+_EDIT_PLAYER_USER = ("name", "email", "phone")
+_EDIT_PLAYER_RELATION = {"levelId": "level", "side": "side", "notes": "notes"}
+
+
 def edit_player_service(data):
-    """Computes changed fields and delegates to edit_player_helper."""
+    """Computes changed fields and delegates to edit_player_helper.
+
+    Raises NotNullableFieldError (→ 400 naming the fields) for what may not be
+    written: an empty name, an account holder's e-mail, a 0/false level.
+    """
     updates = data['updates']
     player_info = data['player']
 
@@ -398,21 +417,35 @@ def edit_player_service(data):
 
     # PAD-105: `username` is deliberately absent — a coach cannot set or change
     # a player's username, only the player themselves can (at activation).
+    # PAD-388 (B-136 step 3): each dict holds a key iff the client sent it AND it
+    # is whitelisted — nothing is invented for an unchanged key (the old None
+    # placeholders would now CLEAR), and nothing else on the user form is reachable.
+    player = Player.query.get_or_404(player_info['playerId'])
+    refused = []
+    if 'name' in changes and (changes['name'] is None or not str(changes['name']).strip()):
+        refused.append("name")
+    # PAD-388 (Coordinator, 2026-09-22, widened after review): once a student has an
+    # account (a password), the e-mail is their login and password recovery — the
+    # student's own field. A coach may neither clear nor CHANGE it; the student does,
+    # from their own settings. A placeholder's e-mail is the coach's.
+    if 'email' in changes and player.user.password is not None:
+        refused.append("email")
+    # 0 / false are not a level: the old code read them as "not sent"; present mode
+    # would hand them to set_roster_level and hit the FK after the user part committed.
+    if 'levelId' in changes and changes['levelId'] in (0, False, "0"):
+        refused.append("level")
+    if refused:
+        raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     payload = {
         'coach': player_info['coachId'],
         'relation': {
-            'level': int(changes['levelId']) if changes.get('levelId', None) else None,
-            'side': changes.get('side', None),
-            'notes': changes.get('notes', None),
+            field: changes[key] for key, field in _EDIT_PLAYER_RELATION.items() if key in changes
         },
         'user': {
-            'name': changes.get('name', None),
-            'email': changes.get('email', None),
-            'phone': changes.get('phone', None),
+            key: changes[key] for key in _EDIT_PLAYER_USER if key in changes
         },
     }
 
-    player = Player.query.get_or_404(player_info['playerId'])
     rel = Association_CoachPlayer.query.filter_by(
         coach_id=player_info['coachId'],
         player_id=player_info["playerId"],

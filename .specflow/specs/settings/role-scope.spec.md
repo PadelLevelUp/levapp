@@ -1,7 +1,7 @@
 ---
 id: settings.role-scope
 status: implemented
-depends_on: [auth.login, settings.profile, settings.language, levels.coach-levels, evaluations.categories, calendar.seasons, import.analyze, clubs.coach-invitation]
+depends_on: [auth.login, settings.profile, settings.language, levels.coach-levels, evaluations.categories, evaluations.competencies, calendar.seasons, import.analyze, clubs.coach-invitation]
 implements: ../../specs-business/settings/coach-configures-preferences-and-access.business.md
 governed_by: []
 ---
@@ -50,7 +50,9 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
-   levels** and **evaluation categories**. A coach also sees the shared **My connections** and
+   levels** and the entry to **"Gerir competências"** (PAD-373; it replaced the evaluation
+   categories editor, holds no list of its own, and opens the one competency manager of
+   `evaluations.competencies` rule 11). A coach also sees the shared **My connections** and
    **Account** sections of rule 2.
 4. The section list is defined **once per shell** and drives both that shell's nav and the pane
    it renders, so the two can never disagree about what a role may see. Each entry states its
@@ -80,8 +82,10 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **When** the page renders
 - **Then** the section list offers only Profile, Preferences, Notifications preferences and Account
 - **And** no Calendar/Seasons, notification-engine, Import or Club section is offered
-- **And** the Preferences panel shows language and theme but no skill-levels and no
-  evaluation-categories management
+- **And** the Preferences panel shows language and theme but no skill-levels and no entry to
+  the competency manager
+- **And** a student who opens a link carrying the manager's flag (`?competencies=open` on web,
+  `/competencies` on iOS) sees no manager
 
 #### Coach does not see the student's own notification preferences
 - **Given** an authenticated coach on Settings, on either shell
@@ -93,7 +97,7 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Given** an authenticated coach on `/settings`
 - **When** the page renders
 - **Then** Profile, Preferences, Calendar, Notifications, Tutorials, Import, Club and Account are all offered
-- **And** the Preferences panel still shows skill levels and evaluation categories
+- **And** the Preferences panel still shows skill levels and the entry that opens "Gerir competências"
 
 #### Coach-only reads reject a student with 403
 - **Given** an authenticated student

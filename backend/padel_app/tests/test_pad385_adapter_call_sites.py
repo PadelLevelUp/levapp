@@ -35,21 +35,27 @@ DEFINING_MODULE = "tools/request_adapter.py"
 
 #: (file, enclosing function) of every call that passes mode="present".
 PRESENT: set = {
+    # PAD-386 (step 1): PUT /calendar_block/<id> and PUT /availability_blockers/<id>
+    ("services/calendar_service.py", "edit_event_service"),
     # PAD-387 (step 2): POST /edit_class
     ("services/lesson_service.py", "edit_lesson_helper"),
     ("services/lesson_service.py", "edit_lesson_instance_helper"),
+    # PAD-388 (step 3): POST /edit_player — the user form and the relation form
+    ("services/player_service.py", "edit_player_helper"),
+    # PAD-389 (step 4): POST /activate/user/<id>
+    ("services/user_service.py", "activate_user_service"),
 }
 
 #: legacy-mode calls per file; the numbers only ever go down.
 LEGACY_MAX = {
-    "services/calendar_service.py": 4,
+    "services/calendar_service.py": 3,
     "services/club_service.py": 2,
     "services/coach_service.py": 3,
     "services/import_service.py": 1,
     "services/lesson_service.py": 4,
     "services/messaging_service.py": 2,
-    "services/player_service.py": 6,
-    "services/user_service.py": 3,
+    "services/player_service.py": 4,
+    "services/user_service.py": 2,
 }
 
 

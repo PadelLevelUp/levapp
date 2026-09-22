@@ -26,9 +26,23 @@ executionOrder:
     - 05-class-deletion
     - 06-add-player
     - 07-player-notes
-    # 57 (PAD-337) needs E2E Student with no evaluations (fresh seed) and writes none
-    # itself, so it sits early, beside the other player-detail flow.
+    # 82 (PAD-388) writes a note on E2E Student and deletes it; self-contained.
+    - 82-clear-player-notes
+    # 57 (PAD-337 on the record form, PAD-374) resets E2E Student's evaluations through the
+    # API before it starts, DOES write (one "+" is one saved input) and clears what it wrote,
+    # asserting both on the server; it sits early, beside the other player-detail flow.
     - 57-evaluation-untouched-categories
+    # 78 (PAD-374) resets E2E Student's evaluations through the API before it starts and deletes
+    # what it writes, so its position is not load bearing; it must not run between 57's steps.
+    - 78-player-evaluations
+    # 77 (PAD-373) puts "Gerir competências" in a known state through the API before it starts
+    # (its own "Maestro …" competencies deleted, catalogue "vibora" off) and again when it ends,
+    # so its position is not load bearing. It leaves the seeded legacy "Forehand" alone.
+    - 77-competency-manager
+    # 79 (PAD-375) only reads E2E Student Two's seeded evaluation history; position not load bearing.
+    - 79-evaluation-evolution
+    # 80 (PAD-376) makes its own class for today and removes it and its record afterwards.
+    - 80-class-evaluations
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages
@@ -151,6 +165,11 @@ executionOrder:
     # asserts the unsaved row survives (PAD-392); it writes only the coach's language
     # and restores it in onFlowComplete.
     - 95-settings-language-change-keeps-edits
+    # 96 makes a weekly class request through the API, asserts the route refuses a
+    # scoped move/delete of its hold (409) and that the event screen offers only the
+    # whole delete on it (PAD-372); it cancels the delete and withdraws the request
+    # in onFlowComplete, so nothing of the seed changes.
+    - 96-hold-occurrence-locked
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

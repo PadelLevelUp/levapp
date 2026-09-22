@@ -1,0 +1,79 @@
+# PAD-372 (B-138) — classes.class-requests rule 3: the live hold of an open class
+# request cannot have ONE occurrence moved or deleted. The server refuses it
+# (409 HOLD_OCCURRENCE_LOCKED) and the event screen offers no "this one / this and
+# following" on it — only the whole delete.
+#
+# Setup through the API as the seeded student: a weekly request on the seeded Monday
+# (the next Monday after today — in the future, in the next week's strip) at the first
+# free hour the coach's free-blocks answer offers. The coach's feed then carries the
+# hold's items with requestHoldOf = the request id. The route refusals are asserted
+# through the API; the UI part opens the hold, taps Delete and asserts the plain
+# confirm (event-delete-confirm) is offered and the scope choice (class-scope-single)
+# is not — then cancels, so the hold is left as found. onFlowComplete withdraws the
+# request, which releases the hold. Order: not load bearing.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001.
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad372-hold-occurrence-locked.spec.ts
+# Flow number 96 assigned by the coordinator (2026-09-22).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.tidy = (typeof output.rid === 'undefined' || typeof output.student === 'undefined') ? 0 : http.post(output.api + '/api/app/class-requests/' + output.rid + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).status}"
+---
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.last = (function () { var p = output.seededMonday.split('-'); var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + 21); var m = d.getMonth() + 1; var day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); })()}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id}"
+# The first free hour on the seeded Monday.
+- evalScript: "${output.slot = (function () { var free = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.seededMonday + 'T00:00:00&to=' + output.seededMonday + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); function mins(t) { var q = t.split(':'); return parseInt(q[0], 10) * 60 + parseInt(q[1], 10); } function hhmm(n) { var h = Math.floor(n / 60); var m = n % 60; return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m); } for (var i = 0; i < free.length; i++) { if (free[i].date === output.seededMonday && mins(free[i].startTime) + 60 <= mins(free[i].endTime)) { return { start: free[i].startTime, end: hhmm(mins(free[i].startTime) + 60) }; } } return null; })()}"
+- assertTrue: "${output.slot !== null}"
+- evalScript: "${output.madeRes = http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.seededMonday, startTime: output.slot.start, endTime: output.slot.end, recurrence: { weekdays: [1], startDate: output.seededMonday, endDate: output.last } }) })}"
+- assertTrue: "${output.madeRes.status == 201}"
+- evalScript: "${output.rid = json(output.madeRes.body).id}"
+
+# ── The feed names the hold on every occurrence; the route refuses both scoped gestures ──
+- evalScript: "${output.items = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.seededMonday + 'T00:00:00&to=' + output.last + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var out = []; for (var i = 0; i < evs.length; i++) { if (evs[i].type === 'block' && evs[i].requestHoldOf === output.rid) { out.push({ id: evs[i].originalId, date: evs[i].date }); } } return out; })()}"
+- assertTrue: "${output.items.length == 4}"
+- evalScript: "${output.hold = output.items[0].id}"
+- evalScript: "${output.moved = http.post(output.api + '/api/app/reschedule_block/' + output.hold, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ occDate: output.items[1].date, newDate: output.items[1].date, newStartTime: '15:00', newEndTime: '16:00', scope: 'single' }) })}"
+- assertTrue: "${output.moved.status == 409 && json(output.moved.body).error == 'HOLD_OCCURRENCE_LOCKED'}"
+- evalScript: "${output.removed = http.delete(output.api + '/api/app/calendar_block/' + output.hold, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ occDate: output.items[1].date, scope: 'future' }) })}"
+- assertTrue: "${output.removed.status == 409 && json(output.removed.body).error == 'HOLD_OCCURRENCE_LOCKED'}"
+- evalScript: "${output.still = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.seededMonday + 'T00:00:00&to=' + output.last + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var n = 0; for (var i = 0; i < evs.length; i++) { if (evs[i].type === 'block' && evs[i].requestHoldOf === output.rid) { n++; } } return n; })()}"
+- assertTrue: "${output.still == 4}"
+
+# ── The coach opens the hold on the seeded Monday: Delete offers the plain confirm, no scope ──
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+# The hold's title is server-made in the coach's language (en or pt seeds).
+- extendedWaitUntil:
+    visible:
+      text: "(Class request|Pedido de aula) · .*"
+    timeout: 20000
+- tapOn:
+    text: "(Class request|Pedido de aula) · .*"
+- extendedWaitUntil:
+    visible:
+      id: "event-detail"
+    timeout: 15000
+- tapOn:
+    id: "event-detail-delete"
+- extendedWaitUntil:
+    visible:
+      id: "event-delete-confirm"
+    timeout: 10000
+- assertNotVisible:
+    id: "class-scope-single"
+- assertNotVisible:
+    id: "class-scope-future"
+- tapOn:
+    id: "event-delete-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "event-delete-confirm"
+    timeout: 10000
+
+# ── Left as found: the hold is still there, still the request's ──
+- evalScript: "${output.left = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.seededMonday + 'T00:00:00&to=' + output.last + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var n = 0; for (var i = 0; i < evs.length; i++) { if (evs[i].type === 'block' && evs[i].requestHoldOf === output.rid) { n++; } } return n; })()}"
+- assertTrue: "${output.left == 4}"

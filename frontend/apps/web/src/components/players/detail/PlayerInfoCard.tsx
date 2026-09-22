@@ -41,7 +41,9 @@ export function PlayerInfoCard({
             placeholder, so nothing username-shaped is shown to the coach. */}
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-          {isEditing && isInactive ? (
+          {/* PAD-388: once the student has an account (a password), the e-mail is their
+              own — login and recovery — and the coach's box is gone, whatever isActive says. */}
+          {isEditing && !player.validated ? (
             <Input
               value={draftEmail}
               onChange={(e) => onDraftEmailChange(e.target.value)}
@@ -73,12 +75,13 @@ export function PlayerInfoCard({
             {isEditing ? (
               <Input
                 value={draftNotes}
+                data-testid="player-notes"
                 onChange={(e) => onDraftNotesChange(e.target.value)}
                 placeholder={t("players.notesPlaceholder")}
                 className="h-7 text-sm"
               />
             ) : (
-              <p>{player.notes}</p>
+              <p data-testid="player-notes-text">{player.notes}</p>
             )}
           </div>
         )}

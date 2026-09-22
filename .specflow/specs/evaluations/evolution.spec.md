@@ -1,9 +1,9 @@
 ---
 id: evaluations.evolution
-status: draft
+status: implemented
 depends_on: [evaluations.records, evaluations.history]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
-governed_by: []
+governed_by: [R-048]
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md
 ---
@@ -23,8 +23,8 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
 
 ### Rules
 1. **One instrument: the server computes every figure** — monthly means, rolling means, delta —
-   and web and iOS only render them, so the two shells cannot disagree. (The build plan reserves
-   compass rule R-048 for this; it is not yet filed.)
+   and web and iOS only render them, so the two shells cannot disagree. (Compass rule
+   R-048.)
 2. **The read.** `GET /api/app/player/<playerId>/evaluations/evolution?categoryId=<id>` (JWT,
    coach) → `{scaleMin, scaleMax, series: [{month: "2026-01", mean}], means: {m1, m6, m12},
    delta: {value, sinceMonth} | null}`. Every figure is a JSON number (or null), never a formatted
@@ -44,9 +44,16 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
    at least one such rating; `mean` is the arithmetic mean of that month's ratings. A rating's
    month is the month of its local day (`evaluations.records` rule 3). A month with no rating is
    **absent** — never zero — and the line connects across the gap.
-6. **(AV-034) Three rolling means** — "Média mensal" (`m1`), "Média semestral" (`m6`), "Média
-   anual" (`m12`): the mean of the **raw ratings** (not of the monthly points) whose local day is
-   inside the window; null when the window holds none, rendered "—".
+6. **(AV-034) Three rolling means** — `m1`, `m6`, `m12`: the mean of the **raw ratings** (not of
+   the monthly points) whose local day is inside the window; null when the window holds none,
+   rendered "—". **(build default Q32) They are labelled by their WINDOW**, under one small
+   heading: "Médias" — "Último mês", "Últimos 6 meses", "Último ano" (en: "Averages" — "Last
+   month", "Last 6 months", "Last year"); the canvas's "Média mensal / semestral / anual" is
+   overruled. Why: the chart's points are calendar-month means, and the first real rendering read
+   "Set: 7.0" on the chart with "Média mensal: 6.5" under it — both correct, and a contradiction
+   to a coach. The arithmetic and the API keys `m1` / `m6` / `m12` are unchanged; the words are
+   the owner's own (the share flow already says "Últimos 6 meses" and "Último ano"), and it is
+   "Último mês", not "30 dias", because rule 7's window is calendar arithmetic.
 7. **(AV-074) A window is whole local days.** It runs from `today − N months` (calendar
    arithmetic, day of month clamped: 31 Mar − 1 month = 28 or 29 Feb) to today, both inclusive,
    on the club-zone calendar. The time of day plays no part, so the same call returns the same
@@ -61,13 +68,17 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
    *rounded* monthly means. The shells render every figure with exactly one decimal ("3.0",
    "+1.5"). The canvas mixes "3" and "4.0" on one screen.
 10. **Each competency charts on its own scale.** **(pending owner decision Q1)** The y-axis runs
-    from `scaleMin` to `scaleMax` — 1–5 for a stars competency, 1–10 or 0–10 for a legacy
+    from `scaleMin` to `scaleMax` — 1–5 for a stars competency, 1–10 for a legacy
     category — and nothing is rescaled.
 11. **(AV-074) The chart states its values.** Dots on the points, month labels in the active
     locale ("Jan"…), the scale's bounds on the y-axis, and the value of a point on hover (web) or
     tap (iOS). The year is added to the month labels once the series spans two calendar years.
     A single point draws one dot, no line and no delta. Each shell uses the chart library it
     already ships. Same ticket for web and iOS (build default Q23).
+12. **(build default Q33) The section keeps its shape while the evaluation form is open** —
+    `evaluations.history` rule 11 is the statement; here it means the pills and the selected
+    competency's figures are held (`useHeldWhile`) and released when the form closes. Choosing
+    another pill still works while held.
 
 ### Acceptance Criteria
 
@@ -114,14 +125,33 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
   (`data-testid` `evolution-empty`)
 
 #### A legacy category charts on its own scale (rule 10)
-- **Given** Ana's legacy "Forehand" (0–10) with 7 in January and 9 in September
+- **Given** Ana's legacy "Forehand" (1–10) with 7 in January and 9 in September
 - **Then** `scaleMin` / `scaleMax` are 0 and 10, the means are 7.0 and 9.0, `delta.value` is 2.0,
   and nothing is rescaled to 1–5
 
-#### A record-less row still counts (Entities, `evaluations.records` rule 13)
+#### A record-less row does NOT count (Entities; Q29, R-048 point 3; corrected on PAD-375's review)
 - **Given** the backfill left Forehand 7 (2026-03-02 10:15) with `record_id` NULL beside
   Forehand 8 (2026-03-02 18:40) in the day's record
-- **Then** March's mean for Forehand is 7.5
+- **Then** March's mean for Forehand is 8.0 — the record-less row is read by nothing here
+  (the server joins entries to records; `test_pad375_history_seed.py` pins that record-less
+  rows are shown nowhere)
+
+### Runs cited for `implemented` (PAD-375, #359)
+- Web, Playwright `evaluation-tools/evaluation-evolution.spec.ts`, `~/levapp-wt-j`, `--workers=1`, isolated DB and ports: **1 passed** at
+  `b10db81cf`, 2026-09-22 09:49:52–09:51:39 UTC (and at `5df49f51c`, 00:04:14–00:04:37 UTC).
+- The full E2E suite with the history seed ON, which this slice turns on (four serial shards, `--workers=1`), at `b10db81cf`, 2026-09-22:
+  shard 1 09:51:47–10:15:43 UTC **110 passed** (five tail timeouts at load 346 — a starved run; each of the five passed alone, seed ON,
+  12:44:39–12:45:59 UTC); shard 2 10:32:23–10:45:03 **118 passed**, 1 skipped; shard 3 12:31:25–12:38:11 **113 passed**, 1 skipped;
+  shard 4 12:38:21–12:42:49 **111 passed** — **452 passed, 2 skipped**; `coach-working-hours` green now that staging carries #367
+  (PAD-392, surfaced by this chain's new i18n namespace, fixed at the source there); the `E2E Eval Yesterday Class` fixture reddened
+  nothing. (At `5df49f51c` earlier that day: 453 passed, every red run through the seed-ON / seed-OFF / origin/staging cells.)
+- iOS, Maestro on the iPhone 17 Pro simulator (Session-D): `79-evaluation-evolution` **PASSED** at `3b9e05d4b`, 2026-09-21 21:26:56–21:28:07
+  UTC (the chart, the three means, the delta, a point tap and its caption); `57-evaluation-untouched-categories` **PASSED** at `7798a3046`
+  and `3b9e05d4b` — the layout-hold fix measured by the flow's own clear tap with no settle wait.
+- Looked at: the chart on iOS (Session-D's screenshot, 2026-09-21 — one duplicate arrow found and removed) and on web in light and dark
+  (Session-E, 2026-09-22 ~07:58 UTC, against the design tokens).
+- Unit at `5df49f51c`: `npm test` web 245, packages 531, mobile 538 (2026-09-21 21:48:54–21:49:07 UTC); at `b10db81cf`: config 12, hooks 6,
+  web evaluation components 46, both `tsc` clean.
 
 ### Notes
 - No seed today produces past-dated history except the import. Tests need a seed helper writing

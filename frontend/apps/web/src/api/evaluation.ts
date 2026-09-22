@@ -1,5 +1,5 @@
 import "@/api/client";
-import type { EvaluationCategory, EvaluationEntryPayload } from "@/types";
+import type { EvaluationCategory } from "@/types";
 import type { EvaluationCategoryImpact } from "@levelup/types";
 import * as evaluationApi from "@levelup/api/src/resources/evaluation";
 import { USE_MOCK_DATA } from "@/config";
@@ -10,14 +10,6 @@ export async function getEvaluationCategories(): Promise<EvaluationCategory[]> {
     return mockEvaluationCategories;
   }
   return evaluationApi.getEvaluationCategories();
-}
-
-export async function postEvaluationEntry(payload: EvaluationEntryPayload): Promise<void> {
-  if (USE_MOCK_DATA) {
-    console.log("[mock] postEvaluationEntry", payload);
-    return;
-  }
-  await evaluationApi.postEvaluationEntry(payload);
 }
 
 export async function addEvaluationCategories(payload: { name: string; scaleMin: number; scaleMax: number }[]): Promise<void> {

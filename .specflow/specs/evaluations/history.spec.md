@@ -1,6 +1,6 @@
 ---
 id: evaluations.history
-status: draft
+status: implemented
 depends_on: [evaluations.records, evaluations.competencies, evaluations.player-view, players.notes]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -77,9 +77,26 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
    ticket or keeps a strengths/weaknesses section in the new web form, saved through the
    existing `POST /add_evaluation_entry` call with an empty `scores` array. They are never
    dropped. `PUT /evaluation_record` does not carry them.
+   **Outcome (PAD-374): they left the web form, on proof.** A web editor outside the sheet
+   already existed — the `PlayerStrengthsWeaknesses` profile card (`PlayerDetailPage`, test id
+   `sw-section`), saving through `POST /add_coach_note` and `POST /delete/coach_note`, the path
+   iOS's card uses — and was proven to work before the commit that dropped them from the form:
+   `e2e/evaluation-tools/player-notes.spec.ts`, 2 passed (US-44, US-45), at `ddf6b1f14`,
+   2026-09-21 19:20:34–19:21:37 UTC. Recorded in `players.notes` rule 5.
 10. **(AV-077) The drawer owns its state.** Closing it closes the form and resets the evolution
     selection; opening it for another player never shows the previous player's form or
     selection. It is not rendered outside the player view.
+11. **(build default Q33) Nothing drawn above a form that saves on tap changes shape in answer
+    to that tap.** The section keeps its shape while the form is open and follows the server
+    when it closes; whatever is drawn BELOW the form (the history cards) follows at once. The
+    mechanism is `useHeldWhile` (`packages/hooks`): it holds what is SHOWN, never the queries.
+    Found on the first simulator run of this screen (PAD-375): the first rating made "Evolução"
+    appear above the open form and pushed it ~350 pt down, so the coach's next tap landed on
+    nothing. One principle, three places: here; `evaluations.evolution` rule 12 (its pills and
+    figures); `evaluations.class-panel` (the participant ORDER while a row is open). The same
+    family as `evaluations.competencies` rule 5 (Q31: sections and rows never move under the
+    finger) and as a control whose place is kept before it has anything to do (the stepper's
+    clear control).
 
 ### Touches
 - `evaluations.player-view` — the shipped card it describes is replaced by rule 2 when this leaf
@@ -141,6 +158,15 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
 - **When** the slice that replaces `AddEvaluationSheet` ships
 - **Then** Ana can add and delete a strength for João on web and on iOS, and all three notes are
   still shown on both
+
+### Runs cited for `implemented` (PAD-374, #358)
+- Web, Playwright, `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports: the five files (`evaluation-tools/` ×4 +
+  `player-management/add-player`) **10 passed** at the tree of `be628e897`, 2026-09-21 21:14:27–21:15:25 UTC.
+- iOS, Maestro on the iPhone 17 Pro simulator (Session-D), at `cb2861dc8`: `57-evaluation-untouched-categories`
+  **PASSED** 2026-09-22 07:42:15–07:43:35 UTC (56 steps; its three server assertions; the backend saw the "+" PUT and
+  the clear PUT one second apart, no settle wait, load 130–220); `78-player-evaluations` **PASSED** 07:43:36–07:45:03 UTC
+  (four PUTs 200, cleanup DELETE 200). The stepper's fixed value cell measured at `c556b72a7`: "+" at x 150 in en and pt.
+- Unit, at `7dc7aac03`'s tree: `npm test` web 238, packages 532, mobile 538 (2026-09-22 00:11:33–00:12:00 UTC).
 
 ### Notes
 - The read is unpaged in the plan's contract. OPEN: add a cursor if production counts show

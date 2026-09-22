@@ -37,9 +37,8 @@ export interface BacklogEntry {
 
 export const BACKLOG: readonly BacklogEntry[] = [
   { file: "pw:settings/notification-engine-settings.spec.ts", max: 14, reason: "14 en UI strings, e.g. '^automatic notifications$', '^group 1$'" },
-  { file: "mz:flows/34-player-removal.yaml", max: 4, reason: "4 en UI strings, e.g. 'Attendance records: .*', 'Attendance records: 0'" },
+  { file: "mz:flows/34-player-removal.yaml", max: 2, reason: "2 en UI strings: 'Attendance records: .*', 'Attendance records: 0' (PAD-373 took the category section off rendered copy)" },
   { file: "pw:dashboard/student-dashboard-home.spec.ts", max: 4, reason: "4 en UI strings, e.g. 'NEEDS YOU', 'NEEDS YOU · \\d+'" },
-  { file: "pw:evaluation-tools/evaluation-persist.spec.ts", max: 3, reason: "3 en UI strings, e.g. 'no evaluations yet'" },
   { file: "pw:import-history/import-history.spec.ts", max: 3, reason: "3 en UI strings, e.g. 'are you sure', 'successfully reverted'" },
   { file: "pw:exercise-management/tactical-board.spec.ts", max: 2, reason: "2 en UI strings, e.g. 'draw the balls path', 'tap a piece to select it'" },
   { file: "pw:notification-engine/cancellation-deadline.spec.ts", max: 2, reason: "2 en UI strings, e.g. '^automatic notifications$', '^cancellation deadline$'" },

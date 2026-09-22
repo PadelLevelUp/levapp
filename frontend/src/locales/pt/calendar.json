@@ -76,7 +76,8 @@
       "fieldDays": "Dias da semana",
       "fieldEndDate": "Data de fim",
       "court": "Campo",
-      "noCourt": "Sem campo"
+      "noCourt": "Sem campo",
+      "fieldName": "Nome"
     },
     "overlap": {
       "title": "Horário sobreposto",
@@ -293,6 +294,7 @@
       "failedUpdateEvent": "Falha ao atualizar o evento",
       "eventDeleted": "Evento eliminado",
       "failedDeleteEvent": "Falha ao eliminar o evento",
+      "holdOccurrenceLocked": "Este bloco é a reserva de um pedido de aula: só pode ser eliminado por inteiro. Proponha outro horário no pedido.",
       "repeatOnDay": "Repetir no dia {{day}}",
       "delete": "Eliminar",
       "deleteTitle": "Eliminar evento",
@@ -343,6 +345,7 @@
       "updateFailedDescription": "Não foi possível guardar as alterações.",
       "eventRescheduled": "Evento reagendado",
       "failedReschedule": "Falha ao reagendar o evento",
+      "holdOccurrenceLocked": "Este horário está reservado para um pedido de aula — proponha outro horário no pedido.",
       "eventCreated": "Evento criado",
       "failedCreateEvent": "Falha ao criar o evento",
       "classCreated": "Aula criada",

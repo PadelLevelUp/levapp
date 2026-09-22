@@ -1,0 +1,72 @@
+import { Ionicons } from "@expo/vector-icons";
+import { lightTheme } from "@levelup/config";
+import * as React from "react";
+import { useTranslation } from "react-i18next";
+import { View } from "react-native";
+
+import { Button } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
+
+interface ScoreStepperProps {
+  id: number | string;
+  name: string;
+  score: number | null;
+  scaleMin: number;
+  scaleMax: number;
+  /** Omit for a read-only "n/max" (a history card). */
+  onStep?: (delta: 1 | -1) => void;
+  onClear?: () => void;
+}
+
+/**
+ * A legacy category keeps its own scale and is a NUMBER — "7/10" with a stepper,
+ * never stars (evaluations.competencies rule 3, owner question Q1's default).
+ * The value's testID carries the score (`…-value-7`, `…-value-none`): an empty
+ * RN view vanishes from Maestro's hierarchy, a testID does not.
+ */
+export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onClear }: ScoreStepperProps) {
+  const { t } = useTranslation();
+  const value = (
+    <Text
+      className={score === null ? "text-sm text-muted-foreground" : "text-sm font-medium"}
+      testID={`evaluation-stepper-${id}-value-${score ?? "none"}`}
+      accessibilityLabel={score === null ? t("players.evaluationHistory.notRated") : undefined}
+    >
+      {score === null
+        ? onStep
+          ? t("players.evaluationHistory.stepperUnrated", { max: scaleMax })
+          : t("players.evaluationHistory.notRated")
+        : t("players.evaluationHistory.stepperValue", { score, max: scaleMax })}
+    </Text>
+  );
+  if (!onStep) return value;
+
+  return (
+    <View className="flex-row items-center gap-2">
+      <Button variant="outline" size="icon" onPress={() => onStep(-1)} disabled={score !== null && score <= scaleMin}
+        testID={`evaluation-stepper-${id}-minus`} accessibilityLabel={t("players.evaluationHistory.stepDown", { name })}>
+        <Ionicons name="remove" size={18} color={lightTheme.foreground} />
+      </Button>
+      {/* ONE fixed width in every language: unrated is "–/10", never a sentence ("Sem classificação" was
+          ~110 pt, wider than the cell, so the first press moved "+" ~40 pt under the finger). */}
+      <View className="w-[72px] items-center">{value}</View>
+      <Button variant="outline" size="icon" onPress={() => onStep(1)} disabled={score !== null && score >= scaleMax}
+        testID={`evaluation-stepper-${id}-plus`} accessibilityLabel={t("players.evaluationHistory.stepUp", { name })}>
+        <Ionicons name="add" size={18} color={lightTheme.foreground} />
+      </Button>
+      {/* The clear control comes LAST and its place is always kept (the icon button's 40 pt). The
+          controls sit at the row's left edge here, so a control appearing BEFORE "−" and "+" pushed
+          them ~43 pt sideways after the first "+" and a quick second tap landed on the value text. */}
+      {onClear ? (
+        <View className="h-10 w-10">
+          {score !== null ? (
+            <Button variant="ghost" size="icon" onPress={onClear} testID={`evaluation-stepper-${id}-clear`}
+              accessibilityLabel={t("players.evaluationHistory.clearScore", { name })}>
+              <Ionicons name="refresh-outline" size={18} color={lightTheme.mutedForeground} />
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}

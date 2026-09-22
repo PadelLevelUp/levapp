@@ -210,6 +210,9 @@ export function AddClassSheet({
 
   const handleSave = async () => {
     const newErrors: Record<string, boolean> = {};
+    // PAD-390: a class needs a name — the server refuses an empty one (400 ["title"]);
+    // the sheet says so before the request instead of a generic "creation failed".
+    if (!name.trim()) newErrors.name = true;
     if (!date) newErrors.date = true;
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
     if (isRecurring && !recursUntilSeasonEnd && !endDate) newErrors.endDate = true;
@@ -217,6 +220,7 @@ export function AddClassSheet({
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       const missing = [
+        newErrors.name && t('calendar.addClass.fieldName'),
         newErrors.date && t('calendar.addClass.fieldDate'),
         newErrors.days && t('calendar.addClass.fieldDays'),
         newErrors.endDate && t('calendar.addClass.fieldEndDate'),
