@@ -8,7 +8,9 @@ pinned value by value, R-048 — no client re-derives it)::
     score:  1  2  3  4  5  6  7  8  9  10
     stars:  1  1  2  2  3  3  4  4  5  5
 
-i.e. ``stars = ceil(score / 2) = (score + 1) // 2``.
+i.e. ``stars = ceil(score / 2) = (score + 1) // 2``. The mapping must be
+total, not just correct on 1-10: scores below 1 — a 0 on a 0-10 category —
+become 1★; none exist in production on 2026-09-22.
 
 Production shape (Session-A, 2026-09-22 08:50:35 UTC): 7 legacy categories, 16
 entries, all 1-10, five of them the untouched midpoint 6 (-> 3 stars).
@@ -19,7 +21,10 @@ IS NULL`` is what marks a category legacy; a catalogue competency is already
 
 - ``evaluation_categories`` rows with ``competency_group IS NULL AND
   scale_max = 10`` -> ``scale_min = 1, scale_max = 5``, with the original
-  ``scale_max`` preserved in the new ``scale_max_before_conversion`` column.
+  ``scale_max`` and ``scale_min`` preserved in the new
+  ``scale_max_before_conversion`` / ``scale_min_before_conversion`` columns
+  (a legacy category need not start at 1 — a 0-10 category exists — so the
+  downgrade needs both to be reversible).
 - ``evaluation_entries`` rows under those categories -> ``score = ceil(score /
   2)``, with the original ``score`` preserved in the new
   ``score_before_conversion`` column. Record-less rows convert with the rest
@@ -51,10 +56,12 @@ quotient truncated towards zero), which equals ``(score + 1) // 2`` for every
 score in 1..10.
 
 Reversible (rule 3): ``downgrade`` restores ``score`` from
-``score_before_conversion`` and the scale from ``scale_max_before_conversion``
-where they are not null, nulls both ``*_before_conversion`` columns, then
-drops the two columns (guarded — only if present), so an ``upgrade`` afterwards
-re-adds the columns and re-converts from scratch, landing on the same rows.
+``score_before_conversion`` and the scale (both ``scale_min`` and
+``scale_max``) from ``scale_min_before_conversion`` /
+``scale_max_before_conversion`` where they are not null, nulls all three
+``*_before_conversion`` columns, then drops the three columns (guarded — only
+if present), so an ``upgrade`` afterwards re-adds the columns and
+re-converts from scratch, landing on the same rows.
 
 Revision ID: e25428020888
 Revises: 21c864b3dd59
@@ -78,14 +85,24 @@ CATEGORY_COLUMN = (
     "scale_max_before_conversion",
     lambda: sa.Column("scale_max_before_conversion", sa.Integer(), nullable=True),
 )
+CATEGORY_MIN_COLUMN = (
+    "scale_min_before_conversion",
+    lambda: sa.Column("scale_min_before_conversion", sa.Integer(), nullable=True),
+)
 
 # stars = ceil(score / 2), as integer division: (score + 1) // 2. `score` is a
 # FLOAT column, so both operands are cast to INTEGER first — plain arithmetic
 # on a FLOAT operand would be FLOAT division on Postgres and SQLite alike.
+# The mapping must be total: a 0-10 category (scale_min = 0) can hold a score
+# of 0, and (0 + 1) // 2 = 0 falls outside 1-5. Scores below 1 — a 0 on a
+# 0-10 category — become 1 star; none exist in production on 2026-09-22.
 CONVERT_ENTRIES_SQL = """
     UPDATE evaluation_entries
     SET score_before_conversion = score,
-        score = CAST((CAST(score AS INTEGER) + 1) / 2 AS INTEGER)
+        score = CASE
+            WHEN CAST(score AS INTEGER) < 2 THEN 1
+            ELSE CAST((CAST(score AS INTEGER) + 1) / 2 AS INTEGER)
+        END
     WHERE score_before_conversion IS NULL
       AND category_id IN (
           SELECT id FROM evaluation_categories
@@ -96,6 +113,7 @@ CONVERT_ENTRIES_SQL = """
 CONVERT_CATEGORIES_SQL = """
     UPDATE evaluation_categories
     SET scale_max_before_conversion = scale_max,
+        scale_min_before_conversion = scale_min,
         scale_min = 1,
         scale_max = 5
     WHERE competency_group IS NULL
@@ -113,8 +131,9 @@ RESTORE_ENTRIES_SQL = """
 RESTORE_CATEGORIES_SQL = """
     UPDATE evaluation_categories
     SET scale_max = scale_max_before_conversion,
-        scale_min = 1,
-        scale_max_before_conversion = NULL
+        scale_min = scale_min_before_conversion,
+        scale_max_before_conversion = NULL,
+        scale_min_before_conversion = NULL
     WHERE scale_max_before_conversion IS NOT NULL
 """
 
@@ -139,6 +158,13 @@ def upgrade():
         log.info("PAD-403: added evaluation_entries.%s", name)
 
     name, make = CATEGORY_COLUMN
+    if _has_column("evaluation_categories", name):
+        log.info("PAD-403: evaluation_categories.%s already present — skipping", name)
+    else:
+        op.add_column("evaluation_categories", make())
+        log.info("PAD-403: added evaluation_categories.%s", name)
+
+    name, make = CATEGORY_MIN_COLUMN
     if _has_column("evaluation_categories", name):
         log.info("PAD-403: evaluation_categories.%s already present — skipping", name)
     else:
@@ -189,6 +215,15 @@ def downgrade():
         log.info("PAD-403 downgrade: dropped evaluation_entries.%s", name)
 
     name, _make = CATEGORY_COLUMN
+    if _has_column("evaluation_categories", name):
+        if bind.dialect.name == "sqlite":
+            with op.batch_alter_table("evaluation_categories") as batch:
+                batch.drop_column(name)
+        else:
+            op.drop_column("evaluation_categories", name)
+        log.info("PAD-403 downgrade: dropped evaluation_categories.%s", name)
+
+    name, _make = CATEGORY_MIN_COLUMN
     if _has_column("evaluation_categories", name):
         if bind.dialect.name == "sqlite":
             with op.batch_alter_table("evaluation_categories") as batch:

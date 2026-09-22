@@ -64,22 +64,34 @@ endpoints (R-047) keep working.
    panel's summaries and the history cards read the converted scores (R-048, on read; nothing is
    cached). **Share snapshots keep the numbers they froze** (`evaluations.sharing` rule 7): a
    card shared before the conversion still says 7/10 — stated on the card's date, not rewritten.
-7. **What the App Store builds see — PENDING the Coordinator's choice.** iOS 1.0 (build 3) and
-   1.1.0 (build 4) render legacy categories as numbers through the five frozen endpoints and
-   post a value for every category on save. Two shapes, one to be chosen before anything is
-   built, both keeping R-047 point 7's pins byte-identical or making an explicit, audited pin
-   update:
-   - **A — serve 1–5 as stored:** `GET /evaluation_categories` and `player_profile` answer
-     `scaleMin 1, scaleMax 5, score = stars`; admissible only if both builds derive their
-     control's range and untouched default from the payload's `scaleMin`/`scaleMax` (evidence:
-     the two trees, file:line); a build that hard-codes 10 or the midpoint 6 would post
-     out-of-range scores into a converted category (B-126: no server range check there).
-   - **B — the frozen endpoints keep speaking 1–10 for legacy categories:** out, `score =
-     2 × stars` with `scaleMin 1, scaleMax 10`; in, `stars = ceil(v / 2)`; the five handlers'
-     shapes and the PAD-362/363 pins stay byte-identical, the builds notice nothing, and the
-     midpoint round-trips (6 → 3★ → 6, so "equal to latest → skip" keeps holding). The dropped
-     scale survives only as a presentation mapping inside those five handlers, retired with
-     them (R-047 point 8).
+7. **What the App Store builds see — Option A, serve 1–5 as stored (Coordinator's ruling,
+   2026-09-22, after the owner's yes on the mapping; D104).** The five frozen endpoints answer
+   the converted values with `scaleMin 1, scaleMax 5` and keep their shapes; no mapping layer
+   is added to any handler, so "the old scale is dropped" is true for every client. Evidence,
+   read by Session-B in BOTH pinned trees (1.0 = `6f5d0c1ce`, 1.1.0 = `6b48f79e3`,
+   `frontend/apps/mobile/src/features/players/add-evaluation-form.tsx`, identical lines): the
+   untouched default is the payload's midpoint `existing?.score ?? Math.round((cat.scaleMin +
+   cat.scaleMax) / 2)` (:62 → 3 for 1–5, the same value the migration gives a legacy midpoint 6);
+   the stepper clamps to the payload's range `Math.min(max, Math.max(min, current + delta))`
+   (:70) and its ends are `value <= cat.scaleMin` / `value >= cat.scaleMax` (:121-122); every
+   category is posted on save (:81-85); the profile renders `{ev.score}/{ev.scaleMax}`
+   (`app/player/[playerId].tsx` :436 / :432); no literal 0- or 10-bound assumption exists on
+   those paths in either tree. So after conversion those builds show "3/5", step within 1–5 and
+   post 1–5 — nothing to change in them. Consequences this ticket carries:
+   - **A new legacy category from 1.1.0's editor is stored 1–5 whatever the body says** (its
+     editor sends `scaleMin: 0, scaleMax: 10`, `evaluation-categories-section.tsx` :82-83,
+     :136-138): `POST /add_evaluation_categories` creates or updates the row as 1–5 and echoes it
+     as 1–5; the build reads the scale back from the payload and behaves. Pinned in the R-047
+     pin file: 0/10 in → 1/5 out, and the midpoint 3 that build then posts is stored as 3.
+   - **The R-047 pin files change** (`test_pad362_evaluation_contract.py`,
+     `test_pad363_legacy_freeze.py`): they seed legacy categories as 1–10 and assert those
+     numbers; the update is an explicit, audited pin update under R-047 point 7 — a separate,
+     FIRST commit on the branch, its diff limited to the seeded scale and the expected numbers,
+     reviewed by Session-C (the pins' author) as a change to R-047 and named "R-047 pin update"
+     in the PR body.
+   - Option B (the five handlers mapping 2 × stars out and ceil(v / 2) in) was rejected: it
+     keeps two numbers for one rating alive in five handlers until R-047 retires, and every
+     future reader of those handlers inherits the mapping.
 8. **Web and iOS ship together.** Both render every category as stars after this ticket;
    unit tests assert the rendering of fixed responses (never the mapping — that is the server's
    pin); Playwright and Maestro (flow number agreed with E and C) exercise a converted category
