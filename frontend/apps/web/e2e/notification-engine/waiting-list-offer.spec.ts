@@ -21,6 +21,7 @@ import { loginAsStudent } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 import { ui } from "../helpers/i18n";
+import { cleanupReminderTestClasses } from "../helpers/reminder-test-class";
 
 const API_BASE = API_APP;
 const AUTH_BASE = API_AUTH;
@@ -33,6 +34,18 @@ async function coachApiToken(request: APIRequestContext): Promise<string> {
   const json = await res.json();
   return (json.accessToken ?? json.access_token) as string;
 }
+
+// B-131: each test here seeds a fresh "E2E Auto-Reminder Test" class via the
+// debug endpoint; nothing removed it. Sweep whatever this file created.
+test.afterAll(async ({ playwright }) => {
+  const request = await playwright.request.newContext();
+  try {
+    const coachToken = await coachApiToken(request);
+    await cleanupReminderTestClasses(request, coachToken);
+  } finally {
+    await request.dispose();
+  }
+});
 
 /**
  * A fresh future instance plus a `waiting_list_offer` on it for e2e-student.

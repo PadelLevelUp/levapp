@@ -543,6 +543,12 @@ def _debug_endpoints_enabled():
     return str(flag).strip().lower() in ("1", "true", "yes", "on")
 
 
+# B-131: the exact title stamped on every class the reminder-test debug route
+# creates below, shared with its cleanup counterpart so the two routes can
+# never drift apart on what "a reminder test class" means.
+REMINDER_TEST_CLASS_TITLE = "E2E Auto-Reminder Test"
+
+
 @bp.post("/debug/schedule_reminder_test")
 @jwt_required()
 def debug_schedule_reminder_test():
@@ -605,7 +611,7 @@ def debug_schedule_reminder_test():
     class_end = class_start + timedelta(hours=1)
 
     lesson = Lesson(
-        title="E2E Auto-Reminder Test",
+        title=REMINDER_TEST_CLASS_TITLE,
         type="academy",
         status="active",
         start_datetime=class_start,
@@ -652,11 +658,62 @@ def debug_schedule_reminder_test():
 
     return jsonify({
         "instanceId": instance.id,
+        "lessonId": lesson.id,
         "reminderJobAt": reminder_dt.isoformat() if reminder_dt else None,
         "msToWait": ms_to_wait,
         "studentIds": [student1_user.id, student2_user.id],
         "studentUsernames": ["e2e-student", "e2e-student-2"],
     })
+
+
+@bp.post("/debug/schedule_reminder_test/cleanup")
+@jwt_required()
+def debug_cleanup_reminder_test_classes():
+    """
+    E2E test helper (B-131) — only active when E2E_DEBUG_ENDPOINTS is set AND
+    the caller presents a valid JWT.
+
+    ``debug_schedule_reminder_test`` above creates a Lesson + LessonInstance
+    titled ``REMINDER_TEST_CLASS_TITLE`` and nothing ever removed it (R-040: an
+    E2E spec puts the shared database back). This route deletes every class
+    with that title belonging to the CALLING coach, reusing
+    ``remove_class_service`` — the same scope-aware removal the app's own
+    "remove class" action uses — so instances, presences, coach associations
+    and scheduler jobs are cleaned up exactly the way a real delete would.
+
+    Response: { "removed": int }
+    """
+    if not _debug_endpoints_enabled():
+        abort(404)
+
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.services.lesson_service import remove_class_service
+
+    coach = _current_coach()
+
+    lessons = (
+        Lesson.query
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        .filter(Lesson.title == REMINDER_TEST_CLASS_TITLE)
+        .filter(Association_CoachLesson.coach_id == coach.id)
+        .all()
+    )
+
+    removed = 0
+    for lesson in lessons:
+        event_date = lesson.start_datetime.date().isoformat()
+        _, status = remove_class_service({
+            "event": {
+                "model": "Lesson",
+                "originalId": lesson.id,
+                "date": event_date,
+            },
+            "scope": "single",
+        })
+        if 200 <= status < 300:
+            removed += 1
+
+    return jsonify({"removed": removed})
 
 
 @bp.post("/debug/reset_presence")
