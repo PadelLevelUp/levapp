@@ -153,6 +153,23 @@ def test_present_mode_exposes_exactly_the_keys_the_body_held():
     assert adapter.form["title"] is None  # null survives into the request
 
 
+def test_the_mode_is_fixed_at_construction_and_legacy_has_no_present_set():
+    """Session-B's F1 on #366: `r = JsonRequestAdapter(d, f); r.mode = "present"` ran as present
+    while the call-site guard counted it as legacy. The mode is read-only, and the thing
+    Form.set_values needs from present mode does not exist on a legacy request."""
+    form = _form(SCALAR_FIELDS)
+    legacy = JsonRequestAdapter({"capacity": 0}, form)
+    with pytest.raises(AttributeError):
+        legacy.mode = "present"
+    assert not hasattr(legacy, "present")
+    assert form.set_values(legacy)["capacity"] is None  # still legacy after the attempt
+    present = JsonRequestAdapter({"capacity": 0}, form, mode="present")
+    with pytest.raises(AttributeError):
+        present.mode = "legacy"
+    with pytest.raises(AttributeError):
+        present.present = frozenset()
+
+
 def test_present_absent_keys_are_not_in_values_booleans_included():
     assert _present(SCALAR_FIELDS, {}) == {}
     values = _present(SCALAR_FIELDS, {"title": "Aula"})
@@ -209,7 +226,10 @@ def test_present_a_many_to_one_that_is_there_and_collections_are_as_today():
 
 
 def test_present_mode_leaves_no_trace_on_the_fields():
-    """The Jinja editor reuses Field objects; a mode flag left behind would change an HTML post."""
+    """A Field object read once in present mode reads legacy again afterwards (the flag is
+    set and reset by set_values). No form is reused across requests today — every
+    get_create_form builds a fresh Form — the next test pins that; this one covers
+    sequential reuse inside one request."""
     form = _form(SCALAR_FIELDS)
     form.set_values(JsonRequestAdapter({"capacity": 0}, form, mode="present"))
     assert form.set_values(_FrozenLegacyAdapter({"capacity": 0}, form))["capacity"] is None
@@ -223,3 +243,27 @@ def test_an_html_post_has_no_mode_and_is_read_exactly_as_before():
     values = _form(SCALAR_FIELDS).set_values(HtmlRequest())
     assert values["title"] is None and values["capacity"] == "0" and values["is_recurring"] is False
     assert set(values) == {name for name, _ in SCALAR_FIELDS}
+
+
+def test_every_model_builds_a_fresh_form_on_each_call(app):
+    """The present-mode flag lives on the Field for the length of one set_values call. That is
+    thread-safe only while no Form or Field outlives a request — i.e. while every
+    get_create_form builds anew and nothing memoises it (Session-B's review of #366). This
+    is that convention, pinned: a cached form would fail here."""
+    import inspect as _inspect
+
+    from padel_app import models as _models
+    from padel_app.sql_db import db
+
+    checked = 0
+    with app.app_context():
+        for _name, cls in _inspect.getmembers(_models, _inspect.isclass):
+            if not issubclass(cls, db.Model) or "get_create_form" not in vars(cls):
+                continue
+            if not isinstance(vars(cls)["get_create_form"], classmethod):
+                cls = cls()  # an instance method (Backend_App): the form is per instance, built on each call
+            first, second = cls.get_create_form(), cls.get_create_form()
+            assert first is not second, f"{cls.__name__}.get_create_form is memoised"
+            assert all(a is not b for a, b in zip(first.fields, second.fields)), f"{cls.__name__} shares Field objects"
+            checked += 1
+    assert checked >= 20, f"only {checked} models checked — did the import path change?"

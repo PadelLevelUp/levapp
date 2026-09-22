@@ -112,3 +112,15 @@ def test_write_none_never_clears_a_password_or_a_collection(app):
         before = list(getattr(lesson, collections[0]))
         lesson.update_with_dict({collections[0]: None}, write_none=True)
         assert list(getattr(lesson, collections[0])) == before
+
+
+def test_the_app_answers_a_not_nullable_field_error_with_a_400_naming_the_fields(app):
+    """Session-B's F2 on #366: without this, step 1's first refusal would be a 500. The
+    handler is registered on the frontend_api blueprint; nothing raises it yet."""
+    from padel_app.modules.frontend_api import bp
+
+    handler = bp.error_handler_spec[None][None][NotNullableFieldError]
+    with app.test_request_context("/api/app/edit_class"):
+        response, status = handler(NotNullableFieldError(["type", "max_players"]))
+    assert status == 400
+    assert response.get_json() == {"error": "invalid_fields", "fields": ["type", "max_players"]}
