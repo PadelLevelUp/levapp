@@ -9,9 +9,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { EvaluationRecord } from "@levelup/types";
 
 const unshareMutateAsync = vi.fn(async () => undefined);
+const shareMutateAsync = vi.fn(async () => undefined);
 
 vi.mock("@levelup/hooks", () => ({
-  useUnshareEvaluation: () => ({ mutateAsync: unshareMutateAsync }),
+  useUnshareEvaluation: () => ({ mutateAsync: unshareMutateAsync, isPending: false }),
+  useShareEvaluation: () => ({ mutateAsync: shareMutateAsync, isPending: false }),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -74,11 +76,13 @@ describe("the share-status line", () => {
     expect(screen.queryByTestId("evaluation-history-update-share-9")).toBeNull();
   });
 
-  it("offers 'Atualizar partilha' when the share is stale, opening the same dialog", () => {
-    const stale = record({ share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [3], evolution: "last", includeNote: false, stale: true } });
+  it("offers 'Atualizar partilha' when stale: the same POST with the STORED selection, no dialog (rule 7)", async () => {
+    const stale = record({ share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [3], evolution: "6m", includeNote: true, stale: true } });
     render(<EvaluationHistoryCard record={stale} isStars={isStars} playerId="9" playerName="João Silva" />);
     fireEvent.click(screen.getByTestId("evaluation-history-update-share-9"));
-    expect(screen.getByTestId("share-dialog-stub")).toBeTruthy();
+    await Promise.resolve();
+    expect(shareMutateAsync).toHaveBeenCalledWith({ recordId: 9, input: { categoryIds: [3], evolution: "6m", includeNote: true } });
+    expect(screen.queryByTestId("share-dialog-stub")).toBeNull();
   });
 
   it("un-shares on tap", async () => {

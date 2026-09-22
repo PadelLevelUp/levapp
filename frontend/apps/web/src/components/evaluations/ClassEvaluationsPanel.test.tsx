@@ -31,6 +31,7 @@ vi.mock("@levelup/hooks", async () => ({
   // hook — this panel never passes it a player, so the share control stays hidden and
   // this stub is never exercised, only mounted.
   useUnshareEvaluation: () => ({ mutateAsync: vi.fn() }),
+  useShareEvaluation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Pencil, Share2, Trash2 } from "lucide-react";
 import type { EvaluationRecord } from "@levelup/types";
 import { competencyLabel } from "@levelup/config";
-import { useUnshareEvaluation } from "@levelup/hooks";
+import { useShareEvaluation, useUnshareEvaluation } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
 import { ShareEvaluationDialog } from "./ShareEvaluationDialog";
 import { StarRating } from "./StarRating";
@@ -42,8 +42,23 @@ export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete, playe
   const { t, i18n } = useTranslation();
   const id = record.id;
   const [shareOpen, setShareOpen] = useState(false);
+  const share = useShareEvaluation(playerId ?? "");
   const unshare = useUnshareEvaluation(playerId ?? "");
+  const busy = share.isPending || unshare.isPending;
   const canShare = Boolean(playerId && playerName);
+
+  // Sharing rule 7's "Atualizar partilha": the SAME POST again with the selection
+  // already stored on the record — not the dialog's fresh defaults, which would
+  // widen what the player sees.
+  const handleUpdateShare = async () => {
+    if (!record.share) return;
+    const { categoryIds, evolution, includeNote } = record.share;
+    try {
+      await share.mutateAsync({ recordId: record.id, input: { categoryIds, evolution, includeNote } });
+    } catch {
+      toast.error(t("players.evaluationSharing.share.error"));
+    }
+  };
 
   const handleUnshare = async () => {
     try {
@@ -96,12 +111,12 @@ export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete, playe
                   date: formatEvaluationDate(record.share.sharedAt, i18n.language),
                 })}
               </span>
-              <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void handleUnshare()}
+              <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled={busy} onClick={() => void handleUnshare()}
                 data-testid={`evaluation-history-unshare-${id}`}>
                 {t("players.evaluationSharing.share.unshare")}
               </Button>
               {record.share.stale && (
-                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setShareOpen(true)}
+                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled={busy} onClick={() => void handleUpdateShare()}
                   data-testid={`evaluation-history-update-share-${id}`}>
                   {t("players.evaluationSharing.share.update")}
                 </Button>
