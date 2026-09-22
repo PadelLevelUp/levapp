@@ -61,7 +61,11 @@ leaving it. Today the only entry point is the player's page.
    when the row opens. When the row's record is **not** `editable` (it was made on an earlier
    day) the summary and the expanded ratings come from it, shown read-only with its date; the
    first tap today starts today's record for the same occurrence (`evaluations.records` rule 2),
-   which the next read returns.
+   which the next read returns. **(Q33, PAD-376 review F1) The earlier-day card does not move the
+   form while the row is open:** that first tap makes today's record the row's most recent one, so
+   the card would otherwise unmount and drop the form under the coach's finger; the card is held
+   until the row is closed (`useHeldWhile`, keyed on the open row), and the reopened row shows
+   today's record alone.
 6. **(AV-014, AV-071) The expanded row** has one line per listed competency (rule 5) — five stars
    for a 1–5 competency, a number with a stepper for a legacy scale (`evaluations.competencies`
    rule 3) — then "Nota privada (opcional)". Each input saves as it is made; tapping the lit star
@@ -85,7 +89,10 @@ leaving it. Today the only entry point is the player's page.
     enrols its roster and fills its waiting list. **(build default Q35) The clients decide this
     from the read's `canRate` alone:** `false` → the action is disabled with its explanation;
     a 403 from the read (the coach does not own the class) → the action is absent altogether, so
-    a non-owner never sees a control to be refused by; no client compares a date with its own
+    a non-owner never sees a control to be refused by; **(PAD-376 review F2) any other failure of
+    the read is its own state — an error with a retry — never "not the owner", and a failure while
+    the last good read is still held changes nothing, so a failed post-write refetch never unmounts
+    an open panel mid-edit;** no client compares a date with its own
     clock (R-048's principle: the server is the one instrument). The building slice may propose
     something less restrictive to the evaluation-system lead; it never materialises a past class
     as a side effect of rating.

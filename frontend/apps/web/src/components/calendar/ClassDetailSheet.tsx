@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction } from "@levelup/config";
+import { classEvaluationsAction, errorStatusOf } from "@levelup/config";
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -217,6 +217,7 @@ export function ClassDetailSheet({
     isClass: isClassEvent,
     data: classEvaluations.data,
     isError: classEvaluations.isError,
+    errorStatus: errorStatusOf(classEvaluations.error),
   });
   useEffect(() => {
     setShowEvaluations(false);
@@ -1522,7 +1523,7 @@ export function ClassDetailSheet({
 
           {!isEditing ? (
             <>
-              <ClassEvaluationsAction state={evaluationsAction} onOpen={() => setShowEvaluations(true)} />
+              <ClassEvaluationsAction state={evaluationsAction} onOpen={() => setShowEvaluations(true)} onRetry={() => void classEvaluations.refetch()} />
               {canManage && (
                 <div className="flex gap-2 flex-wrap">
                   <Button

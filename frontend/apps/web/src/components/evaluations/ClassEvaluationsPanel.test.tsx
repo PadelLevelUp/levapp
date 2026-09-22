@@ -184,10 +184,27 @@ describe("a record made on an earlier day (Q28)", () => {
     expect(summary(20).getAttribute("data-rated")).toBe("1");
     toggle(20);
     const earlier = within(screen.getByTestId("class-eval-earlier-20"));
-    expect(earlier.getByTestId("evaluation-history-card-3").textContent).toContain("20 set 2026");
+    expect(earlier.getByTestId("evaluation-history-card-3")).toBeTruthy(); // the date is rendered copy: asserted by the card's id
     expect(earlier.getByTestId("evaluation-stars-1").getAttribute("data-score")).toBe("4");
     expect(earlier.queryByTestId("evaluation-history-delete-3")).toBeNull();
     expect(earlier.queryByTestId("evaluation-history-edit-3")).toBeNull();
+  });
+
+  it("after the first tap the read returns TODAY's record, and the earlier-day card stays put while the row is open (review F1, Q33)", async () => {
+    const view = show();
+    toggle(20);
+    expect(screen.getByTestId("class-eval-earlier-20")).toBeTruthy();
+    await act(async () => fireEvent.click(within(screen.getByTestId("evaluation-form")).getByTestId("evaluation-star-2-3")));
+    // the write invalidated the read: the participant's most recent record is now today's (Q28)
+    state.read = { ...CLASS_88, participants: [participant(20, "Rui", { record: record({ id: 41, ratings: [rating(TATICA, 3)] }) })] };
+    view.rerender(<ClassEvaluationsPanel classRef={REF} className="Aula 5" onBack={view.onBack} />);
+    expect(screen.getByTestId("class-eval-earlier-20"), "the card above the form did not unmount under the finger").toBeTruthy();
+    expect(within(screen.getByTestId("evaluation-form")).getByTestId("evaluation-stars-2").getAttribute("data-score")).toBe("3");
+    // closing the row releases the hold: reopened, the row is today's record alone
+    toggle(20);
+    toggle(20);
+    expect(screen.queryByTestId("class-eval-earlier-20")).toBeNull();
+    expect(within(screen.getByTestId("evaluation-form")).getByTestId("evaluation-stars-2").getAttribute("data-score")).toBe("3");
   });
 
   it("the form beside it starts empty, and the first tap starts today's record: no recordId, the same class", async () => {

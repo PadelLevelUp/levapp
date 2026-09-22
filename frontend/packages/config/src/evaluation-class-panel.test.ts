@@ -81,8 +81,19 @@ describe("when the class detail offers 'Avaliações' (rules 1, 10)", () => {
     expect(classEvaluationsAction({ isCoach: true, isClass: false, data: read({}), isError: false })).toBe("hidden");
   });
 
-  it("is hidden when the read was refused (a coach who does not own the class)", () => {
-    expect(classEvaluationsAction({ isCoach: true, isClass: true, data: undefined, isError: true })).toBe("hidden");
+  it("is hidden when the read was REFUSED — a 403, the coach does not own the class", () => {
+    expect(classEvaluationsAction({ isCoach: true, isClass: true, data: undefined, isError: true, errorStatus: 403 })).toBe("hidden");
+  });
+
+  it("any other failure is an 'error' state with a retry, never 'not the owner' (review F2)", () => {
+    expect(classEvaluationsAction({ isCoach: true, isClass: true, data: undefined, isError: true, errorStatus: 502 })).toBe("error");
+    expect(classEvaluationsAction({ isCoach: true, isClass: true, data: undefined, isError: true, errorStatus: undefined })).toBe("error");
+  });
+
+  it("a refetch that fails while the last good read is still held keeps the panel available", () => {
+    expect(classEvaluationsAction({ isCoach: true, isClass: true, data: read({ canRate: true }), isError: true, errorStatus: 502 })).toBe("available");
+    // but a 403 on refetch means the class changed hands: hidden, whatever was held
+    expect(classEvaluationsAction({ isCoach: true, isClass: true, data: read({ canRate: true }), isError: true, errorStatus: 403 })).toBe("hidden");
   });
 
   it("waits for the server rather than guessing from a date", () => {

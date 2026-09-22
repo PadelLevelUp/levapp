@@ -33,6 +33,15 @@ describe("the 'Avaliações' action on the class detail", () => {
     expect(button.getAttribute("aria-describedby")).toBe(screen.getByTestId("class-eval-unavailable").id);
   });
 
+  it("a read that failed for a reason other than 'not the owner' is an error with a retry, not a vanished action (review F2)", () => {
+    const onRetry = vi.fn();
+    render(<ClassEvaluationsAction state="error" onOpen={vi.fn()} onRetry={onRetry} />);
+    expect(screen.queryByTestId("class-evaluations-open")).toBeNull();
+    expect(screen.getByTestId("class-eval-error")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("class-eval-retry"));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it("is disabled, without an explanation, while the server has not answered", () => {
     render(<ClassEvaluationsAction state="loading" onOpen={vi.fn()} />);
     expect((screen.getByTestId("class-evaluations-open") as HTMLButtonElement).disabled).toBe(true);
