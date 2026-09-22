@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy import (
     Column,
     Integer,
@@ -13,6 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
@@ -36,7 +36,7 @@ class Message(db.Model, model.Model):
 
     id = Column(Integer, primary_key=True)
     text = Column(String, nullable=False)
-    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    sent_at = Column(DateTime, default=lambda: utcnow_naive(), nullable=False)
     
     # Relationships with User
     sender_id = Column(

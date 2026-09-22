@@ -191,7 +191,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     require `status == "absent"` — **an absence is a row whose status says so** — which makes the
     engine right for the rows already stale without a data repair. The same holds for the third
     reader, `_students_with_justified_absences`, which fills the "Justified absences" group of the
-    coach's manual-invitation dialog on both shells (`GET /notify/groups`, enabled by default), and
+    coach's manual-invitation dialog on both shells (`GET /notify/groups`, enabled by default; since
+    PAD-382 it reads this coach's occurrences only — `attendance.stats` rule 1), and
     for the second writer, the attendance import (`import_service.bulk_create_presences`): a sheet
     row that says "present" is stored with no justification, whatever its justification cell holds. An ABSENT row is unchanged: a
     justification sent is written, an omitted one is left as it was. The stale rows themselves are

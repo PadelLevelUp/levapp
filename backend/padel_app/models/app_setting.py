@@ -1,8 +1,8 @@
-from datetime import datetime
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 
 
 class AppSetting(db.Model):
@@ -26,6 +26,6 @@ class AppSetting(db.Model):
 
     key = Column(String(64), primary_key=True)
     value = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: utcnow_naive(), nullable=False)
+    updated_at = Column(DateTime, default=lambda: utcnow_naive(), onupdate=lambda: utcnow_naive(), nullable=False)
     updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
