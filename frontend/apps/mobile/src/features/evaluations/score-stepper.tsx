@@ -30,9 +30,12 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
     <Text
       className={score === null ? "text-sm text-muted-foreground" : "text-sm font-medium"}
       testID={`evaluation-stepper-${id}-value-${score ?? "none"}`}
+      accessibilityLabel={score === null ? t("players.evaluationHistory.notRated") : undefined}
     >
       {score === null
-        ? t("players.evaluationHistory.notRated")
+        ? onStep
+          ? t("players.evaluationHistory.stepperUnrated", { max: scaleMax })
+          : t("players.evaluationHistory.notRated")
         : t("players.evaluationHistory.stepperValue", { score, max: scaleMax })}
     </Text>
   );
@@ -44,7 +47,9 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
         testID={`evaluation-stepper-${id}-minus`} accessibilityLabel={t("players.evaluationHistory.stepDown", { name })}>
         <Ionicons name="remove" size={18} color={lightTheme.foreground} />
       </Button>
-      <View className="min-w-[72px] items-center">{value}</View>
+      {/* ONE fixed width in every language: unrated is "–/10", never a sentence ("Sem classificação" was
+          ~110 pt, wider than the cell, so the first press moved "+" ~40 pt under the finger). */}
+      <View className="w-[72px] items-center">{value}</View>
       <Button variant="outline" size="icon" onPress={() => onStep(1)} disabled={score !== null && score >= scaleMax}
         testID={`evaluation-stepper-${id}-plus`} accessibilityLabel={t("players.evaluationHistory.stepUp", { name })}>
         <Ionicons name="add" size={18} color={lightTheme.foreground} />

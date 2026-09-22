@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   competencyLabel,
-  createDebouncedWriter,
   formCompetencies,
   isStarCompetency,
   lightTheme,
   nextStarScore,
+  stableFormRows,
   stepScore,
 } from "@levelup/config";
+import { useEvaluationFormSession } from "@levelup/hooks";
 import type {
   EvaluationCompetency,
   EvaluationRecord,
@@ -39,10 +40,6 @@ interface EvaluationFormProps {
   onManageCompetencies: () => void;
 }
 
-const STEP_QUIET_MS = 400;
-const NOTE_QUIET_MS = 800;
-const NOTE_KEY = "note";
-
 /**
  * "Nova avaliação" on iOS — the same rules as web's `EvaluationForm`
  * (evaluations.history rules 4-5, evaluations.records rules 7, 10, 11), and the
@@ -54,61 +51,24 @@ const NOTE_KEY = "note";
  */
 export function EvaluationForm({ competencies, record, onSave, onClose, onManageCompetencies }: EvaluationFormProps) {
   const { t } = useTranslation();
-  const rows = React.useMemo(() => formCompetencies(competencies, record), [competencies, record]);
+  // A row that was listed stays listed while the form is open (Q33's family).
+  const listed = React.useRef<EvaluationCompetency[]>([]);
+  const rows = React.useMemo(() => {
+    listed.current = stableFormRows(listed.current, formCompetencies(competencies, record));
+    return listed.current;
+  }, [competencies, record]);
 
-  const opened = React.useMemo(() => {
-    const scores: Record<string, number | null> = {};
-    for (const rating of record?.ratings ?? []) scores[String(rating.categoryId)] = rating.score;
-    return scores;
-  }, [record]);
-  const [scores, setScores] = React.useState<Record<string, number | null>>(opened);
-  const [note, setNote] = React.useState(record?.note ?? "");
-  const [failed, setFailed] = React.useState(false);
-
-  const accepted = React.useRef<{ scores: Record<string, number | null>; note: string; recordId?: number }>({
-    scores: { ...opened }, note: record?.note ?? "", recordId: record?.id,
-  });
   const onSaveRef = React.useRef(onSave);
   onSaveRef.current = onSave;
-
-  const save = async (input: SaveInput, rollback: () => void, commit: () => void) => {
-    const recordId = accepted.current.recordId;
-    try {
-      const result = await onSaveRef.current(recordId === undefined ? input : { ...input, recordId });
-      accepted.current.recordId = "deleted" in result ? undefined : result.id;
-      commit();
-      setFailed(false);
-    } catch {
-      rollback();
-      setFailed(true);
-      toast.error(t("players.evaluationHistory.saveFailed"));
-    }
-  };
-
-  const saveScore = (key: string, value: number | null) =>
-    save(
-      { ratings: { [key]: value } },
-      () => setScores((now) => (now[key] === value ? { ...now, [key]: accepted.current.scores[key] ?? null } : now)),
-      () => { accepted.current.scores[key] = value; }
-    );
-
-  const writers = React.useMemo(
-    () => ({
-      steps: createDebouncedWriter<number | null>((key, value) => void saveScore(key, value), STEP_QUIET_MS),
-      note: createDebouncedWriter<string>(
-        (_key, value) =>
-          void save({ note: value }, () => setNote((now) => (now === value ? accepted.current.note : now)),
-            () => { accepted.current.note = value; }),
-        NOTE_QUIET_MS
-      ),
-    }),
-    // one pair of writers for the form's life; `save` reads its inputs through refs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-  const flushAll = () => { writers.steps.flush(); writers.note.flush(); };
-  // A quick step-then-back is never lost: unmount flushes too.
-  React.useEffect(() => flushAll, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // All saving lives in the shared session (packages/config) — the same one web renders:
+  // serialised requests, rollback, the debounced stepper and note, the day-passed 409, flush on unmount.
+  const { session, state } = useEvaluationFormSession({
+    record,
+    save: (input) => onSaveRef.current(input),
+    onFailure: (failure) => toast.error(t(failure === "dayPassed" ? "players.evaluationHistory.dayPassed" : "players.evaluationHistory.saveFailed")),
+  });
+  const { scores, note, noteUnsaved, failure } = state;
+  const flushAll = () => session.flush();
 
   if (rows.length === 0) {
     return (
@@ -146,25 +106,13 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
             {isStarCompetency(competency) ? (
               <StarRating
                 id={competency.id} name={name} score={score} max={competency.scaleMax}
-                onRate={(tapped) => {
-                  const next = nextStarScore(score, tapped);
-                  setScores((now) => ({ ...now, [key]: next }));
-                  void saveScore(key, next);
-                }}
+                onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
               />
             ) : (
               <ScoreStepper
                 id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
-                onStep={(delta) => {
-                  const next = stepScore(score, delta, competency.scaleMin, competency.scaleMax);
-                  setScores((now) => ({ ...now, [key]: next }));
-                  writers.steps.schedule(key, next);
-                }}
-                onClear={() => {
-                  setScores((now) => ({ ...now, [key]: null }));
-                  writers.steps.schedule(key, null);
-                  writers.steps.flush(key);
-                }}
+                onStep={(delta) => session.step(key, stepScore(score, delta, competency.scaleMin, competency.scaleMax))}
+                onClear={() => session.rate(key, null)}
               />
             )}
           </View>
@@ -175,14 +123,23 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         <Label nativeID="evaluation-note-label">{t("players.evaluationHistory.note")}</Label>
         <Textarea
           testID="evaluation-note" aria-labelledby="evaluation-note-label" value={note} maxLength={2000}
-          onChangeText={(text) => { setNote(text); writers.note.schedule(NOTE_KEY, text); }}
-          onBlur={() => writers.note.flush()}
+          onChangeText={(text) => session.editNote(text)}
+          onBlur={() => session.flush()}
         />
+        {noteUnsaved ? (
+          // Free text is never rolled back: the coach's words stay, marked unsaved, with a retry.
+          <View className="flex-row items-center gap-2" testID="evaluation-note-unsaved">
+            <Text className="text-sm text-destructive" accessibilityRole="alert">{t("players.evaluationHistory.noteUnsaved")}</Text>
+            <Button variant="link" size="sm" onPress={() => session.retryNote()} testID="evaluation-note-retry">
+              <Text>{t("players.evaluationHistory.retry")}</Text>
+            </Button>
+          </View>
+        ) : null}
       </View>
 
-      {failed ? (
+      {failure ? (
         <Text className="text-sm text-destructive" accessibilityRole="alert" testID="evaluation-save-error">
-          {t("players.evaluationHistory.saveFailed")}
+          {t(failure === "dayPassed" ? "players.evaluationHistory.dayPassed" : "players.evaluationHistory.saveFailed")}
         </Text>
       ) : null}
 

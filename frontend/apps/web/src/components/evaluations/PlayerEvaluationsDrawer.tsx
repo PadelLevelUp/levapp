@@ -108,7 +108,10 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
                 {t("players.evaluationHistory.history")}
               </h3>
               {target === null && (
-                <Button type="button" variant="outline" size="sm" onClick={() => setTarget("new")} data-testid="evaluation-new">
+                // Not before BOTH reads are in: tapped early, the form showed the zero-competency
+                // state falsely, or opened blank over today's record and a typed note replaced it.
+                <Button type="button" variant="outline" size="sm" onClick={() => setTarget("new")} data-testid="evaluation-new"
+                  disabled={!history.data || !competencySet.data}>
                   <Plus className="mr-1 h-4 w-4" />
                   {t("players.evaluationHistory.new")}
                 </Button>
