@@ -179,6 +179,24 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     another. The coach's *mark* controls (rule 6's prefill, the present/absent toggle)
     are unchanged: they are an action, not a second status word. No row shows two state
     words at once.
+21. **A justification belongs to an absence (PAD-381, B-152).** When `POST /class_instance/presences/confirm`
+    records `status: "present"`, the row's `justification` is cleared, whatever the body carries — empty,
+    null, a stale value, or (what both shells and the App Store builds send) no `justification` key at
+    all. The rule lives in the service (`lesson_service.add_presences`), not in the form layer: on this
+    route "no justification" is expressed by ABSENCE, and the form layer leaves an absent key alone
+    (PAD-367) — which is what used to keep "absent, justified" on a row the coach had corrected to
+    present. It was not cosmetic: `_has_makeups` and `_unjustified_absence_count`
+    (`notification_service`) counted rows by `justification` **without** checking `status`, so a corrected
+    row went on counting as a justified absence (a make-up owed) or an unjustified one. Both now also
+    require `status == "absent"` — **an absence is a row whose status says so** — which makes the
+    engine right for the rows already stale without a data repair. The same holds for the third
+    reader, `_students_with_justified_absences`, which fills the "Justified absences" group of the
+    coach's manual-invitation dialog on both shells (`GET /notify/groups`, enabled by default), and
+    for the second writer, the attendance import (`import_service.bulk_create_presences`): a sheet
+    row that says "present" is stored with no justification, whatever its justification cell holds. An ABSENT row is unchanged: a
+    justification sent is written, an omitted one is left as it was. The stale rows themselves are
+    not rewritten by this rule. Un-marking attendance (`status: null`) is a separate, open product
+    question and is not decided here.
 
 ### Acceptance Criteria
 
@@ -335,3 +353,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
   linked into the shipped binary (`apps/mobile/src/lib/api.ts` imports it at startup), so the
   export needed no native rebuild. This mirrors the trade `app/player/[playerId].tsx` already
   records for share/clipboard.
+
+#### Correcting an absence to present clears its justification (PAD-381)
+- **Given** the coach recorded Rui as absent, justified
+- **When** the coach records Rui as present, with no `justification` key in the body
+- **Then** the row is `present` with no justification
+- **When** instead the coach records Rui as absent, unjustified
+- **Then** the row is `absent`, `unjustified`
+- **Given** Rui has two unjustified absences and a third row the coach corrected to present, still carrying `unjustified` from before this rule, under a bar of "at most 2 unjustified absences"
+- **Then** the bar admits Rui; with three real unjustified absences it does not
+- **Given** Sara's only row is `present` still carrying `justified`
+- **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
