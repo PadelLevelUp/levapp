@@ -20,6 +20,8 @@ appId: com.padellevelup.app
 # ── Search and find the seeded row ──
 - tapOn:
     id: "players-search"
+# The Players tab keeps its search (Session-D's flow-97 run): clear it before typing.
+- eraseText: 40
 - inputText: "E2E Student"
 - extendedWaitUntil:
     visible:
