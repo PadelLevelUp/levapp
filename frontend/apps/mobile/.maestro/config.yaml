@@ -165,6 +165,11 @@ executionOrder:
     # asserts the unsaved row survives (PAD-392); it writes only the coach's language
     # and restores it in onFlowComplete.
     - 95-settings-language-change-keeps-edits
+    # 96 makes a weekly class request through the API, asserts the route refuses a
+    # scoped move/delete of its hold (409) and that the event screen offers only the
+    # whole delete on it (PAD-372); it cancels the delete and withdraws the request
+    # in onFlowComplete, so nothing of the seed changes.
+    - 96-hold-occurrence-locked
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

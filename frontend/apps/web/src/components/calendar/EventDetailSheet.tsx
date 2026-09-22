@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { parseISODate } from '@levelup/config';
+import { isHoldOccurrenceLocked, parseISODate } from '@levelup/config';
 import { Calendar, Clock, Edit, Save, Trash2, X, Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
@@ -144,7 +144,9 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
   };
 
   const handleDelete = () => {
-    if (block?.isRecurring) {
+    // PAD-372: a live class-request hold is deleted whole or not at all — the server
+    // refuses "this one / this and following" on it, so the scope dialog is not offered.
+    if (block?.isRecurring && !block?.requestHoldOf) {
       setScopeDialogOpen(true);
     } else {
       confirmDelete();
@@ -161,8 +163,11 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
       onDeleted(event);
       onClose();
       toast({ title: t('calendar.eventDetail.eventDeleted') });
-    } catch {
-      toast({ variant: 'destructive', title: t('calendar.eventDetail.failedDeleteEvent') });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: t(isHoldOccurrenceLocked(err) ? 'calendar.eventDetail.holdOccurrenceLocked' : 'calendar.eventDetail.failedDeleteEvent'),
+      });
     }
   };
 

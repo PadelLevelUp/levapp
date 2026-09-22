@@ -32,3 +32,4 @@ export * from "./evaluation-evolution";
 export * from "./evaluation-class-panel";
 export * from "./competency-manager";
 export * from "./evaluation-form-session";
+export * from "./hold-refusal";

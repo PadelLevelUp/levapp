@@ -1,6 +1,8 @@
 import json
 from datetime import timedelta, datetime as _datetime, date as _date, timezone
 
+from flask import abort
+
 from padel_app.model import NotNullableFieldError
 from padel_app.models import CalendarBlock
 from padel_app.tools.request_adapter import JsonRequestAdapter
@@ -125,6 +127,24 @@ def edit_calendar_block_service(block_id, data):
     return block
 
 
+def _refuse_if_live_hold(block):
+    """PAD-372 (B-138), `classes.class-requests` rule 3: a `single` or `future` change to
+    one occurrence of a LIVE class-request hold is refused — 409 ``HOLD_OCCURRENCE_LOCKED``.
+
+    On accept the class is built from the REQUEST's recurrence and a proposal moves the
+    SERIES (rules 4, 16); the hold blocks are never read. So such a change alters nothing
+    the product honours — it only splits the hold into rows no release path can find
+    (with PAD-371's split, a middle move leaves the truncated hold, a one-off AND a resumed
+    series, both outliving the request under the student's name). Whole-block delete and
+    retitle stay as rule 3 / rule 18 say; a retitled hold is the coach's and is not refused.
+    The blueprint's error handler carries the code as ``{"error": "HOLD_OCCURRENCE_LOCKED"}``,
+    the same shape the shells already branch on for ``NO_CLUB``."""
+    from padel_app.models.class_request import live_hold_request_id
+
+    if live_hold_request_id(block) is not None:
+        abort(409, "HOLD_OCCURRENCE_LOCKED")
+
+
 # ---------------------------------------------------------------------------
 # App-facing services
 # ---------------------------------------------------------------------------
@@ -236,10 +256,14 @@ def reschedule_block_service(block_id, user_id, data):
     scope = data.get('scope', 'single')
 
     if not block.is_recurring:
+        # A one-off block has no occurrences to scope: this is the whole block moving,
+        # which rule 18 lets a coach do to a hold as to any block (`PUT` new time).
         block.start_datetime = new_start_dt
         block.end_datetime = new_end_dt
         block.save()
         return
+
+    _refuse_if_live_hold(block)
 
     if scope == 'future':
         original_end = block.recurrence_end
@@ -272,9 +296,12 @@ def remove_block_service(block_id, user_id, occ_date_str, scope):
     block = CalendarBlock.query.filter_by(id=block_id, user_id=user_id).first_or_404()
 
     if not block.is_recurring or not occ_date_str:
+        # The WHOLE block: rule 3 lets the coach delete a hold outright (it does not
+        # decide the request; the request re-places nothing and closes on its own terms).
         block.delete()
         return
 
+    _refuse_if_live_hold(block)
     occ_date = _date.fromisoformat(occ_date_str)
 
     if scope == 'future':

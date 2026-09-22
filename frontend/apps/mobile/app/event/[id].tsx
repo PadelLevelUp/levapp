@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { isHoldOccurrenceLocked, lightTheme } from "@levelup/config";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -176,8 +176,10 @@ export default function EventDetailScreen() {
 
   const handleDelete = () => {
     // Recurring blocks get the same this-one / all-future choice a recurring
-    // class does; a one-off just confirms.
-    if (active.isRecurring) setDeleteScopeOpen(true);
+    // class does; a one-off just confirms. PAD-372: the live hold of an open class
+    // request is deleted whole or not at all — the server refuses the scopes on it
+    // (409 HOLD_OCCURRENCE_LOCKED), so the scope dialog is not offered there.
+    if (active.isRecurring && !block?.requestHoldOf) setDeleteScopeOpen(true);
     else setDeleteOpen(true);
   };
 
@@ -188,8 +190,10 @@ export default function EventDetailScreen() {
       await removeEvent.mutateAsync({ blockId: originalId, occDate, scope });
       toast.success(t("calendar.eventDetail.eventDeleted"));
       router.back();
-    } catch {
-      toast.error(t("calendar.eventDetail.failedDeleteEvent"));
+    } catch (err) {
+      toast.error(
+        t(isHoldOccurrenceLocked(err) ? "calendar.eventDetail.holdOccurrenceLocked" : "calendar.eventDetail.failedDeleteEvent")
+      );
     }
   };
 

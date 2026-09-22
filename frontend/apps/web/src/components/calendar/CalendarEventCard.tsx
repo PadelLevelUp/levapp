@@ -137,7 +137,11 @@ export function CalendarEventCard({
       data-event-state={state}
       data-needs-players={needsPlayers ? 'true' : 'false'}
       data-open-spot={isOpenSpot ? 'true' : 'false'}
-      draggable
+      // PAD-372: a live class-request hold cannot have one occurrence moved — the
+      // server refuses it (409 HOLD_OCCURRENCE_LOCKED), so the card is not offered
+      // for dragging at all. A change to the slot is proposed on the request.
+      draggable={!event.requestHoldOf}
+      data-request-hold={event.requestHoldOf ? 'true' : 'false'}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? ariaLabel : undefined}
@@ -156,7 +160,8 @@ export function CalendarEventCard({
       onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}
       onDragEnd={onDragEnd}
       className={cn(
-        'flex flex-col rounded-lg cursor-grab active:cursor-grabbing transition-all hover:brightness-95 overflow-hidden',
+        'flex flex-col rounded-lg transition-all hover:brightness-95 overflow-hidden',
+        event.requestHoldOf ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         isRow ? 'gap-1 px-3 py-2.5 rounded-xl' : 'gap-0.5 px-2 py-1.5',
         typeClass(),
