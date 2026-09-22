@@ -297,42 +297,86 @@ def test_edit_class_absent_keys_are_kept(app, client):
            {k: before[k] for k in ("max_players", "level", "color", "recurrence_end")}
 
 
-@pytest.mark.parametrize("updates", [
-    {"name": ""}, {"maxPlayers": 0}, {"levelId": None}, {"recurrenceEnd": None}, {"color": ""},
-], ids=["empty-name", "zero-capacity", "null-level", "null-end-date", "empty-color"])
-def test_edit_class_a_falsy_value_is_answered_201_and_changes_nothing(app, client, updates):
-    """DEFECT PINNED, NOT FIXED (B-136). The consequences that matter: a coach cannot
-    take the level off a class ("all levels") or remove a series' end date, and is
-    told it worked. An empty name being ignored is arguably right — for the wrong reason."""
+@pytest.mark.parametrize("updates,field", [
+    ({"name": ""}, "title"), ({"maxPlayers": 0}, "max_players"), ({"maxPlayers": None}, "max_players"),
+], ids=["empty-name", "zero-capacity", "null-capacity"])
+def test_edit_class_an_emptied_not_null_value_is_refused_and_nothing_is_written(app, client, updates, field):
+    """FIXED in PAD-387 (B-136 step 2): an empty name and a 0/null capacity are answered
+    400 naming the field, not silently ignored (was 201 + no change). 0 is not a legal
+    capacity — Coordinator's decision, 2026-09-21."""
     world = _class_world(app, client)
     before = _class_row(app, world["lesson_id"])
+
+    res = _edit_class(client, world, {**updates, "color": "#abcdef"})  # a legal change beside it
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": [field]}
+    assert _class_row(app, world["lesson_id"]) == before, "nothing beside it was written either"
+
+
+@pytest.mark.parametrize("updates,column", [
+    ({"levelId": None}, "level"), ({"levelId": ""}, "level"),
+    ({"recurrenceEnd": None}, "recurrence_end"), ({"recurrenceEnd": ""}, "recurrence_end"),
+    ({"color": ""}, "color"), ({"color": None}, "color"),
+], ids=["null-level", "empty-level", "null-end-date", "empty-end-date", "empty-color", "null-color"])
+def test_edit_class_an_emptied_nullable_value_clears_it(app, client, updates, column):
+    """FIXED in PAD-387 (B-136 step 2): a coach CAN take the level off a class ("all
+    levels"), remove a series' end date or its colour — both null and "" clear (decided
+    2026-09-21). Was: 201 and nothing changed."""
+    world = _class_world(app, client)
+    before = _class_row(app, world["lesson_id"])
+    assert before[column] not in (None, "None"), "the seed gives the column a value to clear"
 
     assert _edit_class(client, world, updates).status_code == 201
 
     after = _class_row(app, world["lesson_id"])
-    assert {k: after[k] for k in ("title", "max_players", "level", "color", "recurrence_end")} == \
-           {k: before[k] for k in ("title", "max_players", "level", "color", "recurrence_end")}
+    assert after[column] in (None, "None")
+    untouched = [k for k in ("title", "max_players", "level", "color", "recurrence_end") if k != column]
+    assert {k: after[k] for k in untouched} == {k: before[k] for k in untouched}
 
 
-def test_edit_class_any_edit_clears_is_recurring_while_the_rule_stays(app, client):
-    """DEFECT PINNED, NOT FIXED — B-136's sibling: the form writes every Boolean on
-    every submit, and an ABSENT boolean is False (PAD-93 fixed this for the calendar
-    block's `blocks_auto_invitations`, and backfilled `lessons.is_recurring` once).
-    The calendar feed still says recurring — it reads the rule, not the column."""
-    from datetime import timedelta
+def test_edit_class_leaves_the_booleans_it_was_not_sent_alone(app, client):
+    """FIXED in PAD-387 (B-136's sibling): an edit no longer writes `is_recurring = False`
+    (and `recurs_until_season_end = False`) because the form saw no such key."""
+    from padel_app.models.lessons import Lesson
 
     world = _class_world(app, client)
+    with app.app_context():
+        row = db.session.get(Lesson, world["lesson_id"])
+        row.recurs_until_season_end = True
+        db.session.commit()
     assert _class_row(app, world["lesson_id"])["is_recurring"] is True
 
     assert _edit_class(client, world, {"name": "Thursday group B"}).status_code == 201
 
     row = _class_row(app, world["lesson_id"])
-    assert (row["is_recurring"], row["has_rule"]) == (False, True)
-    day = world["day"]
-    feed = client.get(f"/api/app/calendar?from={day.isoformat()}&to={(day + timedelta(days=8)).isoformat()}",
-                      headers=world["headers"]).get_json()
-    served = [e["isRecurring"] for e in feed if e.get("title") == "Thursday group B" or e.get("name") == "Thursday group B"]
-    assert served and all(served), "what clients see is unaffected — today"
+    assert (row["is_recurring"], row["has_rule"]) == (True, True)
+    with app.app_context():
+        assert db.session.get(Lesson, world["lesson_id"]).recurs_until_season_end is True
+
+
+def test_edit_class_single_scope_without_a_name_keeps_the_occurrence_title_override(app, client):
+    """PAD-387: in present mode a key that is not sent is left alone — including the
+    instance's title override, which the helper used to recompute from an absent title."""
+    from padel_app.models.lesson_instances import LessonInstance
+
+    world = _class_world(app, client)
+    day = world["day"].isoformat()
+    single = {"event": {"model": "Lesson", "originalId": world["lesson_id"], "date": day}, "scope": "single"}
+    res = client.post("/api/app/edit_class", headers=world["headers"], json={**single, "updates": {"name": "Just today"}})
+    assert res.status_code == 201, res.get_data(as_text=True)  # the occurrence is materialised by this edit
+    with app.app_context():
+        instance = LessonInstance.query.filter_by(lesson_id=world["lesson_id"]).one()
+        assert instance.overwrite_title == "Just today"
+        instance_id = instance.id
+
+    res = client.post("/api/app/edit_class", headers=world["headers"], json={
+        "event": {"model": "LessonInstance", "originalId": instance_id, "date": day}, "scope": "single",
+        "updates": {"maxPlayers": 6}})
+    assert res.status_code == 200, res.get_data(as_text=True)
+    with app.app_context():
+        instance = db.session.get(LessonInstance, instance_id)
+        assert (instance.overwrite_title, instance.max_players) == ("Just today", 6)
 
 
 # ── POST /api/app/add_player (player_service.create_player_helper) ───────────

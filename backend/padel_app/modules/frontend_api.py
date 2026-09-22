@@ -2453,6 +2453,7 @@ def _assert_owns_class_payload(coach, data):
 @bp.post("/edit_class")
 @jwt_required()
 def edit_class():
+    from padel_app.model import NotNullableFieldError
     from padel_app.services.court_service import CourtNotInClubError
 
     data = request.get_json() or {}
@@ -2462,6 +2463,13 @@ def edit_class():
     except CourtNotInClubError as e:
         # clubs.courts rule 6 (PAD-194).
         return jsonify({"error": str(e), "code": e.code}), 400
+    except NotNullableFieldError as e:
+        # PAD-387: a sent-empty value for something that cannot be empty. The
+        # service refuses the known ones before writing; this is the net under it.
+        from padel_app.sql_db import db
+
+        db.session.rollback()
+        return jsonify({"error": "invalid_fields", "fields": e.fields}), 400
     return jsonify(result), status
 
 

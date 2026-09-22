@@ -25,7 +25,11 @@ NAME = "JsonRequestAdapter"
 DEFINING_MODULE = "tools/request_adapter.py"
 
 #: (file, enclosing function) of every call that passes mode="present".
-PRESENT: set = set()
+PRESENT: set = {
+    # PAD-387 (step 2): POST /edit_class
+    ("services/lesson_service.py", "edit_lesson_helper"),
+    ("services/lesson_service.py", "edit_lesson_instance_helper"),
+}
 
 #: legacy-mode calls per file; the numbers only ever go down.
 LEGACY_MAX = {
@@ -33,7 +37,7 @@ LEGACY_MAX = {
     "services/club_service.py": 2,
     "services/coach_service.py": 3,
     "services/import_service.py": 1,
-    "services/lesson_service.py": 6,
+    "services/lesson_service.py": 4,
     "services/messaging_service.py": 2,
     "services/player_service.py": 6,
     "services/user_service.py": 3,
