@@ -33,7 +33,7 @@ DDL = (
     "evaluated_at DATETIME NOT NULL)",
 )
 
-FOREHAND, TECHNIQUE = 10, 11
+FOREHAND, TECHNIQUE, VOLLEY = 10, 11, 12
 RECORD = 900
 
 # (id, coach_player_id, category_id, record_id, score, evaluated_at)
@@ -41,6 +41,8 @@ ENTRIES = (
     (1, 1, FOREHAND, RECORD, 7.0, "2026-07-01 10:00:00"),  # record-held
     (2, 1, FOREHAND, None, 9.0, "2026-07-01 15:00:00"),    # record-less (Q29): converts with the rest
     (3, 1, TECHNIQUE, None, 4.0, "2026-07-02 09:00:00"),   # catalogue competency, already 1-5: untouched
+    (4, 1, VOLLEY, None, 0.0, "2026-07-03 09:00:00"),      # 0-10 category, bottom: 0 -> 1 (the mapping is total)
+    (5, 1, VOLLEY, None, 10.0, "2026-07-03 10:00:00"),     # 0-10 category, top: 10 -> 5
 )
 
 
@@ -50,7 +52,8 @@ def _scratch():
         conn.exec_driver_sql(ddl)
     conn.exec_driver_sql(
         "INSERT INTO evaluation_categories (id, coach_id, name, competency_group, scale_min, scale_max) VALUES "
-        f"({FOREHAND}, 1, 'Forehand', NULL, 1, 10), ({TECHNIQUE}, 1, 'Technique', 'technique', 1, 5)"
+        f"({FOREHAND}, 1, 'Forehand', NULL, 1, 10), ({TECHNIQUE}, 1, 'Technique', 'technique', 1, 5), "
+        f"({VOLLEY}, 1, 'Volley', NULL, 0, 10)"
     )
     for row in ENTRIES:
         conn.exec_driver_sql(
@@ -76,7 +79,7 @@ def _cols(conn, table):
 def _categories(conn):
     cols = "id, name, competency_group, scale_min, scale_max"
     if "scale_max_before_conversion" in _cols(conn, "evaluation_categories"):
-        cols += ", scale_max_before_conversion"
+        cols += ", scale_max_before_conversion, scale_min_before_conversion"
     return conn.exec_driver_sql(
         f"SELECT {cols} FROM evaluation_categories ORDER BY id"
     ).fetchall()
@@ -103,8 +106,9 @@ def test_upgrade_converts_the_legacy_category_and_its_entries_only():
 
     categories = _categories(conn)
     assert categories == [
-        (FOREHAND, "Forehand", None, 1, 5, 10),  # 1-5 now, original max preserved
-        (TECHNIQUE, "Technique", "technique", 1, 5, None),  # catalogue competency untouched
+        (FOREHAND, "Forehand", None, 1, 5, 10, 1),  # 1-5 now, original scale preserved
+        (TECHNIQUE, "Technique", "technique", 1, 5, None, None),  # catalogue competency untouched
+        (VOLLEY, "Volley", None, 1, 5, 10, 0),  # 0-10 -> 1-5, original min 0 preserved
     ]
 
     entries = {row[0]: row for row in _entries(conn)}
@@ -112,6 +116,8 @@ def test_upgrade_converts_the_legacy_category_and_its_entries_only():
     assert entries[1] == (1, 1, FOREHAND, RECORD, 4.0, "2026-07-01 10:00:00", 7.0)  # record-held: 7 -> 4
     assert entries[2] == (2, 1, FOREHAND, None, 5.0, "2026-07-01 15:00:00", 9.0)    # record-less: 9 -> 5
     assert entries[3] == (3, 1, TECHNIQUE, None, 4.0, "2026-07-02 09:00:00", None)  # catalogue: untouched
+    assert entries[4] == (4, 1, VOLLEY, None, 1.0, "2026-07-03 09:00:00", 0.0)      # 0 -> 1, never 0 stars
+    assert entries[5] == (5, 1, VOLLEY, None, 5.0, "2026-07-03 10:00:00", 10.0)     # 10 -> 5
 
     # evaluated_at and record_id are never touched
     assert entries[1][3] == RECORD
