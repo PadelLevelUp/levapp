@@ -50,7 +50,10 @@ jobs:
           files=()
           for f in scripts/*.sh; do [ "$f" = scripts/startup.sh ] || files+=("$f"); done
           shellcheck -S warning "${files[@]}"
-      - run: python -m pytest padel_app/tests -q -p no:warnings
+      # B-127: the second path is the E2E seed's own pytest file (PAD-223). It lives
+      # beside the seed it tests, outside padel_app/tests, and until 2026-09-21 no lane
+      # collected it. test_every_test_file_is_collected.py reads THIS line.
+      - run: python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts -q -p no:warnings
 
   postgres:
     name: pytest (postgres, real migrations)
@@ -84,7 +87,10 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: pip install . pytest
-      - run: python -m pytest padel_app/tests -q -p no:warnings
+      # B-127: the second path is the E2E seed's own pytest file (PAD-223). It lives
+      # beside the seed it tests, outside padel_app/tests, and until 2026-09-21 no lane
+      # collected it. test_every_test_file_is_collected.py reads THIS line.
+      - run: python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts -q -p no:warnings
       # PAD-299: the same drift gate deploy-staging runs (PAD-220), on every PR.
       # The pytest run above builds its own throwaway schema and drops it, so
       # migrate a fresh database to head and ask flask db check whether the

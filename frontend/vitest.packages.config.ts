@@ -7,6 +7,9 @@ export default defineConfig({
   test: {
     name: "packages",
     environment: "node",
-    include: ["packages/*/src/**/*.test.ts"],
+    // .tsx too (B-127): a hook test renders and picks jsdom with its own
+    // `// @vitest-environment jsdom` pragma. While only `.test.ts` was listed,
+    // packages/hooks/src/useCalendarEvents.test.tsx was collected by no runner.
+    include: ["packages/*/src/**/*.test.{ts,tsx}"],
   },
 });

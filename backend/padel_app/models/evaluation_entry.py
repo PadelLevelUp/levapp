@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Index, func, text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -9,7 +9,14 @@ from padel_app.tools.input_tools import Block, Field, Form
 
 class EvaluationEntry(db.Model, model.Model):
     __tablename__ = "evaluation_entries"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        # PAD-363 (evaluations.records): a record holds at most one rating per category.
+        Index(
+            "uq_evaluation_entries_record_category", "record_id", "category_id", unique=True,
+            postgresql_where=text("record_id IS NOT NULL"), sqlite_where=text("record_id IS NOT NULL"),
+        ),
+        {"extend_existing": True},
+    )
 
     page_title = "Evaluation Entries"
     model_name = "EvaluationEntry"
@@ -25,6 +32,14 @@ class EvaluationEntry(db.Model, model.Model):
         Integer, ForeignKey("evaluation_categories.id", ondelete="CASCADE"), nullable=False
     )
     category = relationship("EvaluationCategory", back_populates="entries")
+
+    # PAD-363 (evaluations.records): the record this score is the rating of. NULL
+    # for the earlier scores of a day that the record's slot has moved on from —
+    # they stay as history. Written only by `evaluation_record_service`.
+    record_id = Column(
+        Integer, ForeignKey("evaluation_records.id", ondelete="CASCADE"), nullable=True
+    )
+    record = relationship("EvaluationRecord", back_populates="entries")
 
     score = Column(Float, nullable=False)
     comment = Column(String(500), nullable=True)
