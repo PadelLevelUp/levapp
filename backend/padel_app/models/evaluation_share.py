@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, JSON, String
 from sqlalchemy.orm import backref, relationship
 
 from padel_app.sql_db import db
@@ -15,11 +15,14 @@ class EvaluationShare(db.Model, model.Model):
     """
 
     __tablename__ = "evaluation_shares"
+    # The migration (6a6ac64d814b) creates a unique INDEX by this name, not a
+    # unique constraint — declare it the same way so `flask db check` sees no drift.
+    __table_args__ = (Index("uq_evaluation_shares_record_id", "record_id", unique=True),)
 
     id = Column(Integer, primary_key=True)
 
     record_id = Column(
-        Integer, ForeignKey("evaluation_records.id", ondelete="CASCADE"), nullable=False, unique=True
+        Integer, ForeignKey("evaluation_records.id", ondelete="CASCADE"), nullable=False
     )
     record = relationship(
         "EvaluationRecord",
