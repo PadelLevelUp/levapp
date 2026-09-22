@@ -74,7 +74,10 @@ def _seed(roster_size: int, *, blocked_every: int = 5):
             for h in range(3)]
     db.session.add_all([instance] + past)
     db.session.flush()
-    db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=instance.id))
+    # The past classes are this coach's too: since PAD-382 the ranking reads a student's
+    # record on the coach's occurrences only, so history nobody coaches is no history.
+    db.session.add_all(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=inst.id)
+                       for inst in [instance] + past)
 
     player_ids, blocked_ids = [], []
     for s in range(roster_size):
@@ -181,9 +184,10 @@ def test_the_batched_stages_keep_the_verdicts_and_the_ranking(app):
         # (including 0.0/0.0 for a student with no history), so the sort key,
         # and with it the order, is the one the engine has always used.
         survivor_ids = [cp.player_id for cp in ranked]
-        batched = ns._attendance_stats_for(survivor_ids + [10 ** 6])
+        # PAD-382: both readers take the vacancy's coach — the ranking reads this coach's record.
+        batched = ns._attendance_stats_for(survivor_ids + [10 ** 6], ids["coach_id"])
         assert batched == {
-            **{pid: ns._attendance_stats(pid) for pid in survivor_ids},
+            **{pid: ns._attendance_stats(pid, ids["coach_id"]) for pid in survivor_ids},
             10 ** 6: (0.0, 0.0),
         }
         assert any(batched[pid] != (0.0, 0.0) for pid in survivor_ids)

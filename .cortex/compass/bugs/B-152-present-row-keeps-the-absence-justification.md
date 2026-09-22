@@ -3,13 +3,14 @@ id: B-152
 title: "Marking a student present after 'absent, justified' left the justification on the present row"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - attendance.validation
   - backend/padel_app/services/lesson_service.py
   - backend/padel_app/services/notification_service.py
 proposed_fix: "lesson_service.add_presences clears justification whenever the recorded status is present, whatever the body carries."
 opened: 2026-09-21T19:00:00Z
+resolved: 2026-09-22T10:17:12Z
 ---
 
 # B-152 — a present row that still said "justified"
@@ -99,4 +100,10 @@ Add `attendance.validation` rule 21 + criterion; route-level tests first (they f
 - Session-C's pin `test_attendance_a_justification_cannot_be_cleared_and_a_mark_cannot_be_undone`
   (#354) asserts the old behaviour: its first three assertions flip, its control stays; flipped by
   this PR's author once #354 is on staging.
-- Resolved: 2026-09-21 (PAD-381).
+- **Closing condition met — post-deploy re-count (Session-A, 2026-09-22 10:17:12 UTC VM clock,
+  production `padel_app`, Alembic `21c864b3dd59`, #357 live since 10:16 UTC, read-only):**
+  `SELECT count(*) FROM presences WHERE status = 'present' AND justification IS NOT NULL` → **0 of
+  4,479**, the same as before the deploy. No cleanup UPDATE is owed; PAD-381 is Done (closed by the
+  wave-2 merge, the condition answered on the ticket the same day). Still outside: `_has_makeups`'
+  debit side and un-marking attendance — owner questions.
+- Resolved: 2026-09-21 code (PAD-381), 2026-09-22 data condition.

@@ -30,6 +30,7 @@
 
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { cleanupReminderTestClasses } from "../helpers/reminder-test-class";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -169,6 +170,18 @@ async function coachLoginUI(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------
 
 test.describe("Automatic Scheduler Reminders — full pipeline", () => {
+  // B-131: the test below seeds an "E2E Auto-Reminder Test" class via the
+  // debug endpoint; nothing removed it. Sweep whatever this file created.
+  test.afterAll(async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    try {
+      const coachToken = await getToken(request, "e2e-coach", "E2eCoach123!");
+      await cleanupReminderTestClasses(request, coachToken);
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test(
     "APScheduler fires reminder, both students receive message, activity & dashboard updated",
     {
