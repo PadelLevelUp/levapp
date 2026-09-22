@@ -200,7 +200,12 @@ def load_calendar_blocks_for_user(user_id, range_start, range_end):
 
 
 def build_block_events(blocks, range_start, range_end):
+    from padel_app.models.class_request import live_hold_index
+
     events = []
+    # PAD-372: which of these blocks are live class-request holds — one query per feed,
+    # not one per occurrence.
+    hold_index = live_hold_index([block.id for block in blocks])
 
     for block in blocks:
         occurrences = expand_occurrences(
@@ -218,6 +223,7 @@ def build_block_events(blocks, range_start, range_end):
                     block,
                     override_id=f"block-{block.id}-{occ_start}",
                     override_date=occ_date.isoformat(),
+                    hold_index=hold_index,
                 )
             )
 

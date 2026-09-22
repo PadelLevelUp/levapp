@@ -100,6 +100,39 @@ OPEN_STATUSES = ("pending", "countered")
 HOLD_TITLE_PREFIXES = ("Pedido de aula · ", "Class request · ")
 
 
+def _still_a_hold(block) -> bool:
+    """PAD-378's definition, the same one `_delete_blocks` applies in SQL: a coach who
+    retitles a hold has made it theirs (rule 18)."""
+    return block.type == "personal" and (block.title or "").startswith(HOLD_TITLE_PREFIXES)
+
+
+def live_hold_index(block_ids) -> dict:
+    """``{block_id: request_id}`` for every block that is the LIVE hold of an OPEN request
+    (PAD-372, rule 3). One query for a whole feed; the title test runs in Python so it is
+    the same predicate `live_hold_request_id` applies to a single block."""
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    ids = [block_id for block_id in block_ids if block_id is not None]
+    if not ids:
+        return {}
+    rows = (
+        db.session.query(ClassRequest.id, CalendarBlock)
+        .join(CalendarBlock, CalendarBlock.id == ClassRequest.hold_block_id)
+        .filter(ClassRequest.hold_block_id.in_(ids), ClassRequest.status.in_(OPEN_STATUSES))
+        .all()
+    )
+    return {block.id: request_id for request_id, block in rows if _still_a_hold(block)}
+
+
+def live_hold_request_id(block):
+    """The OPEN request this block is the live hold of, or ``None`` (PAD-372, rule 3).
+
+    ``None`` for a block no request points at, for a CLOSED request's leftover pointer
+    (rule 18 clears it lazily) and for a hold the coach has retitled — that block is the
+    coach's, whatever still points at it."""
+    return live_hold_index([block.id]).get(block.id)
+
+
 def _delete_blocks(connection, block_ids, *, only_if_still_a_hold=False) -> None:
     """``only_if_still_a_hold``: a coach may edit a hold like any block (rule 3), and
     a CLOSED request that still points at one may have pointed at it for months. Such

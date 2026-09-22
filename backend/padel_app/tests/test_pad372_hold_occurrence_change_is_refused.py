@@ -15,8 +15,9 @@ no effect, colliding with PAD-378's "a retitled block is the coach's").
 What stays exactly as rule 3 says: the coach may delete the WHOLE hold, and may retitle
 it to make it their own (PAD-378).
 
-Every case goes through the routes the two shells call, as the coach. RED BY DESIGN on
-the code as it stands: today every one of these answers 204 and leaves clones behind.
+Every case goes through the routes the two shells call, as the coach. Written RED BY
+DESIGN on dfb802152 (every gesture answered 204 and left clones behind); the refusal in
+`calendar_service._refuse_if_live_hold` turns them green.
 
 Covered spec: classes.class-requests rule 3 (narrowed) and rule 18.
 """
@@ -80,7 +81,9 @@ def test_a_scoped_change_to_a_live_hold_is_refused_and_changes_nothing(client, a
     res = _move(client, app, ids, hold, scope) if gesture == "move" else _delete(client, app, ids, hold, scope)
 
     assert res.status_code == 409, res.get_data(as_text=True)
-    assert res.get_json().get("code") == "HOLD_OCCURRENCE_LOCKED"
+    # The blueprint's HTTPException handler carries an abort()'s code as `error`
+    # (`NO_CLUB`, `COACH_NOT_APPROVED` travel the same way); the shells branch on it.
+    assert res.get_json().get("error") == "HOLD_OCCURRENCE_LOCKED"
     assert (_blocks_of_coach(app, ids), _hold_row(app, hold)) == before, "nothing was split or cloned"
 
 
