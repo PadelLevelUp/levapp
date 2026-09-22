@@ -2361,6 +2361,9 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
 
 # PAD-407: the advisory-lock namespace for reminder passes (`pg_advisory_lock(ns, instance_id)`).
 _REMINDER_PASS_LOCK_NS = 407
+# How long a pass waits for the one before it. A holder stuck longer than this makes the
+# waiter fail (logged by the runner) instead of parking a scheduler thread for ever.
+_REMINDER_PASS_LOCK_TIMEOUT = "120s"
 
 
 @contextmanager
@@ -2370,23 +2373,44 @@ def _reminder_pass_lock(instance_id: int):
     PAD-407. A pass counts a student's attempts and then sends — two passes at once
     both counted 0 and both sent. The pass commits several times (the message, the
     attempt row, supersedes), so a row lock inside the session's transaction would be
-    released half-way; the lock is a session-level advisory lock on a connection of its
-    own, in autocommit, held for the whole pass. A crash releases it with the connection.
-    SQLite (tests) has no such lock and runs one writer at a time anyway.
+    released half-way, and the ORM session may hand its connection back to the pool at
+    each commit. So the lock is a session-level advisory lock taken and released on ONE
+    dedicated connection, outside the ORM session, in autocommit, held for the whole
+    pass; the unlock is in `finally`. If the unlock cannot be confirmed the connection
+    is invalidated (closed, never pooled), which ends its Postgres session and with it
+    the lock. The wait is bounded by `lock_timeout`.
+    SQLite (the default test backend) and a call without an app context take no lock:
+    SQLite has no advisory locks and one writer at a time.
     """
-    from flask import has_app_context
+    from flask import current_app, has_app_context
     from sqlalchemy import text as _sql
 
     if not has_app_context() or db.engine.dialect.name != "postgresql":
         yield
         return
     key = {"ns": _REMINDER_PASS_LOCK_NS, "id": int(instance_id)}
-    with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        conn.execute(_sql("SELECT pg_advisory_lock(:ns, :id)"), key)
+    conn = db.engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+    try:
+        conn.execute(_sql("SELECT set_config('lock_timeout', :t, false)"), {"t": _REMINDER_PASS_LOCK_TIMEOUT})
+        try:
+            conn.execute(_sql("SELECT pg_advisory_lock(:ns, :id)"), key)
+        finally:
+            conn.execute(_sql("RESET lock_timeout"))
         try:
             yield
         finally:
-            conn.execute(_sql("SELECT pg_advisory_unlock(:ns, :id)"), key)
+            try:
+                released = conn.execute(_sql("SELECT pg_advisory_unlock(:ns, :id)"), key).scalar()
+            except Exception:  # noqa: BLE001 — the lock's fate is unknown: drop the connection
+                released = False
+            if not released:
+                current_app.logger.error(
+                    "send_class_reminders: advisory lock for instance %s not released cleanly; "
+                    "invalidating its connection", instance_id,
+                )
+                conn.invalidate()
+    finally:
+        conn.close()
 
 
 def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:

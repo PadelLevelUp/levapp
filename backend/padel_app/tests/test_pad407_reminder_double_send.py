@@ -375,3 +375,68 @@ def test_a_returning_student_reminded_minutes_ago_is_still_asked(app, live_sched
     assert again["sent"] == 1, "only the returning student is asked; the others are inside the gap"
     with app.app_context():
         assert attempts.count_attempts(iid, back) == 1
+
+
+# ── the lock never leaks (Postgres) ─────────────────────────────────────────
+
+
+def _advisory_locks_held(app, instance_id):
+    """Advisory locks in namespace 407 for this instance, read on a connection of its own."""
+    from sqlalchemy import text
+
+    with app.app_context():
+        with db.engine.connect() as conn:
+            return conn.execute(text(
+                "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' "
+                "AND classid = 407 AND objid = :id AND granted"), {"id": instance_id}).scalar()
+
+
+@POSTGRES_ONLY
+def test_the_lock_is_released_after_a_pass_and_after_one_that_raises(app, monkeypatch):
+    from padel_app.services import notification_service
+    from padel_app.services.notification_service import send_class_reminders
+
+    ids = _seed(app, reminder_count=1)
+    iid = _materialise(app, ids)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("the push provider fell over mid-pass")
+
+    with app.app_context(), _io_patched():
+        monkeypatch.setattr(notification_service, "_send_system_message", boom)
+        with pytest.raises(RuntimeError):
+            send_class_reminders(iid, scheduled=True)
+        db.session.rollback()
+    assert _advisory_locks_held(app, iid) == 0, "a pass that raised left its lock behind"
+
+    monkeypatch.undo()
+    with app.app_context(), _io_patched():
+        after = send_class_reminders(iid, scheduled=True)
+    assert after["sent"] == len(ids["player_ids"]), "the next pass must still run and send"
+    assert _advisory_locks_held(app, iid) == 0
+
+
+@POSTGRES_ONLY
+def test_a_pass_behind_a_stuck_holder_gives_up_instead_of_waiting_for_ever(app, monkeypatch):
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+
+    from padel_app.services import notification_service
+    from padel_app.services.notification_service import send_class_reminders
+
+    ids = _seed(app, reminder_count=1)
+    iid = _materialise(app, ids)
+    monkeypatch.setattr(notification_service, "_REMINDER_PASS_LOCK_TIMEOUT", "300ms")
+    with app.app_context():
+        holder = db.engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+        try:
+            holder.execute(text("SELECT pg_advisory_lock(407, :id)"), {"id": iid})
+            with _io_patched(), pytest.raises(OperationalError):
+                send_class_reminders(iid, scheduled=True)
+            db.session.rollback()
+        finally:
+            holder.execute(text("SELECT pg_advisory_unlock(407, :id)"), {"id": iid})
+            holder.close()
+    assert _advisory_locks_held(app, iid) == 0
+    with app.app_context(), _io_patched():
+        assert send_class_reminders(iid, scheduled=True)["sent"] == len(ids["player_ids"])
