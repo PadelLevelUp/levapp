@@ -44,17 +44,20 @@ async function holdLaterLoads(page: Page, path: RegExp): Promise<{ gets: number;
  * resolving, so every `/auth/me` after the first, and `/app/coach`, are delayed: the
  * section's first load (not delayed) is then always home before the re-run.
  */
-async function settleTheAccountLate(page: Page, ms = 800) {
+async function settleTheAccountLate(page: Page, ms = 800): Promise<{ meResolvedAt: number[] }> {
   let me = 0;
+  const seen = { meResolvedAt: [] as number[] };
   await page.route(/\/api\/auth\/me$/, async (route) => {
     me += 1;
     if (me > 1) await new Promise((r) => setTimeout(r, ms));
     await route.continue();
+    seen.meResolvedAt.push(Date.now());
   });
   await page.route(/\/api\/app\/coach$/, async (route) => {
     await new Promise((r) => setTimeout(r, ms));
     await route.continue();
   });
+  return seen;
 }
 
 async function clearWorkingHours(request: APIRequestContext) {
@@ -74,22 +77,30 @@ test("PAD-392: working hours — a day switched off stays off when a second load
   try {
     await loginAsCoach(page);
     const seen = await holdLaterLoads(page, /\/api\/app\/coach\/working-hours$/);
-    await settleTheAccountLate(page);
+    const account = await settleTheAccountLate(page);
     await page.goto("/settings?tab=calendar");
     const card = page.getByTestId("working-hours");
     const sunday = card.getByTestId("working-hours-day-sun");
     await expect(sunday).toHaveAttribute("data-state", "working", { timeout: 15_000 });
 
     await card.getByTestId("working-hours-works-sun").click();
+    const clickedAt = Date.now();
     await expect(sunday).toHaveAttribute("data-state", "off");
 
     // Outlast any held load, then look again: the edit must still be there.
     await page.waitForTimeout(HOLD_MS + 1500);
     await expect(sunday).toHaveAttribute("data-state", "off");
-    // For the old/new comparison: on the old component expect held >= 1 (a second load was
-    // made and held); on the fixed one expect GETs=1. Printed, not asserted — the behaviour
-    // above is the contract, the number of loads is how it is kept.
-    console.log(`PAD-392 working-hours loads: GETs=${seen.gets} held=${seen.held}`);
+    // The TRIGGER must have fired, or this spec proves nothing: the account (and with it the
+    // language, and `t`) must have settled AFTER the click. Today that second /auth/me comes
+    // from SettingsPage's own getMe, whose changeLanguage is unconditional; if a cleanup ever
+    // removes it, this assertion goes red and says why, instead of the spec passing on any code.
+    expect(
+      account.meResolvedAt.filter((at) => at > clickedAt).length,
+      "no /auth/me resolved after the click — the language never settled late, nothing was tested",
+    ).toBeGreaterThan(0);
+    // For the old/new comparison: on the old component held >= 1 (a second load was made and
+    // held); on the fixed one GETs=1. Printed, not asserted — the behaviour is the contract.
+    console.log(`PAD-392 working-hours loads: GETs=${seen.gets} held=${seen.held} meAfterClick=${account.meResolvedAt.filter((at) => at > clickedAt).length}`);
   } finally {
     await clearWorkingHours(request);
   }
