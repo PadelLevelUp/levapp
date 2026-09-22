@@ -74,6 +74,11 @@ rules describe intended behaviour, not shipped behaviour, and any spec that lean
     start date's weekday, and a missing end date means start date + 3 months (the previous
     behaviour of both shells).
 
+12. **An edit writes what was sent (PAD-386).** `PUT /api/app/availability_blockers/{id}` follows
+    `calendar.blocks` rule 11: an emptied reason (`title: null`) is cleared; a `null` end while the
+    blocker still recurs is 400 `["endDate"]` (the shared builder never sends one — it defaults the
+    end to three months on create).
+
 ### Acceptance Criteria
 
 #### Blocker suppresses auto-invitation

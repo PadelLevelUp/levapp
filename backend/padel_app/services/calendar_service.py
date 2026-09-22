@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta, datetime as _datetime, date as _date, timezone
 
+from padel_app.model import NotNullableFieldError
 from padel_app.models import CalendarBlock
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.tools.calendar_tools import expand_occurrences
@@ -84,7 +85,9 @@ def _split_block(block, occ_date):
 
 
 def _build_payload(data):
-    """Build a form-compatible payload dict from frontend add_event/edit_event data."""
+    """Build a form-compatible payload dict from frontend add_event data (CREATE only:
+    nothing to keep, so the legacy form's ""→NULL is right here; the EDIT path reads
+    the body in present mode — `_edit_block_payload`)."""
     is_recurring = data.get("isRecurring", False)
     return {
         "type": data["type"],
@@ -138,32 +141,84 @@ def add_event_service(user_id, data):
     return block
 
 
+#: PUT /calendar_block and PUT /availability_blockers: the body keys a client may
+#: write, and nothing else (PAD-386). The owner (`user`, a nullable ManyToOne) and
+#: the PAD-93 flag are not here, so they cannot be reached from a body.
+_EDIT_BLOCK_KEYS = ("type", "title", "description", "date", "startTime", "endTime",
+                    "isRecurring", "recurrenceRule", "endDate")
+
+
+def _edit_block_payload(data, block):
+    """The form payload for an EDIT, holding a key iff the body held it (PAD-386,
+    B-136 step 1), and the fields a body may not leave empty.
+
+    The old `_build_payload` invented "" for an absent title/description/endDate
+    (so a coach could never clear one — the form dropped "" as "not sent") and read
+    an absent `isRecurring` as False. Present mode writes what is there: "" / null
+    clear a nullable column, an absent key is left alone, a Boolean is written only
+    when sent. Refused, 400 naming the field, nothing written: a missing/empty
+    `type`, `date`, `startTime` or `endTime` (they used to be a KeyError or a
+    ValueError — a 500); a `null`/"" `endDate` while the block still recurs (D83,
+    2026-09-22: a NULL end means "forever" — the way to drop it is `isRecurring:
+    false`, which clears rule and end, #356's rule); a recurring block without a rule.
+    """
+    sent = {key: data[key] for key in _EDIT_BLOCK_KEYS if key in data}
+    refused = []
+
+    def blank(key):
+        return key in sent and (sent[key] is None or not str(sent[key]).strip())
+
+    for key in ("type", "date", "startTime", "endTime"):
+        if key not in sent or blank(key):
+            refused.append(key)
+
+    recurring = sent.get("isRecurring")
+    still_recurs = recurring is True or (recurring is None and bool(block.recurrence_rule))
+    # One shape for rule and end (Session-B, #378): a sent-empty value is refused, and
+    # an absent one is judged against the row.
+    if recurring is True and (
+        ("recurrenceRule" in sent and not sent["recurrenceRule"])
+        or ("recurrenceRule" not in sent and not block.recurrence_rule)
+    ):
+        refused.append("recurrenceRule")
+    if still_recurs and blank("endDate"):
+        refused.append("endDate")
+    if refused:
+        raise NotNullableFieldError(refused)
+
+    payload = {"type": sent["type"],
+               "start_datetime": f"{sent['date']}T{sent['startTime']}",
+               "end_datetime": f"{sent['date']}T{sent['endTime']}"}
+    if "title" in sent:
+        payload["title"] = sent["title"]
+    if "description" in sent:
+        payload["description"] = sent["description"]
+    if recurring is not None:
+        payload["is_recurring"] = bool(recurring)
+    if "recurrenceRule" in sent:
+        payload["recurrence_rule"] = json.dumps(sent["recurrenceRule"]) if sent["recurrenceRule"] else None
+    if "endDate" in sent:
+        payload["recurrence_end"] = sent["endDate"] or None
+    if recurring is False:
+        # PAD-377 (B-150): an explicit one-off clears rule and end, whatever else the
+        # body carries for them (an old client may send neither key).
+        payload["recurrence_rule"] = None
+        payload["recurrence_end"] = None
+    return payload
+
+
 def edit_event_service(block_id, user_id, data):
-    """Edit a CalendarBlock owned by user_id from frontend edit_event data."""
+    """Edit a CalendarBlock owned by user_id from frontend edit_event data.
+
+    PAD-386 (B-136 step 1): the body is read in present mode through a whitelist —
+    see `_edit_block_payload`. An absent `isRecurring` leaves flag, rule and end
+    alone (PAD-377, B-150) by construction now: the key is simply not in the payload.
+    """
     block = CalendarBlock.query.filter_by(id=block_id, user_id=user_id).first_or_404()
     form = block.get_create_form()
-    fake_request = JsonRequestAdapter(_build_payload(data), form)
+    fake_request = JsonRequestAdapter(_edit_block_payload(data, block), form, mode="present")
     values = form.set_values(fake_request)
-    # PAD-93: `_build_payload` never carries `blocks_auto_invitations`, but the
-    # form writes every Boolean field on every submit — so editing a calendar
-    # event silently cleared the student-availability-blocker flag (PAD-28).
-    # Attendance marking has the same guard for the reminder flags (PAD-69).
-    values.pop("blocks_auto_invitations", None)
-
-    # PAD-377 (B-150): recurrence changes only when the body says so. The form layer
-    # drops empty values, so a one-off's `recurrence_rule: ""` never cleared the old
-    # rule — the response said one-off while the feed and the invitation engine, which
-    # read the RULE, went on treating the block as weekly. And `_build_payload` reads
-    # an ABSENT `isRecurring` as False, which flipped the flag of a block still meant
-    # to be weekly. Done here, not in the shared form layer (PAD-367 owns that).
-    recurring = data.get("isRecurring")
-    if recurring is None:
-        for key in ("is_recurring", "recurrence_rule", "recurrence_end"):
-            values.pop(key, None)
-    block.update_with_dict(values)
-    if recurring is False:
-        block.recurrence_rule = None
-        block.recurrence_end = None
+    block.update_with_dict(values, write_none=True)
     block.save()
     return block
 

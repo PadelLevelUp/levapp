@@ -95,7 +95,15 @@ last lands._
   `user: {name, email, phone}` with None for unchanged values and must stop; `_build_payload` invents
   `""` for title/description/recurrence_end and must stop. A 0/false into a String/Enum column is a
   dialect error, not a 400 — the route validates.
-- Step 1 — PAD-386: `PUT /calendar_block`, `PUT /availability_blockers`. _Pending._
+- **Step 1 — PAD-386 (2026-09-22): `PUT /calendar_block/<id>`, `PUT /availability_blockers/<id>`.** The
+  edit payload is a whitelist of the nine body keys read in present mode (`_edit_block_payload`); the old
+  builder's `""` inventions are gone (a coach can clear a title/description; an absent `isRecurring` leaves
+  flag, rule and end alone by construction — #356's post-write patches replaced); missing/empty
+  type/date/times → 400 (were 500s); a null end on a block that still recurs → 400 (D83: NULL = forever;
+  drop the end by making it one-off); both edit sheets check the end before the request. The CREATE path
+  keeps the legacy builder (nothing to keep). `calendar_blocks.user_id` and the PAD-93 flag unreachable, pinned. **Verified at 19692b6eb (2026-09-22):** CI four green; Maestro 93 and 94 green on the
+  simulator (Session-D, 10:28–10:31 UTC); Playwright pad371, pad377, recurring-occurrence-delete and
+  pad335 4 passed on Session-C's isolated stack (12:47–12:49 UTC).
 - **Step 2 — PAD-387 (PR #368, 2026-09-22): `POST /edit_class`.** A whitelist of 8 sent keys; level, colour, court
   clear; an empty name or a 0/null capacity is 400 before any write or fork; an emptied end date on a
   recurring class is REFUSED (a NULL end is "recurs forever" — nullable ≠ clearable); an explicit end
@@ -123,4 +131,8 @@ last lands._
   (no bool, no fraction) for both; a message with missing/null/""/blank text is 400 `["text"]` on POST and on PUT /message/<id>, text
   stored as sent otherwise. Every symptom in "What happens" now has its step; the legacy evaluation endpoints stay
   frozen (owner decision) and attendance is B-152.
-- Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).
+- Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152); and
+  the CREATE paths' missing-key 500s (`POST /add_event` hard-subscripts date/time — a KeyError on a body
+  without them; both create sheets validate, no client reaches it) — the last 500-shaped hole, noted by
+  Session-B on #378, not a falsy-value defect. D83 protects an EXISTING end from being nulled; it does not
+  impose one — a recurring edit with no `endDate` on a block that has none stores NULL, as create does.
