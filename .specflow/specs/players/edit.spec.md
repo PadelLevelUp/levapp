@@ -24,9 +24,12 @@ Coaches update player information, including level, side preference, and persona
    App Store builds send for an emptied box, so they go on working unchanged. A present `null` or
    `""` CLEARS `notes`, `side`, `phone` and `levelId` (the level through the one writer, rule 2,
    which records no history row for a clear) — and `email` only while the player is a placeholder:
-   **once a student has an account, the e-mail is their login and password recovery and becomes the
-   student's own field** (Coordinator, 2026-09-22); a coach's `null`/`""` for it is answered 400
-   `["email"]`, nothing written. Phone stays the coach's to clear. A present empty `name` is answered
+   **once a student has an account (a password), the e-mail is their login and password recovery
+   and becomes the student's own field — a coach may neither clear nor change it** (Coordinator,
+   2026-09-22); any `email` a coach sends for an account holder is answered 400 `["email"]`,
+   nothing written; the student changes it from their own settings. Both shells lock the e-mail box
+   once the player has an account (`validated`), whatever `isActive` says. Phone stays the coach's
+   to clear. A `levelId` of 0/false is 400 `["level"]` before any write. A present empty `name` is answered
    `400 {"error": "invalid_fields", "fields": ["name"]}` and nothing is written. Only `name`,
    `email`, `phone`, `levelId`, `side`, `notes` are read: nothing else on the user record
    (`username`, `status`, `password`, admin flags) is reachable through this route. The current
@@ -60,13 +63,19 @@ Coaches update player information, including level, side preference, and persona
 - **When** the coach's app sends `updates: {"notes": null, "phone": null}`
 - **Then** the answer is 200 and both are NULL; the name and e-mail are unchanged
 
-#### A placeholder's e-mail is the coach's to clear; an account holder's is not (rule 4)
+#### A placeholder's e-mail is the coach's; an account holder's is the student's (rule 4)
 - **Given** a placeholder (never activated, no password) with an e-mail
-- **When** the coach sends `{"email": null}`
-- **Then** the e-mail is NULL
-- **Given** a student who has activated their account
-- **When** the coach sends `{"email": null, "notes": "new note"}`
+- **When** the coach sends `{"email": null}`, or `{"email": "corrected@x.pt"}`
+- **Then** the e-mail is NULL, or the corrected address
+- **Given** a student who has an account (a password)
+- **When** the coach sends `{"email": null, "notes": "new note"}`, `{"email": "   "}` or `{"email": "other@x.pt"}`
 - **Then** the answer is 400 with `fields` `["email"]`, and neither the e-mail nor the note changed
+- **And** the e-mail box is read-only in the coach's edit form on web and iOS
+
+#### A zero level is refused before anything is written (rule 4)
+- **Given** the same player
+- **When** the coach sends `{"name": "Renamed", "levelId": 0}`
+- **Then** the answer is 400 with `fields` `["level"]` and the name is unchanged
 
 #### A cleared level is no level and writes no history (rules 2, 4)
 - **Given** a player at level 5 for this coach
