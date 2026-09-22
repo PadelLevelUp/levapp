@@ -24,7 +24,7 @@ due. It is a marker inside the app, never a message to anyone.
 
   | column | type | meaning |
   |---|---|---|
-  | `evaluation_reminder_type` | varchar(16) NOT NULL DEFAULT `'monthly'` | `never` \| `monthly` \| `every_n_classes` |
+  | `evaluation_reminder_type` | varchar(16) NOT NULL DEFAULT `'never'` | `never` \| `monthly` \| `every_n_classes` (rule 7: the default reproduces today's behaviour) |
   | `evaluation_reminder_value` | int NULL | N, used by `every_n_classes` only |
 
   These are distinct from the existing `reminder_type` / `reminder_value` pair, which is the
@@ -63,9 +63,11 @@ due. It is a marker inside the app, never a message to anyone.
    event; nothing about a reminder ever reaches a player.
 6. **The setting does not ship before the marker.** A stored frequency that nothing reads is the
    canvas's own dead chrome (AV-090). One ticket, both halves, web and iOS.
-7. **Existing coaches get "Mensalmente"** — the column default, no backfill — which with an
-   in-app marker sends nothing. A coach who never touches the setting sees exactly what
-   `monthly` shows: a marker on players not evaluated in 30 days, and nothing else changes.
+7. **Existing coaches get "Nunca"** — the column default, no backfill; a coach without a
+   `notification_configs` row reads `never` too. Nothing changes for a coach who never
+   touches the setting: no marker anywhere, which is today's behaviour (Coordinator's binding
+   2026-09-22: no coach wakes up to a wall of "due" badges). "Mensalmente" is the first real
+   option the control offers, not the stored default — the canvas's "(default)" is a suggestion.
 8. **The endpoint parses JSON directly and distinguishes absent / null / falsy.** It must not
    read or write through the shared form layer (`tools/input_tools.py` `Field.set_value`,
    `JsonRequestAdapter`, `model.update_with_dict`). An absent `everyN` on a `PUT` that keeps
@@ -105,7 +107,7 @@ due. It is a marker inside the app, never a message to anyone.
 - **Given** coach Bruno with no `notification_configs` row and a roster of Rui (record 32 days
   ago), Sara (record 29 days ago) and Tiago (no record)
 - **When** he reads the class panel and the players list
-- **Then** `due` is true for Rui and Tiago and false for Sara — the `monthly` answer — and no
+- **Then** `due` is false for all three — the `never` answer, no marker anywhere — and no
   `notification_configs` row was created by either read
 
 #### One query per surface (rule 3)
@@ -116,7 +118,7 @@ due. It is a marker inside the app, never a message to anyone.
 #### The setting round-trips without creating a config row (rules 2, 8)
 - **Given** coach Bruno with no `notification_configs` row
 - **When** he calls `GET /api/app/evaluation_settings`
-- **Then** it answers `{"reminder": "monthly"}` and no row was created
+- **Then** it answers `{"reminder": "never"}` and no row was created
 - **When** he sends `PUT` `{"reminder": "every_n_classes", "everyN": 3}`, then `PUT`
   `{"reminder": "every_n_classes"}`, then `PUT` `{"reminder": "every_n_classes", "everyN": 0}`
 - **Then** the first two answer `{"reminder": "every_n_classes", "everyN": 3}` and the third

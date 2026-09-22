@@ -560,6 +560,7 @@ def class_evaluations(coach, ref) -> dict:
         .filter(Association_CoachPlayer.player_id.in_([p.id for p, _ in roster] or [0]))
     }
     on = today()
+    due = due_for_links(coach, links.values(), on)  # rule 8: once for the roster, never per row
     latest_record = {}
     if instance is not None and links:
         found = (
@@ -583,7 +584,7 @@ def class_evaluations(coach, ref) -> dict:
             "coachPlayerId": link.id,
             "name": player.user.name if player.user is not None else "",
             "absent": absent,
-            "due": False,  # evaluations.reminders (slice 8)
+            "due": due.get(link.id, False),  # evaluations.reminders rule 3 (PAD-404)
             "record": serialize_record(record, on=on) if record is not None else None,
         })
     participants.sort(key=lambda p: p["absent"])  # Q14: absent last; the rest keep the class detail's order (stable)
@@ -599,3 +600,121 @@ def class_evaluations(coach, ref) -> dict:
         "competencies": [serialize_competency(c, counts.get(c.id, 0)) for c in active],
         "participants": participants,
     }
+
+
+# ── the evaluation reminder (PAD-404, evaluations.reminders) ────────────────
+#
+# A frequency the coach chooses and a `due` marker the server computes from it.
+# In-app only (rule 5): nothing here writes a message, a push or a job. The
+# setting lives on `notification_configs` (rule 13 of notifications.config) but
+# is NOT the class reminder — `evaluation_reminder_type` / `_value` only.
+
+REMINDER_TYPES = ("never", "monthly", "every_n_classes")
+EVERY_N_MIN, EVERY_N_MAX = 1, 99
+MONTHLY_WINDOW_DAYS = 30   # rule 3: "in the last 30 days, today inclusive"
+
+
+def _reminder_setting(coach):
+    """(type, value) for the coach: the row's if there is one, else the defaults.
+    NEVER creates the row (rule 2) — `get_or_create_config` is for the PUT only."""
+    from padel_app.models import NotificationConfig
+
+    row = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    if row is None:
+        return "never", None
+    kind = row.evaluation_reminder_type if row.evaluation_reminder_type in REMINDER_TYPES else "never"
+    return kind, row.evaluation_reminder_value
+
+
+def _settings_payload(kind, value) -> dict:
+    payload = {"reminder": kind}
+    if kind == "every_n_classes":
+        payload["everyN"] = value
+    return payload
+
+
+def get_evaluation_settings(coach) -> dict:
+    return _settings_payload(*_reminder_setting(coach))
+
+
+def put_evaluation_settings(coach, body) -> dict:
+    """Rule 2 / 8: the body is read as sent — absent, null and 0 are three different things."""
+    kind = body.get("reminder", MISSING)
+    if kind not in REMINDER_TYPES:
+        raise ApiError(400, "reminder_invalid")
+    _current_kind, current_value = _reminder_setting(coach)
+    value = current_value   # never / monthly leave a stored N alone (they ignore it)
+    if kind == "every_n_classes":
+        sent = body.get("everyN", MISSING)
+        if sent is MISSING:
+            if current_value is None:
+                raise ApiError(400, "every_n_required")   # a fresh every_n_classes needs its N
+        elif isinstance(sent, bool) or not isinstance(sent, int) or not EVERY_N_MIN <= sent <= EVERY_N_MAX:
+            raise ApiError(400, "every_n_invalid")        # null, "2", true, 0 and 100 are all refused
+        else:
+            value = sent
+    from padel_app.services.notification_service import get_or_create_config
+
+    with unit_of_work():
+        config = get_or_create_config(coach.id)
+        config.evaluation_reminder_type = kind
+        config.evaluation_reminder_value = value
+    return _settings_payload(kind, value)
+
+
+def _as_date(value):
+    """`func.max` over a Date comes back as a date on Postgres and as text on sqlite."""
+    if value is None or isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
+
+
+def due_for_links(coach, links, on=None) -> dict:
+    """Rule 3 — `due` per `Association_CoachPlayer.id` for the coach's frequency, on the
+    club-zone calendar (`on`), in at most three statements whatever the roster size
+    (R-048: the server computes it; a client never compares dates)."""
+    links = list(links)
+    if not links:
+        return {}
+    kind, value = _reminder_setting(coach)
+    if kind == "never":
+        return {link.id: False for link in links}
+    on = on or today()
+    link_ids = [link.id for link in links]
+    newest = {
+        link_id: _as_date(day)
+        for link_id, day in (
+            db.session.query(EvaluationRecord.coach_player_id, func.max(EvaluationRecord.evaluated_on))
+            .filter(EvaluationRecord.coach_player_id.in_(link_ids))
+            .group_by(EvaluationRecord.coach_player_id)
+            .all()
+        )
+    }
+    if kind == "monthly":
+        floor = on - timedelta(days=MONTHLY_WINDOW_DAYS)   # a record on the floor day is still "in the last 30 days"
+        return {link.id: newest.get(link.id) is None or newest[link.id] < floor for link in links}
+
+    # every_n_classes: present in >= N of this coach's occurrences dated after the newest record.
+    if not isinstance(value, int) or value < EVERY_N_MIN:
+        return {link.id: False for link in links}   # a row the API could not have written: mark nobody
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.presences import Presence
+
+    by_player = {link.player_id: link.id for link in links}
+    rows = (
+        db.session.query(Presence.player_id, LessonInstance.start_datetime)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .join(Association_CoachLessonInstance,
+              Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id)
+        .filter(Association_CoachLessonInstance.coach_id == coach.id)
+        .filter(Presence.status == "present")          # unmarked (NULL) and absent never count
+        .filter(Presence.player_id.in_(list(by_player)))
+        .all()
+    )
+    attended = defaultdict(int)
+    for player_id, start in rows:
+        link_id = by_player[player_id]
+        last = newest.get(link_id)
+        if start is not None and (last is None or start.date() > last):   # start is club wall-clock (R-023)
+            attended[link_id] += 1                                          # every occurrence counts on its own
+    return {link.id: attended[link.id] >= value for link in links}

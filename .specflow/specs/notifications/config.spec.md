@@ -89,7 +89,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    way the old truthiness check read them, not reset to the default.
 
 13. **(PAD-404) The evaluation reminder's two columns.** `evaluation_reminder_type varchar(16)
-   NOT NULL DEFAULT 'monthly'` and `evaluation_reminder_value int NULL` live on this row because
+   NOT NULL DEFAULT 'never'` and `evaluation_reminder_value int NULL` live on this row because
    it is where per-coach typed settings live, but they belong to `evaluations.reminders`
    (rules 1–3) and are read and written only by `GET|PUT /api/app/evaluation_settings` — never
    by `GET|POST /api/app/notify/config`, whose wire shape does not change. They are **not** the

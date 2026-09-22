@@ -128,3 +128,20 @@ def class_instance_evaluations():
     coach = require_coach()
     ref = {"model": request.args.get("model"), "id": request.args.get("id"), "date": request.args.get("date")}
     return jsonify(service.class_evaluations(coach, ref))
+
+
+# ── the evaluation reminder setting (PAD-404, evaluations.reminders rule 2) ──
+
+
+@bp.get("/evaluation_settings")
+@jwt_required()
+def get_evaluation_settings():
+    """Reads the coach's frequency; a coach without a config row reads the default, and no row is made."""
+    return jsonify(service.get_evaluation_settings(require_coach()))
+
+
+@bp.put("/evaluation_settings")
+@jwt_required()
+def put_evaluation_settings():
+    coach = require_coach()
+    return jsonify(service.put_evaluation_settings(coach, _body()))

@@ -233,6 +233,14 @@ class NotificationConfig(db.Model, model.Model):
     invitation_start_time = Column(String(5), nullable=True)
     reminder_count = Column(Integer, nullable=False, default=1, server_default="1")
     hours_between_reminders = Column(Float, nullable=False, default=24.0, server_default="24")
+    # PAD-404 (evaluations.reminders rules 1-3, notifications.config rule 13): the
+    # EVALUATION reminder — how often the coach wants a "due" marker on a player —
+    # NOT the class reminder above (`reminder_type` / `reminder_value`). Read and
+    # written only by GET|PUT /api/app/evaluation_settings, never by /notify/config.
+    # 'never' is the default so nothing changes for a coach who never sets it
+    # (rule 7): `never` | `monthly` | `every_n_classes`; the value is N for the last.
+    evaluation_reminder_type = Column(String(16), nullable=False, default="never", server_default="never")
+    evaluation_reminder_value = Column(Integer, nullable=True)
     # attendance.confirm: hours before class after which a cancellation is "late".
     cancellation_deadline_hours = Column(Float, nullable=False, default=24.0, server_default="24")
     # Restrictions (rule 6); the wire keys are unchanged, including
