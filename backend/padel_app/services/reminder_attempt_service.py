@@ -84,6 +84,18 @@ def latest_pending_message(instance_id, player_id):
     return None
 
 
+def latest_counted_attempt(instance_id, player_id):
+    """PAD-407: the newest attempt that `count_attempts` counts (voided ones excluded)."""
+    from padel_app.models import ReminderAttempt
+
+    return (
+        _query(instance_id, player_id)
+        .filter(~(ReminderAttempt.superseded.is_(True) & ReminderAttempt.expired.is_(True)))
+        .order_by(ReminderAttempt.sent_at.desc(), ReminderAttempt.id.desc())
+        .first()
+    )
+
+
 def latest_attempt(instance_id, player_id):
     from padel_app.models import ReminderAttempt
 
