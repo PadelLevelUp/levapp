@@ -18,6 +18,19 @@ Coaches update player information, including level, side preference, and persona
    `set_roster_level` (players.level-history rule 1). Before PAD-270 an edit wrote none (B-061).
 3. Only the associated coach can edit their players
 
+4. **What was sent is what is written (PAD-388, B-136).** `POST /api/app/edit_player` (rule 1's
+   `PATCH /api/app/player/{id}` is not the route the apps call) writes only the keys present in
+   `updates` that differ from the `player` snapshot; an omitted key means keep — which is what the
+   App Store builds send for an emptied box, so they go on working unchanged. A present `null` or
+   `""` CLEARS `notes`, `side`, `phone`, `email` and `levelId` (the level through the one writer,
+   rule 2, which records no history row for a clear). A present empty `name` is answered
+   `400 {"error": "invalid_fields", "fields": ["name"]}` and nothing is written. Only `name`,
+   `email`, `phone`, `levelId`, `side`, `notes` are read: nothing else on the user record
+   (`username`, `status`, `password`, admin flags) is reachable through this route. The current
+   web and iOS apps send `null` for an emptied notes, phone or e-mail box; level and side have no
+   clear control yet. A cleared e-mail removes the student's e-mail login and password recovery —
+   the coach's decision, made visible by the box being emptied.
+
 ### Acceptance Criteria
 
 #### Edit player level
@@ -38,3 +51,23 @@ Coaches update player information, including level, side preference, and persona
 - **Given** a player with id 3
 - **When** they PATCH to `/api/app/player/3` with `{"name": "John Updated", "phone": "+351912345678"}`
 - **Then** the User record is updated with the new name and phone
+
+#### An emptied note, phone or e-mail is cleared (rule 4)
+- **Given** a player with notes "left-handed, bad knee", a phone and an e-mail
+- **When** the coach's app sends `updates: {"notes": null, "phone": null, "email": null}`
+- **Then** the answer is 200 and all three are NULL; the name is unchanged
+
+#### A cleared level is no level and writes no history (rules 2, 4)
+- **Given** a player at level 5 for this coach
+- **When** the coach sends `{"levelId": null}`
+- **Then** the roster level is NULL and the level history has no new row
+
+#### An emptied name is refused (rule 4)
+- **Given** the same player
+- **When** the coach sends `{"name": "", "notes": "new note"}`
+- **Then** the answer is 400 with `fields` `["name"]`, and neither the name nor the note changed
+
+#### An old build's body keeps everything (rule 4)
+- **Given** App Store 1.1.0 sending the full form with the emptied note box OMITTED
+- **When** the request lands
+- **Then** the note is still there
