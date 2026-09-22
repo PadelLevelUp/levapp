@@ -131,6 +131,36 @@ def test_minor_account_waits_for_guardian(client, app, outbox):
     assert user.email_verification_required is True
 
 
+def test_register_stamps_the_link_and_counts_down_from_one_instant(client, app, outbox, monkeypatch):
+    """B-130: the 60 s countdown in the 201 is computed from the SAME instant the
+    consent link was stamped with. Before the fix the route stamped the row inside
+    the service and then read the clock again for the countdown; on a slow runner
+    a second boundary fell between the two reads and the body said 59.
+
+    The clock here moves one second on EVERY read, so any second read anywhere on
+    the path shows up as 59 — a slow runner made deterministic."""
+    from padel_app.modules import api_auth
+    from padel_app.services import parental_consent_service
+
+    base = datetime(2026, 9, 22, 10, 30, 0)
+    reads = []
+
+    def stepping_clock():
+        reads.append(len(reads))
+        return base + timedelta(seconds=len(reads) - 1)
+
+    monkeypatch.setattr(api_auth, "utcnow_naive", stepping_clock)
+    monkeypatch.setattr(parental_consent_service, "utcnow_naive", stepping_clock)
+
+    res = client.post("/api/auth/register", json=_body())
+
+    assert res.status_code == 201, res.get_json()
+    assert res.get_json()["resendAvailableInSeconds"] == 60
+    with app.app_context():
+        row = parental_consent_service.consent_for(_user(app))
+        assert row.consent_sent_at == base, "the link is stamped with the request's one instant"
+
+
 def test_token_of_pending_minor_is_refused(client, app, outbox):
     client.post("/api/auth/register", json=_body())
     user = _user(app)

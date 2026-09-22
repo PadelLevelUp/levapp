@@ -157,12 +157,15 @@ def _assert_unique(username, email):
         raise RegistrationError("Email already registered", 409, "email")
 
 
-def register_user_service(data):
+def register_user_service(data, now=None):
     """Create the account and return the active `User`.
 
     Coach accounts start `pending` unless the coach-approval gate is off
     (`app_settings.coach_approval_required`, else `COACH_APPROVAL_REQUIRED`).
     Any `club` key in the body is ignored: the club is chosen after approval.
+    `now` is the request's one instant (B-130): a minor's consent link is
+    stamped with it, so the caller can compute the resend countdown from the
+    same value instead of a second clock read.
     """
     role, name, username, email, password = validate_registration(data)
     birth_date, country, guardian_email, minor = validate_consent_fields(data, email)
@@ -216,7 +219,7 @@ def register_user_service(data):
         # verification code and a coach's admin notification wait for consent.
         from padel_app.services.parental_consent_service import start_consent
 
-        start_consent(user, guardian_email)
+        start_consent(user, guardian_email, now=now)
         return user
 
     # auth.register rule 14 / auth.email-verification rule 6: the first code

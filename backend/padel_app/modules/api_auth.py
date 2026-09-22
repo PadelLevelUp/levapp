@@ -46,6 +46,7 @@ from padel_app.services.parental_consent_service import (
     view_consent,
     view_revoke,
 )
+from padel_app.utils.dates import utcnow_naive
 from padel_app.utils.debug_flags import debug_endpoints_enabled
 from padel_app.utils.rate_limit import rate_limited
 from padel_app.utils.tokens import issue_access_token
@@ -120,8 +121,12 @@ def _serialize_me(user):
 def register():
     """auth.register — self-service signup for coaches and students."""
     data = request.get_json(silent=True) or {}
+    # B-130: ONE instant for the whole request. The consent link is stamped with it
+    # and the countdown below is computed from it — two clock reads let a second
+    # boundary fall between them on a slow runner and answered 59 for a 60 s cooldown.
+    now = utcnow_naive()
     try:
-        user = register_user_service(data)
+        user = register_user_service(data, now=now)
     except RegistrationError as exc:
         db.session.rollback()
         payload = {"error": exc.message}
@@ -134,7 +139,7 @@ def register():
     if user.guardian_consent_status == "pending":
         # auth.parental-consent rule 3: no session until a guardian consents.
         return jsonify({
-            **pending_body(user),
+            **pending_body(user, now),
             "guardianConsent": "pending",
             "user": {"id": user.id, "name": user.name, "role": user.role, "guardianConsent": "pending"},
         }), 201
