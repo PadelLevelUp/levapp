@@ -17,6 +17,7 @@ from padel_app.models import (
     User,
     Coach,
 )
+from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.tools.username_tools import is_placeholder_username
 from padel_app.realtime import publish
@@ -291,6 +292,12 @@ def create_message_service(data, user_id, now=None):
     for participant in recipient_participants:
         if _is_blocked_either_way(user_id, participant.user_id):
             abort(403, "Cannot message a blocked user")
+
+    # PAD-390 (B-136 step 5): a message with no text is refused, 400 naming the
+    # field — `""` used to reach the NOT NULL column (an IntegrityError) and an
+    # absent key a KeyError, a 500 either way. What text there is, is stored as sent.
+    if data.get("text") is None or data["text"] == "":
+        raise NotNullableFieldError(["text"])
 
     payload = {
         "text": data["text"],

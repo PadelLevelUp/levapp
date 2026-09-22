@@ -76,7 +76,8 @@
       "fieldDays": "Days of the week",
       "fieldEndDate": "End date",
       "court": "Court",
-      "noCourt": "No court"
+      "noCourt": "No court",
+      "fieldName": "Name"
     },
     "overlap": {
       "title": "Overlapping event",

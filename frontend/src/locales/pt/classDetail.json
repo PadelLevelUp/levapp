@@ -40,7 +40,8 @@
       "dateRequired": "A data é obrigatória",
       "pickAtLeastOneDay": "Escolhe pelo menos um dia",
       "endDateRequired": "A data de fim é obrigatória",
-      "typeLabel": "Tipo"
+      "typeLabel": "Tipo",
+      "nameRequired": "Dá um nome à aula"
     },
     "spotReleased": "A tua vaga foi libertada",
     "couldNotCancelAttendance": "Não foi possível cancelar a presença",

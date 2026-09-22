@@ -14,6 +14,7 @@ from padel_app.models import (
     Association_PlayerLesson,
     Association_CoachLessonInstance,
 )
+from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.tools.calendar_tools import build_datetime, _format_time, _format_date
 from padel_app.helpers.calendar_helpers import (
@@ -1066,13 +1067,24 @@ def edit_lesson_from_data(lesson, data):
 
 
 def add_class_service(data, coach, club, *, notify_students=True):
-    """Builds a lesson payload from frontend add_class data and creates the lesson."""
+    """Builds a lesson payload from frontend add_class data and creates the lesson.
+
+    PAD-390 (B-136 step 5): a missing, empty or blank name and a capacity that is
+    not a positive integer (0, null, "", a fraction, text — an absent key too)
+    are refused before anything is written, 400 naming the fields; both used to
+    reach the NOT NULL column (an IntegrityError) or a KeyError — a 500 either way.
+    """
+    refused = _refused_class_fields(
+        {"title": data.get("name"), "max_players": data.get("maxPlayers")}, recurring=False,
+    )
+    if refused:
+        raise NotNullableFieldError(refused)
     lesson_payload = {
         "title": data["name"],
         "type": data["classType"],
         "status": "active",
         "color": data.get("color"),
-        "max_players": data["maxPlayers"],
+        "max_players": int(str(data["maxPlayers"]).strip()),
         "level": data.get("levelId"),
         "is_recurring": data.get("isRecurring", False),
         "start_datetime": build_datetime(data["date"], data["startTime"]),
@@ -1286,6 +1298,18 @@ _EDIT_CLASS_FIELDS = {
 }
 
 
+def _is_positive_integer(value):
+    """A capacity: an int > 0, or the numeric string an old build may send. Not a
+    bool, not a fraction (PAD-390; Session-B's nit on #368)."""
+    if isinstance(value, bool) or value is None:
+        return False
+    try:
+        number = float(str(value).strip())
+    except (TypeError, ValueError):
+        return False
+    return number > 0 and number == int(number)
+
+
 def _refused_class_fields(payload, *, recurring):
     """The sent-empty values a class cannot hold, named for a 400 (PAD-387).
 
@@ -1302,14 +1326,8 @@ def _refused_class_fields(payload, *, recurring):
     refused = []
     if "title" in payload and (payload["title"] is None or not str(payload["title"]).strip()):
         refused.append("title")
-    if "max_players" in payload:
-        cap = payload["max_players"]
-        try:
-            legal = cap is not None and str(cap).strip() != "" and int(cap) > 0
-        except (TypeError, ValueError):
-            legal = False
-        if not legal:
-            refused.append("max_players")
+    if "max_players" in payload and not _is_positive_integer(payload["max_players"]):
+        refused.append("max_players")
     if recurring and "recurrence_end" in payload and payload["recurrence_end"] in (None, ""):
         refused.append("recurrence_end")
     return refused

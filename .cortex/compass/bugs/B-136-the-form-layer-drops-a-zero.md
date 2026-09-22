@@ -116,5 +116,11 @@ last lands._
   on a still-placeholder account is 400 (it would have activated under `pending-…`); a taken username
   is 409 as the sibling flows answer (was a 500); the username is stored trimmed, as checked. No client change: both screens already send every
   key, "" when emptied, and their zod blocks an empty name/username/e-mail/password.
-- Step 5 — PAD-390: `POST /add_class`, `POST /message`. _Pending._
+- **Step 5 — PAD-390 (2026-09-22): `POST /add_class`, `POST /message`.** Route validation, no mode switch
+  (on CREATE there is nothing to keep, so legacy mode's `""`→NULL was never the defect — the 500 was):
+  a missing/blank name or a capacity that is not a positive integer (0, null, "", fraction, text,
+  absent) is 400 `["title"|"max_players"]` before any write — the check `/edit_class` uses, tightened
+  (no bool, no fraction) for both; a message with missing/null/"" text is 400 `["text"]`, text stored as
+  sent otherwise. Every symptom in "What happens" now has its step; the legacy evaluation endpoints stay
+  frozen (owner decision) and attendance is B-152.
 - Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).
