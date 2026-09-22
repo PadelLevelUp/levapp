@@ -1,6 +1,6 @@
 ---
 id: evaluations.class-panel
-status: implemented
+status: implementing
 depends_on: [evaluations.records, evaluations.competencies, classes.detail-visibility, attendance.presence]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -168,7 +168,7 @@ leaving it. Today the only entry point is the player's page.
 - **Then** every row is collapsed and no note text is shown; Rui's record for class 88 holds
   "Boa sessão"
 
-### Runs cited for `implemented` (PAD-376, #370)
+### Runs cited (PAD-376, #370) — `implementing` again at `ee8555aae`: the review's two fixes (rules 5 and 10) and the earlier-day fixture have not run on either client yet; `implemented` returns with the runs that cover them
 - Web, Playwright `evaluation-tools/class-evaluations.spec.ts`, `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports:
   **3 passed** at the tree of `a99fd9290`, 2026-09-22 08:05:47 UTC (US-376a rate from today's class → one PUT with the
   panel's `classRef`, a class-linked record and history card; US-376b a past never-opened class: `canRate` false, the
