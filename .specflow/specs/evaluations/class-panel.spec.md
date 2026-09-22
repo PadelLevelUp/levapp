@@ -1,6 +1,6 @@
 ---
 id: evaluations.class-panel
-status: draft
+status: implemented
 depends_on: [evaluations.records, evaluations.competencies, classes.detail-visibility, attendance.presence]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -160,6 +160,17 @@ leaving it. Today the only entry point is the player's page.
 - **When** she closes the surface and opens the panel of class 89
 - **Then** every row is collapsed and no note text is shown; Rui's record for class 88 holds
   "Boa sessão"
+
+### Runs cited for `implemented` (PAD-376, #370)
+- Web, Playwright `evaluation-tools/class-evaluations.spec.ts`, `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports:
+  **3 passed** at the tree of `a99fd9290`, 2026-09-22 08:05:47 UTC (US-376a rate from today's class → one PUT with the
+  panel's `classRef`, a class-linked record and history card; US-376b a past never-opened class: `canRate` false, the
+  action disabled, no instance created, a write 409; US-376c a student sees no action and the read answers 403).
+- iOS, Maestro `80-class-evaluations` on the iPhone 17 Pro simulator (Session-D), at `066efdddd`: **PASSED** 2026-09-22
+  08:13:17–08:14:37 UTC, 47 steps (0/2 → star tap → 1/2 → the server holds one record carrying the class); end state
+  verified through the API: the seed as found (technique off, the class removed).
+- Unit at `a99fd9290`: `npm test` web 274, packages 557, mobile 538 (08:07:20–08:07:37 UTC).
+- Backend: unchanged by this slice; the read and the write are PAD-364's (`evaluations.records`, #353).
 
 ### Notes
 - Criteria name Portuguese copy for the reader; tests locate by test id and `ui()`, never by
