@@ -308,6 +308,7 @@
       "deleteFailed": "The evaluation could not be deleted. Try again.",
       "saveFailed": "That could not be saved. The change was undone — try again.",
       "dayPassed": "This evaluation is no longer today's and cannot be changed. Start a new evaluation.",
+      "player": "Player",
       "noteUnsaved": "The note was not saved.",
       "retry": "Try again",
       "readOnlyHint": "An evaluation can only be edited on the day it was made.",

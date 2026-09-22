@@ -308,6 +308,7 @@
       "deleteFailed": "Não foi possível apagar a avaliação. Tenta outra vez.",
       "saveFailed": "Não foi possível guardar. A alteração foi desfeita — tenta outra vez.",
       "dayPassed": "Esta avaliação já não é de hoje e não pode ser alterada. Abre uma nova avaliação.",
+      "player": "Jogador",
       "noteUnsaved": "A nota não foi guardada.",
       "retry": "Tentar de novo",
       "readOnlyHint": "Só é possível editar uma avaliação no próprio dia.",
