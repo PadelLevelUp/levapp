@@ -22,14 +22,17 @@ Coaches update player information, including level, side preference, and persona
    `PATCH /api/app/player/{id}` is not the route the apps call) writes only the keys present in
    `updates` that differ from the `player` snapshot; an omitted key means keep — which is what the
    App Store builds send for an emptied box, so they go on working unchanged. A present `null` or
-   `""` CLEARS `notes`, `side`, `phone`, `email` and `levelId` (the level through the one writer,
-   rule 2, which records no history row for a clear). A present empty `name` is answered
+   `""` CLEARS `notes`, `side`, `phone` and `levelId` (the level through the one writer, rule 2,
+   which records no history row for a clear) — and `email` only while the player is a placeholder:
+   **once a student has an account, the e-mail is their login and password recovery and becomes the
+   student's own field** (Coordinator, 2026-09-22); a coach's `null`/`""` for it is answered 400
+   `["email"]`, nothing written. Phone stays the coach's to clear. A present empty `name` is answered
    `400 {"error": "invalid_fields", "fields": ["name"]}` and nothing is written. Only `name`,
    `email`, `phone`, `levelId`, `side`, `notes` are read: nothing else on the user record
    (`username`, `status`, `password`, admin flags) is reachable through this route. The current
    web and iOS apps send `null` for an emptied notes, phone or e-mail box; level and side have no
-   clear control yet. A cleared e-mail removes the student's e-mail login and password recovery —
-   the coach's decision, made visible by the box being emptied.
+   clear control yet. A placeholder's e-mail is the coach's; an account
+   holder's is not (above).
 
 ### Acceptance Criteria
 
@@ -52,10 +55,18 @@ Coaches update player information, including level, side preference, and persona
 - **When** they PATCH to `/api/app/player/3` with `{"name": "John Updated", "phone": "+351912345678"}`
 - **Then** the User record is updated with the new name and phone
 
-#### An emptied note, phone or e-mail is cleared (rule 4)
-- **Given** a player with notes "left-handed, bad knee", a phone and an e-mail
-- **When** the coach's app sends `updates: {"notes": null, "phone": null, "email": null}`
-- **Then** the answer is 200 and all three are NULL; the name is unchanged
+#### An emptied note or phone is cleared (rule 4)
+- **Given** a player with notes "left-handed, bad knee" and a phone
+- **When** the coach's app sends `updates: {"notes": null, "phone": null}`
+- **Then** the answer is 200 and both are NULL; the name and e-mail are unchanged
+
+#### A placeholder's e-mail is the coach's to clear; an account holder's is not (rule 4)
+- **Given** a placeholder (never activated, no password) with an e-mail
+- **When** the coach sends `{"email": null}`
+- **Then** the e-mail is NULL
+- **Given** a student who has activated their account
+- **When** the coach sends `{"email": null, "notes": "new note"}`
+- **Then** the answer is 400 with `fields` `["email"]`, and neither the e-mail nor the note changed
 
 #### A cleared level is no level and writes no history (rules 2, 4)
 - **Given** a player at level 5 for this coach

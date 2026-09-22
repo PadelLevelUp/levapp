@@ -177,7 +177,7 @@ def test_edit_player_absent_fields_are_kept(app, client):
 
 
 @pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
-def test_edit_player_an_emptied_note_side_phone_or_email_is_cleared(app, client, cleared):
+def test_edit_player_an_emptied_note_side_or_phone_is_cleared(app, client, cleared):
     """FIXED in PAD-388 (B-136 step 3). Was: the route diffed `updates` against
     `player`, so an emptied field WAS a change and reached the form as "" — where
     it was dropped; a coach could not delete a note, only overwrite it. Both null
@@ -185,10 +185,49 @@ def test_edit_player_an_emptied_note_side_phone_or_email_is_cleared(app, client,
     ids = _seed(app)
     _give_the_student_a_phone(app, ids)
 
-    _edit_player(app, client, ids, {"notes": cleared, "side": cleared, "phone": cleared, "email": cleared})
+    _edit_player(app, client, ids, {"notes": cleared, "side": cleared, "phone": cleared})
 
     row = _roster_row(app, ids)
-    assert row == {"notes": None, "side": None, "phone": None, "email": None, "name": "Test Student"}
+    assert row == {"notes": None, "side": None, "phone": None, "email": "student@test.com", "name": "Test Student"}
+
+
+def _make_placeholder(app, ids):
+    """The seed's student is an account holder; a placeholder has never activated and has no password."""
+    from padel_app.models import User
+
+    with app.app_context():
+        user = db.session.get(User, ids["student_user_id"])
+        user.password = None
+        user.status = "inactive"
+        db.session.commit()
+
+
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+def test_edit_player_a_placeholders_email_is_the_coachs_to_clear(app, client, cleared):
+    ids = _seed(app)
+    _make_placeholder(app, ids)
+
+    _edit_player(app, client, ids, {"email": cleared})
+
+    assert _roster_row(app, ids)["email"] is None
+
+
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+def test_edit_player_an_account_holders_email_cannot_be_cleared_by_the_coach(app, client, cleared):
+    """Coordinator, 2026-09-22: once a student has an account the e-mail is their
+    login and password recovery — the student's own field. 400, nothing written
+    (the note sent beside it included)."""
+    ids = _seed(app)  # activated: password set, status active
+    before = _roster_row(app, ids)
+
+    player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
+              "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"email": cleared, "notes": "new note"}},
+                      headers=_headers(app, ids["coach_user_id"]))
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["email"]}
+    assert _roster_row(app, ids) == before
 
 
 def test_edit_player_a_cleared_level_is_no_level_and_writes_no_history_row(app, client):

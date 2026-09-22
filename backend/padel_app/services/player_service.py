@@ -9,7 +9,7 @@ from sqlalchemy import func, case
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
-from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach
+from padel_app.models.players import _is_claimable_user, _is_deletable_by_coach, _is_placeholder_user
 from padel_app.tools.unit_of_work import transactional
 from padel_app.tools.username_tools import unique_placeholder_username
 
@@ -402,8 +402,18 @@ def edit_player_service(data):
     # PAD-388 (B-136 step 3): each dict holds a key iff the client sent it AND it
     # is whitelisted — nothing is invented for an unchanged key (the old None
     # placeholders would now CLEAR), and nothing else on the user form is reachable.
+    refused = []
     if 'name' in changes and (changes['name'] is None or not str(changes['name']).strip()):
-        return {"error": "invalid_fields", "fields": ["name"]}, 400
+        refused.append("name")
+    # PAD-388 (Coordinator, 2026-09-22): once a student has an account the e-mail is
+    # their login and password recovery — the student's own field, not the coach's.
+    # A placeholder's e-mail is the coach's to clear.
+    if 'email' in changes and changes['email'] in (None, "") and not _is_placeholder_user(
+        Player.query.get_or_404(player_info['playerId']).user
+    ):
+        refused.append("email")
+    if refused:
+        return {"error": "invalid_fields", "fields": refused}, 400
     payload = {
         'coach': player_info['coachId'],
         'relation': {
