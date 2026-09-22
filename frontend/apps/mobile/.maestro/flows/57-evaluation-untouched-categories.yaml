@@ -14,6 +14,8 @@
 # ids only; the rendered copy differs between locales.
 appId: com.padellevelup.app
 ---
+- runScript: ../scripts/evaluations-setup.js
+
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
     id: "tab-players"
