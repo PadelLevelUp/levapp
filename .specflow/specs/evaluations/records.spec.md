@@ -77,8 +77,11 @@ what every writer — new, legacy and import — goes through.
    own `PUT`; there is no save button and no dirty state. **(build default Q34) Stars save on tap,
    one request per tap; a legacy-scale stepper's consecutive steps are ONE input** — debounced
    about 400 ms per competency (stepping A and then B writes both), the note about 800 ms — and
-   whatever is pending is flushed on blur, on "Concluir avaliação", on close and on unmount, so a
-   quick step-then-close is never lost. "Concluir avaliação" only flushes and closes the
+   whatever is pending is flushed on blur, on "Concluir avaliação", on close, on unmount, **and
+   (PAD-396) when the page is hidden or the app leaves the foreground** — web `pagehide` and
+   `visibilitychange` to hidden, iOS `AppState` leaving `active` — so a quick step-then-close, a
+   closed tab or a backgrounded app never loses the last input. The flush only starts the pending
+   `PUT` through the session's own queue; it needs no beacon. "Concluir avaliação" only flushes and closes the
    form. The write is a get-or-create on rule 2's identity, so a repeated or concurrent call
    never creates a second record (the unique indexes are the backstop; a lost race re-reads).
 8. **The write endpoint.** `PUT /api/app/evaluation_record` (JWT, coach). Request
@@ -241,6 +244,12 @@ what every writer — new, legacy and import — goes through.
 - **When** an App Store build posts `/add_evaluation_entry` with Forehand 9
 - **Then** a new entry Forehand 9 is in that record, the Forehand 7 row still exists with
   `record_id` NULL, and no second record was created
+
+#### A step made just before the tab is hidden still reaches the server (rule 7, PAD-396)
+- **Given** the form is open on Rui's record and Ana has pressed "+" on Forehand once (a step inside its quiet period)
+- **When** the web page fires `pagehide` (the tab is closed) or `visibilitychange` to hidden, or on iOS the app state leaves `active`
+- **Then** the pending step is sent as one `PUT` before anything else happens, and nothing is sent twice
+- **And** a form with nothing pending sends nothing on those events
 
 ### Notes
 - OPEN: the 2000-character note limit is this leaf's choice; the canvas has none (AV-078).

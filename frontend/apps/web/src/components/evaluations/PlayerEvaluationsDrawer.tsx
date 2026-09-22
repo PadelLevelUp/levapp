@@ -126,7 +126,7 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
                 key={target === "new" ? "new" : target.id}
                 competencies={competencies}
                 record={formRecord}
-                onSave={(input) => put.mutateAsync(classRef ? { ...input, classRef } : input)}
+                onSave={(input, options) => put.mutateAsync({ ...input, ...(classRef ? { classRef } : {}), keepalive: options?.keepalive })}
                 onClose={() => setTarget(null)}
                 onManageCompetencies={() => openCompetencyManager(navigate)}
               />

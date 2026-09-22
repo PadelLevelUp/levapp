@@ -107,3 +107,20 @@ describe("records", () => {
     expect([seen[0].method, seen[0].url]).toEqual(["delete", "/app/evaluation_record/5"]);
   });
 });
+
+describe("a flush from a page that is going away (PAD-396, review)", () => {
+  it("putEvaluationRecord(input, { keepalive: true }) asks axios for the fetch adapter with keepalive on that one call — an ordinary PUT does not", async () => {
+    const client = initApi({ baseURL: "http://api.test", storage });
+    const configs: InternalAxiosRequestConfig[] = [];
+    const stub = async (config: InternalAxiosRequestConfig) => ({ data: { id: 1, deleted: false }, status: 200, statusText: "", headers: {}, config });
+    client.defaults.adapter = stub;
+    // Record what the call asked for, then send it through the stub — the per-call "fetch" adapter would otherwise reach the network.
+    client.interceptors.request.use((config) => { configs.push({ ...config }); config.adapter = stub; return config; });
+    await api.putEvaluationRecord({ playerId: 1, ratings: { "2": 6 } }, { keepalive: true });
+    await api.putEvaluationRecord({ playerId: 1, ratings: { "2": 7 } });
+    expect(configs[0].adapter).toBe("fetch");
+    expect((configs[0].fetchOptions as { keepalive?: boolean }).keepalive).toBe(true);
+    expect(configs[1].fetchOptions).toBeUndefined();
+    expect(configs[1].adapter).not.toBe("fetch");
+  });
+});

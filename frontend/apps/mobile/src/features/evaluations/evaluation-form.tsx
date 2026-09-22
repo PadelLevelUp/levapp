@@ -27,6 +27,7 @@ import { toast } from "@/components/ui/toast";
 
 import { ScoreStepper } from "./score-stepper";
 import { StarRating } from "./star-rating";
+import { useFlushOnBackground } from "./use-flush-on-background";
 
 type SaveInput = Omit<EvaluationRecordInput, "playerId">;
 
@@ -69,6 +70,8 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
   });
   const { scores, note, noteUnsaved, failure } = state;
   const flushAll = () => session.flush();
+  // A backgrounded app never loses the last input (PAD-396).
+  useFlushOnBackground(flushAll);
 
   if (rows.length === 0) {
     return (

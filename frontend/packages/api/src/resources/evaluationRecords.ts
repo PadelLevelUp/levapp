@@ -57,8 +57,15 @@ export async function getPlayerEvaluations(playerId: number | string): Promise<P
   return res.data;
 }
 
-export async function putEvaluationRecord(input: EvaluationRecordInput): Promise<PutEvaluationRecordResult> {
-  const res = await getApi().put("/app/evaluation_record", input);
+export async function putEvaluationRecord(
+  input: EvaluationRecordInput,
+  options?: { keepalive?: boolean }
+): Promise<PutEvaluationRecordResult> {
+  // `keepalive`: a flush from a page that is going away. XHR (axios's default browser adapter) is
+  // aborted at unload; the fetch adapter with `keepalive` lets this one small PUT outlive the page,
+  // Authorization header and all (sendBeacon could not carry the JWT).
+  const config = options?.keepalive ? { adapter: "fetch" as const, fetchOptions: { keepalive: true } } : undefined;
+  const res = await getApi().put("/app/evaluation_record", input, config);
   return res.data;
 }
 

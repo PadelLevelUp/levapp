@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "./StarRating";
 import { ScoreStepper } from "./ScoreStepper";
+import { useFlushOnPageHide } from "./useFlushOnPageHide";
 
 type SaveInput = Omit<EvaluationRecordInput, "playerId">;
 
@@ -18,7 +19,7 @@ interface EvaluationFormProps {
   /** The record the form opens on (today's), or null: tapping nothing creates nothing. */
   record: EvaluationRecord | null;
   /** One input = one call. Rejects when the save failed (409 `record_not_editable` included). */
-  onSave: (input: SaveInput) => Promise<PutEvaluationRecordResult>;
+  onSave: (input: SaveInput, options?: { keepalive?: boolean }) => Promise<PutEvaluationRecordResult>;
   onClose: () => void;
   onManageCompetencies: () => void;
 }
@@ -46,11 +47,13 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
   // the debounced stepper and note, the day-passed 409, and flush on unmount.
   const { session, state } = useEvaluationFormSession({
     record,
-    save: (input) => onSaveRef.current(input),
+    save: (input, options) => (options ? onSaveRef.current(input, options) : onSaveRef.current(input)),
     onFailure: (failure) => toast.error(t(failure === "dayPassed" ? "players.evaluationHistory.dayPassed" : "players.evaluationHistory.saveFailed")),
   });
   const { scores, note, noteUnsaved, failure } = state;
   const flushAll = () => session.flush();
+  // A closed tab or a switched-away page never loses the last input (PAD-396).
+  useFlushOnPageHide(flushAll);
 
   if (rows.length === 0) {
     return (

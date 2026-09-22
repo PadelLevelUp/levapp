@@ -60,9 +60,42 @@ export function __subscribedKeyboardEvents(): string[] {
     .sort();
 }
 
+export type AppStateStatus = "active" | "background" | "inactive" | "unknown" | "extension";
+type AppStateListener = (status: AppStateStatus) => void;
+const appStateListeners = new Set<AppStateListener>();
+
+/**
+ * Mirrors RN's AppState: `currentState` plus "change" subscriptions whose `remove()`
+ * genuinely unsubscribes (PAD-396's flush-on-background hook is tested against it).
+ */
+export const AppState = {
+  currentState: "active" as AppStateStatus,
+  addEventListener(event: string, callback: AppStateListener) {
+    if (event === "change") appStateListeners.add(callback);
+    return {
+      remove() {
+        appStateListeners.delete(callback);
+      },
+    };
+  },
+};
+
+/** Test-only: move the app to `status` and tell every subscriber. */
+export function __emitAppState(status: AppStateStatus): void {
+  AppState.currentState = status;
+  for (const callback of [...appStateListeners]) callback(status);
+}
+
+/** Test-only: how many "change" subscribers AppState has. */
+export function __appStateListenerCount(): number {
+  return appStateListeners.size;
+}
+
 /** Test-only: drop every listener and restore the default platform. */
 export function __resetReactNativeMock(): void {
   listeners.clear();
+  appStateListeners.clear();
+  AppState.currentState = "active";
   Platform.OS = "ios";
 }
 

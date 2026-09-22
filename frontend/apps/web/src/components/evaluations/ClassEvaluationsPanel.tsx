@@ -175,7 +175,7 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
               todays={todays}
               earlier={earlier}
               playerId={id}
-              onSave={(input) => put.mutateAsync({ ...input, classRef })}
+              onSave={(input, options) => put.mutateAsync({ ...input, classRef, keepalive: options?.keepalive })}
               onClose={onToggle}
               onManage={onManage}
             />
