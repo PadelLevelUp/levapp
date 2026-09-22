@@ -64,7 +64,7 @@ if present), so an ``upgrade`` afterwards re-adds the columns and
 re-converts from scratch, landing on the same rows.
 
 Revision ID: e25428020888
-Revises: 21c864b3dd59
+Revises: 2240837cb663
 Create Date: 2026-09-22
 """
 import logging
@@ -74,7 +74,7 @@ from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "e25428020888"
-down_revision = "21c864b3dd59"  # PAD-403: re-parent on slice 8's revision before the PR
+down_revision = "2240837cb663"  # slot 4, on slice 8 (PAD-404); chain 21c864b3dd59 → 6a6ac64d814b → 2240837cb663 → this
 branch_labels = None
 depends_on = None
 
