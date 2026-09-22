@@ -96,6 +96,8 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
+# (The prev-week loop only fires when yesterday is in last week's strip; on 2026-09-22's runs the day
+# was already on screen and the loop was skipped — it has not been exercised on a simulator yet.)
 - repeat:
     times: 2
     while:

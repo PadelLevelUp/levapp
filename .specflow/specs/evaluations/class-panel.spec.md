@@ -1,6 +1,6 @@
 ---
 id: evaluations.class-panel
-status: implementing
+status: implemented
 depends_on: [evaluations.records, evaluations.competencies, classes.detail-visibility, attendance.presence]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -168,16 +168,22 @@ leaving it. Today the only entry point is the player's page.
 - **Then** every row is collapsed and no note text is shown; Rui's record for class 88 holds
   "Boa sessão"
 
-### Runs cited (PAD-376, #370) — `implementing` again at `ee8555aae`: the review's two fixes (rules 5 and 10) and the earlier-day fixture have not run on either client yet; `implemented` returns with the runs that cover them
-- Web, Playwright `evaluation-tools/class-evaluations.spec.ts`, `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports:
-  **3 passed** at the tree of `a99fd9290`, 2026-09-22 08:05:47 UTC (US-376a rate from today's class → one PUT with the
-  panel's `classRef`, a class-linked record and history card; US-376b a past never-opened class: `canRate` false, the
-  action disabled, no instance created, a write 409; US-376c a student sees no action and the read answers 403).
-- iOS, Maestro `80-class-evaluations` on the iPhone 17 Pro simulator (Session-D), at `066efdddd`: **PASSED** 2026-09-22
-  08:13:17–08:14:37 UTC, 47 steps (0/2 → star tap → 1/2 → the server holds one record carrying the class); end state
-  verified through the API: the seed as found (technique off, the class removed).
-- Unit at `a99fd9290`: `npm test` web 274, packages 557, mobile 538 (08:07:20–08:07:37 UTC).
-- Backend: unchanged by this slice; the read and the write are PAD-364's (`evaluations.records`, #353).
+### Runs cited for `implemented` (PAD-376, #370)
+- Web, Playwright `evaluation-tools/class-evaluations.spec.ts` (US-376a–d), `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports:
+  **4 passed** at `557b509a1`, 2026-09-22 12:42:59–12:43:50 UTC (42.8 s). US-376a: rate from today's class → one PUT with the panel's
+  `classRef`, a class-linked record and history card; US-376b: a past never-opened class — `canRate` false, the action disabled, no
+  instance created, a write 409; US-376c: a student sees no action and the read answers 403 with no participant name; US-376d (review
+  F1) on the seed's `E2E Eval Yesterday Class`: the summary reads 1 before the tap, the earlier-day card is visible, one star tap is one
+  PUT with the class, the card and the summary are unchanged after the refetch, two records for the class on the server, the seeded
+  row untouched. (3 passed at `a99fd9290`'s tree, 08:05:47 UTC, before US-376d existed.)
+- iOS, Maestro `80-class-evaluations` on the iPhone 17 Pro simulator (Session-D): **PASSED, both halves, at `557b509a1`**,
+  2026-09-22 10:23:58–10:26:50 UTC, 60 steps, under load ~490, DB reseeded from that head — first half 0/2 → star → 1/2 → one record
+  carrying the class; second half on the yesterday class: summary 1/2, the earlier-day card visible, the technique star, two records on
+  the server, **the earlier card still visible after the refetch**, the teardown left the seed as found. (First run at `5d92ef781`,
+  10:08:49–10:10:33 UTC: first half green, second half red on the flow's own navigation — fixed in `557b509a1`; the flow's prev-week
+  loop was skipped on these runs, yesterday being on screen, and is not yet exercised.)
+- Unit at `a99fd9290`: `npm test` web 274, packages 557, mobile 538 (08:07:20–08:07:37 UTC); at `ee8555aae`: config 14, web evaluation
+  components 67, both `tsc` clean. Backend unchanged by this slice; the read and the write are PAD-364's (#353).
 
 ### Notes
 - Criteria name Portuguese copy for the reader; tests locate by test id and `ui()`, never by
