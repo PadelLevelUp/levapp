@@ -351,6 +351,11 @@
       "noParticipants": "Esta aula não tem participantes para avaliar."
     },
     "invalidFields": "Alguns dos dados introduzidos não são válidos.",
-    "emailIsTheStudents": "O aluno gere o seu próprio e-mail."
+    "emailIsTheStudents": "O aluno gere o seu próprio e-mail.",
+    "masterDetail": {
+      "selectPlayer": "Escolhe um jogador",
+      "selectPlayerHint": "Os detalhes aparecem aqui, ao lado da lista.",
+      "levelChip": "Nível {{code}}"
+    }
   }
 }

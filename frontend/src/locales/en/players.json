@@ -351,6 +351,11 @@
       "noParticipants": "This class has nobody to evaluate."
     },
     "invalidFields": "Some of what you entered is not valid.",
-    "emailIsTheStudents": "The student manages their own e-mail."
+    "emailIsTheStudents": "The student manages their own e-mail.",
+    "masterDetail": {
+      "selectPlayer": "Select a player",
+      "selectPlayerHint": "Their details open here, next to the list.",
+      "levelChip": "Level {{code}}"
+    }
   }
 }

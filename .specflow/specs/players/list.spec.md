@@ -44,6 +44,14 @@ Coaches view their player roster with search, sorting, filtering, and pagination
    on the player card; the list's order, filters and sort options do not change because of it
    (nothing moves under the finger). Coach-only, like the rows themselves. Old App Store builds
    ignore the extra boolean.
+10. **(PAD-410) The selected row.** On web at ≥ 768px the roster shares the page with the profile
+    (`players.profile` rule 4). The row of the player in the URL is highlighted and carries
+    `aria-current="true"`. Choosing another row keeps the list exactly as it was: search text,
+    sort, page and filter stay, and nothing reloads under the finger. An edit or a removal made
+    in the profile is reflected in the list: the row updates, or it disappears and the URL
+    returns to `/players`. Each row shows an initials avatar, the name, a level chip and a side
+    chip, and keeps every badge it had (pending registration, the due marker of rule 9). Rows
+    stay real controls (rule 8, R-026).
 
 ### Acceptance Criteria
 
@@ -83,4 +91,12 @@ Coaches view their player roster with search, sorting, filtering, and pagination
   player's name
 - **And** pressing `Enter` on the focused card opens that player's detail page
 - **And** pressing `Space` on the focused card does the same without scrolling the page
+
+#### The selected row survives a change of player (PAD-410)
+- **Given** a coach on `/players` at ≥ 768px, on page 2 of their roster, sorted by level
+- **When** they open one player and then another
+- **Then** the second player's row is highlighted with `aria-current="true"`, the first one is not,
+  and the list is still page 2 sorted by level
+- **And** after they remove the second player from the profile, the URL is `/players` and that
+  row is gone from the list
 
