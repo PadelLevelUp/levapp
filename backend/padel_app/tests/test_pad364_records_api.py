@@ -257,6 +257,7 @@ def test_a_same_day_re_rating_moves_the_rows_evaluated_at(app, client, monkeypat
     from padel_app.models import EvaluationEntry
 
     ids = _seed(app)
+    pin_clock(monkeypatch, NOW)  # B-100: "same day" means the pinned day, not the real clock's
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}}).status_code == 200
     pin_clock(monkeypatch, NOW + dt.timedelta(hours=3))
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5}}).status_code == 200
@@ -271,6 +272,10 @@ def test_a_legacy_save_after_a_v2_re_rating_compares_against_the_v2_value(app, c
     skip reads the v2 value as the latest — a stale 4 from an old build is written
     as a change, a 5 is skipped."""
     ids = _seed(app)
+    # B-100: every timestamp derives from the pinned instant. Unpinned, the first save ran on the
+    # real clock and became the LATEST row once the real clock passed NOW+3h (red from 2026-09-22
+    # 00:00 UTC, green all day on the 21st).
+    pin_clock(monkeypatch, NOW + dt.timedelta(hours=1))
     assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
     pin_clock(monkeypatch, NOW + dt.timedelta(hours=2))
     assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5}}).status_code == 200

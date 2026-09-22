@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
@@ -44,7 +45,12 @@ class EvaluationEntry(db.Model, model.Model):
     score = Column(Float, nullable=False)
     comment = Column(String(500), nullable=True)
     # PAD-273 (audit M12): `.strftime` is called on it, so it can never be NULL.
-    evaluated_at = Column(DateTime, default=datetime.utcnow, nullable=False, server_default=func.now())
+    # The app's own clock, looked up at WRITE time (`lambda`, not the function object): the tests
+    # pin `utcnow_naive` by rebinding the name (B-100), which a default holding the original
+    # function — `datetime.utcnow` before, or `utcnow_naive` itself — can never see. That put a
+    # legacy row on the real day while a pinned v2 write landed on the pinned day: red from
+    # 00:00 UTC every night, green all day. Same instant in production either way.
+    evaluated_at = Column(DateTime, default=lambda: utcnow_naive(), nullable=False, server_default=func.now())
 
     @property
     def name(self):
