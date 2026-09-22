@@ -436,8 +436,8 @@ def _lesson_count(app):
         return Lesson.query.count()
 
 
-@pytest.mark.parametrize("capacity", [0, None, "", "0", -1, "abc", 2.5, ABSENT_KEY],
-                         ids=["zero", "null", "empty", "string-zero", "negative", "text", "fraction", "absent"])
+@pytest.mark.parametrize("capacity", [0, None, "", "0", -1, "abc", 2.5, "6.0", True, ABSENT_KEY],
+                         ids=["zero", "null", "empty", "string-zero", "negative", "text", "fraction", "string-float", "true", "absent"])
 def test_add_class_a_capacity_that_is_not_a_positive_integer_is_refused(app, client, capacity):
     """FIXED in PAD-390 (B-136 step 5). Was: `maxPlayers: 0` read as "not sent" and
     `lessons.max_players` NOT NULL → an unhandled IntegrityError (a 500); an absent
@@ -478,7 +478,9 @@ def test_add_class_with_both_wrong_names_both_fields(app, client):
 
 def test_add_class_a_capacity_sent_as_a_numeric_string_is_stored_as_the_number(app, client):
     """The control: what the shells send (an integer) and what an old build might
-    (a numeric string) both create the class with that capacity."""
+    (an integer string) both create the class with that capacity. "6.0" is refused
+    above: the check parses exactly as the write does (Session-B, #373), so nothing
+    it admits can fail to convert."""
     from padel_app.models.lessons import Lesson
 
     world = _class_world(app, client)
@@ -811,11 +813,12 @@ def _message_texts(app):
         return [m.text for m in Message.query.order_by(Message.id)]
 
 
-@pytest.mark.parametrize("text", ["", None, ABSENT_KEY], ids=["empty", "null", "absent"])
+@pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
 def test_message_with_no_text_is_refused_and_nothing_is_written(app, client, text):
     """FIXED in PAD-390 (B-136 step 5). Was: `""` read as "not sent" and
     `messages.text` NOT NULL → an unhandled IntegrityError; an absent key a
-    KeyError — a 500 either way where a 400 belongs."""
+    KeyError — a 500 either way where a 400 belongs. Whitespace-only is refused
+    too, as every blank rule of this family does (both composers trim and block)."""
     conversation_id, headers = _conversation(app, client)
     body = {"conversationId": conversation_id, "text": text}
     if text is ABSENT_KEY:
@@ -837,6 +840,28 @@ def test_message_a_text_that_is_there_is_stored_as_sent(app, client):
                            headers=headers).status_code == 201
 
     assert _message_texts(app) == ["0", "hello", " spaced "]
+
+
+@pytest.mark.parametrize("text", ["", None, "   ", ABSENT_KEY], ids=["empty", "null", "whitespace", "absent"])
+def test_message_edit_with_no_text_is_refused_and_the_message_is_unchanged(app, client, text):
+    """Session-B on #373: the same defect on the same column, three lines away —
+    PUT /message/<id> with `""` hit the NOT NULL column, an absent key a KeyError."""
+    conversation_id, headers = _conversation(app, client)
+    created = client.post("/api/app/message", json={"conversationId": conversation_id, "text": "hello"}, headers=headers)
+    assert created.status_code == 201
+    message_id = created.get_json()["id"]
+    body = {"text": text}
+    if text is ABSENT_KEY:
+        body = {}
+
+    res = client.put(f"/api/app/message/{message_id}", json=body, headers=headers)
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["text"]}
+    assert _message_texts(app) == ["hello"]
+
+    assert client.put(f"/api/app/message/{message_id}", json={"text": "hello, edited"}, headers=headers).status_code == 200
+    assert _message_texts(app) == ["hello, edited"]
 
 
 # ── POST /api/app/class_instance/presences/confirm (lesson_service.add_presences) ──

@@ -705,7 +705,7 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     # PAD-275 (classes.edit rule 4): a capacity equal to the lesson's clears the
     # override; the shadow column follows the effective value.
     if 'max_players' in data and data.get('max_players') not in (None, ''):
-        _cap = int(data['max_players'])
+        _cap = _capacity(data['max_players'])  # refused up front when None; the same parser
         _lesson_cap = lesson_instance.lesson.max_players if lesson_instance.lesson else None
         lesson_instance.max_players_override = _cap if _cap != _lesson_cap else None
     lesson_instance.max_players = lesson_instance.effective_max_players
@@ -1084,7 +1084,7 @@ def add_class_service(data, coach, club, *, notify_students=True):
         "type": data["classType"],
         "status": "active",
         "color": data.get("color"),
-        "max_players": int(str(data["maxPlayers"]).strip()),
+        "max_players": _capacity(data["maxPlayers"]),
         "level": data.get("levelId"),
         "is_recurring": data.get("isRecurring", False),
         "start_datetime": build_datetime(data["date"], data["startTime"]),
@@ -1298,16 +1298,22 @@ _EDIT_CLASS_FIELDS = {
 }
 
 
-def _is_positive_integer(value):
-    """A capacity: an int > 0, or the numeric string an old build may send. Not a
-    bool, not a fraction (PAD-390; Session-B's nit on #368)."""
+def _capacity(value):
+    """A capacity as the routes store it: an int > 0, or the integer string an old
+    build may send ("6"). None for anything else — a bool, a fraction, "6.0", text
+    (PAD-390; Session-B on #368 and #373: ONE parser, the same one the write uses,
+    so nothing the check admits can fail to convert)."""
     if isinstance(value, bool) or value is None:
-        return False
+        return None
     try:
-        number = float(str(value).strip())
+        number = int(str(value).strip())
     except (TypeError, ValueError):
-        return False
-    return number > 0 and number == int(number)
+        return None
+    return number if number > 0 else None
+
+
+def _is_positive_integer(value):
+    return _capacity(value) is not None
 
 
 def _refused_class_fields(payload, *, recurring):

@@ -120,7 +120,7 @@ last lands._
   (on CREATE there is nothing to keep, so legacy mode's `""`→NULL was never the defect — the 500 was):
   a missing/blank name or a capacity that is not a positive integer (0, null, "", fraction, text,
   absent) is 400 `["title"|"max_players"]` before any write — the check `/edit_class` uses, tightened
-  (no bool, no fraction) for both; a message with missing/null/"" text is 400 `["text"]`, text stored as
-  sent otherwise. Every symptom in "What happens" now has its step; the legacy evaluation endpoints stay
+  (no bool, no fraction) for both; a message with missing/null/""/blank text is 400 `["text"]` on POST and on PUT /message/<id>, text
+  stored as sent otherwise. Every symptom in "What happens" now has its step; the legacy evaluation endpoints stay
   frozen (owner decision) and attendance is B-152.
 - Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).

@@ -296,8 +296,7 @@ def create_message_service(data, user_id, now=None):
     # PAD-390 (B-136 step 5): a message with no text is refused, 400 naming the
     # field — `""` used to reach the NOT NULL column (an IntegrityError) and an
     # absent key a KeyError, a 500 either way. What text there is, is stored as sent.
-    if data.get("text") is None or data["text"] == "":
-        raise NotNullableFieldError(["text"])
+    _require_text(data)
 
     payload = {
         "text": data["text"],
@@ -365,8 +364,21 @@ def create_message_service(data, user_id, now=None):
     return message
 
 
+def _require_text(data):
+    """PAD-390 (B-136 step 5): a message has text. A missing, null, empty or
+    whitespace-only `text` is refused, 400 naming the field, before any write —
+    `""` used to reach the NOT NULL column (an IntegrityError) and an absent key a
+    KeyError, a 500 either way. What text there is, is stored as sent (untrimmed)."""
+    text = (data or {}).get("text")
+    if text is None or not str(text).strip():
+        raise NotNullableFieldError(["text"])
+    return text
+
+
 def edit_message_service(message_id, new_text, user_id):
-    """Edit a message. Only the sender may edit."""
+    """Edit a message. Only the sender may edit. A missing/blank text is refused
+    (PAD-390) — the signature is kept: tests call it directly."""
+    new_text = _require_text({"text": new_text})
     message = Message.query.get_or_404(message_id)
     require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
