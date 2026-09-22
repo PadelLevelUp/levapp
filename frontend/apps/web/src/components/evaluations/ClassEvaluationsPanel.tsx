@@ -133,6 +133,9 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
   // dropping the form under the finger. The card is held while the row is open; closing
   // the row releases it. The form's session is created once, so today's id arriving does
   // not touch what the coach is editing.
+  // (useHeldWhile passes `undefined` through as "not loaded yet" but holds `null`; a row can only be
+  // opened once the read that carries its record has answered, so `null` here means "no earlier
+  // record", never "loading". If rows ever become openable while loading, hold `undefined` instead.)
   const earlier = useHeldWhile(record && !record.editable ? record : null, open, `${id}:${open}`);
 
   return (
