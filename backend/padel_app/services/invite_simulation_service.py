@@ -217,7 +217,7 @@ def _priority_values(cp, vacancy, config, coach_id: int, ladder: dict) -> list[d
         _side_preference_rank,
     )
 
-    att_rate, just_rate = _attendance_stats(cp.player_id)
+    att_rate, just_rate = _attendance_stats(cp.player_id, coach_id)  # PAD-382: this coach's record
     values = []
     for criterion in config.get_priority_criteria():
         if not criterion.get("enabled"):

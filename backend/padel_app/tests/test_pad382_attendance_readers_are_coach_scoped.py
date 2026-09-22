@@ -136,3 +136,33 @@ def test_two_justified_absences_with_another_coach_do_not_fail_this_coachs_bar(a
 
 def test_control_two_justified_absences_with_this_coach_fail_the_bar(app):
     assert _anas_bar_admits_rui(app, absent_with="ana") is False
+
+
+# ── the attendance-rate bar and the ranking stats, the same scope ────────────
+
+def _stats_as_seen_by_ana(app, *, absent_with):
+    """(attendance_rate, justified_miss_rate) Ana's engine computes for Rui, who has two
+    justified absences with `absent_with` and nothing else."""
+    from padel_app.services.notification_service import _attendance_stats
+
+    ids = _seed(app)
+    with app.app_context():
+        rui = _add_student(ids["coach_id"], "rui", ids["level_ids"]["5"])
+        bruno_id, bruno_lesson = _second_coach_with_rui(ids, rui)
+        if absent_with == "bruno":
+            _justified_absences(bruno_id, bruno_lesson, rui, 2)
+        else:
+            _justified_absences(ids["coach_id"], ids["lesson_id"], rui, 2)
+        db.session.commit()
+        return _attendance_stats(rui, ids["coach_id"])
+
+
+def test_another_coachs_absences_leave_this_coachs_rates_at_zero(app):
+    """No rows with Ana → (0.0, 0.0), the value a player with no record has always had;
+    the ranking keys (`_rank_invited`, the approval-queue pick, the simulation) read
+    this same function with the vacancy's coach."""
+    assert _stats_as_seen_by_ana(app, absent_with="bruno") == (0.0, 0.0)
+
+
+def test_control_this_coachs_absences_shape_this_coachs_rates(app):
+    assert _stats_as_seen_by_ana(app, absent_with="ana") == (0.0, 1.0)
