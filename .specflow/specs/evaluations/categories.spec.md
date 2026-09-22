@@ -39,6 +39,10 @@ Coaches define custom evaluation categories (e.g., Forehand, Volley, Serve) with
    /api/app/delete/evaluation_category` writes one `deletion_audit` row (`entity`
    `evaluation_category`, the acting coach's user, the name, the counts) in the same transaction
    (PAD-274). A category that was never saved is removed from the form without asking.
+8. **The iOS categories editor loads once (PAD-392, B-155; number self-assigned, unconfirmed).** Names and
+   scales are edited locally until Save, so the load effect must not re-run: it does not depend
+   on `t` (`settings.coach-working-hours` rule 7). The web section already loaded with empty deps;
+   the iOS twin had drifted and would replace unsaved edits when the language changed.
 
 ### Superseded by / Planned
 Not built. A built-in catalogue, on/off, custom competencies, rename by id (resolves B-125) and an

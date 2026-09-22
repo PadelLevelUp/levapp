@@ -37,6 +37,19 @@ otherwise.
 4. **Only the availability computation reads it** (`classes.availability`). The coach's own
    calendar, blocks and the existing `free-blocks` endpoint (`classes.class-requests` rule 1) are
    unchanged; a coach may still put a class outside their working hours.
+7. **The editor loads once, and a load never undoes an edit (PAD-392, B-155; numbered 7 because rules 5
+   and 6 arrive with PAD-361 and PAD-369).** The week is fetched when the section mounts and never
+   again for the life of that mount; the load effect depends on nothing whose identity can change —
+   in particular not on `t` or `toast`, which are read through refs. A load that resolves after the
+   coach has touched the week does not replace it; after a successful save the week shown is the
+   server's again. **Why:** `t` gets a new identity whenever the language changes — on web that is
+   EVERY page load, as the account's language is applied over i18n's "pt" start; on iOS at sign-in.
+   With `t` in the deps the effect re-ran and its second load replaced the week, silently undoing
+   an edit made in the first moments after opening Settings (seen in a release run: the second
+   `GET /coach/working-hours` resolved 6 ms and 1 ms after the click it undid). The same rule holds
+   for every Settings section that loads into an editable form — `calendar.seasons` rule 15,
+   `evaluations.categories` rule 8 — and a guard test (`apps/web/src/lib/loading-effects-deps.test.ts`)
+   fails when a loading hook in either shell lists `t` or `toast` in its deps.
 
 ### Acceptance Criteria
 
@@ -56,3 +69,10 @@ otherwise.
 - **Given** Ana saved hours earlier
 - **When** she saves `workingHours: null`
 - **Then** `GET` answers `workingHours: null`, and a student's availability for Ana falls back to 08:00–22:00 with `workingHoursSource: "default"`
+
+#### A late load does not undo an edit (PAD-392)
+- **Given** coach Ana opens Settings → Calendar and the week has loaded
+- **When** she switches Sunday to "não trabalho" and, a moment later, the account's language settles (the component is handed a new `t`)
+- **Then** Sunday still reads "não trabalho", and the week was fetched exactly once
+- **Given** nothing was touched
+- **Then** the editor shows what the server holds
