@@ -1,7 +1,9 @@
 // PAD-402 (flow 81): un-shares the record (sharing rule 9 — silent, idempotent) and
 // removes only what setup created (R-040) — nothing, unless the fallback record and/or
 // competency fired. The seeded record and its ratings are otherwise left exactly as found.
-// Exposes: output.stillShared (must be false after this runs).
+// Exposes: output.stillShared (must be false after this runs). Also runs from onFlowComplete;
+// a no-op when setup never got as far as a token and a record.
+if (output.coachTok && output.recordId) {
 var auth = { "Content-Type": "application/json", Authorization: "Bearer " + output.coachTok };
 
 http.delete(output.api + "/api/app/evaluation_record/" + output.recordId + "/share", { headers: auth });
@@ -22,4 +24,5 @@ if (output.createdCompetencyId) {
     headers: auth,
     body: JSON.stringify({ isActive: false }),
   });
+}
 }

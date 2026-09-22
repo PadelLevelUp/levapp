@@ -17,6 +17,10 @@
 # - teardown un-shares again (idempotent) and removes only what setup created; the seeded
 #   record and its ratings are left exactly as found
 appId: com.padellevelup.app
+# R-040: a red run cleans up too — the teardown is idempotent (un-share, then remove only
+# what setup created) and also runs mid-flow as the un-share step.
+onFlowComplete:
+  - runScript: ../scripts/share-evaluation-teardown.js
 ---
 - runScript: ../scripts/share-evaluation-setup.js
 
@@ -97,6 +101,14 @@ appId: com.padellevelup.app
 - extendedWaitUntil:
     visible:
       id: "player-detail"
+    timeout: 15000
+# player-detail is a pushed stack screen with no app header: header-account (which
+# logout.yaml taps) exists only on the tab shell. Pop back to the Players tab first.
+- tapOn:
+    id: "player-back"
+- extendedWaitUntil:
+    visible:
+      id: "tab-players"
     timeout: 15000
 
 - runFlow: ../subflows/logout.yaml
