@@ -67,6 +67,14 @@ appId: com.padellevelup.app
     visible:
       id: "evaluation-stepper-.*-clear"
     timeout: 5000
+# The SERVER saw the "+": one record, one rating at the scale's middle (6/10). The step is one
+# input after ~400 ms of quiet, so wait for the row rather than read at once.
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-stepper-.*-value-6"
+    timeout: 5000
+- evalScript: "${output.afterPlus = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterPlus.length === 1 && output.afterPlus[0].ratings.length === 1 && output.afterPlus[0].ratings[0].score === 6}"
 - tapOn:
     id: "evaluation-stepper-.*-clear"
 - extendedWaitUntil:
@@ -75,6 +83,9 @@ appId: com.padellevelup.app
     timeout: 5000
 - assertNotVisible:
     id: "evaluation-stepper-.*-clear"
+# The SERVER saw the clear too (PAD-337 on iOS): the emptied record is gone.
+- evalScript: "${output.afterClear = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterClear.length === 0}"
 
 # ── Finish with nothing rated: no evaluation is written ──
 - scrollUntilVisible:
@@ -90,3 +101,5 @@ appId: com.padellevelup.app
     timeout: 15000
 - assertVisible:
     id: "evaluation-history-empty"
+- evalScript: "${output.atEnd = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- assertTrue: "${output.atEnd.records.length === 0 && output.atEnd.lastEvaluatedOn === null}"

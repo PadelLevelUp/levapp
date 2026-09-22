@@ -123,7 +123,10 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
                 {t("players.evaluationHistory.history")}
               </Text>
               {target === null ? (
-                <Button variant="outline" size="sm" onPress={() => setTarget("new")} testID="evaluation-new">
+                // Not before BOTH reads are in: tapped early, the form showed the zero-competency
+                // state falsely, or opened blank over today's record and a typed note replaced it.
+                <Button variant="outline" size="sm" onPress={() => setTarget("new")} testID="evaluation-new"
+                  disabled={!history.data || !competencySet.data}>
                   <Ionicons name="add" size={16} color={lightTheme.foreground} />
                   <Text>{t("players.evaluationHistory.new")}</Text>
                 </Button>

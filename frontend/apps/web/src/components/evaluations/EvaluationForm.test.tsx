@@ -10,7 +10,8 @@ import { EvaluationForm } from "./EvaluationForm";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, opts?: Record<string, unknown>) => (opts?.defaultValue as string) ?? key,
+    t: (key: string, opts?: Record<string, unknown>) =>
+      (opts?.defaultValue as string) ?? (opts && Object.keys(opts).length ? `${key}|${Object.values(opts).join("|")}` : key),
     i18n: { language: "en" },
   }),
 }));
@@ -104,6 +105,18 @@ describe("a legacy category is a number with a stepper, never stars", () => {
     expect(screen.getByTestId("evaluation-stepper-2-value").getAttribute("data-score")).toBe("7");
   });
 
+  it("the value cell is one fixed width in every language: unrated it reads '–/max', never a sentence", () => {
+    // pt "Sem classificação" was ~110 pt wide and "6/10" 72 pt, so the first press moved "+" ~40 pt.
+    setup();
+    const value = screen.getByTestId("evaluation-stepper-2-value");
+    expect(value.textContent).toBe("players.evaluationHistory.stepperUnrated|10");
+    expect(value.className.split(" ")).toContain("w-[4.5rem]");
+    expect(value.className).not.toMatch(/min-w/);
+    expect(value.getAttribute("aria-label")).toBe("players.evaluationHistory.notRated");
+    fireEvent.click(screen.getByTestId("evaluation-stepper-2-plus"));
+    expect(screen.getByTestId("evaluation-stepper-2-value").className.split(" ")).toContain("w-[4.5rem]");
+  });
+
   it("the clear control appearing moves nothing: its place is kept while the category is unrated", () => {
     // jsdom has no layout, so this pins the structure that makes the layout stable: one slot of a
     // fixed size, always there, holding the control only once there is something to clear. Without
@@ -137,6 +150,46 @@ describe("a legacy category is a number with a stepper, never stars", () => {
     await act(async () => fireEvent.click(screen.getByTestId("evaluation-finish")));
     expect(onSave).toHaveBeenCalledWith({ ratings: { "2": 6 } });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("failures the review found", () => {
+  it("a 409 record_not_editable (the form stayed open past midnight) shows the day-passed message, not 'try again', and stops sending", async () => {
+    const onSave = vi.fn().mockRejectedValue({ response: { status: 409, data: { error: "record_not_editable" } } });
+    setup({ onSave, record: record() });
+    await act(async () => fireEvent.click(star(1, 4)));
+    expect(screen.getByTestId("evaluation-save-error").textContent).toBe("players.evaluationHistory.dayPassed");
+    expect(lit(1)).toBe(0);
+    await act(async () => fireEvent.click(star(1, 5)));
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed NOTE save keeps the typed text, says it is unsaved, and retries on demand", async () => {
+    const onSave = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(record());
+    setup({ onSave, record: record({ note: "Antes." }) });
+    const note = screen.getByTestId("evaluation-note") as HTMLTextAreaElement;
+    fireEvent.change(note, { target: { value: "Três frases novas." } });
+    await act(async () => vi.advanceTimersByTime(800));
+    expect(note.value).toBe("Três frases novas.");
+    expect(screen.getByTestId("evaluation-note-unsaved")).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByTestId("evaluation-note-retry")));
+    expect(onSave).toHaveBeenLastCalledWith({ note: "Três frases novas.", recordId: 40 });
+    expect(screen.queryByTestId("evaluation-note-unsaved")).toBeNull();
+  });
+
+  it("saves are serialised: a second tap made while the first is in flight carries the id the first returned", async () => {
+    let release!: (r: PutEvaluationRecordResult) => void;
+    const onSave = vi.fn()
+      .mockImplementationOnce(() => new Promise<PutEvaluationRecordResult>((resolve) => { release = resolve; }))
+      .mockResolvedValue(record({ id: 41 }));
+    setup({ onSave });
+    await act(async () => fireEvent.click(star(1, 4)));
+    fireEvent.click(screen.getByTestId("evaluation-stepper-2-plus")); // a second competency (a stepper: quiet period first)
+    expect(onSave).toHaveBeenCalledTimes(1);
+    await act(async () => { release(record({ id: 40 })); });
+    expect(onSave).toHaveBeenCalledTimes(1); // the stepper's step is still in its quiet period
+    await act(async () => vi.advanceTimersByTime(400));
+    expect(onSave).toHaveBeenLastCalledWith({ ratings: { "2": 6 }, recordId: 40 });
   });
 });
 

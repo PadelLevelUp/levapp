@@ -11,11 +11,15 @@ const state = {
   competencies: null as EvaluationCompetencies | null,
   put: vi.fn(),
   remove: vi.fn(),
+  loading: { history: false, competencies: false },
 };
 
-vi.mock("@levelup/hooks", () => ({
-  usePlayerEvaluations: () => ({ data: state.evaluations, isLoading: false, isError: false }),
-  useEvaluationCompetencies: () => ({ data: state.competencies, isLoading: false, isError: false }),
+vi.mock("@levelup/hooks", async () => ({
+  ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useEvaluationFormSession")>(
+    "../../../../../packages/hooks/src/useEvaluationFormSession"
+  )),
+  usePlayerEvaluations: () => ({ data: state.loading.history ? undefined : state.evaluations, isLoading: state.loading.history, isError: false }),
+  useEvaluationCompetencies: () => ({ data: state.loading.competencies ? undefined : state.competencies, isLoading: state.loading.competencies, isError: false }),
   usePutEvaluationRecord: () => ({ mutateAsync: state.put }),
   useDeleteEvaluationRecord: () => ({ mutateAsync: state.remove, isPending: false }),
 }));
@@ -70,6 +74,7 @@ beforeEach(() => {
   state.competencies = SET;
   state.put = vi.fn(async () => JOAO.records[1]);
   state.remove = vi.fn(async () => undefined);
+  state.loading = { history: false, competencies: false };
 });
 
 const open = () => render(<PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} />);
@@ -132,6 +137,23 @@ describe("the history", () => {
     expect(screen.getByTestId("evaluation-history-empty")).toBeTruthy();
     expect(screen.getByTestId("evaluation-evolution-empty")).toBeTruthy();
     expect(screen.getByTestId("evaluation-new")).toBeTruthy();
+  });
+});
+
+describe("'Nova avaliação' waits for its data (review F3)", () => {
+  it("is disabled until the competency set has loaded, so an early tap never shows the zero-competency state falsely", () => {
+    state.loading.competencies = true;
+    open();
+    expect((screen.getByTestId("evaluation-new") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId("evaluation-new"));
+    expect(screen.queryByTestId("evaluation-form")).toBeNull();
+    expect(screen.queryByTestId("evaluation-form-empty")).toBeNull();
+  });
+
+  it("is disabled until the history has loaded, so the form never opens blank over an existing record", () => {
+    state.loading.history = true;
+    open();
+    expect((screen.getByTestId("evaluation-new") as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

@@ -26,8 +26,9 @@ executionOrder:
     - 05-class-deletion
     - 06-add-player
     - 07-player-notes
-    # 57 (PAD-337) needs E2E Student with no evaluations (fresh seed) and writes none
-    # itself, so it sits early, beside the other player-detail flow.
+    # 57 (PAD-337 on the record form, PAD-374) resets E2E Student's evaluations through the
+    # API before it starts, DOES write (one "+" is one saved input) and clears what it wrote,
+    # asserting both on the server; it sits early, beside the other player-detail flow.
     - 57-evaluation-untouched-categories
     # 78 (PAD-374) resets E2E Student's evaluations through the API before it starts and deletes
     # what it writes, so its position is not load bearing; it must not run between 57's steps.

@@ -29,3 +29,4 @@ export * from "./countries";
 export * from "./club-date";
 export * from "./evaluation-form";
 export * from "./competency-manager";
+export * from "./evaluation-form-session";
