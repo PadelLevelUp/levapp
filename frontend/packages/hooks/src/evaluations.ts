@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  ClassEvaluations,
+  EvaluationClassRef,
   EvaluationCompetencies,
   EvaluationEvolution,
   EvaluationRecordInput,
@@ -49,6 +51,7 @@ export function usePutEvaluationRecord(playerId: string) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvolution(playerId) }); // a rating moves the means
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() }); // and a class row's summary
     },
   });
 }
@@ -60,6 +63,22 @@ export function useDeleteEvaluationRecord(playerId: string) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvolution(playerId) }); // a rating moves the means
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() }); // and a class row's summary
     },
+  });
+}
+
+/**
+ * The class panel's read (evaluations.class-panel rule 3, PAD-376): who is in the dated
+ * occurrence, absent last, each with their most recent record in it, and `canRate`.
+ * It never materialises the occurrence, so the class detail may fire it on open.
+ * A refusal (403: not the owner) is an answer, not a fault — no retry.
+ */
+export function useClassEvaluations(ref: EvaluationClassRef | null, enabled = true) {
+  return useQuery<ClassEvaluations>({
+    queryKey: queryKeys.classEvaluations(ref ?? { model: "none", id: 0 }),
+    queryFn: () => evaluationRecordsApi.getClassEvaluations(ref as EvaluationClassRef),
+    enabled: ref !== null && enabled,
+    retry: false,
   });
 }

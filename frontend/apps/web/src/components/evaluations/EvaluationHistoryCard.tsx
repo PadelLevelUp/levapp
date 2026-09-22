@@ -11,8 +11,9 @@ interface EvaluationHistoryCardProps {
   record: EvaluationRecord;
   /** A rating is drawn as stars when its competency is a 1-5 one; legacy scales are "n/max". */
   isStars: (categoryId: number) => boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  /** Both absent = a read-only card (the class panel's earlier-day record, PAD-376): no actions at all. */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 /**
@@ -35,16 +36,18 @@ export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete }: Eva
           )}
         </p>
         <div className="flex gap-1">
-          {record.editable && (
+          {record.editable && onEdit && (
             <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={onEdit}
               aria-label={t("players.evaluationHistory.edit")} data-testid={`evaluation-history-edit-${id}`}>
               <Pencil className="h-4 w-4" />
             </Button>
           )}
-          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={onDelete}
-            aria-label={t("players.evaluationHistory.delete")} data-testid={`evaluation-history-delete-${id}`}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {onDelete && (
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={onDelete}
+              aria-label={t("players.evaluationHistory.delete")} data-testid={`evaluation-history-delete-${id}`}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </header>
 

@@ -338,6 +338,17 @@
       "tableMonth": "Month",
       "tableMean": "Average",
       "evolutionLoadFailed": "The progress could not be loaded."
+    },
+    "classEvaluations": {
+      "open": "Evaluations",
+      "title": "Evaluations — {{name}}",
+      "back": "Back to the class",
+      "manage": "Manage competencies",
+      "summaryNone": "No evaluation",
+      "summaryRated": "{{rated}}/{{total}} rated",
+      "unavailable": "This class is over and was never opened. Evaluate from the player's page instead.",
+      "loadError": "The participants could not be loaded.",
+      "noParticipants": "This class has nobody to evaluate."
     }
   }
 }

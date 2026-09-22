@@ -884,12 +884,61 @@ with app.app_context(), unit_of_work():
     db.session.flush()
     seed_e2e_evaluation_history(student2_assoc, forehand_category)
 
+    # ── Yesterday's class with a class-linked record (PAD-376, review F1) ─────
+    # The class panel shows a participant's MOST RECENT record for the occurrence
+    # (Q28); when that record is from an earlier day it is drawn read-only above
+    # the form, and the first tap today makes today's record the most recent one.
+    # Nothing in the seed produced that state, so the "earlier-day card does not
+    # move the form" rule had no fixture on web or iOS. A one-off class YESTERDAY
+    # at 15:00 (a slot no other seeded class uses), materialised, with E2E Student
+    # Two present and validated (the "Pending validation" KPI does not move) and one
+    # Forehand rating filed in that occurrence's record on that day. Student Two
+    # because their specs read counts from the server, never a literal; E2E
+    # Student's attended count (PAD-114) is pinned at 5 and must not move.
+    yesterday_start = (today - timedelta(days=1)).replace(hour=15)
+    eval_yesterday_lesson = Lesson(
+        title="E2E Eval Yesterday Class",
+        start_datetime=yesterday_start,
+        end_datetime=yesterday_start + timedelta(hours=1),
+        is_recurring=False,
+        type="academy",
+        max_players=4,
+        club_id=club.id,
+        color="#0ea5e9",
+        status="active",
+    )
+    db.session.add(eval_yesterday_lesson)
+    db.session.flush()
+    db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=eval_yesterday_lesson.id))
+    eval_yesterday_instance = LessonInstance(
+        lesson_id=eval_yesterday_lesson.id,
+        start_datetime=yesterday_start,
+        end_datetime=yesterday_start + timedelta(hours=1),
+        max_players=4,
+        status="scheduled",
+        level_id=level_beginner.id,
+        notifications_enabled=False,
+        original_lesson_occurence_date=yesterday_start.date(),
+    )
+    db.session.add(eval_yesterday_instance)
+    db.session.flush()
+    db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=eval_yesterday_instance.id))
+    _enrol(eval_yesterday_instance, student2, invited=True, confirmed=True, status="present", validated=True)
+    from padel_app.services import evaluation_record_service as evaluation_records
+    eval_yesterday_record = evaluation_records.get_or_create_record(
+        student2_assoc.id, day=yesterday_start.date(), lesson_instance_id=eval_yesterday_instance.id
+    )
+    evaluation_records.upsert_rating(
+        eval_yesterday_record, forehand_category.id, 5, evaluated_at=yesterday_start + timedelta(minutes=30)
+    )
+
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
     print("[seed] Done. Created:")
     print(f"  Coach: {coach_user.username} / E2eCoach123!")
     print(f"  Student 1: {student_user.username} / E2eStudent123!")
     print(f"  Student 2: {student2_user.username} / E2eStudent2123!")
+    print(f"  Eval yesterday class (PAD-376): instance {eval_yesterday_instance.id} at {yesterday_start}, record {eval_yesterday_record.id} for Student Two")
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")
     print(f"  Upcoming (coach next-7-days) instance: {upcoming_instance.id} '{upcoming_lesson.title}' at {DATES.upcoming_start} (2/2)")
