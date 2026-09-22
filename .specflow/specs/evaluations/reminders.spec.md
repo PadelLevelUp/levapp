@@ -148,3 +148,11 @@ due. It is a marker inside the app, never a message to anyone.
 - The App Store trees' players-list decoders were read for strictness before the row gained
   `due` — finding recorded on PAD-404.
 - Criteria quote Portuguese copy for the reader; tests locate by test id and `ui()`.
+- Runs (2026-09-22, branch feature/pad-404, migration parent 6a6ac64d814b placed untracked):
+  `test_pad404_evaluation_reminder.py` 22/22 on SQLite and Postgres (the query-count test red
+  with the class panel's bulk load removed, 21 → 65 statements); `test_pad404_migration_postgres.py`
+  1/1; callers pad364 18, pad362 30 (both backends), pad274 17, pad254 10, test_player_* 55,
+  pad397 17; web + mobile tsc clean; the setting's unit test 9/9; rendered-text ratchet 119/119;
+  packages 603/603; Playwright `evaluation-reminder.spec.ts` 2/2 and `student-settings-scope.spec.ts`
+  23/23 on an isolated stack. **Not yet run:** Maestro 97 (iOS) and the full backend suite. The
+  status stays `implementing` until both have run and PAD-402's parent revision is on staging.
