@@ -68,7 +68,7 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
    *rounded* monthly means. The shells render every figure with exactly one decimal ("3.0",
    "+1.5"). The canvas mixes "3" and "4.0" on one screen.
 10. **Each competency charts on its own scale.** **(pending owner decision Q1)** The y-axis runs
-    from `scaleMin` to `scaleMax` — 1–5 for a stars competency, 1–10 or 0–10 for a legacy
+    from `scaleMin` to `scaleMax` — 1–5 for a stars competency, 1–10 for a legacy
     category — and nothing is rescaled.
 11. **(AV-074) The chart states its values.** Dots on the points, month labels in the active
     locale ("Jan"…), the scale's bounds on the y-axis, and the value of a point on hover (web) or
@@ -125,14 +125,16 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
   (`data-testid` `evolution-empty`)
 
 #### A legacy category charts on its own scale (rule 10)
-- **Given** Ana's legacy "Forehand" (0–10) with 7 in January and 9 in September
+- **Given** Ana's legacy "Forehand" (1–10) with 7 in January and 9 in September
 - **Then** `scaleMin` / `scaleMax` are 0 and 10, the means are 7.0 and 9.0, `delta.value` is 2.0,
   and nothing is rescaled to 1–5
 
-#### A record-less row still counts (Entities, `evaluations.records` rule 13)
+#### A record-less row does NOT count (Entities; Q29, R-048 point 3; corrected on PAD-375's review)
 - **Given** the backfill left Forehand 7 (2026-03-02 10:15) with `record_id` NULL beside
   Forehand 8 (2026-03-02 18:40) in the day's record
-- **Then** March's mean for Forehand is 7.5
+- **Then** March's mean for Forehand is 8.0 — the record-less row is read by nothing here
+  (the server joins entries to records; `test_pad375_history_seed.py` pins that record-less
+  rows are shown nowhere)
 
 ### Notes
 - No seed today produces past-dated history except the import. Tests need a seed helper writing

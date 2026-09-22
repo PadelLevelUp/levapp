@@ -48,7 +48,8 @@ export function EvaluationEvolution({ playerId, competencies, competenciesWithDa
 
   const evolution = usePlayerEvolution(playerId, selected);
   // Before the early return below: a hook may never come after one.
-  const data = useHeldWhile(evolution.data, held, `${playerId}:${selected}`);
+  // `holdEmpty`: a hold that began before the first load keeps the skeleton until it ends.
+  const data = useHeldWhile(evolution.data, held, `${playerId}:${selected}`, { holdEmpty: true });
 
   if (competenciesWithData.length === 0) {
     return (
