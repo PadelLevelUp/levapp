@@ -8,7 +8,11 @@ function rnPrimitivesJsx(): Plugin {
     enforce: "pre",
     async transform(code, id) {
       if (!/node_modules\/@rn-primitives\/.*\.m?js$/.test(id)) return null;
-      return transformWithEsbuild(code, id, { loader: "jsx", jsx: "automatic" });
+      // Hand the map over as a JSON string: vite's SourceMap allows null entries in
+      // sourcesContent, the rollup types behind `vitest/config`'s Plugin do not, and a
+      // string is a SourceMapInput both accept (CI typecheck, #375).
+      const out = await transformWithEsbuild(code, id, { loader: "jsx", jsx: "automatic" });
+      return { code: out.code, map: JSON.stringify(out.map) };
     },
   };
 }
