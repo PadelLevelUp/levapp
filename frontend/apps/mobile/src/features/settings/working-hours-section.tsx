@@ -63,19 +63,28 @@ export function WorkingHoursSection() {
     setWeek(weekFromWorkingHours(value));
   };
 
+  // PAD-392 (B-155): loaded ONCE, and a load never replaces a week the coach has
+  // touched. `t` was in the deps; it gets a new identity whenever the language changes
+  // (at sign-in, or from the language selector in these same Settings), the effect
+  // re-ran, and the reload silently undid unsaved edits. Same fix as web.
+  const tRef = React.useRef(t);
+  tRef.current = t;
+  const touched = React.useRef(false);
+
   React.useEffect(() => {
     let active = true;
     workingHoursApi
       .getCoachWorkingHours()
-      .then((res) => active && apply(res.workingHours))
-      .catch(() => active && toast.error(t("settings.workingHours.loadFailed")))
+      .then((res) => active && !touched.current && apply(res.workingHours))
+      .catch(() => active && toast.error(tRef.current("settings.workingHours.loadFailed")))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [t]);
+  }, []);
 
   const update = (key: WorkingDayKey, row: Row) => {
+    touched.current = true;
     setErrorDay(null);
     setWeek((w) => ({ ...w, [key]: row }));
   };
@@ -86,6 +95,7 @@ export function WorkingHoursSection() {
     try {
       const res = await workingHoursApi.putCoachWorkingHours(value);
       apply(res.workingHours);
+      touched.current = false; // what is shown is what the server holds again
       toast.success(t(value === null ? "settings.workingHours.cleared" : "settings.workingHours.saved"));
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { code?: string; day?: WorkingDayKey } } })?.response?.data;
