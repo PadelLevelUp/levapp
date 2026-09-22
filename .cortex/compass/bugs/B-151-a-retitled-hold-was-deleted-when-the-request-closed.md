@@ -18,7 +18,9 @@ resolved: 2026-09-22T20:45:00Z
 **Source:** found by Session-C while reviewing PR #345 (PAD-360) on 2026-09-21. Pinned there as
 `test_REFERENCE_an_open_requests_block_goes_when_it_closes_even_if_the_coach_retitled_it`.
 Filed as PAD-378. The coordinator decided the same day that deleting an event a coach has made
-their own is a defect, not a product choice.
+their own is a defect, not a product choice: decision **D41** (run record, 2026-09-21 19:13 UTC,
+"OPEN-request case (retitled live hold deleted on withdraw) is a defect, coordinator's decision,
+not the owner's: own ticket B-151").
 
 **What happens:**
 1. A student requests 11:00–12:00; the coach's calendar gets a hold,

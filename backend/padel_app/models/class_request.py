@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, delete, event, inspect, select
+from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Index, Integer, Text, delete, event, select
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db

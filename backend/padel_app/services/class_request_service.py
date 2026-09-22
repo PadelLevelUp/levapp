@@ -550,7 +550,11 @@ def drop_invitee_from_open_requests(player_id: int) -> int:
 
 def release_holds_of_players(player_ids) -> int:
     """Rule 18: these players are about to be deleted in bulk (`Query.delete()`
-    runs no ORM hook), and ON DELETE CASCADE will take their requests. No commit."""
+    runs no ORM hook), and ON DELETE CASCADE will take their requests. No commit.
+
+    Returns how many hold BLOCKS were deleted. Every pointer is cleared; a block the coach
+    retitled stays and is not counted (PAD-378). The only caller, the import revert,
+    ignores the number."""
     ids = [int(pid) for pid in (player_ids or [])]
     if not ids:
         return 0
