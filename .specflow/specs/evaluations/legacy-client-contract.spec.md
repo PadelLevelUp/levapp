@@ -98,16 +98,16 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
      `/add_evaluation_entry`;
    - a player not on the coach's roster → 404; a caller with no coach profile (a student) → 403;
    - a category absent from an upsert body is **not** deleted;
-   - the legacy save is **not atomic**: with `[{Forehand: 5}, {Volley: numeric 0}]` the request
-     fails and Forehand 5 stays written;
+   - ~~the legacy save is **not atomic**~~ superseded by rule 10 (PAD-366, D120): every score is
+     checked before any is written, so `[{Forehand: 5}, {Volley: numeric 0}]` is a 400 that
+     writes nothing;
    - **B-125** — renaming through the upsert inserts a new category and leaves the old one with
      its scores (resolved for new clients by rename-by-id, `evaluations.competencies` rule 8);
-   - **B-126** — no server range check: 99, −3 and 2.5 are stored; `"abc"` is an unhandled error
-     (resolved for new writes by `evaluations.records` rule 9; a check here could start refusing
-     the old builds' midpoint body);
-   - **B-136 / PAD-367** — the shared form layer reads a falsy value as "not sent": `scaleMin: 0`
-     is stored as 1, and a numeric score `0` → NULL → IntegrityError. Not fixed on these
-     endpoints, because a fix changes what old builds store.
+   - ~~**B-126** — no server range check~~ superseded by rule 10 (PAD-366): after PAD-403 the old
+     builds' midpoint is 3 on a 1–5 payload, so a range check no longer refuses their body;
+   - **B-136 / PAD-367** — the shared form layer reads a falsy value as "not sent". On this
+     endpoint rule 9 (the scale) and rule 10 (a score 0 is out of range, refused before the form
+     layer) now decide both cases; the mechanism itself is not fixed.
 8. **Retirement.** When neither 1.0 nor 1.1.0 is in use, the five endpoints may be retired or
    opened in one deliberate change; until then rules 1–7 hold whatever else ships.
 9. **Legacy categories are 1–5 (PAD-403, `evaluations.legacy-conversion` rule 7, Option A).**
@@ -119,6 +119,18 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
    stored as 1) no longer decides anything on this endpoint. The form-layer mechanism itself is
    still unfixed. The pins changed as an audited update under R-047 point 7: "R-047 pin update",
    commits `e9303b373` and `b6fd48408`, reviewed by Session-C.
+10. **Scores are checked before any is written (PAD-366, B-126; rulings D120, D121).**
+    `POST /add_evaluation_entry` works out which scores it would write (rules 3 and 8 unchanged:
+    own active legacy categories only, `null` is an abstention). It checks them all before
+    writing any. A value that is not a number (`"abc"`, `true`, NaN) is a 400 `score_invalid`.
+    Then, **if any value is above 5**, the body comes from a form still on the old 1–10 scale:
+    an App Store 1.0/1.1.0 dialog opened before PAD-403's migration refills stale scores on every
+    reopen, while a 1–5 form clamps at 5. Every value in that body must lie in 0–10 and is
+    converted with the migration's rule, `max(1, ceil(v / 2))`. Otherwise every value must lie in
+    1–5. Anything else is a 400 `score_out_of_range`, and **nothing** from that body is written.
+    The rule-5 "equal to latest" skip compares the converted value. The residual case is a stale
+    1–10 body whose values are all ≤ 5, which is stored as stars. The conversion is retired with
+    point 8. Pinned in `test_pad362_evaluation_contract.py` ("R-047 pin update, part 3").
 
 ### Touches
 - `players.profile` — its rule on the profile payload must say `evaluations[]` is legacy-only

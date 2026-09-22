@@ -1701,8 +1701,8 @@ def add_coach_note():
 @jwt_required()
 def add_evaluation_entry():
     data = request.get_json() or {}
-    result = add_evaluation_entry_service(require_coach(), data)
-    return jsonify(result)
+    result, status = add_evaluation_entry_service(require_coach(), data)
+    return jsonify(result), status
 
 
 # -------------------------------------------------------------------

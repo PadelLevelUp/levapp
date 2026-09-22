@@ -23,6 +23,8 @@ must call ``to_stars``/``to_legacy`` from here — never recompute the ratio.
 """
 
 
+import math
+
 from padel_app.services.evaluation_catalogue import NEW_SCALE
 
 
@@ -33,6 +35,13 @@ def normalise_legacy_scale(entry: dict) -> dict:
     a copy with only the two scale keys overwritten, so the echo keeps its shape.
     """
     return {**entry, "scaleMin": NEW_SCALE[0], "scaleMax": NEW_SCALE[1]}
+
+
+def legacy_value_to_stars(value: float) -> int:
+    """A score from a 1-10 (or 0-10) form, on its real value: ``max(1, ceil(value / 2))``.
+    The same rule as the PAD-403 migration (D104, D113), which keeps its own copy because a
+    migration must not import app code. Used by the frozen save for a stale 1-10 body (D121)."""
+    return max(1, math.ceil(value / 2))
 
 
 def to_stars(score: int) -> int:
