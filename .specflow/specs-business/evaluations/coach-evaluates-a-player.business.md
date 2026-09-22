@@ -13,6 +13,7 @@ implemented_by:
   - ../../specs/evaluations/history.spec.md
   - ../../specs/evaluations/evolution.spec.md
   - ../../specs/evaluations/reminders.spec.md
+  - ../../specs/evaluations/legacy-conversion.spec.md
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md
   - derives_from: archive/documents/sistema-de-avaliacoes-explained-2026-09-21/extracted/summary.md
