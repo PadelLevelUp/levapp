@@ -101,7 +101,9 @@ last lands._
   flag, rule and end alone by construction — #356's post-write patches replaced); missing/empty
   type/date/times → 400 (were 500s); a null end on a block that still recurs → 400 (D83: NULL = forever;
   drop the end by making it one-off); both edit sheets check the end before the request. The CREATE path
-  keeps the legacy builder (nothing to keep). `calendar_blocks.user_id` and the PAD-93 flag unreachable, pinned.
+  keeps the legacy builder (nothing to keep). `calendar_blocks.user_id` and the PAD-93 flag unreachable, pinned. **Verified at 19692b6eb (2026-09-22):** CI four green; Maestro 93 and 94 green on the
+  simulator (Session-D, 10:28–10:31 UTC); Playwright pad371, pad377, recurring-occurrence-delete and
+  pad335 4 passed on Session-C's isolated stack (12:47–12:49 UTC).
 - Step 2 — PAD-387: `POST /edit_class`. _Pending._
 - Step 3 — PAD-388: `POST /edit_player` (web and iOS send null). _Pending._
 - Step 4 — PAD-389: `POST /activate/user`. _Pending._
