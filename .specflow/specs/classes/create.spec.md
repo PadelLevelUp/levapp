@@ -32,7 +32,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    positive integer — 0, null, `""`, a fraction, text, or an absent key (0 is not a legal capacity,
    decided 2026-09-21) — with `400 {"error": "invalid_fields", "fields": [...]}` naming every such
    field (`title`, `max_players`); both used to reach the NOT NULL column as an IntegrityError, or
-   a KeyError — a 500. A numeric string ("6") is the number. The same check guards
+   a KeyError — a 500. The check parses exactly as the write does: an integer string ("6") is the
+   number; "6.0" is refused, never a 500. The same check guards
    `POST /edit_class` (`classes.edit` rule 7).
 
 ### Acceptance Criteria
