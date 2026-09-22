@@ -12,6 +12,7 @@ import { Clock, Loader2, Plus, X } from "lucide-react";
 import {
   DEFAULT_WORKING_WINDOW,
   addWorkingWindow,
+  snapToGrid,
   WORKING_DAY_KEYS,
   type WorkingDayKey,
 } from "@levelup/config";
@@ -168,6 +169,12 @@ export function WorkingHoursSection() {
                               onChange={(e) =>
                                 update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [e.target.value, x[1]] : x)) })
                               }
+                              // Rule 6: step only drives the arrows, so a typed 13:07 lands here;
+                              // it moves to the grid where the coach can see it, before any save.
+                              onBlur={(e) => {
+                                const v = snapToGrid(e.target.value);
+                                if (v !== w[0]) update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [v, x[1]] : x)) });
+                              }}
                             />
                             <span className="text-muted-foreground">–</span>
                             <Input
@@ -180,6 +187,10 @@ export function WorkingHoursSection() {
                               onChange={(e) =>
                                 update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], e.target.value] : x)) })
                               }
+                              onBlur={(e) => {
+                                const v = snapToGrid(e.target.value);
+                                if (v !== w[1]) update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], v] : x)) });
+                              }}
                             />
                             {row.windows.length > 1 && (
                               <Button

@@ -52,6 +52,13 @@ export interface TimePickerInputProps {
    * host inside that modal; the root host draws behind it.
    */
   portalHost?: string;
+  /**
+   * Minutes between the values the picker offers, on both platforms. Unset keeps
+   * the platform's own one-minute steps, so callers that pass nothing do not
+   * change. Set it only where a rule fixes a grid: working hours sit on 15
+   * (settings.coach-working-hours rules 2 and 6, PAD-369).
+   */
+  minuteInterval?: 1 | 2 | 3 | 4 | 5 | 6 | 10 | 12 | 15 | 20 | 30;
 }
 
 /**
@@ -72,6 +79,7 @@ export function TimePickerInput({
   disabled,
   testID,
   portalHost,
+  minuteInterval,
 }: TimePickerInputProps) {
   const { t, i18n } = useTranslation();
   // Resolved in the body, not the parameter list, so it follows the active
@@ -90,6 +98,7 @@ export function TimePickerInput({
         value: initial,
         mode: "time",
         is24Hour: true,
+        minuteInterval,
         onChange: (event: DateTimePickerEvent, selected?: Date) => {
           if (event.type === "set" && selected) {
             onChange(toTimeString(selected));
@@ -154,6 +163,7 @@ export function TimePickerInput({
               mode="time"
               is24Hour
               display="spinner"
+              minuteInterval={minuteInterval}
               // Same reason as DatePickerInput: the native wheel otherwise
               // follows the device locale, not the app's (PAD-157). Nothing
               // language-dependent shows on a 24h wheel today, but the prop

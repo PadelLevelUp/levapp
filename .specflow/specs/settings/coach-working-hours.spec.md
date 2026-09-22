@@ -51,18 +51,37 @@ otherwise.
    `evaluations.categories` rule 8 — and a guard test (`apps/web/src/lib/loading-effects-deps.test.ts`)
    fails when a loading hook in either shell lists `t` or `toast` in its deps.
 
-5. **"Add window" always gives a day the server accepts (PAD-361, B-140).** Both shells call one
-   function, `addWorkingWindow` (`@levelup/config`), so they cannot disagree: (a) when there is
-   room after the day's last window, the new window runs from one hour after it ends to the
-   default day's end (22:00), provided that leaves at least an hour; (b) otherwise the last window
-   splits around a one-hour break — 13:00–14:00 when that sits inside it with an hour on each
-   side, else its middle on the 15-minute grid; (c) otherwise (the last window is under three
-   hours, or is not `start < end`) the control is disabled. An untouched day therefore becomes
-   08:00–13:00 and 14:00–22:00. **Why this default:** a second window exists only to express a
-   break (rule 2's lunch break), so the control should hand the coach a break they can save as
-   it is and then adjust; the first version appended `[last end, 22:00]`, which on an untouched
-   day is the zero-length 22:00–22:00 and was refused on save. Decided by Session D on the
-   coordinator's instruction, 2026-09-21; the owner was not asked.
+5. **"Add window" gives a day the server accepts (PAD-361, B-140).** Both shells call one
+   function, `addWorkingWindow` (`@levelup/config`), so they cannot disagree. It reads the **whole
+   day**, not the last row — the editors never sort their rows, only the server does on save — and
+   answers the day sorted by start: (a) the new window takes the **largest free gap** inside the
+   default day (08:00–22:00), before, between or after the existing windows, once an hour's break
+   is kept from each window it would touch, provided an hour or more is left (the earliest gap wins
+   a tie); (b) otherwise the **longest** window splits around a one-hour break — 13:00–14:00 when
+   that sits inside it with an hour on each side, else its middle on the 15-minute grid — if it is
+   three hours or longer; (c) otherwise the control is disabled. It is disabled too while the day
+   is one rule 2 would refuse as it stands (a row that is not a time, `start >= end`, off the grid,
+   overlapping): the coach fixes the row first. An untouched day becomes 08:00–13:00 and
+   14:00–22:00; an evening-only day (20:00–22:00) gains 08:00–19:00. **Why this default:** a second
+   window exists only to express a break (rule 2's lunch break), so the control hands the coach a
+   break they can save as it is and then adjust; the break is also why a gap is never filled to
+   its edges — a second tap would otherwise fill the lunch break the first one made. The first
+   version appended `[last end, 22:00]`, which on an untouched day is the zero-length 22:00–22:00
+   and was refused on save; the second read only the last row, so an early window typed last got
+   08:00–22:00 laid over the rest of the day (Session-B's review of #347). Decided by Session D on
+   the coordinator's instruction and ruling, 2026-09-21; the owner was not asked.
+6. **The time controls stay on rule 2's grid (PAD-369, B-141).** On iOS and Android the editor's
+   pickers offer minutes in steps of 15 (`TimePickerInput`'s `minuteInterval`, a prop that is
+   unset everywhere else, so no other screen's picker changes). On web a typed time moves to the
+   nearest quarter hour when the field loses focus (`snapToGrid`, `@levelup/config`; never past
+   23:45), so the coach sees the value that will be saved — it is not corrected silently at save;
+   on iOS and Android the editor snaps what the picker hands back as well. "Nearest" is **capped at
+   23:45**: 23:53–23:59 move down, because the server accepts an end of 24:00 but neither editor can
+   express it — a known limit, PAD-379 (B-142), not a rule. Snapping can leave a window with no
+   length (23:45–23:59 → 23:45–23:45); that stays rule 2's refusal.
+   `step` on a web time input is not protection: it drives the arrows only, and a typed value is
+   neither stopped nor flagged. `start >= end` and overlapping windows are still possible between
+   two fields and stay the server's refusal (rule 2).
 
 ### Acceptance Criteria
 
@@ -94,4 +113,15 @@ otherwise.
 - **When** she taps "add window" on Monday and saves
 - **Then** Monday holds `[["08:00","13:00"],["14:00","22:00"]]`, the save is accepted and the editor shows the success, on web and iOS alike
 - **Given** a day whose only window is 20:00–22:00
+- **Then** "add window" gives 08:00–19:00 beside it
+- **Given** a day the server accepts whose rows are out of order — 08:00–13:00, 14:00–17:30, then 06:00–07:00 typed last
+- **Then** "add window" gives 18:30–22:00 and the day still saves
+- **Given** a day with no gap that leaves an hour and no window of three hours
 - **Then** "add window" is disabled on that day
+
+#### The time controls stay on the grid (PAD-369)
+- **Given** coach Ana types 22:07 as Tuesday's end on web
+- **When** the field loses focus and she saves
+- **Then** the field reads 22:00, the save is accepted and Tuesday holds `[["08:00","22:00"]]`
+- **Given** Ana turns the minute wheel of Monday's end on iOS
+- **Then** every value it offers is a quarter hour, and the save is accepted

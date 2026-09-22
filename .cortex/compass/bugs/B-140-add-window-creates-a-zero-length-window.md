@@ -62,3 +62,13 @@ Then: unit tests for the shared function, the web E2E test (fails on the old cod
   control when it answers null.
 - Not covered: Android has not run flows 85–87 (the PR lane runs four smoke flows only).
 - Resolved: 2026-09-21 (PAD-361).
+- **Reopened by review, same day (Session-B on #347, verified by a failing unit test before the
+  change):** the first fix read only the LAST ROW, and the editors never sort, so
+  `[[08:00,13:00],[14:00,17:30],[06:00,07:00]]` — a day the server accepts — got 08:00–22:00
+  appended over the other two → 400 "windows overlap", against this entry's own claim. It also left
+  an evening-only coach (20:00–22:00) with a disabled control. `addWorkingWindow` now reads the whole
+  day: largest free gap less an hour's break per neighbour, else split the longest window, else
+  null; null too for a day rule 2 refuses as it stands. The sweep test now starts from over 2,000
+  single, multi-window and unsorted days. Shipped on #350 (the top of the stack) by the
+  coordinator's ruling, so #344 and #347 were not re-pushed.
+
