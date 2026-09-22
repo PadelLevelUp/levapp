@@ -60,9 +60,11 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     the body holds them: an omitted key keeps what the coach entered; a present `null` or `""` for
     `email` or `phone` CLEARS it — the form is pre-filled from rule 4's GET, so an emptied box is
     the student's intent. `name` and `username` cannot be empty, and activation IS setting the
-    `password`, so an empty or blank name/username, or an empty or absent password, is answered
+    `password`, so an empty or blank name/username, an ABSENT username while the account still
+    holds its generated `pending-…` placeholder (rule 10 blanks it in the form exactly so the
+    student chooses one), or an empty or absent password, is answered
     `400 {"error": "invalid_fields", "fields": [...]}` naming every such field, and nothing is
-    written — the account stays `inactive`. A username another account holds is answered 409
+    written — the account stays `inactive`. The username is stored as checked: trimmed. A username another account holds is answered 409
     "Username already taken" (as `players.invite-completion` and self-signup do). The web and iOS
     screens already send every field, `""` when emptied (their own validation stops an empty name,
     username, e-mail or password before the request), so the one visible change is that an emptied
@@ -144,6 +146,8 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Then** the answer is 400 with `fields` `["name", "password"]`, the account is still `inactive`, and its phone is untouched
 - **When** the body carries no `password` at all
 - **Then** the answer is 400 with `fields` `["password"]`
+- **When** the body carries no `username` and the account still holds its `pending-…` placeholder
+- **Then** the answer is 400 with `fields` `["username"]` — a user who already chose a username may omit it
 
 #### A taken username is refused (rules 9, 11)
 - **Given** another account holds the username `taken-one`
