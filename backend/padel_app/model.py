@@ -74,6 +74,19 @@ def _commit_or_flush():
     commit_or_flush()
 
 
+class NotNullableFieldError(ValueError):
+    """`update_with_dict(write_none=True)` was given None for something that cannot be NULL.
+
+    Raised BEFORE anything is written, with every such key in `fields` (in the order the
+    values came), so a route can answer 400 naming them instead of dying on an
+    IntegrityError at flush (PAD-367).
+    """
+
+    def __init__(self, fields):
+        self.fields = list(fields)
+        super().__init__(f"cannot be empty: {', '.join(self.fields)}")
+
+
 class Model:
 
     _name = None
@@ -167,7 +180,11 @@ class Model:
         }
 
     def update_with_dict(
-        self, values: dict, *, _replace_collections: set[str] = frozenset()
+        self,
+        values: dict,
+        *,
+        write_none: bool = False,
+        _replace_collections: set[str] = frozenset(),
     ) -> bool:
         """
         Update this instance from a values dict.
@@ -177,13 +194,31 @@ class Model:
         - Collection rels (MANYTOMANY / ONETOMANY) append missing items (no removals).
         Pass names in `_replace_collections` to replace instead of append.
         - Columns: booleans set when changed; other columns set when non-None and changed.
+
+        `write_none=True` (PAD-367) is for values read in the form layer's `present` mode,
+        where a None means "the client sent this key empty", not "the client did not send
+        it": a nullable column or MANYTOONE is set to NULL, and a NOT NULL one raises
+        `NotNullableFieldError` before anything is written. A password is never cleared
+        and a collection is never emptied this way. The default is today's behaviour.
         """
         with db.session.no_autoflush:
             mapper = inspect(self.__class__)
             rel_map = {rel.key: rel for rel in class_mapper(type(self)).relationships}
 
+            if write_none:
+                refused = [
+                    key for key, incoming in values.items()
+                    if incoming is None and not self._may_be_null(key, rel_map, mapper)
+                ]
+                if refused:
+                    raise NotNullableFieldError(refused)
+
             for key, incoming in values.items():
                 if key in rel_map:
+                    if write_none and incoming is None:
+                        if rel_map[key].direction.name == "MANYTOONE":
+                            self._clear_many_to_one(key, rel_map[key])
+                        continue
                     if not incoming:
                         continue
                     self._apply_relationship(
@@ -193,11 +228,39 @@ class Model:
                         mapper,
                         replace=(key in _replace_collections),
                     )
+                elif write_none and incoming is None:
+                    self._clear_column(key, mapper)
                 else:
                     self._apply_column(key, incoming, mapper)
         return True
 
     # ---------- helpers ----------
+
+    @staticmethod
+    def _may_be_null(key, rel_map, mapper) -> bool:
+        """Whether a None for `key` can be honoured (or is simply ignored) under write_none."""
+        if key in rel_map:
+            relationship = rel_map[key]
+            if relationship.direction.name != "MANYTOONE":
+                return True  # a collection is never emptied by a None: ignored, not refused
+            return all(column.nullable for column in relationship.local_columns)
+        column = mapper.columns.get(key)
+        if column is None or key == "password":
+            return True  # not a column, or the one column a None never touches
+        return bool(column.nullable)
+
+    def _clear_many_to_one(self, key, relationship) -> None:
+        if getattr(self, key) is not None:
+            setattr(self, key, None)
+        for column in relationship.local_columns:
+            if getattr(self, column.key, None) is not None:
+                setattr(self, column.key, None)
+
+    def _clear_column(self, key, mapper) -> None:
+        if mapper.columns.get(key) is None or key == "password":
+            return
+        if getattr(self, key) is not None:
+            setattr(self, key, None)
 
     def _apply_relationship(
         self, key, incoming, relationship, mapper, *, replace: bool

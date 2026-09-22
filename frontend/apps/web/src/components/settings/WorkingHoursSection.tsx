@@ -6,11 +6,13 @@
  * seven days are written explicitly, so a missing key never comes from here.
  * The success notice follows the server's confirmation; a refusal names the day.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Clock, Loader2, Plus, X } from "lucide-react";
 import {
   DEFAULT_WORKING_WINDOW,
+  addWorkingWindow,
+  snapToGrid,
   WORKING_DAY_KEYS,
   type WorkingDayKey,
 } from "@levelup/config";
@@ -61,18 +63,30 @@ export function WorkingHoursSection() {
     setWeek(weekFromWorkingHours(value));
   };
 
+  // PAD-392 (B-155): the week is loaded ONCE, and a load never replaces a week the
+  // coach has touched. `t` was in this effect's deps, and `t` gets a new identity when
+  // the account's language settles after a page load (i18n starts at "pt"): the effect
+  // re-ran, and the second load's `apply` silently undid whatever the coach had changed
+  // in the meantime. `t` and `toast` are read through refs so the effect needs neither.
+  const tRef = useRef(t);
+  tRef.current = t;
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const touched = useRef(false);
+
   useEffect(() => {
     let active = true;
     workingHoursApi.getCoachWorkingHours()
-      .then((res) => active && apply(res.workingHours))
-      .catch(() => active && toast({ variant: "destructive", title: t("settings.workingHours.loadFailed") }))
+      .then((res) => active && !touched.current && apply(res.workingHours))
+      .catch(() => active && toastRef.current({ variant: "destructive", title: tRef.current("settings.workingHours.loadFailed") }))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [t, toast]);
+  }, []);
 
   const update = (key: WorkingDayKey, row: Row) => {
+    touched.current = true;
     setErrorDay(null);
     setWeek((w) => ({ ...w, [key]: row }));
   };
@@ -83,6 +97,7 @@ export function WorkingHoursSection() {
     try {
       const res = await workingHoursApi.putCoachWorkingHours(value);
       apply(res.workingHours);
+      touched.current = false; // what is shown is what the server holds again
       toast({ title: t(value === null ? "settings.workingHours.cleared" : "settings.workingHours.saved") });
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { code?: string; day?: WorkingDayKey } } })?.response?.data;
@@ -154,6 +169,12 @@ export function WorkingHoursSection() {
                               onChange={(e) =>
                                 update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [e.target.value, x[1]] : x)) })
                               }
+                              // Rule 6: step only drives the arrows, so a typed 13:07 lands here;
+                              // it moves to the grid where the coach can see it, before any save.
+                              onBlur={(e) => {
+                                const v = snapToGrid(e.target.value);
+                                if (v !== w[0]) update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [v, x[1]] : x)) });
+                              }}
                             />
                             <span className="text-muted-foreground">–</span>
                             <Input
@@ -166,6 +187,10 @@ export function WorkingHoursSection() {
                               onChange={(e) =>
                                 update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], e.target.value] : x)) })
                               }
+                              onBlur={(e) => {
+                                const v = snapToGrid(e.target.value);
+                                if (v !== w[1]) update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], v] : x)) });
+                              }}
                             />
                             {row.windows.length > 1 && (
                               <Button
@@ -185,9 +210,11 @@ export function WorkingHoursSection() {
                           size="sm"
                           className="self-start gap-1"
                           data-testid={`working-hours-add-${key}`}
+                          disabled={addWorkingWindow(row.windows) === null}
                           onClick={() => {
-                            const last = row.windows[row.windows.length - 1];
-                            update(key, { ...row, windows: [...row.windows, [last[1], DEFAULT_WORKING_WINDOW.endTime]] });
+                            // Rule 5: always a day the server accepts, the same on iOS.
+                            const windows = addWorkingWindow(row.windows);
+                            if (windows) update(key, { ...row, windows });
                           }}
                         >
                           <Plus className="w-3.5 h-3.5" />
