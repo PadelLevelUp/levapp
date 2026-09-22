@@ -27,7 +27,9 @@ async function studentId(request: APIRequestContext, token: string): Promise<str
   return String(found!.playerId);
 }
 
-/** One legacy (stepper) category of this spec's own, so the step has a row and the cleanup is exact. */
+/** One legacy (stepper) category of this spec's own, so the step has a row and the cleanup is exact.
+ *  Deliberately through the FROZEN `POST /add_evaluation_categories` (R-047): only a legacy category has a
+ *  stepper, and the stepper's quiet period is what these tests exercise. A test helper, not the new UI. */
 async function newCategory(request: APIRequestContext, token: string): Promise<string> {
   const name = `E2E Flush ${Date.now()}`;
   const saved = await request.post(`${API_APP}/add_evaluation_categories`, {
@@ -91,4 +93,25 @@ test("PAD-396: a step made just before the page is hidden still reaches the serv
   const rating = after?.ratings.find((r) => String(r.categoryId) === catId);
   expect(rating, "the step reached the server").toBeTruthy();
   expect(rating!.score).toBe(6); // an unrated 1-10 stepper starts at the middle
+});
+
+test("PAD-396: a step made just before the tab is CLOSED still reaches the server — without waiting for the request first", async ({ page, request }) => {
+  const token = await coachToken(request);
+  const playerId = await studentId(request, token);
+  const catId = await newCategory(request, token);
+  created.push(catId);
+
+  const form = await openForm(page, playerId);
+  await expect(form).toBeVisible({ timeout: 10_000 });
+  await form.getByTestId(`evaluation-stepper-${catId}-plus`).click(); // inside its ~400 ms quiet period
+  // Close at once: pagehide fires, the flush sends the PUT with keepalive, the page is gone. Nothing is awaited
+  // on the page side — the server is the only witness.
+  await page.close();
+
+  await expect
+    .poll(async () => (await todaysRecord(request, token, playerId))?.ratings.find((r) => String(r.categoryId) === catId)?.score ?? null, {
+      timeout: 10_000,
+      message: "the step made just before the tab closed reached the server",
+    })
+    .toBe(6);
 });

@@ -19,11 +19,12 @@ const show = () => {
 afterEach(() => show());
 
 describe("useFlushOnPageHide", () => {
-  it("flushes on pagehide", () => {
+  it("flushes on pagehide — with keepalive, because an ordinary request started at unload is aborted", () => {
     const flush = vi.fn();
     renderHook(() => useFlushOnPageHide(flush));
     window.dispatchEvent(new Event("pagehide"));
     expect(flush).toHaveBeenCalledTimes(1);
+    expect(flush).toHaveBeenCalledWith({ keepalive: true });
   });
 
   it("flushes when the page becomes hidden, and not when it becomes visible again", () => {
@@ -31,6 +32,7 @@ describe("useFlushOnPageHide", () => {
     renderHook(() => useFlushOnPageHide(flush));
     hide();
     expect(flush).toHaveBeenCalledTimes(1);
+    expect(flush).toHaveBeenCalledWith({ keepalive: true });
     show();
     expect(flush).toHaveBeenCalledTimes(1);
   });

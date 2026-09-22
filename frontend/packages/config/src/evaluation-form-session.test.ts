@@ -230,3 +230,34 @@ describe("the row list never drops a row while the form is open (Q33's family)",
     expect(rows[0].name).toBe("Renamed");
   });
 });
+
+describe("a flush from a page that is going away asks for keepalive (PAD-396, review)", () => {
+  it("flush({ keepalive: true }) sends the pending step and note with keepalive; an ordinary flush does not", async () => {
+    const seen: unknown[] = [];
+    const save = vi.fn(async (input: EvaluationFormSaveInput, options?: { keepalive?: boolean }) => {
+      seen.push(options);
+      return record({ id: 40 });
+    });
+    const session = createEvaluationFormSession({ record: null, save });
+    session.step("2", 6);
+    session.editNote("Boa sessão");
+    session.flush({ keepalive: true });
+    await tick(); await tick();
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(seen).toEqual([{ keepalive: true }, { keepalive: true }]);
+
+    session.step("2", 7);
+    session.flush();
+    await tick();
+    expect(seen[2]).toBeUndefined();
+  });
+
+  it("a tap that is not part of a flush never carries keepalive", async () => {
+    const seen: unknown[] = [];
+    const save = vi.fn(async (_input: EvaluationFormSaveInput, options?: { keepalive?: boolean }) => { seen.push(options); return record({ id: 40 }); });
+    const session = createEvaluationFormSession({ record: null, save });
+    session.rate("1", 4);
+    await tick();
+    expect(seen).toEqual([undefined]);
+  });
+});

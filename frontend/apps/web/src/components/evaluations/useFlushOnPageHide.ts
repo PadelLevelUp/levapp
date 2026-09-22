@@ -8,13 +8,15 @@ import { useEffect, useRef } from "react";
  * own queue, which needs no beacon. `flush` is read through a ref so the listeners are
  * registered once and always call the latest one.
  */
-export function useFlushOnPageHide(flush: () => void): void {
+export function useFlushOnPageHide(flush: (options: { keepalive: true }) => void): void {
   const latest = useRef(flush);
   latest.current = flush;
   useEffect(() => {
-    const onPageHide = () => latest.current();
+    // keepalive: a request started while the document unloads is aborted otherwise (Cmd-W fires
+    // hidden and pagehide in the same task; the PUT would never leave).
+    const onPageHide = () => latest.current({ keepalive: true });
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") latest.current();
+      if (document.visibilityState === "hidden") latest.current({ keepalive: true });
     };
     window.addEventListener("pagehide", onPageHide);
     document.addEventListener("visibilitychange", onVisibility);

@@ -46,8 +46,9 @@ export function usePlayerEvolution(playerId: string | null | undefined, category
  */
 export function usePutEvaluationRecord(playerId: string) {
   const queryClient = useQueryClient();
-  return useMutation<PutEvaluationRecordResult, unknown, Omit<EvaluationRecordInput, "playerId">>({
-    mutationFn: (input) => evaluationRecordsApi.putEvaluationRecord({ playerId, ...input }),
+  return useMutation<PutEvaluationRecordResult, unknown, Omit<EvaluationRecordInput, "playerId"> & { keepalive?: boolean }>({
+    // `keepalive` rides on the variables (one mutation call = one request) and never reaches the body.
+    mutationFn: ({ keepalive, ...input }) => evaluationRecordsApi.putEvaluationRecord({ playerId, ...input }, { keepalive }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvolution(playerId) }); // a rating moves the means

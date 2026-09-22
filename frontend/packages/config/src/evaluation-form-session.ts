@@ -20,6 +20,9 @@ import { createDebouncedWriter } from "./evaluation-form";
  */
 
 export type EvaluationFormSaveInput = { ratings?: Record<string, number | null>; note?: string; recordId?: number };
+/** `keepalive`: the request may outlive the page — a flush from `pagehide` / hidden asks for it, because an
+ *  ordinary request started while the document unloads is aborted by the browser. */
+export type EvaluationFormSaveOptions = { keepalive?: boolean };
 export type EvaluationFormFailure = "generic" | "dayPassed";
 
 export interface EvaluationFormState {
@@ -34,7 +37,7 @@ export interface EvaluationFormSessionOptions {
   /** The record the form opens on (today's), or null. */
   record: EvaluationRecord | null;
   /** One `PUT`. Rejects on failure; a 409 is read from `error.response.data.error`. */
-  save: (input: EvaluationFormSaveInput) => Promise<PutEvaluationRecordResult>;
+  save: (input: EvaluationFormSaveInput, options?: EvaluationFormSaveOptions) => Promise<PutEvaluationRecordResult>;
   /** Told once per failed request, for a toast. */
   onFailure?: (failure: EvaluationFormFailure) => void;
   stepQuietMs?: number;
@@ -50,11 +53,12 @@ export interface EvaluationFormSession {
   step(key: string, value: number | null): void;
   editNote(text: string): void;
   retryNote(): void;
-  /** Send what is pending now — blur, "Concluir avaliação", close, unmount. */
-  flush(): void;
+  /** Send what is pending now — blur, "Concluir avaliação", close, unmount; with `{ keepalive: true }`
+   *  from a page that is going away (`pagehide` / hidden). */
+  flush(options?: EvaluationFormSaveOptions): void;
 }
 
-type Job = { input: EvaluationFormSaveInput; rollback: () => void; commit: () => void };
+type Job = { input: EvaluationFormSaveInput; rollback: () => void; commit: () => void; options?: EvaluationFormSaveOptions };
 
 function conflictCode(error: unknown): string | null {
   const response = (error as { response?: { status?: number; data?: { error?: unknown } } } | null)?.response;
@@ -85,7 +89,9 @@ export function createEvaluationFormSession(options: EvaluationFormSessionOption
     inFlight = true;
     try {
       const { recordId } = accepted;
-      const result = await options.save(recordId === undefined ? job.input : { ...job.input, recordId });
+      const sent = recordId === undefined ? job.input : { ...job.input, recordId };
+      // No second argument for an ordinary save: callers and tests see exactly the input.
+      const result = job.options ? await options.save(sent, job.options) : await options.save(sent);
       accepted.recordId = "deleted" in result ? undefined : result.id;
       job.commit();
       set({ failure: null });
@@ -109,8 +115,11 @@ export function createEvaluationFormSession(options: EvaluationFormSessionOption
     void pump();
   };
 
+  // Set only for the duration of a flush: the writers fire synchronously inside it.
+  let flushing: EvaluationFormSaveOptions | undefined;
   const saveScore = (key: string, value: number | null) =>
     enqueue({
+      options: flushing,
       input: { ratings: { [key]: value } },
       // Roll back only if this value is still what is shown: a newer tap is its own save.
       rollback: () => { if (state.scores[key] === value) set({ scores: { ...state.scores, [key]: accepted.scores[key] ?? null } }); },
@@ -119,6 +128,7 @@ export function createEvaluationFormSession(options: EvaluationFormSessionOption
 
   const saveNote = (text: string) =>
     enqueue({
+      options: flushing,
       input: { note: text },
       rollback: () => { if (state.note === text) set({ noteUnsaved: true }); },
       commit: () => { accepted.note = text; if (state.note === text) set({ noteUnsaved: false }); },
@@ -147,7 +157,10 @@ export function createEvaluationFormSession(options: EvaluationFormSessionOption
       notes.schedule("note", text);
     },
     retryNote: () => { if (state.noteUnsaved) saveNote(state.note); },
-    flush: () => { steps.flush(); notes.flush(); },
+    flush: (opts) => {
+      flushing = opts;
+      try { steps.flush(); notes.flush(); } finally { flushing = undefined; }
+    },
   };
 }
 

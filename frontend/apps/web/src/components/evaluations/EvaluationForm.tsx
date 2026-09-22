@@ -19,7 +19,7 @@ interface EvaluationFormProps {
   /** The record the form opens on (today's), or null: tapping nothing creates nothing. */
   record: EvaluationRecord | null;
   /** One input = one call. Rejects when the save failed (409 `record_not_editable` included). */
-  onSave: (input: SaveInput) => Promise<PutEvaluationRecordResult>;
+  onSave: (input: SaveInput, options?: { keepalive?: boolean }) => Promise<PutEvaluationRecordResult>;
   onClose: () => void;
   onManageCompetencies: () => void;
 }
@@ -47,7 +47,7 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
   // the debounced stepper and note, the day-passed 409, and flush on unmount.
   const { session, state } = useEvaluationFormSession({
     record,
-    save: (input) => onSaveRef.current(input),
+    save: (input, options) => (options ? onSaveRef.current(input, options) : onSaveRef.current(input)),
     onFailure: (failure) => toast.error(t(failure === "dayPassed" ? "players.evaluationHistory.dayPassed" : "players.evaluationHistory.saveFailed")),
   });
   const { scores, note, noteUnsaved, failure } = state;
