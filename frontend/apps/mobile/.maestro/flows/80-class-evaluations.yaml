@@ -82,6 +82,14 @@ appId: com.padellevelup.app
 # The seed's "E2E Eval Yesterday Class" (materialised yesterday, Student Two present, one Forehand
 # rating in that occurrence's record). The card above the form must not move when today's record
 # arrives after the first tap: the row stays open, the earlier card stays, the summary stays 1/2.
+# class-eval-back lands on the CLASS DETAIL, a stack screen above the tabs (Session-D's first run,
+# 5d92ef781: "tab-calendar not found"); leave it first, then the tab bar is on screen.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "tab-calendar"
+    timeout: 15000
 - tapOn:
     id: "tab-calendar"
 - extendedWaitUntil:
