@@ -6,10 +6,17 @@
 # new form saves each input as it is made, so the guarantee reads: a category the coach
 # rated and then cleared holds nothing, and finishing the form with nothing rated writes
 # no evaluation.
-# - open E2E Student's evaluations (the flow assumes no evaluation of theirs exists;
-#   78-player-evaluations cleans up after itself), open "Nova avaliação"
-# - step the seeded legacy category once → its clear control appears; clear → gone
-# - finish with nothing rated → the history is still empty
+# - clean slate through the API (scripts/evaluations-setup.js deletes E2E Student's
+#   records) — this flow DOES write: one "+" is one saved input, a record with one rating
+# - open E2E Student's evaluations, open "Nova avaliação"
+# - step the seeded legacy category once → its clear control appears; clear → gone,
+#   and the emptied record goes with it
+# - finish with nothing rated → the history is still empty, so the flow leaves nothing behind
+# First simulator run (Session-D, 2026-09-21, pad-375 8093268c3): the "+" made "Evolução"
+# appear above the form and pushed it ~350 pt down, so the clear tap landed on nothing.
+# That was the product's fault, not the flow's: the section now keeps its shape while the
+# form is open (useHeldWhile). The tap below is deliberately NOT preceded by a wait for
+# the layout to settle — it is the measure of that fix.
 # NOTE: player-card-1 is deterministic (see 04-attendance.yaml). Asserts test
 # ids only; the rendered copy differs between locales.
 appId: com.padellevelup.app

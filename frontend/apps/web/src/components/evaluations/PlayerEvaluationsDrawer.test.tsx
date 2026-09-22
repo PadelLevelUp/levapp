@@ -15,6 +15,9 @@ const state = {
 };
 
 vi.mock("@levelup/hooks", async () => ({
+  ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useHeldWhile")>(
+    "../../../../../packages/hooks/src/useHeldWhile"
+  )),
   ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useEvaluationFormSession")>(
     "../../../../../packages/hooks/src/useEvaluationFormSession"
   )),
@@ -22,6 +25,7 @@ vi.mock("@levelup/hooks", async () => ({
   useEvaluationCompetencies: () => ({ data: state.loading.competencies ? undefined : state.competencies, isLoading: state.loading.competencies, isError: false }),
   usePutEvaluationRecord: () => ({ mutateAsync: state.put }),
   useDeleteEvaluationRecord: () => ({ mutateAsync: state.remove, isPending: false }),
+  usePlayerEvolution: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -165,6 +169,21 @@ describe("'Nova avaliação'", () => {
     const form = within(screen.getByTestId("evaluation-form")); // the same star row also sits on the history card
     expect(form.getByTestId("evaluation-stars-3").getAttribute("data-score")).toBe("3");
     expect(form.queryByTestId("evaluation-row-12")).toBeNull(); // Bandeja is switched off and not rated in that record
+  });
+
+  it("nothing above the open form changes shape: a first rating does not make 'Evolução' appear until the form closes", async () => {
+    state.evaluations = { lastEvaluatedOn: null, records: [], competenciesWithData: [] };
+    const view = open();
+    fireEvent.click(screen.getByTestId("evaluation-new"));
+    // the tap was saved and the history refetched: the player now has data
+    state.evaluations = { ...JOAO, records: [JOAO.records[1]], competenciesWithData: [3] };
+    view.rerender(<PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} />);
+    expect(screen.getByTestId("evaluation-history-card-8")).toBeTruthy(); // the history below the form does follow
+    expect(screen.getByTestId("evaluation-evolution-empty")).toBeTruthy();
+    expect(screen.queryByTestId("evolution-pill-3")).toBeNull();
+    await act(async () => fireEvent.click(screen.getByTestId("evaluation-finish")));
+    expect(screen.queryByTestId("evaluation-evolution-empty")).toBeNull();
+    expect(screen.getByTestId("evolution-pill-3")).toBeTruthy();
   });
 
   it("closing it untouched sends nothing", async () => {

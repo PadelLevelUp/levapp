@@ -324,7 +324,20 @@
       "stepUp": "Increase {{name}}",
       "stepDown": "Decrease {{name}}",
       "clearScore": "Clear the rating of {{name}}",
-      "loadFailed": "The evaluations could not be loaded."
+      "loadFailed": "The evaluations could not be loaded.",
+      "evolutionPills": "Competency",
+      "meansHeading": "Averages",
+      "meanLastMonth": "Last month",
+      "meanLast6Months": "Last 6 months",
+      "meanLastYear": "Last year",
+      "deltaUp": "↑ {{value}} since {{month}}",
+      "deltaDown": "↓ {{value}} since {{month}}",
+      "deltaFlat": "= since {{month}}",
+      "chartLabel": "Monthly average of {{name}}, from {{min}} to {{max}}",
+      "pointCaption": "{{month}}: {{mean}}",
+      "tableMonth": "Month",
+      "tableMean": "Average",
+      "evolutionLoadFailed": "The progress could not be loaded."
     }
   }
 }
