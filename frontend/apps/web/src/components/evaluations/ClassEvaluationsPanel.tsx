@@ -142,7 +142,7 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
             <span className="truncate text-sm font-medium">{participant.name}</span>
             {participant.absent && (
               <Badge variant="secondary" className="shrink-0" data-testid={`class-eval-absent-${id}`}>
-                {t("players.classEvaluations.absent")}
+                {t("calendar.attendance.absent")}
               </Badge>
             )}
           </span>

@@ -342,7 +342,6 @@
       "manage": "Manage competencies",
       "summaryNone": "No evaluation",
       "summaryRated": "{{rated}}/{{total}} rated",
-      "absent": "Absent",
       "unavailable": "This class is over and was never opened. Evaluate from the player's page instead.",
       "loadError": "The participants could not be loaded.",
       "noParticipants": "This class has nobody to evaluate."

@@ -154,7 +154,7 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
             <Text className="shrink text-sm font-medium" numberOfLines={1}>{participant.name}</Text>
             {participant.absent ? (
               <Badge variant="secondary" testID={`class-eval-absent-${id}`}>
-                <Text>{t("players.classEvaluations.absent")}</Text>
+                <Text>{t("calendar.attendance.absent")}</Text>
               </Badge>
             ) : null}
           </View>

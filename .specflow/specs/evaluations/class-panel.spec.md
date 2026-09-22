@@ -50,7 +50,7 @@ leaving it. Today the only entry point is the player's page.
    its `presences` rows once materialised, the series roster (`player_in_lesson`) before.
    Participants marked absent (`presences.status = absent`) come last and can still be rated;
    the rest keep the class detail's order. A participant with no coach–player link to this coach
-   is left out. One row is open at a time; opening another collapses the first. A row shows the
+   is left out. One row is open at a time; opening another collapses the first. **(build default Q33)** While a row is open the participant ORDER is held (`useHeldWhile`) — someone marked absent elsewhere does not jump to the end under the coach's finger; each row's data still follows (`evaluations.history` rule 11 is the statement). A row shows the
    avatar, the name, the rule 5 summary and an expand control.
 5. **(AV-013, AV-070, build default Q26) The row summary never hides a rating.** The row lists
    the coach's active competencies **plus any switched-off competency that already holds a
