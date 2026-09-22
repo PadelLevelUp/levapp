@@ -1686,8 +1686,7 @@ def add_coach_level():
 @jwt_required()
 def add_evaluation_categories():
     data = request.get_json() or {}
-    upsert_evaluation_categories(require_coach(), data)
-    return jsonify(data)
+    return jsonify(upsert_evaluation_categories(require_coach(), data))
 
 
 @bp.post("/add_coach_note")

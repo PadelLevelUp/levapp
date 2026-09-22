@@ -12,6 +12,7 @@ from padel_app.services.level_ladder import (
     next_display_order,
     normalize_display_orders,
 )
+from padel_app.services.legacy_scale import normalise_legacy_scale
 from padel_app.sql_db import db
 from padel_app.tools.request_adapter import JsonRequestAdapter
 
@@ -142,7 +143,10 @@ def upsert_coach_levels(coach, data):
 
 
 def upsert_evaluation_categories(coach, data):
-    """Batch upsert evaluation categories from a list of entries."""
+    """Batch upsert evaluation categories from a list of entries. Returns the
+    entries as stored, for the echo: every scale is 1-5 (PAD-403,
+    evaluations.legacy-conversion rule 5)."""
+    data = [normalise_legacy_scale(entry) for entry in data]
     for entry in data:
         payload = {
             'name': entry.get("name"),
@@ -171,6 +175,7 @@ def upsert_evaluation_categories(coach, data):
             evaluation_category = EvaluationCategory()
             _apply_form(evaluation_category.get_create_form(), payload, evaluation_category)
             evaluation_category.create()
+    return data
 
 
 def add_coach_note_service(coach, data):

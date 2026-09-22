@@ -23,6 +23,7 @@ from padel_app.services.level_ladder import (
     next_display_order,
     normalize_display_orders,
 )
+from padel_app.services.evaluation_catalogue import NEW_SCALE
 from padel_app.sql_db import db
 from padel_app.models import (
     CoachLevel,
@@ -202,10 +203,12 @@ def bulk_create_evaluation_categories(rows, coach):
             if existing:
                 continue
 
+            # PAD-403 (evaluations.legacy-conversion rule 5): an imported legacy
+            # category is 1-5 whatever the sheet says; no 1-10 category is created.
             payload = {
                 "name": name,
-                "scale_min": row.get("scale_min"),
-                "scale_max": row.get("scale_max"),
+                "scale_min": NEW_SCALE[0],
+                "scale_max": NEW_SCALE[1],
                 "coach": coach.id,
             }
             category = EvaluationCategory()

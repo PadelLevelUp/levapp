@@ -18,9 +18,21 @@ It is the proportional rescale ``round_half_up(1 + (score − 1) × 4/9)`` and t
 midpoint 6 to 3★; and it round-trips with ``score = 2 × stars``.
 
 This is **THE** one mapping (R-048): no client re-derives it. The migration,
-the frozen-endpoint presentation layer (rule 7, pending) and any other reader
+the frozen-endpoint writes (``normalise_legacy_scale``, rule 5) and any other reader
 must call ``to_stars``/``to_legacy`` from here — never recompute the ratio.
 """
+
+
+from padel_app.services.evaluation_catalogue import NEW_SCALE
+
+
+def normalise_legacy_scale(entry: dict) -> dict:
+    """evaluations.legacy-conversion rule 5: a legacy category written through the
+    frozen upsert or the import is 1-5, whatever ``scaleMin``/``scaleMax`` the
+    body sends (App Store 1.0/1.1.0's editors default a new row to 0-10). Returns
+    a copy with only the two scale keys overwritten, so the echo keeps its shape.
+    """
+    return {**entry, "scaleMin": NEW_SCALE[0], "scaleMax": NEW_SCALE[1]}
 
 
 def to_stars(score: int) -> int:

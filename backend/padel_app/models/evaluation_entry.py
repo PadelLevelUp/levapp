@@ -43,6 +43,9 @@ class EvaluationEntry(db.Model, model.Model):
     record = relationship("EvaluationRecord", back_populates="entries")
 
     score = Column(Float, nullable=False)
+    # PAD-403 (evaluations.legacy-conversion rules 2, 3): the 1-10 score before the
+    # conversion to stars; NULL for every score rated afterwards. Migration-only.
+    score_before_conversion = Column(Integer, nullable=True)
     comment = Column(String(500), nullable=True)
     # PAD-273 (audit M12): `.strftime` is called on it, so it can never be NULL.
     # The app's own clock, looked up at WRITE time (`lambda`, not the function object): the tests
