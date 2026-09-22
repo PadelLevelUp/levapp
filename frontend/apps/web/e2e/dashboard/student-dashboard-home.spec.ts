@@ -161,6 +161,7 @@ import {
   STUDENT_PASSWORD,
   STUDENT_USERNAME,
 } from "../helpers/auth";
+import { cleanupReminderTestClasses } from "../helpers/reminder-test-class";
 
 type Row = { title: string; lessonInstanceId: number | null; pendingConfirmation: boolean };
 type Overview = { unreadMessages: number };
@@ -212,6 +213,20 @@ async function removeDebugClass(
 }
 
 test.describe("PAD-202: answering a reminder on the dashboard", () => {
+  // B-131: the test below seeds an "E2E Auto-Reminder Test" class via the
+  // debug endpoint. It already tries to remove it by hand (`removeDebugClass`
+  // above, keyed on the calendar day it lands), which can miss the class; this
+  // is the backstop that always finds it by title, on the calling coach.
+  test.afterAll(async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    try {
+      const coachToken = await token(request, COACH_USERNAME, COACH_PASSWORD);
+      await cleanupReminderTestClasses(request, coachToken);
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test("PAD-202: Yes on the class row confirms, clears the buttons and drops the unread count", async ({
     page,
     request,

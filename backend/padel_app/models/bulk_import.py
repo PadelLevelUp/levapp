@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Text, func
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 from padel_app import model
 
 
@@ -16,7 +16,7 @@ class BulkImport(db.Model, model.Model):
     id = Column(Integer, primary_key=True)
     # Overrides the mixin's nullable created_at: migration d4e5f6a7b8c9 made it
     # NOT NULL DEFAULT now() (PAD-220).
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, server_default=func.now())
+    created_at = Column(DateTime, nullable=False, default=lambda: utcnow_naive(), server_default=func.now())
     coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
     filename = Column(String(255), nullable=True)
     status = Column(
