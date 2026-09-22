@@ -136,6 +136,10 @@ executionOrder:
     # with the same API cleanup as 62.
     - 85-working-hours-invalid-day
     - 86-class-request-wizard-weekly
+    # 95 adds a category, types its name, switches the language pt and back, and
+    # asserts the unsaved row survives (PAD-392); it writes only the coach's language
+    # and restores it in onFlowComplete.
+    - 95-settings-language-change-keeps-edits
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

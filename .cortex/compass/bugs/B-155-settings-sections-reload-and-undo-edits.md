@@ -15,7 +15,7 @@ affects:
   - frontend/apps/mobile/src/features/settings/evaluation-categories-section.tsx
 proposed_fix: "Loading effects read t/toast through refs and have empty deps; working hours also never lets a load replace a touched week. A ratcheted guard fails on any loading hook that lists t or toast."
 opened: 2026-09-21T21:00:00Z
-resolved: 2026-09-22T00:15:00Z
+resolved: 2026-09-22T00:06:39Z
 ---
 
 # B-155 — an edit made just after opening Settings was undone, without a word

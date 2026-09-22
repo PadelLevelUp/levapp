@@ -83,6 +83,11 @@ id-addressed delete: `evaluations.competencies` (draft). The routes in rule 3 th
   until she types "Serve"
 
 
+#### A change of language keeps an unsaved category (PAD-392)
+- **Given** coach Ana, on iOS, adds a category in Settings → Preferences and types its name, without saving
+- **When** she switches the app language on the same screen, and back
+- **Then** the row is still there with the name she typed, and the server holds no new category
+
 ### Acceptance Criteria — the contract as shipped, pinned by PAD-362
 
 Appended by PAD-362 (2026-09-21); same terms as the section of the same name in
