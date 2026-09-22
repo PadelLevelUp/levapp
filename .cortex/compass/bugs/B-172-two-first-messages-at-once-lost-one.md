@@ -11,8 +11,8 @@ affects:
   - backend/padel_app/services/messaging_service.py
   - backend/padel_app/models/conversations.py
 proposed_fix: "Conversation.get_or_insert: insert in a savepoint; on the unique key's IntegrityError, re-read the winner's row. Both system get-or-create paths use it."
-opened: 2026-09-22T19:17:00Z
-resolved: 2026-09-22T21:00:00Z
+opened: 2026-09-22T19:17:39Z
+resolved: 2026-09-22T20:22:30Z
 ---
 
 # B-172 — two first messages at once lost one
