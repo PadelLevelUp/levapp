@@ -60,6 +60,7 @@ describe("queryKeys", () => {
     expect(queryKeys.classEvaluations({ model: "Lesson", id: 7, date: "2026-09-21" })).toEqual(["class-evaluations", "Lesson", 7, "2026-09-21"]);
     expect(queryKeys.classEvaluations({ model: "LessonInstance", id: 88 })).toEqual(["class-evaluations", "LessonInstance", 88, null]);
     expect(queryKeys.classEvaluations()).toEqual(["class-evaluations"]);
+    expect(queryKeys.evaluationCompetencyImpact(13)).toEqual(["evaluation-competency-impact", 13]);
     expect(queryKeys.conversation("c1")).toEqual(["conversation", "c1"]);
     expect(queryKeys.exercise("e1")).toEqual(["exercises", "e1"]);
   });

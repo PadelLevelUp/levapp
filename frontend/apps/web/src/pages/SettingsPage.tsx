@@ -47,7 +47,7 @@ import {
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { SeasonsSection } from "@/components/settings/SeasonsSection";
 import { WorkingHoursSection } from "@/components/settings/WorkingHoursSection";
-import { EvaluationCategoriesSection } from "@/components/settings/EvaluationCategoriesSection";
+import { CompetenciesSettingsEntry } from "@/components/evaluations/competency-manager/CompetenciesSettingsEntry";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
@@ -612,8 +612,8 @@ export default function SettingsPage() {
                   </div>
 
                   {/* PAD-103: language + theme are per-user and stay for both
-                      roles; skill levels and evaluation categories are the
-                      coach's own configuration. */}
+                      roles; skill levels and the evaluation competencies (PAD-373)
+                      are the coach's own configuration. */}
                   {isCoach && (
                     <>
                       <Separator />
@@ -622,7 +622,7 @@ export default function SettingsPage() {
 
                       <Separator />
 
-                      <EvaluationCategoriesSection />
+                      <CompetenciesSettingsEntry />
                     </>
                   )}
                 </CardContent>

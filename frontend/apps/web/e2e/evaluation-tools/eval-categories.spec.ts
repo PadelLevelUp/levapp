@@ -1,25 +1,22 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 
-// US-46: Coach can manage evaluation categories from settings
-test("US-46: evaluation categories page/section is accessible", async ({ page }) => {
+// US-46: the coach manages their competencies from Settings → Preferences (PAD-373;
+// evaluations.competencies rule 11). The category editor that used to sit there is gone:
+// the entry opens the one manager — "Gerir competências" — over the page. By test id; this
+// test used to pass on EITHER of two pages, which proved neither.
+test("US-46: Settings → Preferences opens the competency manager", async ({ page }) => {
   await loginAsCoach(page);
-  await page.goto("/settings");
+  await page.goto("/settings?tab=preferences");
 
-  // Look for an "Evaluation" section in settings
-  const evalSection = page.locator("text=/evaluation categor/i").first();
-  const visible = await evalSection.isVisible({ timeout: 5000 }).catch(() => false);
+  await expect(page.getByTestId("settings-competencies")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("settings-competencies-open").click();
 
-  if (!visible) {
-    // Otherwise evaluations are reached from the player detail: the "Avaliações" action (PAD-374).
-    await page.goto("/players");
-    // E2E Student is on page 2 (id-desc with 30 players) — use search
-    await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-    await page.getByText("E2E Student", { exact: true }).click();
-    await expect(page.getByTestId("player-evaluations-open")).toBeVisible({ timeout: 5000 });
-  } else {
-    await expect(evalSection).toBeVisible();
-  }
+  await expect(page.getByTestId("competency-manager")).toBeVisible({ timeout: 10_000 });
+  // The seeded coach already had a category ("Forehand"): it is listed, in the section of
+  // the coach's own categories, and the manager is over Settings, not a page of its own.
+  await expect(page.getByTestId("competency-group-legacy")).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\?.*tab=preferences/);
 });
 
 // US-47: Coach can submit an evaluation for a player

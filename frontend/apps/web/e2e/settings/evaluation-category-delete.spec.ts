@@ -1,13 +1,19 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
-import { openSettings } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
-import { ui } from "../helpers/i18n";
 
-// PAD-274 / evaluations.categories rule 7. Deleting a saved category deletes
-// every score in it, so the coach first sees how many scores across how many
-// players, and the delete waits for the category's typed name. A row added in
-// the form and never saved is removed without asking and without a request.
+// PAD-274 / evaluations.competencies rule 9, ported by PAD-373 from the Settings category
+// editor to "Gerir competências". Deleting a competency deletes every score in it, so the
+// coach first sees how many scores across how many players, and the delete waits for the
+// typed name — now through the NEW impact + DELETE endpoints. The legacy ones are frozen
+// for the App Store builds, and the new UI must call none of them.
+//
+// By test id only. The old editor's middle case ("a row added in the form and never
+// saved is removed without asking") has no equivalent: the manager holds no unsaved
+// rows — every change applies when made (rule 12) — so that is what its test pins now.
+
+const LEGACY_CALLS =
+  /\/app\/(evaluation_categories\b|add_evaluation_categories|delete\/evaluation_category|evaluation_category\/|add_evaluation_entry)/;
 
 async function coachToken(request: APIRequestContext): Promise<string> {
   const login = await request.post(`${API_AUTH}/login`, {
@@ -30,23 +36,54 @@ async function playerIdByName(request: APIRequestContext, token: string, name: s
   return String(found!.playerId);
 }
 
-test("PAD-274: deleting a saved category shows what it holds and waits for its typed name", async ({
+/** R-040: whatever a test created and did not delete itself goes here, by id. */
+const created: number[] = [];
+test.afterEach(async ({ request }) => {
+  if (created.length === 0) return;
+  const token = await coachToken(request);
+  for (const id of created.splice(0)) {
+    const res = await request.delete(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(token) });
+    expect.soft([200, 404], `cleanup of competency ${id}: ${res.status()}`).toContain(res.status());
+  }
+});
+
+/** Every request the PAGE makes to a legacy evaluation endpoint (the `request` fixture is not the page). */
+function watchLegacyCalls(page: Page): string[] {
+  const calls: string[] = [];
+  page.on("request", (r) => {
+    if (LEGACY_CALLS.test(r.url())) calls.push(`${r.method()} ${r.url()}`);
+  });
+  return calls;
+}
+
+async function openManagerFromSettings(page: Page) {
+  await page.goto("/settings?tab=preferences");
+  await page.getByTestId("settings-competencies-open").click();
+  await expect(page.getByTestId("competency-manager")).toBeVisible({ timeout: 10_000 });
+  // Opened over the page the coach was on: the tab is still in the URL (rule 11).
+  await expect(page).toHaveURL(/tab=preferences/);
+  await expect(page).toHaveURL(/competencies=open/);
+}
+
+test("US-373a: deleting a category the coach already had shows what it holds and waits for its typed name", async ({
   page,
   request,
 }) => {
   const token = await coachToken(request);
   const name = `E2E Delete Cat ${Date.now().toString().slice(-6)}`;
+  // Set up as an OLD client would have: a legacy category with one score (the frozen
+  // endpoints are the only way to make one). The UI under test never calls them.
   const saved = await request.post(`${API_APP}/add_evaluation_categories`, {
     headers: bearer(token),
     data: [{ name, scaleMin: 1, scaleMax: 10 }],
   });
   expect(saved.ok()).toBeTruthy();
-  const categories: { id: string | number; name: string }[] = await (
+  const categories: { id: number; name: string }[] = await (
     await request.get(`${API_APP}/evaluation_categories`, { headers: bearer(token) })
   ).json();
   const category = categories.find((c) => c.name === name);
   expect(category, "the new category was saved").toBeTruthy();
-  // One score for one student, so the impact reads 1 score across 1 player.
+  created.push(category!.id);
   const studentId = await playerIdByName(request, token, "E2E Student");
   const scored = await request.post(`${API_APP}/add_evaluation_entry`, {
     headers: bearer(token),
@@ -55,76 +92,114 @@ test("PAD-274: deleting a saved category shows what it holds and waits for its t
   expect(scored.ok()).toBeTruthy();
 
   await loginAsCoach(page);
-  await openSettings(page);
-  const del = page.getByRole("button", { name: new RegExp(`^(delete category|eliminar categoria) ${name}$`, "i") });
-  await expect(del).toBeVisible({ timeout: 10_000 });
-  await del.click();
+  const legacyCalls = watchLegacyCalls(page);
+  await openManagerFromSettings(page);
 
-  const dialog = page.getByRole("alertdialog");
-  await expect(dialog.getByTestId("evaluation-category-impact")).toContainText(/\b1\b\D+\b1\b/, { timeout: 10_000 });
-  const confirm = dialog.getByTestId("evaluation-category-delete-confirm");
-  const typed = dialog.getByTestId("evaluation-category-delete-name");
+  const rowId = `id-${category!.id}`;
+  const row = page.getByTestId(`competency-row-${rowId}`);
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  await expect(row).toHaveAttribute("data-kind", "legacy");
+  await expect(row).toHaveAttribute("data-active", "true");
+  // A legacy category writes its own scale out; it is never stars (rule 3).
+  await expect(page.getByTestId(`competency-scale-${rowId}`)).toContainText("1–10");
+
+  await page.getByTestId(`competency-delete-${rowId}`).click();
+  const dialog = page.getByTestId("competency-delete-dialog"); // nested Radix dialogs: by test id, never by role
+  await expect(dialog.getByTestId("competency-delete-impact")).toContainText(/\b1\b\D+\b1\b/, { timeout: 10_000 });
+  const confirm = dialog.getByTestId("competency-delete-confirm");
+  const typed = dialog.getByTestId("competency-delete-name");
   await expect(confirm).toBeDisabled();
   await typed.fill(name.toUpperCase());
   await expect(confirm).toBeDisabled();
   await typed.fill(name);
   await expect(confirm).toBeEnabled();
 
-  const deleted = page.waitForResponse((r) => r.url().includes("/delete/evaluation_category"));
+  const deleted = page.waitForResponse(
+    (r) => r.request().method() === "DELETE" && r.url().endsWith(`/evaluation_competency/${category!.id}`),
+  );
   await confirm.click();
   expect((await deleted).status()).toBe(200);
   await expect(dialog).toHaveCount(0);
-  await expect(del).toHaveCount(0);
+  await expect(row).toHaveCount(0);
 
-  const after = await request.get(`${API_APP}/evaluation_category/${category!.id}/impact`, { headers: bearer(token) });
+  const after = await request.get(`${API_APP}/evaluation_competency/${category!.id}/impact`, { headers: bearer(token) });
   expect(after.status()).toBe(404);
+  created.splice(created.indexOf(category!.id), 1);
+  expect(legacyCalls, "the manager called a frozen legacy endpoint").toEqual([]);
 });
 
-test("PAD-274: a category added in the form but never saved is removed without asking", async ({ page }) => {
+test("US-373b: a competency added in the manager exists at once — there is no unsaved row to discard", async ({
+  page,
+  request,
+}) => {
+  const token = await coachToken(request);
   await loginAsCoach(page);
-  await openSettings(page);
-  const deletes = page.getByTestId("evaluation-category-delete");
-  await expect(deletes.first()).toBeVisible({ timeout: 10_000 });
-  const before = await deletes.count();
+  const legacyCalls = watchLegacyCalls(page);
+  await openManagerFromSettings(page);
 
-  const calls: string[] = [];
-  page.on("request", (r) => {
-    if (/\/delete\/evaluation_category|\/evaluation_category\/\d+\/impact/.test(r.url())) calls.push(r.url());
-  });
+  const name = `E2E Custom ${Date.now().toString().slice(-6)}`;
+  await page.getByTestId("competency-add-name").fill(name);
+  const posted = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().endsWith("/evaluation_competency"),
+  );
+  await page.getByTestId("competency-add-submit").click();
+  const response = await posted;
+  expect(response.status()).toBe(201);
+  const { id } = (await response.json()) as { id: number };
+  created.push(id);
 
-  await page.getByRole("button", { name: ui("settings.evaluationCategories.addCategory") }).click();
-  await expect(deletes).toHaveCount(before + 1);
-  await deletes.last().click();
-  await expect(deletes).toHaveCount(before);
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  expect(calls).toEqual([]);
+  const row = page.getByTestId(`competency-row-id-${id}`);
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  await expect(row).toHaveAttribute("data-kind", "custom");
+  await expect(row).toHaveAttribute("data-active", "true");
+  await expect(page.getByTestId("competency-add-name")).toHaveValue("");
+
+  // Closing discards nothing: it is on the server, as a 1–5 custom competency.
+  await page.getByTestId("competency-manager-done").click();
+  await expect(page.getByTestId("competency-manager")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/competencies=open/);
+  const held: { competencies: { id: number; name: string; group: string | null; scaleMax: number; isActive: boolean }[] } =
+    await (await request.get(`${API_APP}/evaluation_competencies`, { headers: bearer(token) })).json();
+  const mine = held.competencies.find((c) => c.id === id);
+  expect(mine, "the competency the manager created is held by the coach").toBeTruthy();
+  expect([mine!.name, mine!.group, mine!.scaleMax, mine!.isActive]).toEqual([name, "custom", 5, true]);
+
+  // The same name again is refused inline, and what was typed stays (rule 6).
+  await page.getByTestId("settings-competencies-open").click();
+  await page.getByTestId("competency-add-name").fill(`  ${name.toLowerCase()} `);
+  await page.getByTestId("competency-add-submit").click();
+  await expect(page.getByTestId("competency-add-error")).toBeVisible();
+  await expect(page.getByTestId("competency-add-name")).toHaveValue(`  ${name.toLowerCase()} `);
+  expect(legacyCalls, "the manager called a frozen legacy endpoint").toEqual([]);
 });
 
-test("PAD-274: a category saved in this form asks before it is deleted, without a reload", async ({ page }) => {
+test("US-373c: a competency created in the manager asks before it is deleted, without a reload", async ({ page }) => {
   await loginAsCoach(page);
-  await openSettings(page);
-  const deletes = page.getByTestId("evaluation-category-delete");
-  await expect(deletes.first()).toBeVisible({ timeout: 10_000 });
+  const legacyCalls = watchLegacyCalls(page);
+  await openManagerFromSettings(page);
 
   const name = `E2E Saved Cat ${Date.now().toString().slice(-6)}`;
-  await page.getByRole("button", { name: ui("settings.evaluationCategories.addCategory") }).click();
-  await page.getByRole("textbox", { name: ui("settings.evaluationCategories.name") }).last().fill(name);
-  const saved = page.waitForResponse((r) => r.url().includes("/add_evaluation_categories"));
-  const reloaded = page.waitForResponse(
-    (r) => r.url().includes("/evaluation_categories") && r.request().method() === "GET",
+  await page.getByTestId("competency-add-name").fill(name);
+  const posted = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().endsWith("/evaluation_competency"),
   );
-  await page.getByRole("button", { name: ui("settings.evaluationCategories.saveCategories") }).click();
-  expect((await saved).status()).toBe(200);
-  await reloaded;
+  await page.getByTestId("competency-add-submit").click();
+  const { id } = (await (await posted).json()) as { id: number };
+  created.push(id);
 
-  // Before PAD-274 the row kept its temporary id after the save; its delete
-  // either 400'd (web) or only dropped it from the screen (iOS).
-  await page.getByRole("button", { name: new RegExp(`^(delete category|eliminar categoria) ${name}$`, "i") }).click();
-  const dialog = page.getByRole("alertdialog");
-  await expect(dialog.getByTestId("evaluation-category-impact")).toContainText(/\b0\b\D+\b0\b/, { timeout: 10_000 });
-  await dialog.getByTestId("evaluation-category-delete-name").fill(name);
-  const deleted = page.waitForResponse((r) => r.url().includes("/delete/evaluation_category"));
-  await dialog.getByTestId("evaluation-category-delete-confirm").click();
+  await page.getByTestId(`competency-delete-id-${id}`).click();
+  const dialog = page.getByTestId("competency-delete-dialog"); // nested Radix dialogs: by test id, never by role
+  // No score yet: the impact is shown (not the failure state), and the name is still asked for.
+  await expect(dialog.getByTestId("competency-delete-impact")).toBeVisible({ timeout: 10_000 });
+  await expect(dialog.getByTestId("competency-delete-confirm")).toBeDisabled();
+  await dialog.getByTestId("competency-delete-name").fill(name);
+  const deleted = page.waitForResponse(
+    (r) => r.request().method() === "DELETE" && r.url().endsWith(`/evaluation_competency/${id}`),
+  );
+  await dialog.getByTestId("competency-delete-confirm").click();
   expect((await deleted).status()).toBe(200);
   await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId(`competency-row-id-${id}`)).toHaveCount(0);
+  created.splice(created.indexOf(id), 1);
+  expect(legacyCalls, "the manager called a frozen legacy endpoint").toEqual([]);
 });

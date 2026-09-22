@@ -1,0 +1,142 @@
+# PAD-373 / evaluations.competencies rules 5-8 and 11-14 — "Gerir competências" on iOS.
+# Mirrors apps/web/e2e/evaluation-tools/competency-manager.spec.ts and the component tests of
+# apps/web/src/components/evaluations/competency-manager/. (Flow number 77 reserved for this
+# slice by the Coordinator, 2026-09-21.) The typed-name delete is flow 34's third section.
+#
+# What it proves, by test id and by the server's own answers — never rendered copy (a row's
+# test id carries the server's id, so the flow asks the server for it):
+# - Settings → Preferences opens the manager, and it is a PUSHED screen (not a native Modal)
+# - the coach's own categories are a section of their own, first, with their scale written out
+# - a catalogue switch applies when tapped — the server holds it before anything is "saved"
+# - a competency of the coach's own is added at once; the same name again is refused inline
+#   and what was typed stays; a rename is by id and the server holds the new name
+# - "Concluído" goes back to Settings
+# Cleans up through the API: it leaves "vibora" switched off and nothing named "Maestro …".
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/competency-manager-setup.js
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-competencies-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-competencies-open"
+- extendedWaitUntil:
+    visible:
+      id: "competency-manager"
+    timeout: 15000
+- assertVisible:
+    id: "competency-manager-caption"
+
+# ── 1. The seeded legacy "Forehand" sits in its own first section, scale written out ──
+- assertVisible:
+    id: "competency-group-legacy"
+- assertVisible:
+    id: "competency-group-legacy-caption"
+- assertVisible:
+    id: "competency-scale-id-${output.forehandId}"
+
+# ── 2. A catalogue switch applies when tapped ──
+- scrollUntilVisible:
+    element:
+      id: "competency-toggle-key-vibora"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-toggle-key-vibora"
+# The switch's request is in flight when the tap returns: read until the server holds it
+# (bounded — every other server read in this flow polls the same way).
+- evalScript: "${output.vibora = (function () { var found = []; for (var i = 0; i < 40 && !(found.length == 1 && found[0].isActive); i++) { found = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.key === 'vibora' }); } return found; })()}"
+- assertTrue: "${output.vibora.length == 1 && output.vibora[0].isActive == true}"
+
+# ── 3. Add one of the coach's own; the same name again is refused inline ──
+- scrollUntilVisible:
+    element:
+      id: "competency-add-name"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-add-name"
+- inputText: "Maestro Own"
+# Enter submits the field (onSubmitEditing) and dismisses the keyboard in one step.
+- pressKey: Enter
+- runScript:
+    file: ../scripts/competency-id-by-name.js
+    env:
+      NAME: "Maestro Own"
+- scrollUntilVisible:
+    element:
+      id: "competency-row-id-${output.competencyId}"
+    direction: DOWN
+    timeout: 30000
+- evalScript: "${output.own = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.name === 'Maestro Own' })}"
+- assertTrue: "${output.own.length == 1 && output.own[0].group == 'custom' && output.own[0].scaleMax == 5 && output.own[0].isActive == true}"
+- scrollUntilVisible:
+    element:
+      id: "competency-add-name"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-add-name"
+- inputText: "maestro own"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "competency-add-error"
+    timeout: 15000
+- evalScript: "${output.dupes = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.name.toLowerCase() === 'maestro own' }).length}"
+- assertTrue: "${output.dupes == 1}"
+
+# ── 4. Rename by id ──
+- scrollUntilVisible:
+    element:
+      id: "competency-rename-id-${output.competencyId}"
+    direction: UP
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-rename-id-${output.competencyId}"
+- tapOn:
+    id: "competency-rename-input-id-${output.competencyId}"
+- eraseText: 20
+- inputText: "Maestro Renamed"
+# Enter saves the rename (onSubmitEditing) and dismisses the keyboard; the row leaves
+# rename mode once the server has answered, which is what the wait below observes.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "competency-rename-id-${output.competencyId}"
+    timeout: 15000
+- evalScript: "${output.renamed = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return String(c.id) === output.competencyId })}"
+- assertTrue: "${output.renamed.length == 1 && output.renamed[0].name == 'Maestro Renamed'}"
+
+# ── 5. "Concluído" goes back to Settings; nothing was pending ──
+- scrollUntilVisible:
+    element:
+      id: "competency-manager-done"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-manager-done"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+
+# ── Clean up through the API: nothing named "Maestro …", "vibora" off again ──
+- runScript: ../scripts/competency-manager-setup.js
