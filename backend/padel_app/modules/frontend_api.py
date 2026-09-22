@@ -26,6 +26,7 @@ from padel_app.serializers.conversation import (
     serialize_conversations,
 )
 from padel_app.serializers.coach_level import serialize_coach_level
+from padel_app.model import NotNullableFieldError
 from padel_app.services.season_service import (
     InvalidSeasonError,
     delete_definition,
@@ -326,6 +327,20 @@ def _json_http_error(exc):
     Flask's default HTML error page would hide them.
     """
     return jsonify({"error": exc.description}), exc.code
+
+
+@bp.errorhandler(NotNullableFieldError)
+def _json_not_nullable(exc):
+    """PAD-385 (B-136): a client sent an empty value for a field that cannot be empty.
+
+    Raised by ``update_with_dict(write_none=True)`` before anything is written; the
+    session is rolled back all the same so a half-built request leaves nothing behind.
+    Inert until a route reads its form in present mode (PAD-386 onwards).
+    """
+    from padel_app.sql_db import db
+
+    db.session.rollback()
+    return jsonify({"error": "invalid_fields", "fields": exc.fields}), 400
 
 
 def assert_acting_coach(coach, claimed_coach_id):
@@ -2468,6 +2483,8 @@ def edit_class():
     except CourtNotInClubError as e:
         # clubs.courts rule 6 (PAD-194).
         return jsonify({"error": str(e), "code": e.code}), 400
+    # PAD-387: the service refuses a sent-empty NOT NULL value before writing; any
+    # other NotNullableFieldError is answered 400 by the blueprint handler (PAD-385).
     return jsonify(result), status
 
 

@@ -1,0 +1,58 @@
+# PAD-371 (B-139) — calendar.blocks rule 8: deleting ONE occurrence of a recurring
+# personal event keeps every later occurrence. The series used to be shortened to
+# the day before and the "resume from the next occurrence" copy was never made, so
+# the later occurrences vanished with the one the coach deleted.
+#
+# Setup through the API: four Mondays, starting the Monday BEFORE the seeded Monday,
+# so the occurrence opened here (the seeded Monday) is a MIDDLE one. The delete goes
+# through the UI (event detail → delete → "this one"); the server's calendar is the
+# judge. Removes its own blocks before and after. Order: not load bearing.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001.
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad371-event-single-occurrence.spec.ts
+# Flow number 93 is from Session D's range (2026-09-21 wave).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.tidy = (typeof output.coachTok === 'undefined') ? 0 : (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.d0 + 'T00:00:00&to=' + output.d3 + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var seen = {}; var n = 0; for (var i = 0; i < evs.length; i++) { if (evs[i].title === 'PAD-371 Weekly Event' && !seen[evs[i].originalId]) { seen[evs[i].originalId] = true; http.delete(output.api + '/api/app/calendar_block/' + evs[i].originalId, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }); n++; } } return n; })()}"
+---
+- runScript: ../scripts/seeded-monday.js
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+# d0..d3: the Monday before the seeded one, the seeded Monday (the target), and the two after.
+- evalScript: "${output.days = (function () { var p = output.seededMonday.split('-'); var out = []; for (var k = -7; k <= 14; k += 7) { var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + k); var m = d.getMonth() + 1; var day = d.getDate(); out.push(d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day)); } return out; })()}"
+- evalScript: "${output.d0 = output.days[0]}"
+- evalScript: "${output.d3 = output.days[3]}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.made = http.post(output.api + '/api/app/add_event', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ type: 'personal', title: 'PAD-371 Weekly Event', date: output.d0, startTime: '12:00', endTime: '13:00', isRecurring: true, recurrenceRule: { frequency: 'weekly', daysOfWeek: [1] }, endDate: output.d3 }) }).status}"
+- assertTrue: "${output.made == 201}"
+- evalScript: "${output.before = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.d0 + 'T00:00:00&to=' + output.d3 + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var out = []; for (var i = 0; i < evs.length; i++) { if (evs[i].title === 'PAD-371 Weekly Event') { out.push(evs[i].date); } } return out.sort().join(','); })()}"
+- assertTrue: "${output.before == output.days.join(',')}"
+
+# ── Coach opens the seeded Monday's occurrence and deletes only that one ──
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- extendedWaitUntil:
+    visible:
+      text: "PAD-371 Weekly Event.*"
+    timeout: 20000
+- tapOn:
+    text: "PAD-371 Weekly Event.*"
+- extendedWaitUntil:
+    visible:
+      id: "event-detail"
+    timeout: 15000
+- tapOn:
+    id: "event-detail-delete"
+- extendedWaitUntil:
+    visible:
+      id: "class-scope-single"
+    timeout: 10000
+- tapOn:
+    id: "class-scope-single"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+
+# ── The server: only that Monday went; the two after it are still served ──
+- evalScript: "${output.after = (function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.d0 + 'T00:00:00&to=' + output.d3 + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); var out = []; for (var i = 0; i < evs.length; i++) { if (evs[i].title === 'PAD-371 Weekly Event') { out.push(evs[i].date); } } return out.sort().join(','); })()}"
+- assertTrue: "${output.after == [output.days[0], output.days[2], output.days[3]].join(',')}"

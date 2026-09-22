@@ -27,6 +27,11 @@ class Field:
         "DateTime",
     ]
 
+    #: True only while Form.set_values reads a `present`-mode JSON request (PAD-367):
+    #: the key is known to have been sent, so "" / null mean "clear" and 0 / false are
+    #: values. Never set for an HTML post or a legacy-mode request.
+    _present_mode = False
+
     def __init__(
         self,
         instance_id,
@@ -127,6 +132,11 @@ class Field:
         return True
 
     def set_relationship_value(self, request):
+        if self._present_mode and self.type == "ManyToOne":
+            sent = [ele for ele in request.form.getlist(self.name) if ele not in (None, "")]
+            if not sent:
+                self.value = None  # the key was sent empty: clear the relationship
+                return True
         values = [
             ele
             for ele in request.form.getlist(self.name)
@@ -166,6 +176,9 @@ class Field:
         # used instead of indexing so a genuinely absent checkbox cannot raise
         # a BadRequestKeyError.
         raw = request.form.get(self.name)
+        if self._present_mode and raw in (None, ""):
+            self.value = None  # sent empty; whether the column may be NULL is the model's call
+            return True
         if isinstance(raw, bool):
             self.value = raw
         elif raw is None:
@@ -192,6 +205,10 @@ class Field:
     def set_value(self, request):
         if self.type in self.set_special_fields.keys():
             return self.set_special_fields[self.type](request)
+        if self._present_mode:
+            raw = request.form.get(self.name)
+            self.value = None if raw in (None, "") else raw  # 0 and False are values
+            return True
         self.value = (
             request.form[self.name]
             if self.name in request.form and request.form[self.name]
@@ -270,6 +287,24 @@ class Form:
         }
 
     def set_values(self, request):
+        if getattr(request, "mode", "legacy") == "present":
+            return self._set_present_values(request)
         for field in self.fields:
             field.set_value(request)
         return {field.name: field.value for field in self.fields}
+
+    def _set_present_values(self, request):
+        """PAD-367: the answer holds a key if and only if the JSON body held it."""
+        values = {}
+        for field in self.fields:
+            if field.name not in request.present:
+                continue
+            field._present_mode = True
+            try:
+                kept = field.set_value(request)
+            finally:
+                field._present_mode = False
+            if field.type == "Password" and not kept:
+                continue  # an empty password never clears and is never hashed
+            values[field.name] = field.value
+        return values

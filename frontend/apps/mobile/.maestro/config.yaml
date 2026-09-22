@@ -140,10 +140,25 @@ executionOrder:
     # 69 sets and clears the coach's working hours (PAD-357); it resets them first.
     - 69-coach-working-hours
     # 85 saves an invalid working-hours day and stores nothing (PAD-357); it resets
-    # the coach's hours first. 86 sends a weekly class request and withdraws it,
-    # with the same API cleanup as 62.
+    # the coach's hours first, and is ios-only (it drives the iOS hour wheel). 86
+    # sends a weekly class request and withdraws it, with the same API cleanup as 62.
+    # 87 saves the day "add window" makes (PAD-361) and clears the hours before and after.
     - 85-working-hours-invalid-day
     - 86-class-request-wizard-weekly
+    - 87-working-hours-add-window
+    # 92 turns the iOS minute wheel and saves (PAD-369): the stored time is on the
+    # 15-minute grid. ios-only; it clears the coach's hours before and after.
+    - 92-working-hours-minute-grid
+    # 93 makes a weekly personal event through the API, deletes ONE occurrence in the
+    # UI and reads the server's calendar (PAD-371); it removes its blocks before and after.
+    - 93-event-single-occurrence-delete
+    # 94 makes a weekly personal event through the API, switches repeat off in the UI
+    # and reads the server's calendar (PAD-377); it removes its block before and after.
+    - 94-event-made-one-off
+    # 95 adds a category, types its name, switches the language pt and back, and
+    # asserts the unsaved row survives (PAD-392); it writes only the coach's language
+    # and restores it in onFlowComplete.
+    - 95-settings-language-change-keeps-edits
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -133,12 +133,30 @@ def test_web_push_is_looked_up_on_the_caller_and_sent_on_the_worker(app, async_s
 
 
 def test_a_system_message_returns_before_the_push_round_trip(app, async_sender):
-    """The criterion: a 300 ms push service does not hold the engine."""
+    """The criterion: a slow push service does not hold the engine.
+
+    Proven by ORDER, not by a stopwatch (B-129). The fake push blocks on an Event
+    the test holds until the engine has returned; only then is it released. If the
+    engine ever waited for the push, this test would hang at the call — and the
+    test's own deadline turns that into a failure. Until 2026-09-22 this asserted
+    `elapsed < 0.25 s` against a 0.3 s sleep, a wall-clock budget that a slow CI
+    runner could miss for reasons unrelated to the code (0.383 s on one Postgres job
+    while the identical merge passed twice) — the B-100 family.
+    """
     from padel_app.models import Coach, User
     from padel_app.services import notification_service as ns
 
-    def slow_post(url, json=None, headers=None, timeout=None):
-        time.sleep(0.3)
+    engine_returned = threading.Event()   # set by the test after the engine returns
+    push_started = threading.Event()      # set by the worker when the fake push begins
+    push_finished_after_return = []       # what the worker saw when it was released
+
+    def blocking_post(url, json=None, headers=None, timeout=None):
+        push_started.set()
+        # The worker parks here. If this ran on the caller's thread, the engine
+        # could never return before this wait — and the test's own timeout below
+        # would end it.
+        released_in_time = engine_returned.wait(timeout=10)
+        push_finished_after_return.append(released_in_time)
         return _Response({"data": [{"status": "ok"} for _ in json]})
 
     with app.app_context():
@@ -148,12 +166,16 @@ def test_a_system_message_returns_before_the_push_round_trip(app, async_sender):
         db.session.add(Coach(user_id=coach_user.id, approval_status="approved"))
         db.session.commit()
         student_user_id = _user_with_token("Dora", "p294dora", token="ExponentPushToken[d]")
-        with patch("padel_app.utils.expo_push.requests.post", side_effect=slow_post), \
+        with patch("padel_app.utils.expo_push.requests.post", side_effect=blocking_post), \
              patch.object(ns, "publish"):
-            t0 = time.perf_counter()
             msg = ns._send_system_message(coach_user.id, student_user_id, "Hello", message_type="text")
-            elapsed = time.perf_counter() - t0
+            # The engine has returned while the push is still parked — that is the
+            # whole claim. A push that had already run on the caller's thread could
+            # not be parked now.
             assert msg is not None
-            assert elapsed < 0.25, elapsed
-            assert async_sender.pending() >= 1
+            assert async_sender.pending() >= 1, "the push was not handed to the worker"
+            assert push_started.wait(timeout=5), "the worker never started the push"
+            assert push_finished_after_return == [], "the push completed before the engine returned"
+            engine_returned.set()
             assert async_sender.flush(timeout=5) is True
+            assert push_finished_after_return == [True]

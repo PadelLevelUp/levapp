@@ -108,6 +108,12 @@ season each September.
     occurrence's `from`/`to`, so every number the coach reads "for this season" is derived from the
     single definition at read time. Historical presences carry no season link (PAD-83), which is
     exactly why this is a date predicate and not a stored key.
+15. **The season form loads once (PAD-392, B-155; number self-assigned, unconfirmed).** On both shells
+    the Settings season section fetches the season when it mounts and never again for that mount;
+    its load effect does not depend on `t`. Before this the effect listed `t`, re-ran when the
+    account's language settled, and its reload replaced what had been typed into the form
+    (`settings.coach-working-hours` rule 7 has the mechanism; web's effect also lacked a cancel flag,
+    so every load applied).
 
 ### Acceptance Criteria
 
@@ -201,3 +207,8 @@ season each September.
 - The old `seasons` table had no constraint of any kind; the generic-editor write paths (PAD-88)
   now hit `UNIQUE(coach_id)` and the rule-2 checks live in the service, so a semantically wrong
   editor row is still possible — the same caveat as before, one table narrower.
+
+#### The season form keeps what was typed when the language settles (PAD-392)
+- **Given** the season form shows the saved label "2026/27" and the coach types a new label
+- **When** the account's language settles afterwards
+- **Then** the field still holds what was typed, and the season was fetched exactly once
