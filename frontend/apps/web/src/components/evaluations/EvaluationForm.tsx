@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "./StarRating";
 import { ScoreStepper } from "./ScoreStepper";
+import { useFlushOnPageHide } from "./useFlushOnPageHide";
 
 type SaveInput = Omit<EvaluationRecordInput, "playerId">;
 
@@ -51,6 +52,8 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
   });
   const { scores, note, noteUnsaved, failure } = state;
   const flushAll = () => session.flush();
+  // A closed tab or a switched-away page never loses the last input (PAD-396).
+  useFlushOnPageHide(flushAll);
 
   if (rows.length === 0) {
     return (
