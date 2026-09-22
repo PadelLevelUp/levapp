@@ -1,0 +1,136 @@
+# PAD-402 (evaluations.sharing, evaluations.student-view) — "Partilhar avaliação" on iOS.
+# Mirrors apps/web/e2e/evaluation-tools/evaluation-sharing.spec.ts. (Flow number 81 is
+# this slice's, per the plan's header.)
+# - setup finds E2E Student Two's (e2e-student-2) seeded rated record (evaluations.evolution's
+#   dataset) and starts it unshared (idempotent), so a rerun is clean; it only creates a
+#   record/competency as a fallback if the seed ever stops holding one.
+# - coach: Players -> E2E Student Two -> "Avaliações" -> the record's share icon -> step 1
+#   (untick every competency but one, when there is more than one) -> "Pré-visualizar" ->
+#   "Partilhar" -> back on the history screen, the server confirms `share` is set -> logout
+# - student (fresh login, so the dashboard's first read is this session's only read):
+#   the "Avaliações" block shows the shared card
+# - un-share through the API (not the UI — sharing rule 9 is already covered by the web
+#   spec's US-402b; this flow only needs iOS's OWN surfaces: the share button and the block)
+# - student logs out and back in (a pull-to-refresh gesture on this screen is unproven on the
+#   simulator; a fresh login gives an unambiguous, deterministic re-read instead — same
+#   reasoning as 50-come-back's re-check) -> the block is gone
+# - teardown un-shares again (idempotent) and removes only what setup created; the seeded
+#   record and its ratings are left exactly as found
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/share-evaluation-setup.js
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student Two"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.studentPlayerId}"
+    timeout: 20000
+- tapOn:
+    id: "player-card-${output.studentPlayerId}"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-evaluations-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+
+- scrollUntilVisible:
+    element:
+      id: "evaluation-history-share-${output.recordId}"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "evaluation-history-share-${output.recordId}"
+- extendedWaitUntil:
+    visible:
+      id: "share-evaluation"
+    timeout: 15000
+
+# ── Step 1: every rated competency starts ticked (sharing rule 2) — untick every one but
+# the first when the record holds more than one; `otherCategoryId` is "" otherwise, and the
+# id "share-category-" never exists, so this is skipped rather than failing. ──
+- runFlow:
+    when:
+      visible:
+        id: "share-category-${output.otherCategoryId}"
+    commands:
+      - tapOn:
+          id: "share-category-${output.otherCategoryId}"
+- tapOn:
+    id: "share-preview"
+- extendedWaitUntil:
+    visible:
+      id: "share-submit"
+    timeout: 15000
+- tapOn:
+    id: "share-submit"
+- extendedWaitUntil:
+    notVisible:
+      id: "share-evaluation"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+- evalScript: "${output.afterShare = json(http.get(output.api + '/api/app/player/' + output.studentPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records.find(function (r) { return String(r.id) === output.recordId; })}"
+- assertTrue: "${output.afterShare !== undefined && output.afterShare.share !== null && output.afterShare.share !== undefined}"
+- tapOn:
+    id: "player-evaluations-back"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+- runFlow: ../subflows/logout.yaml
+
+# ── Student, fresh login: the dashboard's "Avaliações" block shows the shared card ──
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-2
+      PASSWORD: E2eStudent2123!
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "student-evaluations-block"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "evaluation-card-${output.recordId}"
+
+# ── Un-share through the API and confirm on a fresh read that the block is gone ──
+- runScript: ../scripts/share-evaluation-teardown.js
+- assertTrue: "${output.stillShared === false}"
+- runFlow: ../subflows/logout.yaml
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-2
+      PASSWORD: E2eStudent2123!
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 20000
+- assertNotVisible:
+    id: "student-evaluations-block"
