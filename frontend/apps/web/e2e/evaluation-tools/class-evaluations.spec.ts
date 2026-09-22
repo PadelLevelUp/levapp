@@ -55,11 +55,23 @@ async function makeClass(request: APIRequestContext, coachTok: string, day: stri
 
 const made: Made[] = [];
 const recordIds: number[] = [];
+const switchedOn: number[] = [];
+
+/** The seeded coach owns legacy (stepper) categories only; a STAR row needs a catalogue competency
+ *  switched on — idempotent POST, switched off again after the test (as Maestro 78's setup does). */
+async function starCompetency(request: APIRequestContext, coachTok: string): Promise<number> {
+  const res = await request.post(`${API_APP}/evaluation_competency`, { headers: bearer(coachTok), data: { catalogueKey: "technique" } });
+  expect(res.ok(), `switch on technique: ${res.status()}`).toBeTruthy();
+  const competency = await res.json();
+  switchedOn.push(Number(competency.id));
+  return Number(competency.id);
+}
 
 test.afterEach(async ({ request }) => {
   const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
   for (const id of recordIds.splice(0)) await request.delete(`${API_APP}/evaluation_record/${id}`, { headers: bearer(coachTok) });
   for (const m of made.splice(0)) await removeClassesOnDay(request, bearer(coachTok), m.day, (e) => e.title === m.title);
+  for (const id of switchedOn.splice(0)) await request.patch(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(coachTok), data: { isActive: false } });
 });
 
 /** Open the class's detail from the calendar by its card (never by the title alone: a name can also be
@@ -81,6 +93,7 @@ test("US-376a: the coach rates a participant from today's class; the record carr
   test.setTimeout(120_000);
   const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
   const playerId = await studentPlayerId(request, coachTok);
+  const techniqueId = await starCompetency(request, coachTok);
   const title = `E2E Eval Class ${Date.now()}`;
   const cls = await makeClass(request, coachTok, isoDaysFromToday(0), title, playerId);
   made.push(cls);
@@ -97,10 +110,9 @@ test("US-376a: the coach rates a participant from today's class; the record carr
   const form = row.getByTestId("evaluation-form");
   await expect(form).toBeVisible();
 
-  // The coach's set has the three starting competencies on the first v2 read: tap a star on the first row.
+  // One star tap = one PUT carrying the panel's classRef.
   const put = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
-  const firstStar = form.getByTestId(/^evaluation-star-\d+-4$/).first();
-  await firstStar.click();
+  await form.getByTestId(`evaluation-star-${techniqueId}-4`).click();
   const response = await put;
   expect(response.status()).toBe(200);
   const record = await response.json();
