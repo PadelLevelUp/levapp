@@ -1,7 +1,7 @@
 // PAD-376 (flow 80): a class of the coach's own for TODAY with "E2E Student" enrolled, through the
 // API, and a clean slate for that student's evaluations. The flow rates from the class and asserts
 // on the server; scripts/class-evaluations-teardown.js removes what this made.
-// Exposes: output.api, output.coachTok, output.evalPlayerId, output.classTitle, output.classEvent
+// Exposes: output.api, output.coachTok, output.evalPlayerId, output.techniqueId, output.classTitle, output.classEvent
 var api = typeof API_BASE === "undefined" ? "http://localhost:5001" : API_BASE;
 var jsonHeaders = { "Content-Type": "application/json" };
 
@@ -12,8 +12,11 @@ var login = http.post(api + "/api/auth/login", {
 var token = json(login.body).accessToken;
 var auth = { "Content-Type": "application/json", Authorization: "Bearer " + token };
 
-// the three starting competencies exist on the first v2 read (PAD-364)
-http.get(api + "/api/app/evaluation_competencies", { headers: auth });
+// The seeded coach owns ONE competency, the legacy "Forehand" (a stepper). A STAR row needs a
+// catalogue competency switched on: "technique" (idempotent POST); the teardown switches it off.
+var technique = json(
+  http.post(api + "/api/app/evaluation_competency", { headers: auth, body: JSON.stringify({ catalogueKey: "technique" }) }).body
+);
 
 var roster = json(http.get(api + "/api/app/coach_players", { headers: auth }).body);
 var players = roster.items ? roster.items : roster;
@@ -42,5 +45,6 @@ var made = json(
 output.api = api;
 output.coachTok = token;
 output.evalPlayerId = String(student.playerId);
+output.techniqueId = String(technique.id);
 output.classTitle = title;
 output.classEvent = made;

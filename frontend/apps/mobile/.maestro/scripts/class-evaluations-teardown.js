@@ -4,5 +4,6 @@ var history = json(http.get(output.api + "/api/app/player/" + output.evalPlayerI
 for (var r = 0; r < history.records.length; r++) {
   http.delete(output.api + "/api/app/evaluation_record/" + history.records[r].id, { headers: auth });
 }
+http.request(output.api + "/api/app/evaluation_competency/" + output.techniqueId, { method: "PATCH", headers: auth, body: JSON.stringify({ isActive: false }) });
 http.post(output.api + "/api/app/remove_class", { headers: auth, body: JSON.stringify({ event: output.classEvent, scope: "single" }) });
 output.left = json(http.get(output.api + "/api/app/player/" + output.evalPlayerId + "/evaluations", { headers: auth }).body).records.length;

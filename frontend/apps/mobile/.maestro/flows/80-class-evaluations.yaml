@@ -1,8 +1,10 @@
 # PAD-376 (evaluations.class-panel) — mirrors apps/web/e2e/evaluation-tools/class-evaluations.spec.ts
 # (Flow number 80 is from Session E's reserved range.)
 # - setup: a one-off class TODAY with E2E Student enrolled, a clean slate for their evaluations
+# - setup also switches the catalogue competency "technique" ON (the seeded coach owns only the
+#   legacy stepper "Forehand"), so the row lists 2 and a STAR can be tapped; teardown switches it off
 # - calendar (opens on today) → the class → "Avaliações" (a pushed screen) → the student's row
-#   reads "Sem avaliação" → open it → tap a star → the SERVER holds one record carrying the class
+#   reads "Sem avaliação" (0/2) → open it → tap the technique star → the SERVER holds one record carrying the class
 # - "Concluir avaliação" collapses the row; the summary reads 1/3
 # - teardown removes the record and the class
 # Rows are opened by id (never by a name a field may also hold); the summary's counts ride in its
@@ -38,7 +40,7 @@ appId: com.padellevelup.app
       id: "class-evaluations-panel"
     timeout: 15000
 - assertVisible:
-    id: "class-eval-summary-1-0-3"
+    id: "class-eval-summary-1-0-2"
 - tapOn:
     id: "class-eval-row-toggle-1"
 - extendedWaitUntil:
@@ -48,10 +50,10 @@ appId: com.padellevelup.app
 
 # ── One star tap = one PUT carrying the class ──
 - tapOn:
-    id: "evaluation-star-.*-4"
+    id: "evaluation-star-${output.techniqueId}-4"
 - extendedWaitUntil:
     visible:
-      id: "class-eval-summary-1-1-3"
+      id: "class-eval-summary-1-1-2"
     timeout: 10000
 - evalScript: "${output.records = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
 - assertTrue: "${output.records.length === 1 && output.records[0].classInstanceId !== null && output.records[0].className === output.classTitle && output.records[0].ratings.length === 1 && output.records[0].ratings[0].score === 4}"
