@@ -8,8 +8,8 @@ affects:
   - classes.coach-assignment
   - backend/padel_app/services/lesson_service.py
 proposed_fix: "Delete the first, dead copy of the section; a pytest AST scan fails on any top-level name defined twice in the backend package."
-opened: 2026-09-21T20:09:00Z
-resolved: 2026-09-22T21:15:00Z
+opened: 2026-09-21T20:09:19Z
+resolved: 2026-09-22T20:29:59Z
 ---
 
 # B-144 — the coach helpers were defined twice
