@@ -33,7 +33,8 @@ Planned — all `draft`, from the canvas (archive `sistema-de-avaliacoes-2026-09
 - `evaluations.sharing` — owner-pending — choose, preview, share, un-share
 - `evaluations.student-view` — owner-pending — what a player sees; the one job of the
   `evaluations` capability token (gating the student dashboard block)
-- `evaluations.reminders` — owner-pending — "Frequência de avaliações" and the due marker
+- `evaluations.reminders` — implementing (PAD-404, slice 8) — "Frequência de avaliações" and
+  the server-computed due marker on the class panel and the players list; in-app only (Q4)
 
 ## Why it's grouped this way
 

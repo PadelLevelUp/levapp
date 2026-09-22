@@ -37,7 +37,22 @@ Coaches view their player roster with search, sorting, filtering, and pagination
    is mouse-only. iOS already satisfies this (`role="button"` + `accessibilityLabel` on the
    `Pressable`); web was the shell that lagged.
 
+9. **(PAD-404) The due marker.** Each row of `GET /api/app/coach_players` and
+   `/api/app/coach_players_paginated` carries `due: bool`, computed by the server per
+   `evaluations.reminders` rule 3 for the acting coach's frequency, in one query for the whole
+   page — never one per row. Both shells render it as a small marker with an accessible label
+   on the player card; the list's order, filters and sort options do not change because of it
+   (nothing moves under the finger). Coach-only, like the rows themselves. Old App Store builds
+   ignore the extra boolean.
+
 ### Acceptance Criteria
+
+#### The due marker on the roster (rule 9)
+- **Given** coach Ana on `monthly`, today 2026-09-21; Rui's newest record is 2026-08-20, Sara's
+  2026-08-23, Tiago has none
+- **When** she calls `GET /api/app/coach_players`
+- **Then** Rui and Tiago carry `due: true`, Sara `due: false`, in the same order as before
+- **And** the number of SQL statements the read issues does not grow with the roster size
 
 #### Roster endpoints reject a student with 403
 - **Given** an authenticated user with a player profile and no coach profile
