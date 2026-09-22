@@ -545,14 +545,30 @@ def evolution(coach, player_id, category_id) -> dict:
 # ── the class ───────────────────────────────────────────────────────────────
 
 
+def _players_with_users(player_ids) -> list:
+    """The players (users joined) in one statement. The caller keeps the list: the session's
+    identity map holds weak references, so a discarded result would be reloaded row by row."""
+    from sqlalchemy.orm import joinedload
+
+    from padel_app.models import Player
+
+    if not player_ids:
+        return []
+    return Player.query.options(joinedload(Player.user)).filter(Player.id.in_(player_ids)).all()
+
+
 def class_evaluations(coach, ref) -> dict:
     """A READ: who is in the class, and each one's most recent record in it. Never materialises."""
     ensure_starting_set(coach)
     instance, pending = _resolve_class(coach, ref)
+    rows = instance.presences if instance is not None else pending[0].players_relations
+    # One statement loads every participant's player and user into the session, so the
+    # `.player` / `.user` reads below hit the identity map, not one query per row (rule 3).
+    loaded = _players_with_users({row.player_id for row in rows})  # noqa: F841 — held for the identity map
     if instance is not None:
-        roster = [(p.player, p.status == "absent") for p in instance.presences]
+        roster = [(p.player, p.status == "absent") for p in rows]
     else:
-        roster = [(rel.player, False) for rel in pending[0].players_relations]
+        roster = [(rel.player, False) for rel in rows]
 
     links = {
         link.player_id: link

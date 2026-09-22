@@ -8,7 +8,7 @@ keeps today's behaviour — no marker until they choose) and `evaluation_reminde
 the backfill); downgrade drops what is present.
 
 Revision ID: 2240837cb663
-Revises: 21c864b3dd59
+Revises: 6a6ac64d814b
 Create Date: 2026-09-22
 """
 import logging
@@ -18,9 +18,9 @@ from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "2240837cb663"
-# Slice 7's revision (6a6ac64d814b, PAD-402) is this slot's parent once it is on
-# the branch this lands after; until then the chain hangs off the production head.
-down_revision = "21c864b3dd59"
+# Slot 3 of the evaluation chain: parented on slice 7's revision (6a6ac64d814b, PAD-402).
+# Lands after PAD-402; until that merges, CI on this branch lacks the parent (expected red).
+down_revision = "6a6ac64d814b"
 branch_labels = None
 depends_on = None
 

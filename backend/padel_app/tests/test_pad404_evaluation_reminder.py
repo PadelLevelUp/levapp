@@ -346,7 +346,7 @@ def test_never_marks_nobody_including_the_never_evaluated(app, client):
     assert _due_by_name(ids, _roster(app, client, ids)) == {"rui": False, "sara": False, "tiago": False}
 
 
-def test_a_coach_who_never_set_anything_reads_the_monthly_answer_without_a_row(app, client):
+def test_a_coach_who_never_set_anything_reads_the_never_answer_without_a_row(app, client):
     """Rule 7 — the 2×2's fourth cell: today's behaviour (no marker) for every existing coach."""
     ids = _world(app)
     _record(app, ids["rui"]["rel_id"], _day(32))
@@ -388,16 +388,24 @@ def test_the_marker_costs_the_same_for_three_players_as_for_twenty_five(app, cli
     occ_small = _panel_with_everyone(app, ids)
     _set(app, client, ids, reminder, 2 if reminder == "every_n_classes" else None)
 
+    _panel(app, client, ids, occ_small)   # the first panel read seeds the starting set once; not a per-row cost
     small_roster = _statements(app, lambda: _roster(app, client, ids))
     small_panel = _statements(app, lambda: _panel(app, client, ids, occ_small))
 
     extra = [_player(app, ids["coach_id"], f"Filler {i}", f"filler-404-{i}") for i in range(22)]
+    # Rule 3: an unmarked presence never counts, so under `every_n_classes` (N=2) a filler is
+    # due only once present in two occurrences after its record — the fillers get exactly that.
+    attended = [_occurrence(app, ids["coach_id"], _day(d), title=f"Passada {d}") for d in (10, 3)]
     for p in extra:
         _record(app, p["rel_id"], _day(40))
         _presence(app, occ_small["instance_id"], p["player_id"], None)
+        if reminder == "every_n_classes":
+            for occ in attended:
+                _presence(app, occ["instance_id"], p["player_id"], "present")
 
     big = _roster(app, client, ids)
-    assert len(big) == 25 and all(big[p["player_id"]] for p in extra), "the fillers are due (40 days / no attendance yet)"
+    assert len(big) == 25 and all(big[p["player_id"]] for p in extra), \
+        "the fillers are due (40 days since the record / present twice since it)"
     big_roster = _statements(app, lambda: _roster(app, client, ids))
     big_panel = _statements(app, lambda: _panel(app, client, ids, occ_small))
 
