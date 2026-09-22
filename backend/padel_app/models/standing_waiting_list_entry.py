@@ -1,10 +1,10 @@
-from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Index, text
 from sqlalchemy.orm import relationship
 
 from padel_app import model
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 
 
 class StandingWaitingListEntry(db.Model, model.Model):
@@ -36,7 +36,7 @@ class StandingWaitingListEntry(db.Model, model.Model):
     credits_used = Column(Integer, default=0, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: utcnow_naive())
 
     coach = relationship("Coach")
     player = relationship("Player")

@@ -1,10 +1,10 @@
-from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from padel_app import model
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 
 
 class WaitingListEntry(db.Model, model.Model):
@@ -33,7 +33,7 @@ class WaitingListEntry(db.Model, model.Model):
         Integer, ForeignKey("standing_waiting_list_entries.id", ondelete="SET NULL"), nullable=True
     )
     is_active = Column(Boolean, default=True, nullable=False)
-    joined_at = Column(DateTime, default=datetime.utcnow)
+    joined_at = Column(DateTime, default=lambda: utcnow_naive())
 
     lesson_instance = relationship("LessonInstance")
     player = relationship("Player")
