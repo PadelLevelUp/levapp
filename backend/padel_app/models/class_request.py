@@ -141,32 +141,31 @@ def live_hold_request_id(block):
     return live_hold_index([block.id]).get(block.id)
 
 
-def _delete_blocks(connection, block_ids, *, only_if_still_a_hold=False) -> None:
-    """``only_if_still_a_hold``: a coach may edit a hold like any block (rule 3), and
-    a CLOSED request that still points at one may have pointed at it for months. Such
-    a leftover takes the block with it only while the block is recognisably a hold —
-    personal, and still carrying the hold title (#345 review, 2nd round)."""
+def _delete_blocks(connection, block_ids) -> None:
+    """Delete the blocks that are still recognisably a hold — personal, still carrying the hold
+    title — and leave the rest. A coach may edit a hold like any block (rule 3); a retitled
+    one is theirs, open request or closed (PAD-378, B-151), and a closed request may have
+    pointed at a block for months (#345 review, 2nd round). Every release path goes through
+    here, so none of them can take a coach's event."""
     from padel_app.models.calendar_blocks import CalendarBlock
 
     ids = [block_id for block_id in block_ids if block_id is not None]
     if not ids:
         return
     table = CalendarBlock.__table__
-    if only_if_still_a_hold:
-        # The candidate set is one row per request; filter it with `_is_hold` in Python
-        # so this path and `live_hold_index` cannot disagree by dialect.
-        rows = connection.execute(select(table.c.id, table.c.type, table.c.title).where(table.c.id.in_(ids))).all()
-        ids = [row_id for row_id, block_type, title in rows if _is_hold(block_type, title)]
-        if not ids:
-            return
-    connection.execute(delete(table).where(table.c.id.in_(ids)))
+    # One row per request; filter with `_is_hold` in Python so this path and
+    # `live_hold_index` cannot disagree by dialect.
+    rows = connection.execute(select(table.c.id, table.c.type, table.c.title).where(table.c.id.in_(ids))).all()
+    ids = [row_id for row_id, block_type, title in rows if _is_hold(block_type, title)]
+    if ids:
+        connection.execute(delete(table).where(table.c.id.in_(ids)))
 
 
 @event.listens_for(ClassRequest, "before_delete")
 def _release_hold_with_the_row(mapper, connection, target):
     """Both generic editor routes end in ``instance.delete()``. Before, not after:
     the row still exists if ``hold_block_id`` has to be loaded (#345 review F8)."""
-    _delete_blocks(connection, [target.hold_block_id], only_if_still_a_hold=target.status not in OPEN_STATUSES)
+    _delete_blocks(connection, [target.hold_block_id])
 
 
 @event.listens_for(ClassRequest, "before_update")
@@ -175,16 +174,14 @@ def _release_hold_when_closed_by_an_edit(mapper, connection, target):
     closed value. The service paths have already released the hold by the time the
     status changes, so this is a no-op for them (#345 review F7).
 
-    A request closed IN THIS FLUSH gives up its live hold, as the services do. A
-    request that was already closed and still points at a block (a pre-PAD-360 row)
-    is cleaned up lazily, and only if the block is still a hold; either way the
-    pointer goes."""
+    A request closed IN THIS FLUSH gives up its hold, as the services do; a request
+    that was already closed and still points at a block (a pre-PAD-360 row) is
+    cleaned up lazily. Either way the block goes only while it is still a hold, and
+    the pointer always goes (PAD-378)."""
     if target.status in OPEN_STATUSES or target.hold_block_id is None:
         return
-    was = inspect(target).attrs.status.history.deleted or ()
-    closed_now = any(value in OPEN_STATUSES for value in was)
     block_id, target.hold_block_id = target.hold_block_id, None
-    _delete_blocks(connection, [block_id], only_if_still_a_hold=not closed_now)
+    _delete_blocks(connection, [block_id])
 
 
 def _release_holds_before_cascade(column):
@@ -195,9 +192,7 @@ def _release_holds_before_cascade(column):
         held = connection.execute(
             select(table.c.hold_block_id, table.c.status).where(column == target.id, table.c.hold_block_id.isnot(None))
         ).all()
-        _delete_blocks(connection, [block for block, status in held if status in OPEN_STATUSES])
-        _delete_blocks(connection, [block for block, status in held if status not in OPEN_STATUSES],
-                       only_if_still_a_hold=True)
+        _delete_blocks(connection, [block for block, _status in held])
 
     return _listener
 
