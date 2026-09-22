@@ -306,9 +306,10 @@ def test_3_an_old_build_body_is_harmless_for_scored_categories_and_writes_the_mi
 def test_3_the_server_enforces_the_1_5_range_before_writing(app, client):
     """PAD-366 (B-126 fixed; D120; evaluations.legacy-client-contract rule 10). Every
     category is 1-5 after PAD-403, and the server checks every score in the body before
-    writing any. Out of range is a 400 and nothing is written; a non-integer inside the
-    range is accepted, as it always was. Before PAD-403 this pin said "any number is
-    written" (99, -3 and 2.5 all stored)."""
+    writing any. Out of range is a 400 and nothing is written. A non-integer is ceiled to a
+    whole star first (2.5 -> 3), because these builds post back a fractional score already on
+    file untouched. Before PAD-403 this pin said "any number is written" (99, -3 and 2.5 all
+    stored)."""
     ids = _seed(app)  # Volley is 1-5
 
     for value in (-3, 99):
@@ -317,7 +318,7 @@ def test_3_the_server_enforces_the_1_5_range_before_writing(app, client):
     assert _rows(app, ids, "volley_id") == []
 
     assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 2.5}]).status_code == 200
-    assert _profile(app, client, ids)["evaluations"][0]["score"] == 2.5, "and the profile serves it"
+    assert _profile(app, client, ids)["evaluations"][0]["score"] == 3.0, "stored as a whole star"
 
 
 @pytest.mark.parametrize("value", ["abc", True, float("nan")])
@@ -327,6 +328,26 @@ def test_3_a_value_that_is_not_a_score_is_a_400_not_an_error(app, client, value)
     res = _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": value}])
     assert (res.status_code, res.get_json()) == (400, {"error": "score_invalid"})
     assert _rows(app, ids, "volley_id") == []
+
+
+@pytest.mark.parametrize("sent, stored", [(0.5, 1.0), (1.2, 2.0), (4.5, 5.0), (3.0, 3.0)])
+def test_3_a_non_integer_is_ceiled_to_a_whole_star_before_the_range_check(app, client, sent, stored):
+    """PAD-366, the Coordinator's ruling: stored scores are whole stars. App Store 1.0/1.1.0
+    step +/-1 from `existing?.score` (add-evaluation-form.tsx :59-62, :68-71), so they CAN
+    emit a non-integer, which must not loop on a 400. It is ceiled, then checked on 1-5."""
+    ids = _seed(app)
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": sent}]).status_code == 200
+    assert [s for s, _ in _rows(app, ids, "volley_id")] == [stored]
+
+
+def test_3_an_untouched_fractional_score_on_file_writes_nothing(app, client):
+    """PAD-366: a 3.5 already on file (an import can write one) comes back untouched in the
+    old builds' body. "Equal to latest" compares the value AS SENT, so no 4 is invented
+    for a category the coach did not touch."""
+    ids = _seed(app)
+    _history(app, ids, "volley_id", [(30, 3.5)])
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 3.5}]).status_code == 200
+    assert [s for s, _ in _rows(app, ids, "volley_id")] == [3.5]
 
 
 def test_3_a_numeric_score_of_zero_cannot_be_saved(app, client):
