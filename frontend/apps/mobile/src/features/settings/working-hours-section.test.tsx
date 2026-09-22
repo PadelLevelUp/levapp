@@ -60,7 +60,7 @@ describe("working-hours-section (iOS) — a late load never undoes an edit (PAD-
     await n.flush();
     expect(sundayState(n)).toBe("working");
 
-    await n.press("working-hours-works-sun");
+    await n.toggle("working-hours-works-sun");
     expect(sundayState(n)).toBe("off");
 
     settleLanguage();

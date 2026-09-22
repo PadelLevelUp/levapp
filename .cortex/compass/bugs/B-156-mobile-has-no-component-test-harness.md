@@ -47,6 +47,20 @@ language changes made four loads; the control passed. On #367's section: **3/3**
 failures the web test produced on staging's web component. Whole mobile project 53 files / 540
 tests green (was 52 / 537); tsc clean.
 
+**Review round (Session-B, same day) and the two further ports:** `press()` used to fall back
+silently from `onPress` to `onCheckedChange` — a dead control passed the press; it now THROWS,
+and `toggle()` presses a `role="switch"` element, the accessibility contract a real
+`@rn-primitives/switch` Root exposes (a Pressable whose onPress calls `onCheckedChange(!checked)`)
+and what Maestro taps. `flush()` is one macrotask, not two microtask ticks. The transform goes
+through vite's `transformWithEsbuild`, not a transitive esbuild import. The harness proves ITSELF:
+`render-native.test.tsx` renders the real `ui/switch` unmocked through `@rn-primitives/switch`
+and toggles it — on its first run it caught that the real Root has no raw `onCheckedChange`,
+which is what made `toggle` honest. `react-native-reanimated` (reached by Skeleton and the
+dialog motion helpers, touches `TurboModuleRegistry` at load) has its own stub alias. Seasons and
+evaluation-categories ported too: with the final harness, staging's three sections **6 failed /
+1 passed**, #367's **10/10** (incl. the 3 harness tests); mobile project 56 files / 547 tests.
+So all three PAD-392 iOS sections now have a behavioural proof.
+
 **Not covered:** layout, styling, native gestures, anything Metro-specific — this mounts logic and
 props, not pixels; the simulator stays the instrument for those. Seasons and evaluation-categories
 on iOS still have only the guard: porting their web tests is the obvious next use of the harness.

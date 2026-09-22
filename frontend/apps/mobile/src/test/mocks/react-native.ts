@@ -115,7 +115,16 @@ export const TextInput = host("TextInput");
 export const Pressable = host("Pressable");
 export const TouchableOpacity = host("TouchableOpacity");
 export const ActivityIndicator = host("ActivityIndicator");
-export const Switch = host("Switch");
+/** RN's Switch, with the same contract a `@rn-primitives/switch` Root has: a role="switch"
+ * host whose press calls `onValueChange` / `onCheckedChange` with the flipped value. */
+export const Switch = forwardRef<unknown, AnyProps>(function Switch(props, ref) {
+  const checked = (props.value ?? props.checked) as boolean | undefined;
+  const flip = () => {
+    (props.onValueChange as ((v: boolean) => void) | undefined)?.(!checked);
+    (props.onCheckedChange as ((v: boolean) => void) | undefined)?.(!checked);
+  };
+  return createElement("Switch", { ...props, ref, role: "switch", "aria-checked": checked, onPress: flip });
+});
 export const Modal = host("Modal");
 export const Image = host("Image");
 export const StyleSheet = { create: (s: unknown) => s, flatten: (s: unknown) => s, hairlineWidth: 1 };
