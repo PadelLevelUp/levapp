@@ -156,7 +156,9 @@ export default function PlayersScreen() {
       <View className="mt-3 flex-row flex-wrap gap-2">
         {item.level ? (
           <Badge variant="outline">
-            <Text>{item.level.code}</Text>
+            {/* PAD-410: master-detail mock renders "Nível {code}" here — no
+                Maestro flow asserts the bare code on this card (grepped). */}
+            <Text>{t("players.masterDetail.levelChip", { code: item.level.code })}</Text>
           </Badge>
         ) : null}
         {item.side ? (

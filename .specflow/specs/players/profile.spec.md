@@ -26,8 +26,10 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    - **Web, < 768px:** the list and the profile are separate full-width views (the messages
      pattern), and the profile has a back control to `/players`.
    - **Profile content, both shells, in this order:**
-     - header: initials avatar, name, level chip and side chip, **Editar** at the top right,
-       with the register-link and claim controls beside it;
+     - header: initials avatar, name, level chip and side chip, **Editar** at the top right.
+       For a player with no account yet, the register-link and claim controls stay in the
+       header below the name, where they were: the screenshot shows no such player, so their
+       place is unchanged;
      - action row: Ver presenças · Ver faltas · Adicionar a aulas · Lista de espera ·
        **Avaliações** (primary) · **Desassociar** (destructive, last);
      - cards: Avaliação, Informação, Pontos fortes e fracos.

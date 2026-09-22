@@ -1,0 +1,77 @@
+# unconfirmed — not yet run
+# PAD-410: master-detail mock parity for player detail — Editar at the top
+# right of the header, and the action row in the mock's exact order: Ver
+# presenças, Ver faltas, Adicionar a aulas, Lista de espera, Avaliações
+# (primary), Desassociar (destructive, last) — then the Avaliação and Pontos
+# fortes e fracos cards. Modelled on 07-player-notes.yaml's search-and-open
+# pattern. By test id only — never rendered copy.
+# player-card-1 is deterministic: E2E Student (see 04-attendance.yaml).
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+# ── Header: Editar at the top right (PAD-410 moved it out of the profile
+#    card's old bottom button pair) ──
+- assertVisible:
+    id: "player-edit"
+
+# ── Action row, in the mock's exact order (left to right) ──
+- assertVisible:
+    id: "player-attendance-link"
+- assertVisible:
+    id: "player-absences-link"
+- assertVisible:
+    id: "player-add-to-classes"
+# E2E Student is seeded off the standing waiting list; if a peer flow leaves
+# it enrolled this assertion needs "player-waiting-list-remove" instead.
+- assertVisible:
+    id: "player-waiting-list"
+- assertVisible:
+    id: "player-evaluations-action"
+# Desassociar: moved into the action row (last), destructive-styled — same
+# testID and handler as the old profile-card button.
+- assertVisible:
+    id: "player-remove"
+
+# ── Cards below the action row, in the mock's order: Avaliação, Informação,
+#    Pontos fortes e fracos (players.profile rule 4). ──
+- scrollUntilVisible:
+    element:
+      id: "evaluation-card"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "evaluation-card"
+- scrollUntilVisible:
+    element:
+      id: "player-info-card"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "player-info-card"
+- scrollUntilVisible:
+    element:
+      id: "strengths-weaknesses-card"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "strengths-weaknesses-card"

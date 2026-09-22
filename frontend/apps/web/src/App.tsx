@@ -10,7 +10,6 @@ import i18n from "@/i18n";
 import DashboardPage from "./pages/DashboardPage";
 import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
-import PlayerDetailPage from "./pages/PlayerDetailPage";
 import AttendancePage from "./pages/AttendancePage";
 import AbsencesPage from "./pages/AbsencesPage";
 import PresencesPage from "./pages/PresencesPage";
@@ -162,11 +161,15 @@ const App = () => (
                 }
               />
 
+              {/* PAD-410: master-detail — the same page renders both routes so
+                  the roster's search/sort/page/filter state survives a
+                  selection change (only the route param changes), the same
+                  pattern MessagesPage uses for /messages and /messages/:id. */}
               <Route
                 path="/players/:playerId"
                 element={
                   <RoleRoute allowedRoles={["coach"]}>
-                    <PlayerDetailPage />
+                    <PlayersPage />
                   </RoleRoute>
                 }
               />

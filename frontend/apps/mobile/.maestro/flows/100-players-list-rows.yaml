@@ -1,0 +1,39 @@
+# unconfirmed — not yet run
+# PAD-410: master-detail mock parity for the players list row — initials
+# avatar, name, level chip, side chip, kept alongside every existing marker
+# (e.g. the PAD-404 due badge). Modelled on 82-clear-player-notes.yaml /
+# 07-player-notes.yaml's search-and-open pattern.
+# By test id and by the server's own answers — never rendered copy, except
+# the level-chip text itself, which no other flow asserts (grepped .maestro
+# before adding this — PAD-410 report has the details).
+# player-card-1 is deterministic: E2E Student (see 04-attendance.yaml).
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+
+# ── Search and find the seeded row ──
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+
+# ── Row shows initials avatar, name, level chip, side chip ──
+- assertVisible:
+    id: "player-card-1"
+- assertVisible:
+    text: "E2E Student"
+# The mock's "Nível {code}" chip (players.masterDetail.levelChip) — a bare
+# code is never asserted anywhere else in this suite.
+- assertVisible:
+    text: "Nível .+"
+    below:
+      text: "E2E Student"

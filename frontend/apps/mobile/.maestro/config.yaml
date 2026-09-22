@@ -174,6 +174,11 @@ executionOrder:
     # seeded student is marked due on the Players list, then clears it with "never";
     # onFlowComplete restores `{"reminder":"never"}` through the API. Unconfirmed — not yet run.
     - 97-evaluation-reminder-setting
+    # 100 and 101 (PAD-410) read the players list and player detail against
+    # the master-detail mock's row/action-row layout; read-only, position not
+    # load bearing. Unconfirmed — not yet run.
+    - 100-players-list-rows
+    - 101-player-detail-action-row
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

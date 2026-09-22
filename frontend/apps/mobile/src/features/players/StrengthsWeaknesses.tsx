@@ -140,7 +140,7 @@ export function StrengthsWeaknesses({
 }: StrengthsWeaknessesProps) {
   const { t } = useTranslation();
   return (
-    <Card>
+    <Card testID="strengths-weaknesses-card">
       <CardHeader>
         <CardTitle>{t("players.strengthsAndWeaknesses")}</CardTitle>
       </CardHeader>
