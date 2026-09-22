@@ -123,3 +123,46 @@ export function __emitHardwareBack(): boolean {
   for (const handler of [...backListeners].reverse()) if (handler()) return true;
   return false;
 }
+
+// ── Host primitives (PAD-393, B-156) ─────────────────────────────────────────
+// Enough of RN's rendering surface for react-test-renderer to mount a component:
+// each primitive renders a host element of its own name and forwards its props, so
+// `testID`, `onPress`, `onChangeText` and `accessibilityState` can be found and
+// driven from a test. Layout, style and className are accepted and ignored.
+import { createElement, forwardRef, type ReactNode } from "react";
+
+type AnyProps = Record<string, unknown> & { children?: ReactNode };
+
+function host(name: string) {
+  const C = forwardRef<unknown, AnyProps>(function Host(props, ref) {
+    return createElement(name, { ...props, ref });
+  });
+  C.displayName = name;
+  return C;
+}
+
+export const View = host("View");
+export const Text = host("Text");
+export const ScrollView = host("ScrollView");
+export const TextInput = host("TextInput");
+export const Pressable = host("Pressable");
+export const TouchableOpacity = host("TouchableOpacity");
+export const ActivityIndicator = host("ActivityIndicator");
+/** RN's Switch, with the same contract a `@rn-primitives/switch` Root has: a role="switch"
+ * host whose press calls `onValueChange` / `onCheckedChange` with the flipped value. */
+export const Switch = forwardRef<unknown, AnyProps>(function Switch(props, ref) {
+  const checked = (props.value ?? props.checked) as boolean | undefined;
+  const flip = () => {
+    (props.onValueChange as ((v: boolean) => void) | undefined)?.(!checked);
+    (props.onCheckedChange as ((v: boolean) => void) | undefined)?.(!checked);
+  };
+  return createElement("Switch", { ...props, ref, role: "switch", "aria-checked": checked, onPress: flip });
+});
+export const Modal = host("Modal");
+export const Image = host("Image");
+export const StyleSheet = { create: (s: unknown) => s, flatten: (s: unknown) => s, hairlineWidth: 1 };
+export const Dimensions = { get: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) };
+export const useWindowDimensions = () => ({ width: 390, height: 844, scale: 3, fontScale: 1 });
+export const useColorScheme = () => "light" as const;
+export const Animated = { View: host("Animated.View"), Text: host("Animated.Text"), Value: class { constructor(public v: number) {} }, timing: () => ({ start: (cb?: () => void) => cb?.() }) };
+
