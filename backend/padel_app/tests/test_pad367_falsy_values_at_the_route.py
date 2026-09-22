@@ -112,7 +112,7 @@ def test_calendar_edit_cannot_remove_the_end_date_of_a_block_that_still_recurs(a
     likewise) and nothing creates one on purpose — the create sheets default the end.
     The only way to drop the end is to make the block one-off (#356's rule)."""
     ids = _seed(app)
-    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT})
+    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT or k == "isRecurring"})
     before = _block_row(app, block["id"])
 
     res = _put_event(app, client, ids, block["id"], {**WEEKLY, "title": "Physio", "endDate": end})
@@ -143,7 +143,7 @@ def test_calendar_edit_a_recurring_block_keeps_its_rule_when_the_body_does_not_m
     refused, an absent one against the row. A weekly block edited with
     `isRecurring: true` and no rule key keeps its rule; with `recurrenceRule: null` it is refused."""
     ids = _seed(app)
-    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT})
+    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT or k == "isRecurring"})
     body = {k: v for k, v in WEEKLY.items() if k != "recurrenceRule"}
 
     after = _edit_event(app, client, ids, block["id"], {**body, "title": "Physio"})
