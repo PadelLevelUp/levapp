@@ -480,6 +480,7 @@ _DEBUG_ROUTES = [
         "/api/app/notify/debug/offer_waiting_list",
         {"lessonInstanceId": 1, "username": "e2e-student"},
     ),
+    ("/api/app/notify/debug/schedule_reminder_test/cleanup", {}),
 ]
 
 

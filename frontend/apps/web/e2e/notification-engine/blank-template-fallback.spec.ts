@@ -24,6 +24,7 @@
 
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { cleanupReminderTestClasses } from "../helpers/reminder-test-class";
 
 const API_BASE = API_APP;
 const AUTH_BASE = API_AUTH;
@@ -112,6 +113,18 @@ async function pollForMessage(
 }
 
 test.describe("PAD-67 — blank message templates fall back instead of sending empty", () => {
+  // B-131: the test below seeds an "E2E Auto-Reminder Test" class via the
+  // debug endpoint; nothing removed it. Sweep whatever this file created.
+  test.afterAll(async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    try {
+      const coachToken = await getToken(request, "e2e-coach", "E2eCoach123!");
+      await cleanupReminderTestClasses(request, coachToken);
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test(
     "declining a reminder with a blank reminder_declined template sends the default, not an empty message",
     { timeout: 3 * 60 * 1_000 },

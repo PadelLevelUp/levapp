@@ -117,6 +117,20 @@ test.afterEach(async ({ request }) => {
   }
 });
 
+// B-131: this card hides its "filled/capacity" line whenever CalendarGrid
+// renders the day's cards compact — `parseFloat(height) < 56 || group.length
+// > 2` (CalendarGrid.tsx:333). So a red here whose Received text is the bare
+// title/chip, with no "X/Y" at all, is NOT a capacity value gone wrong — it
+// means >= 3 cards are overlapping the fixture's Thursday slot and the
+// component fell into compact mode before the count line ever rendered.
+// This was exactly the B-131 symptom: the reminder debug endpoint
+// (`schedule_reminder_test`) leaked an "E2E Auto-Reminder Test" class every
+// run and nothing removed it, so on a Tuesday afternoon (today + 48 h = the
+// seed's "next Thursday", the call landing ~13:00–15:00 UTC) two leaked classes
+// plus this fixture's own class landed on the same "next Thursday 16:00" slot. The specs that call that debug endpoint now clean up after
+// themselves (see helpers/reminder-test-class.ts), so this should no longer
+// reproduce — but if it does, check the day's card count on the calendar
+// before chasing `maxPlayers`/`capacity` in the payload.
 test("PAD-71: calendar event card excludes declined students from the participant count", async ({
   page,
 }) => {

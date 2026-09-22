@@ -556,24 +556,28 @@ def _side_preference_rank(player_side, vacancy_side) -> int:
     return 2
 
 
-def _attendance_stats(player_id: int) -> tuple[float, float]:
-    return _attendance_stats_for([player_id])[player_id]
+def _attendance_stats(player_id: int, coach_id: int) -> tuple[float, float]:
+    return _attendance_stats_for([player_id], coach_id)[player_id]
 
 
-def _attendance_stats_for(player_ids) -> dict[int, tuple[float, float]]:
-    """``{player_id: (attendance_rate, justified_miss_rate)}`` for every id, in
-    ONE query. PAD-276 (audit M17): the ranking used to run one ``presences``
-    query per surviving candidate. Same arithmetic as before — every presence
-    row counts in the total, whatever its status — and a player with no rows
-    is ``(0.0, 0.0)``."""
+def _attendance_counts_for(player_ids, coach_id: int) -> dict[int, tuple[int, int, int]]:
+    """``{player_id: (total, present, justified_absences)}`` over THIS coach's
+    occurrences only (`classes.coach-assignment` rule 4, `eligibility.rules` rule 3),
+    in one query. PAD-382 (B-143): these readers used to count the student's rows with
+    EVERY coach, so coach A's bar and ranking were shaped by what happened in coach B's
+    classes. ``total`` is every presence row on the coach's occurrences, whatever its
+    status — the arithmetic PAD-276 kept; a player with no rows is ``(0, 0, 0)``."""
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
     ids = [int(pid) for pid in player_ids]
-    stats: dict[int, tuple[float, float]] = {pid: (0.0, 0.0) for pid in ids}
-    if not ids:
-        return stats
+    counts: dict[int, tuple[int, int, int]] = {pid: (0, 0, 0) for pid in ids}
+    instance_ids = _coach_instances(coach_id) if ids else set()
+    if not ids or not instance_ids:
+        return counts
     totals: dict[int, list[int]] = {}
     rows = (
         db.session.query(Presence.player_id, Presence.status, Presence.justification)
-        .filter(Presence.player_id.in_(ids))
+        .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids))
         .all()
     )
     for pid, status, justification in rows:
@@ -584,8 +588,17 @@ def _attendance_stats_for(player_ids) -> dict[int, tuple[float, float]]:
         elif status == "absent" and justification == "justified":
             t[2] += 1
     for pid, (total, present, justified) in totals.items():
-        stats[pid] = (present / total, justified / total)
-    return stats
+        counts[pid] = (total, present, justified)
+    return counts
+
+
+def _attendance_stats_for(player_ids, coach_id: int) -> dict[int, tuple[float, float]]:
+    """``{player_id: (attendance_rate, justified_miss_rate)}`` for every id, in
+    ONE query (PAD-276, audit M17), over this coach's occurrences (PAD-382)."""
+    return {
+        pid: ((present / total, justified / total) if total else (0.0, 0.0))
+        for pid, (total, present, justified) in _attendance_counts_for(player_ids, coach_id).items()
+    }
 
 
 def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy = None):
@@ -930,15 +943,15 @@ def _group_rule_failures(
                     return failures
 
         elif attr == "justified_absences":
-            _, just_rate = _attendance_stats(cp.player_id)
-            total_presences = Presence.query.filter_by(player_id=cp.player_id).count()
-            just_count = round(just_rate * total_presences)
+            # PAD-382: the count itself, on this coach's occurrences — not a rate
+            # multiplied back by an unscoped total.
+            _, _, just_count = _attendance_counts_for([cp.player_id], coach_id)[cp.player_id]
             if not _compare(just_count, op, val):
                 if fail(attr, op, actual=just_count, threshold=val):
                     return failures
 
         elif attr == "attendance_rate":
-            att_rate, _ = _attendance_stats(cp.player_id)
+            att_rate, _ = _attendance_stats(cp.player_id, coach_id)
             if not _compare(att_rate * 100, op, val):
                 if fail(attr, op, actual=round(att_rate * 100, 1), threshold=val):
                     return failures
@@ -1187,7 +1200,7 @@ def _rank_invited(
     """The survivors of a wave, ranked by the coach's priority criteria — the
     exact stats + sort the engine has always applied."""
     coach_players = [v.cp for v in verdicts if v.invited]
-    stats = _attendance_stats_for([cp.player_id for cp in coach_players])
+    stats = _attendance_stats_for([cp.player_id for cp in coach_players], vacancy.coach_id)
     player_stats = {
         cp.player_id: {
             "attendance_rate": stats[cp.player_id][0],
@@ -4577,7 +4590,7 @@ def _check_waiting_list(
     # Rank by priority ordering
     player_stats = {}
     for entry, cp in eligible_entries:
-        att_rate, just_rate = _attendance_stats(entry.player_id)
+        att_rate, just_rate = _attendance_stats(entry.player_id, vacancy.coach_id)
         player_stats[entry.player_id] = {
             "attendance_rate": att_rate,
             "justified_miss_rate": just_rate,
@@ -4690,12 +4703,19 @@ def _fill_from_waiting_list(
 # Notification groups (manual notify modal)
 # ---------------------------------------------------------------------------
 
-def _students_with_recent_absences(coach_players: list, lookback: int = 8) -> list:
+def _students_with_recent_absences(coach_players: list, coach_id: int, lookback: int = 8) -> list:
+    """PAD-382 (B-143): the student's last ``lookback`` rows WITH THIS COACH — another
+    coach's classes are not this coach's dialog to see."""
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    instance_ids = _coach_instances(coach_id)
+    if not instance_ids:
+        return []
     result = []
     for cp in coach_players:
         recent = (
             Presence.query
-            .filter_by(player_id=cp.player_id)
+            .filter(Presence.player_id == cp.player_id, Presence.lesson_instance_id.in_(instance_ids))
             .order_by(Presence.created_at.desc())
             .limit(lookback)
             .all()
@@ -4705,13 +4725,21 @@ def _students_with_recent_absences(coach_players: list, lookback: int = 8) -> li
     return result
 
 
-def _students_with_justified_absences(coach_players: list) -> list:
+def _students_with_justified_absences(coach_players: list, coach_id: int) -> list:
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    instance_ids = _coach_instances(coach_id)  # PAD-382 (B-143): this coach's occurrences only
+    if not instance_ids:
+        return []
     result = []
     for cp in coach_players:
         # PAD-381 (B-152): an absence is a row whose STATUS says so — a justification
         # left on a row the coach corrected to present does not list the student here.
-        has_justified = Presence.query.filter_by(
-            player_id=cp.player_id, status="absent", justification="justified"
+        has_justified = Presence.query.filter(
+            Presence.player_id == cp.player_id,
+            Presence.lesson_instance_id.in_(instance_ids),
+            Presence.status == "absent",
+            Presence.justification == "justified",
         ).first()
         if has_justified:
             result.append(cp)
@@ -4773,9 +4801,9 @@ def get_notification_groups(
                 continue
             players = [cp for cp in all_coach_players if cp.level_id == level_id]
         elif gid == "recent_absences":
-            players = _students_with_recent_absences(all_coach_players)
+            players = _students_with_recent_absences(all_coach_players, coach_id)
         elif gid == "justified_absences":
-            players = _students_with_justified_absences(all_coach_players)
+            players = _students_with_justified_absences(all_coach_players, coach_id)
         elif gid == "all_students":
             players = all_coach_players
         else:

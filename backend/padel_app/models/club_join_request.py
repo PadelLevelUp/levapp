@@ -58,7 +58,7 @@ class ClubJoinRequest(db.Model, model.Model):
         server_default="pending",
         default="pending",
     )
-    requested_at = Column(DateTime, nullable=False, default=utcnow_naive)
+    requested_at = Column(DateTime, nullable=False, default=lambda: utcnow_naive())
     decided_at = Column(DateTime, nullable=True)
 
     decided_by_coach_id = Column(

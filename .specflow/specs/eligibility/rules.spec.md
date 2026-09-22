@@ -32,7 +32,9 @@ answered for any future class whether or not a spot is currently open.
      (`notifications.invitations` rule 2a: instance level, falling back to the parent lesson's
      default level).
    - `unjustified_absences`, `justified_absences`, `attendance_rate` — the student's record with
-     this coach, computed exactly as `notifications.invitations` already computes them.
+     this coach, computed exactly as `notifications.invitations` already computes them. "With
+     this coach" is enforced for all three since PAD-382 (B-143): before it, `justified_absences`
+     and `attendance_rate` read the student's rows with every coach (`attendance.stats` rule 1).
 4. **Playing side is NOT an eligibility parameter.** Side remains a *wave* criterion inside the
    invitation engine (`notifications.invitations` rules 4a/4b are unchanged). Side determines who is
    asked first; it never determines who is allowed in.

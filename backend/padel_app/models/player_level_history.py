@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, ForeignKey, DateTime, Index
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 from padel_app.sql_db import db
+from padel_app.utils.dates import utcnow_naive
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
 
@@ -34,7 +34,7 @@ class PlayerLevelHistory(db.Model, model.Model):
     )
     level = relationship("CoachLevel")
 
-    assigned_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    assigned_at = Column(DateTime, default=lambda: utcnow_naive(), nullable=False)
 
     def __repr__(self):
         return f"<PlayerLevelHistory {self.player.name} - {self.coach.name} = {self.level.name}>"
