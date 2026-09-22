@@ -30,6 +30,7 @@ from .player_claim_request import PlayerClaimRequest
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
 from .evaluation_record import EvaluationRecord
+from .evaluation_share import EvaluationShare
 from .coach_seasons import CoachSeason, SeasonLegacy
 from .exercise import Exercise, ExerciseGroup
 from .Association_CoachClub import Association_CoachClub
