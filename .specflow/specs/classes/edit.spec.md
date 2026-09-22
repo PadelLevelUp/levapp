@@ -21,6 +21,14 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 6. **Court (PAD-194).** `updates.courtId` sets the class's court (null clears it; omitted leaves it);
    it must belong to the class's club (`clubs.courts` rule 6). A "this and future" split copies the court.
 
+7. **What was sent is what is written (PAD-387, B-136).** `POST /api/app/edit_class` writes only the
+   keys present in `updates`; an omitted key — `isRecurring` included — is left alone on every scope.
+   A present `null` or `""` clears a nullable field: `levelId` ("all levels"), `recurrenceEnd`,
+   `color`, `courtId` (rule 6). For `name` and `maxPlayers`, which cannot be empty — and 0 is not a
+   legal capacity — a present empty value is answered `400 {"error": "invalid_fields", "fields":
+   [...]}` naming every such field, and nothing is written, on any scope. An occurrence's title
+   override is touched only by an edit that sent `name`.
+
 ### Acceptance Criteria
 
 #### Edit single instance
@@ -40,3 +48,16 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 - **When** the occurrence is read
 - **Then** `max_players_override` is NULL and `effective_max_players` is 4
 - **And** raising the class to 6 makes the occurrence's effective capacity 6, while setting the occurrence's own capacity to 2 makes it 2 and lists `maxPlayers` in `overriddenFields`
+
+#### An emptied nullable field clears; an emptied required one is refused (rule 7)
+- **Given** a weekly class "Thursday group" with level 5, colour #112233 and an end date
+- **When** the coach sends `updates: {"levelId": null}`, then `{"recurrenceEnd": ""}`, then `{"color": ""}`
+- **Then** each answers 201 and the class has no level, no end date and no colour, the other
+  fields unchanged; it is still recurring
+- **When** the coach sends `{"name": "", "color": "#abcdef"}` or `{"maxPlayers": 0, "color": "#abcdef"}`
+- **Then** the answer is 400 with `fields` `["title"]` / `["max_players"]` and the colour is unchanged
+
+#### An edit without a name keeps the occurrence's title override (rule 7)
+- **Given** an occurrence renamed "Just today" through a single-scope edit
+- **When** the coach edits that occurrence's capacity only
+- **Then** it is still called "Just today"
