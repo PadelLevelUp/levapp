@@ -351,3 +351,27 @@ def test_a_student_added_after_the_chain_stopped_is_still_asked(app, live_schedu
     with _io_patched():
         asks[0].func(*asks[0].args)
     assert _attempts(app, iid).get((late, 1)) == 1
+
+
+def test_a_returning_student_reminded_minutes_ago_is_still_asked(app, live_scheduler):
+    """PAD-318 stands: the spacing reads only COUNTED attempts. A student re-added after
+    cancelling had their earlier reminder voided a moment ago; the scheduled pass asks them."""
+    from padel_app.models import LessonInstance, Presence
+    from padel_app.services import reminder_attempt_service as attempts
+    from padel_app.services.lesson_service import enrol
+    from padel_app.services.notification_service import send_class_reminders
+
+    ids = _seed(app, reminder_count=3)
+    iid = _materialise(app, ids)
+    back = ids["player_ids"][0]
+    with app.app_context(), _io_patched():
+        send_class_reminders(iid, scheduled=True)                      # everyone asked, just now
+        presence = Presence.query.filter_by(lesson_instance_id=iid, player_id=back).one()
+        presence.status = "absent"                                     # they gave the seat up
+        db.session.commit()
+        enrol(back, db.session.get(LessonInstance, iid), "coach")      # the coach puts them back
+        assert attempts.count_attempts(iid, back) == 0, "the earlier round is void"
+        again = send_class_reminders(iid, scheduled=True)
+    assert again["sent"] == 1, "only the returning student is asked; the others are inside the gap"
+    with app.app_context():
+        assert attempts.count_attempts(iid, back) == 1
