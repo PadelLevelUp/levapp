@@ -28,6 +28,22 @@ async function studentNotes(request: APIRequestContext, token: string): Promise<
   return student!.notes ?? null;
 }
 
+// R-040: E2E Student is SEEDED with the note "E2E test player"; put it back after the test.
+test.afterEach(async ({ request }) => {
+  const token = await coachToken(request);
+  const res = await request.get(`${API_APP}/coach_players`, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await res.json();
+  const players: { name: string; notes: string | null }[] = Array.isArray(data) ? data : data.items;
+  const student = players.find((p) => p.name === "E2E Student");
+  if (student && student.notes !== "E2E test player") {
+    const put = await request.post(`${API_APP}/edit_player`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { player: student, updates: { notes: "E2E test player" } },
+    });
+    expect.soft(put.ok(), "the seeded note is back").toBeTruthy();
+  }
+});
+
 test("US-388a: emptying the notes box deletes the note — the body says null and the server agrees", async ({
   page,
   request,
@@ -60,5 +76,6 @@ test("US-388a: emptying the notes box deletes the note — the body says null an
 
   await expect.poll(() => studentNotes(request, token)).toBeNull();
   await page.reload();
+  await expect(page.getByTestId("player-side-badge").first()).toBeVisible(); // the page is back
   await expect(page.getByTestId("player-notes")).toHaveCount(0); // the notes block hides when there is none
 });

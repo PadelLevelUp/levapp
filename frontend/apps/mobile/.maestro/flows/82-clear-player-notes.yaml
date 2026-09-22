@@ -3,9 +3,13 @@
 # the body, so the server never saw a clear; it now sends null. (Flow number 82 is
 # reserved to Session-C by the Coordinator, 2026-09-21.)
 # Mirrors apps/web/e2e/player-management/clear-player-notes.spec.ts.
-# By test id and by the server's own answers — never rendered copy. Self-contained:
-# it writes a note and deletes it, so its position in the suite is not load bearing.
+# By test id and by the server's own answers — never rendered copy. E2E Student is
+# SEEDED with the note "E2E test player" (07-player-notes reads it): the flow REPLACES
+# it, then empties the box, and onFlowComplete puts the seeded note back through the
+# API whether the flow passed or failed (R-040), so a red run does not change the seed.
 appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/restore-e2e-student-note.js
 ---
 - runScript: ../scripts/coach-token.js
 
@@ -45,6 +49,8 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "player-notes"
+# The box holds the SEEDED note: erase it first, or inputText appends (Session-D, first run).
+- eraseText: 60
 - inputText: "Maestro note to be deleted"
 # Enter blurs the field and closes the keyboard (hideKeyboard fails on iOS here).
 - pressKey: Enter
@@ -78,7 +84,7 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "player-notes"
-- eraseText: 40
+- eraseText: 60
 - pressKey: Enter
 - scrollUntilVisible:
     element:
