@@ -156,6 +156,14 @@ def upsert_evaluation_categories(coach, data):
             .filter(EvaluationCategory.name == payload["name"])
             .first()
         )
+        # evaluations.legacy-client-contract (R-047, PAD-363): this endpoint is one
+        # of the five App Store 1.0/1.1.0 call. It never updates a non-legacy
+        # competency, and a name one already holds is skipped — (coach, name) is
+        # unique, so it could only collide.
+        # A legacy category the coach switched off is skipped the same way: no
+        # rescale and NO reactivation (rule 5, Coordinator ruling 2026-09-21).
+        if evaluation_category is not None and not (evaluation_category.is_legacy and evaluation_category.is_active):
+            continue
         if evaluation_category:
             _apply_form(evaluation_category.get_edit_form(), payload, evaluation_category)
             evaluation_category.save()
@@ -223,20 +231,34 @@ def add_evaluation_entry_service(coach, data):
     # latest score adds no history row, so it cannot move `evaluatedAt`. Old
     # App Store builds still post every category, which this keeps harmless for
     # categories that already hold a score.
+    from padel_app.services.evaluation_record_service import append_entry
+
     latest = {e.category_id: e.score for e in coach_player.current_evaluations}
+    # evaluations.legacy-client-contract (R-047, PAD-363): this endpoint accepts
+    # scores for the coach's own LEGACY categories only. An App Store build posts
+    # a midpoint for every category it knows of; a competency it should never
+    # have seen is ignored, and the response is the same.
+    # A legacy category the coach switched off is ignored too (rule 3): a build
+    # holding a list fetched before the switch-off still posts its midpoint for it.
+    legacy_ids = {c.id for c in coach.evaluation_categories if c.is_legacy and c.is_active}
     # evaluations.entries rule 8 (PAD-370, B-145, compass R-002): a score is
     # recorded only in one of the coach's OWN categories. Another coach's
-    # category, an id that does not exist or is not a number is ignored, and the
-    # response is the same — App Store builds post every category in one body and
-    # read any non-2xx as a failed save, with the earlier scores already written.
+    # category, an id that does not exist or is not a number is ignored AND
+    # logged; the response is the same — App Store builds post every category in
+    # one body and read any non-2xx as a failed save, with the earlier scores
+    # already written. An own category this endpoint does not serve (above) is
+    # the expected case and is not logged.
     own_ids = {c.id for c in coach.evaluation_categories}
     for score in scores:
         value = score.get("value")
         if value is None:
             continue
         try:
-            if int(score.get("categoryId")) not in own_ids:
+            category_id = int(score.get("categoryId"))
+            if category_id not in own_ids:
                 _log_ignored_score(coach, score.get("categoryId"))
+                continue
+            if category_id not in legacy_ids:
                 continue
         except (TypeError, ValueError, OverflowError):  # OverflowError: int(1e999)
             _log_ignored_score(coach, score.get("categoryId"))
@@ -252,9 +274,12 @@ def add_evaluation_entry_service(coach, data):
             "category": score.get("categoryId"),
             "score": score.get("value"),
         }
+        # The form layer stays in front (its coercions are pinned by PAD-362,
+        # B-136 included); the row is then written by the one writer, into the
+        # day's class-less record (evaluations.records).
         entry = EvaluationEntry()
         _apply_form(entry.get_create_form(), ev_payload, entry)
-        entry.create()
+        append_entry(entry)
 
     existing_strengths = {n.text for n in coach_player.strengths}
     for item in strengths:
@@ -361,11 +386,20 @@ def delete_evaluation_category_service(category, actor_user_id=None):
     in the same transaction (evaluations.categories rule 7, PAD-274)."""
     from padel_app.services.deletion_audit_service import record_deletion
 
+    from padel_app.models import EvaluationEntry as _Entry
+    from padel_app.services.evaluation_record_service import prune_empty_records
+
     impact = evaluation_category_impact(category)
+    # PAD-363: the scores go with the category; a record they leave empty goes too.
+    touched = [
+        row[0] for row in
+        _Entry.query.with_entities(_Entry.coach_player_id).filter_by(category_id=category.id).distinct()
+    ]
     record_deletion(
         actor_user_id=actor_user_id, entity="evaluation_category", entity_id=category.id,
         action="deleted", label=category.name,
         details={"coach_id": category.coach_id, "scores": impact["scores"], "players": impact["players"]},
     )
     category.delete()
+    prune_empty_records(touched)
     return impact

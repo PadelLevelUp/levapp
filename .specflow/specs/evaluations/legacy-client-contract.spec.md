@@ -1,9 +1,9 @@
 ---
 id: evaluations.legacy-client-contract
-status: draft
+status: implemented
 depends_on: [evaluations.categories, evaluations.entries]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
-governed_by: []
+governed_by: [R-047]
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md
   - derives_from: archive/documents/sistema-de-avaliacoes-explained-2026-09-21/extracted/summary.md
@@ -16,8 +16,7 @@ App Store iOS 1.0 (build 3) and 1.1.0 (build 4) call production and can never be
 list every category the server returns and post a value for each one, unrated ones at the scale
 midpoint. This leaf freezes the five endpoints they call so that the new competencies
 (`evaluations.competencies`) are invisible and unwritable to them, and so that nothing they
-already do changes. It will be governed by compass rule **R-047** (reserved, not yet filed — the
-frontmatter stays `governed_by: []` until it is).
+already do changes. It is governed by compass rule **R-047**.
 
 Vocabulary: a **legacy category** is an `evaluation_categories` row whose `competency_group IS
 NULL` — everything created by the old settings editor, by these endpoints or by the import. Every

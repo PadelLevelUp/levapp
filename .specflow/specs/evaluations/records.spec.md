@@ -1,6 +1,6 @@
 ---
 id: evaluations.records
-status: draft
+status: implementing
 depends_on: [evaluations.entries, evaluations.competencies, evaluations.legacy-client-contract, classes.instances]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
