@@ -159,5 +159,8 @@ due. It is a marker inside the app, never a message to anyone.
   1/1; callers pad364 18, pad362 30 (both backends), pad274 17, pad254 10, test_player_* 55,
   pad397 17; web + mobile tsc clean; the setting's unit test 9/9; rendered-text ratchet 119/119;
   packages 603/603; Playwright `evaluation-reminder.spec.ts` 2/2 and `student-settings-scope.spec.ts`
-  23/23 on an isolated stack. **Not yet run:** Maestro 97 (iOS) and the full backend suite. The
-  status stays `implementing` until both have run and PAD-402's parent revision is on staging.
+  23/23 on an isolated stack. Maestro 97 (iOS) passed on Session-D's iPhone 17 Pro simulator at
+  `5b41137e7` (2026-09-23 23:25:27Z, 60 steps), after two flow fixes (`back` is a no-op on iOS, so
+  it opens Players by link; the search is cleared before typing). **Not yet run:** the full backend
+  suite. The status stays `implementing` until it has run and PAD-402's parent revision is on
+  staging.
