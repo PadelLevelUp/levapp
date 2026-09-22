@@ -235,6 +235,12 @@ appId: com.padellevelup.app
 # hideKeyboard fails on iOS here ("Couldn't hide the keyboard"); Enter blurs the
 # single-line input and dismisses it instead.
 - pressKey: Enter
+# The simulator keyboard dropped a keystroke once under load ("Mastro Cat", Session-D,
+# 2026-09-22): assert what was typed before asserting what it enables, so a lost key
+# reads as a typing failure, not as the dialog's.
+- assertVisible:
+    id: "competency-delete-name"
+    text: "Maestro Cat"
 - assertVisible:
     id: "competency-delete-confirm"
     enabled: true
