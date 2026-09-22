@@ -42,10 +42,10 @@ onFlowComplete:
 - evalScript: "${output.afterMonthly = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).reminder}"
 - assertTrue: "${output.afterMonthly == 'monthly'}"
 
-# Leave the pushed Settings screen (native stack back) and switch to Players.
-- back
-- tapOn:
-    id: "tab-players"
+# Go to Players. Maestro's `back` is Android-only (a no-op on iOS, Session-D's run at
+# 0d9c9cf8d), and the pushed Settings screen's native back has no testID, so the flow
+# opens the Players tab by link, as flows 24/25/58 do.
+- openLink: levelup://players
 - extendedWaitUntil:
     visible:
       id: "screen-players"
@@ -84,9 +84,7 @@ onFlowComplete:
 - evalScript: "${output.afterNever = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).reminder}"
 - assertTrue: "${output.afterNever == 'never'}"
 
-- back
-- tapOn:
-    id: "tab-players"
+- openLink: levelup://players
 - extendedWaitUntil:
     visible:
       id: "screen-players"
