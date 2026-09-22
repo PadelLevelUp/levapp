@@ -399,12 +399,13 @@ def test_4_add_evaluation_categories_upserts_by_name_and_echoes_the_request(app,
 
 
 def test_4_a_scale_minimum_of_zero_is_dropped_and_the_echo_hides_it(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). The form layer reads a falsy value as
-    "not sent" (`input_tools.Field.set_value`), so `scaleMin: 0` never reaches the
-    column: a new category falls back to the model default 1, an existing one
-    keeps its minimum. Both settings editors default a new row to 0-10, and the
-    echo answers 0, so the coach sees 0-10 until the list is refetched. Found by
-    this slice; E's static map (section 2) reads the editors, not the write."""
+    """B-136's mechanism is still unfixed: the form layer reads a falsy value as
+    "not sent" (`input_tools.Field.set_value`). On this endpoint it no longer
+    decides anything, because evaluations.legacy-conversion rule 5 (PAD-403)
+    stores and echoes every legacy category at 1-5 whatever the body says. Both
+    settings editors still default a new row to 0-10; that 0 is neither stored
+    nor echoed. This pin asserts rule 5. Before PAD-403 it pinned the 0 echo
+    against the 1 stored."""
     from padel_app.models import EvaluationCategory
 
     ids = _seed(app)
@@ -513,11 +514,13 @@ def _import(app, ids, rows):
 
 
 def test_6_an_imported_category_keeps_a_zero_minimum_only_when_it_arrives_as_a_string(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). `bulk_create_evaluation_categories` goes
-    through the same form layer as the settings upsert: the number 0 is read as
-    "not sent" and the model default 1 is stored; the string "0" (a spreadsheet
-    cell) survives. A category that does hold 0 is listed with `scaleMin: 0` — the
-    freeze must not "normalise" it."""
+    """B-136's mechanism is still unfixed: `bulk_create_evaluation_categories`
+    goes through the same form layer as the settings upsert, which reads the
+    number 0 as "not sent". Since PAD-403 (evaluations.legacy-conversion rule 5)
+    the import normalises every legacy category it creates to 1-5, so neither a
+    string "0" nor a number 0 nor a 10 reaches the listing. The name records the
+    pre-PAD-403 behaviour, when the string "0" survived and was listed as 0.
+    Existing categories are still found by name and never updated."""
     from padel_app.models import Coach
     from padel_app.services.import_service import bulk_create_evaluation_categories
 
@@ -534,9 +537,9 @@ def test_6_an_imported_category_keeps_a_zero_minimum_only_when_it_arrives_as_a_s
     listed = {c["name"]: (c["scaleMin"], c["scaleMax"])
               for c in client.get("/api/app/evaluation_categories", headers=_coach_headers(app, ids)).get_json()}
     assert listed == {
-        "Lob": (0, 10),        # the string "0" is stored and listed as 0
-        "Smash": (1, 10),      # the number 0 is dropped
-        "Serve": (1, 5),       # no minimum sent: the model default
+        "Lob": (1, 5),         # sent "0"/"10": normalised to 1-5 (rule 5)
+        "Smash": (1, 5),       # sent 0/10: normalised to 1-5 (rule 5)
+        "Serve": (1, 5),       # sent max 5 only: 1-5
         "Forehand": (1, 5),    # an existing category's scale is never touched by the import
         "Volley": (1, 5),      # written directly by the fixture
     }
