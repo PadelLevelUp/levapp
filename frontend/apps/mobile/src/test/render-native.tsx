@@ -12,7 +12,7 @@
  * handler THROWS rather than passing the press — a dead control must fail loudly.
  */
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
-import type { ReactElement } from "react";
+import { cloneElement, type ReactElement } from "react";
 
 export type Native = {
   root: ReactTestRenderer;
@@ -66,7 +66,9 @@ export async function renderNative(el: ReactElement): Promise<Native> {
       await act(async () => { fn(); });
     },
     changeText: async (id, text) => { const n = byTestId(id); await act(async () => { n.props.onChangeText?.(text); }); },
-    rerender: async (next) => { await act(async () => { root.update(next); }); },
+    // PAD-401 (B-160): a fresh props object every time. Handed the element already mounted,
+    // `root.update(next)` would hit React's `oldProps === newProps` bailout and re-render nothing.
+    rerender: async (next) => { await act(async () => { root.update(cloneElement(next, {})); }); },
     flush,
   };
 }
