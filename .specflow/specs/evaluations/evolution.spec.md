@@ -136,6 +136,23 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
   (the server joins entries to records; `test_pad375_history_seed.py` pins that record-less
   rows are shown nowhere)
 
+### Runs cited for `implemented` (PAD-375, #359)
+- Web, Playwright `evaluation-tools/evaluation-evolution.spec.ts`, `~/levapp-wt-j`, `--workers=1`, isolated DB and ports: **1 passed** at
+  `b10db81cf`, 2026-09-22 09:49:52–09:51:39 UTC (and at `5df49f51c`, 00:04:14–00:04:37 UTC).
+- The full E2E suite with the history seed ON, which this slice turns on (four serial shards, `--workers=1`), at `b10db81cf`, 2026-09-22:
+  shard 1 09:51:47–10:15:43 UTC **110 passed** (five tail timeouts at load 346 — a starved run; each of the five passed alone, seed ON,
+  12:44:39–12:45:59 UTC); shard 2 10:32:23–10:45:03 **118 passed**, 1 skipped; shard 3 12:31:25–12:38:11 **113 passed**, 1 skipped;
+  shard 4 12:38:21–12:42:49 **111 passed** — **452 passed, 2 skipped**; `coach-working-hours` green now that staging carries #367
+  (PAD-392, surfaced by this chain's new i18n namespace, fixed at the source there); the `E2E Eval Yesterday Class` fixture reddened
+  nothing. (At `5df49f51c` earlier that day: 453 passed, every red run through the seed-ON / seed-OFF / origin/staging cells.)
+- iOS, Maestro on the iPhone 17 Pro simulator (Session-D): `79-evaluation-evolution` **PASSED** at `3b9e05d4b`, 2026-09-21 21:26:56–21:28:07
+  UTC (the chart, the three means, the delta, a point tap and its caption); `57-evaluation-untouched-categories` **PASSED** at `7798a3046`
+  and `3b9e05d4b` — the layout-hold fix measured by the flow's own clear tap with no settle wait.
+- Looked at: the chart on iOS (Session-D's screenshot, 2026-09-21 — one duplicate arrow found and removed) and on web in light and dark
+  (Session-E, 2026-09-22 ~07:58 UTC, against the design tokens).
+- Unit at `5df49f51c`: `npm test` web 245, packages 531, mobile 538 (2026-09-21 21:48:54–21:49:07 UTC); at `b10db81cf`: config 12, hooks 6,
+  web evaluation components 46, both `tsc` clean.
+
 ### Notes
 - No seed today produces past-dated history except the import. Tests need a seed helper writing
   dated records, every date derived from `e2e/scripts/seed_dates.py` and a pinned "today" —
