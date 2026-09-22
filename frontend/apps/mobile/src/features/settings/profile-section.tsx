@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
 
 type ProfileForm = {
   name: string;
@@ -30,6 +31,21 @@ const EMPTY_PROFILE: ProfileForm = {
   email: "",
   phone: "",
 };
+
+/**
+ * settings.unsaved-edits rule 2 — "differs by value from the last loaded or saved
+ * value", not "was touched": a field typed and then typed back to `saved`'s value is
+ * NOT unsaved. Exported so this comparison is covered by a pure-function test as well
+ * as the mount-based one (both are cheap here; `form`/`saved` were already tracked).
+ */
+export function isProfileUnsaved(form: ProfileForm, saved: ProfileForm): boolean {
+  return (
+    form.name !== saved.name ||
+    form.abbreviation !== saved.abbreviation ||
+    form.email !== saved.email ||
+    form.phone !== saved.phone
+  );
+}
 
 /**
  * Editable profile, mirroring web's Profile tab (PAD-81).
@@ -75,6 +91,8 @@ export function ProfileSection() {
     setSaved(loaded);
     if (!dirtyRef.current) setForm(loaded);
   }, [me]);
+
+  useUnsavedReporter("profile", isProfileUnsaved(form, saved));
 
   const setField = (field: keyof ProfileForm, value: string) => {
     dirtyRef.current = true;

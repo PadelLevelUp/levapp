@@ -170,6 +170,11 @@ executionOrder:
     # whole delete on it (PAD-372); it cancels the delete and withdraws the request
     # in onFlowComplete, so nothing of the seed changes.
     - 96-hold-occurrence-locked
+    # 102 changes the Perfil phone field and leaves it unsaved, asserts the back row's
+    # confirm (settings.unsaved-edits rules 3-4, PAD-394): keep editing stays with the
+    # edit intact, discard returns to the list. Nothing is ever PATCHed, so there is
+    # nothing to restore — the server's phone is asserted unchanged instead.
+    - 102-settings-unsaved-edits
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

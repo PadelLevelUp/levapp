@@ -31,9 +31,23 @@ vi.mock("@/components/ui/input", async () => {
   return { Input: (p: Record<string, unknown>) => createElement(TextInput, p) };
 });
 
-import { SeasonsSection } from "./seasons-section";
+import { SeasonsSection, seasonUnsaved } from "./seasons-section";
+import {
+  UnsavedRegistryProvider,
+  useUnsavedRegistry,
+} from "@/features/settings/unsaved-registry";
 
-const SEASON = { label: "2026/27", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
+const SEASON = {
+  label: "2026/27",
+  startDay: 1,
+  startMonth: 9,
+  endDay: 31,
+  endMonth: 7,
+  wrapsYear: true,
+  needsReview: false,
+  current: null,
+  upcoming: null,
+};
 
 beforeEach(() => {
   getSeason.mockReset().mockResolvedValue(SEASON);
@@ -65,5 +79,50 @@ describe("seasons-section (iOS) — a late load never replaces the form (PAD-392
       await n.flush();
     }
     expect(getSeason).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("seasonUnsaved (settings.unsaved-edits rule 2)", () => {
+  it("is false against the loaded definition, true the moment a field differs", () => {
+    expect(seasonUnsaved({ label: "2026/27", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 }, SEASON)).toBe(
+      false
+    );
+    expect(seasonUnsaved({ label: "Epoca nova", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 }, SEASON)).toBe(
+      true
+    );
+  });
+
+  it("with no season saved, the default draft reads clean", () => {
+    expect(seasonUnsaved({ label: "", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 }, null)).toBe(false);
+  });
+
+  it("a hand-revert back to the loaded label reads clean", () => {
+    const edited = { label: "Epoca nova", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
+    expect(seasonUnsaved(edited, SEASON)).toBe(true);
+    expect(seasonUnsaved({ ...edited, label: SEASON.label }, SEASON)).toBe(false);
+  });
+});
+
+describe("SeasonsSection registers its unsaved state (PAD-394)", () => {
+  it("editing the label -> unsaved; hand-revert -> clean; a successful save -> clean", async () => {
+    let registry!: ReturnType<typeof useUnsavedRegistry>;
+    function Capture() {
+      registry = useUnsavedRegistry();
+      return null;
+    }
+    const n = await renderNative(
+      <UnsavedRegistryProvider>
+        <Capture />
+        <SeasonsSection />
+      </UnsavedRegistryProvider>
+    );
+    await n.flush();
+    expect(registry.hasUnsaved()).toBe(false);
+
+    await n.changeText("season-label", "Epoca nova");
+    expect(registry.hasUnsaved()).toBe(true);
+
+    await n.changeText("season-label", SEASON.label);
+    expect(registry.hasUnsaved()).toBe(false);
   });
 });
