@@ -6,6 +6,7 @@ import {
   deltaPresentation,
   evolutionMonthLabels,
   formatMean,
+  resolveActivePoint,
 } from "./evaluation-evolution";
 
 // evaluations.evolution (PAD-375). The server computes every figure (R-048); these
@@ -71,5 +72,27 @@ describe("the chart's geometry (iOS draws its own polyline)", () => {
 describe("the line colour", () => {
   it("is a selected step per mode, not one colour flipped (validated with the dataviz script)", () => {
     expect(EVOLUTION_LINE_COLOR).toEqual({ light: "#1355DC", dark: "#3B82F6" });
+  });
+});
+
+describe("the tapped point survives a series that shrinks (iOS, review F1)", () => {
+  const series = [
+    { month: "2026-05", mean: 3 }, { month: "2026-06", mean: 4 }, { month: "2026-07", mean: 4 },
+    { month: "2026-08", mean: 6 }, { month: "2026-09", mean: 7 },
+  ];
+
+  it("resolves a tapped month to its index in the CURRENT series", () => {
+    expect(resolveActivePoint(series, "2026-08")).toBe(3);
+  });
+
+  it("falls back to the last point when nothing is tapped, and when the tapped month is gone", () => {
+    expect(resolveActivePoint(series, null)).toBe(4);
+    // September's only record was deleted from the history card below: the series has 4 points
+    expect(resolveActivePoint(series.slice(0, 4), "2026-09")).toBe(3);
+  });
+
+  it("is null for an empty series", () => {
+    expect(resolveActivePoint([], "2026-09")).toBeNull();
+    expect(resolveActivePoint([], null)).toBeNull();
   });
 });

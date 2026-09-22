@@ -7,6 +7,7 @@ import {
   evolutionMonthLabels,
   formatMean,
   lightTheme,
+  resolveActivePoint,
 } from "@levelup/config";
 import { useHeldWhile, usePlayerEvolution } from "@levelup/hooks";
 import type { EvaluationCompetency } from "@levelup/types";
@@ -52,10 +53,13 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData:
 
   const evolution = usePlayerEvolution(playerId, selected);
   // Before the early return below: a hook may never come after one.
-  const data = useHeldWhile(evolution.data, held, `${playerId}:${selected}`);
+  // `holdEmpty`: a hold that began before the first load keeps the skeleton until it ends.
+  const data = useHeldWhile(evolution.data, held, `${playerId}:${selected}`, { holdEmpty: true });
   const [width, setWidth] = React.useState(0);
-  const [active, setActive] = React.useState<number | null>(null);
-  React.useEffect(() => setActive(null), [selected]);
+  // The tapped point is kept by MONTH and resolved against the current series each render:
+  // a series can shrink under it (the tapped month's only record deleted from the card below).
+  const [activeMonth, setActiveMonth] = React.useState<string | null>(null);
+  React.useEffect(() => setActiveMonth(null), [selected]);
 
   if (competenciesWithData.length === 0) {
     return (
@@ -77,7 +81,7 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData:
     data && width > 0
       ? chartPoints(data.series, { scaleMin: data.scaleMin, scaleMax: data.scaleMax, width, height: HEIGHT, ...BOX })
       : [];
-  const shown = data && data.series.length > 0 ? active ?? data.series.length - 1 : null;
+  const shown = data ? resolveActivePoint(data.series, activeMonth) : null;
   const plotBottom = HEIGHT - BOX.paddingBottom;
 
   return (
@@ -145,7 +149,7 @@ export function EvolutionSection({ playerId, competencies, competenciesWithData:
             {points.map((p, index) => (
               <Pressable
                 key={`hit-${data.series[index].month}`}
-                onPress={() => setActive(index)}
+                onPress={() => setActiveMonth(data.series[index].month)}
                 accessibilityRole="button"
                 accessibilityLabel={t("players.evaluationHistory.pointCaption", { month: months[index], mean: formatMean(data.series[index].mean) })}
                 testID={`evolution-point-${index}`}
