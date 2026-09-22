@@ -1,6 +1,6 @@
 ---
 id: messaging.student-reaches-out-and-stays-safe
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/messaging/direct-by-username.spec.md
   - ../../specs/messaging/block-and-report.spec.md

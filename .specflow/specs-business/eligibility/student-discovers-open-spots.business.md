@@ -1,6 +1,6 @@
 ---
 id: eligibility.student-discovers-open-spots
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/eligibility/open-spot-visibility.spec.md
 ---

@@ -7,14 +7,18 @@ implemented_by:
 
 # People hear about requests that wait for them
 
-### Outcome
+## Outcome
 Nobody's request sits unanswered because the person who can act on it never looked at the
 badge. When a coach asks to join a club, a coach asks a student to link a placeholder account,
 or a self-registered coach waits for LevApp approval, the people who can decide are told
 right away — on their phone, in the browser and by email — and the requester is told the
 moment a decision lands.
 
-### Journeys
+## Who This Is For
+
+TODO: this section is missing — needs human authorship (specflow-lint NEEDS REVIEW, not auto-fixed).
+
+## User Journey
 - A club coach gets "Rui asked to join Padel Norte" as a push and an email, opens Settings →
   Club and approves; Rui gets "Padel Norte accepted your request".
 - A student gets "Coach Ana wants to link the account 'Rui Placeholder' to yours" and accepts
@@ -22,7 +26,7 @@ moment a decision lands.
 - The LevApp admin gets a push (and the existing email) the moment a coach signs up; the coach
   gets a push (and the existing email) once approved.
 
-### Business rules
+## Business Rules
 - Alerts go only to the people who can act (club members for a join request, the invited
   account for a claim, superadmins for a coach approval) and, on a decision, only to the
   requester.
@@ -30,5 +34,5 @@ moment a decision lands.
   banners stay regardless.
 - Alerts are best-effort: a failed push or email never fails the request itself.
 
-### Success signals
+## Success Metrics
 - Median time from request to decision drops; the Settings badges stop being the only signal.
