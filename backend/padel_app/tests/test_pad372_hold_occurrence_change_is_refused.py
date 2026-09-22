@@ -126,3 +126,59 @@ def test_a_closed_requests_former_hold_is_an_ordinary_block(client, app):
     with app.app_context():
         withdraw_class_request_service(rid, _player(ids["player_id"]))
     assert _hold_row(app, hold) is None
+
+
+# ── what the shells are told: `requestHoldOf` on the block detail and on feed items ──
+
+def _detail(client, app, ids, block_id):
+    res = client.get(f"/api/app/calendar_block/{block_id}", headers=_coach_headers(app, ids))
+    assert res.status_code == 200, res.get_data(as_text=True)
+    return res.get_json()
+
+
+def _feed_items(client, app, ids, block_id):
+    from datetime import timedelta
+
+    res = client.get(
+        f"/api/app/calendar?from={DAY.isoformat()}T00:00:00&to={(DAY + timedelta(days=35)).isoformat()}T23:59:59",
+        headers=_coach_headers(app, ids),
+    )
+    assert res.status_code == 200, res.get_data(as_text=True)
+    return [e for e in res.get_json() if e.get("type") == "block" and e.get("originalId") == block_id]
+
+
+def test_a_live_hold_says_which_request_it_holds_on_detail_and_on_every_feed_item(client, app):
+    ids = _setup(app)
+    rid, hold = _weekly_request(app, ids)
+    assert _detail(client, app, ids, hold)["requestHoldOf"] == rid
+    items = _feed_items(client, app, ids, hold)
+    assert len(items) == 5, "one recurring hold, five Thursdays"
+    assert {e["requestHoldOf"] for e in items} == {rid}
+
+
+def test_a_retitled_hold_is_the_coachs_and_says_so(client, app):
+    """PAD-378: a retitled block is the coach's even while the request still points at it."""
+    from padel_app.models.calendar_blocks import CalendarBlock
+
+    ids = _setup(app)
+    rid, hold = _weekly_request(app, ids)
+    with app.app_context():
+        CalendarBlock.query.get(hold).title = "Gym"
+        db.session.commit()
+    assert _detail(client, app, ids, hold)["requestHoldOf"] is None
+    assert {e["requestHoldOf"] for e in _feed_items(client, app, ids, hold)} == {None}
+    assert _move(client, app, ids, hold, "single").status_code == 204, "and it is not refused"
+
+
+def test_an_ordinary_block_and_a_closed_requests_leftover_pointer_say_null(client, app):
+    """A block nobody points at, and a pre-PAD-360 row (closed, pointer never cleared —
+    written with raw SQL so no hook runs): neither is a live hold."""
+    from sqlalchemy import text
+
+    ids = _setup(app)
+    rid, hold = _weekly_request(app, ids)
+    with app.app_context():
+        db.session.execute(text("UPDATE class_requests SET status = 'declined' WHERE id = :rid"), {"rid": rid})
+        db.session.commit()
+    assert _detail(client, app, ids, hold)["requestHoldOf"] is None
+    assert {e["requestHoldOf"] for e in _feed_items(client, app, ids, hold)} == {None}

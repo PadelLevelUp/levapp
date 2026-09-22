@@ -444,6 +444,13 @@ export interface CalendarBlock {
 
   title?: string;
   description?: string;
+  /**
+   * PAD-372 (classes.class-requests rule 3): the OPEN class request this block is the
+   * live hold of, else null/absent. A single-occurrence or this-and-following change
+   * to such a block is refused by the server (409 HOLD_OCCURRENCE_LOCKED), so the
+   * shells do not offer it; the whole block may still be deleted.
+   */
+  requestHoldOf?: number | null;
 }
 
 // Calendar view types
@@ -470,6 +477,8 @@ export interface CalendarEvent {
   id: string;
   type: 'class' | 'block';
   isRecurring: boolean;
+  /** PAD-372: on a block item, the open class request it is the live hold of (see CalendarBlock). */
+  requestHoldOf?: number | null;
   title: string;
   date: string;
   startTime: string;

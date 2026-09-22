@@ -41,8 +41,18 @@ held on the coach's calendar while the request is open.
 3. **The slot is held.** Creating a request creates a `personal` CalendarBlock on the coach's
    calendar titled with the student's name; the hold follows the slot on a counter-proposal and
    is deleted when the request leaves `pending`/`countered` — or goes away any other way (rule
-   18). The hold is a plain block the coach may see and even delete — deleting it does not decide
-   the request.
+   18). The hold is a plain block the coach may see, retitle (rule 18) and delete **whole** —
+   deleting it does not decide the request. **What the coach may not do is change ONE occurrence
+   of a live hold (PAD-372, B-138):** a `single` or `future` move or delete on the hold of an
+   open request answers `409 HOLD_OCCURRENCE_LOCKED` and changes nothing — on accept the class
+   is built from the request's recurrence (rule 4) and a proposal moves the series (rule 16), so
+   such a change alters nothing the product honours; it would only split the hold into rows no
+   release path can find. "Live hold" = the block an open request's `hold_block_id` names while
+   it is still recognisably a hold (rule 18); a retitled hold is the coach's and is not refused.
+   The block detail and every calendar feed item carry `requestHoldOf` (the open request's id,
+   else null) so both shells stop offering "this one / this and following" on it; a client that
+   offers it anyway (installed builds) meets the refusal and shows it. A change to the slot is
+   proposed on the request instead.
 4. **The coach decides**: `accept` creates a one-off `private` class (max 1 player) at the slot
    with the student enrolled, through the same path as "Add class"; `decline` closes the
    request; `propose {date, startTime, endTime}` moves the slot and turns the request
@@ -187,13 +197,15 @@ held on the coach's calendar while the request is open.
       still carrying the hold title); otherwise the pointer is cleared and the block stays. So
       the hooks also clean up old ghost holds lazily, on the next ORM write to such a request,
       and never delete an event a coach has made theirs (#345 review, second round).
-    - **Known gap — a moved occurrence of a weekly hold (#345 review F2, not fixed here).**
-      Moving one occurrence of a recurring hold (`calendar_service.reschedule_block_service`)
-      clones the block: the clone copies the hold's title and no request points at it, so no
-      path above releases it, and it outlives the request under the student's name. It follows
-      that a hold-titled block no request references may be the clone of a LIVE hold — a cleanup
-      must never delete one on its title alone. Pinned as a known gap in
-      `test_pad360_request_hold_release.py`; its own ticket.
+    - **A moved occurrence of a weekly hold (#345 review F2) — closed by PAD-372, rule 3.**
+      Moving or deleting one occurrence of a recurring hold used to clone the block
+      (`calendar_service._clone_block`): the clone copied the hold's title, no request pointed
+      at it, and it outlived the request under the student's name. The gesture is now refused
+      (rule 3), so no new clone can be made; the clones the old code left on production are a
+      fixed population that PAD-360's v2 count reports separately, and a cleanup must still
+      never delete a hold-titled block on its title alone. An existing clone stays busy time for
+      its own student's counter-proposal (rule 1 excludes only `hold_block_id`; pinned in
+      `test_pad372_existing_clone_is_busy_for_its_own_student.py`).
     - **Left out on purpose:** a coach **disconnecting** a student leaves the open request and
       its hold in place (the hold is legitimate while the request is open); whether a disconnect
       should decline it is an owner decision, recorded on PAD-360. A pending request whose slot
@@ -340,4 +352,12 @@ held on the coach's calendar while the request is open.
 - **Then** one series is created starting the second Tuesday with the same end date, and the request's `date` and `recurrence.startDate` moved to it
 - **When** every occurrence has passed
 - **Then** accept answers `409 in_the_past` and the request stays `pending`
+
+#### A live hold cannot be changed one occurrence at a time (PAD-372, rule 3)
+- **Given** Bruno's pending weekly Thursday 11:00–12:00 request over five Thursdays, held by one recurring block on Ana's calendar
+- **When** Ana moves the third Thursday's occurrence to 15:00 with scope `single`, or `future`, or deletes it with either scope
+- **Then** the answer is `409 HOLD_OCCURRENCE_LOCKED`, the hold is unchanged and no block was added
+- **And** the block's detail and its feed items carry `requestHoldOf` = Bruno's request id, so neither shell offers those scopes on it
+- **When** instead Ana deletes the hold whole, or retitles it, or the same gestures land on a block no open request points at
+- **Then** they are allowed exactly as before (rules 3 and 18; `calendar.blocks` rules 8–9)
 
