@@ -37,14 +37,15 @@ def _headers(app, user_id):
 
 
 def _seed(app):
-    """One coach, one student on the roster, Forehand 1-10 and Volley 0-10."""
+    """One coach, one student on the roster, Forehand 1-5 and Volley 1-5 (PAD-403:
+    every legacy category is converted to 1-5 stars)."""
     from padel_app.models import Association_CoachPlayer, EvaluationCategory
 
     ids = _seed_coach_and_student(app)
     with app.app_context():
         rel = Association_CoachPlayer(coach_id=ids["coach_id"], player_id=ids["student_id"])
-        forehand = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=10)
-        volley = EvaluationCategory(coach_id=ids["coach_id"], name="Volley", scale_min=0, scale_max=10)
+        forehand = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=5)
+        volley = EvaluationCategory(coach_id=ids["coach_id"], name="Volley", scale_min=1, scale_max=5)
         db.session.add_all([rel, forehand, volley])
         db.session.commit()
         ids.update(rel_id=rel.id, forehand_id=forehand.id, volley_id=volley.id)
@@ -114,8 +115,8 @@ def test_1_evaluation_categories_lists_exactly_id_name_scalemin_scalemax(app, cl
     body = res.get_json()
     assert isinstance(body, list)
     assert sorted(body, key=lambda c: c["name"]) == [
-        {"id": ids["forehand_id"], "name": "Forehand", "scaleMin": 1, "scaleMax": 10},
-        {"id": ids["volley_id"], "name": "Volley", "scaleMin": 0, "scaleMax": 10},
+        {"id": ids["forehand_id"], "name": "Forehand", "scaleMin": 1, "scaleMax": 5},
+        {"id": ids["volley_id"], "name": "Volley", "scaleMin": 1, "scaleMax": 5},
     ]
     assert all(type(c["id"]) is int for c in body), "the id is a JSON number, whatever the TS type says"
 
@@ -153,7 +154,7 @@ def test_2_player_profile_shape_is_exact(app, client):
     assert sorted(evaluation) == ["categoryId", "categoryName", "evaluatedAt", "scaleMax", "scaleMin", "score"]
     assert evaluation == {
         "categoryId": ids["forehand_id"], "categoryName": "Forehand", "score": 4.0,
-        "scaleMin": 1, "scaleMax": 10, "evaluatedAt": "2026-05-16T10:30:00",
+        "scaleMin": 1, "scaleMax": 5, "evaluatedAt": "2026-05-16T10:30:00",
     }
     assert [sorted(note) for note in body["strengths"] + body["weaknesses"]] == [["id", "text"], ["id", "text"]]
     assert [note["text"] for note in body["strengths"]] == ["Fast feet"]
@@ -163,20 +164,20 @@ def test_2_player_profile_shape_is_exact(app, client):
 
 def test_2_player_profile_serves_only_the_latest_row_per_category(app, client):
     ids = _seed(app)
-    _history(app, ids, "forehand_id", [(90, 3), (60, 5), (30, 7)])
+    _history(app, ids, "forehand_id", [(90, 2), (60, 3), (30, 5)])
     _history(app, ids, "volley_id", [(45, 2)])
 
     evaluations = {e["categoryName"]: e for e in _profile(app, client, ids)["evaluations"]}
 
     assert sorted(evaluations) == ["Forehand", "Volley"]
-    assert (evaluations["Forehand"]["score"], evaluations["Forehand"]["evaluatedAt"]) == (7.0, "2026-05-16T10:30:00")
+    assert (evaluations["Forehand"]["score"], evaluations["Forehand"]["evaluatedAt"]) == (5.0, "2026-05-16T10:30:00")
     assert evaluations["Volley"]["score"] == 2.0
 
 
 def test_2_player_profile_omits_a_category_that_was_never_scored(app, client):
     """What makes the old builds' midpoint gap possible (section 3)."""
     ids = _seed(app)
-    _history(app, ids, "forehand_id", [(10, 6)])
+    _history(app, ids, "forehand_id", [(10, 3)])
 
     assert [e["categoryName"] for e in _profile(app, client, ids)["evaluations"]] == ["Forehand"]
 
@@ -190,14 +191,14 @@ def test_2_evaluated_at_is_a_naive_iso_timestamp_for_every_kind_of_row(app, clie
 
     ids = _seed(app)
     with app.app_context():
-        lob = EvaluationCategory(coach_id=ids["coach_id"], name="Lob", scale_min=1, scale_max=10)
+        lob = EvaluationCategory(coach_id=ids["coach_id"], name="Lob", scale_min=1, scale_max=5)
         db.session.add(lob)
         db.session.commit()
         ids["lob_id"] = lob.id
     assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 5}]).status_code == 200
     with app.app_context():
         result = bulk_create_evaluation_entries(
-            [{"player_name": "Test Student", "date": "2026-03-01", "Volley": 8}], db.session.get(Coach, ids["coach_id"]))
+            [{"player_name": "Test Student", "date": "2026-03-01", "Volley": 4}], db.session.get(Coach, ids["coach_id"]))
         assert result["imported"] == 1, result
         backfilled = EvaluationEntry(coach_player_id=ids["rel_id"], category_id=ids["lob_id"], score=2.0)
         db.session.add(backfilled)
@@ -282,21 +283,21 @@ def test_3_an_old_build_body_is_harmless_for_scored_categories_and_writes_the_mi
     `evaluations.entries` rule 7: the first is skipped server-side; the second is
     the known gap (PAD-351 removes it in the next build). Asserted, not fixed."""
     ids = _seed(app)
-    _history(app, ids, "forehand_id", [(30, 7)])
-    volley_midpoint = 5  # Math.round((0 + 10) / 2)
+    _history(app, ids, "forehand_id", [(30, 4)])
+    volley_midpoint = 3  # Math.round((1 + 5) / 2)
 
     res = _save(app, client, ids, [
-        {"categoryId": ids["forehand_id"], "value": 7},
+        {"categoryId": ids["forehand_id"], "value": 4},
         {"categoryId": ids["volley_id"], "value": volley_midpoint},
     ])
 
     assert res.status_code == 200
     assert len(_rows(app, ids, "forehand_id")) == 1, "re-posting the latest score writes nothing"
-    assert [score for score, _ in _rows(app, ids, "volley_id")] == [5.0], "the known gap: a midpoint nobody chose"
+    assert [score for score, _ in _rows(app, ids, "volley_id")] == [3.0], "the known gap: a midpoint nobody chose"
 
-    # The same body again: now Volley holds 5, so the old build is harmless from here on.
+    # The same body again: now Volley holds 3, so the old build is harmless from here on.
     assert _save(app, client, ids, [
-        {"categoryId": ids["forehand_id"], "value": 7},
+        {"categoryId": ids["forehand_id"], "value": 4},
         {"categoryId": ids["volley_id"], "value": volley_midpoint},
     ]).status_code == 200
     assert len(_rows(app, ids, "volley_id")) == 1
@@ -306,7 +307,7 @@ def test_3_the_server_enforces_no_score_range(app, client):
     """DEFECT PINNED, NOT FIXED (B-126). `evaluations.entries` rule 4 says a score
     falls within the category's scale; only the client controls enforce it. Any
     number is written, and a non-integer too."""
-    ids = _seed(app)  # Volley is 0-10
+    ids = _seed(app)  # Volley is 1-5
 
     for value in (99, -3, 2.5):
         assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": value}]).status_code == 200
@@ -323,7 +324,7 @@ def test_3_a_numeric_score_of_zero_cannot_be_saved(app, client):
     client posts a number, so a coach who scores 0 there gets a failed save."""
     from sqlalchemy.exc import IntegrityError
 
-    ids = _seed(app)  # Volley is 0-10
+    ids = _seed(app)  # Volley is 1-5
 
     with pytest.raises(IntegrityError):  # the test client re-raises what production answers as a 500
         _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 0}])
@@ -372,6 +373,8 @@ def test_3_add_evaluation_entry_is_coach_only_and_roster_scoped(app, client):
 # ── 4. POST /api/app/add_evaluation_categories ───────────────────────────────
 
 def test_4_add_evaluation_categories_upserts_by_name_and_echoes_the_request(app, client):
+    """evaluations.legacy-conversion rule 5: the legacy endpoint always stores and
+    echoes scale_min=1, scale_max=5, whatever the request body says."""
     from padel_app.models import EvaluationCategory
 
     ids = _seed(app)
@@ -383,13 +386,16 @@ def test_4_add_evaluation_categories_upserts_by_name_and_echoes_the_request(app,
     res = client.post("/api/app/add_evaluation_categories", json=request_body, headers=_coach_headers(app, ids))
 
     assert res.status_code == 200
-    assert res.get_json() == request_body, "the echo carries no ids: 1.1.0 refetches the list"
+    assert res.get_json() == [
+        {"name": "Forehand", "scaleMin": 1, "scaleMax": 5},
+        {"name": "Smash", "scaleMin": 1, "scaleMax": 5},
+    ], "the echo is always 1-5, whatever the body says; it still carries no ids: 1.1.0 refetches the list"
     with app.app_context():
         rows = {c.name: c for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"]).all()}
         assert sorted(rows) == ["Forehand", "Smash", "Volley"], "a category left out of the body is not deleted"
         assert rows["Forehand"].id == ids["forehand_id"]
-        assert (rows["Forehand"].scale_min, rows["Forehand"].scale_max) == (2, 5)
-        assert (rows["Smash"].scale_min, rows["Smash"].scale_max) == (1, 7)
+        assert (rows["Forehand"].scale_min, rows["Forehand"].scale_max) == (1, 5)
+        assert (rows["Smash"].scale_min, rows["Smash"].scale_max) == (1, 5)
 
 
 def test_4_a_scale_minimum_of_zero_is_dropped_and_the_echo_hides_it(app, client):
@@ -403,17 +409,22 @@ def test_4_a_scale_minimum_of_zero_is_dropped_and_the_echo_hides_it(app, client)
 
     ids = _seed(app)
     request_body = [
-        {"name": "Forehand", "scaleMin": 0, "scaleMax": 5},   # exists at 1-10
+        {"name": "Forehand", "scaleMin": 0, "scaleMax": 5},   # exists at 1-5
         {"name": "Smash", "scaleMin": 0, "scaleMax": 10},     # new, the editors' default
     ]
 
     res = client.post("/api/app/add_evaluation_categories", json=request_body, headers=_coach_headers(app, ids))
 
-    assert res.get_json() == request_body, "the response says 0"
+    # PAD-403 (evaluations.legacy-conversion rule 5): the upsert normalises every
+    # legacy category to 1-5, so the echo no longer shows the editors' 0 either.
+    assert res.get_json() == [
+        {"name": "Forehand", "scaleMin": 1, "scaleMax": 5},
+        {"name": "Smash", "scaleMin": 1, "scaleMax": 5},
+    ], "the response says 1-5"
     with app.app_context():
         rows = {c.name: c for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"]).all()}
-        assert (rows["Forehand"].scale_min, rows["Forehand"].scale_max) == (1, 5), "min ignored, max applied"
-        assert (rows["Smash"].scale_min, rows["Smash"].scale_max) == (1, 10), "stored 1-10"
+        assert (rows["Forehand"].scale_min, rows["Forehand"].scale_max) == (1, 5), "stored 1-5"
+        assert (rows["Smash"].scale_min, rows["Smash"].scale_max) == (1, 5), "stored 1-5"
     listed = {c["name"]: c for c in client.get("/api/app/evaluation_categories", headers=_coach_headers(app, ids)).get_json()}
     assert listed["Smash"]["scaleMin"] == 1
 
@@ -425,7 +436,7 @@ def test_4_renaming_a_category_creates_a_new_one_and_strands_the_old_scores(app,
     from padel_app.models import EvaluationCategory
 
     ids = _seed(app)
-    _history(app, ids, "forehand_id", [(30, 7)])
+    _history(app, ids, "forehand_id", [(30, 4)])
 
     # What the settings editor posts after the coach renames "Forehand": the whole list, by name.
     res = client.post("/api/app/add_evaluation_categories", headers=_coach_headers(app, ids), json=[
@@ -437,7 +448,7 @@ def test_4_renaming_a_category_creates_a_new_one_and_strands_the_old_scores(app,
     with app.app_context():
         names = sorted(c.name for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"]).all())
     assert names == ["Forehand", "Forehand drive", "Volley"], "the rename is an insert; the old name survives"
-    assert [score for score, _ in _rows(app, ids, "forehand_id")] == [7.0], "the scores stay under the old name"
+    assert [score for score, _ in _rows(app, ids, "forehand_id")] == [4.0], "the scores stay under the old name"
     assert [e["categoryName"] for e in _profile(app, client, ids)["evaluations"]] == ["Forehand"]
 
 
@@ -459,7 +470,7 @@ def test_5_delete_with_only_an_id_and_no_impact_call_deletes_cascades_and_audits
 
     ids = _seed(app)
     _history(app, ids, "forehand_id", [(60, 3), (30, 5)])
-    _history(app, ids, "volley_id", [(30, 8)])
+    _history(app, ids, "volley_id", [(30, 4)])
 
     res = client.post("/api/app/delete/evaluation_category", json={"id": ids["forehand_id"]},
                       headers=_coach_headers(app, ids))
@@ -526,8 +537,8 @@ def test_6_an_imported_category_keeps_a_zero_minimum_only_when_it_arrives_as_a_s
         "Lob": (0, 10),        # the string "0" is stored and listed as 0
         "Smash": (1, 10),      # the number 0 is dropped
         "Serve": (1, 5),       # no minimum sent: the model default
-        "Forehand": (1, 10),   # an existing category's scale is never touched by the import
-        "Volley": (0, 10),     # written directly by the fixture
+        "Forehand": (1, 5),    # an existing category's scale is never touched by the import
+        "Volley": (1, 5),      # written directly by the fixture
     }
 
 
@@ -535,26 +546,26 @@ def test_6_import_wide_rows_one_entry_per_category_column(app):
     ids = _seed(app)
 
     result = _import(app, ids, [
-        {"player_name": "Test Student", "date": "2026-02-01", "Forehand": 6, "Volley": "7.5"},
-        {"player_name": "Test Student", "date": "2026-03-01", "Forehand": 8, "Volley": ""},
+        {"player_name": "Test Student", "date": "2026-02-01", "Forehand": 3, "Volley": "3.5"},
+        {"player_name": "Test Student", "date": "2026-03-01", "Forehand": 4, "Volley": ""},
     ])
 
     assert (result["imported"], result["errors"]) == (2, []), "imported counts ROWS that wrote something"
     assert len(result["created_ids"]["evaluation_entries"]) == 3
-    assert _rows(app, ids, "forehand_id") == [(6.0, datetime(2026, 2, 1)), (8.0, datetime(2026, 3, 1))]
-    assert _rows(app, ids, "volley_id") == [(7.5, datetime(2026, 2, 1))], "a blank cell is skipped; a string number is a float"
+    assert _rows(app, ids, "forehand_id") == [(3.0, datetime(2026, 2, 1)), (4.0, datetime(2026, 3, 1))]
+    assert _rows(app, ids, "volley_id") == [(3.5, datetime(2026, 2, 1))], "a blank cell is skipped; a string number is a float"
 
 
 def test_6_import_normalized_rows_one_entry_per_row(app):
     ids = _seed(app)
 
     result = _import(app, ids, [
-        {"player_name": "Test Student", "date": "2026-02-01", "category_name": "Forehand", "score": 6},
+        {"player_name": "Test Student", "date": "2026-02-01", "category_name": "Forehand", "score": 5},
         {"player_name": "Test Student", "date": "2026-02-01", "category_name": "Volley", "score": 4},
     ])
 
     assert (result["imported"], result["errors"]) == (2, [])
-    assert _rows(app, ids, "forehand_id") == [(6.0, datetime(2026, 2, 1))]
+    assert _rows(app, ids, "forehand_id") == [(5.0, datetime(2026, 2, 1))]
     assert _rows(app, ids, "volley_id") == [(4.0, datetime(2026, 2, 1))]
 
 
@@ -583,7 +594,7 @@ def test_6_the_import_revert_deletes_what_the_import_created_and_nothing_else(ap
 
     ids = _seed(app)
     _history(app, ids, "forehand_id", [(30, 5)])  # hand-entered before the import
-    result = _import(app, ids, [{"player_name": "Test Student", "date": "2026-02-01", "Forehand": 6, "Volley": 7}])
+    result = _import(app, ids, [{"player_name": "Test Student", "date": "2026-02-01", "Forehand": 3, "Volley": 4}])
     with app.app_context():
         # What the import route records (frontend_api: BulkImport(record_ids=json.dumps(all_created_ids))).
         record = BulkImport(coach_id=ids["coach_id"], filename="scores.xlsx", status="active",
@@ -603,14 +614,14 @@ def test_6_the_import_revert_deletes_what_the_import_created_and_nothing_else(ap
 def test_the_history_helper_hangs_every_date_off_the_anchor_it_is_given(app):
     ids = _seed(app)
     with app.app_context():
-        created = seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(7, 7), (120, 3), (30, 6)], anchor=ANCHOR)
+        created = seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(7, 5), (120, 2), (30, 4)], anchor=ANCHOR)
         db.session.commit()
         with pytest.raises(TypeError):
             seed_evaluation_history(ids["rel_id"], ids["forehand_id"], [(1, 1)], anchor="2026-06-15")
 
     assert len(created) == 3
     assert _rows(app, ids, "forehand_id") == [
-        (3.0, datetime(2026, 2, 15, 10, 30)),   # oldest first, whatever order the points came in
-        (6.0, datetime(2026, 5, 16, 10, 30)),
-        (7.0, datetime(2026, 6, 8, 10, 30)),
+        (2.0, datetime(2026, 2, 15, 10, 30)),   # oldest first, whatever order the points came in
+        (4.0, datetime(2026, 5, 16, 10, 30)),
+        (5.0, datetime(2026, 6, 8, 10, 30)),
     ]
