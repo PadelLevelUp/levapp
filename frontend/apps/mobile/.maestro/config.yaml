@@ -26,6 +26,8 @@ executionOrder:
     - 05-class-deletion
     - 06-add-player
     - 07-player-notes
+    # 82 (PAD-388) writes a note on E2E Student and deletes it; self-contained.
+    - 82-clear-player-notes
     # 57 (PAD-337 on the record form, PAD-374) resets E2E Student's evaluations through the
     # API before it starts, DOES write (one "+" is one saved input) and clears what it wrote,
     # asserting both on the server; it sits early, beside the other player-detail flow.

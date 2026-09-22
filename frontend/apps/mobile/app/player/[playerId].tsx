@@ -180,16 +180,22 @@ export default function PlayerDetailScreen() {
         updates: {
           name: values.name || undefined,
           userId: player.userId,
-          email: values.email || undefined,
-          phone: values.phone || undefined,
+          // PAD-388: an emptied box is sent as null so the server CLEARS it (an
+          // omitted key still means keep). Level and side have no clear control.
+          // An account holder's e-mail is locked in the form and never sent (the server refuses it).
+          email: player.validated ? undefined : values.email || null,
+          phone: values.phone || null,
           levelId: values.levelId,
           side: values.side,
-          notes: values.notes,
+          notes: values.notes ?? null,
         },
       });
       setIsEditing(false);
-    } catch {
-      setError(t("players.saveChangesFailedRetry"));
+    } catch (err) {
+      // PAD-388: a 400 names the fields the server refused (today only an empty name).
+      setError(
+        playersApi.editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailedRetry"),
+      );
     }
   };
 
@@ -435,6 +441,7 @@ export default function PlayerDetailScreen() {
               <PlayerForm
                 levels={levels ?? []}
                 coachId={user?.coachId}
+                lockEmail={player.validated}
                 initialValues={{
                   name: player.name ?? "",
                   email: player.email ?? "",

@@ -91,15 +91,16 @@ export function useCreateIncompletePlayer() {
   });
 }
 
-/** Updates for POST /app/edit_player — mirrors the web PlayerDetailPage. */
+/** Updates for POST /app/edit_player — mirrors the web PlayerDetailPage.
+ *  PAD-388: `null` clears a field on the server; an omitted key keeps it. */
 export interface EditPlayerUpdates {
   name?: string;
   userId?: string;
-  email?: string;
-  phone?: string;
+  email?: string | null;
+  phone?: string | null;
   levelId?: string;
   side?: string;
-  notes?: string;
+  notes?: string | null;
 }
 
 export function useEditPlayer() {

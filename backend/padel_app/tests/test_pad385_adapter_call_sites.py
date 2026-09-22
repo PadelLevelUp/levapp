@@ -38,6 +38,8 @@ PRESENT: set = {
     # PAD-387 (step 2): POST /edit_class
     ("services/lesson_service.py", "edit_lesson_helper"),
     ("services/lesson_service.py", "edit_lesson_instance_helper"),
+    # PAD-388 (step 3): POST /edit_player — the user form and the relation form
+    ("services/player_service.py", "edit_player_helper"),
 }
 
 #: legacy-mode calls per file; the numbers only ever go down.
@@ -48,7 +50,7 @@ LEGACY_MAX = {
     "services/import_service.py": 1,
     "services/lesson_service.py": 4,
     "services/messaging_service.py": 2,
-    "services/player_service.py": 6,
+    "services/player_service.py": 4,
     "services/user_service.py": 3,
 }
 
