@@ -94,11 +94,6 @@ function CompetencyManagerBody({ enabled }: { enabled: boolean }) {
   const sections = managerSections(competencies.data);
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-      {activeCount(competencies.data) === 0 ? (
-        <p data-testid="competency-none-active" role="status" className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-          {t("evaluations.manager.noneActive")}
-        </p>
-      ) : null}
       {sections.map((section) => (
         <section key={section.group} aria-labelledby={`competency-group-${section.group}`}>
           <h3
@@ -120,6 +115,13 @@ function CompetencyManagerBody({ enabled }: { enabled: boolean }) {
           </ul>
         </section>
       ))}
+      {/* Below the rows, never above them: appearing above would move every switch under
+          the finger the moment the last one is turned off (Session-B's review of #361). */}
+      {activeCount(competencies.data) === 0 ? (
+        <p data-testid="competency-none-active" role="status" className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          {t("evaluations.manager.noneActive")}
+        </p>
+      ) : null}
       <AddCustomCompetency />
       <DeleteCompetencyDialog competency={deleting} onClose={() => setDeleting(null)} />
     </div>

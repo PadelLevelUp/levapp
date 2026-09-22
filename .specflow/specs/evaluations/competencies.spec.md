@@ -1,6 +1,6 @@
 ---
 id: evaluations.competencies
-status: implemented
+status: implementing
 depends_on: [evaluations.categories, evaluations.legacy-client-contract]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []

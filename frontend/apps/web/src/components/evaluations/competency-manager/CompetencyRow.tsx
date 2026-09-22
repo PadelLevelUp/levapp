@@ -45,7 +45,7 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
   const kind = row.kind === "existing" ? row.rowKind : "available";
   const label = competency
     ? competencyLabel(t, competency)
-    : competencyLabel(t, { key: row.kind === "available" ? row.entry.key : null, name: "" });
+    : competencyLabel(t, { key: row.kind === "available" ? row.entry.key : null, name: row.kind === "available" ? row.entry.key : "" });
   const scale = competency ? legacyScaleLabel(competency) : null;
   const busy = wanted !== null || update.isPending || switchOn.isPending;
   const checked = wanted ?? competency?.isActive ?? false;

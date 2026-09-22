@@ -104,7 +104,7 @@ test("US-373a: deleting a category the coach already had shows what it holds and
   await expect(page.getByTestId(`competency-scale-${rowId}`)).toContainText("1–10");
 
   await page.getByTestId(`competency-delete-${rowId}`).click();
-  const dialog = page.getByRole("alertdialog");
+  const dialog = page.getByTestId("competency-delete-dialog"); // nested Radix dialogs: by test id, never by role
   await expect(dialog.getByTestId("competency-delete-impact")).toContainText(/\b1\b\D+\b1\b/, { timeout: 10_000 });
   const confirm = dialog.getByTestId("competency-delete-confirm");
   const typed = dialog.getByTestId("competency-delete-name");
@@ -188,7 +188,7 @@ test("US-373c: a competency created in the manager asks before it is deleted, wi
   created.push(id);
 
   await page.getByTestId(`competency-delete-id-${id}`).click();
-  const dialog = page.getByRole("alertdialog");
+  const dialog = page.getByTestId("competency-delete-dialog"); // nested Radix dialogs: by test id, never by role
   // No score yet: the impact is shown (not the failure state), and the name is still asked for.
   await expect(dialog.getByTestId("competency-delete-impact")).toBeVisible({ timeout: 10_000 });
   await expect(dialog.getByTestId("competency-delete-confirm")).toBeDisabled();

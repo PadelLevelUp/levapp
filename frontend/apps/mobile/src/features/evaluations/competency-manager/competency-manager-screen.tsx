@@ -38,7 +38,9 @@ export function CompetencyManagerScreen() {
   const [deleting, setDeleting] = React.useState<EvaluationCompetency | null>(null);
 
   React.useEffect(() => {
-    if (user && !isCoach) router.back(); // coach-only (rule 11)
+    // coach-only (rule 11). `replace`, not `back`: a student cold-launched on the deep
+    // link has no history to pop and would sit on a blank screen (Session-B, #361).
+    if (user && !isCoach) router.replace("/settings");
   }, [user, isCoach, router]);
 
   if (!isCoach) return null;
@@ -77,11 +79,6 @@ export function CompetencyManagerScreen() {
             </View>
           ) : (
             <>
-              {activeCount(competencies.data) === 0 ? (
-                <Text testID="competency-none-active" className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  {t("evaluations.manager.noneActive")}
-                </Text>
-              ) : null}
               {sections.map((section) => (
                 <View key={section.group} className="gap-1">
                   <Text testID={`competency-group-${section.group}`} role="heading" aria-level={2}
@@ -100,6 +97,13 @@ export function CompetencyManagerScreen() {
                   ))}
                 </View>
               ))}
+              {/* Below the rows, never above them (Session-B, #361): appearing above would move
+                  every switch under the finger the moment the last one is turned off. */}
+              {activeCount(competencies.data) === 0 ? (
+                <Text testID="competency-none-active" className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  {t("evaluations.manager.noneActive")}
+                </Text>
+              ) : null}
               <AddCustomCompetency />
             </>
           )}

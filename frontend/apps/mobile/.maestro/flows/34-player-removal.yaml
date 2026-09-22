@@ -199,6 +199,7 @@ appId: com.padellevelup.app
       id: "competency-add-name"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
     id: "competency-add-name"
 - inputText: "Maestro Cat"

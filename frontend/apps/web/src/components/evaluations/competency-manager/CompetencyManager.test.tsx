@@ -187,6 +187,81 @@ describe("switching on and off (rules 6, 7, 12)", () => {
   });
 });
 
+describe("nothing moves under the finger (Q31's layout half — Session-B's review of #361)", () => {
+  it("switching the last active row off shows the notice BELOW the rows: the switches keep their positions", async () => {
+    const only = { ...FOREHAND, isActive: true };
+    api.updateEvaluationCompetency.mockResolvedValue({ ...only, isActive: false });
+    open({ competencies: [only], catalogue: [{ key: "volley", group: "technique" }] });
+    const legacyRow = await row("id-7");
+    // what the server lists after the switch-off (open() had set the GET mock to the "before" list)
+    api.getEvaluationCompetencies.mockResolvedValue({ competencies: [{ ...only, isActive: false }], catalogue: [{ key: "volley", group: "technique" }] });
+    const before = screen.getAllByTestId(/^competency-row-/).map((el) => el.getAttribute("data-testid"));
+
+    fireEvent.click(within(legacyRow).getByTestId("competency-toggle-id-7"));
+
+    const notice = await screen.findByTestId("competency-none-active");
+    const rows = screen.getAllByTestId(/^competency-row-/);
+    expect(rows.map((el) => el.getAttribute("data-testid"))).toEqual(before);
+    // every row precedes the notice in the document: it appeared under them, not above
+    for (const el of rows) {
+      expect(el.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it("two rows toggled in quick succession both end where the server put them (no snap-back)", async () => {
+    const first = deferred<EvaluationCompetency>();
+    const second = deferred<EvaluationCompetency>();
+    api.updateEvaluationCompetency
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    open();
+    const saque = within(await row("id-13")).getByTestId("competency-toggle-id-13");
+    const bandeja = within(await row("key-bandeja")).getByTestId("competency-toggle-key-bandeja");
+    expect(saque).toBeChecked();
+    expect(bandeja).toBeChecked();
+
+    fireEvent.click(saque);
+    fireEvent.click(bandeja);
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledTimes(2));
+    // the re-list after both would answer with both off; the first answer must not wait for it
+    api.getEvaluationCompetencies.mockResolvedValue({
+      ...ANA, competencies: [{ ...BANDEJA, isActive: false }, FOREHAND, { ...SAQUE, isActive: false }],
+    });
+    await act(async () => { first.resolve({ ...SAQUE, isActive: false }); });
+    await waitFor(() => expect(saque).not.toBeDisabled());
+    expect(saque).not.toBeChecked(); // was: snapped back to checked until the second GET landed
+    await act(async () => { second.resolve({ ...BANDEJA, isActive: false }); });
+    await waitFor(() => expect(bandeja).not.toBeDisabled());
+    expect(bandeja).not.toBeChecked();
+    expect(saque).not.toBeChecked();
+    expect(api.updateEvaluationCompetency).toHaveBeenNthCalledWith(1, 13, { isActive: false });
+    expect(api.updateEvaluationCompetency).toHaveBeenNthCalledWith(2, 12, { isActive: false });
+  });
+
+  it("a rename, then a delete: the name to type is the NEW one, whatever the impact cached", async () => {
+    api.updateEvaluationCompetency.mockResolvedValue({ ...SAQUE, name: "Serviço cruzado" });
+    api.getEvaluationCompetencyImpact.mockResolvedValue({ name: "Saque cruzado", scores: 5, players: 2 }); // a stale copy
+    api.deleteEvaluationCompetency.mockResolvedValue(undefined);
+    open();
+    const custom = await row("id-13");
+    fireEvent.click(within(custom).getByTestId("competency-rename-id-13"));
+    fireEvent.change(within(custom).getByTestId("competency-rename-input-id-13"), { target: { value: "Serviço cruzado" } });
+    // what the server lists after the rename — the re-list must not put the old name back
+    api.getEvaluationCompetencies.mockResolvedValue({ ...ANA, competencies: [BANDEJA, FOREHAND, { ...SAQUE, name: "Serviço cruzado" }] });
+    fireEvent.click(within(custom).getByTestId("competency-rename-save-id-13"));
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(13, { name: "Serviço cruzado" }));
+    await waitFor(() => expect(within(custom).queryByTestId("competency-rename-input-id-13")).toBeNull());
+
+    fireEvent.click(within(custom).getByTestId("competency-delete-id-13"));
+    await screen.findByTestId("competency-delete-impact");
+    const confirm = screen.getByTestId("competency-delete-confirm");
+    fireEvent.change(screen.getByTestId("competency-delete-name"), { target: { value: "Saque cruzado" } });
+    expect(confirm).toBeDisabled(); // the OLD name no longer opens the door
+    fireEvent.change(screen.getByTestId("competency-delete-name"), { target: { value: "Serviço cruzado" } });
+    expect(confirm).not.toBeDisabled();
+  });
+});
+
 describe("a custom competency (rules 6, 8)", () => {
   it("is added by name; a duplicate is refused inline and keeps what was typed", async () => {
     api.createCustomCompetency.mockRejectedValue({ response: { status: 409, data: { error: "duplicate_name" } } });

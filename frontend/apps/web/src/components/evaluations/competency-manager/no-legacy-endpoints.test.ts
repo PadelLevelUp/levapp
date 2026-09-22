@@ -8,11 +8,20 @@ import { describe, expect, it } from "vitest";
 // renamed category (B-125) and bypass the catalogue rules.
 
 const FRONTEND = resolve(__dirname, "../../../../../..");
+// Every shell source tree (Session-B's review of #361: the manager's own folders were
+// not enough — a NEW Settings section importing the legacy client functions would have
+// passed). The legacy client module itself and the frozen-contract tests are the only
+// places allowed to name the legacy endpoints.
 const FOLDERS = [
-  "apps/web/src/components/evaluations/competency-manager",
-  "apps/mobile/src/features/evaluations/competency-manager",
+  "apps/web/src/components",
+  "apps/web/src/pages",
+  "apps/web/src/hooks",
+  "apps/mobile/src/features",
+  "apps/mobile/app",
+  "packages/hooks/src",
+  "packages/config/src",
 ];
-const FILES = ["apps/mobile/app/competencies.tsx", "packages/hooks/src/evaluations.ts"];
+const FILES: string[] = [];
 
 const LEGACY = [
   /\/app\/evaluation_categories\b/,
@@ -24,11 +33,15 @@ const LEGACY = [
   /\b(getEvaluationCategories|addEvaluationCategories|deleteEvaluationCategory|getEvaluationCategoryImpact)\b/,
 ];
 
+function walk(folder: string): string[] {
+  return readdirSync(join(FRONTEND, folder), { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory()) return entry.name === "node_modules" ? [] : walk(join(folder, entry.name));
+    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [join(folder, entry.name)] : [];
+  });
+}
+
 function sources(): string[] {
-  const inFolders = FOLDERS.filter((folder) => existsSync(join(FRONTEND, folder))).flatMap((folder) =>
-    readdirSync(join(FRONTEND, folder))
-      .filter((name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name))
-      .map((name) => join(folder, name)));
+  const inFolders = FOLDERS.filter((folder) => existsSync(join(FRONTEND, folder))).flatMap(walk);
   return [...inFolders, ...FILES.filter((file) => existsSync(join(FRONTEND, file)))];
 }
 

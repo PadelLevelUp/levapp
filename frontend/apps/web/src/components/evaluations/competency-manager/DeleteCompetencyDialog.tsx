@@ -39,7 +39,9 @@ export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetency
     setFailed(false);
   }, [competency?.id]);
 
-  const nameMatches = impact.data !== undefined && typedName.trim() === impact.data.name.trim();
+  // The name to type is the ROW's (what the coach sees in the title); the impact carries the
+  // counts and must be read before a delete can be confirmed (rule 9). Session-B, #361.
+  const nameMatches = impact.data !== undefined && competency !== null && typedName.trim() === competency.name.trim();
 
   const confirm = async () => {
     if (!competency || !nameMatches || remove.isPending) return;
@@ -89,7 +91,7 @@ export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetency
           ) : null}
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel data-testid="competency-delete-cancel">{t("evaluations.manager.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel data-testid="competency-delete-cancel" disabled={remove.isPending}>{t("evaluations.manager.cancel")}</AlertDialogCancel>
           <Button
             variant="destructive"
             data-testid="competency-delete-confirm"

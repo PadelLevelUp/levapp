@@ -56,7 +56,9 @@ appId: com.padellevelup.app
     centerElement: true
 - tapOn:
     id: "competency-toggle-key-vibora"
-- evalScript: "${output.vibora = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.key === 'vibora' })}"
+# The switch's request is in flight when the tap returns: read until the server holds it
+# (bounded — every other server read in this flow polls the same way).
+- evalScript: "${output.vibora = (function () { var found = []; for (var i = 0; i < 40 && !(found.length == 1 && found[0].isActive); i++) { found = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.key === 'vibora' }); } return found; })()}"
 - assertTrue: "${output.vibora.length == 1 && output.vibora[0].isActive == true}"
 
 # ── 3. Add one of the coach's own; the same name again is refused inline ──
@@ -65,6 +67,7 @@ appId: com.padellevelup.app
       id: "competency-add-name"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
     id: "competency-add-name"
 - inputText: "Maestro Own"
@@ -86,6 +89,7 @@ appId: com.padellevelup.app
       id: "competency-add-name"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
     id: "competency-add-name"
 - inputText: "maestro own"
@@ -121,6 +125,12 @@ appId: com.padellevelup.app
 - assertTrue: "${output.renamed.length == 1 && output.renamed[0].name == 'Maestro Renamed'}"
 
 # ── 5. "Concluído" goes back to Settings; nothing was pending ──
+- scrollUntilVisible:
+    element:
+      id: "competency-manager-done"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 - tapOn:
     id: "competency-manager-done"
 - extendedWaitUntil:
