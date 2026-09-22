@@ -3,13 +3,14 @@ id: B-157
 title: "Leaving a Settings section silently dropped its unsaved edits (web and iOS)"
 type: missing-criterion
 severity: low
-status: open
+status: resolved
 affects:
   - settings.unsaved-edits
   - frontend/apps/web/src/pages/SettingsPage.tsx
   - frontend/apps/mobile/app/settings.tsx
 proposed_fix: "Each explicit-save section reports whether it differs from its last loaded/saved value; the page asks 'Descartar alterações?' before switching tab (web) or leaving via the back row (iOS); web adds beforeunload while any section is unsaved."
 opened: 2026-09-21T21:13:53Z
+resolved: 2026-09-22T23:18:36Z
 ---
 
 # B-157 — an unsaved Settings edit vanished when the user moved to another section

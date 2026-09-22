@@ -1,6 +1,6 @@
 ---
 id: settings.unsaved-edits
-status: implementing
+status: implemented
 depends_on: [settings.role-scope, settings.profile, settings.coach-working-hours]
 implements: ../../specs-business/settings/coach-configures-preferences-and-access.business.md
 governed_by: []
