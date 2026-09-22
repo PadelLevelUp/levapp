@@ -26,6 +26,8 @@ executionOrder:
     - 05-class-deletion
     - 06-add-player
     - 07-player-notes
+    # 82 (PAD-388) writes a note on E2E Student and deletes it; self-contained.
+    - 82-clear-player-notes
     # 57 (PAD-337) needs E2E Student with no evaluations (fresh seed) and writes none
     # itself, so it sits early, beside the other player-detail flow.
     - 57-evaluation-untouched-categories

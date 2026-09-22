@@ -96,8 +96,17 @@ last lands._
   `""` for title/description/recurrence_end and must stop. A 0/false into a String/Enum column is a
   dialect error, not a 400 — the route validates.
 - Step 1 — PAD-386: `PUT /calendar_block`, `PUT /availability_blockers`. _Pending._
-- Step 2 — PAD-387: `POST /edit_class`. _Pending._
-- Step 3 — PAD-388: `POST /edit_player` (web and iOS send null). _Pending._
+- **Step 2 — PAD-387 (PR #368, 2026-09-22): `POST /edit_class`.** A whitelist of 8 sent keys; level, colour, court
+  clear; an empty name or a 0/null capacity is 400 before any write or fork; an emptied end date on a
+  recurring class is REFUSED (a NULL end is "recurs forever" — nullable ≠ clearable); an explicit end
+  clears `recurs_until_season_end` on purpose; `is_recurring` no longer reset by every edit; per scope.
+- **Step 3 — PAD-388 (2026-09-22): `POST /edit_player`, web and iOS in the same ticket.** Whitelist
+  `name/email/phone` (user) and `levelId/side/notes` (relation) — nothing else on the user form is
+  reachable; `""`/`null` clear notes, side, phone, e-mail and level (through `set_roster_level`, no
+  history row); an empty name is 400 `["name"]`. Both shells now send `null` for an emptied notes,
+  phone or e-mail box (they dropped the key before, so nothing could ever be cleared); an omitted
+  key still means keep, which is what App Store 1.0/1.1.0 send. Level and side have no clear
+  control in either shell — server-ready, UI not asked for.
 - Step 4 — PAD-389: `POST /activate/user`. _Pending._
 - Step 5 — PAD-390: `POST /add_class`, `POST /message`. _Pending._
 - Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).

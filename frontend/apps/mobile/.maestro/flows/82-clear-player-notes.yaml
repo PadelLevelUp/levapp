@@ -1,0 +1,96 @@
+# PAD-388 / players.edit rule 4 (B-136 step 3) — a coach can DELETE a note about a
+# player on iOS, not only overwrite it. The screen used to drop an emptied box from
+# the body, so the server never saw a clear; it now sends null. (Flow number 82 is
+# reserved to Session-C by the Coordinator, 2026-09-21.)
+# Mirrors apps/web/e2e/player-management/clear-player-notes.spec.ts.
+# By test id and by the server's own answers — never rendered copy. Self-contained:
+# it writes a note and deletes it, so its position in the suite is not load bearing.
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/coach-token.js
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+# ── 1. Write a note through the edit card ──
+- scrollUntilVisible:
+    element:
+      id: "player-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-edit"
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-notes"
+- inputText: "Maestro note to be deleted"
+# Enter blurs the field and closes the keyboard (hideKeyboard fails on iOS here).
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "player-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "player-save"
+    timeout: 15000
+- evalScript: "${output.noteAfterWrite = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
+- assertTrue: "${output.noteAfterWrite == 'Maestro note to be deleted'}"
+
+# ── 2. Empty the box and save: the server holds NO note ──
+- scrollUntilVisible:
+    element:
+      id: "player-edit"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "player-edit"
+- scrollUntilVisible:
+    element:
+      id: "player-notes"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-notes"
+- eraseText: 40
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "player-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "player-save"
+    timeout: 15000
+- evalScript: "${output.noteAfterClear = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student' })[0].notes}"
+- assertTrue: "${output.noteAfterClear == null || output.noteAfterClear == ''}"

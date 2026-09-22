@@ -130,3 +130,5 @@ export async function getPlayerRemovalImpact(playerId: string): Promise<PlayerRe
 }
 
 export const removePlayerErrorCode = playersApi.removePlayerErrorCode;
+/** PAD-388: the fields a 400 from edit_player refused, or null. */
+export const editPlayerInvalidFields = playersApi.editPlayerInvalidFields;

@@ -284,6 +284,7 @@
     "removalImpactEvaluations": "Your evaluations: {{count}}",
     "removalImpactPresences": "Attendance records: {{count}}",
     "removeRefusedHasAccount": "{{name}} has an account, so you can only disconnect from them.",
-    "removeRefusedOtherCoaches": "Another coach also has {{name}}, so you can only disconnect from them."
+    "removeRefusedOtherCoaches": "Another coach also has {{name}}, so you can only disconnect from them.",
+    "invalidFields": "Some of what you entered is not valid."
   }
 }

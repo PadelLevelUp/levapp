@@ -176,17 +176,94 @@ def test_edit_player_absent_fields_are_kept(app, client):
                    "phone": "+351900000000", "email": "student@test.com"}
 
 
-def test_edit_player_empty_notes_side_and_phone_cannot_be_cleared(app, client):
-    """DEFECT PINNED, NOT FIXED (B-136). The route diffs `updates` against `player`,
-    so an emptied field IS a change and reaches the form as `""` — where it is
-    dropped. A coach cannot delete a note about a player, only overwrite it."""
+@pytest.mark.parametrize("cleared", ["", None], ids=["empty-string", "null"])
+def test_edit_player_an_emptied_note_side_phone_or_email_is_cleared(app, client, cleared):
+    """FIXED in PAD-388 (B-136 step 3). Was: the route diffed `updates` against
+    `player`, so an emptied field WAS a change and reached the form as "" — where
+    it was dropped; a coach could not delete a note, only overwrite it. Both null
+    and "" clear (decided 2026-09-21); the shells send null (this ticket)."""
     ids = _seed(app)
     _give_the_student_a_phone(app, ids)
 
-    _edit_player(app, client, ids, {"notes": "", "side": "", "phone": ""})
+    _edit_player(app, client, ids, {"notes": cleared, "side": cleared, "phone": cleared, "email": cleared})
 
     row = _roster_row(app, ids)
-    assert (row["notes"], row["side"], row["phone"]) == ("left-handed, bad knee", "right", "+351900000000")
+    assert row == {"notes": None, "side": None, "phone": None, "email": None, "name": "Test Student"}
+
+
+def test_edit_player_a_cleared_level_is_no_level_and_writes_no_history_row(app, client):
+    """PAD-388: `levelId: null` clears through the one writer (players.level-history
+    rule 1): history records assignments, so a clear writes no row."""
+    from padel_app.models import Association_CoachPlayer, CoachLevel, PlayerLevelHistory
+
+    ids = _seed(app)
+    with app.app_context():
+        level = CoachLevel(coach_id=ids["coach_id"], label="Five", code="L5", display_order=5)
+        db.session.add(level)
+        db.session.flush()
+        rel = db.session.get(Association_CoachPlayer, ids["rel_id"])
+        rel.level_id = level.id
+        db.session.commit()
+        level_id = level.id
+        rows_before = PlayerLevelHistory.query.filter_by(coach_id=ids["coach_id"], player_id=ids["student_id"]).count()
+
+    _edit_player(app, client, ids, {"levelId": None}, levelId=str(level_id))
+
+    with app.app_context():
+        assert db.session.get(Association_CoachPlayer, ids["rel_id"]).level_id is None
+        assert PlayerLevelHistory.query.filter_by(coach_id=ids["coach_id"], player_id=ids["student_id"]).count() == rows_before
+
+
+@pytest.mark.parametrize("emptied", ["", None, "   "], ids=["empty-string", "null", "blank"])
+def test_edit_player_an_emptied_name_is_refused_and_nothing_is_written(app, client, emptied):
+    """PAD-388: users.name is NOT NULL — 400 naming the field, before any write; the
+    note sent beside it is not written either. No shell can send this (Save is
+    disabled on an empty name); it is the route's own guarantee."""
+    ids = _seed(app)
+    before = _roster_row(app, ids)
+    player = {"coachId": ids["coach_id"], "playerId": ids["student_id"], "name": "Test Student",
+              "email": "student@test.com", "phone": None, "side": "right", "notes": "left-handed, bad knee"}
+    res = client.post("/api/app/edit_player", json={"player": player, "updates": {"name": emptied, "notes": "new note"}},
+                      headers=_headers(app, ids["coach_user_id"]))
+
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "invalid_fields", "fields": ["name"]}
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_an_old_build_body_with_omitted_keys_keeps_everything(app, client):
+    """PAD-388: App Store 1.0 / 1.1.0 (and the current shells before this ticket)
+    send the FULL form with every emptied box OMITTED — an omitted key still
+    means keep, so those builds go on working unchanged."""
+    ids = _seed(app)
+    _give_the_student_a_phone(app, ids)
+    before = _roster_row(app, ids)
+
+    # what the old build sends after the coach emptied the note box: name and the untouched
+    # fields, `notes` dropped by JSON.stringify
+    _edit_player(app, client, ids, {"name": "Test Student", "userId": ids["student_user_id"],
+                                    "email": "student@test.com", "phone": "+351900000000", "side": "right"})
+
+    assert _roster_row(app, ids) == before
+
+
+def test_edit_player_nothing_on_the_user_form_beyond_name_email_phone_is_reachable(app, client):
+    """PAD-388: present mode writes every key it is given, so the whitelist is the
+    guard — `username`, `status`, `is_admin` are on the user form and must not be."""
+    from padel_app.models import User
+
+    ids = _seed(app)
+    with app.app_context():
+        user = db.session.get(User, ids["student_user_id"])
+        before = (user.username, user.status, user.is_admin, user.password)
+
+    _edit_player(app, client, ids, {"username": "hacked", "status": "disabled", "is_admin": True,
+                                    "password": "x", "notes": "still just a note"})
+
+    with app.app_context():
+        user = db.session.get(User, ids["student_user_id"])
+        assert (user.username, user.status, user.is_admin, user.password) == before
+    assert _roster_row(app, ids)["notes"] == "still just a note"
 
 
 def test_edit_player_new_values_are_written(app, client):

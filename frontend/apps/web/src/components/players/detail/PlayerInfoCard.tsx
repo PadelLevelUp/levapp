@@ -73,6 +73,7 @@ export function PlayerInfoCard({
             {isEditing ? (
               <Input
                 value={draftNotes}
+                data-testid="player-notes"
                 onChange={(e) => onDraftNotesChange(e.target.value)}
                 placeholder={t("players.notesPlaceholder")}
                 className="h-7 text-sm"

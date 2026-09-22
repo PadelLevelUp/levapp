@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, removePlayer, getPlayerRemovalImpact, removePlayerErrorCode } from "@/api/players";
+import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, editPlayerInvalidFields, removePlayer, getPlayerRemovalImpact, removePlayerErrorCode } from "@/api/players";
 import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
 import { getEvaluationCategories, postEvaluationEntry } from "@/api/evaluation";
@@ -160,11 +160,13 @@ export default function PlayerDetailPage() {
     const updates = {
       name: draftName.trim() || undefined,
       userId: player.userId,
-      email: draftEmail.trim() || undefined,
-      phone: draftPhone.trim() || undefined,
+      // PAD-388: an emptied box is sent as null so the server CLEARS it (an
+      // omitted key still means keep). Level and side have no clear control.
+      email: draftEmail.trim() || null,
+      phone: draftPhone.trim() || null,
       levelId: draftLevelId || undefined,
       side: (draftSide || undefined) as PlayerSide | undefined,
-      notes: draftNotes.trim() || undefined,
+      notes: draftNotes.trim() || null,
     };
 
     setSavingPlayer(true);
@@ -185,8 +187,11 @@ export default function PlayerDetailPage() {
 
       setPlayer(updated);
       setIsEditing(false);
-    } catch {
-      toast.error(t("players.saveChangesFailed"));
+    } catch (err) {
+      // PAD-388: a 400 names the fields the server refused (today only an empty name).
+      toast.error(
+        editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailed"),
+      );
     } finally {
       setSavingPlayer(false);
     }
