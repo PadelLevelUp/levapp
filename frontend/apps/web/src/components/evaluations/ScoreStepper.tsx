@@ -21,12 +21,21 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
   const { t } = useTranslation();
   const value = (
     <span
-      className={score === null ? "text-sm text-muted-foreground" : "text-sm font-medium tabular-nums"}
+      // ONE fixed width in every language: unrated is "–/10", never a sentence ("Sem classificação"
+      // was wider than the cell, so the first press moved "+" under the finger). The words go to
+      // assistive tech through the label.
+      className={
+        (onStep ? "inline-block w-[4.5rem] text-center " : "") +
+        (score === null ? "text-sm text-muted-foreground" : "text-sm font-medium tabular-nums")
+      }
       data-testid={`evaluation-stepper-${id}-value`}
       data-score={score ?? ""}
+      aria-label={score === null ? t("players.evaluationHistory.notRated") : undefined}
     >
       {score === null
-        ? t("players.evaluationHistory.notRated")
+        ? onStep
+          ? t("players.evaluationHistory.stepperUnrated", { max: scaleMax })
+          : t("players.evaluationHistory.notRated")
         : t("players.evaluationHistory.stepperValue", { score, max: scaleMax })}
     </span>
   );
@@ -51,7 +60,7 @@ export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onCl
         aria-label={t("players.evaluationHistory.stepDown", { name })} data-testid={`evaluation-stepper-${id}-minus`}>
         <Minus className="h-4 w-4" />
       </Button>
-      <span className="min-w-[4.5rem] text-center">{value}</span>
+      {value}
       <Button type="button" variant="outline" size="icon" className="h-11 w-11" onClick={() => onStep(1)}
         disabled={score !== null && score >= scaleMax}
         aria-label={t("players.evaluationHistory.stepUp", { name })} data-testid={`evaluation-stepper-${id}-plus`}>

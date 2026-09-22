@@ -7,3 +7,4 @@ export * from "./conversationPaging";
 export { useConversationThread } from "./useConversationThread";
 export * from "./evaluations";
 export { useHeldWhile } from "./useHeldWhile";
+export { useEvaluationFormSession } from "./useEvaluationFormSession";

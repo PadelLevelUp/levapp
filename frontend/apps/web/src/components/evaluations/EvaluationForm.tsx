@@ -1,21 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { X } from "lucide-react";
-import type {
-  EvaluationCompetency,
-  EvaluationRecord,
-  EvaluationRecordInput,
-  PutEvaluationRecordResult,
-} from "@levelup/types";
-import {
-  competencyLabel,
-  createDebouncedWriter,
-  formCompetencies,
-  isStarCompetency,
-  nextStarScore,
-  stepScore,
-} from "@levelup/config";
+import type { EvaluationCompetency, EvaluationRecord, EvaluationRecordInput, PutEvaluationRecordResult } from "@levelup/types";
+import { competencyLabel, formCompetencies, isStarCompetency, nextStarScore, stableFormRows, stepScore } from "@levelup/config";
+import { useEvaluationFormSession } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,10 +23,6 @@ interface EvaluationFormProps {
   onManageCompetencies: () => void;
 }
 
-const STEP_QUIET_MS = 400;
-const NOTE_QUIET_MS = 800;
-const NOTE_KEY = "note";
-
 /**
  * "Nova avaliação" (evaluations.history rules 4-5, evaluations.records rules 7, 10, 11).
  * Each input saves as it is made; a stepper's consecutive steps are one input and the
@@ -47,62 +32,25 @@ const NOTE_KEY = "note";
  */
 export function EvaluationForm({ competencies, record, onSave, onClose, onManageCompetencies }: EvaluationFormProps) {
   const { t } = useTranslation();
-  const rows = useMemo(() => formCompetencies(competencies, record), [competencies, record]);
+  // A row that was listed stays listed while the form is open (Q33's family): clearing a
+  // switched-off competency's rating must not make the rows below jump up under the finger.
+  const listed = useRef<EvaluationCompetency[]>([]);
+  const rows = useMemo(() => {
+    listed.current = stableFormRows(listed.current, formCompetencies(competencies, record));
+    return listed.current;
+  }, [competencies, record]);
 
-  const opened = useMemo(() => {
-    const scores: Record<string, number | null> = {};
-    for (const rating of record?.ratings ?? []) scores[String(rating.categoryId)] = rating.score;
-    return scores;
-  }, [record]);
-  const [scores, setScores] = useState<Record<string, number | null>>(opened);
-  const [note, setNote] = useState(record?.note ?? "");
-  const [failed, setFailed] = useState(false);
-
-  // What the server last accepted — the rollback target — and the record's id once it has one.
-  const accepted = useRef<{ scores: Record<string, number | null>; note: string; recordId?: number }>({
-    scores: { ...opened }, note: record?.note ?? "", recordId: record?.id,
-  });
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
-
-  const save = async (input: SaveInput, rollback: () => void, commit: () => void) => {
-    const recordId = accepted.current.recordId;
-    try {
-      const result = await onSaveRef.current(recordId === undefined ? input : { ...input, recordId });
-      accepted.current.recordId = "deleted" in result ? undefined : result.id;
-      commit();
-      setFailed(false);
-    } catch {
-      rollback();
-      setFailed(true);
-      toast.error(t("players.evaluationHistory.saveFailed"));
-    }
-  };
-
-  const saveScore = (key: string, value: number | null) =>
-    save(
-      { ratings: { [key]: value } },
-      () => setScores((now) => (now[key] === value ? { ...now, [key]: accepted.current.scores[key] ?? null } : now)),
-      () => { accepted.current.scores[key] = value; }
-    );
-
-  const writers = useMemo(
-    () => ({
-      steps: createDebouncedWriter<number | null>((key, value) => void saveScore(key, value), STEP_QUIET_MS),
-      note: createDebouncedWriter<string>(
-        (_key, value) =>
-          void save({ note: value }, () => setNote((now) => (now === value ? accepted.current.note : now)),
-            () => { accepted.current.note = value; }),
-        NOTE_QUIET_MS
-      ),
-    }),
-    // one pair of writers for the form's life; `save` reads its inputs through refs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-  const flushAll = () => { writers.steps.flush(); writers.note.flush(); };
-  // A quick step-then-close is never lost: unmount flushes too.
-  useEffect(() => flushAll, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // All saving lives in the shared session (packages/config): serialised requests, rollback,
+  // the debounced stepper and note, the day-passed 409, and flush on unmount.
+  const { session, state } = useEvaluationFormSession({
+    record,
+    save: (input) => onSaveRef.current(input),
+    onFailure: (failure) => toast.error(t(failure === "dayPassed" ? "players.evaluationHistory.dayPassed" : "players.evaluationHistory.saveFailed")),
+  });
+  const { scores, note, noteUnsaved, failure } = state;
+  const flushAll = () => session.flush();
 
   if (rows.length === 0) {
     return (
@@ -140,25 +88,13 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
             {isStarCompetency(competency) ? (
               <StarRating
                 id={competency.id} name={name} score={score} max={competency.scaleMax}
-                onRate={(tapped) => {
-                  const next = nextStarScore(score, tapped);
-                  setScores((now) => ({ ...now, [key]: next }));
-                  void saveScore(key, next);
-                }}
+                onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
               />
             ) : (
               <ScoreStepper
                 id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
-                onStep={(delta) => {
-                  const next = stepScore(score, delta, competency.scaleMin, competency.scaleMax);
-                  setScores((now) => ({ ...now, [key]: next }));
-                  writers.steps.schedule(key, next);
-                }}
-                onClear={() => {
-                  setScores((now) => ({ ...now, [key]: null }));
-                  writers.steps.schedule(key, null);
-                  writers.steps.flush(key);
-                }}
+                onStep={(delta) => session.step(key, stepScore(score, delta, competency.scaleMin, competency.scaleMax))}
+                onClear={() => session.rate(key, null)}
               />
             )}
           </div>
@@ -169,14 +105,23 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         <Label htmlFor="evaluation-note">{t("players.evaluationHistory.note")}</Label>
         <Textarea
           id="evaluation-note" data-testid="evaluation-note" value={note} maxLength={2000} rows={3}
-          onChange={(event) => { setNote(event.target.value); writers.note.schedule(NOTE_KEY, event.target.value); }}
-          onBlur={() => writers.note.flush()}
+          onChange={(event) => session.editNote(event.target.value)}
+          onBlur={() => session.flush()}
         />
+        {noteUnsaved && (
+          // Free text is never rolled back: the coach's words stay, marked unsaved, with a retry.
+          <p className="flex items-center gap-2 text-sm text-destructive" role="alert" data-testid="evaluation-note-unsaved">
+            {t("players.evaluationHistory.noteUnsaved")}
+            <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => session.retryNote()} data-testid="evaluation-note-retry">
+              {t("players.evaluationHistory.retry")}
+            </Button>
+          </p>
+        )}
       </div>
 
-      {failed && (
+      {failure && (
         <p className="text-sm text-destructive" role="alert" data-testid="evaluation-save-error">
-          {t("players.evaluationHistory.saveFailed")}
+          {t(failure === "dayPassed" ? "players.evaluationHistory.dayPassed" : "players.evaluationHistory.saveFailed")}
         </p>
       )}
 
