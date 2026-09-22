@@ -43,6 +43,9 @@ ENTRIES = (
     (3, 1, TECHNIQUE, None, 4.0, "2026-07-02 09:00:00"),   # catalogue competency, already 1-5: untouched
     (4, 1, VOLLEY, None, 0.0, "2026-07-03 09:00:00"),      # 0-10 category, bottom: 0 -> 1 (the mapping is total)
     (5, 1, VOLLEY, None, 10.0, "2026-07-03 10:00:00"),     # 0-10 category, top: 10 -> 5
+    # D113: ceil(score / 2) on the REAL value; the old integer cast gave 8.5 -> 4 on Postgres
+    (6, 1, FOREHAND, None, 8.5, "2026-07-04 09:00:00"),    # 8.5 -> 5 (ceil 4.25), original kept exactly
+    (7, 1, VOLLEY, None, 0.5, "2026-07-04 10:00:00"),      # 0.5 -> 1 (ceil 0.25), never 0 stars
 )
 
 
@@ -118,6 +121,8 @@ def test_upgrade_converts_the_legacy_category_and_its_entries_only():
     assert entries[3] == (3, 1, TECHNIQUE, None, 4.0, "2026-07-02 09:00:00", None)  # catalogue: untouched
     assert entries[4] == (4, 1, VOLLEY, None, 1.0, "2026-07-03 09:00:00", 0.0)      # 0 -> 1, never 0 stars
     assert entries[5] == (5, 1, VOLLEY, None, 5.0, "2026-07-03 10:00:00", 10.0)     # 10 -> 5
+    assert entries[6] == (6, 1, FOREHAND, None, 5.0, "2026-07-04 09:00:00", 8.5)    # 8.5 -> 5, 8.5 kept
+    assert entries[7] == (7, 1, VOLLEY, None, 1.0, "2026-07-04 10:00:00", 0.5)      # 0.5 -> 1, 0.5 kept
 
     # evaluated_at and record_id are never touched
     assert entries[1][3] == RECORD

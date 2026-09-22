@@ -45,15 +45,16 @@ Two guards make this idempotent and safe to re-run:
    nothing by construction, without needing a separate "already converted"
    flag.
 
-``score`` (``EvaluationEntry.score``) is a Postgres/SQLite ``FLOAT`` column, so
-plain ``(score + 1) / 2`` would be FLOAT division on both engines (e.g.
-score=8 -> 9.0/2 = 4.5, not the wanted 4) — wrong for every even score. The
-data step therefore casts to ``INTEGER`` first: ``CAST((CAST(score AS INTEGER)
-+ 1) / 2 AS INTEGER)``. With both operands INTEGER, ``/`` truncates towards
-zero on Postgres (integer division) and on SQLite (the "/" operator's integer
-path — SQLite docs: two integer operands make the result an integer, the
-quotient truncated towards zero), which equals ``(score + 1) // 2`` for every
-score in 1..10.
+``score`` (``EvaluationEntry.score``) is a ``FLOAT`` column, and a legacy score
+need not be whole: the old endpoint has no range or integer check (B-126) and
+the import accepted "7.5". So the stars are computed in Python, per row, as
+exactly the owner's rule on the real value: ``max(1, ceil(score / 2))``
+(D104, D113). SQL cannot be trusted with this. ``CAST(float AS INTEGER)``
+rounds on Postgres (``rint``: 8.5 -> 8) and truncates on SQLite, so the
+integer-cast formula this migration first used gave 8.5 -> 4 stars instead of
+5, and differently per engine. ``max(1, ...)`` makes the mapping total: a 0 on
+a 0-10 category becomes 1 star. The legacy tables hold a few dozen rows, so a
+per-row UPDATE costs nothing.
 
 Reversible (rule 3): ``downgrade`` restores ``score`` from
 ``score_before_conversion`` and the scale (both ``scale_min`` and
@@ -68,6 +69,7 @@ Revises: 2240837cb663
 Create Date: 2026-09-22
 """
 import logging
+import math
 
 import sqlalchemy as sa
 from alembic import op
@@ -80,7 +82,8 @@ depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")
 
-ENTRY_COLUMN = ("score_before_conversion", lambda: sa.Column("score_before_conversion", sa.Integer(), nullable=True))
+# FLOAT like `score` itself: a non-whole original (7.5) is restored exactly by the downgrade.
+ENTRY_COLUMN = ("score_before_conversion", lambda: sa.Column("score_before_conversion", sa.Float(), nullable=True))
 CATEGORY_COLUMN = (
     "scale_max_before_conversion",
     lambda: sa.Column("scale_max_before_conversion", sa.Integer(), nullable=True),
@@ -90,25 +93,28 @@ CATEGORY_MIN_COLUMN = (
     lambda: sa.Column("scale_min_before_conversion", sa.Integer(), nullable=True),
 )
 
-# stars = ceil(score / 2), as integer division: (score + 1) // 2. `score` is a
-# FLOAT column, so both operands are cast to INTEGER first — plain arithmetic
-# on a FLOAT operand would be FLOAT division on Postgres and SQLite alike.
-# The mapping must be total: a 0-10 category (scale_min = 0) can hold a score
-# of 0, and (0 + 1) // 2 = 0 falls outside 1-5. Scores below 1 — a 0 on a
-# 0-10 category — become 1 star; none exist in production on 2026-09-22.
-CONVERT_ENTRIES_SQL = """
-    UPDATE evaluation_entries
-    SET score_before_conversion = score,
-        score = CASE
-            WHEN CAST(score AS INTEGER) < 2 THEN 1
-            ELSE CAST((CAST(score AS INTEGER) + 1) / 2 AS INTEGER)
-        END
+# The entries to convert: under a legacy 1-10 category, not converted yet. The rule
+# itself runs in Python (module docstring): exact on the real value, on any engine.
+SELECT_ENTRIES_TO_CONVERT_SQL = """
+    SELECT id, score FROM evaluation_entries
     WHERE score_before_conversion IS NULL
       AND category_id IN (
           SELECT id FROM evaluation_categories
           WHERE competency_group IS NULL AND scale_max = 10
       )
 """
+
+CONVERT_ENTRY_SQL = """
+    UPDATE evaluation_entries
+    SET score_before_conversion = score, score = :stars
+    WHERE id = :id AND score_before_conversion IS NULL
+"""
+
+
+def to_stars(score):
+    """The owner's rule (D104), on the real value: ``max(1, ceil(score / 2))``."""
+    return max(1, math.ceil(score / 2))
+
 
 CONVERT_CATEGORIES_SQL = """
     UPDATE evaluation_categories
@@ -179,11 +185,13 @@ def _convert():
     their category still reads ``scale_max = 10`` — only then is the category
     itself rescaled to 1-5. Idempotent by construction (module docstring)."""
     bind = op.get_bind()
-    entries_result = bind.execute(sa.text(CONVERT_ENTRIES_SQL))
+    rows = bind.execute(sa.text(SELECT_ENTRIES_TO_CONVERT_SQL)).fetchall()
+    for entry_id, score in rows:
+        bind.execute(sa.text(CONVERT_ENTRY_SQL), {"id": entry_id, "stars": to_stars(score)})
     categories_result = bind.execute(sa.text(CONVERT_CATEGORIES_SQL))
     log.info(
         "PAD-403: converted %d entries and %d categories from legacy 1-10 to 1-5",
-        entries_result.rowcount, categories_result.rowcount,
+        len(rows), categories_result.rowcount,
     )
 
 

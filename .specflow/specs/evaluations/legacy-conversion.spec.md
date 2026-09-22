@@ -24,7 +24,8 @@ chart; nothing a coach entered is lost, and the App Store builds that still call
 endpoints (R-047) keep working.
 
 ### Entities
-- **WRITES:** EvaluationEntry (`score`, new column `score_before_conversion INTEGER NULL`),
+- **WRITES:** EvaluationEntry (`score`, new column `score_before_conversion FLOAT NULL`, FLOAT like
+  `score` so a non-whole original is restored exactly),
   EvaluationCategory (`scale_min`, `scale_max`, new columns `scale_min_before_conversion` and
   `scale_max_before_conversion`, both `INTEGER NULL`). The models declare all three, so
   `flask db check` sees no drift. Migration `e25428020888`, slot 4, parent `2240837cb663`
@@ -42,7 +43,9 @@ endpoints (R-047) keep working.
 2. **One migration converts everything.** For every `evaluation_categories` row with
    `competency_group IS NULL` and `scale_max = 10`, and every `evaluation_entries` row under it
    whose `score_before_conversion IS NULL`: copy `score` into `score_before_conversion`, set
-   `score = ceil(score / 2)`; then copy the category's `scale_min` and `scale_max` into the two
+   `score = max(1, ceil(score / 2))` on the real value (D113). A legacy score need not be whole:
+   8.5 → 5★, 7.5 → 4★, 0.5 → 1★. The migration computes it per row in Python, because
+   `CAST(float AS INTEGER)` rounds on Postgres and truncates on SQLite; then copy the category's `scale_min` and `scale_max` into the two
    `*_before_conversion` columns and set `scale_min = 1, scale_max = 5`. The mapping is total: a
    score below 2, including a 0 on a 0–10 category, becomes 1★. Record-less rows (Q29) convert
    with the rest: read by nothing, but not left on a dropped scale.
@@ -148,6 +151,12 @@ endpoints (R-047) keep working.
 - **When** the migration upgrades
 - **Then** Volley is 1–5 with `scale_min_before_conversion = 0`, `scale_max_before_conversion =
   10`, and its entries read 1 and 5; a downgrade restores 0–10 and the entries 0 and 10
+
+#### A non-whole score converts on its real value (rule 2, D113)
+- **Given** a Forehand entry of 8.5 and a Volley entry of 0.5
+- **When** the migration upgrades
+- **Then** they read 5 and 1, with `score_before_conversion` 8.5 and 0.5 exactly; the
+  downgrade restores 8.5 and 0.5
 
 #### No category is off 1–5 afterwards (rule 5)
 - **Given** the converted fixtures, or a category written by the frozen upsert (0/10 or 1/10 in),
