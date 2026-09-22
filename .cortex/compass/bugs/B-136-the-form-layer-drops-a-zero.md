@@ -106,4 +106,8 @@ last lands._
 - Step 3 — PAD-388: `POST /edit_player` (web and iOS send null). _Pending._
 - Step 4 — PAD-389: `POST /activate/user`. _Pending._
 - Step 5 — PAD-390: `POST /add_class`, `POST /message`. _Pending._
-- Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152).
+- Not in this family: the frozen legacy evaluation endpoints (owner decision), attendance (B-152); and
+  the CREATE paths' missing-key 500s (`POST /add_event` hard-subscripts date/time — a KeyError on a body
+  without them; both create sheets validate, no client reaches it) — the last 500-shaped hole, noted by
+  Session-B on #378, not a falsy-value defect. D83 protects an EXISTING end from being nulled; it does not
+  impose one — a recurring edit with no `endDate` on a block that has none stores NULL, as create does.

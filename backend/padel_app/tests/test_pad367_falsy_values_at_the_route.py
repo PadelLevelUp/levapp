@@ -138,6 +138,22 @@ def test_calendar_edit_without_a_required_key_is_refused_not_a_500(app, client, 
     assert _block_row(app, block["id"]) == before
 
 
+def test_calendar_edit_a_recurring_block_keeps_its_rule_when_the_body_does_not_mention_it(app, client):
+    """Session-B on #378: rule and end are judged the same way — a sent-empty value is
+    refused, an absent one against the row. A weekly block edited with
+    `isRecurring: true` and no rule key keeps its rule; with `recurrenceRule: null` it is refused."""
+    ids = _seed(app)
+    block = _event(app, client, ids, **{k: v for k, v in WEEKLY.items() if k not in EVENT})
+    body = {k: v for k, v in WEEKLY.items() if k != "recurrenceRule"}
+
+    after = _edit_event(app, client, ids, block["id"], {**body, "title": "Physio"})
+    assert after["isRecurring"] is True
+    assert "weekly" in _block_row(app, block["id"])["rule"]
+
+    res = _put_event(app, client, ids, block["id"], {**WEEKLY, "recurrenceRule": None})
+    assert res.status_code == 400 and res.get_json()["fields"] == ["recurrenceRule"]
+
+
 def test_calendar_edit_ignores_what_is_not_the_blocks_own_form(app, client):
     """PAD-386 (the binding rule from #366's review): present mode writes every key it
     is given, so the whitelist is the guard — the owner (`user`, a nullable ManyToOne)

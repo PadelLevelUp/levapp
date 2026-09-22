@@ -174,7 +174,12 @@ def _edit_block_payload(data, block):
 
     recurring = sent.get("isRecurring")
     still_recurs = recurring is True or (recurring is None and bool(block.recurrence_rule))
-    if recurring is True and not sent.get("recurrenceRule"):
+    # One shape for rule and end (Session-B, #378): a sent-empty value is refused, and
+    # an absent one is judged against the row.
+    if recurring is True and (
+        ("recurrenceRule" in sent and not sent["recurrenceRule"])
+        or ("recurrenceRule" not in sent and not block.recurrence_rule)
+    ):
         refused.append("recurrenceRule")
     if still_recurs and blank("endDate"):
         refused.append("endDate")
