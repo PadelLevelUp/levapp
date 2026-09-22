@@ -37,6 +37,17 @@ to `register_user_service(data, now=now)`, which passes it to `start_consent(...
 and computes the body with `pending_body(user, now)`. The login 403 path keeps reading the clock:
 there the countdown IS a later instant's. `resend_consent` already answers the constant.
 
+**The same shape one function over (Session-C's review of #379).** `register_user_service`
+called `validate_consent_fields(data, email)` without `today`, so the AGE was judged on its own
+`utcnow_naive().date()` while the consent row was stamped with the handler's `now` — across a
+midnight boundary during a slow request, a child who comes of age at 00:00 is a minor for one
+read and an adult for the other. Fixed in the same PR: `register_user_service` defaults `now`
+once and passes `today=now.date()`; `utcnow_naive` is imported at module level in
+`registration_service` so a test can patch it. Pinned by
+`test_register_judges_the_age_on_the_same_instant_it_stamps` (born 2014-01-01, PT, request at
+2026-12-31 23:59:59 with the clock stepping a second per read: one instant → still 12 → consent
+asked; a second read → 13 → no consent) — the countdown pin cannot see that read; this one can.
+
 **Pin.** `test_register_stamps_the_link_and_counts_down_from_one_instant`: a clock that moves
 one second on EVERY read is patched into both the handler and the consent service; the 201 must
 say 60 and the row must be stamped with the first read. Any second read anywhere on the path
@@ -47,8 +58,11 @@ real-clock case.
 the file alone → 27 passed (10:28:02–10:28:16Z). Mutant = the handler's threading reverted
 (`register_user_service(data)` and `pending_body(user)` again) → the new pin **failed `assert 59
 == 60`** while the ORIGINAL test still passed (10:28:35–10:29:02Z) — the old test could not see
-the defect on a normal clock, the pin does; restored → the file green again. Not run: the
-Postgres lane locally (CI is that), the full suite.
+the defect on a normal clock, the pin does; restored → the file green again. Second round
+(the age instant): the file → 28 passed (10:33:02–10:33:18Z); mutant = `today=` threading
+reverted → the midnight pin **failed** (`assert None == 'pending'`) while the countdown pin
+still passed (10:33:18–10:33:24Z); restored → 28 passed (10:33:42Z). Not run: the Postgres
+lane locally (CI is that), the full suite.
 
 **The general rule:** one request, one `now`. A handler that stamps a row and then reports a
 figure derived from that stamp passes the same instant down; a service that accepts `now=None`

@@ -16,6 +16,7 @@ from werkzeug.security import generate_password_hash
 from padel_app.models import Coach, Player, User
 from padel_app.sql_db import db
 from padel_app.tools.username_tools import PLACEHOLDER_USERNAME_PREFIX
+from padel_app.utils.dates import utcnow_naive
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,80}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -99,7 +100,6 @@ def validate_consent_fields(data, email, today=None):
     from datetime import date
 
     from padel_app.services.parental_consent_service import is_minor
-    from padel_app.utils.dates import utcnow_naive
 
     data = data or {}
     today = today or utcnow_naive().date()
@@ -167,8 +167,12 @@ def register_user_service(data, now=None):
     stamped with it, so the caller can compute the resend countdown from the
     same value instead of a second clock read.
     """
+    # B-130: one instant for the whole request — the age is judged on the same
+    # date the consent link is stamped with (a child who comes of age at midnight
+    # during a slow request is a minor on both, or an adult on both).
+    now = now or utcnow_naive()
     role, name, username, email, password = validate_registration(data)
-    birth_date, country, guardian_email, minor = validate_consent_fields(data, email)
+    birth_date, country, guardian_email, minor = validate_consent_fields(data, email, today=now.date())
     _assert_unique(username, email)
 
     # auth.coach-approval rule 9 (PAD-238/PAD-279): the app_settings row wins,

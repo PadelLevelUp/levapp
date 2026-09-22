@@ -139,18 +139,10 @@ def test_register_stamps_the_link_and_counts_down_from_one_instant(client, app, 
 
     The clock here moves one second on EVERY read, so any second read anywhere on
     the path shows up as 59 — a slow runner made deterministic."""
-    from padel_app.modules import api_auth
     from padel_app.services import parental_consent_service
 
     base = datetime(2026, 9, 22, 10, 30, 0)
-    reads = []
-
-    def stepping_clock():
-        reads.append(len(reads))
-        return base + timedelta(seconds=len(reads) - 1)
-
-    monkeypatch.setattr(api_auth, "utcnow_naive", stepping_clock)
-    monkeypatch.setattr(parental_consent_service, "utcnow_naive", stepping_clock)
+    _patch_stepping_clock(monkeypatch, base)
 
     res = client.post("/api/auth/register", json=_body())
 
@@ -159,6 +151,39 @@ def test_register_stamps_the_link_and_counts_down_from_one_instant(client, app, 
     with app.app_context():
         row = parental_consent_service.consent_for(_user(app))
         assert row.consent_sent_at == base, "the link is stamped with the request's one instant"
+
+
+def test_register_judges_the_age_on_the_same_instant_it_stamps(client, app, outbox, monkeypatch):
+    """B-130 (Session-C's review of #379): the age check and the consent stamp share
+    the request's one instant. A child born 2014-01-01 in PT (consent age 13) is 12 at
+    2026-12-31 23:59:59 and 13 one second later; with the clock stepping a second per
+    read, a second read anywhere on the path judges the child an adult and no consent
+    is asked — this pin sees that, the countdown pin cannot."""
+    base = datetime(2026, 12, 31, 23, 59, 59)
+    _patch_stepping_clock(monkeypatch, base)
+
+    res = client.post("/api/auth/register", json=_body(birth="2014-01-01"))
+
+    assert res.status_code == 201, res.get_json()
+    assert res.get_json().get("guardianConsent") == "pending", "judged on the stamped instant: still 12"
+    assert _user(app).guardian_consent_status == "pending"
+
+
+def _patch_stepping_clock(monkeypatch, base):
+    """`utcnow_naive` moving one second on EVERY read, in every module the register
+    path reads it from — so any second read on the path is visible."""
+    from padel_app.modules import api_auth
+    from padel_app.services import parental_consent_service, registration_service
+
+    reads = []
+
+    def stepping_clock():
+        reads.append(len(reads))
+        return base + timedelta(seconds=len(reads) - 1)
+
+    for module in (api_auth, parental_consent_service, registration_service):
+        monkeypatch.setattr(module, "utcnow_naive", stepping_clock)
+    return reads
 
 
 def test_token_of_pending_minor_is_refused(client, app, outbox):
