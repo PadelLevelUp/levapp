@@ -673,17 +673,24 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
 
     data = transform_to_datetime(lesson_instance, data)
     # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
-    # override; the form adapter drops None, so the clear happens below.
-    _title = data.get('title')
+    # override. PAD-387: only a title that was SENT says anything about the
+    # override — present mode writes every key it is given, so an absent one
+    # must stay absent or an unrelated edit would clear the override.
     _parent_title = lesson_instance.lesson.title if lesson_instance.lesson else None
-    _clears_title = bool(_title) and _title == _parent_title
-    data['overwrite_title'] = _title if _title and not _clears_title else None
+    _clears_title = False
+    if 'title' in data:
+        _title = data.get('title')
+        _clears_title = _title in (None, '') or _title == _parent_title
+        data['overwrite_title'] = None if _clears_title else _title
 
     form = lesson_instance.get_edit_form()
-    fake_request = JsonRequestAdapter(data, form)
+    # PAD-387 (B-136 step 2): the form sees the keys the client sent, and only
+    # those; "" / null clear, an absent key is left alone. A None for a NOT NULL
+    # column is refused by the model before anything is written (NotNullableFieldError).
+    fake_request = JsonRequestAdapter(data, form, mode="present")
     values = form.set_values(fake_request)
 
-    lesson_instance.update_with_dict(values)
+    lesson_instance.update_with_dict(values, write_none=True)
     if _clears_title:
         lesson_instance.overwrite_title = None
     # PAD-275 (classes.edit rule 4): a level equal to the lesson's default is
@@ -871,12 +878,15 @@ def edit_lesson_helper(data, lesson=None):
         data['recurrence_rule'] = recurrence_rule
 
     form = lesson.get_edit_form()
-    fake_request = JsonRequestAdapter(data, form)
+    # PAD-387 (B-136 step 2): present mode — the keys the client sent, and only
+    # those; "" / null clear a nullable column, an absent key (a Boolean such as
+    # is_recurring included) is left alone.
+    fake_request = JsonRequestAdapter(data, form, mode="present")
     values = form.set_values(fake_request)
 
-    lesson.update_with_dict(values)
-    # clubs.courts rule 6 (PAD-194): an explicit null clears the court — the
-    # form adapter drops None values, so it never reaches update_with_dict.
+    lesson.update_with_dict(values, write_none=True)
+    # clubs.courts rule 6 (PAD-194): an explicit null clears the court. Present
+    # mode now does this through the form; "null" as a string still needs it.
     if "court" in data and data["court"] in (None, "", "null"):
         lesson.court_id = None
     lesson.save()
@@ -1271,6 +1281,48 @@ def _normalize_eligibility_override(value):
     return value if isinstance(value, list) else None
 
 
+#: `updates` key → form field, for POST /edit_class (PAD-387).
+_EDIT_CLASS_FIELDS = {
+    "name": "title",
+    "color": "color",
+    "maxPlayers": "max_players",
+    "levelId": "level",
+    "date": "date",
+    "startTime": "start_time",
+    "endTime": "end_time",
+    "recurrenceEnd": "recurrence_end",
+}
+
+
+def _refused_class_fields(payload, *, recurring):
+    """The sent-empty values a class cannot hold, named for a 400 (PAD-387).
+
+    `title` and `max_players` are NOT NULL on lessons; 0 is not a legal capacity
+    (decided 2026-09-21). `recurrence_end` may not be emptied on a recurring
+    lesson: a NULL end means "recurs forever" everywhere downstream and the
+    create path refuses to make one (PAD-90, calendar.seasons rule 10) — the
+    edit route must not become the one way to make an unbounded series
+    (Session-B's review of #368). Checked here, on the whole payload and before
+    any path writes, rather than left to the model's NotNullableFieldError — a
+    "future" edit forks the series before it edits, and an instance's
+    max_players is derived, so the model would see it too late or not at all.
+    """
+    refused = []
+    if "title" in payload and (payload["title"] is None or not str(payload["title"]).strip()):
+        refused.append("title")
+    if "max_players" in payload:
+        cap = payload["max_players"]
+        try:
+            legal = cap is not None and str(cap).strip() != "" and int(cap) > 0
+        except (TypeError, ValueError):
+            legal = False
+        if not legal:
+            refused.append("max_players")
+    if recurring and "recurrence_end" in payload and payload["recurrence_end"] in (None, ""):
+        refused.append("recurrence_end")
+    return refused
+
+
 def edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
@@ -1295,21 +1347,34 @@ def edit_class_service(data):
     date_str = updates.get("date")
     new_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else None
 
+    # PAD-387 (B-136 step 2): the payload holds a key iff the client sent it —
+    # nothing is invented (the old `updates.get("name", "")` made every edit
+    # carry an empty title, which the form then read as "not sent").
     payload = {
-        "title": updates.get("name", ""),
-        "color": updates.get("color", ""),
-        "max_players": updates.get("maxPlayers", None),
-        "level": updates.get("levelId", None),
-        "date": updates.get("date", None),
-        "start_time": updates.get("startTime", None),
-        "end_time": updates.get("endTime", None),
-        "recurrence_end": updates.get("recurrenceEnd", None),
-        "add_player_ids": updates.get("addPlayers", []),
-        "remove_player_ids": updates.get("removePlayers", []),
+        field: updates[key]
+        for key, field in _EDIT_CLASS_FIELDS.items()
+        if key in updates
     }
-
+    payload["add_player_ids"] = updates.get("addPlayers", [])
+    payload["remove_player_ids"] = updates.get("removePlayers", [])
     model = event.get("model")
     original_id = event.get("originalId")
+
+    _series = (
+        LessonInstance.query.get_or_404(original_id).lesson
+        if model == "LessonInstance"
+        else Lesson.query.get_or_404(original_id)
+    )
+    refused = _refused_class_fields(payload, recurring=bool(_series.recurrence_rule))
+    if refused:
+        # Before any write — a "future" edit splits the series before it edits.
+        return {"error": "invalid_fields", "fields": refused}, 400
+    if "recurrence_end" in payload:
+        # An explicit end date is the coach's: the season must not re-cap it
+        # (calendar.seasons rule 10; season_service.recap_flagged_lessons re-caps
+        # every flagged lesson). The legacy path reset the flag on EVERY edit by
+        # accident; present mode leaves it alone, so this is now said on purpose.
+        payload["recurs_until_season_end"] = False
 
     # clubs.courts rule 6 (PAD-194): null clears the court, omitted leaves it.
     # Validated against the class's club before anything is written.

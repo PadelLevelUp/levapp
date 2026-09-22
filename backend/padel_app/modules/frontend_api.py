@@ -2483,6 +2483,8 @@ def edit_class():
     except CourtNotInClubError as e:
         # clubs.courts rule 6 (PAD-194).
         return jsonify({"error": str(e), "code": e.code}), 400
+    # PAD-387: the service refuses a sent-empty NOT NULL value before writing; any
+    # other NotNullableFieldError is answered 400 by the blueprint handler (PAD-385).
     return jsonify(result), status
 
 
