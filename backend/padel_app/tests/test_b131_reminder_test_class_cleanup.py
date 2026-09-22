@@ -118,6 +118,7 @@ def test_cleanup_removes_only_the_calling_coachs_classes(app, client):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.presences import Presence
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models import Message
     from padel_app.modules.notification_engine_api import REMINDER_TEST_CLASS_TITLE
     from datetime import datetime, timedelta
 
@@ -155,6 +156,7 @@ def test_cleanup_removes_only_the_calling_coachs_classes(app, client):
 
     with app.app_context():
         assert Lesson.query.filter_by(title=REMINDER_TEST_CLASS_TITLE).count() == 3
+        messages_before = Message.query.count()
 
     res = client.post(
         CLEANUP_PATH,
@@ -162,9 +164,19 @@ def test_cleanup_removes_only_the_calling_coachs_classes(app, client):
         headers=_auth_header(app, world["coach_user_id"]),
     )
     assert res.status_code == 200, res.get_json()
-    assert res.get_json() == {"removed": 2}
+    assert res.get_json() == {"removed": 2, "remaining": 0}
 
     with app.app_context():
+        # F4: the removal goes through remove_class_service on the Lesson, whose
+        # cancellation-notification path (collect_cancellation_recipients) reads
+        # the Lesson's players_relations — empty here, since these classes'
+        # roster lives on the LessonInstance's presences instead. No "class
+        # cancelled" message is sent today, but only because of that mismatch;
+        # a removal keyed on LessonInstance instead would mail two per class to
+        # the enrolled students. Pinning the count keeps that coincidence
+        # visible so a future change to the removal path has to notice it.
+        assert Message.query.count() == messages_before
+
         remaining = Lesson.query.filter_by(title=REMINDER_TEST_CLASS_TITLE).all()
         assert [l.id for l in remaining] == [other_lesson_id]
 
@@ -188,4 +200,4 @@ def test_cleanup_with_none_to_remove_returns_zero(app, client):
         headers=_auth_header(app, world["coach_user_id"]),
     )
     assert res.status_code == 200
-    assert res.get_json() == {"removed": 0}
+    assert res.get_json() == {"removed": 0, "remaining": 0}

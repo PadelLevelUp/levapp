@@ -19,14 +19,7 @@ resolved: 2026-09-22T15:45:56Z
 
 # B-131 — a debug endpoint's test class was never removed
 
-**Source.** Session-C's four-cell reproduction on staging `87823c5e5`, 15:18–15:28 UTC. The full
-shard 3 in wave-3 order ran green at 15:18 because the leaked classes from that run landed at
-17:19 — after the participant-count spec had already run, so no overlap existed yet that day. A
-planted-filler probe (seeding extra classes onto the fixture's slot by hand, the same shape a
-leak would take) reproduced the byte-identical `Received` string the flake report carried. The
-same probe with the fillers removed came back green. The spec alone, run repeatedly under load
-(iterations 25–28), was green throughout — the failure only appears with three or more cards
-sharing the slot, which a solo run of the file cannot produce on its own.
+**Source.** Session-C's four-cell reproduction on staging `87823c5e5`, 15:18–15:28 UTC, on an isolated stack (load average 23–28 throughout). (1) The full shard 3 in wave-3 order, 51 files, ran green at 15:18–15:25 — the leaked classes from waiting-list-offer's two calls were rows already present when the participant-count spec ran (read mid-run at 15:22; the spec ran ~15:24), but their START TIME was 17:19 on the Thursday, outside the fixture's 16:00–17:00 hour, so they did not overlap it; wave 3's integrator run had started at 14:11, its calls landed ~14:12, classes ≈16:13–17:13 → overlap → red. That arithmetic is the whole "intermittent". (2) A planted-filler probe (two 1-hour classes added over the fixture's slot by hand, the shape a leak takes) reproduced the byte-identical `Received` string (`"E2E Declined Count ClassI1"`: the title, then the LEVEL CHIP — the time range and the count both gone, which is the compact card, not a capacity). (3) The same probe with the fillers removed came back green. (4) The spec alone, run ONCE under that load, green. The failure needs three or more cards sharing the slot, which a solo run of the file cannot produce.
 
 **Mechanism.** `POST /api/app/notify/debug/schedule_reminder_test`
 (`backend/padel_app/modules/notification_engine_api.py`, `debug_schedule_reminder_test`, ~line
@@ -58,12 +51,14 @@ reaches the creation logic, so it needed no change.
 first test — not a test change — pointing back at the compact-card mechanism so a future red
 here is diagnosed against the card count, not `maxPlayers`.
 
-**Runs.** **Runs (Session-B, 2026-09-22, branch from staging `87823c5e5`, worktree wt-a, isolated stack `levelup_e2e_e8c37758` / :5284 / :8284 reseeded before every run, `--workers=1`, times from `date -u`):**
+**Runs (Session-B, 2026-09-22, branch from staging `87823c5e5`, worktree wt-a, isolated stack `levelup_e2e_e8c37758` / :5284 / :8284 reseeded before every run, `--workers=1`, times from `date -u`):**
 - Backend `test_b131_reminder_test_class_cleanup.py` alone → 3 passed (15:41:15Z); the subagent's run with `test_frontend_api_authz.py` → 61 passed.
 - Cell A, cleanup ON: `waiting-list-offer.spec.ts` → 2 passed (15:41:59–15:42:31Z); `select count(*) from lessons where title = 'E2E Auto-Reminder Test'` → **0**.
 - Cell B, the spec's `afterAll` call neutralised (sed, restored after): 2 passed (→15:43:02Z); the same count → **2** — the leak, made visible; the fix's absence is what the count measures.
 - Session-C's planted-filler probe (never committed), fillers PRESENT over the Thursday slot: 1 failed at 15:43:55Z with `Received string: "E2E Declined Count ClassI1"` — byte-identical to wave 3's — and three cards on screen (`["E2E Declined Count Class\n\nI1","B131 Overlap Filler A","B131 Overlap Filler B"]`); fillers REMOVED (`B131_CLEAN=1`): 1 passed at 15:44:25Z, the one card reading `… 16:00 – 17:00 … 1/4`.
-- Not run: the full E2E suite, shard 3 in wave-3 order (Session-C ran it green at 15:18–15:25Z on 87823c5e5, before this fix, because the leaked classes landed at 17:19 that hour — no overlap), Maestro.
+- Not run: the full E2E suite, shard 3 in wave-3 order (Session-C ran it green at 15:18–15:25Z on 87823c5e5, before this fix — that hour's leaked classes started at 17:19, outside the fixture's 16:00–17:00, so nothing overlapped), Maestro.
+
+**Not covered, same family (Session-C's review of #386).** (a) Owner asymmetry: the creator route assigns its class to `e2e-coach` by username whatever token calls it, while the cleanup removes the CALLER's classes — it holds today only because all five callers clean as `e2e-coach`; a spec calling the creator as another coach would leak again. (b) The creator's `enrol(…, "coach")` writes two "adicionei-te…" messages per call (`addedToClass`, carrying the `lessonInstanceId`); the cleanup leaves them behind pointing at a deleted instance — pre-existing, not touched here. (c) The cleanup's silence on cancellation is pinned, not designed: `collect_cancellation_recipients(Lesson)` reads the Lesson's empty `players_relations` (the roster is instance presences), so no "class cancelled" message goes out; the backend test asserts the Message count is unchanged so a removal by LessonInstance would show.
 
 **The general rule.** A debug endpoint that creates rows must offer the way to remove them, and
 every spec that calls it removes what it created (R-040: an E2E spec puts the shared database

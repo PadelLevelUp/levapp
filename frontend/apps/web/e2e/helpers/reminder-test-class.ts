@@ -31,6 +31,14 @@ export async function cleanupReminderTestClasses(
       `cleanupReminderTestClasses failed: ${res.status()} ${await res.text()}`
     );
   }
-  const { removed } = (await res.json()) as { removed: number };
+  const { removed, remaining } = (await res.json()) as {
+    removed: number;
+    remaining: number;
+  };
+  if (remaining > 0) {
+    throw new Error(
+      `reminder-test cleanup left ${remaining} class(es) behind`
+    );
+  }
   return removed;
 }

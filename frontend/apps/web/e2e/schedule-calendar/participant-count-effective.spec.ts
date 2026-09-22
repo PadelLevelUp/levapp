@@ -125,9 +125,9 @@ test.afterEach(async ({ request }) => {
 // component fell into compact mode before the count line ever rendered.
 // This was exactly the B-131 symptom: the reminder debug endpoint
 // (`schedule_reminder_test`) leaked an "E2E Auto-Reminder Test" class every
-// run and nothing removed it, so on a Tuesday afternoon two or three leaked
-// classes plus this fixture's own class landed on the same "next Thursday
-// 16:00" slot. The specs that call that debug endpoint now clean up after
+// run and nothing removed it, so on a Tuesday afternoon (today + 48 h = the
+// seed's "next Thursday", the call landing ~13:00–15:00 UTC) two leaked classes
+// plus this fixture's own class landed on the same "next Thursday 16:00" slot. The specs that call that debug endpoint now clean up after
 // themselves (see helpers/reminder-test-class.ts), so this should no longer
 // reproduce — but if it does, check the day's card count on the calendar
 // before chasing `maxPlayers`/`capacity` in the payload.

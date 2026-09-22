@@ -681,7 +681,7 @@ def debug_cleanup_reminder_test_classes():
     "remove class" action uses — so instances, presences, coach associations
     and scheduler jobs are cleaned up exactly the way a real delete would.
 
-    Response: { "removed": int }
+    Response: { "removed": int, "remaining": int }
     """
     if not _debug_endpoints_enabled():
         abort(404)
@@ -691,13 +691,16 @@ def debug_cleanup_reminder_test_classes():
 
     coach = _current_coach()
 
-    lessons = (
-        Lesson.query
-        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
-        .filter(Lesson.title == REMINDER_TEST_CLASS_TITLE)
-        .filter(Association_CoachLesson.coach_id == coach.id)
-        .all()
-    )
+    def _own_reminder_test_lessons():
+        return (
+            Lesson.query
+            .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+            .filter(Lesson.title == REMINDER_TEST_CLASS_TITLE)
+            .filter(Association_CoachLesson.coach_id == coach.id)
+            .all()
+        )
+
+    lessons = _own_reminder_test_lessons()
 
     removed = 0
     for lesson in lessons:
@@ -713,7 +716,9 @@ def debug_cleanup_reminder_test_classes():
         if 200 <= status < 300:
             removed += 1
 
-    return jsonify({"removed": removed})
+    remaining = len(_own_reminder_test_lessons())
+
+    return jsonify({"removed": removed, "remaining": remaining})
 
 
 @bp.post("/debug/reset_presence")
