@@ -6,6 +6,7 @@ import {
   applyIncomingMessage,
   queryKeys,
   shouldShowJumpToBottom,
+  nextTargetStep,
   useConversationThread,
 } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
@@ -107,8 +108,11 @@ export default function ConversationScreen() {
     keyboardVisible,
     insets.bottom
   );
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; message?: string }>();
   const conversationId = String(params.id);
+  // PAD-408 (messaging.push-notifications rule 12): a push tap opens the thread
+  // ON the message it announced (`?message=<id>`), consumed once.
+  const targetMessageParam = params.message;
   const { user } = useAuth();
   const myId = Number(user?.id);
   const queryClient = useQueryClient();
@@ -684,6 +688,43 @@ export default function ConversationScreen() {
     },
     [conversation]
   );
+
+  // ── PAD-408: land on the message a push named (rule 12) ──
+  // The thread anchors at the newest message as always (rule 9's gate is not
+  // touched); once revealed, older pages are loaded until the target is
+  // present — at most MESSAGE_TARGET_MAX_OLDER_PAGES — and it is scrolled to and
+  // highlighted with the same primitive a quoted reply uses. Not found within
+  // the bound: the thread simply stays on the newest message.
+  const targetRef = React.useRef<string | null>(targetMessageParam ?? null);
+  const targetOlderPagesRef = React.useRef(0);
+  React.useEffect(() => {
+    targetRef.current = targetMessageParam ?? null;
+    targetOlderPagesRef.current = 0;
+  }, [conversationId, targetMessageParam]);
+
+  React.useEffect(() => {
+    const target = targetRef.current;
+    if (!target || !anchored || !conversation || isLoadingOlder) return;
+    const step = nextTargetStep({
+      messages: conversation.messages,
+      targetId: target,
+      olderPagesLoaded: targetOlderPagesRef.current,
+      hasOlder: hasMore,
+    });
+    if (step.kind === "load-older") {
+      targetOlderPagesRef.current += 1;
+      void loadOlder();
+      return;
+    }
+    targetRef.current = null;
+    if (step.kind !== "scroll") return;
+    // The reader is no longer at the bottom: content growth must not re-pin.
+    atBottomRef.current = false;
+    // One frame first — the list reads stale metrics in the commit that
+    // delivered the rows (ios-flatlist-fabric-traps); a miss on an unmeasured
+    // row is retried by onScrollToIndexFailed.
+    requestAnimationFrame(() => scrollToMessage(target));
+  }, [anchored, conversation, hasMore, isLoadingOlder, loadOlder, scrollToMessage]);
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
   // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
