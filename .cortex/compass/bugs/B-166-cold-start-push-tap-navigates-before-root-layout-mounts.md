@@ -3,7 +3,7 @@ id: B-166
 title: "iOS cold start: a message-push tap navigates before the Root Layout mounts, loops and is lost"
 type: missing-criterion
 severity: high
-status: triaged
+status: resolved
 affects:
   - messaging.push-notifications
   - frontend/apps/mobile/src/hooks/usePushNotificationRouting.ts
@@ -11,6 +11,7 @@ affects:
   - frontend/apps/mobile/scripts/push-payloads/message.apns
 proposed_fix: "Add a cold-start criterion to rule 7; hold the tap's target until the root navigator is mounted and auth has settled, then navigate once; reshape the simulator probe so its data sits under `body` as Expo delivers it."
 opened: 2026-09-22T23:55:49Z
+resolved: 2026-09-23T01:10:17Z
 ---
 
 # B-166: a cold-start push tap is lost
@@ -65,4 +66,12 @@ Drift: none. The business spec is right; the code fails it on a cold start.
 
 ### Resolution
 
-(filled in when PAD-408/409 ships)
+- **Spec:** `messaging.push-notifications` rule 13 plus the criterion "A tap that launches the app opens the thread once (PAD-409)"; rule 12 and its two criteria for PAD-408.
+- **Code:**
+  - `usePushNotificationRouting` only OFFERS a tap to `src/lib/push-tap-queue.ts`. That module dedupes by notification id at module level, so re-mounts cannot re-fire.
+  - `src/components/PushTapRouter.tsx`, under `AuthProvider`, TAKES the tap once the root navigator is mounted, auth has settled and the launch gate has redirected (`pathname !== "/"`). The last condition was found by the same instrumentation: auth settles in the same commit where `app/index.tsx` renders its `<Redirect>`, which replaced an earlier push.
+- **Tests:**
+  - `push-tap-queue.test.ts` 6/6 (red first; the signed-out branch proven by a mutant) and `push-routing.test.ts`.
+  - Simulator rerun of the table above on the fix: cold 3/3 (01:05:08Z, 01:05:40Z, 01:06:17Z) and warm 2/2 (01:07:08Z, 01:07:46Z) land in the thread, each with one offer and one push.
+- **Probe:** `scripts/push-payloads/message.apns` now carries its data under `body`. Flow 47's header records why.
+- **Still open:** the release-build tap on a device goes on the TestFlight checklist. The simulator runs are a dev build.
