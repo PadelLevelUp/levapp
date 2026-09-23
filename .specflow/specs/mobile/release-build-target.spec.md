@@ -45,8 +45,9 @@ It also makes the target visible inside the app.
    - it contains the target's API URL;
    - it contains no other known API URL: every other target in the table,
      `https://padellevelup.com/api`, and `http://localhost:5001/api`;
-   - it contains the capabilities header name (`X-LevApp-Capabilities`) and the `open-spots`
-     token (PAD-352, `eligibility.open-spot-visibility` rule 12). Hermes keeps string literals
+   - it contains the capabilities header name (`X-LevApp-Capabilities`), the `open-spots`
+     token (PAD-352, `eligibility.open-spot-visibility` rule 12) and, from PAD-402, the
+     `evaluations` token (`evaluations.student-view` rule 5). Hermes keeps string literals
      readable in the bytecode, so a byte search works.
 
    The capability check is weaker than it looks, and this is stated so nobody over-reads it. The

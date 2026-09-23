@@ -59,8 +59,9 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
 6. **(AV-037, AV-023) A history card** shows the date and "· {aula}" only when the record has a
    class; then one line per rated competency with a read-only control on that competency's own
    scale, switched-off competencies included and not decorated; then the note, in italics and
-   quotes, when there is one. The share control and the "shared" line on a card belong to
-   `evaluations.sharing` and are absent until it ships. Empty list: "Ainda sem avaliações.", with
+   quotes, when there is one. The share control ("Partilhar avaliação", or "Atualizar partilha"
+   once shared and edited the same day) and the "✓ Partilhada com o aluno em {data}" line belong
+   to `evaluations.sharing` (rules 2, 7, 9) and ship with PAD-402. Empty list: "Ainda sem avaliações.", with
    "Nova avaliação" still offered.
 7. **(build default Q27, AV-073) One card per record.** A class record and a class-less record of
    the same day are two cards, the class one carrying its class name.

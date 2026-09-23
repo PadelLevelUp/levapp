@@ -1538,6 +1538,7 @@ def _send_system_message(
     message_type: str = "text",
     msg_metadata: dict | None = None,
     class_instance_id: int | None = None,
+    push: bool = True,
 ):
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
@@ -1633,6 +1634,9 @@ def _send_system_message(
         {"type": "message_created", "payload": serialize_message(msg, None)},
         message_recipient_ids(msg),
     )
+
+    if not push:
+        return msg
 
     send_push_notification(
         user_id=player_user_id,

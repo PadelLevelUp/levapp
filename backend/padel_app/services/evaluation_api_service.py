@@ -292,8 +292,23 @@ def _entry_order(entry):
     return (category.sort_order is None, category.sort_order or 0, category.id)
 
 
+def _serialize_share(record, share) -> dict:
+    """evaluations.sharing rule 7 / decision 7: served from the row, never
+    recomputed — except `stale`, which compares the row's own `updated_at`
+    against the moment the snapshot was taken (both stamped by `utcnow_naive()`
+    on a rating/share write; the mixin's own `updated_at` joins it with PAD-405)."""
+    return {
+        "sharedAt": share.shared_at.isoformat(),
+        "categoryIds": list(share.category_ids),
+        "evolution": share.evolution,
+        "includeNote": share.include_note,
+        "stale": record.updated_at > share.shared_at,
+    }
+
+
 def serialize_record(record, *, on=None) -> dict:
     instance = record.lesson_instance
+    share = record.share
     return {
         "id": record.id,
         "evaluatedOn": record.evaluated_on.isoformat(),
@@ -303,7 +318,7 @@ def serialize_record(record, *, on=None) -> dict:
         # Q9: editable on the day it was made; afterwards it can only be deleted.
         "editable": record.evaluated_on == (on or today()),
         "ratings": [_rating(e) for e in sorted(record.entries, key=_entry_order)],
-        "share": None,  # evaluations.sharing (slice 7)
+        "share": _serialize_share(record, share) if share is not None else None,  # evaluations.sharing (slice 7)
     }
 
 
@@ -473,6 +488,14 @@ def put_record(coach, body):
                 records.clear_rating(record, category.id)
             else:
                 records.upsert_rating(record, category.id, value, evaluated_at=utcnow_naive())
+        if ratings and existing is not None:
+            # A rating write only touches its `evaluation_entries` row, never the
+            # record's own columns, so the base mixin's `onupdate` (PAD-273) never
+            # fires on its own — and evaluations.sharing's `share.stale` (decision 7)
+            # reads exactly this column. Same clock as `share.shared_at`
+            # (`utcnow_naive()`), so a pinned test compares like with like; PAD-405
+            # moves the mixin's own `updated_at` onto it too.
+            record.updated_at = utcnow_naive()
         if note is not MISSING:
             records.set_note(record, note)
         db.session.flush()
@@ -506,27 +529,51 @@ def _months_back(day: date, months: int) -> date:
     return date(year, month, min(day.day, last))
 
 
+def monthly_means(coach_player_id, category_id, *, since: date | None = None, until: date | None = None) -> dict:
+    """Month (`"YYYY-MM"`) -> raw (unrounded) mean of the record-held ratings of
+    `category_id` for this coach-player (Q29: a rating with no record stays out —
+    what is averaged is exactly what the history cards show). `since`/`until`
+    bound the underlying days, both inclusive; omitted, the whole history counts.
+
+    `evolution()` calls this unbounded, for its `series`/`delta`.
+    `evaluation_share_service`'s `6m`/`1y` lines bound it to
+    `_months_back(record.evaluated_on, 6|12) … record.evaluated_on` (sharing.spec.md
+    decision 3) — so a rating entirely before the window's cutoff falls out of its
+    month's mean, not just out of an already-computed monthly figure."""
+    query = (
+        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
+        .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
+        .filter(EvaluationRecord.coach_player_id == coach_player_id, EvaluationEntry.category_id == category_id)
+    )
+    if since is not None:
+        query = query.filter(EvaluationRecord.evaluated_on >= since)
+    if until is not None:
+        query = query.filter(EvaluationRecord.evaluated_on <= until)
+    by_month = defaultdict(list)
+    for day, score in query:
+        by_month[day.strftime("%Y-%m")].append(score)
+    return {m: sum(scores) / len(scores) for m, scores in by_month.items()}
+
+
 def evolution(coach, player_id, category_id) -> dict:
     link = coach_player_for(coach, player_id)
     if category_id in (None, ""):
         raise ApiError(400, "category_id_required")
     category = own_competency(coach, category_id)
 
-    # Only the ratings that sit in a record count (Q29), each on its record's day:
-    # what is averaged is exactly what the history cards show.
+    raw = monthly_means(link.id, category.id)
+    months = sorted(raw)
+
+    on = today()
+
+    # Only the ratings that sit in a record count (Q29), each on its record's day —
+    # `rolling` needs the individual days (not the monthly means `raw` holds).
     rows = [
         (day, score) for day, score in
         db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
         .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
         .filter(EvaluationRecord.coach_player_id == link.id, EvaluationEntry.category_id == category.id)
     ]
-    by_month = defaultdict(list)
-    for day, score in rows:
-        by_month[day.strftime("%Y-%m")].append(score)
-    months = sorted(by_month)
-    raw = {m: sum(by_month[m]) / len(by_month[m]) for m in months}
-
-    on = today()
 
     def rolling(n):
         scores = [score for day, score in rows if _months_back(on, n) <= day <= on]

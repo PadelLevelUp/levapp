@@ -26,7 +26,8 @@ export type DashboardRoute =
   | { pathname: "/(tabs)/players" }
   | { pathname: "/(tabs)/presences"; params: { week: string; validate?: string } }
   | { pathname: "/attendance" }
-  | { pathname: "/absences" };
+  | { pathname: "/absences" }
+  | { pathname: "/evaluations" };
 
 function query(href: string): URLSearchParams {
   return new URLSearchParams(href.split("?")[1] ?? "");
@@ -73,6 +74,9 @@ export function nativeRouteForWebPath(
   // PAD-162 / PAD-163: the student's Attended / Missed KPIs.
   if (href.startsWith("/attendance")) return { pathname: "/attendance" };
   if (href.startsWith("/absences")) return { pathname: "/absences" };
+  // `evaluations.student-view` rule 4: the dashboard block's "Ver todas" and the
+  // page it opens are the same destination, `/evaluations`.
+  if (href.startsWith("/evaluations")) return { pathname: "/evaluations" };
   // PAD-327: the request alerts' destinations. `/settings?section=…` keeps its
   // section — that is the whole point of the alert ("opens Settings → Club and
   // approves"), and the native settings screen already reads a `section` param.

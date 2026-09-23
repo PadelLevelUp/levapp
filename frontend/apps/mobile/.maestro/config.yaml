@@ -43,6 +43,9 @@ executionOrder:
     - 79-evaluation-evolution
     # 80 (PAD-376) makes its own class for today and removes it and its record afterwards.
     - 80-class-evaluations
+    # 81 (PAD-402) shares E2E Student Two's seeded evaluation record and un-shares it again
+    # through the API before it ends, so its position is not load bearing.
+    - 81-share-evaluation
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages

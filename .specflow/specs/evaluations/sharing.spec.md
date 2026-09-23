@@ -1,6 +1,6 @@
 ---
 id: evaluations.sharing
-status: draft
+status: implemented
 depends_on: [evaluations.records, evaluations.history, evaluations.evolution, messaging.messages]
 implements: ../../specs-business/evaluations/coach-shares-an-evaluation.business.md
 governed_by: []
@@ -11,10 +11,12 @@ provenance:
 
 # evaluations.sharing
 
-> **The whole of this leaf is owner-pending.** Today a player sees no evaluation at all, so
-> sharing is a *new disclosure*, not a change to an existing one. It waits for owner questions
-> Q2, Q3, Q5 and Q6; every rule below is the recommended default and is tagged where an answer
-> would change it. Nothing here is built before the owner answers.
+> **Owner-decided on 2026-09-22 (PAD-402).** Sharing is a *new disclosure* — today a player sees
+> no evaluation at all. The owner answered Q2 (a player sees only what a coach shares, as a block
+> on the student dashboard, web + iOS, behind the `evaluations` token), Q3 (one system message per
+> share in the coach–student thread, **no push**), Q5 (records from before sharing existed are
+> shareable) and Q6 (un-share removes the card silently; deleting a shared record un-shares). The
+> rules below are those answers; the defaults they replaced are in the leaf's history.
 
 ### Intent
 A coach decides, per evaluation, what a player may see of it — which competencies, how much of
@@ -38,8 +40,7 @@ stays private.
 
 ### Rules
 1. **(AV-040) Private until shared.** A record has no share when created, and nothing about an
-   unshared record reaches a player's device — no payload key, no count, no push.
-   **(pending owner decision Q2)**
+   unshared record reaches a player's device — no payload key, no count, no push. (Q2)
 2. **(AV-041) Step 1 — choose what to show.** From a history card's "Partilhar avaliação":
    title "Escolhe o que queres mostrar a {primeiro nome}"; a checkbox per competency **rated in
    this record** ("Bandeja — 4/5"), all pre-selected; evolution pills "Desde a última avaliação"
@@ -66,24 +67,29 @@ stays private.
    with every box clear; an empty `categoryIds`, or an id not rated in the record → 400.
 7. **(AV-043, build default Q11) Sharing stores a snapshot.** `POST
    /api/app/evaluation_record/<id>/share` with the same body → the `Record`, its `share` now
-   `{sharedAt, categoryIds, evolution, includeNote}`. The `card` is frozen: scores, deltas and
+   `{sharedAt, categoryIds, evolution, includeNote, stale}`. The `card` is frozen: scores, deltas and
    note as they were. A later edit of the record the same day does not change what the player
-   sees; the coach's card then offers "Atualizar partilha", which is the same `POST` again — it
+   sees; the server then sets `share.stale` true (`record.updated_at > sharedAt`, both from the
+   late-bound clock, so the client compares no timestamps), and the coach's card offers
+   "Atualizar partilha" when `stale`, which is the same `POST` again — it
    replaces the snapshot, moves `sharedAt` and sends **no** message. Switching a competency off
    later changes no shared card. The history card reads "✓ Partilhada com o aluno em {data}",
    formatted client-side from `sharedAt`.
-8. **Sharing sends one system message** in the coach–student thread ("{treinador} partilhou uma
-   avaliação contigo"), through the existing system-message path: a `Message` row, the live
-   update, web push and mobile push `{"type": "message", "conversationId": …}`. No new push type
-   and no new `message_type`, so App Store 1.0/1.1.0 render the sentence and open the thread. One
+8. **Sharing sends one system message and no push (Q3).** In the coach–student thread
+   ("{treinador} partilhou uma avaliação contigo"), through the existing system-message path
+   (`notification_service._send_system_message`): a `Message` row (`message_type` `"system"`,
+   `msg_metadata` `{"kind": "evaluation_share", "recordId"}`) and the live (SSE) update — and
+   **no push of any kind**, web or mobile: the sender is called with its push step switched off,
+   the one exception to `messaging.messages` rule 7. No new push type and no new `message_type`,
+   so App Store 1.0/1.1.0 render the sentence in the thread like any other system message. One
    message per first share of a record — two records shared on one day are two cards and two
-   messages. No separate opt-out in the first version. **(pending owner decision Q3)**
+   messages; updating a share (rule 7) and un-sharing (rule 9) send none. No opt-out.
 9. **Un-share and delete.** `DELETE /api/app/evaluation_record/<id>/share` ("Deixar de
    partilhar") removes the share; the card leaves the player's list at once and nobody is
    notified. Deleting a shared record asks for confirmation that says the player will stop
-   seeing it, and removes the share with it. **(pending owner decision Q6)**
+   seeing it, and removes the share with it (the row cascades with the record). (Q6)
 10. **Any record can be shared**, including backfilled ones recorded before sharing existed and
-    past (read-only) ones. **(pending owner decision Q5)**
+    past (read-only) ones. (Q5)
 11. **The endpoints parse JSON directly and distinguish absent / null / falsy.** They must not
     read or write through the shared form layer (`tools/input_tools.py` `Field.set_value`,
     `JsonRequestAdapter`, `model.update_with_dict`). `includeNote: false` is honoured as false;
@@ -96,10 +102,11 @@ stays private.
     pushed screens on iOS. Web and iOS ship in the same ticket.
 
 ### Touches
-- `messaging.messages` / `messaging.push-notifications` — no rule changes; the building slice
-  adds a criterion that a share pushes as `type: "message"` and nothing else.
-- `notifications.message-templates` — if the share sentence becomes a coach-editable template,
-  that leaf gains the key; decided with Q3.
+- `messaging.messages` — rule 7 gains its one exception: the share message is written and
+  published live but never pushed (rule 8 here). `messaging.push-notifications` — unchanged; no
+  push exists for this message to route.
+- `notifications.message-templates` — not touched: the share sentence is a fixed string in this
+  version (Q3 asked for no opt-out and no template).
 - `evaluations.history` — its card gains the share control and the "shared" line (its rule 6).
 - `evaluations.records` — `Record.share` is served from this table; record delete removes it.
 
@@ -134,13 +141,14 @@ stays private.
 - **When** Ana posts `…/share` with `{"categoryIds": [], "evolution": "none", "includeNote": false}`
 - **Then** the response is 400 and the record's `share` is still null
 
-#### Sharing stores an instant and sends one message (rules 7, 8)
+#### Sharing stores an instant and sends one message, no push (rules 7, 8)
 - **Given** the record above at 2026-09-21 14:05:11 UTC
 - **When** Ana shares Técnica only with `includeNote: false`
 - **Then** `evaluation_shares.shared_at` is the datetime 2026-09-21 14:05:11, `category_ids` is
   `[<Técnica>]`, and the stored `card` has one rating and `note: null`
-- **And** exactly one `Message` exists in the Ana–Rui thread and one mobile push whose data is
-  `{"type": "message", "conversationId": <id>}`; no push of another type was sent
+- **And** exactly one `Message` exists in the Ana–Rui thread (`message_type` `"system"`), an
+  SSE `message_created` event was published, and the push senders (web and Expo) captured
+  **zero** payloads
 
 #### An edit after sharing does not change the player's card (rule 7)
 - **Given** the shared record, the same day
