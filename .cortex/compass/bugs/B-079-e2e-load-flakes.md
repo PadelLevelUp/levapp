@@ -179,3 +179,18 @@ no explicit timeout, unlike every other settle-sensitive assertion in this test 
 15_000ms for the identical per-iteration count check two lines above it) — that inconsistency
 is fixed in the same PR that adds this note. Recorded here rather than opened as a new ticket:
 this is more evidence for the existing "load, no pin" reality of this file, not a new defect.
+
+## 2026-09-23 (Session-B): correction — the undo-count failure is a test race, not load (PAD-412)
+
+The paragraph above is **wrong about line 279**. Re-run at `eb89cfb45` (this branch, with its
+15 s timeout) on an isolated stack at load ~19, not 250+: the PAD-191 test failed 1 in 5 **at
+line 279 itself**, `Expected 3 · Received 0 · Timeout 15000ms`. An instrumented 20× repeat on
+staging `8dc17185d` found the cause: the queue response had arrived (`pending=0 validated=3`),
+yet at the undo loop's start the page showed `undo=0 cards=0`, so the loop's instant guard
+`(await undoAfter.count()) > 0` skipped every undo; 1.5 s later `undo=3`. `PresencesPage.loadQueue`
+renders the "validated this week" list only after BOTH the list and the count requests resolve.
+A 2×2 with a trigger that delays `/pending_validation/count` 3 s: the old loop fails with the exact
+symptom, the fixed loop (wait for `undoAfter.nth(n - 1)` first) passes 3/3; untriggered, both pass.
+A longer timeout on the final count cannot help — nothing is ever undone. Tracked as **PAD-412
+(B-176)**. The same diagnosis surfaced a separate, user-visible race (stale queue state after two
+quick undos): **PAD-413 (B-177)**. #405 is superseded (Coordinator ruling D126).
