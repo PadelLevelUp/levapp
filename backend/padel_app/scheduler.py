@@ -36,6 +36,7 @@ Convenience hooks for lesson_service (safe no-ops when scheduler is absent)
 from __future__ import annotations
 
 import atexit
+import contextvars
 import os
 import sys
 from contextlib import contextmanager
@@ -216,14 +217,18 @@ def _run_reminder_for_lesson_occurrence(lesson_id: int, date_str: str) -> None:
                     lesson_id, date_str,
                 )
                 return
-            instance = get_or_materialize_instance(lesson, date)
+            # PAD-407: this job's own pass asks the whole roster a moment from now, so the
+            # roster enrolments of the materialisation must not each arm an ask pass of
+            # their own (PAD-331) — those passes raced this one and double-sent.
+            with _asks_suppressed():
+                instance = get_or_materialize_instance(lesson, date)
             if instance.status in ("canceled", "completed"):
                 app.logger.info(
                     "reminder_for_lesson_occurrence: instance %s status=%s — skipping",
                     instance.id, instance.status,
                 )
                 return
-            result = send_class_reminders(instance.id)
+            result = send_class_reminders(instance.id, scheduled=True)
             _maybe_rearm_reminder(
                 instance,
                 func=_run_reminder_for_lesson_occurrence,
@@ -242,6 +247,20 @@ def _run_reminder_for_lesson_occurrence(lesson_id: int, date_str: str) -> None:
             )
 
 
+_ASKS_SUPPRESSED = contextvars.ContextVar("levapp_asks_suppressed", default=False)
+
+
+@contextmanager
+def _asks_suppressed():
+    """PAD-407: inside this block `arm_ask_for_student` arms nothing. Used only where a
+    reminder pass for the same occurrence runs right after (the occurrence job)."""
+    token = _ASKS_SUPPRESSED.set(True)
+    try:
+        yield
+    finally:
+        _ASKS_SUPPRESSED.reset(token)
+
+
 def arm_ask_for_student(instance, player_id, *, now=None) -> bool:
     """Make sure a late arrival is actually asked whether they are coming.
 
@@ -255,7 +274,7 @@ def arm_ask_for_student(instance, player_id, *, now=None) -> bool:
     reaches exactly the people who still owe an answer and nobody else. One
     job id per (instance, student, instant) keeps a repeated add idempotent.
     """
-    if _scheduler is None:
+    if _scheduler is None or _ASKS_SUPPRESSED.get():
         return False
     from apscheduler.triggers.date import DateTrigger
     from padel_app.services.notification_service import next_ask_time
@@ -284,7 +303,7 @@ def _run_send_reminders(instance_id: int) -> None:
         from padel_app.services.notification_service import send_class_reminders
         try:
             from padel_app.models import LessonInstance
-            result = send_class_reminders(instance_id)
+            result = send_class_reminders(instance_id, scheduled=True)
             instance = LessonInstance.query.get(instance_id)
             if instance is not None:
                 _maybe_rearm_reminder(
