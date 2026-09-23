@@ -286,14 +286,21 @@ def _place_hold(row: ClassRequest, coach: Coach, locale: str) -> None:
     row.hold_block_id = block.id
 
 
-def _release_hold(row: ClassRequest) -> None:
+def _release_hold(row: ClassRequest) -> bool:
+    """Rule 18: the request lets go of its block. The block goes only while it is still
+    recognisably a hold; one the coach has retitled is theirs and stays, as an ordinary
+    block (PAD-378, B-151). The pointer always goes. True when a block was deleted."""
+    from padel_app.models.class_request import _still_a_hold
+
     if row.hold_block_id is None:
-        return
+        return False
     block = db.session.get(CalendarBlock, row.hold_block_id)
     row.hold_block_id = None
-    if block is not None:
+    deleted = block is not None and _still_a_hold(block)
+    if deleted:
         db.session.delete(block)
     db.session.flush()
+    return deleted
 
 
 # ── rule 6: telling the other side ───────────────────────────────────────────
@@ -544,25 +551,19 @@ def drop_invitee_from_open_requests(player_id: int) -> int:
 
 def release_holds_of_players(player_ids) -> int:
     """Rule 18: these players are about to be deleted in bulk (`Query.delete()`
-    runs no ORM hook), and ON DELETE CASCADE will take their requests. No commit."""
+    runs no ORM hook), and ON DELETE CASCADE will take their requests. No commit.
+
+    Returns how many hold BLOCKS were deleted. Every pointer is cleared; a block the coach
+    retitled stays and is not counted (PAD-378). The only caller, the import revert,
+    ignores the number."""
     ids = [int(pid) for pid in (player_ids or [])]
     if not ids:
         return 0
-    from padel_app.models.class_request import HOLD_TITLE_PREFIXES
-
     rows = ClassRequest.query.filter(
         ClassRequest.player_id.in_(ids), ClassRequest.hold_block_id.isnot(None)
     ).all()
-    released = 0
-    for row in rows:
-        if not row.is_open:
-            # A closed request's leftover pointer: only a block that is still a hold goes.
-            block = db.session.get(CalendarBlock, row.hold_block_id)
-            if block is None or block.type != "personal" or not (block.title or "").startswith(HOLD_TITLE_PREFIXES):
-                row.hold_block_id = None
-                continue
-        _release_hold(row)
-        released += 1
+    # Open or closed, only a block that is still a hold goes (PAD-378); the pointer always does.
+    released = sum(1 for row in rows if _release_hold(row))
     db.session.flush()
     return released
 

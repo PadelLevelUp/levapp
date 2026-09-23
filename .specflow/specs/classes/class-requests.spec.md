@@ -189,14 +189,18 @@ held on the coach's calendar while the request is open.
       F1). No other bulk delete of players or coaches exists today; a new one must do the same.
     - **A coach may make a hold their own, so a leftover pointer is handled with care.** A coach
       can edit a hold like any block (`PUT /api/app/calendar_block/<id>`: new title, new time) and
-      the request goes on pointing at it. While the request is OPEN the block is the live hold
-      and goes when the request closes or is removed, whatever the coach did to it (unchanged
-      since PAD-104; whether a retitled hold should survive is a product question). A request
-      that was ALREADY closed and still points at a block — a row from before PAD-360 — takes
-      the block with it only while the block is still recognisably a hold (`personal`, and
-      still carrying the hold title); otherwise the pointer is cleared and the block stays. So
-      the hooks also clean up old ghost holds lazily, on the next ORM write to such a request,
-      and never delete an event a coach has made theirs (#345 review, second round).
+      the request goes on pointing at it. **A hold the coach has retitled is theirs (PAD-378,
+      B-151):** whenever a request lets go of its block — it closes (withdraw, decline, accept,
+      an edit), it is deleted or cascaded away, its players' holds are released, or a
+      counter-proposal re-places the hold — the block goes only while it is still recognisably
+      a hold (`personal`, and still carrying the hold title); otherwise the pointer is cleared
+      and the block stays as an ordinary block, busy time like any other. This holds for an
+      OPEN request and for one that was ALREADY closed and still points at a block (a row from
+      before PAD-360), which the hooks clean up lazily on the next ORM write (#345 review,
+      second round). A coach who only **moves** a hold keeps the hold title, so it is still the
+      hold and is released with the request. On a counter-proposal the coach's retitled block
+      stays and a fresh hold is placed at the new slot. Backend only: web and iOS already show
+      and edit a hold as a plain block; nothing on either shell changes.
     - **A moved occurrence of a weekly hold (#345 review F2) — closed by PAD-372, rule 3.**
       Moving or deleting one occurrence of a recurring hold used to clone the block
       (`calendar_service._clone_block`): the clone copied the hold's title, no request pointed

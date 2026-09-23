@@ -616,12 +616,12 @@ def test_reverting_an_import_keeps_a_block_the_coach_made_their_own_on_a_closed_
     assert _block_exists(app, hold)
 
 
-def test_REFERENCE_an_open_requests_block_goes_when_it_closes_even_if_the_coach_retitled_it(app, client):
-    """BEHAVIOUR PINNED, NOT CHANGED — it predates PAD-360 (PAD-104). While a request
-    is OPEN its block is the live hold, whatever the coach has done to it, and
-    withdraw / decline / accept delete it. The hooks treat an open request the same
-    way. Whether a retitled hold should survive the close is a product question
-    (rule 3 says a coach may delete a hold, and says nothing about editing one)."""
+def test_an_open_requests_retitled_block_stays_when_it_closes(app, client):
+    """Rule 18 (PAD-378, B-151; this was the REFERENCE pin of the old behaviour, which
+    deleted it). A hold the coach retitled is theirs: closing the request clears the pointer
+    and leaves the block. The flip rests on decision D41 (run record, 2026-09-21 19:13 UTC:
+    the OPEN-request case is a defect, the coordinator's decision, not the owner's). Every
+    path is in test_pad378_retitled_hold_is_the_coachs.py."""
     from padel_app.services.class_request_service import withdraw_class_request_service
 
     ids = _setup(app)
@@ -636,4 +636,5 @@ def test_REFERENCE_an_open_requests_block_goes_when_it_closes_even_if_the_coach_
     with app.app_context():
         withdraw_class_request_service(rid, _player(ids["player_id"]))
 
-    assert not _block_exists(app, hold)
+    assert _block_exists(app, hold)
+    assert _state(app, rid)["hold"] is None
