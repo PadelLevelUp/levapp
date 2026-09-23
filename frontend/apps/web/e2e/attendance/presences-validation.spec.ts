@@ -316,3 +316,76 @@ test.describe("PAD-192: charts follow the table filters", () => {
     await expect(page.getByTestId("presences-charts-scope")).toHaveCount(0);
   });
 });
+
+// attendance.validation rule 22 (PAD-413, B-177): the queue shows the state after the latest
+// action. Two quick undos issue two overlapping refreshes; the FIRST undo's answer is held
+// until the SECOND one's has been delivered, so it arrives last. The server answered it right
+// after the first undo, so it is stale. The page must not let it win.
+test.describe("PAD-413: the queue shows the state after the latest action", () => {
+  test("two quick undos leave both classes in the queue", async ({ page }) => {
+    await loginAsCoach(page);
+    await page.goto("/presences");
+    await openQueueAtFixtureWeek(page);
+    const cards = page.locator('[data-testid="presences-class-card"]');
+    const undo = page.getByRole("button", { name: ui("presences.validate.undo") });
+
+    // Start from a queue with ≥ 2 ready classes, then validate them all at once.
+    for (let i = 0; i < 12 && (await undo.count()) > 0; i++) {
+      const before = await cards.count();
+      await undo.first().click();
+      await expect(cards).toHaveCount(before + 1, { timeout: 15_000 });
+    }
+    const notReady = page.locator('[data-testid="presences-class-card"][data-ready="false"]');
+    for (let i = 0; i < 12 && (await notReady.count()) > 0; i++) {
+      await notReady.first().locator('[data-testid="presence-mark-present"][aria-pressed="false"]').first().click();
+    }
+    await expect(notReady).toHaveCount(0);
+    const n = await cards.count();
+    expect(n).toBeGreaterThanOrEqual(2);
+    await page.getByRole("button", { name: /select all ready|selecionar as prontas/i }).click();
+    await page.getByTestId("presences-validate-selected").click();
+    await expect(cards).toHaveCount(0, { timeout: 20_000 });
+    await expect(undo.nth(n - 1)).toBeVisible({ timeout: 15_000 });
+
+    // The first undo's refresh is answered by the server at once, and held; the second's passes
+    // straight through, and only once it has been delivered is the first released.
+    let hits = 0;
+    let firstFetched!: () => void;
+    const fetched = new Promise<void>((resolve) => (firstFetched = resolve));
+    let releaseFirst!: () => void;
+    const released = new Promise<void>((resolve) => (releaseFirst = resolve));
+    await page.route(/\/class_instances\/pending_validation\?/, async (route) => {
+      hits += 1;
+      if (hits === 1) {
+        const response = await route.fetch();
+        firstFetched();
+        await released;
+        return route.fulfill({ response });
+      }
+      if (hits === 2) {
+        const response = await route.fetch();
+        await route.fulfill({ response });
+        setTimeout(releaseFirst, 500);
+        return;
+      }
+      return route.continue();
+    });
+    await undo.nth(0).click();
+    await fetched;
+    await undo.nth(1).click();
+    await released;
+    await page.waitForTimeout(2000); // every response has arrived; the held one included
+
+    await expect(cards).toHaveCount(2);
+    await expect(undo).toHaveCount(n - 2);
+    expect(hits, "both refreshes went through the trigger").toBeGreaterThanOrEqual(2);
+    await page.unroute(/\/class_instances\/pending_validation\?/);
+
+    // Leave the fixture as the run found it (R-040).
+    for (let i = 0; i < 12 && (await undo.count()) > 0; i++) {
+      const before = await cards.count();
+      await undo.first().click();
+      await expect(cards).toHaveCount(before + 1, { timeout: 15_000 });
+    }
+  });
+});

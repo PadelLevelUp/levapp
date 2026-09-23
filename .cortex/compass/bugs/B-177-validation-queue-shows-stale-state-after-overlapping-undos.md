@@ -3,12 +3,13 @@ id: B-177
 title: "Web Presences: the validation queue can show stale state after two quick undos (last-resolved response wins)"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - attendance.validation
   - frontend/apps/web/src/pages/PresencesPage.tsx
 proposed_fix: "Add a rule that the queue always reflects the latest issued request; guard loadQueue with a request sequence (or move it onto TanStack Query as iOS does); pin with an E2E cell that holds the first of two undo responses."
 opened: 2026-09-23T09:25:58Z
+resolved: 2026-09-23T09:41:25Z
 ---
 
 # B-177 — two quick undos can leave a reopened class shown as validated (PAD-413)
@@ -63,4 +64,17 @@ Then:
 4. Confirm iOS with the same two-undo journey.
 
 ### Resolution
-[Open. Ticket PAD-413, next wave.]
+- **Spec:** `attendance.validation` rule 22 and the criterion "Two quick undos leave both
+  classes in the queue" (`503acd1f3`).
+- **Tests** (`f1252da71`):
+  - the web E2E cell holds the first undo's answer until the second's is delivered; it was red
+    2/2 on the old code, `Expected 2 · Received 1`;
+  - the iOS `queue-ordering.test.ts` pins TanStack's cancel-and-refetch on query-core, and its
+    control (a last-resolved-wins writer) failed with the stale queue.
+- **Code:** `PresencesPage.loadQueue` numbers its requests and applies only the latest
+  (`8507a933e`). iOS needed no change; the screen wiring is read from the code, not driven on a
+  simulator.
+- **Runs:** the cell green 3/3; `presences-validation.spec.ts` 8/8, after the merge with PAD-412
+  too; web presences unit 2/2; mobile presences 61/61; both tsc clean; rendered-text guard
+  119/119.
+- **Resolved:** 2026-09-23T09:41:25Z, commit `8507a933e` (PAD-413).

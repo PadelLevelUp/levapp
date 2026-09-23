@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { CalendarCheck, TrendingUp, UserCheck, Users } from "lucide-react";
@@ -101,7 +101,12 @@ export default function PresencesPage() {
     }
   }, [t, toast]);
 
+  // attendance.validation rule 22 (PAD-413, B-177): every write refreshes the queue, so two quick
+  // actions issue overlapping refreshes and the earlier one may answer last. Only the latest
+  // refresh may write the queue; an earlier answer is dropped.
+  const queueRequest = useRef(0);
   const loadQueue = useCallback(async () => {
+    const request = ++queueRequest.current;
     setLoadingQueue(true);
     try {
       // The trigger's number comes from the count endpoint — the same helper
@@ -110,16 +115,18 @@ export default function PresencesPage() {
         getPendingValidation(week),
         getPendingValidationCount(week),
       ]);
+      if (request !== queueRequest.current) return;
       setQueue(list);
       setPendingCount(count.pendingCount);
     } catch {
+      if (request !== queueRequest.current) return;
       toast({
         title: t("presences.error.queueTitle"),
         description: t("presences.error.queueBody"),
         variant: "destructive",
       });
     } finally {
-      setLoadingQueue(false);
+      if (request === queueRequest.current) setLoadingQueue(false);
     }
   }, [week, t, toast]);
 
