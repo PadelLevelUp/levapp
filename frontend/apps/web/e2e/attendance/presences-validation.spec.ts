@@ -269,6 +269,10 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
     // PAD-201) count the seed's classes awaiting validation. Undo keeps the record
     // (spec rule 9), so each class returns to the queue.
     const undoAfter = page.getByRole("button", { name: ui("presences.validate.undo") });
+    // PAD-412 (B-176): the "validated this week" list holding these buttons renders only once the
+    // queue's list AND count requests have resolved, after the pending cards are already gone. Read
+    // at once, the loop's guard below saw 0 buttons and undid nothing. Wait for the n this run made.
+    await expect(undoAfter.nth(n - 1)).toBeVisible({ timeout: 15_000 });
     for (let i = 0; i < 12 && (await undoAfter.count()) > 0; i++) {
       const before = await page.locator('[data-testid="presences-class-card"]').count();
       await undoAfter.first().click();
