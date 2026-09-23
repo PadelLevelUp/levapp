@@ -2,7 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { AT_BOTTOM_THRESHOLD_PX } from '@levelup/hooks';
+import { AT_BOTTOM_THRESHOLD_PX, nextTargetStep } from '@levelup/hooks';
 import type { Message } from '@/types';
 import { MessageBubble } from './MessageBubble';
 
@@ -31,6 +31,10 @@ interface Props {
   loadingOlder?: boolean;
   /** PAD-208 — asked for when the reader reaches the top of the loaded page. */
   onLoadOlder?: () => void;
+  /** PAD-408 — a message to land on (a push's `?message=`), consumed once. */
+  targetMessageId?: string | null;
+  /** PAD-408 — told when the target has been landed on or given up. */
+  onTargetConsumed?: () => void;
 }
 
 export function MessageList({
@@ -44,6 +48,8 @@ export function MessageList({
   hasMore = false,
   loadingOlder = false,
   onLoadOlder,
+  targetMessageId = null,
+  onTargetConsumed,
 }: Props) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -186,6 +192,44 @@ export function MessageList({
   }, []);
 
   /**
+   * PAD-408 (messaging.push-notifications rule 12) — land on the message a push
+   * named. The thread anchors at the newest message first (rule 9, untouched);
+   * then older pages are asked for until the target is loaded — at most
+   * MESSAGE_TARGET_MAX_OLDER_PAGES, each prepend compensated by rule 11 so the
+   * view stays still — and it is centred and highlighted like a quoted reply.
+   * Not found within the bound: the thread stays on the newest message.
+   */
+  const targetRef = useRef<string | null>(targetMessageId);
+  const targetOlderPagesRef = useRef(0);
+  // A second push for the thread already open changes the target in place.
+  useEffect(() => {
+    if (!targetMessageId) return;
+    targetRef.current = targetMessageId;
+    targetOlderPagesRef.current = 0;
+  }, [targetMessageId]);
+  useEffect(() => {
+    const target = targetRef.current;
+    if (!target || !hasInitializedRef.current || loadingOlder) return;
+    const step = nextTargetStep({
+      messages,
+      targetId: target,
+      olderPagesLoaded: targetOlderPagesRef.current,
+      hasOlder: hasMore && Boolean(onLoadOlder),
+    });
+    if (step.kind === 'load-older') {
+      targetOlderPagesRef.current += 1;
+      onLoadOlder?.();
+      return;
+    }
+    targetRef.current = null;
+    if (step.kind === 'scroll') {
+      nearBottomRef.current = false;
+      scrollToMessage(target);
+    }
+    onTargetConsumed?.();
+  }, [messages, hasMore, loadingOlder, onLoadOlder, onTargetConsumed, scrollToMessage]);
+
+  /**
    * PAD-208 rule 11 — the top sentinel. An IntersectionObserver rather than a
    * scroll threshold so the request is made once when the top actually comes
    * into view, however the reader got there (wheel, drag, keyboard, a jump to a
@@ -277,7 +321,12 @@ export function MessageList({
                 : undefined;
 
               return (
-                <div key={msg.id} data-msg-id={String(msg.id)} className="rounded-lg">
+                <div
+                  key={msg.id}
+                  data-msg-id={String(msg.id)}
+                  data-highlighted={highlightedMessageId === String(msg.id) ? 'true' : undefined}
+                  className="rounded-lg"
+                >
                   <MessageBubble
                     message={msg}
                     isMine={isMine}

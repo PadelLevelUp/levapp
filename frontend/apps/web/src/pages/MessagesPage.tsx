@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
@@ -47,6 +47,20 @@ export default function MessagesPage() {
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  // PAD-408 (messaging.push-notifications rule 12): a push names the message to
+  // land on; dropped from the URL once landed so a reload opens at the newest.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetMessageId = searchParams.get("message");
+  const handleTargetConsumed = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("message");
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
   // PAD-284 (dashboard.blocks rule 10): a reply card used to send
   // `/messages?conversationId=<id>`, which this page ignored — the message
   // never opened. The server now emits `/messages/<id>`; the old shape is
@@ -312,7 +326,12 @@ export default function MessagesPage() {
             : c
         )
       );
-      navigate(`/messages/${conversationId}`);
+      // PAD-408: opening the thread already in the URL (a deep link, a push)
+      // keeps its `?message=` target; choosing another thread drops it.
+      navigate({
+        pathname: `/messages/${conversationId}`,
+        search: id === conversationId ? location.search : "",
+      });
     } finally {
       setThreadLoading(false);
     }
@@ -558,6 +577,8 @@ export default function MessagesPage() {
                   hasMore={selectedConversation.hasMore}
                   loadingOlder={loadingOlder}
                   onLoadOlder={handleLoadOlder}
+                  targetMessageId={targetMessageId}
+                  onTargetConsumed={handleTargetConsumed}
                 />
               )}
             </div>

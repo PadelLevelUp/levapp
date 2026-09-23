@@ -438,10 +438,13 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
         assert mock_send.call_count == 1
         args, kwargs = mock_send.call_args
         assert args[0] == coach_user.id
+        # PAD-408: the native payload names the message it announces, not just
+        # the thread.
         assert kwargs["data"] == {
             "type": "message",
             "conversationId": msg.conversation_id,
             "classInstanceId": instance.id,
+            "messageId": msg.id,
         }
         from padel_app.services.messaging_service import get_unread_count
         assert kwargs["badge"] == get_unread_count(coach_user.id) >= 1
@@ -478,12 +481,18 @@ def test_direct_message_pushes_expo_with_message_payload(app):
         with patch("padel_app.services.messaging_service.publish"), \
              patch("padel_app.services.messaging_service.send_push_notification"), \
              patch("padel_app.services.messaging_service.send_expo_push_to_user") as mock_send:
-            create_message_service({"conversationId": conversation_id, "text": "hello there"}, sender_id)
+            message = create_message_service({"conversationId": conversation_id, "text": "hello there"}, sender_id)
 
         assert mock_send.call_count == 1
         args, kwargs = mock_send.call_args
         assert args[0] == recipient.id
-        assert kwargs["data"] == {"type": "message", "conversationId": conversation_id}
+        # PAD-408: the native payload names the message it announces, not just
+        # the thread.
+        assert kwargs["data"] == {
+            "type": "message",
+            "conversationId": conversation_id,
+            "messageId": message.id,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -621,7 +630,7 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
              patch("padel_app.services.messaging_service.send_push_notification"), \
              patch("padel_app.utils.expo_push.requests.post") as mock_post:
             mock_post.return_value = _mock_response({"data": [{"status": "ok"}]})
-            create_message_service(
+            message = create_message_service(
                 {"conversationId": conversation_id, "text": "Training moved to 19h"},
                 sender_id,
             )
@@ -634,7 +643,12 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
                 "to": "ExponentPushToken[pad118]",
                 "title": "Ana Coach",
                 "body": "Training moved to 19h",
-                "data": {"type": "message", "conversationId": conversation_id},
+                # PAD-408: the payload names the message it announces.
+                "data": {
+                    "type": "message",
+                    "conversationId": conversation_id,
+                    "messageId": message.id,
+                },
                 "badge": 1,
                 # PAD-307 (rule 11a): Android channel and priority ride on every message.
                 "channelId": "default",

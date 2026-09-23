@@ -24,7 +24,8 @@ arrives, and needs to know something's waiting for them.
 
 1. A student is away from the app when their coach sends a message. A push notification arrives —
    on the web (browser push) or on their phone (native push) — showing the sender's name and the
-   message text, and tapping it opens straight to that conversation.
+   message text, and tapping it opens straight to that conversation, at that message, even if
+   newer messages arrived after it and even when the tap is what starts the app.
 2. Their phone's home-screen app icon shows a badge count that matches their real total unread
    messages, not just "1" for the one that just arrived.
 3. Back inside the app, the Messages tab itself shows an unread badge, and each conversation with

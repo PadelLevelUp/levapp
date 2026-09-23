@@ -1643,7 +1643,7 @@ def _send_system_message(
         user_id=player_user_id,
         title="New message",
         body=text[:100],
-        url=f"/messages/{conv.id}",
+        url=f"/messages/{conv.id}?message={msg.id}",
     )
 
     # Native (Expo) push — additive, best-effort. PAD-240: this is a MESSAGE
@@ -1656,7 +1656,7 @@ def _send_system_message(
     # so every tap dead-ended on "this class could not be found". The instance
     # id (``resolved_instance_id``, computed above for the PAD-107 backstop)
     # still rides along as context; the client never routes on it alone.
-    push_data = {"type": "message", "conversationId": conv.id}
+    push_data = {"type": "message", "conversationId": conv.id, "messageId": msg.id}
     if resolved_instance_id is not None:
         push_data["classInstanceId"] = resolved_instance_id
     # PAD-147: this is an unread Message row like any direct message, so the
@@ -1823,7 +1823,7 @@ def _notify_coach_of_cancellation(
         user_id=coach_user_id,
         title=push_title,
         body=text[:100],
-        url=f"/messages/{conv.id}",
+        url=f"/messages/{conv.id}?message={msg.id}",
     )
 
     # PAD-240: the cancellation is a message in the coach–student thread, so
@@ -1838,6 +1838,7 @@ def _notify_coach_of_cancellation(
         data={
             "type": "message",
             "conversationId": conv.id,
+            "messageId": msg.id,
             "classInstanceId": instance.id,
         },
         # PAD-147: unread total as the icon badge, like every message push.

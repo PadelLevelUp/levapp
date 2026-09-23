@@ -12,6 +12,12 @@
 # messages). The flow taps the foreground banner and asserts the thread opened.
 # Seeded conversation id 1 is deterministic on a fresh database.
 #
+# B-166 (PAD-409): the probe's data sits under the APNs key `body`, which is where
+# Expo's push service puts `data` and where expo-notifications reads
+# `content.data` from. Until 2026-09-23 the keys were at the top level, so the
+# tap arrived with `data = null` and routed nowhere — this flow could not pass
+# for that reason alone.
+#
 # Order-independent (reads only); not in config.yaml's flowsOrder because it
 # needs the wrapper script — run it via `bash scripts/push-tap-flow.sh`.
 appId: com.padellevelup.app
