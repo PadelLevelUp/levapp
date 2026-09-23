@@ -12,7 +12,7 @@ from padel_app.sql_db import db
 from padel_app.tests.test_pad362_evaluation_contract import (  # noqa: F401 — _jwt_secret is an autouse fixture
     _coach_headers,
     _jwt_secret,
-    _seed,  # one coach, one student on the roster, Forehand 1-10 and Volley 0-10 (both legacy)
+    _seed,  # one coach, one student on the roster, Forehand 1-5 and Volley 1-5 (both legacy, PAD-403)
 )
 
 
@@ -81,7 +81,7 @@ def test_an_absent_key_changes_nothing_on_a_competency(app, client):
 
 def test_a_null_rating_clears_it(app, client):
     ids = _seed(app)
-    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 7, str(ids["volley_id"]): 4}}).status_code == 200
+    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5, str(ids["volley_id"]): 4}}).status_code == 200
 
     res = _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): None}})
 
@@ -92,45 +92,46 @@ def test_a_null_rating_clears_it(app, client):
 
 def test_an_empty_note_clears_the_private_note(app, client):
     ids = _seed(app)
-    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 7}, "note": "Late to the ball."}).status_code == 200
-    assert _record_rows(app, ids) == [("Late to the ball.", {ids["forehand_id"]: 7.0})]
+    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}, "note": "Late to the ball."}).status_code == 200
+    assert _record_rows(app, ids) == [("Late to the ball.", {ids["forehand_id"]: 4.0})]
 
     res = _put(app, client, ids, {"note": ""})
 
     assert res.status_code == 200, res.get_data(as_text=True)
     assert res.get_json()["note"] is None
-    assert _record_rows(app, ids) == [(None, {ids["forehand_id"]: 7.0})]
+    assert _record_rows(app, ids) == [(None, {ids["forehand_id"]: 4.0})]
 
 
 def test_an_absent_key_changes_nothing_on_a_record(app, client):
     ids = _seed(app)
-    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 7}, "note": "Late to the ball."}).status_code == 200
+    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 5}, "note": "Late to the ball."}).status_code == 200
 
     assert _put(app, client, ids, {"ratings": {str(ids["volley_id"]): 4}}).status_code == 200  # no `note` key
-    assert _record_rows(app, ids) == [("Late to the ball.", {ids["forehand_id"]: 7.0, ids["volley_id"]: 4.0})]
+    assert _record_rows(app, ids) == [("Late to the ball.", {ids["forehand_id"]: 5.0, ids["volley_id"]: 4.0})]
 
     assert _put(app, client, ids, {"note": "Better today."}).status_code == 200  # no `ratings` key
-    assert _record_rows(app, ids) == [("Better today.", {ids["forehand_id"]: 7.0, ids["volley_id"]: 4.0})]
+    assert _record_rows(app, ids) == [("Better today.", {ids["forehand_id"]: 5.0, ids["volley_id"]: 4.0})]
 
     assert _put(app, client, ids, {}).status_code == 200  # nothing at all
-    assert _record_rows(app, ids) == [("Better today.", {ids["forehand_id"]: 7.0, ids["volley_id"]: 4.0})]
+    assert _record_rows(app, ids) == [("Better today.", {ids["forehand_id"]: 5.0, ids["volley_id"]: 4.0})]
 
 
 def test_a_score_of_zero_is_saved_where_the_scale_starts_at_zero(app, client):
-    """Volley is a legacy 0-10 category: 0 is a legal score there. The legacy
-    endpoint cannot save it (B-136, pinned by PAD-362); the record API can."""
+    """PAD-403 converted every legacy category to 1-5 stars, so no category can
+    start at 0 any more: a 0 is refused on a 1-5 category (PAD-403,
+    evaluations.legacy-conversion)."""
     ids = _seed(app)
 
     res = _put(app, client, ids, {"ratings": {str(ids["volley_id"]): 0}})
 
-    assert res.status_code == 200, res.get_data(as_text=True)
-    assert res.get_json()["ratings"][0]["score"] == 0
-    assert _record_rows(app, ids) == [(None, {ids["volley_id"]: 0.0})]
+    assert res.status_code == 400, res.get_data(as_text=True)
+    assert res.get_json() == {"error": "score_out_of_range"}
+    assert _record_rows(app, ids) == []
 
 
 def test_clearing_the_last_rating_of_a_record_with_no_note_removes_the_record(app, client):
     ids = _seed(app)
-    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 7}}).status_code == 200
+    assert _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}}).status_code == 200
 
     res = _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): None}})
 

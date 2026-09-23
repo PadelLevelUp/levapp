@@ -71,7 +71,8 @@ DATES = seed_dates(seed_today())
 # seeded Forehand category: the evaluation specs that expect Forehand to open "not
 # rated" use "E2E Student", and the category-delete spec counts scores on a category
 # it creates itself. (days before DATES.today, score) — never the wall clock.
-EVALUATION_HISTORY_POINTS = [(120, 3), (90, 4), (60, 4), (30, 6), (7, 7)]
+# PAD-403: values are 1-5 (stars) to match the seeded Forehand category's scale.
+EVALUATION_HISTORY_POINTS = [(120, 1), (90, 2), (60, 2), (30, 3), (7, 4)]
 
 
 def seed_e2e_evaluation_history(coach_player, category):
@@ -232,13 +233,16 @@ with app.app_context(), unit_of_work():
     db.session.flush()
 
     # ── Evaluation categories ─────────────────────────────────────────────────
-    # At least one (legacy) category so the evaluation form renders a scorable stepper
-    # (PAD-56: without a category, saving is a silent no-op / false success).
+    # At least one (legacy) category so the evaluation form renders a scorable rating
+    # (PAD-56: without a category, saving is a silent no-op / false success; PAD-403:
+    # legacy categories render as 1-5 stars, not a stepper).
     forehand_category = EvaluationCategory(
         coach_id=coach.id,
         name="Forehand",
+        # PAD-403: every legacy category (group/competency_group null) is now a
+        # 1-5 star scale on both web and iOS.
         scale_min=1,
-        scale_max=10,
+        scale_max=5,
     )
     db.session.add(forehand_category)
     db.session.flush()

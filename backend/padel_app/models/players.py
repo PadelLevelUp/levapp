@@ -173,7 +173,12 @@ class Player(db.Model, model.Model):
             notification_block_payload,
         )
 
+        from padel_app.models import Coach
+        from padel_app.services.evaluation_api_service import due_for_links
+
         rel = next((r for r in self.coaches_relations if r.coach_id == coach_id), None)
+        coach = db.session.get(Coach, coach_id)
+        due = due_for_links(coach, [rel]) if coach is not None and rel is not None else {}
         return {
             **notification_block_payload(self.user),
             "id": f"p-{self.id}_c-{coach_id}",
@@ -200,4 +205,6 @@ class Player(db.Model, model.Model):
             # players.remove rule 5 (PAD-274): whether this coach may delete the
             # record; otherwise the apps offer Disconnect.
             "deletable": _is_deletable_by_coach(self),
+            # evaluations.reminders rule 4 (PAD-404): the roster serializer's key.
+            "due": bool(due.get(rel.id, False)) if rel is not None else False,
         }

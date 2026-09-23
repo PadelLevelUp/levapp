@@ -1,0 +1,109 @@
+# PAD-403 / evaluations.legacy-conversion — the legacy-conversion journey on iOS.
+# Mirrors apps/web/e2e/evaluation-tools/legacy-conversion.spec.ts (flow number 98: the
+# Coordinator's next free slot after 97 in this wave's reserved range).
+#
+# What it proves, by test id and by the server's own answers — never rendered copy:
+# - a legacy category posted as a 0-10 scale (the way an old client would) is stored and
+#   echoed 1-5, whatever the body asked for
+# - the profile card offers "Avaliações", which PUSHES a screen
+# - that category draws as stars, never a stepper — no stepper test id appears anywhere
+# - a star tap saves at once, and survives leaving and reopening the evaluations drawer, on
+#   the history card — stars, with the tapped score
+# - teardown removes the record and the category this flow made; nothing else is touched
+appId: com.padellevelup.app
+---
+- runScript: ../scripts/legacy-conversion-setup.js
+# The server's own contract (PAD-403): stored and echoed 1-5, whatever the 0-10 body asked for.
+- assertTrue: "${output.categoryScaleMin === 1 && output.categoryScaleMax === 5}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-evaluations-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+- assertVisible:
+    id: "evaluation-history-empty"
+
+- tapOn:
+    id: "evaluation-new"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-form"
+    timeout: 15000
+
+# The seeded category never draws as a stepper — only stars, at the star row's own id.
+- assertNotVisible:
+    id: "evaluation-stepper-${output.categoryId}-value-none"
+- assertVisible:
+    id: "evaluation-stars-${output.categoryId}"
+
+# A star tap saves at once — the server holds the rating before anything else is touched.
+- tapOn:
+    id: "evaluation-star-${output.categoryId}-4"
+- evalScript: "${output.afterTap = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterTap.length === 1 && output.afterTap[0].ratings.length === 1 && output.afterTap[0].ratings[0].score === 4}"
+
+- scrollUntilVisible:
+    element:
+      id: "evaluation-finish"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "evaluation-finish"
+- extendedWaitUntil:
+    notVisible:
+      id: "evaluation-form"
+    timeout: 15000
+
+# Leaves and reopens the drawer (the app has no page reload) — the rating is still there, on
+# the history card, as stars with the tapped score, never a stepper.
+- tapOn:
+    id: "player-evaluations-back"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "evaluation-history-card-.*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "evaluation-stars-${output.categoryId}-4"
+- assertNotVisible:
+    id: "evaluation-stepper-${output.categoryId}-value-4"
+
+- runScript: ../scripts/legacy-conversion-teardown.js
+- assertTrue: "${output.left === 0}"

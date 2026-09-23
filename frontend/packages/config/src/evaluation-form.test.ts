@@ -7,6 +7,7 @@ import {
   nextStarScore,
   stepScore,
   todaysClasslessRecord,
+  isStarScale,
 } from "./evaluation-form";
 
 // evaluations.history rules 4-5, evaluations.records rules 7 and 10 (PAD-374).
@@ -22,12 +23,19 @@ const record = (over: Partial<EvaluationRecord>): EvaluationRecord => ({
 });
 
 describe("stars or a stepper", () => {
-  it("draws stars for catalogue and custom competencies and never for a legacy category", () => {
+  it("draws stars for every 1-5 scale, a converted legacy category included (PAD-403)", () => {
     expect(isStarCompetency(competency({ group: "technique", key: "bandeja" }))).toBe(true);
     expect(isStarCompetency(competency({ group: "custom" }))).toBe(true);
+    // evaluations.legacy-conversion rule 5: legacy categories are 1-5 after the conversion, so stars
+    expect(isStarCompetency(competency({ group: null, scaleMin: 1, scaleMax: 5 }))).toBe(true);
+    expect(isStarScale({ scaleMin: 1, scaleMax: 5 })).toBe(true);
+  });
+
+  it("keeps the number for a scale that is not 1-5, which the server no longer holds", () => {
+    // dormant: a row the migration has not reached yet must never draw an 8 as stars
     expect(isStarCompetency(competency({ group: null, scaleMin: 1, scaleMax: 10 }))).toBe(false);
-    // a legacy category that happens to be 1-5 is still a number: its scale is the coach's own
-    expect(isStarCompetency(competency({ group: null, scaleMin: 1, scaleMax: 5 }))).toBe(false);
+    expect(isStarCompetency(competency({ group: null, scaleMin: 0, scaleMax: 10 }))).toBe(false);
+    expect(isStarScale({ scaleMin: 0, scaleMax: 5 })).toBe(false);
   });
 });
 

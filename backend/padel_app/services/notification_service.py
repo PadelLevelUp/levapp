@@ -1521,14 +1521,13 @@ def _format_weekday(dt, locale):
 
 
 def _get_or_create_direct_conversation(coach_user_id: int, player_user_id: int):
-    from padel_app.models import Conversation, ConversationParticipant
-    key = Conversation.build_participant_key([coach_user_id, player_user_id])
-    conv = Conversation.query.filter_by(participant_key=key).first()
-    if conv is None:
-        conv = Conversation(participant_key=key, is_group=False)
-        conv.create()
-        for uid in sorted(set([coach_user_id, player_user_id])):
-            ConversationParticipant(conversation_id=conv.id, user_id=uid).create()
+    """PAD-411: race-safe (`Conversation.get_or_insert`); commits as `create()` always did —
+    unless a unit of work is open, which commits at its end (PAD-272)."""
+    from padel_app.models import Conversation
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    conv = Conversation.get_or_insert([coach_user_id, player_user_id])
+    commit_or_flush()
     return conv
 
 
@@ -1539,6 +1538,7 @@ def _send_system_message(
     message_type: str = "text",
     msg_metadata: dict | None = None,
     class_instance_id: int | None = None,
+    push: bool = True,
 ):
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
@@ -1635,11 +1635,14 @@ def _send_system_message(
         message_recipient_ids(msg),
     )
 
+    if not push:
+        return msg
+
     send_push_notification(
         user_id=player_user_id,
         title="New message",
         body=text[:100],
-        url=f"/messages/{conv.id}",
+        url=f"/messages/{conv.id}?message={msg.id}",
     )
 
     # Native (Expo) push — additive, best-effort. PAD-240: this is a MESSAGE
@@ -1652,7 +1655,7 @@ def _send_system_message(
     # so every tap dead-ended on "this class could not be found". The instance
     # id (``resolved_instance_id``, computed above for the PAD-107 backstop)
     # still rides along as context; the client never routes on it alone.
-    push_data = {"type": "message", "conversationId": conv.id}
+    push_data = {"type": "message", "conversationId": conv.id, "messageId": msg.id}
     if resolved_instance_id is not None:
         push_data["classInstanceId"] = resolved_instance_id
     # PAD-147: this is an unread Message row like any direct message, so the
@@ -1819,7 +1822,7 @@ def _notify_coach_of_cancellation(
         user_id=coach_user_id,
         title=push_title,
         body=text[:100],
-        url=f"/messages/{conv.id}",
+        url=f"/messages/{conv.id}?message={msg.id}",
     )
 
     # PAD-240: the cancellation is a message in the coach–student thread, so
@@ -1834,6 +1837,7 @@ def _notify_coach_of_cancellation(
         data={
             "type": "message",
             "conversationId": conv.id,
+            "messageId": msg.id,
             "classInstanceId": instance.id,
         },
         # PAD-147: unread total as the icon badge, like every message push.

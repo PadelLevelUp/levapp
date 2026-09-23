@@ -168,9 +168,10 @@ def test_the_import_groups_its_rows_into_records_by_player_and_date(app):
         coach = Coach.query.get(ids["coach_id"])
         result = bulk_create_evaluation_entries(
             [
-                {"player_name": "Test Student", "date": "2026-03-05", "Forehand": 6, "Volley": "7.5"},
-                {"player_name": "Test Student", "date": "2026-03-05", "Forehand": 8},
-                {"player_name": "Test Student", "date": "2026-04-02", "Forehand": 9},
+                # 1-5 stars: an import refuses a score outside 1-5 (D111, PAD-403)
+                {"player_name": "Test Student", "date": "2026-03-05", "Forehand": 3, "Volley": "3.5"},
+                {"player_name": "Test Student", "date": "2026-03-05", "Forehand": 4},
+                {"player_name": "Test Student", "date": "2026-04-02", "Forehand": 5},
             ],
             coach,
         )
@@ -185,8 +186,8 @@ def test_the_import_groups_its_rows_into_records_by_player_and_date(app):
         march = {(e.category_id, e.score): e.record_id for e in EvaluationEntry.query.all() if e.evaluated_at.month == 3}
         # two Forehand rows on one imported date: both kept, the later-written one holds the slot
         assert march == {
-            (ids["forehand_id"], 6.0): None,
-            (ids["forehand_id"], 8.0): records[0].id,
-            (ids["volley_id"], 7.5): records[0].id,
+            (ids["forehand_id"], 3.0): None,
+            (ids["forehand_id"], 4.0): records[0].id,
+            (ids["volley_id"], 3.5): records[0].id,
         }
         assert all(e.evaluated_at == dt.datetime(2026, 3, 5) for e in EvaluationEntry.query.all() if e.evaluated_at.month == 3)

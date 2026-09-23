@@ -55,7 +55,8 @@ Students who want a class outside the coach's published schedule, and the coach 
 - The people named by the student do not accept anything; the coach's approval enrols them and
   they are told they were added, like any student a coach puts in a class.
 - A pending request holds its slot on the coach's calendar; the hold disappears the moment the
-  request is decided or withdrawn.
+  request is decided or withdrawn. If the coach has renamed that hold, it has become the coach's
+  own event: it stays on the calendar when the request closes.
 - Only the coach can book the class or refuse the request outright; either side may propose
   another time, and the other side always gets to answer.
 - Every state change — new request, accepted, declined, counter-proposed, proposal answered,

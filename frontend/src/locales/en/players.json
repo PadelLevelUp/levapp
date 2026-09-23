@@ -20,6 +20,7 @@
     "pagination": "Page {{current}} of {{total}} • {{players}} players",
     "linkCopied": "Link copied to clipboard",
     "linkCopyFailed": "Failed to copy link",
+    "listLoadFailed": "Couldn't refresh the player list.",
     "inviteDialogTitle": "Player invite link",
     "inviteDialogDescription": "Share this link with the player so they can complete their own profile.",
     "copyInviteAriaLabel": "Copy invite link",
@@ -351,6 +352,48 @@
       "noParticipants": "This class has nobody to evaluate."
     },
     "invalidFields": "Some of what you entered is not valid.",
-    "emailIsTheStudents": "The student manages their own e-mail."
+    "emailIsTheStudents": "The student manages their own e-mail.",
+    "evaluationSharing": {
+      "share": {
+        "action": "Share evaluation",
+        "step1Title": "Choose what to show {{name}}",
+        "competencyOption": "{{name}} — {{score}}/{{max}}",
+        "evolutionLabel": "Progress",
+        "evolutionLast": "Since the last evaluation",
+        "evolution6m": "Last 6 months",
+        "evolution1y": "Last year",
+        "evolutionNone": "Don't show progress",
+        "includeNote": "Include the coach's comment",
+        "preview": "Preview",
+        "previewTitle": "What the student will see",
+        "back": "Back",
+        "submit": "Share",
+        "cancel": "Cancel",
+        "sharedOn": "✓ Shared with the student on {{date}}",
+        "update": "Update share",
+        "unshare": "Stop sharing",
+        "deleteSharedWarning": "The student will stop seeing this evaluation.",
+        "error": "The evaluation could not be shared."
+      },
+      "card": {
+        "from": "Evaluation from {{coach}}",
+        "coachComment": "Coach's comment",
+        "periodLast": "Since the last evaluation",
+        "period6m": "Last 6 months",
+        "period1y": "Last year"
+      },
+      "student": {
+        "blockTitle": "Evaluations",
+        "seeAll": "See all",
+        "pageTitle": "My evaluations",
+        "empty": "No shared evaluations yet.",
+        "loadError": "The evaluations could not be loaded."
+      }
+    },
+    "masterDetail": {
+      "selectPlayer": "Select a player",
+      "selectPlayerHint": "Their details open here, next to the list.",
+      "levelChip": "Level {{code}}"
+    }
   }
 }

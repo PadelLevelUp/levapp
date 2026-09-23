@@ -219,8 +219,8 @@ def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:
 
     locale = _localized(coach_user, "pt", "en")
     title = "Lista de espera" if locale == "pt" else "Waiting list"
-    send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}")
+    send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
     send_expo_push_to_user(
         coach_user.id, title=title, body=text[:100],
-        data={"type": "message", "conversationId": conv.id, "classInstanceId": instance.id},
+        data={"type": "message", "conversationId": conv.id, "messageId": msg.id, "classInstanceId": instance.id},
     )

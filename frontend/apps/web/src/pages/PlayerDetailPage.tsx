@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { getCoachPlayers, getPlayerProfile, addCoachNote, deleteCoachNote, editPlayer, editPlayerInvalidFields, removePlayer, getPlayerRemovalImpact, removePlayerErrorCode } from "@/api/players";
 import type { PlayerRemovalImpact } from "@levelup/types";
 import { getCoachLevels } from "@/api/coachLevel";
@@ -27,6 +26,7 @@ import { getStandingWaitingList, removeFromStandingWaitingList } from "@/api/not
 import type { StandingWaitingListEntry } from "@/types";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,11 +38,29 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function PlayerDetailPage() {
-  const { playerId } = useParams<{ playerId: string }>();
-  const navigate = useNavigate();
+interface PlayerDetailPaneProps {
+  playerId: string;
+  /** PAD-410: called after a successful remove/disconnect so the caller can
+   * navigate away (the master-detail list lives at `/players`). */
+  onRemoved: () => void;
+  /** PAD-410: called after a save (name/level/side) so the roster row the
+   * caller renders alongside this pane can be refreshed without remounting
+   * the list or losing its search/sort/page/filter state. */
+  onUpdated: () => void;
+}
+
+/**
+ * PAD-410: the player detail body, extracted out of the full-page route so
+ * `PlayersPage` can render it as the right-hand pane of a master-detail
+ * layout, beside the roster, without either losing state. The default export
+ * below keeps `/players/:playerId` working as a standalone full page for
+ * anything that still links straight to it.
+ */
+export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetailPaneProps) {
   const { user: authUser } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [player, setPlayer] = useState<CoachPlayer | null>(null);
   const [levels, setLevels] = useState<CoachLevel[]>([]);
@@ -95,7 +113,7 @@ export default function PlayerDetailPage() {
     try {
       await removePlayer(authUser.coachId, player.playerId, removalAction);
       toast.success(removalAction === "delete" ? t("players.deleted", { name }) : t("players.disconnected", { name }));
-      navigate("/players");
+      onRemoved();
     } catch (err) {
       const code = removePlayerErrorCode(err);
       toast.error(
@@ -114,6 +132,7 @@ export default function PlayerDetailPage() {
   };
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       try {
@@ -121,6 +140,7 @@ export default function PlayerDetailPage() {
           getCoachPlayers(),
           getCoachLevels(),
         ]);
+        if (cancelled) return;
         setLevels(levelsData);
 
         const found = playersData.find((p) => String(p.playerId) === String(playerId));
@@ -131,15 +151,19 @@ export default function PlayerDetailPage() {
             getPlayerProfile(found.playerId),
             getStandingWaitingList(),
           ]);
+          if (cancelled) return;
           setProfile(profileData);
           const entry = standingList.find((e) => String(e.playerId) === String(found.playerId));
           setStandingEntry(entry ?? null);
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [playerId]);
 
   const handleEditStart = () => {
@@ -191,6 +215,9 @@ export default function PlayerDetailPage() {
 
       setPlayer(updated);
       setIsEditing(false);
+      // PAD-410: the roster row for this player (name/level/side/avatar
+      // initials) is stale until the list refetches.
+      onUpdated();
     } catch (err) {
       // PAD-388: a 400 names the fields the server refused (today only an empty name).
       toast.error(
@@ -203,247 +230,251 @@ export default function PlayerDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="p-6 space-y-6">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </AppLayout>
+      <div className="p-4 md:p-6 space-y-6">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
     );
   }
 
   if (!player) {
     return (
-      <AppLayout>
-        <div className="p-6 space-y-4">
-          <Button variant="ghost" onClick={() => navigate("/players")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
-          </Button>
-          <p className="text-muted-foreground">{t("players.notFound")}</p>
-        </div>
-      </AppLayout>
+      <div className="p-4 md:p-6 space-y-4">
+        <Button variant="ghost" onClick={() => navigate("/players")}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
+        </Button>
+        <p className="text-muted-foreground">{t("players.notFound")}</p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 space-y-6 max-w-4xl mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/players")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
-          </Button>
-          <PageActions
-            actions={[
-              // PAD-114: the coach-side entry point into the shared "Presenças"
-              // page. The student reaches the same page from their dashboard's
-              // "Attended" KPI; both land on one component backed by one
-              // server-authorized endpoint.
-              {
-                label: t("attendance.playerLink"),
-                icon: <CalendarCheck className="mr-2 h-4 w-4" />,
-                onClick: () => navigate(`/players/${playerId}/attendance`),
-                testId: "player-attendance-link",
-              },
-              // PAD-141: the same entry point for "Faltas". Kept immediately
-              // beside its counterpart so the pair reads as one idea.
-              // `PageActions` already wraps (PAD-114 widened it after a 5th
-              // action pushed "Delete Player" off a 1280px viewport), so this
-              // 6th action does not reintroduce that overflow.
-              {
-                label: t("absences.playerLink"),
-                icon: <CalendarX className="mr-2 h-4 w-4" />,
-                onClick: () => navigate(`/players/${playerId}/absences`),
-                testId: "player-absences-link",
-              },
-              {
-                label: t("players.addToClasses"),
-                icon: <CalendarPlus className="mr-2 h-4 w-4" />,
-                onClick: () => setIsClassesOpen(true),
-              },
-              standingEntry
-                ? {
-                    label: t("players.onWaitingList"),
-                    icon: removingWaitingList
-                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      : <ListX className="mr-2 h-4 w-4" />,
-                    onClick: async () => {
-                      setRemovingWaitingList(true);
-                      try {
-                        await removeFromStandingWaitingList(standingEntry.id);
-                        setStandingEntry(null);
-                        toast.success(t("players.removedFromWaitingList", { name: player.name }));
-                      } catch {
-                        toast.error(t("players.removeFromWaitingListFailed"));
-                      } finally {
-                        setRemovingWaitingList(false);
-                      }
-                    },
-                    disabled: removingWaitingList,
-                    className: "text-warning border-warning/40 hover:bg-warning/10",
+    <div className="p-4 md:p-6 space-y-6 w-full">
+      {/* PAD-410: on the master-detail desktop layout the pane sits beside the
+          roster, so there is nothing to go "back" to — the back control only
+          exists on the mobile full-width detail view (the Messages pattern). */}
+      {isMobile && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/players")}
+          data-testid="player-detail-back"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> {t("players.backToPlayers")}
+        </Button>
+      )}
+
+      <PlayerHeader
+        player={player}
+        levels={levels}
+        isEditing={isEditing}
+        saving={savingPlayer}
+        draftName={draftName}
+        draftLevelId={draftLevelId}
+        draftSide={draftSide}
+        onDraftNameChange={setDraftName}
+        onDraftLevelIdChange={setDraftLevelId}
+        onDraftSideChange={setDraftSide}
+        onEdit={handleEditStart}
+        onSave={handleEditSave}
+        onCancel={handleEditCancel}
+      />
+
+      <PageActions
+        actions={[
+          // PAD-114: the coach-side entry point into the shared "Presenças"
+          // page. The student reaches the same page from their dashboard's
+          // "Attended" KPI; both land on one component backed by one
+          // server-authorized endpoint.
+          {
+            label: t("attendance.playerLink"),
+            icon: <CalendarCheck className="mr-2 h-4 w-4" />,
+            onClick: () => navigate(`/players/${playerId}/attendance`),
+            testId: "player-attendance-link",
+          },
+          // PAD-141: the same entry point for "Faltas". Kept immediately
+          // beside its counterpart so the pair reads as one idea.
+          // `PageActions` already wraps (PAD-114 widened it after a 5th
+          // action pushed "Delete Player" off a 1280px viewport), so this
+          // 6th action does not reintroduce that overflow.
+          {
+            label: t("absences.playerLink"),
+            icon: <CalendarX className="mr-2 h-4 w-4" />,
+            onClick: () => navigate(`/players/${playerId}/absences`),
+            testId: "player-absences-link",
+          },
+          {
+            label: t("players.addToClasses"),
+            icon: <CalendarPlus className="mr-2 h-4 w-4" />,
+            onClick: () => setIsClassesOpen(true),
+            testId: "player-add-to-classes", // PAD-410: the same id iOS uses
+          },
+          standingEntry
+            ? {
+                label: t("players.onWaitingList"),
+                icon: removingWaitingList
+                  ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  : <ListX className="mr-2 h-4 w-4" />,
+                onClick: async () => {
+                  setRemovingWaitingList(true);
+                  try {
+                    await removeFromStandingWaitingList(standingEntry.id);
+                    setStandingEntry(null);
+                    toast.success(t("players.removedFromWaitingList", { name: player.name }));
+                  } catch {
+                    toast.error(t("players.removeFromWaitingListFailed"));
+                  } finally {
+                    setRemovingWaitingList(false);
                   }
-                : {
-                    label: t("players.waitingList"),
-                    icon: <ListX className="mr-2 h-4 w-4" />,
-                    onClick: () => setIsWaitingListOpen(true),
-                  },
-              {
-                // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
-                label: t("players.evaluationHistory.open"),
-                icon: <ClipboardList className="mr-2 h-4 w-4" />,
-                onClick: () => setIsEvalOpen(true),
-                testId: "player-evaluations-action",
-                variant: "default" as const,
+                },
+                disabled: removingWaitingList,
+                className: "text-warning border-warning/40 hover:bg-warning/10",
+                testId: "player-waiting-list-remove", // PAD-410: the same id iOS uses
+              }
+            : {
+                label: t("players.waitingList"),
+                icon: <ListX className="mr-2 h-4 w-4" />,
+                onClick: () => setIsWaitingListOpen(true),
+                testId: "player-waiting-list", // PAD-410: the same id iOS uses
               },
-              {
-                label: canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
-                icon: canDelete ? <Trash2 className="mr-2 h-4 w-4" /> : <Unlink className="mr-2 h-4 w-4" />,
-                onClick: openRemove,
-                variant: "destructive" as const,
-              },
-            ] satisfies PageAction[]}
-          />
-        </div>
+          {
+            // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
+            label: t("players.evaluationHistory.open"),
+            icon: <ClipboardList className="mr-2 h-4 w-4" />,
+            onClick: () => setIsEvalOpen(true),
+            testId: "player-evaluations-action",
+            variant: "default" as const,
+          },
+          {
+            label: canDelete ? t("players.deletePlayer") : t("players.disconnectPlayer"),
+            icon: canDelete ? <Trash2 className="mr-2 h-4 w-4" /> : <Unlink className="mr-2 h-4 w-4" />,
+            onClick: openRemove,
+            variant: "destructive" as const,
+            testId: "player-remove", // PAD-410: the same id iOS uses
+          },
+        ] satisfies PageAction[]}
+      />
 
-        <PlayerHeader
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <EvaluationSummaryCard lastEvaluatedOn={evaluations.data?.lastEvaluatedOn} onOpen={() => setIsEvalOpen(true)} />
+        <PlayerInfoCard
           player={player}
-          levels={levels}
           isEditing={isEditing}
-          saving={savingPlayer}
-          draftName={draftName}
-          draftLevelId={draftLevelId}
-          draftSide={draftSide}
-          onDraftNameChange={setDraftName}
-          onDraftLevelIdChange={setDraftLevelId}
-          onDraftSideChange={setDraftSide}
-          onEdit={handleEditStart}
-          onSave={handleEditSave}
-          onCancel={handleEditCancel}
+          draftEmail={draftEmail}
+          draftPhone={draftPhone}
+          draftNotes={draftNotes}
+          onDraftEmailChange={setDraftEmail}
+          onDraftPhoneChange={setDraftPhone}
+          onDraftNotesChange={setDraftNotes}
         />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <EvaluationSummaryCard lastEvaluatedOn={evaluations.data?.lastEvaluatedOn} onOpen={() => setIsEvalOpen(true)} />
-            <PlayerStrengthsWeaknesses
-              strengths={profile?.strengths ?? []}
-              weaknesses={profile?.weaknesses ?? []}
-              playerId={player.playerId}
-              onAddStrength={async (text) => {
-                try {
-                  // Use the server-returned note (real numeric id) so deleting it
-                  // before a reload targets the persisted row, not a temp id (PAD-101).
-                  const note = await addCoachNote(player.playerId, "strength", text);
-                  setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
-                } catch {
-                  toast.error(t("players.addStrengthFailed"));
-                }
-              }}
-              onRemoveStrength={async (_i, note) => {
-                try {
-                  await deleteCoachNote(note);
-                  setProfile((prev) => prev ? { ...prev, strengths: prev.strengths.filter((s) => s !== note) } : prev);
-                } catch {
-                  toast.error(t("players.removeStrengthFailed"));
-                }
-              }}
-              onAddWeakness={async (text) => {
-                try {
-                  const note = await addCoachNote(player.playerId, "weakness", text);
-                  setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
-                } catch {
-                  toast.error(t("players.addWeaknessFailed"));
-                }
-              }}
-              onRemoveWeakness={async (_i, note) => {
-                try {
-                  await deleteCoachNote(note);
-                  setProfile((prev) => prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w !== note) } : prev);
-                } catch {
-                  toast.error(t("players.removeWeaknessFailed"));
-                }
-              }}
-            />
-          </div>
-          <div>
-            <PlayerInfoCard
-              player={player}
-              isEditing={isEditing}
-              draftEmail={draftEmail}
-              draftPhone={draftPhone}
-              draftNotes={draftNotes}
-              onDraftEmailChange={setDraftEmail}
-              onDraftPhoneChange={setDraftPhone}
-              onDraftNotesChange={setDraftNotes}
-            />
-          </div>
-        </div>
-
-        {/* Keyed by player: another player never inherits a form or a selection (rule 10). */}
-        <PlayerEvaluationsDrawer
-          key={player.playerId}
-          open={isEvalOpen}
-          playerId={player.playerId}
-          playerName={player.name}
-          onClose={() => setIsEvalOpen(false)}
-        />
-
-        <AddToClassesDialog
-          open={isClassesOpen}
-          onClose={() => setIsClassesOpen(false)}
-          player={player}
-        />
-
-        <AddToStandingWaitingListDialog
-          open={isWaitingListOpen}
-          onClose={() => setIsWaitingListOpen(false)}
-          playerId={Number(player.playerId)}
-          playerName={player.name ?? null}
-          onAdded={(entry) => {
-            setStandingEntry(entry);
-            toast.success(t("players.addedToWaitingList", { name: player.name }));
-          }}
-        />
-
-        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {removalAction === "delete"
-                  ? t("players.deletePlaceholderConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })
-                  : t("players.disconnectConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div data-testid="player-removal-impact" className="text-sm text-muted-foreground">
-              {removalImpact ? (
-                <ul className="list-disc space-y-1 pl-5">
-                  <li>{t("players.removalImpactNotes", { count: removalImpact.notes })}</li>
-                  <li>{t("players.removalImpactEvaluations", { count: removalImpact.evaluations })}</li>
-                  {removalImpact.presences !== undefined ? (
-                    <li>{t("players.removalImpactPresences", { count: removalImpact.presences })}</li>
-                  ) : null}
-                </ul>
-              ) : removalImpactFailed ? null : (
-                <p>{t("players.removalImpactLoading")}</p>
-              )}
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction
-                data-testid="player-remove-confirm"
-                onClick={handleDelete}
-                disabled={deleting || (removalImpact === null && !removalImpactFailed)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {removalAction === "delete"
-                  ? deleting ? t("players.deleting") : t("common.delete")
-                  : deleting ? t("players.disconnecting") : t("players.disconnect")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
-    </AppLayout>
+
+      <PlayerStrengthsWeaknesses
+        strengths={profile?.strengths ?? []}
+        weaknesses={profile?.weaknesses ?? []}
+        playerId={player.playerId}
+        onAddStrength={async (text) => {
+          try {
+            // Use the server-returned note (real numeric id) so deleting it
+            // before a reload targets the persisted row, not a temp id (PAD-101).
+            const note = await addCoachNote(player.playerId, "strength", text);
+            setProfile((prev) => prev ? { ...prev, strengths: [...prev.strengths, note] } : prev);
+          } catch {
+            toast.error(t("players.addStrengthFailed"));
+          }
+        }}
+        onRemoveStrength={async (_i, note) => {
+          try {
+            await deleteCoachNote(note);
+            setProfile((prev) => prev ? { ...prev, strengths: prev.strengths.filter((s) => s !== note) } : prev);
+          } catch {
+            toast.error(t("players.removeStrengthFailed"));
+          }
+        }}
+        onAddWeakness={async (text) => {
+          try {
+            const note = await addCoachNote(player.playerId, "weakness", text);
+            setProfile((prev) => prev ? { ...prev, weaknesses: [...prev.weaknesses, note] } : prev);
+          } catch {
+            toast.error(t("players.addWeaknessFailed"));
+          }
+        }}
+        onRemoveWeakness={async (_i, note) => {
+          try {
+            await deleteCoachNote(note);
+            setProfile((prev) => prev ? { ...prev, weaknesses: prev.weaknesses.filter((w) => w !== note) } : prev);
+          } catch {
+            toast.error(t("players.removeWeaknessFailed"));
+          }
+        }}
+      />
+
+      {/* Keyed by player: another player never inherits a form or a selection (rule 10). */}
+      <PlayerEvaluationsDrawer
+        key={player.playerId}
+        open={isEvalOpen}
+        playerId={player.playerId}
+        playerName={player.name}
+        onClose={() => setIsEvalOpen(false)}
+      />
+
+      <AddToClassesDialog
+        open={isClassesOpen}
+        onClose={() => setIsClassesOpen(false)}
+        player={player}
+      />
+
+      <AddToStandingWaitingListDialog
+        open={isWaitingListOpen}
+        onClose={() => setIsWaitingListOpen(false)}
+        playerId={Number(player.playerId)}
+        playerName={player.name ?? null}
+        onAdded={(entry) => {
+          setStandingEntry(entry);
+          toast.success(t("players.addedToWaitingList", { name: player.name }));
+        }}
+      />
+
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removalAction === "delete"
+                ? t("players.deletePlaceholderConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })
+                : t("players.disconnectConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div data-testid="player-removal-impact" className="text-sm text-muted-foreground">
+            {removalImpact ? (
+              <ul className="list-disc space-y-1 pl-5">
+                <li>{t("players.removalImpactNotes", { count: removalImpact.notes })}</li>
+                <li>{t("players.removalImpactEvaluations", { count: removalImpact.evaluations })}</li>
+                {removalImpact.presences !== undefined ? (
+                  <li>{t("players.removalImpactPresences", { count: removalImpact.presences })}</li>
+                ) : null}
+              </ul>
+            ) : removalImpactFailed ? null : (
+              <p>{t("players.removalImpactLoading")}</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="player-remove-confirm"
+              onClick={handleDelete}
+              disabled={deleting || (removalImpact === null && !removalImpactFailed)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {removalAction === "delete"
+                ? deleting ? t("players.deleting") : t("common.delete")
+                : deleting ? t("players.disconnecting") : t("players.disconnect")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

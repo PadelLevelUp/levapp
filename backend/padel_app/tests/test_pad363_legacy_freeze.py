@@ -76,8 +76,8 @@ def test_r047_evaluation_categories_lists_legacy_categories_only(app, client):
 
     assert res.status_code == 200
     assert res.get_json() == [
-        {"id": ids["forehand_id"], "name": "Forehand", "scaleMin": 1, "scaleMax": 10},
-        {"id": ids["volley_id"], "name": "Volley", "scaleMin": 0, "scaleMax": 10},
+        {"id": ids["forehand_id"], "name": "Forehand", "scaleMin": 1, "scaleMax": 5},
+        {"id": ids["volley_id"], "name": "Volley", "scaleMin": 1, "scaleMax": 5},
     ]
 
 
@@ -99,12 +99,12 @@ def test_r047_the_save_and_the_profile_ignore_a_declared_capability_too(app, cli
 
     saved = client.post("/api/app/add_evaluation_entry", headers=headers, json={
         "playerId": ids["student_id"], "strengths": [], "weaknesses": [],
-        "scores": [{"categoryId": ids["forehand_id"], "value": 8}, {"categoryId": ids["grit_id"], "value": 3}],
+        "scores": [{"categoryId": ids["forehand_id"], "value": 4}, {"categoryId": ids["grit_id"], "value": 3}],
     })
     profile = client.get(f"/api/app/player_profile/{ids['student_id']}", headers=headers).get_json()
 
     assert saved.status_code == 200
-    assert sorted(_all_entries(app, ids)) == sorted([(ids["serve_id"], 4.0), (ids["forehand_id"], 8.0)])
+    assert sorted(_all_entries(app, ids)) == sorted([(ids["serve_id"], 4.0), (ids["forehand_id"], 4.0)])
     assert [e["categoryName"] for e in profile["evaluations"]] == ["Forehand"]
 
 
@@ -121,20 +121,53 @@ def test_r047_evaluation_categories_hides_a_legacy_category_that_was_switched_of
     assert names == ["Forehand"]
 
 
+def test_r047_a_switched_off_legacy_category_keeps_its_score_on_the_old_profile(app, client):
+    """Rule 2: switching a legacy category off hides it from the list, and its scores stay:
+    rule 4's `player_profile` still returns them (PAD-403 retro coverage gap)."""
+    from padel_app.models import EvaluationCategory
+
+    ids = _seed(app)
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 4}]).status_code == 200
+    with app.app_context():
+        db.session.get(EvaluationCategory, ids["volley_id"]).is_active = False
+        db.session.commit()
+
+    names = [c["name"] for c in client.get("/api/app/evaluation_categories", headers=_coach_headers(app, ids)).get_json()]
+    assert names == ["Forehand"]
+    evaluations = {e["categoryName"]: e for e in _profile(app, client, ids)["evaluations"]}
+    assert evaluations["Volley"]["score"] == 4.0
+
+
+def test_r047_a_legacy_score_written_through_the_new_api_reads_back_on_the_old_profile(app, client):
+    """The 2x2 cell "new endpoints, no competency exists": a legacy category rated through
+    PUT /evaluation_record is served by the frozen `player_profile` with its naive-ISO
+    `evaluatedAt` (PAD-403 retro coverage gap)."""
+    from padel_app.tests.test_pad364_records_api import _put
+
+    ids = _seed(app)
+    res = _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}})
+    assert res.status_code == 200, res.get_data(as_text=True)
+
+    (forehand,) = [e for e in _profile(app, client, ids)["evaluations"] if e["categoryName"] == "Forehand"]
+    assert forehand["score"] == 4.0
+    assert (forehand["scaleMin"], forehand["scaleMax"]) == (1, 5)
+    assert NAIVE_ISO.match(forehand["evaluatedAt"]), forehand["evaluatedAt"]
+
+
 def test_r047_a_posted_score_for_a_competency_is_ignored_even_at_its_midpoint(app, client):
     """What an old build would send if it ever learned the id: every category,
     the unrated ones at Math.round((min + max) / 2) — 3 on a 1-5 competency."""
     ids = _with_competencies(app, _seed(app))
 
     res = _save(app, client, ids, [
-        {"categoryId": ids["forehand_id"], "value": 8},
+        {"categoryId": ids["forehand_id"], "value": 5},
         {"categoryId": ids["serve_id"], "value": 3},
         {"categoryId": ids["grit_id"], "value": 3},
     ])
 
     assert res.status_code == 200
     assert res.get_json() == {"status": "ok", "playerId": ids["student_id"]}
-    assert _all_entries(app, ids) == [(ids["forehand_id"], 8.0)]
+    assert _all_entries(app, ids) == [(ids["forehand_id"], 5.0)]
 
 
 def test_r047_a_posted_score_for_a_foreign_or_unknown_category_is_ignored(app, client):
@@ -144,16 +177,16 @@ def test_r047_a_posted_score_for_a_foreign_or_unknown_category_is_ignored(app, c
     res = _save(app, client, ids, [
         {"categoryId": other["category_id"], "value": 3},
         {"categoryId": 987654, "value": 3},
-        {"categoryId": ids["forehand_id"], "value": 6},
+        {"categoryId": ids["forehand_id"], "value": 5},
     ])
 
     assert res.status_code == 200
-    assert _all_entries(app, ids) == [(ids["forehand_id"], 6.0)]
+    assert _all_entries(app, ids) == [(ids["forehand_id"], 5.0)]
 
 
 def test_r047_player_profile_never_carries_a_competency_rating(app, client):
     ids = _with_competencies(app, _seed(app))
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 8}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
     _rate_directly(app, ids, "serve_id", 4)
     _rate_directly(app, ids, "grit_id", 2)
 
@@ -167,16 +200,18 @@ def test_r047_player_profile_never_carries_a_competency_rating(app, client):
 def test_r047_a_competency_rating_does_not_disturb_the_legacy_skip_rules(app, client):
     """Equal to the category's latest → nothing written, with competencies rated the same day."""
     ids = _with_competencies(app, _seed(app))
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 8}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
     _rate_directly(app, ids, "serve_id", 4)
     before = _rows(app, ids, "forehand_id")
 
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 8}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
 
     assert _rows(app, ids, "forehand_id") == before
 
 
 def test_r047_the_category_upsert_never_touches_or_collides_into_a_competency(app, client):
+    """evaluations.legacy-conversion rule 5: the legacy endpoint always stores and
+    echoes scale_min=1, scale_max=5, whatever the request body says."""
     from padel_app.models import EvaluationCategory
 
     ids = _with_competencies(app, _seed(app))
@@ -188,7 +223,12 @@ def test_r047_the_category_upsert_never_touches_or_collides_into_a_competency(ap
 
     res = client.post("/api/app/add_evaluation_categories", json=body, headers=_coach_headers(app, ids))
 
-    assert res.status_code == 200 and res.get_json() == body  # the echo, as today
+    assert res.status_code == 200
+    assert res.get_json() == [
+        {"name": "Serve", "scaleMin": 1, "scaleMax": 5},
+        {"name": "Forehand", "scaleMin": 1, "scaleMax": 5},
+        {"name": "Lob", "scaleMin": 1, "scaleMax": 5},
+    ], "the echo is always 1-5, whatever the body says"
     with app.app_context():
         rows = {
             c.name: (c.scale_min, c.scale_max, c.competency_group, c.catalogue_key)
@@ -197,9 +237,9 @@ def test_r047_the_category_upsert_never_touches_or_collides_into_a_competency(ap
     assert rows == {
         "Serve": (1, 5, "technique", "technique.serve"),
         "Grit": (1, 5, "custom", None),
-        "Forehand": (1, 7, None, None),
-        "Volley": (0, 10, None, None),
-        "Lob": (1, 10, None, None),
+        "Forehand": (1, 5, None, None),
+        "Volley": (1, 5, None, None),
+        "Lob": (1, 5, None, None),
     }
 
 
@@ -226,13 +266,13 @@ def test_the_record_service_rates_a_competency_next_to_the_legacy_scores_of_the_
     from padel_app.models import EvaluationRecord
 
     ids = _with_competencies(app, _seed(app))
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 8}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 5}]).status_code == 200
     record_id = _rate_directly(app, ids, "serve_id", 4)
 
     with app.app_context():
         record = db.session.get(EvaluationRecord, record_id)
         assert sorted((e.category_id, e.score) for e in record.entries) == sorted(
-            [(ids["forehand_id"], 8.0), (ids["serve_id"], 4.0)]
+            [(ids["forehand_id"], 5.0), (ids["serve_id"], 4.0)]
         )
         assert EvaluationRecord.query.count() == 1  # the legacy save and the service share the day's record
 
@@ -246,35 +286,32 @@ def test_a_legacy_save_lands_in_the_days_classless_record(app, client):
 
     ids = _seed(app)
     assert _save(app, client, ids, [
-        {"categoryId": ids["forehand_id"], "value": 5},
-        {"categoryId": ids["volley_id"], "value": 6},
+        {"categoryId": ids["forehand_id"], "value": 4},
+        {"categoryId": ids["volley_id"], "value": 3},
     ]).status_code == 200
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 7}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 5}]).status_code == 200
 
     with app.app_context():
         (record,) = EvaluationRecord.query.all()
         assert (record.coach_player_id, record.lesson_instance_id, record.note) == (ids["rel_id"], None, None)
         assert record.evaluated_on == record_day()
         rows = EvaluationEntry.query.order_by(EvaluationEntry.id).all()
-        # 5 then 7 on one day: both rows kept (append-only), the latest holds the record's slot
+        # 4 then 5 on one day: both rows kept (append-only), the latest holds the record's slot
         assert [(e.category_id, e.score, e.record_id) for e in rows] == [
-            (ids["forehand_id"], 5.0, None),
-            (ids["volley_id"], 6.0, record.id),
-            (ids["forehand_id"], 7.0, record.id),
+            (ids["forehand_id"], 4.0, None),
+            (ids["volley_id"], 3.0, record.id),
+            (ids["forehand_id"], 5.0, record.id),
         ]
 
 
 def test_a_failed_legacy_save_leaves_no_empty_record_behind(app, client):
-    """B-136 stays as pinned (a numeric 0 fails); it must not strand a record."""
-    from sqlalchemy.exc import IntegrityError
-
+    """A refused legacy save must not strand a record. Since PAD-366 (D120) the numeric 0
+    is refused with a 400 before anything is written; before, it was B-136's IntegrityError."""
     from padel_app.models import EvaluationRecord
 
     ids = _seed(app)
-    with pytest.raises(IntegrityError):
-        _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 0}])
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 0}]).status_code == 400
     with app.app_context():
-        db.session.rollback()
         assert EvaluationRecord.query.count() == 0
 
 
@@ -282,7 +319,7 @@ def test_deleting_a_legacy_category_removes_the_records_it_emptied(app, client):
     from padel_app.models import EvaluationRecord
 
     ids = _seed(app)
-    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 6}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 4}]).status_code == 200
 
     res = client.post("/api/app/delete/evaluation_category", json={"id": ids["volley_id"]}, headers=_coach_headers(app, ids))
 
@@ -324,12 +361,12 @@ def test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category(app, clie
     _switch_off(app, ids["volley_id"])
 
     res = _save(app, client, ids, [
-        {"categoryId": ids["forehand_id"], "value": 9},
-        {"categoryId": ids["volley_id"], "value": 6},
+        {"categoryId": ids["forehand_id"], "value": 5},
+        {"categoryId": ids["volley_id"], "value": 4},
     ])
 
     assert res.status_code == 200 and res.get_json() == {"status": "ok", "playerId": ids["student_id"]}
-    assert _all_entries(app, ids) == [(ids["forehand_id"], 9.0)]
+    assert _all_entries(app, ids) == [(ids["forehand_id"], 5.0)]
     with app.app_context():
         (record,) = EvaluationRecord.query.all()
         assert [e.category_id for e in record.entries] == [ids["forehand_id"]]
@@ -347,4 +384,38 @@ def test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legac
     assert res.status_code == 200 and res.get_json() == body
     with app.app_context():
         rows = EvaluationCategory.query.filter_by(coach_id=ids["coach_id"], name="Volley").all()
-        assert [(c.scale_min, c.scale_max, c.is_active) for c in rows] == [(0, 10, False)]
+        assert [(c.scale_min, c.scale_max, c.is_active) for c in rows] == [(1, 5, False)]
+
+
+# ── a NEW legacy category, created after the PAD-403 conversion ─────────────
+
+
+def test_a_new_legacy_category_is_stored_and_served_at_1_5_whatever_the_body_says(app, client):
+    """evaluations.legacy-conversion rule 5: the legacy endpoint always stores and
+    echoes scale_min=1, scale_max=5, whatever scaleMin/scaleMax the request sends
+    — a category created after the conversion gets the same numbers the migration
+    gave every one already on file, with nothing to preserve since it never held
+    a legacy-scale score."""
+    from padel_app.models import EvaluationCategory
+
+    ids = _seed(app)
+
+    res = client.post("/api/app/add_evaluation_categories", json=[
+        {"name": "Slice", "scaleMin": 0, "scaleMax": 10},
+    ], headers=_coach_headers(app, ids))
+
+    assert res.status_code == 200
+    assert res.get_json() == [{"name": "Slice", "scaleMin": 1, "scaleMax": 5}]
+    with app.app_context():
+        category = EvaluationCategory.query.filter_by(coach_id=ids["coach_id"], name="Slice").one()
+        # (scale_min, scale_max, scale_min_before_conversion, scale_max_before_conversion):
+        # nothing to preserve, this category never held a legacy-scale score
+        assert (category.scale_min, category.scale_max, category.scale_min_before_conversion,
+                category.scale_max_before_conversion) == (1, 5, None, None)
+        ids["slice_id"] = category.id
+
+    assert _save(app, client, ids, [{"categoryId": ids["slice_id"], "value": 3}]).status_code == 200
+    assert [score for score, _ in _rows(app, ids, "slice_id")] == [3.0]
+
+    listed = {c["name"]: c for c in client.get("/api/app/evaluation_categories", headers=_coach_headers(app, ids)).get_json()}
+    assert listed["Slice"] == {"id": ids["slice_id"], "name": "Slice", "scaleMin": 1, "scaleMax": 5}

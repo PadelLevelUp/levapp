@@ -339,13 +339,13 @@ def create_message_service(data, user_id, now=None):
             participant.user_id,
             title=sender_name,
             body=body,
-            url=f"/messages/{message.conversation_id}",
+            url=f"/messages/{message.conversation_id}?message={message.id}",
         )
         send_expo_push_to_user(
             participant.user_id,
             title=sender_name,
             body=body,
-            data={"type": "message", "conversationId": message.conversation_id},
+            data={"type": "message", "conversationId": message.conversation_id, "messageId": message.id},
             # The iOS home-screen badge. message.create() has already
             # committed above, so this count includes the message we are
             # notifying about. Sending the recipient's real total (rather
@@ -666,58 +666,13 @@ def create_conversation_service(data, user):
             if not by_username:
                 _assert_messageable(user, other_id)
 
-        payload = {
-            # PAD-93: `participants` always includes the creator, so the old
-            # `len(participants) >= 2` was true for every 1-on-1 DM as well.
-            # It was masked for the whole life of the app because the Boolean
-            # form field coerced the real `True` back to `False` (PAD-69);
-            # now that booleans survive, the expression itself has to be
-            # right or every DM would be flagged as a group chat.
-            "is_group": len(set(participants)) > 2,
-            "participant_ids": participants,
-            "creator_id": user.id,
-            "participant_key": key,
-        }
-
-        conversation = Conversation()
-        form = conversation.get_create_form()
-
-        fake_request = JsonRequestAdapter(payload, form)
-        values = form.set_values(fake_request)
-
-        conversation.update_with_dict(values)
-
-        # PAD-203: the conversation and ALL of its participant rows are one
-        # transaction (messaging.conversations rule 9). The base mixin's
-        # `create()` is add-then-COMMIT, so the old shape — `conversation.create()`
-        # followed by a `.create()` per participant — committed the conversation
-        # first and each participant separately. A failure anywhere after the
-        # first commit left a durable conversation with a missing participant
-        # row, which is precisely the input `serialize_conversation` used to
-        # raise `StopIteration` on: one such row 500'd the other person's entire
-        # conversation list, forever. So: `add` + `flush` to get the id the
-        # participants need, then a single commit at the end, with the savepoint
-        # rolled back on failure so nothing survives (PAD-117's pattern —
-        # `begin_nested()` opened OUTSIDE the try, so a failure to open it cannot
-        # leave `sp` unbound and mask the real exception).
-        sp = db.session.begin_nested()
-        try:
-            db.session.add(conversation)
-            db.session.flush()
-
-            for participant_id in payload.get("participant_ids", []):
-                db.session.add(
-                    ConversationParticipant(
-                        conversation_id=conversation.id,
-                        user_id=participant_id,
-                    )
-                )
-            db.session.flush()
-            sp.commit()
-        except Exception:
-            sp.rollback()
-            raise
-
+        # PAD-93: `participants` always includes the creator, so a 1-on-1 DM has two distinct
+        # ids and anything more is a group.
+        # PAD-203 + PAD-411: the conversation and ALL of its participant rows are one savepoint
+        # (rule 9), and a double submit that races another create for the same participants
+        # gets that create's conversation (rule 2) — the same 201 and shape, never a 500 on
+        # `ix_conversations_participant_key`.
+        conversation = Conversation.get_or_insert(participants, is_group=len(set(participants)) > 2)
         db.session.commit()
 
     return conversation, user.id

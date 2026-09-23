@@ -20,6 +20,7 @@ import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/auth/AuthContext";
 import { LaunchAnimation } from "@/components/brand/LaunchAnimation";
+import { PushTapRouter } from "@/components/PushTapRouter";
 import { ToastHost } from "@/components/ui/toast";
 import { useAppStateFocus } from "@/hooks/useAppStateFocus";
 import { usePushNotificationRouting } from "@/hooks/usePushNotificationRouting";
@@ -84,6 +85,7 @@ export default function RootLayout() {
             <Stack.Screen name="login" />
             <Stack.Screen name="(tabs)" />
           </Stack>
+          <PushTapRouter />
           <PortalHost />
           <ToastHost />
           <StatusBar style="light" />

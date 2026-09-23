@@ -85,6 +85,13 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      the context that gives the number meaning: `total` (attended + missed) on Attended and
      Missed, so the tile can read "12 · of 15 lessons"; Upcoming reads against the 30-day window;
      Invites reads "to confirm". `href` policy is `dashboard.navigation` rules 6–7.
+   - `evaluations` (student only, **PAD-402**): `{cards: [Card]}` — the newest **3** shared
+     evaluation cards (`evaluations.sharing` rule 3's `Card`, served from the stored snapshot),
+     newest `sharedAt` first, plus the way to the full list (`href: /evaluations`). Appended
+     **after** `kpi_grid`. **Omitted from the payload** when the player has no shared card —
+     never an empty block — and emitted **only when the request declares `evaluations`** in
+     `X-LevApp-Capabilities` (`evaluations.student-view` rule 5; fails closed). Every other block
+     is byte-identical with and without the header.
      **(PAD-235, B-032) "Upcoming lessons" is the schedule's number.** Its `value` is the count
      of scheduled classes the student is enrolled in (signed up, or holding a `Presence`) over
      the same 30-day window `schedule_7d` lists, derived from the **same event load** — so the

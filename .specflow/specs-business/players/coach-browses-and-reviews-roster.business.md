@@ -15,7 +15,8 @@ implemented_by:
 A coach can find any student on their roster — by name, by missing setup (no level, no side set) — and
 then open that student's profile to see the full picture: current level, evaluation scores, notes on
 what they're good at and what they need to work on, and how their level has changed over time. This is
-the coach's day-to-day view into "who is this player, and where are they at."
+the coach's day-to-day view into "who is this player, and where are they at." On a wide screen the coach browses
+the roster and reviews a player at the same time, without losing their place in the list.
 
 ## Who This Is For
 
@@ -28,6 +29,9 @@ to the student themselves.
    players missing a level or a side preference — useful for spotting incomplete setups.
 2. The coach taps into a player and lands on that player's profile: name, current level, latest
    evaluation score per category, and the strengths/weaknesses notes the coach has written for them.
+   On a computer the profile opens beside the list, so the coach can go from player to player
+   without losing their search, sort or page; on a phone the list and the profile are separate
+   screens, with a way back.
 3. From the profile, the coach can add a strength or weakness note (short free text, tagged as one or
    the other) or delete one that no longer applies.
 4. The coach can also see how the player's level has changed over time — every past assignment, most

@@ -1,6 +1,6 @@
 ---
 id: evaluations.student-view
-status: draft
+status: implemented
 depends_on: [evaluations.sharing, dashboard.blocks]
 implements: ../../specs-business/evaluations/student-sees-their-evaluations.business.md
 governed_by: []
@@ -11,10 +11,10 @@ provenance:
 
 # evaluations.student-view
 
-> **The whole of this leaf is owner-pending (Q2).** The canvas never shows the player's side, and
-> today a player sees no evaluation anywhere — a student has no profile page and no
-> notifications inbox on web or iOS. Every rule below is the recommended default; nothing is
-> built before the owner answers.
+> **Owner-decided on 2026-09-22 (PAD-402, Q2):** a player sees only what a coach shares, as an
+> "Avaliações" block on the student dashboard, web + iOS, behind the `evaluations` capability
+> token — old App Store builds see nothing. The canvas never showed the player's side; a student
+> has no profile page and no notifications inbox on web or iOS, which is why the dashboard.
 
 ### Intent
 What a player sees of their evaluations, and where: only what a coach shared, exactly as the
@@ -28,7 +28,7 @@ coach previewed it.
 1. **A player is served shared cards and nothing else.** No unshared record, no unchosen
    competency, no note that was not included, no figure computed from data they were not shown.
    The server serves the stored snapshot; a client never receives a hidden field and hides it.
-   **(pending owner decision Q2)**
+   (Q2)
 2. **The read.** `GET /api/app/my_evaluations` (JWT, **student**) → `{cards: [Card]}`, newest
    `sharedAt` first, across every coach of the player. `Card` is `evaluations.sharing` rule 3's
    shape, served from the snapshot and never recomputed at read time. A caller with no player
@@ -38,8 +38,7 @@ coach previewed it.
 4. **Where it lives: a block on the student dashboard plus a full list.** The student dashboard
    (web and iOS) gains a block of type `evaluations` holding the newest 3 cards and a way to the
    full list (web route `/evaluations`, student-only; iOS a pushed screen). A player with no
-   shared card gets **no block at all** — omitted from the payload, not an empty state.
-   **(pending owner decision Q2)**
+   shared card gets **no block at all** — omitted from the payload, not an empty state. (Q2)
 5. **The capability token `evaluations` gates the dashboard block — its one job.** The dashboard
    payload is server-driven and already read by App Store 1.0/1.1.0, and how those builds render
    an unknown block type is unverified. So the server emits the `evaluations` block only to a
@@ -50,8 +49,7 @@ coach previewed it.
    Store build must keep the line or the block silently vanishes. The token withholds **nothing
    else**: which competencies an old build can see or write is decided by endpoint
    (`evaluations.legacy-client-contract` rule 1), never by this token. Retirement: once no build
-   predating the declaration is in use, emit the block unconditionally. **(pending owner
-   decision Q2)**
+   predating the declaration is in use, emit the block unconditionally. (Q2)
 6. **One card component.** The player's card is the component the coach's preview uses — same
    order, same rounding, same neutral zero — so the two cannot disagree.
 7. **A player cannot act on an evaluation**: no rating, reply, acknowledgement or delete. The one
@@ -108,5 +106,9 @@ coach previewed it.
 - Test trap: Playwright's raw `request` helpers send only the auth header, so a raw read of the
   dashboard gets the undeclared shape (no block). A spec asserting the block drives the browser
   or sets the header itself.
-- OPEN (before building): read the two App Store trees for how their dashboard renders an
-  unknown block type. The gate in rule 5 holds either way.
+- Read before building (2026-09-22): both App Store trees skip an unknown block type — the
+  mobile `DashboardBlocks.tsx` `renderBlock` switch ends in `default: return null` with the
+  comment "Unknown block types from newer backends are skipped, not fatal" (1.0 `6f5d0c1ce`
+  lines 321–323; 1.1.0 `6b48f79e3` lines 383–385) — and neither sets `X-LevApp-Capabilities`
+  (`src/lib/api.ts` at both SHAs). The gate in rule 5 stays: it costs one line and is what the
+  business rule promises ("not shown … and nothing breaks").

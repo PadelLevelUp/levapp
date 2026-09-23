@@ -1,7 +1,7 @@
 // PAD-374 (flow 78): a clean slate for the player's evaluations, through the API.
 //   - logs in as the seeded coach
 //   - switches ON the catalogue competency "technique" (idempotent POST), so the form
-//     has a STAR row next to the seeded legacy "Forehand" (a stepper)
+//     has a STAR row next to the seeded legacy "Forehand" (stars too since PAD-403)
 //   - deletes every evaluation record of "E2E Student", so the flow starts on the empty state
 // Exposes: output.api, output.coachTok, output.evalPlayerId, output.techniqueId
 // API_BASE is passed by scripts/e2e.sh; the default is the shared E2E backend.

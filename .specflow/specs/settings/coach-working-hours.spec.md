@@ -76,8 +76,10 @@ otherwise.
    nearest quarter hour when the field loses focus (`snapToGrid`, `@levelup/config`; never past
    23:45), so the coach sees the value that will be saved — it is not corrected silently at save;
    on iOS and Android the editor snaps what the picker hands back as well. "Nearest" is **capped at
-   23:45**: 23:53–23:59 move down, because the server accepts an end of 24:00 but neither editor can
-   express it — a known limit, PAD-379 (B-142), not a rule. Snapping can leave a window with no
+   23:45**: 23:53–23:59 move down. **23:45 is the latest end a coach can save — the rule, not a
+   gap** (D118, PAD-379 closed as won't do, B-142): an end of 24:00 would advertise a student slot
+   ending at midnight that a class request refuses, and honouring it means classes that cross
+   midnight. The server still accepts a stored 24:00 through the raw API; no client sends it. Snapping can leave a window with no
    length (23:45–23:59 → 23:45–23:45); that stays rule 2's refusal.
    `step` on a web time input is not protection: it drives the arrows only, and a typed value is
    neither stopped nor flagged. `start >= end` and overlapping windows are still possible between

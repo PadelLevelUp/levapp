@@ -242,6 +242,9 @@
         "importCompleteDescription": "{{imported}} registos importados.",
         "importCompleteWithErrors": "{{imported}} registos importados, {{errors}} erros.",
         "importFailedTitle": "A importação falhou"
+      },
+      "rowErrors": {
+        "score_out_of_range": "A nota {{value}} em “{{category}}” está fora de 1–5. As notas são de 1 a 5 estrelas: converta a folha e importe-a novamente."
       }
     },
     "importHistory": {
@@ -661,6 +664,12 @@
         "sat": "Sábado",
         "sun": "Domingo"
       }
+    },
+    "unsavedChanges": {
+      "title": "Descartar alterações?",
+      "body": "As alterações que fizeste nesta secção ainda não foram guardadas.",
+      "discard": "Descartar",
+      "keepEditing": "Continuar a editar"
     }
   }
 }

@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 from flask import url_for
 import google.auth
@@ -20,6 +20,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import class_mapper, relationship
 
 from .sql_db import db
+from .utils.dates import utcnow_naive
 
 GCS_BUCKET = os.environ.get("GCS_UPLOADS_BUCKET")
 PUBLIC_BASE = f"https://storage.googleapis.com/{GCS_BUCKET}"
@@ -93,10 +94,11 @@ class Model:
     _description = None
     __tablename__ = None
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: utcnow_naive())
     # PAD-273 (audit M13): bumped on EVERY ORM update, not only through save();
-    # most services commit directly. UTC like everything else (R-023).
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # most services commit directly. UTC like everything else (R-023). Late-bound (PAD-405,
+    # R-054) so a pinned clock reaches every model that inherits these columns.
+    updated_at = Column(DateTime, default=lambda: utcnow_naive(), onupdate=lambda: utcnow_naive())
 
     def __repr__(self):
         try:
@@ -135,7 +137,7 @@ class Model:
     def save(self):
         # PAD-273: this used to stamp LOCAL time (datetime.now()) into a column
         # everything else fills with UTC.
-        self.updated_at = datetime.utcnow()
+        self.updated_at = utcnow_naive()
         _commit_or_flush()  # PAD-272: a flush while a unit of work is open
         return True
 

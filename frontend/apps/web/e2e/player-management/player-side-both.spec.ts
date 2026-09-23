@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { clickPlayerCard } from "../helpers/players";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -9,16 +10,17 @@ test.beforeEach(async ({ page }) => {
 
 // PAD-15: Coach can set a player's preferred side to "Both" (Left/Right/Both)
 test("PAD-15: coach sets player side to Both and it persists", async ({ page }) => {
-  // Open the E2E Student profile (exact match to avoid "E2E Student Two")
+  // Open the E2E Student profile
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
   // Enter inline edit mode via the PlayerHeader "Edit" button
   await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
 
   // The Side Select is the first combobox in the header — pick the new "Both" option
-  const sideSelect = page.locator('[role="combobox"]').first();
+  // PAD-410: the first Select inside the profile pane — the roster beside it has its own sort Select.
+  const sideSelect = page.getByTestId("player-detail-pane").locator('[role="combobox"]').first();
   await sideSelect.click();
   await page.getByRole("option", { name: "Both", exact: true }).click();
 

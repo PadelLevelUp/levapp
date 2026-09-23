@@ -224,6 +224,7 @@ export interface EvaluationShare {
   categoryIds: number[];
   evolution: "last" | "6m" | "1y" | "none";
   includeNote: boolean;
+  stale: boolean;
 }
 
 export interface EvaluationRecord {
@@ -326,6 +327,11 @@ export interface CoachPlayer {
    * other coach has. Otherwise the coach can only disconnect. Absent on older payloads.
    */
   deletable?: boolean,
+  /**
+   * evaluations.reminders rule 4 (PAD-404): the coach's frequency says this player is due an
+   * evaluation. Computed by the server only (R-048); optional because older payloads lack it.
+   */
+  due?: boolean,
   /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
@@ -790,7 +796,8 @@ export type DashboardBlock =
   | DashboardNextClassBlock
   | DashboardNeedsYouBlock
   | DashboardSchedule7dBlock
-  | DashboardWeekPulseBlock;
+  | DashboardWeekPulseBlock
+  | DashboardEvaluationsBlock;
 
 /** Payload ids — the client's switch between the two homes. */
 export const COACH_DASHBOARD_ID = "coach_default_v1";
@@ -1595,4 +1602,73 @@ export interface PendingValidationCount {
   from: string;
   to: string;
   pendingCount: number;
+}
+
+// ── PAD-402 evaluation sharing ──
+
+/** `evaluations.sharing` rule 2. */
+export type EvaluationShareEvolution = "last" | "6m" | "1y" | "none";
+
+/** `evaluations.sharing` rule 3: names and numbers only — a player is never sent a competency id. */
+export interface EvaluationCardRating {
+  name: string;
+  key: string | null;
+  score: number;
+  scaleMin: number;
+  scaleMax: number;
+}
+
+/** `evaluations.sharing` rule 3: one line per chosen competency, over the chosen period. */
+export interface EvaluationCardEvolutionLine {
+  name: string;
+  key: string | null;
+  delta: number;
+}
+
+/**
+ * `evaluations.sharing` rule 3 — the shape `build_card` (evaluation_share_service.py)
+ * returns, used unchanged by the coach's preview, the stored share and the player's
+ * read (`evaluations.student-view` rule 6: one card component, one shape).
+ */
+export interface EvaluationCard {
+  recordId: number;
+  coachName: string | null;
+  evaluatedOn: string;
+  className: string | null;
+  /** `null` on a preview (never shared); the instant it was shared once stored. */
+  sharedAt: string | null;
+  ratings: EvaluationCardRating[];
+  evolution: EvaluationCardEvolutionLine[];
+  evolutionPeriod: EvaluationShareEvolution;
+  note: string | null;
+}
+
+/** The body of `POST .../share_preview` and `POST .../share` (rules 3, 7, 11): every key required. */
+export interface EvaluationShareInput {
+  categoryIds: number[];
+  evolution: EvaluationShareEvolution;
+  includeNote: boolean;
+}
+
+/**
+ * `evaluations.student-view` rules 4-5: the newest 3 shared cards on the student
+ * dashboard, gated server-side by the `evaluations` capability token and omitted
+ * entirely (never present, never empty) when the player has no shared card.
+ */
+export interface DashboardEvaluationsBlock {
+  id: string;
+  type: "evaluations";
+  data: {
+    cards: EvaluationCard[];
+    href: string;
+  };
+}
+
+// ── PAD-404 (evaluations.reminders): the evaluation reminder setting ──
+export type EvaluationReminder = "never" | "monthly" | "every_n_classes";
+
+/** `GET/PUT /app/evaluation_settings`. `everyN` is present only for `every_n_classes`. */
+export interface EvaluationSettings {
+  reminder: EvaluationReminder;
+  everyN?: number;
 }

@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers, openCalendar } from "../helpers/navigation";
 import { ui } from "../helpers/i18n";
+import { clickPlayerCard } from "../helpers/players";
 
 /**
  * PAD-24: Remove optimistic UI updates, add loading states for all backend calls
@@ -34,8 +35,8 @@ test.describe("PAD-24: Loading states for backend calls", () => {
   }) => {
     await openPlayers(page);
 
-    // Navigate to player detail (use exact match to avoid "E2E Student Two")
-    await page.getByText("E2E Student", { exact: true }).click();
+    // Navigate to player detail by the row's test id (PAD-410)
+    await clickPlayerCard(page, STUDENT_USERNAME);
     await page.waitForURL(/\/players\//);
 
     // The player detail page has inline editing

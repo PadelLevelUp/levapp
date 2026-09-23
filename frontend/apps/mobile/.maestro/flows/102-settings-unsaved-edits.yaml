@@ -1,0 +1,92 @@
+# PAD-394 (B-157) — settings.unsaved-edits rules 3–4: leaving a Settings section
+# through the back row with an unsaved edit asks first; keep editing stays with the
+# edit intact, discard returns to the section list and the edit is never sent.
+#
+# Journey: coach login → header avatar → Settings → Perfil → change the phone field
+# (not saved) → back row → the confirm dialog appears → Keep editing → the field still
+# holds the new value → back row again → Discard → the section list is shown → reopen
+# Perfil → the phone is back to what the server holds (nothing here was ever saved).
+#
+# The confirm dialog is a component (`@/components/ui/alert-dialog`), not a native
+# Alert, so its controls carry real testIDs: `settings-unsaved-dialog`,
+# `settings-unsaved-keep`, `settings-unsaved-discard` (app/settings.tsx).
+#
+# Teardown restores nothing: discard means nothing was ever PATCHed, so the server's
+# phone is asserted UNCHANGED (evalScript/assertTrue, the same shape flow 95 uses) —
+# there is nothing for onFlowComplete to undo. Backend: -e API_BASE=http://localhost:<port>,
+# else :5001. Flow number 102 is reserved for PAD-394.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.phoneBefore = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).phone}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-profile"
+- extendedWaitUntil:
+    visible:
+      id: "settings-profile"
+    timeout: 15000
+
+# ── Change the phone field; do not save ──
+- tapOn:
+    id: "settings-profile-phone"
+- eraseText: 20
+- inputText: "+351987654321"
+- pressKey: Enter
+- assertVisible:
+    text: "\\+351987654321"
+
+# ── Back row with an unsaved edit: the confirm appears, the section stays ──
+- tapOn:
+    id: "settings-back"
+- extendedWaitUntil:
+    visible:
+      id: "settings-unsaved-dialog"
+    timeout: 10000
+
+# ── Keep editing: stays, every edit intact ──
+- tapOn:
+    id: "settings-unsaved-keep"
+- assertNotVisible:
+    id: "settings-unsaved-dialog"
+- assertVisible:
+    id: "settings-profile"
+- assertVisible:
+    text: "\\+351987654321"
+
+# ── Back row again: still unsaved, asks again ──
+- tapOn:
+    id: "settings-back"
+- extendedWaitUntil:
+    visible:
+      id: "settings-unsaved-dialog"
+    timeout: 10000
+
+# ── Discard: the section list is shown, nothing was sent ──
+- tapOn:
+    id: "settings-unsaved-discard"
+- assertNotVisible:
+    id: "settings-unsaved-dialog"
+- assertVisible:
+    id: "settings-section-list"
+
+# ── Reopen Perfil: the phone is exactly what it was before this flow touched it ──
+- tapOn:
+    id: "settings-nav-profile"
+- extendedWaitUntil:
+    visible:
+      id: "settings-profile"
+    timeout: 15000
+- assertNotVisible:
+    text: "\\+351987654321"
+
+- evalScript: "${output.phoneAfter = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).phone}"
+- assertTrue: "${output.phoneAfter == output.phoneBefore}"

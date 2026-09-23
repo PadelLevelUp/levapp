@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
 
 /**
  * PAD-169 — the student's own notification block preferences on iOS.
@@ -57,6 +58,26 @@ import { toast } from "@/components/ui/toast";
  * `settings-sections.ts` is the single source of truth, and this section is
  * `audience: "student"` there.
  */
+type NotifBlocksForm = {
+  blockAuto: boolean;
+  blockManual: boolean;
+  blockAll: boolean;
+  reason: string;
+};
+
+/** settings.unsaved-edits rule 2 — value equality against the last loaded/saved form. */
+export function isNotifBlocksUnsaved(
+  form: NotifBlocksForm,
+  saved: NotifBlocksForm
+): boolean {
+  return (
+    form.blockAuto !== saved.blockAuto ||
+    form.blockManual !== saved.blockManual ||
+    form.blockAll !== saved.blockAll ||
+    form.reason !== saved.reason
+  );
+}
+
 export function StudentNotificationBlocksSection() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -74,18 +95,39 @@ export function StudentNotificationBlocksSection() {
   const [reason, setReason] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
   const [confirmAllOpen, setConfirmAllOpen] = React.useState(false);
+  // The last loaded/saved baseline (settings.unsaved-edits rule 2) — updated whenever
+  // `me` changes (like profile-section.tsx's `saved`), independent of `dirtyRef`.
+  const [saved, setSaved] = React.useState<NotifBlocksForm>({
+    blockAuto: false,
+    blockManual: false,
+    blockAll: false,
+    reason: "",
+  });
 
   // Set on the first edit so a late /auth/me can't wipe what the student
   // just changed (same guard as profile-section.tsx).
   const dirtyRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!me || dirtyRef.current) return;
-    setBlockAuto(Boolean(me.blockAutoInvitations));
-    setBlockManual(Boolean(me.blockManualInvitations));
-    setBlockAll(Boolean(me.blockAllNotifications));
-    setReason(me.notificationBlockReason ?? "");
+    if (!me) return;
+    const loaded: NotifBlocksForm = {
+      blockAuto: Boolean(me.blockAutoInvitations),
+      blockManual: Boolean(me.blockManualInvitations),
+      blockAll: Boolean(me.blockAllNotifications),
+      reason: me.notificationBlockReason ?? "",
+    };
+    setSaved(loaded);
+    if (dirtyRef.current) return;
+    setBlockAuto(loaded.blockAuto);
+    setBlockManual(loaded.blockManual);
+    setBlockAll(loaded.blockAll);
+    setReason(loaded.reason);
   }, [me]);
+
+  useUnsavedReporter(
+    "studentNotificationBlocks",
+    isNotifBlocksUnsaved({ blockAuto, blockManual, blockAll, reason }, saved)
+  );
 
   const edit = (apply: () => void) => {
     dirtyRef.current = true;
@@ -104,10 +146,17 @@ export function StudentNotificationBlocksSection() {
       queryClient.setQueryData(["auth-me"], updated);
       // Re-hydrate from the response so the pane shows exactly what was
       // stored (the server trims the reason).
-      setBlockAuto(Boolean(updated.blockAutoInvitations));
-      setBlockManual(Boolean(updated.blockManualInvitations));
-      setBlockAll(Boolean(updated.blockAllNotifications));
-      setReason(updated.notificationBlockReason ?? "");
+      const confirmed: NotifBlocksForm = {
+        blockAuto: Boolean(updated.blockAutoInvitations),
+        blockManual: Boolean(updated.blockManualInvitations),
+        blockAll: Boolean(updated.blockAllNotifications),
+        reason: updated.notificationBlockReason ?? "",
+      };
+      setBlockAuto(confirmed.blockAuto);
+      setBlockManual(confirmed.blockManual);
+      setBlockAll(confirmed.blockAll);
+      setReason(confirmed.reason);
+      setSaved(confirmed);
       dirtyRef.current = false;
       // Only after the server confirms — never an optimistic success toast.
       toast.success(t("settings.notificationBlocks.savedDescription"));
