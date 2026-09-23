@@ -514,7 +514,7 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
         [coach_user_id],
     )
     title = "Pedido para entrar" if locale == "pt" else "Request to join"
-    send_push_notification(user_id=coach_user_id, title=title, body=text[:100], url=f"/messages/{conv.id}")
+    send_push_notification(user_id=coach_user_id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
     send_expo_push_to_user(
         coach_user_id, title=title, body=text[:100],
         # PAD-324 (messaging.push-notifications rule 7): there IS a message
@@ -527,6 +527,7 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
         data={
             "type": "message",
             "conversationId": conv.id,
+            "messageId": msg.id,
             "classInstanceId": instance.id,
         },
     )

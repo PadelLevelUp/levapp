@@ -1,14 +1,13 @@
 import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { routeForPushData } from "@/lib/push-routing";
+import { offerPushTap } from "@/lib/push-tap-queue";
 
 /**
- * Foreground display policy: show a banner even while the app is open.
- * Module-level side effect — registered once, on first import (from
- * app/_layout.tsx), rather than inside the hook body, since it's global
- * app config rather than per-mount state.
+ * Foreground notifications show a banner + list entry but play no sound and do
+ * not touch the badge (the badge is driven from the unread count, PAD-147).
+ * Registered once, on first import (from `app/_layout.tsx`).
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -20,36 +19,24 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * The data → route mapping lives in `@/lib/push-routing` (pure, unit-tested):
- * message-backed pushes open the thread, class pushes open the class, and a
- * class id on a message push never wins (PAD-240).
- */
-/**
- * Wires push-notification tap → in-app navigation:
- * - Live taps while the app is running: `addNotificationResponseReceivedListener`.
- * - Cold start (app launched by tapping a notification): `getLastNotificationResponseAsync`
- *   on mount.
- *
- * Dedupe: both paths can fire for the same notification (a cold-start tap is
- * also delivered to the live listener once the app finishes mounting), so
- * each notification's `request.identifier` is tracked in a ref and only
- * navigated once.
+ * Collects a tapped push notification — a live tap while the app runs
+ * (`addNotificationResponseReceivedListener`) or the tap that LAUNCHED the app
+ * (`getLastNotificationResponseAsync`) — and OFFERS its route to the tap queue.
+ * It never navigates: on a cold start this runs before the root navigator
+ * exists, and navigating then loops the root layout and loses the tap (B-166,
+ * messaging.push-notifications rule 13). `PushTapRouter`, mounted under the
+ * navigator and the auth provider, takes the tap once both are ready.
+ * The queue dedupes by notification id across re-mounts, so a cold-start tap
+ * that also reaches the live listener is handled once.
  */
 export function usePushNotificationRouting(): void {
-  const router = useRouter();
-  const handledIds = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     const handleResponse = (response: Notifications.NotificationResponse) => {
       try {
-        const id = response.notification.request.identifier;
-        if (handledIds.current.has(id)) return;
-        handledIds.current.add(id);
-
         // PAD-327: a string for the message shape, a route object for the
-        // `path` shape. `router.push` takes either.
+        // `path` shape; PAD-408: the message shape may target one message.
         const target = routeForPushData(response.notification.request.content.data);
-        if (target) router.push(target as never);
+        if (target) offerPushTap(response.notification.request.identifier, target);
       } catch (error) {
         console.warn("[push] tap routing failed", error);
       }
@@ -69,5 +56,5 @@ export function usePushNotificationRouting(): void {
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, []);
 }

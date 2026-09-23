@@ -162,7 +162,7 @@ Send browser push notifications when a new message arrives and the recipient isn
    the same conversation **and** message (the PAD-324 parity guard). Opening the thread with
    a target message (`/conversation/<id>?message=<mid>` on iOS, `?message=<mid>` on web)
    lands on that message, not on the newest one: the initial pin-to-newest is skipped, older
-   pages load until the message is present (at most **10 pages**, i.e. 300 messages beyond
+   pages load until the message is present (at most **10 older pages** of `CONVERSATION_PAGE_SIZE` = 50, i.e. 500 messages beyond
    the first page), and the message is scrolled to the middle of the list and highlighted
    for 900 ms with the same primitive a quoted reply uses. The target is consumed once. A
    message that is not found within the bound (deleted, or very old) falls back to today's

@@ -25,6 +25,11 @@ export type PushNotificationData = {
   conversationId?: string | number;
   classInstanceId?: string | number;
   /**
+   * PAD-408 (rule 12): the Message row the push announces. The thread opens ON
+   * it (`?message=`) rather than at the newest message.
+   */
+  messageId?: string | number | null;
+  /**
    * PAD-327: the destination as a WEB path — the same string the push's web
    * sibling carries in its `url`. Sent rather than derived from a `kind` so the
    * server keeps sole ownership of it: a second copy of that table in the app
@@ -41,7 +46,13 @@ export function routeForPushData(
   const payload = data as PushNotificationData;
 
   if (payload.type === "message" && payload.conversationId != null) {
-    return `/conversation/${payload.conversationId}`;
+    const messageId = payload.messageId;
+    const isId =
+      (typeof messageId === "number" && Number.isFinite(messageId)) ||
+      (typeof messageId === "string" && /^\d+$/.test(messageId));
+    return isId
+      ? `/conversation/${payload.conversationId}?message=${messageId}`
+      : `/conversation/${payload.conversationId}`;
   }
   // PAD-327: a push backed by neither a message nor a class names a plain
   // in-app destination by its web path, and the app maps it with the ONE mapper

@@ -339,13 +339,13 @@ def create_message_service(data, user_id, now=None):
             participant.user_id,
             title=sender_name,
             body=body,
-            url=f"/messages/{message.conversation_id}",
+            url=f"/messages/{message.conversation_id}?message={message.id}",
         )
         send_expo_push_to_user(
             participant.user_id,
             title=sender_name,
             body=body,
-            data={"type": "message", "conversationId": message.conversation_id},
+            data={"type": "message", "conversationId": message.conversation_id, "messageId": message.id},
             # The iOS home-screen badge. message.create() has already
             # committed above, so this count includes the message we are
             # notifying about. Sending the recipient's real total (rather
