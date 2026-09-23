@@ -23,7 +23,7 @@ governing leaf spec and its dependencies before touching code.
 - `mobile/` — Mobile Platform Runtime (2 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
-- `settings/` — User Preferences & Internationalization (6 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357)
+- `settings/` — User Preferences & Internationalization (7 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357; `settings.unsaved-edits` added 2026-09-22, PAD-394)
 - `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest

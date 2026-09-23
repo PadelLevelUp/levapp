@@ -664,6 +664,12 @@
         "sat": "Saturday",
         "sun": "Sunday"
       }
+    },
+    "unsavedChanges": {
+      "title": "Discard changes?",
+      "body": "The changes you made in this section have not been saved.",
+      "discard": "Discard",
+      "keepEditing": "Keep editing"
     }
   }
 }

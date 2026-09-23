@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getMe, updateMe } from "@/api/auth";
+import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
 
 /**
  * PAD-112 — the student's own notification block preferences.
@@ -57,16 +58,26 @@ export function StudentNotificationBlocksSection() {
   const [blockManual, setBlockManual] = useState(false);
   const [blockAll, setBlockAll] = useState(false);
   const [reason, setReason] = useState("");
+  // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved
+  // values, compared BY VALUE — not "was anything ever touched".
+  const [baseline, setBaseline] = useState({ blockAuto: false, blockManual: false, blockAll: false, reason: "" });
 
   useEffect(() => {
     let active = true;
     getMe()
       .then((me) => {
         if (!active) return;
-        setBlockAuto(Boolean(me.blockAutoInvitations));
-        setBlockManual(Boolean(me.blockManualInvitations));
-        setBlockAll(Boolean(me.blockAllNotifications));
-        setReason(me.notificationBlockReason ?? "");
+        const loaded = {
+          blockAuto: Boolean(me.blockAutoInvitations),
+          blockManual: Boolean(me.blockManualInvitations),
+          blockAll: Boolean(me.blockAllNotifications),
+          reason: me.notificationBlockReason ?? "",
+        };
+        setBlockAuto(loaded.blockAuto);
+        setBlockManual(loaded.blockManual);
+        setBlockAll(loaded.blockAll);
+        setReason(loaded.reason);
+        setBaseline(loaded);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -75,6 +86,13 @@ export function StudentNotificationBlocksSection() {
       active = false;
     };
   }, []);
+
+  const unsaved =
+    blockAuto !== baseline.blockAuto ||
+    blockManual !== baseline.blockManual ||
+    blockAll !== baseline.blockAll ||
+    reason !== baseline.reason;
+  useReportUnsaved("studentNotificationBlocks", unsaved);
 
   const handleSave = async () => {
     setSaving(true);
@@ -85,6 +103,8 @@ export function StudentNotificationBlocksSection() {
         blockAllNotifications: blockAll,
         notificationBlockReason: reason.trim(),
       });
+      // rule 2: a successful save is the new clean baseline.
+      setBaseline({ blockAuto, blockManual, blockAll, reason });
       // Only after the server confirms — never an optimistic success toast.
       toast({
         title: t("settings.notificationBlocks.savedTitle"),

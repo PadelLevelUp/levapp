@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
 import { Link, useNavigate } from "react-router-dom";
@@ -25,7 +25,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { SettingsUnsavedContext } from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -286,6 +297,61 @@ export default function SettingsPage() {
   // a coach-only panel is never rendered for a student, not even for one frame.
   const activeTab: SettingsTab = tabs.some((it) => it.id === tab) ? tab : tabs[0].id;
 
+  // settings.unsaved-edits (PAD-394, ledger B-157): the page-level registry a
+  // descendant section reports into via SettingsUnsavedContext. Rule 1: only
+  // explicit-save sections ever call it — language/theme/request-alerts/the
+  // notification engine save on change and report nothing.
+  const [unsavedSections, setUnsavedSections] = useState<Set<string>>(new Set());
+  const setUnsaved = useCallback((sectionId: string, unsaved: boolean) => {
+    setUnsavedSections((prev) => {
+      const has = prev.has(sectionId);
+      if (has === unsaved) return prev; // stable identity: no re-render, no effect churn
+      const next = new Set(prev);
+      if (unsaved) next.add(sectionId);
+      else next.delete(sectionId);
+      return next;
+    });
+  }, []);
+
+  // The inline Profile form lives in THIS component (not a separate section
+  // component), so it registers directly rather than through the context it
+  // provides to its own descendants — a component can't consume the context
+  // value it is about to render a Provider for.
+  const profileUnsaved = JSON.stringify(profile) !== JSON.stringify(savedProfile);
+  useEffect(() => {
+    setUnsaved("profile", profileUnsaved);
+  }, [profileUnsaved, setUnsaved]);
+
+  const hasUnsaved = unsavedSections.size > 0;
+
+  // Rule 3: leaving is asked at the single point a Settings tab changes — both
+  // the desktop nav and the mobile-width section list call this. The
+  // mobile-width "back to the list" button is a separate, CSS-only hide (the
+  // section stays mounted, see :mobileSectionOpen below) and is NOT a tab
+  // change, so it does not go through here and never asks.
+  const [pendingTab, setPendingTab] = useState<{ id: SettingsTab; openMobile: boolean } | null>(null);
+  const requestTab = (id: SettingsTab, openMobile: boolean) => {
+    // Choosing the tab that's already active changes nothing and unmounts
+    // nothing — never ask, even with an unsaved edit sitting in it.
+    if (id === activeTab || !hasUnsaved) {
+      setTab(id);
+      if (openMobile) setMobileSectionOpen(true);
+      return;
+    }
+    setPendingTab({ id, openMobile });
+  };
+
+  // Rule 5: the browser's own leave-page prompt while any section is unsaved.
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsaved]);
+
   // Load the current user's profile + language preference on mount.
   useEffect(() => {
     let active = true;
@@ -391,6 +457,7 @@ export default function SettingsPage() {
   };
 
   return (
+    <SettingsUnsavedContext.Provider value={setUnsaved}>
     <AppLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-start justify-between gap-4">
@@ -422,7 +489,7 @@ export default function SettingsPage() {
             <CardContent>
               <SettingsNav
                 active={activeTab}
-                onChange={setTab}
+                onChange={(id) => requestTab(id, false)}
                 items={tabs}
                 badges={{ admin: pendingCoachCount ?? 0, club: pendingJoinCount ?? 0 }}
               />
@@ -440,10 +507,7 @@ export default function SettingsPage() {
                     items={tabs}
                     badges={{ admin: pendingCoachCount ?? 0, club: pendingJoinCount ?? 0 }}
                     testIdPrefix="settings-mobile-nav"
-                    onChange={(id) => {
-                      setTab(id);
-                      setMobileSectionOpen(true);
-                    }}
+                    onChange={(id) => requestTab(id, true)}
                   />
                 </CardContent>
               </Card>
@@ -794,6 +858,34 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Rule 3/4: switching tab (either nav) while any section is unsaved
+          asks first, instead of silently discarding it (B-157). */}
+      <AlertDialog open={pendingTab !== null} onOpenChange={(open) => !open && setPendingTab(null)}>
+        <AlertDialogContent data-testid="settings-unsaved-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("settings.unsavedChanges.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("settings.unsavedChanges.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="settings-unsaved-keep" onClick={() => setPendingTab(null)}>
+              {t("settings.unsavedChanges.keepEditing")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="settings-unsaved-discard"
+              onClick={() => {
+                if (!pendingTab) return;
+                setTab(pendingTab.id);
+                if (pendingTab.openMobile) setMobileSectionOpen(true);
+                setPendingTab(null);
+              }}
+            >
+              {t("settings.unsavedChanges.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
+    </SettingsUnsavedContext.Provider>
   );
 }

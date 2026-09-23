@@ -43,7 +43,12 @@ vi.mock("@/components/ui/time-picker-input", async () => {
     createElement(TextInput, { testID: p.testID, value: p.value, onChangeText: p.onChange }) };
 });
 
-import { WorkingHoursSection } from "./working-hours-section";
+import { WorkingHoursSection, weeksEqual } from "./working-hours-section";
+import {
+  UnsavedRegistryProvider,
+  useUnsavedRegistry,
+} from "@/features/settings/unsaved-registry";
+import { WORKING_DAY_KEYS, DEFAULT_WORKING_WINDOW } from "@levelup/config";
 
 beforeEach(() => {
   getCoachWorkingHours.mockReset().mockResolvedValue({ workingHours: null });
@@ -87,5 +92,85 @@ describe("working-hours-section (iOS) — a late load never undoes an edit (PAD-
     await n.flush();
     expect(sundayState(n)).toBe("off");
     expect(n.queryByTestId("working-hours-set")).not.toBeNull();
+  });
+});
+
+function defaultWeek() {
+  const week: Record<string, { off: boolean; windows: [string, string][] }> = {};
+  for (const key of WORKING_DAY_KEYS) {
+    week[key] = { off: false, windows: [[DEFAULT_WORKING_WINDOW.startTime, DEFAULT_WORKING_WINDOW.endTime]] };
+  }
+  return week as Parameters<typeof weeksEqual>[0];
+}
+
+describe("weeksEqual (settings.unsaved-edits rule 2)", () => {
+  it("is true for value-equal weeks, even with rebuilt (non-identical) arrays", () => {
+    expect(weeksEqual(defaultWeek(), defaultWeek())).toBe(true);
+  });
+
+  it("is false the moment a day's off flag or windows differ", () => {
+    const a = defaultWeek();
+    const b = { ...defaultWeek(), sun: { off: true, windows: [] as [string, string][] } };
+    expect(weeksEqual(a, b)).toBe(false);
+  });
+
+  it("is false when a window's start/end time differs", () => {
+    const a = defaultWeek();
+    const b = { ...defaultWeek(), mon: { off: false, windows: [["07:00", "22:00"]] as [string, string][] } };
+    expect(weeksEqual(a, b)).toBe(false);
+  });
+});
+
+describe("WorkingHoursSection registers its unsaved state (PAD-394)", () => {
+  it("toggling a day -> unsaved; toggling back -> clean; a successful save -> clean", async () => {
+    putCoachWorkingHours.mockImplementation((value: unknown) =>
+      Promise.resolve({ workingHours: value })
+    );
+    let registry!: ReturnType<typeof useUnsavedRegistry>;
+    function Capture() {
+      registry = useUnsavedRegistry();
+      return null;
+    }
+    const n = await renderNative(
+      <UnsavedRegistryProvider>
+        <Capture />
+        <WorkingHoursSection />
+      </UnsavedRegistryProvider>
+    );
+    await n.flush();
+    expect(registry.hasUnsaved()).toBe(false);
+
+    await n.toggle("working-hours-works-sun");
+    expect(registry.hasUnsaved()).toBe(true);
+
+    await n.toggle("working-hours-works-sun");
+    expect(registry.hasUnsaved()).toBe(false);
+
+    await n.toggle("working-hours-works-sun");
+    expect(registry.hasUnsaved()).toBe(true);
+    await n.press("working-hours-save");
+    await n.flush();
+    expect(registry.hasUnsaved()).toBe(false);
+  });
+
+  it("a failed save leaves the section unsaved", async () => {
+    putCoachWorkingHours.mockRejectedValue(new Error("network"));
+    let registry!: ReturnType<typeof useUnsavedRegistry>;
+    function Capture() {
+      registry = useUnsavedRegistry();
+      return null;
+    }
+    const n = await renderNative(
+      <UnsavedRegistryProvider>
+        <Capture />
+        <WorkingHoursSection />
+      </UnsavedRegistryProvider>
+    );
+    await n.flush();
+
+    await n.toggle("working-hours-works-sun");
+    await n.press("working-hours-save");
+    await n.flush();
+    expect(registry.hasUnsaved()).toBe(true);
   });
 });

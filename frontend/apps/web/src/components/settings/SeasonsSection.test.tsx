@@ -9,13 +9,15 @@
  * component a new `t` when it chooses.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const getSeason = vi.fn();
+const saveSeason = vi.fn();
+const deleteSeason = vi.fn();
 vi.mock("@/api/seasons", () => ({
   getSeason: (...a: unknown[]) => getSeason(...a),
-  saveSeason: vi.fn(),
-  deleteSeason: vi.fn(),
+  saveSeason: (...a: unknown[]) => saveSeason(...a),
+  deleteSeason: (...a: unknown[]) => deleteSeason(...a),
 }));
 
 let currentT = (key: string) => key;
@@ -27,11 +29,14 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { SeasonsSection } from "./SeasonsSection";
+import { SettingsUnsavedTestHarness } from "@/test/settingsUnsavedTestHarness";
 
 const SEASON = { label: "2026/27", startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 };
 
 beforeEach(() => {
   getSeason.mockReset().mockResolvedValue(SEASON);
+  saveSeason.mockReset();
+  deleteSeason.mockReset();
   settleLanguage();
 });
 
@@ -67,5 +72,58 @@ describe("SeasonsSection — a late load never replaces the form (PAD-392)", () 
       });
     }
     expect(getSeason).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** settings.unsaved-edits rule 2 (PAD-394, ledger B-157). */
+describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
+  const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
+
+  it("reports unsaved after an edit, and clean again once undone by hand", async () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <SeasonsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("season-label");
+    expect(unsavedIds()).toBe("");
+
+    fireEvent.change(label(), { target: { value: "Epoca nova" } });
+    expect(unsavedIds()).toBe("seasons");
+
+    fireEvent.change(label(), { target: { value: "2026/27" } });
+    expect(unsavedIds()).toBe("");
+  });
+
+  it("is clean again after a successful save", async () => {
+    saveSeason.mockResolvedValue({ ...SEASON, label: "Epoca nova" });
+    render(
+      <SettingsUnsavedTestHarness>
+        <SeasonsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("season-label");
+    fireEvent.change(label(), { target: { value: "Epoca nova" } });
+    expect(unsavedIds()).toBe("seasons");
+
+    fireEvent.click(screen.getByTestId("season-save"));
+    await waitFor(() => expect(saveSeason).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("stays unsaved after a failed save", async () => {
+    saveSeason.mockRejectedValue(new Error("nope"));
+    render(
+      <SettingsUnsavedTestHarness>
+        <SeasonsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("season-label");
+    fireEvent.change(label(), { target: { value: "Epoca nova" } });
+    expect(unsavedIds()).toBe("seasons");
+
+    fireEvent.click(screen.getByTestId("season-save"));
+    await waitFor(() => expect(saveSeason).toHaveBeenCalledTimes(1));
+    expect(unsavedIds()).toBe("seasons");
   });
 });

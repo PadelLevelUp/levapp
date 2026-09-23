@@ -186,6 +186,11 @@ executionOrder:
     # load bearing. Unconfirmed — not yet run.
     - 100-players-list-rows
     - 101-player-detail-action-row
+    # 102 changes the Perfil phone field and leaves it unsaved, asserts the back row's
+    # confirm (settings.unsaved-edits rules 3-4, PAD-394): keep editing stays with the
+    # edit intact, discard returns to the list. Nothing is ever PATCHed, so there is
+    # nothing to restore — the server's phone is asserted unchanged instead.
+    - 102-settings-unsaved-edits
     # 103 posts 45 messages as the student and opens conversation 1 on the 3rd (older
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.
