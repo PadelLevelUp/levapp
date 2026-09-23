@@ -360,12 +360,12 @@ export default function PlayersPage() {
                       </p>
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         {level && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs" data-testid={`player-level-chip-${cs.playerId}`}>
                             {t("players.masterDetail.levelChip", { code: level.code })}
                           </Badge>
                         )}
                         {cs.side && (
-                          <Badge variant="secondary" className="text-xs">{t(SIDE_LABEL_KEYS[cs.side])}</Badge>
+                          <Badge variant="secondary" className="text-xs" data-testid={`player-side-chip-${cs.playerId}`}>{t(SIDE_LABEL_KEYS[cs.side])}</Badge>
                         )}
                         {!cs.validated && (
                           <Badge

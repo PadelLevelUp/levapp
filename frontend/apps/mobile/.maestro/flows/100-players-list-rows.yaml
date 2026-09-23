@@ -33,9 +33,9 @@ appId: com.padellevelup.app
     id: "player-card-1"
 - assertVisible:
     text: "E2E Student"
-# The mock's "Nível {code}" chip (players.masterDetail.levelChip) — a bare
-# code is never asserted anywhere else in this suite.
+# The level and side chips, by id: their copy follows the account's language (the seeded
+# coach reads English — "Level B1", Session-D's run at 126f9988f), so it is never asserted.
 - assertVisible:
-    text: "Nível .+"
-    below:
-      text: "E2E Student"
+    id: "player-level-chip-1"
+- assertVisible:
+    id: "player-side-chip-1"

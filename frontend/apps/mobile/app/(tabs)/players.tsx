@@ -155,14 +155,14 @@ export default function PlayersScreen() {
       </View>
       <View className="mt-3 flex-row flex-wrap gap-2">
         {item.level ? (
-          <Badge variant="outline">
-            {/* PAD-410: master-detail mock renders "Nível {code}" here — no
-                Maestro flow asserts the bare code on this card (grepped). */}
+          <Badge variant="outline" testID={`player-level-chip-${item.playerId}`}>
+            {/* PAD-410: master-detail mock renders "Nível {code}" here; the id lets a flow
+                assert the chip without reading copy (the language is the account's). */}
             <Text>{t("players.masterDetail.levelChip", { code: item.level.code })}</Text>
           </Badge>
         ) : null}
         {item.side ? (
-          <Badge variant="secondary">
+          <Badge variant="secondary" testID={`player-side-chip-${item.playerId}`}>
             <Text>{t(SIDE_LABEL_KEYS[item.side])}</Text>
           </Badge>
         ) : null}
