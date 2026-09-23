@@ -17,6 +17,17 @@ CI (`.github/workflows/backend-tests.yaml`) runs both backends on every PR into 
 (default localhost:5432, the E2E server) and drops it afterwards; a model column without a
 migration, or a second Alembic head, fails there.
 
+## Before every push
+
+Run the pre-push gate (`.githooks/prepush-gate.sh`; see the root CLAUDE.md "Ticket workflow"). For
+a `backend/` change it runs pytest on SQLite over three sets: the changed test files, the tests
+that import a changed module, and every source-scanning guard. The guards are the ratchets
+(`LEGACY_MAX`), the single-head check, the registries and the collection checks. They fail on an
+improvement too: removing a counted call means lowering its ratchet in the same commit. If models
+or migrations changed, it runs the whole SQLite suite. It checks the one-Alembic-head rule on the
+COMMITTED migrations, so a parent placed untracked for local runs cannot hide a stacked branch's
+missing parent. Postgres and `flask db check` stay CI-only; run them by hand for a migration.
+
 ## Database
 
 - **Dev**: `padel_app` on Postgres port **5433**, user `padel_app_user`

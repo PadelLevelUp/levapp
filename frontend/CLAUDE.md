@@ -31,6 +31,15 @@ npm run test:e2e:headless         # web Playwright E2E (headless)
 bash apps/mobile/scripts/e2e.sh   # mobile Maestro E2E (see apps/mobile/README.md for setup)
 ```
 
+## Before every push
+
+Run the pre-push gate (`.githooks/prepush-gate.sh`; installed with `git config core.hooksPath
+.githooks`, see the root CLAUDE.md "Ticket workflow"). For a `frontend/` change it runs CI's exact
+commands, from `frontend/` on Node 22: `npx tsc --noEmit -p apps/web/tsconfig.app.json`,
+`npx tsc --noEmit -p apps/mobile/tsconfig.json` and `npm test` (web, packages, mobile; the E2E
+guards and the Maestro flow-number guard are vitest tests inside it). A grep-filtered or
+single-workspace run is not this check.
+
 ## Hard rule: web and iOS ship together
 
 **Anything added to `apps/web` must also be added to `apps/mobile`, in the same
