@@ -1521,14 +1521,13 @@ def _format_weekday(dt, locale):
 
 
 def _get_or_create_direct_conversation(coach_user_id: int, player_user_id: int):
-    from padel_app.models import Conversation, ConversationParticipant
-    key = Conversation.build_participant_key([coach_user_id, player_user_id])
-    conv = Conversation.query.filter_by(participant_key=key).first()
-    if conv is None:
-        conv = Conversation(participant_key=key, is_group=False)
-        conv.create()
-        for uid in sorted(set([coach_user_id, player_user_id])):
-            ConversationParticipant(conversation_id=conv.id, user_id=uid).create()
+    """PAD-411: race-safe (`Conversation.get_or_insert`); commits as `create()` always did —
+    unless a unit of work is open, which commits at its end (PAD-272)."""
+    from padel_app.models import Conversation
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    conv = Conversation.get_or_insert([coach_user_id, player_user_id])
+    commit_or_flush()
     return conv
 
 
