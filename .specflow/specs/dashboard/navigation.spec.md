@@ -45,6 +45,10 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
     `attendance.history`). It is the student-side entry point to that page.
 11a. **(PAD-141)** The student "Missed" KPI links to the absence history page
     (`href: /absences`, see `attendance.absences`), and is the student-side entry point to it.
+11b. **(PAD-402)** The student `evaluations` block links to the full list of shared evaluations:
+    web route `/evaluations` (student-only; a coach or an anonymous visitor is redirected as the
+    other student routes are), and on iOS a pushed screen `evaluations` in the native route map.
+    The route exists in the same ticket as the block, so rule 6 holds from the first release.
     This **supersedes** the previous rule that "Missed" stays inert. That rule was never about
     "Missed" being undeserving of a destination — it was rule 6 applied to a route that did not
     exist yet (PAD-76). `attendance.absences` creates the route, so rule 6 is now *satisfied*

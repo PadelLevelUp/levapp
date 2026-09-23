@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { KpiTiles, NeedsYouQueue, NextClassHero, Schedule7Days } from "./blocks";
 import { pick } from "./CoachDashboard";
+import { StudentEvaluationsBlock } from "./student-evaluations-block";
 import { ClaimRequests } from "@/features/players/claim-requests";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -26,6 +27,10 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
   const needsYou = pick(blocks, "needs_you");
   const schedule = pick(blocks, "schedule_7d");
   const kpis = pick(blocks, "kpi_grid");
+  // `evaluations.student-view` rule 4: gated server-side by the `evaluations`
+  // capability token and omitted entirely when the player has no shared card
+  // — so its presence here is the only decision this screen makes.
+  const evaluations = pick(blocks, "evaluations");
   const { t } = useTranslation();
 
   // players.join-token rule 8: no next class and an empty week is what a
@@ -59,6 +64,7 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
       {needsYou && <NeedsYouQueue block={needsYou} />}
       {schedule && <Schedule7Days block={schedule} role="student" />}
       {kpis && <KpiTiles block={kpis} />}
+      {evaluations && <StudentEvaluationsBlock block={evaluations} />}
     </View>
   );
 }

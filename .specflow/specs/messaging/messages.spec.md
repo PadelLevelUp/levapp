@@ -33,7 +33,10 @@ Send, edit, and delete messages within conversations, with support for replies a
     fail because the image cannot be signed. The storage client is created once per process,
     not once per image.
 6. System messages have `message_type="notification"` or `"system"` with `msg_metadata`
-7. On send: push notification sent to all other conversation participants
+7. On send: push notification sent to all other conversation participants. **One exception
+   (PAD-402, owner's Q3):** the evaluation-share system message (`evaluations.sharing` rule 8)
+   is written and published over SSE like any other but is **never pushed** — the sender is
+   called with its push step off. No other message is exempt.
 8. On send: SSE event published to real-time stream
 9. `sent_at` is stored as naive UTC in the DB and serialized as a **UTC-aware ISO 8601 string** (with an explicit `+00:00`/`Z` offset) in the `timestamp`/`lastMessageAt` fields, so clients parse it correctly and render in the viewer's local timezone
 9a. `sent_at` is written with the same clock **and the same precision** as

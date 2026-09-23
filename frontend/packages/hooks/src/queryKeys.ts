@@ -42,4 +42,6 @@ export const queryKeys = {
   exercises: ["exercises"] as const,
   exercise: (id: string) => ["exercises", id] as const,
   exerciseGroups: ["exercise-groups"] as const,
+  // ── PAD-402 evaluation sharing ──
+  myEvaluations: ["my-evaluations"] as const,
 };

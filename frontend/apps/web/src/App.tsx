@@ -12,6 +12,7 @@ import CalendarPage from "./pages/CalendarPage";
 import PlayersPage from "./pages/PlayersPage";
 import PlayerDetailPage from "./pages/PlayerDetailPage";
 import AttendancePage from "./pages/AttendancePage";
+import StudentEvaluations from "./pages/StudentEvaluations";
 import AbsencesPage from "./pages/AbsencesPage";
 import PresencesPage from "./pages/PresencesPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -190,6 +191,17 @@ const App = () => (
                 element={
                   <RoleRoute allowedRoles={["player"]}>
                     <AttendancePage />
+                  </RoleRoute>
+                }
+              />
+
+              {/* evaluations.student-view rules 2, 8 (PAD-402): the dashboard block's
+                  "Ver todas" — a player's own shared cards, nothing else. */}
+              <Route
+                path="/evaluations"
+                element={
+                  <RoleRoute allowedRoles={["player"]}>
+                    <StudentEvaluations />
                   </RoleRoute>
                 }
               />

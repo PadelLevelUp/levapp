@@ -19,4 +19,4 @@ if (!ok) {
   for (const p of problems) console.error(`  - ${p}`);
   process.exit(1);
 }
-console.log(`BUNDLE CHECK PASSED: ${targets[target]}, X-LevApp-Capabilities, open-spots`);
+console.log(`BUNDLE CHECK PASSED: ${targets[target]}, X-LevApp-Capabilities, open-spots, evaluations`);

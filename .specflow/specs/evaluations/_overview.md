@@ -30,8 +30,9 @@ Planned — all `draft`, from the canvas (archive `sistema-de-avaliacoes-2026-09
 - `evaluations.history` — the profile card, the "Avaliações" drawer, "Nova avaliação", history
   cards, delete; the strengths/weaknesses rule
 - `evaluations.evolution` — monthly means, rolling means, delta, the chart
-- `evaluations.sharing` — owner-pending — choose, preview, share, un-share
-- `evaluations.student-view` — owner-pending — what a player sees; the one job of the
+- `evaluations.sharing` — implemented (PAD-402, owner-decided 2026-09-22) — choose, preview,
+  share, un-share; one thread message, no push
+- `evaluations.student-view` — implemented (PAD-402) — what a player sees; the one job of the
   `evaluations` capability token (gating the student dashboard block)
 - `evaluations.reminders` — owner-pending — "Frequência de avaliações" and the due marker
 

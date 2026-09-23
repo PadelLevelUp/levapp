@@ -90,7 +90,9 @@ what every writer — new, legacy and import — goes through.
    Response: `Record`, or `{deleted: true}` when nothing is left (rule 10).
    `Record = {id, evaluatedOn, classInstanceId|null, className|null, note, editable,
    ratings: [{categoryId, name, key|null, score, scaleMin, scaleMax}],
-   share: null | {sharedAt, categoryIds, evolution, includeNote}}`.
+   share: null | {sharedAt, categoryIds, evolution, includeNote, stale}}`. `share` is served from
+   `evaluation_shares` (PAD-402, `evaluations.sharing` rule 7); deleting the record removes the
+   share with it (FK CASCADE), so a deleted record never leaves a card behind.
    A player not on the coach's roster → 404; a caller with no coach profile → 403; a
    `categoryId` that is not the coach's → 403. It is a merge: a competency absent from `ratings`
    is untouched. Within a record a competency has one entry row: rating it again the same day

@@ -41,3 +41,6 @@ export * as seasonsApi from "./resources/seasons";
 export * as courtsApi from "./resources/courts";
 export * as trainingApi from "./resources/training";
 export * as usersApi from "./resources/users";
+
+// ── PAD-402 evaluation sharing ──
+export * as evaluationSharingApi from "./resources/evaluationSharing";
