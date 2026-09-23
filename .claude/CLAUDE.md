@@ -61,6 +61,27 @@ Ticket prompts carry the full sequence in a skill — don't restate it here. Bot
 
 If something is ambiguous, make a reasonable decision and document it in the commit message.
 
+### Before every push: the pre-push gate
+
+Every failed CI run emails the owner. **Run the gate before every push; never push red.** Install
+it once per clone (it covers every worktree): `git config core.hooksPath .githooks`. `git push`
+then runs `.githooks/prepush-gate.sh` on what you push. It runs CI's own commands for what
+changed:
+- one Alembic head, always, on the committed migrations;
+- both `tsc` and `npm test` when `frontend/` changed;
+- the backend guards plus the tests that touch the changed modules when `backend/` changed (the
+  whole SQLite suite when models or migrations changed);
+- JSON parses and `cortex validate` when those files changed.
+
+Run it by hand with `bash .githooks/prepush-gate.sh` (`--full` adds the whole backend suite;
+`PREPUSH_DRY=1` only prints what would run). Postgres and the Android lane stay CI-only.
+- **Escape hatch:** a line `[skip-prepush: <reason>]` in a pushed commit's message, with a real
+  reason. It stays in the history. Never `--no-verify`.
+- **Stacked migrations:** a PR whose migration parents on another open branch fails "one Alembic
+  head" and both pytest lanes until that parent is on staging. Don't open that PR, and don't push
+  to it, until the parent lands; keep the work local or on the parent's branch. Those reds are
+  noise the owner still gets mailed.
+
 ## Hard rule: web and iOS ship together
 
 Anything added to the web app must also be added to the iOS app, **in the same
