@@ -11,7 +11,8 @@ const TARGETS = {
   staging: "https://staging.levapp.app/api",
 };
 // Hermes bytecode keeps string literals as separate entries in its string table.
-const DECLARES = " X-LevApp-Capabilities open-spots ";
+// PAD-402: `evaluations` joins `open-spots` as a required declaration (release-bundle-check.mjs).
+const DECLARES = " X-LevApp-Capabilities open-spots evaluations ";
 
 describe("checkReleaseBundle (PAD-351)", () => {
   it("passes a production bundle that declares open spots", () => {
@@ -57,6 +58,7 @@ describe("checkReleaseBundle (PAD-351)", () => {
     expect(result.ok).toBe(false);
     expect(result.problems.join("\n")).toContain("X-LevApp-Capabilities");
     expect(result.problems.join("\n")).toContain("open-spots");
+    expect(result.problems.join("\n")).toContain("evaluations");
   });
 
   it("passes a staging bundle named staging, whose URL contains 'levapp.app/api'", () => {

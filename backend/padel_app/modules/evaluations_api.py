@@ -15,6 +15,7 @@ from werkzeug.exceptions import HTTPException
 
 from padel_app.modules.frontend_api import require_coach
 from padel_app.services import evaluation_api_service as service
+from padel_app.services import evaluation_share_service as share_service
 from padel_app.services.evaluation_api_service import ApiError
 
 bp = Blueprint("evaluations_api", __name__, url_prefix="/api/app")
@@ -116,6 +117,46 @@ def put_evaluation_record():
 def delete_evaluation_record(record_id):
     service.delete_record(require_coach(), record_id)
     return jsonify({"status": "ok"})
+
+
+# ── sharing (PAD-402, evaluations.sharing) ───────────────────────────────────
+
+
+@bp.post("/evaluation_record/<int:record_id>/share_preview")
+@jwt_required()
+def share_preview_evaluation_record(record_id):
+    coach = require_coach()
+    return jsonify(share_service.preview(coach, record_id, _body()))
+
+
+@bp.post("/evaluation_record/<int:record_id>/share")
+@jwt_required()
+def share_evaluation_record(record_id):
+    coach = require_coach()
+    record = share_service.share(coach, record_id, _body())
+    return jsonify(service.serialize_record(record))
+
+
+@bp.delete("/evaluation_record/<int:record_id>/share")
+@jwt_required()
+def unshare_evaluation_record(record_id):
+    coach = require_coach()
+    share_service.unshare(coach, record_id)
+    return jsonify({"status": "ok"})
+
+
+# ── the student read (PAD-402, evaluations.student-view) ────────────────────
+
+
+@bp.get("/my_evaluations")
+@jwt_required()
+def my_evaluations():
+    from padel_app.modules.frontend_api import current_player
+
+    player = current_player()
+    if player is None:
+        raise ApiError(403, "not_a_player")
+    return jsonify(share_service.my_evaluations(player))
 
 
 # ── the class ───────────────────────────────────────────────────────────────

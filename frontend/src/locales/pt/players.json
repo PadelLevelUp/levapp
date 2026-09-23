@@ -351,6 +351,43 @@
       "noParticipants": "Esta aula não tem participantes para avaliar."
     },
     "invalidFields": "Alguns dos dados introduzidos não são válidos.",
-    "emailIsTheStudents": "O aluno gere o seu próprio e-mail."
+    "emailIsTheStudents": "O aluno gere o seu próprio e-mail.",
+    "evaluationSharing": {
+      "share": {
+        "action": "Partilhar avaliação",
+        "step1Title": "Escolhe o que queres mostrar a {{name}}",
+        "competencyOption": "{{name}} — {{score}}/{{max}}",
+        "evolutionLabel": "Evolução",
+        "evolutionLast": "Desde a última avaliação",
+        "evolution6m": "Últimos 6 meses",
+        "evolution1y": "Último ano",
+        "evolutionNone": "Não mostrar evolução",
+        "includeNote": "Incluir comentário do treinador",
+        "preview": "Pré-visualizar",
+        "previewTitle": "Assim o aluno vai ver",
+        "back": "Voltar",
+        "submit": "Partilhar",
+        "cancel": "Cancelar",
+        "sharedOn": "✓ Partilhada com o aluno em {{date}}",
+        "update": "Atualizar partilha",
+        "unshare": "Deixar de partilhar",
+        "deleteSharedWarning": "O aluno deixará de ver esta avaliação.",
+        "error": "Não foi possível partilhar a avaliação."
+      },
+      "card": {
+        "from": "Avaliação de {{coach}}",
+        "coachComment": "Comentário do treinador",
+        "periodLast": "Desde a última avaliação",
+        "period6m": "Últimos 6 meses",
+        "period1y": "Último ano"
+      },
+      "student": {
+        "blockTitle": "Avaliações",
+        "seeAll": "Ver todas",
+        "pageTitle": "As minhas avaliações",
+        "empty": "Ainda não tens avaliações partilhadas.",
+        "loadError": "Não foi possível carregar as avaliações."
+      }
+    }
   }
 }

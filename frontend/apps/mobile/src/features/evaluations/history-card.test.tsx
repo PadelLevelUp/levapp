@@ -1,43 +1,130 @@
 /**
- * PAD-403 (evaluations.legacy-conversion rules 5, 8), iOS twin of the web card test: a
- * rating is drawn from its own scale. A converted legacy category (key null, 1-5) is stars;
- * the stepper remains only for a scale that is not 1-5, which the server no longer holds.
+ * PAD-402 (`evaluations.sharing` decision 8, rule 7, 9). Covers what the ticket
+ * asks for on `HistoryCard`: the share button is always rendered (rule 10 — any
+ * record, so the action row's width never changes with state); "Deixar de
+ * partilhar" appears only once shared; "Atualizar partilha" appears only when
+ * `share.stale`, and presses the SAME `share` mutation again with the record's
+ * OWN stored selection (rule 7 — no new choose-step).
+ *
+ * `@levelup/hooks` is mocked rather than `@levelup/api`, the pattern
+ * `competency-manager.test.tsx` documents (two React copies in this workspace
+ * make the real react-query hooks throw under `react-test-renderer` — see
+ * `mobile-harness-cannot-mount-react-query-hooks`). `expo-router`'s `router` is
+ * a spy so the share icon's navigation is asserted without a real navigator.
+ * Every assertion is on testIDs and mock calls, never rendered copy — `t`
+ * returns its key throughout.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
 import type { EvaluationRecord } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, unknown>) =>
-      (opts?.defaultValue as string) ?? (opts && Object.keys(opts).length ? `${key}|${Object.values(opts).join("|")}` : key),
-    i18n: { language: "en" },
+const nav = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("expo-router", () => ({ router: { push: nav.push } }));
+
+const api = vi.hoisted(() => ({ share: vi.fn(), unshare: vi.fn() }));
+vi.mock("@levelup/hooks", () => ({
+  useShareEvaluation: () => ({
+    isPending: false,
+    mutate: (vars: unknown, opts?: { onSuccess?: () => void }) => {
+      api.share(vars);
+      opts?.onSuccess?.();
+    },
+  }),
+  useUnshareEvaluation: () => ({
+    isPending: false,
+    mutate: (vars: unknown, opts?: { onSuccess?: () => void }) => {
+      api.unshare(vars);
+      opts?.onSuccess?.();
+    },
   }),
 }));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
+}));
+
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 
 import { HistoryCard } from "./history-card";
 
-const RECORD: EvaluationRecord = {
-  id: 7, evaluatedOn: "2026-09-10", classInstanceId: null, className: null, note: null, editable: false, share: null,
-  ratings: [
-    { categoryId: 3, name: "Volley", key: null, score: 3, scaleMin: 1, scaleMax: 5 },      // converted legacy
-    { categoryId: 1, name: "Técnica", key: "technique", score: 4, scaleMin: 1, scaleMax: 5 },
-    { categoryId: 9, name: "Smash", key: null, score: 7, scaleMin: 1, scaleMax: 10 },       // off-scale: dormant stepper
-  ],
-};
+function record(over: Partial<EvaluationRecord>): EvaluationRecord {
+  return {
+    id: 41,
+    evaluatedOn: "2026-09-21",
+    classInstanceId: null,
+    className: null,
+    note: null,
+    editable: true,
+    ratings: [{ categoryId: 1, name: "Técnica", key: null, score: 4, scaleMin: 1, scaleMax: 5 }],
+    share: null,
+    ...over,
+  };
+}
 
-describe("HistoryCard draws each rating from its own scale", () => {
-  it("a converted legacy category is stars", async () => {
-    const n = await renderNative(<HistoryCard record={RECORD} />);
-    expect(n.queryByTestId("evaluation-stars-3-3")).not.toBeNull();
-    expect(n.queryByTestId("evaluation-stepper-3-value-3")).toBeNull();
-    expect(n.queryByTestId("evaluation-stars-1-4")).not.toBeNull();
+beforeEach(() => {
+  nav.push.mockReset();
+  api.share.mockReset();
+  api.unshare.mockReset();
+});
+
+describe("HistoryCard — PAD-402 share control", () => {
+  it("always renders the share button (rule 10), and it opens the share flow with the record and player", async () => {
+    const n = await renderNative(
+      createElement(HistoryCard, { record: record({}), playerId: "9", playerName: "Rui Silva" }),
+    );
+    await n.press("evaluation-history-share-41");
+    expect(nav.push).toHaveBeenCalledWith({
+      pathname: "/share-evaluation",
+      params: { recordId: "41", playerId: "9", playerName: "Rui Silva" },
+    });
   });
 
-  it("a scale that is not 1-5 stays a number", async () => {
-    const n = await renderNative(<HistoryCard record={RECORD} />);
-    expect(n.queryByTestId("evaluation-stars-9-7")).toBeNull();
-    expect(n.queryByTestId("evaluation-stepper-9-value-7")).not.toBeNull();
+  it("shows neither unshare nor update when the record has no share", async () => {
+    const n = await renderNative(
+      createElement(HistoryCard, { record: record({ share: null }), playerId: "9", playerName: "Rui" }),
+    );
+    expect(n.queryByTestId("evaluation-history-unshare-41")).toBeNull();
+    expect(n.queryByTestId("evaluation-history-update-share-41")).toBeNull();
+    // The status line is reserved even when unshared (nothing moves under the finger).
+    expect(n.queryByTestId("evaluation-history-share-status-41")).not.toBeNull();
+  });
+
+  it("has no sharing controls without a player (the class panel's earlier-day card)", async () => {
+    const n = await renderNative(createElement(HistoryCard, { record: record({}) }));
+    expect(n.queryByTestId("evaluation-history-share-41")).toBeNull();
+    expect(n.queryByTestId("evaluation-history-share-status-41")).toBeNull();
+  });
+
+  it("shows unshare only (no update) when shared and fresh", async () => {
+    const shared = record({
+      share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [1], evolution: "last", includeNote: false, stale: false },
+    });
+    const n = await renderNative(
+      createElement(HistoryCard, { record: shared, playerId: "9", playerName: "Rui" }),
+    );
+    expect(n.queryByTestId("evaluation-history-share-status-41")).not.toBeNull();
+    expect(n.queryByTestId("evaluation-history-unshare-41")).not.toBeNull();
+    expect(n.queryByTestId("evaluation-history-update-share-41")).toBeNull();
+
+    await n.press("evaluation-history-unshare-41");
+    expect(api.unshare).toHaveBeenCalledWith(41);
+  });
+
+  it("shows unshare AND update when the share is stale; update re-sends the record's own stored selection", async () => {
+    const shared = record({
+      share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [1], evolution: "6m", includeNote: true, stale: true },
+    });
+    const n = await renderNative(
+      createElement(HistoryCard, { record: shared, playerId: "9", playerName: "Rui" }),
+    );
+    expect(n.queryByTestId("evaluation-history-unshare-41")).not.toBeNull();
+    expect(n.queryByTestId("evaluation-history-update-share-41")).not.toBeNull();
+
+    await n.press("evaluation-history-update-share-41");
+    expect(api.share).toHaveBeenCalledWith({
+      recordId: 41,
+      input: { categoryIds: [1], evolution: "6m", includeNote: true },
+    });
   });
 });
