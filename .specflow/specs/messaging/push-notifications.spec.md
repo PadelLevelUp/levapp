@@ -1,6 +1,6 @@
 ---
 id: messaging.push-notifications
-status: implemented
+status: implementing
 depends_on: [messaging.messages, auth.push-subscription]
 implements: ../../specs-business/messaging/user-manages-unread-and-notifications.business.md
 governed_by: []
@@ -153,14 +153,59 @@ Send browser push notifications when a new message arrives and the recipient isn
    prompt (`requestPermissionsAsync`; a no-op grant below 13). Firebase/EAS steps live in
    `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
 
+12. **A message push names the message, and the tap lands on it (PAD-408).** Every push
+   that announces a `Message` row carries that row's id as well as its thread: the native
+   `data` is `{type: "message", conversationId, messageId}` and the web sibling's url is
+   `/messages/<conversationId>?message=<messageId>`. This covers direct messages
+   (`messaging_service.create_message_service`) and system messages
+   (`notification_service._send_system_message`) alike, and both pushes for one event name
+   the same conversation **and** message (the PAD-324 parity guard). Opening the thread with
+   a target message (`/conversation/<id>?message=<mid>` on iOS, `?message=<mid>` on web)
+   lands on that message, not on the newest one: the initial pin-to-newest is skipped, older
+   pages load until the message is present (at most **10 pages**, i.e. 300 messages beyond
+   the first page), and the message is scrolled to the middle of the list and highlighted
+   for 900 ms with the same primitive a quoted reply uses. The target is consumed once. A
+   message that is not found within the bound (deleted, or very old) falls back to today's
+   landing, the newest message, with no error. A push without `messageId` (an older server,
+   or the `path` shape) behaves exactly as before. Opening the thread from the conversation
+   list is unchanged.
+13. **A tap that launches the app waits for the navigator (PAD-409, B-166).** On a cold
+   start, `getLastNotificationResponseAsync()` resolves before the root layout has mounted
+   its navigator. A navigation issued then is not merely lost: it loops the root layout
+   ("Maximum update depth exceeded") and ends in "Attempted to navigate before mounting the
+   Root Layout component" (measured on the simulator, 3/3 cold, 2026-09-22). So the tap's
+   target is **held** until the root navigator is mounted and auth has settled, then
+   navigated to exactly once. The dedup of handled notifications outlives any re-mount of
+   the component that runs it. A tap that launches a **signed-out** app is dropped and the
+   normal login flow runs (default decision, 2026-09-22; changing it means changing this
+   rule). A warm tap (app running) is unchanged.
+
 ### Acceptance Criteria
 
 #### Tapping a message notification opens the thread (PAD-240)
 - **Given** a student with a registered iOS device token who receives a class invitation, a reminder, or a direct message
 - **When** the push is sent
-- **Then** its `data` is `{type: "message", conversationId: <the thread's id>}`, with `classInstanceId` present only as extra context on class-backed system messages
+- **Then** its `data` is `{type: "message", conversationId: <the thread's id>, messageId: <the message's id>}` (`messageId` since PAD-408), with `classInstanceId` present only as extra context on class-backed system messages
 - **And** tapping the notification on iOS opens `/conversation/<conversationId>`, never `/class/<id>`
 - **And** a coach's cancellation notice push routes the same way, to the coach–student thread
+
+#### A push tap lands on the tapped message, even under newer ones (PAD-408)
+- **Given** a coach–student thread where message M ("Can we move Thursday?") is followed by 15 newer messages, more than one screen
+- **When** the coach taps M's push, with the app backgrounded
+- **Then** the thread opens with M visible in the list and highlighted, not scrolled to the newest message
+- **And** the same holds when M is older than the first page of 30: older pages load until M is present
+- **And** on web, opening `/messages/<conversationId>?message=<M's id>` shows M centred and highlighted
+
+#### A target that cannot be found falls back to the newest message (PAD-408)
+- **Given** a push naming a `messageId` that was deleted, or that lies beyond 10 older pages
+- **When** the thread opens with that target
+- **Then** it lands on the newest message as before, with no error and no endless loading
+
+#### A tap that launches the app opens the thread once (PAD-409)
+- **Given** a signed-in coach whose app is not running
+- **When** they tap a message push `{type: "message", conversationId: 1, messageId: M}`
+- **Then** the app launches into `/conversation/1` (with M targeted), navigating exactly once and never before the root navigator is mounted
+- **And** a signed-out app launched by the same tap shows the login screen and does not navigate to the thread
 
 #### The feed works with browser push denied (PAD-195)
 - **Given** a signed-in coach whose browser notification permission is `denied`
