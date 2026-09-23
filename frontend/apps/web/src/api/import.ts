@@ -2,6 +2,15 @@ import { api } from "@/api/client";
 
 /* ---------- types ---------- */
 
+/** One row error from the import. `code` is set when the server knows the cause (D111, PAD-403). */
+export interface ImportRowError {
+  row: number;
+  error: string;
+  code?: string;
+  category?: string;
+  value?: number;
+}
+
 export interface ImportTableRow {
   id: string;
   cells: Record<string, string>;
@@ -16,7 +25,7 @@ export interface ImportTable {
 
 export interface ImportResult {
   imported: number;
-  errors: Array<{ row: number; error: string }>;
+  errors: ImportRowError[];
 }
 
 /* ---------- SSE event types from /analyze ---------- */

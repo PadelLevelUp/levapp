@@ -242,6 +242,9 @@
         "importCompleteDescription": "{{imported}} records imported.",
         "importCompleteWithErrors": "{{imported}} records imported, {{errors}} errors.",
         "importFailedTitle": "Import failed"
+      },
+      "rowErrors": {
+        "score_out_of_range": "Score {{value}} for “{{category}}” is outside 1–5. Scores are 1–5 stars: rescale the sheet and import it again."
       }
     },
     "importHistory": {

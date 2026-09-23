@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { competencyLabel, lightTheme } from "@levelup/config";
+import { competencyLabel, isStarScale, lightTheme } from "@levelup/config";
 import { useShareEvaluation, useUnshareEvaluation } from "@levelup/hooks";
 import type { EvaluationRecord } from "@levelup/types";
 import { router } from "expo-router";
@@ -17,7 +17,6 @@ import { StarRating } from "./star-rating";
 
 interface HistoryCardProps {
   record: EvaluationRecord;
-  isStars: (categoryId: number) => boolean;
   /**
    * Who the record belongs to (`evaluations.sharing`): the share flow's own addressing
    * and cache key. Omitted (the class panel's earlier-day card), the card has no
@@ -42,7 +41,7 @@ interface HistoryCardProps {
  * unshare/update actions inline) reserves its height whether or not the record is
  * shared or stale, so toggling it never shifts a card below it in the list (`nothing-moves-under-the-finger`).
  */
-export function HistoryCard({ record, isStars, playerId, playerName, onEdit, onDelete }: HistoryCardProps) {
+export function HistoryCard({ record, playerId, playerName, onEdit, onDelete }: HistoryCardProps) {
   const { t, i18n } = useTranslation();
   const id = record.id;
   const canShare = Boolean(playerId && playerName);
@@ -110,7 +109,7 @@ export function HistoryCard({ record, isStars, playerId, playerName, onEdit, onD
           return (
             <View key={rating.categoryId} className="flex-row items-center justify-between gap-2">
               <Text className="flex-1 text-sm" numberOfLines={1}>{name}</Text>
-              {isStars(rating.categoryId) ? (
+              {isStarScale(rating) ? (
                 <StarRating id={rating.categoryId} name={name} score={rating.score} max={rating.scaleMax} size="sm" />
               ) : (
                 <ScoreStepper id={rating.categoryId} name={name} score={rating.score} scaleMin={rating.scaleMin} scaleMax={rating.scaleMax} />

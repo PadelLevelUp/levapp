@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import type { EvaluationRecord } from "@levelup/types";
-import { isStarCompetency, todaysClasslessRecord } from "@levelup/config";
+import { todaysClasslessRecord } from "@levelup/config";
 import {
   useDeleteEvaluationRecord,
   useEvaluationCompetencies,
@@ -55,15 +55,6 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
 
   const records = history.data?.records ?? [];
   const competencies = competencySet.data?.competencies ?? [];
-  const starIds = useMemo(
-    () => new Set(competencies.filter(isStarCompetency).map((competency) => competency.id)),
-    [competencies]
-  );
-  // A rating whose competency was deleted is not in the set; its own scale still says what it was.
-  const isStars = (categoryId: number) =>
-    starIds.has(categoryId) ||
-    (!competencies.some((c) => c.id === categoryId) &&
-      records.some((r) => r.ratings.some((x) => x.categoryId === categoryId && x.key !== null)));
 
   const formRecord = target === "new" ? todaysClasslessRecord(records) : target;
   const classRef =
@@ -144,7 +135,6 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
               <EvaluationHistoryCard
                 key={record.id}
                 record={record}
-                isStars={isStars}
                 onEdit={() => setTarget(record)}
                 onDelete={() => setDeleting(record)}
                 playerId={playerId}

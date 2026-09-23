@@ -177,6 +177,10 @@ executionOrder:
     # seeded student is marked due on the Players list, then clears it with "never";
     # onFlowComplete restores `{"reminder":"never"}` through the API. Unconfirmed — not yet run.
     - 97-evaluation-reminder-setting
+    # 98 posts a legacy category as a 0-10 scale and proves the server stores and echoes it
+    # 1-5, then rates it as stars — never a stepper (PAD-403); it removes the record and the
+    # category it made in its own teardown.
+    - 98-legacy-conversion
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

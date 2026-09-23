@@ -6,7 +6,7 @@ import { API_APP, API_AUTH } from "../helpers/api";
 // tested in the backend on fixed datasets. Here: the page RENDERS what the server sent — the spec
 // reads the same endpoint and compares, so it holds on any day the seed runs (the seeded history
 // hangs off the seed's own "today", and the rolling windows move with it).
-// Seed: "E2E Student Two" has five past-dated Forehand (legacy 1-10) evaluations, filed in records.
+// Seed: "E2E Student Two" has five past-dated Forehand (legacy, PAD-403: 1-5 stars) evaluations, filed in records.
 // Test ids and state attributes only — never rendered copy (B-103).
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });

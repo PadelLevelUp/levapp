@@ -87,14 +87,14 @@ def test_one_month_has_no_delta_and_an_empty_window_no_mean(app, client):
 
     ids = _seed(app)
     with app.app_context():
-        _rated(ids, ids["forehand_id"], 6, dt.datetime(2026, 2, 10, 9, 0))
+        _rated(ids, ids["forehand_id"], 4, dt.datetime(2026, 2, 10, 9, 0))
 
     body = _evolution(app, client, ids, ids["forehand_id"]).get_json()
 
-    assert body["series"] == [{"month": "2026-02", "mean": 6.0}] and body["delta"] is None
-    assert body["means"] == {"m1": None, "m6": None, "m12": 6.0}
+    assert body["series"] == [{"month": "2026-02", "mean": 4.0}] and body["delta"] is None
+    assert body["means"] == {"m1": None, "m6": None, "m12": 4.0}
     assert _evolution(app, client, ids, ids["volley_id"]).get_json() == {
-        "scaleMin": 0, "scaleMax": 10, "series": [], "means": {"m1": None, "m6": None, "m12": None}, "delta": None,
+        "scaleMin": 1, "scaleMax": 5, "series": [], "means": {"m1": None, "m6": None, "m12": None}, "delta": None,
     }
 
 
@@ -137,7 +137,7 @@ def test_the_class_roster_lists_participants_absent_last_with_their_most_recent_
     instance_id = _seed_instance(app, ids["coach_id"], ids["student_id"])
     put = client.put(f"{BASE}/evaluation_record", headers=_coach_headers(app, ids), json={
         "playerId": ids["student_id"], "classRef": {"model": "LessonInstance", "id": instance_id, "date": "2026-09-23"},
-        "ratings": {str(ids["forehand_id"]): 8},
+        "ratings": {str(ids["forehand_id"]): 4},
     })
     assert put.status_code == 200, put.get_data(as_text=True)
     assert put.get_json()["classInstanceId"] == instance_id and put.get_json()["className"]
@@ -159,7 +159,7 @@ def test_the_class_roster_lists_participants_absent_last_with_their_most_recent_
     # ... and the first tap that day starts that day's record for the same occurrence, which the next read returns
     second = client.put(f"{BASE}/evaluation_record", headers=_coach_headers(app, ids), json={
         "playerId": ids["student_id"], "classRef": {"model": "LessonInstance", "id": instance_id},
-        "ratings": {str(ids["forehand_id"]): 9}}).get_json()
+        "ratings": {str(ids["forehand_id"]): 5}}).get_json()
     latest = _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()["participants"][0]["record"]
     assert second["id"] != put.get_json()["id"] and (latest["id"], latest["editable"]) == (second["id"], True)
 
@@ -179,7 +179,7 @@ def test_a_class_less_record_and_a_class_record_of_one_day_are_two_records(app, 
         "playerId": ids["student_id"], "ratings": {str(ids["forehand_id"]): 5}}).get_json()
     in_class = client.put(f"{BASE}/evaluation_record", headers=headers, json={
         "playerId": ids["student_id"], "classRef": {"model": "LessonInstance", "id": instance_id, "date": None},
-        "ratings": {str(ids["forehand_id"]): 8}}).get_json()
+        "ratings": {str(ids["forehand_id"]): 4}}).get_json()
 
     assert loose["id"] != in_class["id"]
     with app.app_context():
@@ -242,7 +242,7 @@ def test_rating_in_a_past_unmaterialised_class_is_409_and_enrols_nobody(app, cli
 
     res = client.put(f"{BASE}/evaluation_record", headers=_coach_headers(app, ids), json={
         "playerId": ids["student_id"], "classRef": {"model": "Lesson", "id": lesson_id, "date": "2026-09-14"},
-        "ratings": {str(ids["forehand_id"]): 8},
+        "ratings": {str(ids["forehand_id"]): 4},
     })
 
     assert res.status_code == 409 and res.get_json()["error"] == "class_not_materialised"
@@ -256,7 +256,7 @@ def test_rating_in_todays_unmaterialised_class_materialises_it_once(app, client)
     ids = _seed(app)
     lesson_id = _recurring_lesson(app, ids, dt.datetime(2026, 9, 7, 18, 0))
     body = {"playerId": ids["student_id"], "classRef": {"model": "Lesson", "id": lesson_id, "date": "2026-09-21"},
-            "ratings": {str(ids["forehand_id"]): 8}}
+            "ratings": {str(ids["forehand_id"]): 4}}
 
     first = client.put(f"{BASE}/evaluation_record", headers=_coach_headers(app, ids), json=body)
     second = client.put(f"{BASE}/evaluation_record", headers=_coach_headers(app, ids), json=body)
@@ -300,7 +300,7 @@ def test_another_coachs_player_competency_and_record_are_403_and_untouched(app, 
     other = _other_coach(app)
     mine = _coach_headers(app, ids)
     record_id = client.put(f"{BASE}/evaluation_record", headers=mine, json={
-        "playerId": ids["student_id"], "ratings": {str(ids["forehand_id"]): 7}}).get_json()["id"]
+        "playerId": ids["student_id"], "ratings": {str(ids["forehand_id"]): 4}}).get_json()["id"]
     theirs = _headers(app, other["user_id"])  # the other coach does not have this student
 
     # a player who is not on the caller's roster is 404, as the legacy endpoints answer (records rule 8)
@@ -441,7 +441,7 @@ def test_a_record_id_of_another_player_or_class_is_a_mismatch(app, client):
     headers = _coach_headers(app, ids)
     in_class = client.put(f"{BASE}/evaluation_record", headers=headers, json={
         "playerId": ids["student_id"], "classRef": {"model": "LessonInstance", "id": instance_id},
-        "ratings": {str(ids["forehand_id"]): 8}}).get_json()
+        "ratings": {str(ids["forehand_id"]): 4}}).get_json()
 
     res = client.put(f"{BASE}/evaluation_record", headers=headers, json={
         "playerId": ids["student_id"], "recordId": in_class["id"], "ratings": {str(ids["forehand_id"]): 3}})

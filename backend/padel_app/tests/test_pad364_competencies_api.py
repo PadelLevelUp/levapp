@@ -10,7 +10,7 @@ from padel_app.tests.test_pad362_evaluation_contract import (  # noqa: F401
     _coach_headers,
     _jwt_secret,
     _save,
-    _seed,  # Forehand 1-10 and Volley 0-10, both legacy
+    _seed,  # Forehand 1-5 and Volley 1-5, both legacy (PAD-403)
 )
 
 BASE = "/api/app"
@@ -38,9 +38,9 @@ def test_the_list_carries_every_competency_and_the_catalogue_not_yet_switched_on
 
     assert body["competencies"] == [
         {"id": ids["forehand_id"], "key": None, "name": "Forehand", "group": None, "scaleMin": 1,
-         "scaleMax": 10, "isActive": True, "sortOrder": None, "scoreCount": 1},
-        {"id": ids["volley_id"], "key": None, "name": "Volley", "group": None, "scaleMin": 0,
-         "scaleMax": 10, "isActive": True, "sortOrder": None, "scoreCount": 0},
+         "scaleMax": 5, "isActive": True, "sortOrder": None, "scoreCount": 1},
+        {"id": ids["volley_id"], "key": None, "name": "Volley", "group": None, "scaleMin": 1,
+         "scaleMax": 5, "isActive": True, "sortOrder": None, "scoreCount": 0},
     ]
     keys = [c["key"] for c in body["catalogue"]]
     # 17 built-in entries in three groups, minus the twins of names the coach already holds (rule 4):

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Pencil, Share2, Trash2 } from "lucide-react";
 import type { EvaluationRecord } from "@levelup/types";
-import { competencyLabel } from "@levelup/config";
+import { competencyLabel, isStarScale } from "@levelup/config";
 import { useShareEvaluation, useUnshareEvaluation } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
 import { ShareEvaluationDialog } from "./ShareEvaluationDialog";
@@ -13,8 +13,6 @@ import { formatEvaluationDate } from "./formatEvaluationDate";
 
 interface EvaluationHistoryCardProps {
   record: EvaluationRecord;
-  /** A rating is drawn as stars when its competency is a 1-5 one; legacy scales are "n/max". */
-  isStars: (categoryId: number) => boolean;
   /** Both absent = a read-only card (the class panel's earlier-day record, PAD-376): no actions at all. */
   onEdit?: () => void;
   onDelete?: () => void;
@@ -38,7 +36,7 @@ interface EvaluationHistoryCardProps {
  * and its actions share one reserved line (`min-h-5`) so sharing or un-sharing never
  * shifts the ratings list below ("nothing moves under the finger").
  */
-export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete, playerId, playerName }: EvaluationHistoryCardProps) {
+export function EvaluationHistoryCard({ record, onEdit, onDelete, playerId, playerName }: EvaluationHistoryCardProps) {
   const { t, i18n } = useTranslation();
   const id = record.id;
   const [shareOpen, setShareOpen] = useState(false);
@@ -142,7 +140,7 @@ export function EvaluationHistoryCard({ record, isStars, onEdit, onDelete, playe
           return (
             <li key={rating.categoryId} className="flex items-center justify-between gap-2 text-sm">
               <span>{name}</span>
-              {isStars(rating.categoryId) ? (
+              {isStarScale(rating) ? (
                 <StarRating id={rating.categoryId} name={name} score={rating.score} max={rating.scaleMax} size="sm" />
               ) : (
                 <ScoreStepper id={rating.categoryId} name={name} score={rating.score} scaleMin={rating.scaleMin} scaleMax={rating.scaleMax} />

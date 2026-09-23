@@ -71,7 +71,7 @@ beforeEach(() => {
 describe("HistoryCard — PAD-402 share control", () => {
   it("always renders the share button (rule 10), and it opens the share flow with the record and player", async () => {
     const n = await renderNative(
-      createElement(HistoryCard, { record: record({}), isStars: () => false, playerId: "9", playerName: "Rui Silva" }),
+      createElement(HistoryCard, { record: record({}), playerId: "9", playerName: "Rui Silva" }),
     );
     await n.press("evaluation-history-share-41");
     expect(nav.push).toHaveBeenCalledWith({
@@ -82,7 +82,7 @@ describe("HistoryCard — PAD-402 share control", () => {
 
   it("shows neither unshare nor update when the record has no share", async () => {
     const n = await renderNative(
-      createElement(HistoryCard, { record: record({ share: null }), isStars: () => false, playerId: "9", playerName: "Rui" }),
+      createElement(HistoryCard, { record: record({ share: null }), playerId: "9", playerName: "Rui" }),
     );
     expect(n.queryByTestId("evaluation-history-unshare-41")).toBeNull();
     expect(n.queryByTestId("evaluation-history-update-share-41")).toBeNull();
@@ -91,7 +91,7 @@ describe("HistoryCard — PAD-402 share control", () => {
   });
 
   it("has no sharing controls without a player (the class panel's earlier-day card)", async () => {
-    const n = await renderNative(createElement(HistoryCard, { record: record({}), isStars: () => false }));
+    const n = await renderNative(createElement(HistoryCard, { record: record({}) }));
     expect(n.queryByTestId("evaluation-history-share-41")).toBeNull();
     expect(n.queryByTestId("evaluation-history-share-status-41")).toBeNull();
   });
@@ -101,7 +101,7 @@ describe("HistoryCard — PAD-402 share control", () => {
       share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [1], evolution: "last", includeNote: false, stale: false },
     });
     const n = await renderNative(
-      createElement(HistoryCard, { record: shared, isStars: () => false, playerId: "9", playerName: "Rui" }),
+      createElement(HistoryCard, { record: shared, playerId: "9", playerName: "Rui" }),
     );
     expect(n.queryByTestId("evaluation-history-share-status-41")).not.toBeNull();
     expect(n.queryByTestId("evaluation-history-unshare-41")).not.toBeNull();
@@ -116,7 +116,7 @@ describe("HistoryCard — PAD-402 share control", () => {
       share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [1], evolution: "6m", includeNote: true, stale: true },
     });
     const n = await renderNative(
-      createElement(HistoryCard, { record: shared, isStars: () => false, playerId: "9", playerName: "Rui" }),
+      createElement(HistoryCard, { record: shared, playerId: "9", playerName: "Rui" }),
     );
     expect(n.queryByTestId("evaluation-history-unshare-41")).not.toBeNull();
     expect(n.queryByTestId("evaluation-history-update-share-41")).not.toBeNull();

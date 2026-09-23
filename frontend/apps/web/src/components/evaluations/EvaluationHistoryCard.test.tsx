@@ -38,30 +38,29 @@ const record = (over: Partial<EvaluationRecord>): EvaluationRecord => ({
   share: null, ...over,
 });
 
-const isStars = () => true;
 
 describe("the share control", () => {
   it("is always rendered, sharing state notwithstanding", () => {
-    render(<EvaluationHistoryCard record={record({})} isStars={isStars} onDelete={vi.fn()} playerId="9" playerName="João Silva" />);
+    render(<EvaluationHistoryCard record={record({})} onDelete={vi.fn()} playerId="9" playerName="João Silva" />);
     expect(screen.getByTestId("evaluation-history-share-9")).toBeTruthy();
   });
 
   it("opens the dialog on tap", () => {
-    render(<EvaluationHistoryCard record={record({})} isStars={isStars} playerId="9" playerName="João Silva" />);
+    render(<EvaluationHistoryCard record={record({})} playerId="9" playerName="João Silva" />);
     expect(screen.queryByTestId("share-dialog-stub")).toBeNull();
     fireEvent.click(screen.getByTestId("evaluation-history-share-9"));
     expect(screen.getByTestId("share-dialog-stub")).toBeTruthy();
   });
 
   it("is absent without a player in hand (the class panel's read-only card)", () => {
-    render(<EvaluationHistoryCard record={record({})} isStars={isStars} />);
+    render(<EvaluationHistoryCard record={record({})} />);
     expect(screen.queryByTestId("evaluation-history-share-9")).toBeNull();
   });
 });
 
 describe("the share-status line", () => {
   it("shows nothing, and no unshare/update action, while unshared", () => {
-    render(<EvaluationHistoryCard record={record({ share: null })} isStars={isStars} playerId="9" playerName="João Silva" />);
+    render(<EvaluationHistoryCard record={record({ share: null })} playerId="9" playerName="João Silva" />);
     const status = screen.getByTestId("evaluation-history-share-status-9");
     expect(status.textContent).toBe("");
     expect(screen.queryByTestId("evaluation-history-unshare-9")).toBeNull();
@@ -70,7 +69,7 @@ describe("the share-status line", () => {
 
   it("names the shared date and offers 'Deixar de partilhar' once shared, no 'Atualizar' unless stale", () => {
     const shared = record({ share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [3], evolution: "last", includeNote: false, stale: false } });
-    render(<EvaluationHistoryCard record={shared} isStars={isStars} playerId="9" playerName="João Silva" />);
+    render(<EvaluationHistoryCard record={shared} playerId="9" playerName="João Silva" />);
     expect(screen.getByTestId("evaluation-history-share-status-9").textContent).toContain("21 set 2026");
     expect(screen.getByTestId("evaluation-history-unshare-9")).toBeTruthy();
     expect(screen.queryByTestId("evaluation-history-update-share-9")).toBeNull();
@@ -78,7 +77,7 @@ describe("the share-status line", () => {
 
   it("offers 'Atualizar partilha' when stale: the same POST with the STORED selection, no dialog (rule 7)", async () => {
     const stale = record({ share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [3], evolution: "6m", includeNote: true, stale: true } });
-    render(<EvaluationHistoryCard record={stale} isStars={isStars} playerId="9" playerName="João Silva" />);
+    render(<EvaluationHistoryCard record={stale} playerId="9" playerName="João Silva" />);
     fireEvent.click(screen.getByTestId("evaluation-history-update-share-9"));
     await Promise.resolve();
     expect(shareMutateAsync).toHaveBeenCalledWith({ recordId: 9, input: { categoryIds: [3], evolution: "6m", includeNote: true } });
@@ -87,7 +86,7 @@ describe("the share-status line", () => {
 
   it("un-shares on tap", async () => {
     const shared = record({ share: { sharedAt: "2026-09-21T14:05:11", categoryIds: [3], evolution: "last", includeNote: false, stale: false } });
-    render(<EvaluationHistoryCard record={shared} isStars={isStars} playerId="9" playerName="João Silva" />);
+    render(<EvaluationHistoryCard record={shared} playerId="9" playerName="João Silva" />);
     fireEvent.click(screen.getByTestId("evaluation-history-unshare-9"));
     await Promise.resolve();
     expect(unshareMutateAsync).toHaveBeenCalledWith(9);

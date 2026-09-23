@@ -66,17 +66,17 @@ def test_two_legacy_saves_racing_for_one_slot_both_land(app, client, monkeypatch
 
     ids = _seed(app)
     with app.app_context():
-        fired = _race(app, monkeypatch, ids, "forehand_id", 8)
+        fired = _race(app, monkeypatch, ids, "forehand_id", 4)  # 1-5 since PAD-403 (a legacy save above 5 converts)
 
-        res = _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 6}])
+        res = _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 3}])
 
     assert fired, "the rival never ran: the test did not race anything"
     assert res.status_code == 200 and res.get_json() == {"status": "ok", "playerId": ids["student_id"]}
-    assert sorted(score for score, _ in _rows(app, ids, "forehand_id")) == [6.0, 8.0]  # no score lost
+    assert sorted(score for score, _ in _rows(app, ids, "forehand_id")) == [3.0, 4.0]  # no score lost
     with app.app_context():
         (record,) = EvaluationRecord.query.all()
         held = EvaluationEntry.query.filter_by(record_id=record.id).all()
-        assert [e.score for e in held] == [8.0]  # the winner holds the slot; the loser is history
+        assert [e.score for e in held] == [4.0]  # the winner holds the slot; the loser is history
 
 
 def test_the_same_two_saves_one_after_the_other_are_unchanged(app, client):
@@ -84,12 +84,12 @@ def test_the_same_two_saves_one_after_the_other_are_unchanged(app, client):
     from padel_app.models import EvaluationEntry
 
     ids = _seed(app)
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 6}]).status_code == 200
-    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 8}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 3}]).status_code == 200
+    assert _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}]).status_code == 200
 
     with app.app_context():
         rows = EvaluationEntry.query.order_by(EvaluationEntry.id).all()
-        assert [(e.score, e.record_id is not None) for e in rows] == [(6.0, False), (8.0, True)]
+        assert [(e.score, e.record_id is not None) for e in rows] == [(3.0, False), (4.0, True)]
 
 
 @racing
@@ -99,14 +99,15 @@ def test_an_import_racing_a_save_keeps_every_row(app, monkeypatch):
 
     ids = _seed(app)
     with app.app_context():
-        fired = _race(app, monkeypatch, ids, "forehand_id", 8)
+        fired = _race(app, monkeypatch, ids, "forehand_id", 4)
         today = dt.datetime.utcnow().date().isoformat()
 
+        # 1-5 stars: an import refuses a score outside 1-5 (D111, PAD-403)
         result = bulk_create_evaluation_entries(
-            [{"player_name": "Test Student", "date": today, "Forehand": 6}], db.session.get(Coach, ids["coach_id"]))
+            [{"player_name": "Test Student", "date": today, "Forehand": 3}], db.session.get(Coach, ids["coach_id"]))
 
         assert fired and result["errors"] == [] and result["imported"] == 1
-        assert sorted(e.score for e in EvaluationEntry.query.all()) == [6.0, 8.0]
+        assert sorted(e.score for e in EvaluationEntry.query.all()) == [3.0, 4.0]
 
 
 @racing

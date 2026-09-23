@@ -7,8 +7,9 @@ import { API_APP, API_AUTH } from "../helpers/api";
 // score. The old sheet had a save button and posted the whole set; "Nova avaliação" saves each input
 // as it is made, so the guarantee now reads: opening the form and finishing it without touching
 // anything sends NO request and writes nothing; and a competency the coach rated and then cleared
-// holds nothing. Each test creates its own legacy categories (steppers), so earlier evaluations of
-// the seeded student do not matter. Test ids and stored data only — never rendered copy (B-103).
+// holds nothing. Each test creates its own legacy categories (stars, PAD-403: the server echoes
+// every legacy category 1-5 whatever scale the body sends), so earlier evaluations of the seeded
+// student do not matter. Test ids and stored data only — never rendered copy (B-103).
 
 async function coachToken(request: APIRequestContext): Promise<string> {
   const login = await request.post(`${API_AUTH}/login`, {
@@ -100,8 +101,8 @@ test("PAD-337: finishing the form without touching anything sends no request and
     if (r.method() === "PUT" && r.url().includes("/evaluation_record")) writes.push(r.url());
   });
   const form = await openForm(page, playerId);
-  // The new category opens unrated, not at a midpoint score.
-  await expect(form.getByTestId(`evaluation-stepper-${catId}-value`)).toHaveAttribute("data-score", "");
+  // PAD-403: the new category opens unrated as stars — no star lit — not at a stepper's midpoint.
+  await expect(form.getByTestId(`evaluation-stars-${catId}`)).toHaveAttribute("data-score", "");
   await page.getByTestId("evaluation-finish").click();
   await expect(page.getByTestId("evaluation-form")).toHaveCount(0);
 
@@ -121,17 +122,18 @@ test("PAD-337: only the category the coach scored is written, and clearing retur
 
   const form = await openForm(page, playerId);
   for (const catId of [scored, cleared]) {
-    // A stepper's consecutive steps are one input, written after a quiet period: wait for that PUT.
+    // PAD-403: a star tap saves at once (no stepper quiet period to wait out) — wait for that PUT.
     const put = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
-    await form.getByTestId(`evaluation-stepper-${catId}-plus`).click();
+    await form.getByTestId(`evaluation-star-${catId}-4`).click();
     expect((await put).status()).toBe(200);
-    await expect(form.getByTestId(`evaluation-stepper-${catId}-value`)).not.toHaveAttribute("data-score", "");
+    await expect(form.getByTestId(`evaluation-stars-${catId}`)).not.toHaveAttribute("data-score", "");
   }
+  // Tapping the lit star again clears it (nextStarScore) — the star equivalent of the stepper's own "clear" button.
   const clearedPut = page.waitForResponse((r) => r.request().method() === "PUT" && r.url().includes("/evaluation_record"));
-  await form.getByTestId(`evaluation-stepper-${cleared}-clear`).click();
+  await form.getByTestId(`evaluation-star-${cleared}-4`).click();
   expect((await clearedPut).status()).toBe(200);
-  await expect(form.getByTestId(`evaluation-stepper-${cleared}-value`)).toHaveAttribute("data-score", "");
-  await expect(form.getByTestId(`evaluation-stepper-${untouched}-value`)).toHaveAttribute("data-score", "");
+  await expect(form.getByTestId(`evaluation-stars-${cleared}`)).toHaveAttribute("data-score", "");
+  await expect(form.getByTestId(`evaluation-stars-${untouched}`)).toHaveAttribute("data-score", "");
   await page.getByTestId("evaluation-finish").click();
   await expect(form).toHaveCount(0);
 
@@ -143,6 +145,6 @@ test("PAD-337: only the category the coach scored is written, and clearing retur
 
   // The history card follows the writes: the cleared competency leaves it, the scored one stays.
   const card = page.getByTestId(`evaluation-history-card-${record?.id}`);
-  await expect(card.getByTestId(`evaluation-stepper-${scored}-value`)).not.toHaveAttribute("data-score", "");
-  await expect(card.getByTestId(`evaluation-stepper-${cleared}-value`)).toHaveCount(0);
+  await expect(card.getByTestId(`evaluation-stars-${scored}`)).not.toHaveAttribute("data-score", "");
+  await expect(card.getByTestId(`evaluation-stars-${cleared}`)).toHaveCount(0);
 });

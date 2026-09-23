@@ -82,8 +82,10 @@ def own_competency(coach, category_id) -> EvaluationCategory:
 
 
 def _scale(category):
-    return (1 if category.scale_min is None else category.scale_min,
-            10 if category.scale_max is None else category.scale_max)
+    # PAD-403: every category is 1-5 (the migration converted the legacy ones and
+    # every write path stores 1-5), so a missing bound defaults to the 1-5 scale.
+    return (NEW_SCALE[0] if category.scale_min is None else category.scale_min,
+            NEW_SCALE[1] if category.scale_max is None else category.scale_max)
 
 
 def serialize_competency(category, score_count=None) -> dict:

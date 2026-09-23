@@ -1,3 +1,5 @@
+import math
+
 from padel_app.models import (
     Coach,
     CoachLevel,
@@ -12,6 +14,8 @@ from padel_app.services.level_ladder import (
     next_display_order,
     normalize_display_orders,
 )
+from padel_app.services.evaluation_catalogue import NEW_SCALE
+from padel_app.services.legacy_scale import legacy_value_to_stars, normalise_legacy_scale
 from padel_app.sql_db import db
 from padel_app.tools.request_adapter import JsonRequestAdapter
 
@@ -142,7 +146,10 @@ def upsert_coach_levels(coach, data):
 
 
 def upsert_evaluation_categories(coach, data):
-    """Batch upsert evaluation categories from a list of entries."""
+    """Batch upsert evaluation categories from a list of entries. Returns the
+    entries as stored, for the echo: every scale is 1-5 (PAD-403,
+    evaluations.legacy-conversion rule 5)."""
+    data = [normalise_legacy_scale(entry) for entry in data]
     for entry in data:
         payload = {
             'name': entry.get("name"),
@@ -171,6 +178,7 @@ def upsert_evaluation_categories(coach, data):
             evaluation_category = EvaluationCategory()
             _apply_form(evaluation_category.get_create_form(), payload, evaluation_category)
             evaluation_category.create()
+    return data
 
 
 def add_coach_note_service(coach, data):
@@ -213,8 +221,12 @@ def _log_ignored_score(coach, category_id):
         )
 
 
+# D121: a value above this marks the whole body as a stale 1-10 form.
+LEGACY_BODY_ABOVE = NEW_SCALE[1]
+
+
 def add_evaluation_entry_service(coach, data):
-    """Records evaluation scores and notes for a player."""
+    """Records evaluation scores and notes for a player. Returns (body, status)."""
     player_id = data.get("playerId")
     scores = data.get("scores", [])
     strengths = data.get("strengths", [])
@@ -249,6 +261,8 @@ def add_evaluation_entry_service(coach, data):
     # already written. An own category this endpoint does not serve (above) is
     # the expected case and is not logged.
     own_ids = {c.id for c in coach.evaluation_categories}
+    # 1. Which scores this body would write (the rules above), before writing any.
+    candidates = []
     for score in scores:
         value = score.get("value")
         if value is None:
@@ -263,20 +277,57 @@ def add_evaluation_entry_service(coach, data):
         except (TypeError, ValueError, OverflowError):  # OverflowError: int(1e999)
             _log_ignored_score(coach, score.get("categoryId"))
             continue
+        candidates.append((category_id, value))
+
+    # 2. PAD-366 (D120, D121; evaluations.legacy-client-contract rule 10): every category is
+    # 1-5 after PAD-403, and every score is checked before ANY is written, so a refused body
+    # writes nothing (this is what made the non-atomic save, PAD-368, unreachable). A body
+    # holding any value above 5 comes from a form still on the old 1-10 scale (a 1-5 form
+    # clamps at 5): an App Store 1.0/1.1.0 dialog opened before the migration, which re-fills
+    # stale scores on every reopen. That body is converted as a whole, value by value, with
+    # the migration's own rule; retired with R-047 point 8.
+    numbers = []
+    for _category_id, value in candidates:
+        if isinstance(value, bool):  # True/False would read as 1/0
+            return {"error": "score_invalid"}, 400
         try:
-            unchanged = float(latest[int(score.get("categoryId"))]) == float(value)
+            number = float(value)
+        except (TypeError, ValueError, OverflowError):  # "abc" was an unhandled error (B-126)
+            return {"error": "score_invalid"}, 400
+        if math.isnan(number) or math.isinf(number):
+            return {"error": "score_invalid"}, 400
+        numbers.append(number)
+    if any(n > LEGACY_BODY_ABOVE for n in numbers):
+        if not all(0 <= n <= 10 for n in numbers):
+            return {"error": "score_out_of_range"}, 400
+        # "Equal to latest" (R-047 point 5) compares the converted value: the latest is stars.
+        compared = stored = [float(legacy_value_to_stars(n)) for n in numbers]
+    else:
+        # Stored scores are whole stars (the Coordinator's ruling on non-integers). These builds step +/-1 from `existing?.score`
+        # (add-evaluation-form.tsx :59-62, :68-71), so a fractional score already on file (an
+        # import's 3.5) is posted back untouched. That must not loop on a 400, so it is ceiled
+        # to a whole star before the range check; and it must not become a rating the coach
+        # never gave, so "equal to latest" compares the value AS SENT.
+        compared = numbers
+        stored = [float(math.ceil(n)) for n in numbers]
+        if not all(NEW_SCALE[0] <= n <= NEW_SCALE[1] for n in stored):
+            return {"error": "score_out_of_range"}, 400
+
+    # 3. Write what changed.
+    for (category_id, _value), sent, number in zip(candidates, compared, stored):
+        try:
+            unchanged = float(latest[category_id]) == sent
         except (KeyError, TypeError, ValueError):
-            unchanged = False  # new category, or malformed input the form rejects below
+            unchanged = False  # a category with no score yet
         if unchanged:
             continue
         ev_payload = {
             "coach_player": coach_player.id,
-            "category": score.get("categoryId"),
-            "score": score.get("value"),
+            "category": category_id,
+            "score": number,
         }
-        # The form layer stays in front (its coercions are pinned by PAD-362,
-        # B-136 included); the row is then written by the one writer, into the
-        # day's class-less record (evaluations.records).
+        # The form layer stays in front (its coercions are pinned by PAD-362); the row is
+        # then written by the one writer, into the day's class-less record (evaluations.records).
         entry = EvaluationEntry()
         _apply_form(entry.get_create_form(), ev_payload, entry)
         append_entry(entry)
@@ -307,7 +358,7 @@ def add_evaluation_entry_service(coach, data):
         }, note)
         note.create()
 
-    return {"status": "ok", "playerId": player_id}
+    return {"status": "ok", "playerId": player_id}, 200
 
 
 def get_coach_levels(coach_id: int) -> list:

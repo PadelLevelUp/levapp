@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { classRowCompetencies, classRowSummary, isStarCompetency, lightTheme } from "@levelup/config";
+import { classRowCompetencies, classRowSummary, lightTheme } from "@levelup/config";
 import { useClassEvaluations, useEvaluationCompetencies, useHeldWhile, usePutEvaluationRecord } from "@levelup/hooks";
 import type { ClassEvaluationParticipant, EvaluationClassRef, EvaluationCompetency } from "@levelup/types";
 import { useRouter } from "expo-router";
@@ -141,10 +141,6 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
   // opened once the read that carries its record has answered, so `null` here means "no earlier
   // record", never "loading". If rows ever become openable while loading, hold `undefined` instead.)
   const earlier = useHeldWhile(record && !record.editable ? record : null, open, `${id}:${open}`);
-  const isStars = (categoryId: number) => {
-    const competency = known?.find((c) => c.id === categoryId);
-    return competency ? isStarCompetency(competency) : false;
-  };
   const rowCompetencies = known ? classRowCompetencies(active, todays, known) : [];
 
   return (
@@ -188,7 +184,7 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
           {!known ? <Skeleton className="h-32 w-full" /> : null}
           {known && earlier ? (
             <View testID={`class-eval-earlier-${id}`}>
-              <HistoryCard record={earlier} isStars={isStars} />
+              <HistoryCard record={earlier} />
             </View>
           ) : null}
           {known && rowCompetencies.length === 0 ? (
