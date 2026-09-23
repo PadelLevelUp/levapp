@@ -17,6 +17,8 @@
 #                       module, and every source-scanning guard (ratchets, heads, registries…);
 #                       --full, or a change to models/migrations, runs the whole suite
 #   .cortex/ .specflow/ `cortex validate` names none of the changed files
+# Markdown files never trigger the frontend/backend checks. Missing node_modules or backend/.venv
+# is reported as such, not as a compiler error.
 # Not covered locally (CI only): Postgres + `flask db check`, the Android/Maestro lane.
 #
 # Escape hatch: a line `[skip-prepush: <reason>]` in one of the pushed commits' messages. The hook
@@ -58,8 +60,11 @@ if [ "$SHA" = "$(git rev-parse HEAD)" ] && [ -n "$(git status --porcelain --untr
   echo "(note: uncommitted changes in the working tree are included in the test runs below)"
 fi
 
-changed() { printf '%s\n' "$CHANGED" | grep -qE "$1"; }
-PY="$ROOT/backend/.venv/bin/python"; [ -x "$PY" ] || PY=python3
+# Markdown (CLAUDE.md, specs, notes) never triggers a code check; .cortex/.specflow have their own.
+CODE_CHANGED="$(printf '%s\n' "$CHANGED" | grep -vE '\.md$' || true)"
+changed() { printf '%s\n' "$CODE_CHANGED" | grep -qE "$1"; }
+changed_any() { printf '%s\n' "$CHANGED" | grep -qE "$1"; }
+PY="$ROOT/backend/.venv/bin/python"
 
 # 1. One Alembic head — on the commit's migrations, so a parent placed untracked for local runs
 #    cannot hide a stacked branch's missing parent (CI: migration-heads.yaml).
@@ -85,7 +90,10 @@ if [ -n "$JSONS" ]; then
 fi
 
 # 3. Frontend — CI's exact commands (checks-frontend.yaml).
-if changed '^frontend/'; then
+if changed '^frontend/' && [ ! -d frontend/node_modules ]; then
+  red "frontend/ changed but frontend/node_modules is missing: run 'npm ci' in frontend/ (Node 22) first."
+  FAILED+=("frontend dependencies")
+elif changed '^frontend/'; then
   NODE_MAJOR="$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')"
   if [ "${NODE_MAJOR:-0}" -lt 22 ] && [ -s "$HOME/.nvm/nvm.sh" ]; then
     # shellcheck disable=SC1091
@@ -98,7 +106,10 @@ fi
 
 # 4. Backend — pytest on SQLite (backend-tests.yaml runs the whole suite on both databases).
 BACKEND_TOUCH='^backend/|^frontend/apps/web/e2e/scripts/|^frontend/apps/mobile/src/lib/push-routing'
-if changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
+if { changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; } && [ ! -x "$PY" ]; then
+  red "backend changed but backend/.venv is missing: create it (or symlink the main checkout's) first."
+  FAILED+=("backend dependencies")
+elif changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
   T=backend/padel_app/tests
   if [ $FULL -eq 1 ] || changed '^backend/padel_app/(models/|model\.py|sql_db\.py|__init__\.py)|^backend/migrations/'; then
     SELECT="padel_app/tests ../frontend/apps/web/e2e/scripts"
@@ -123,7 +134,7 @@ if changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
 fi
 
 # 5. The knowledge layer names none of the changed files.
-if changed '^\.cortex/|^\.specflow/' && command -v cortex >/dev/null; then
+if changed_any '^\.cortex/|^\.specflow/' && command -v cortex >/dev/null; then
   cortex_check() { local out; out="$(cortex validate 2>&1)"; local hit=0 f
     for f in $(printf '%s\n' "$CHANGED" | grep -E '^\.(cortex|specflow)/'); do
       if printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | grep -qF "$f"; then echo "cortex validate names $f"; hit=1; fi
