@@ -127,6 +127,12 @@ export default function PlayersPage() {
   // overwrite a newer search result (a create-then-search raced that way). Every fetch
   // uses the list's current search, sort and filters: the list keeps its state.
   const requestSeq = useRef(0);
+  // Read through refs, not dependencies: `t` changes identity when the language settles,
+  // and a loader that changed with it would refetch the list for nothing.
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const tRef = useRef(t);
+  tRef.current = t;
   const loadPage = useCallback(
     async (page: number, { showSkeleton }: { showSkeleton: boolean }) => {
       const mine = ++requestSeq.current;
@@ -141,9 +147,14 @@ export default function PlayersPage() {
           setAlertCounts(playersData.alerts);
         }
       } catch {
-        // Keep the current rows; a later fetch replaces them.
+        // Keep the current rows, and say why the list did not change (Session-E's review).
+        if (mine === requestSeq.current) {
+          toastRef.current({ variant: "destructive", title: tRef.current("players.listLoadFailed") });
+        }
       } finally {
-        if (showSkeleton && mine === requestSeq.current) setLoading(false);
+        // Whatever its kind, the NEWEST request clears the skeleton when it settles: a skeleton
+        // fetch overtaken by a silent refetch would otherwise leave it up for good (#404 review).
+        if (mine === requestSeq.current) setLoading(false);
       }
     },
     [fetchPlayersPage],
@@ -306,7 +317,7 @@ export default function PlayersPage() {
       )}
 
       {loading ? (
-        <div className="space-y-2">
+        <div className="space-y-2" data-testid="players-list-loading">
           {[...Array(6)].map((_, i) => (
             <LoadingPlayerCard key={i} />
           ))}

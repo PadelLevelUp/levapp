@@ -75,6 +75,9 @@ vi.mock("@/api/players", () => ({
   removePlayerErrorCode: () => null,
 }));
 
+const toastSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastSpy }), toast: toastSpy }));
+
 vi.mock("@/api/coachLevel", () => ({
   getCoachLevels: vi.fn(async () => LEVELS),
 }));
@@ -206,5 +209,43 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     // detail pane is the one shown full width.
     expect(screen.getByTestId("players-list-pane").className).toMatch(/(^|\s)hidden(\s|$)/);
     expect(screen.getByTestId("player-detail-pane").className).not.toMatch(/(^|\s)hidden(\s|$)/);
+  });
+
+  it("(g) a skeleton fetch overtaken by a silent refetch still ends with the rows, not the skeleton", async () => {
+    renderAt("/players/1");
+    await screen.findByRole("heading", { name: "Ana Silva" });
+    const page = await vi.mocked(getCoachPlayersPaginated).mock.results[0].value;
+
+    // A: a skeleton fetch (the search changed) that stays pending…
+    let resolveA!: (v: typeof page) => void;
+    vi.mocked(getCoachPlayersPaginated).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveA = resolve; }),
+    );
+    fireEvent.change(screen.getByTestId("players-search-input"), { target: { value: "a" } });
+    expect(await screen.findByTestId("players-list-loading", {}, { timeout: 3000 })).toBeInTheDocument();
+
+    // …B: a silent refetch (the pane removed the player) becomes the newest request and resolves first…
+    fireEvent.click(screen.getAllByTestId("player-remove")[0]);
+    fireEvent.click(await screen.findByTestId("player-remove-confirm"));
+    await screen.findByTestId("player-detail-placeholder");
+
+    // …then A resolves. The newest request has settled: no skeleton may remain.
+    resolveA(page);
+    await waitFor(() => expect(screen.queryByTestId("players-list-loading")).not.toBeInTheDocument());
+    expect(screen.getByTestId("player-card-2")).toBeInTheDocument();
+  });
+
+  it("(h) a roster fetch that fails keeps the rows and says so", async () => {
+    renderAt("/players/1");
+    await screen.findByRole("heading", { name: "Ana Silva" });
+    toastSpy.mockClear();
+
+    vi.mocked(getCoachPlayersPaginated).mockImplementationOnce(async () => { throw new Error("offline"); });
+    fireEvent.click(screen.getAllByTestId("player-remove")[0]);
+    fireEvent.click(await screen.findByTestId("player-remove-confirm"));
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ title: "players.listLoadFailed" })));
+    expect(screen.getByTestId("player-card-2")).toBeInTheDocument();
   });
 });

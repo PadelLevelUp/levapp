@@ -20,6 +20,7 @@
     "pagination": "Page {{current}} of {{total}} • {{players}} players",
     "linkCopied": "Link copied to clipboard",
     "linkCopyFailed": "Failed to copy link",
+    "listLoadFailed": "Couldn't refresh the player list.",
     "inviteDialogTitle": "Player invite link",
     "inviteDialogDescription": "Share this link with the player so they can complete their own profile.",
     "copyInviteAriaLabel": "Copy invite link",
