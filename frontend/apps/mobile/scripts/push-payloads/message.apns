@@ -4,7 +4,7 @@
     "alert": { "title": "New message", "body": "PAD-240 push probe" },
     "sound": "default"
   },
-  "type": "message",
-  "conversationId": "1",
-  "classInstanceId": "1"
+  "experienceId": "@padellevelup/levapp",
+  "scopeKey": "@padellevelup/levapp",
+  "body": { "type": "message", "conversationId": 1, "classInstanceId": 1 }
 }

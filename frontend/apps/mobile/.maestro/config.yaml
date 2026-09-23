@@ -170,6 +170,10 @@ executionOrder:
     # whole delete on it (PAD-372); it cancels the delete and withdraws the request
     # in onFlowComplete, so nothing of the seed changes.
     - 96-hold-occurrence-locked
+    # 103 posts 45 messages as the student and opens conversation 1 on the 3rd (older
+    # than the first page) by deep link, asserting it — not the newest — is on screen
+    # (PAD-408); it deletes the 45 in onFlowComplete.
+    - 103-thread-lands-on-target-message
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -720,10 +720,13 @@ export default function ConversationScreen() {
     if (step.kind !== "scroll") return;
     // The reader is no longer at the bottom: content growth must not re-pin.
     atBottomRef.current = false;
+    // The loaded row's own id, not the route's string: the bubble's highlight
+    // compares ids strictly (`highlightedId === item.id`).
+    const landedId = conversation.messages[step.index].id;
     // One frame first — the list reads stale metrics in the commit that
     // delivered the rows (ios-flatlist-fabric-traps); a miss on an unmeasured
     // row is retried by onScrollToIndexFailed.
-    requestAnimationFrame(() => scrollToMessage(target));
+    requestAnimationFrame(() => scrollToMessage(landedId));
   }, [anchored, conversation, hasMore, isLoadingOlder, loadOlder, scrollToMessage]);
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
