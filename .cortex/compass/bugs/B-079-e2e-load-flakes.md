@@ -159,3 +159,23 @@ message overstates each list's file count by one (a counting script matched the
 backend constants), text values under three characters (a separate decision), and the regex
 forms of `getByPlaceholder` / `getByLabel`. These backlogs are the open remainder — tracked
 here, not in an open ticket.
+
+## 2026-09-23 — another `presences-validation` test on the list, extreme sustained load
+
+A scheduled test-health run's full E2E suite (load averaging 250-390 on 8 cores, well past
+this ledger's original ≥100 threshold) failed `PAD-191: bulk validation guards every queued
+class › classes 2..N are disabled while the run is in flight` once. A `--workers=1` isolated
+re-run of all 5 failures from that suite cleared 4/5 (direct-messages, message-timestamp-
+timezone, messageable-roster, attendance-save all green alone) but this one failed again —
+with a *different* symptom than the first time. A further `--repeat-each=3` of just this test
+alone: 1 passed, 2 failed, each at a different assertion (line 67's initial card-visibility
+wait once, line 279's final undo-count once). Varying failure locus across repeats on
+unmodified code is this ledger's signature for load, not a logic bug (see rule above).
+
+Line 67 already carries the PAD-300 pin (wait for `pending_validation?from=` before asserting
+visibility, 15s timeout) — it still lost under today's load, which is a heavier load than the
+pin was tuned against, not a missing wait. Line 279 (`await expect(...).toHaveCount(n)`) had
+no explicit timeout, unlike every other settle-sensitive assertion in this test (line 275 uses
+15_000ms for the identical per-iteration count check two lines above it) — that inconsistency
+is fixed in the same PR that adds this note. Recorded here rather than opened as a new ticket:
+this is more evidence for the existing "load, no pin" reality of this file, not a new defect.

@@ -276,7 +276,9 @@ test.describe("PAD-191: bulk validation guards every queued class", () => {
         timeout: 15_000,
       });
     }
-    await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(n);
+    await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(n, {
+      timeout: 15_000,
+    });
   });
 });
 
