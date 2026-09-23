@@ -33,7 +33,8 @@ IMPORT_BOUND = re.compile(
 
 def _offenders():
     found = []
-    for path in sorted(MODELS.glob("*.py")):
+    # PAD-405: model.py holds the `Model` mixin whose columns every model inherits.
+    for path in [*sorted(MODELS.glob("*.py")), MODELS.parent / "model.py"]:
         text = path.read_text()
         # `default=lambda: utcnow_naive()` is the late-bound form the pin reaches: not an offender.
         for m in IMPORT_BOUND.finditer(text):

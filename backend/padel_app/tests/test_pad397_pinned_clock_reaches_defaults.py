@@ -32,6 +32,10 @@ COLUMNS = [
     ("padel_app.models.standing_waiting_list_entry", "StandingWaitingListEntry", "created_at", "default"),
     ("padel_app.models.token_blocklist", "TokenBlocklist", "created_at", "default"),
     ("padel_app.models.vacancy", "Vacancy", "created_at", "default"),
+    # PAD-405: the mixin columns every `model.Model` subclass inherits (backend/padel_app/model.py).
+    ("padel_app.models.users", "User", "created_at", "default"),
+    ("padel_app.models.users", "User", "updated_at", "default"),
+    ("padel_app.models.users", "User", "updated_at", "onupdate"),
     ("padel_app.models.waiting_list_entry", "WaitingListEntry", "joined_at", "default"),
 ]
 
@@ -74,3 +78,17 @@ def test_a_message_row_written_under_the_pin_carries_the_pinned_instant(app, mon
         db.session.add(message)
         db.session.flush()
         assert message.sent_at == pinned
+
+
+def test_save_stamps_the_pinned_instant(app, monkeypatch):
+    """PAD-405: `Model.save()` stamps `updated_at` itself; under the pin it writes the pinned instant."""
+    from padel_app.models import User
+
+    pinned = NOW + dt.timedelta(days=1, hours=7)
+    with app.app_context():
+        user = User(name="Save", username="save405", email="save405@t.test", password="x", status="active")
+        user.create()
+        pin_clock(monkeypatch, pinned)
+        user.name = "Saved"
+        user.save()
+        assert user.updated_at == pinned
