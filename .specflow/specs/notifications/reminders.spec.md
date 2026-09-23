@@ -103,8 +103,43 @@ Automatically send class reminders to enrolled players at a configured time befo
     job's fire time is derived from the template. Second and later reminders still arrive
     `hours_between_reminders` apart through the instance runner's chain (rule 18); only the
     duplicate goes, never the feature.
+21. **A reminder is sent once, however many passes run at the same moment (PAD-407; rule
+    number self-assigned, unconfirmed).** Since PAD-331 the occurrence job's materialisation
+    enrolled the roster, each enrolment armed an ask pass due "now", and those passes ran
+    `send_class_reminders` beside the job's own pass; a count-then-insert guard let every one
+    of them send (prod, 2026-09-16 → the fix: 2–3 copies per student), and each sender re-armed
+    its own retry chain. Three parts, none a schema change:
+    (a) **one pass at a time per occurrence** — `send_class_reminders` holds a Postgres
+    session-level advisory lock keyed on the instance for the whole pass, on a connection of its
+    own (the pass commits several times, so a transaction's row lock would be released half-way);
+    a second pass waits, then counts what the first sent;
+    (b) **a scheduled pass respects the spacing** — the scheduler's passes skip a student whose
+    latest counted reminder is younger than `hoursBetweenReminders` (5-minute tolerance), and
+    report no `more_due` for them, so the twin of a duplicate chain — including the doubled
+    chains already stored in `apscheduler_jobs` — sends nothing and ends. The coach's manual
+    send (`POST /send_reminders`) keeps rule 3's behaviour;
+    (c) **the occurrence job arms no ask passes while it materialises** — its own pass asks the
+    roster a moment later. Every other enrolment still arms rule 18's ask pass — so an
+    occurrence whose job misfired (never ran) is still asked by the ask passes of whatever
+    materialises it later. Ledger: B-161.
 
 ### Acceptance Criteria
+
+#### Two passes at once send one reminder each (PAD-407)
+- **Given** a materialised class with three unanswered students and `reminderCount` 1 or 3
+- **When** two reminder passes run at the same moment (Postgres)
+- **Then** each student has exactly one reminder (one message, one `reminder_attempts` row)
+
+#### The doubled retry chains already stored send the follow-up once (PAD-407)
+- **Given** each student has had their first reminder `hoursBetweenReminders` ago, and both `reminder_<instance>_retry_*` and `reminder_lesson_<lesson>_<date>_retry_*` are due at the same second
+- **When** both run at once
+- **Then** each student receives exactly one second reminder, and only one retry chain goes on
+
+#### The occurrence job asks the roster once (PAD-407)
+- **Given** a one-off class not yet materialised, with three students on its roster
+- **When** its `reminder_lesson_<lesson>_<date>` job runs
+- **Then** no ask pass is armed and each student receives exactly one reminder
+- **And** a student added after that pass is still asked (rule 18)
 
 #### Materialising an occurrence leaves one reminder job (PAD-347)
 - **Given** a one-off class with its `reminder_lesson_<lesson>_<date>` job armed
