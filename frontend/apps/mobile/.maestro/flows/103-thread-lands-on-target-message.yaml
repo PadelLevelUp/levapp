@@ -1,0 +1,23 @@
+# PAD-408 / messaging.push-notifications rule 12 — a thread opened on a target
+# message (the route a message push's tap resolves to: /conversation/<id>?message=<mid>)
+# lands ON that message, not on the newest one, even when it is older than the first
+# page of 30. A simulator push tap cannot be asserted by Maestro (memory
+# simulator-push-tap-cannot-be-asserted-by-maestro); the tap and the deep link share
+# this route, so the deep link is what this flow drives. Setup posts 45 messages as the
+# student; teardown deletes them in onFlowComplete (R-040).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/thread-target-setup.js
+onFlowComplete:
+  - runScript: ../scripts/thread-target-teardown.js
+---
+- assertTrue: "${output.targetId > 0 && output.newestId > output.targetId}"
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://conversation/1?message=${output.targetId}"
+- extendedWaitUntil:
+    visible:
+      id: "message-item-${output.targetId}"
+    timeout: 30000
+# Landed on the target, not at the bottom: the newest of the 45 is off screen.
+- assertNotVisible:
+    id: "message-item-${output.newestId}"

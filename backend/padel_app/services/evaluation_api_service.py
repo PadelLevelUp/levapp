@@ -82,8 +82,10 @@ def own_competency(coach, category_id) -> EvaluationCategory:
 
 
 def _scale(category):
-    return (1 if category.scale_min is None else category.scale_min,
-            10 if category.scale_max is None else category.scale_max)
+    # PAD-403: every category is 1-5 (the migration converted the legacy ones and
+    # every write path stores 1-5), so a missing bound defaults to the 1-5 scale.
+    return (NEW_SCALE[0] if category.scale_min is None else category.scale_min,
+            NEW_SCALE[1] if category.scale_max is None else category.scale_max)
 
 
 def serialize_competency(category, score_count=None) -> dict:
@@ -290,8 +292,23 @@ def _entry_order(entry):
     return (category.sort_order is None, category.sort_order or 0, category.id)
 
 
+def _serialize_share(record, share) -> dict:
+    """evaluations.sharing rule 7 / decision 7: served from the row, never
+    recomputed — except `stale`, which compares the row's own `updated_at`
+    against the moment the snapshot was taken (both stamped by `utcnow_naive()`
+    on a rating/share write; the mixin's own `updated_at` joins it with PAD-405)."""
+    return {
+        "sharedAt": share.shared_at.isoformat(),
+        "categoryIds": list(share.category_ids),
+        "evolution": share.evolution,
+        "includeNote": share.include_note,
+        "stale": record.updated_at > share.shared_at,
+    }
+
+
 def serialize_record(record, *, on=None) -> dict:
     instance = record.lesson_instance
+    share = record.share
     return {
         "id": record.id,
         "evaluatedOn": record.evaluated_on.isoformat(),
@@ -301,7 +318,7 @@ def serialize_record(record, *, on=None) -> dict:
         # Q9: editable on the day it was made; afterwards it can only be deleted.
         "editable": record.evaluated_on == (on or today()),
         "ratings": [_rating(e) for e in sorted(record.entries, key=_entry_order)],
-        "share": None,  # evaluations.sharing (slice 7)
+        "share": _serialize_share(record, share) if share is not None else None,  # evaluations.sharing (slice 7)
     }
 
 
@@ -471,6 +488,14 @@ def put_record(coach, body):
                 records.clear_rating(record, category.id)
             else:
                 records.upsert_rating(record, category.id, value, evaluated_at=utcnow_naive())
+        if ratings and existing is not None:
+            # A rating write only touches its `evaluation_entries` row, never the
+            # record's own columns, so the base mixin's `onupdate` (PAD-273) never
+            # fires on its own — and evaluations.sharing's `share.stale` (decision 7)
+            # reads exactly this column. Same clock as `share.shared_at`
+            # (`utcnow_naive()`), so a pinned test compares like with like; PAD-405
+            # moves the mixin's own `updated_at` onto it too.
+            record.updated_at = utcnow_naive()
         if note is not MISSING:
             records.set_note(record, note)
         db.session.flush()
@@ -504,27 +529,51 @@ def _months_back(day: date, months: int) -> date:
     return date(year, month, min(day.day, last))
 
 
+def monthly_means(coach_player_id, category_id, *, since: date | None = None, until: date | None = None) -> dict:
+    """Month (`"YYYY-MM"`) -> raw (unrounded) mean of the record-held ratings of
+    `category_id` for this coach-player (Q29: a rating with no record stays out —
+    what is averaged is exactly what the history cards show). `since`/`until`
+    bound the underlying days, both inclusive; omitted, the whole history counts.
+
+    `evolution()` calls this unbounded, for its `series`/`delta`.
+    `evaluation_share_service`'s `6m`/`1y` lines bound it to
+    `_months_back(record.evaluated_on, 6|12) … record.evaluated_on` (sharing.spec.md
+    decision 3) — so a rating entirely before the window's cutoff falls out of its
+    month's mean, not just out of an already-computed monthly figure."""
+    query = (
+        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
+        .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
+        .filter(EvaluationRecord.coach_player_id == coach_player_id, EvaluationEntry.category_id == category_id)
+    )
+    if since is not None:
+        query = query.filter(EvaluationRecord.evaluated_on >= since)
+    if until is not None:
+        query = query.filter(EvaluationRecord.evaluated_on <= until)
+    by_month = defaultdict(list)
+    for day, score in query:
+        by_month[day.strftime("%Y-%m")].append(score)
+    return {m: sum(scores) / len(scores) for m, scores in by_month.items()}
+
+
 def evolution(coach, player_id, category_id) -> dict:
     link = coach_player_for(coach, player_id)
     if category_id in (None, ""):
         raise ApiError(400, "category_id_required")
     category = own_competency(coach, category_id)
 
-    # Only the ratings that sit in a record count (Q29), each on its record's day:
-    # what is averaged is exactly what the history cards show.
+    raw = monthly_means(link.id, category.id)
+    months = sorted(raw)
+
+    on = today()
+
+    # Only the ratings that sit in a record count (Q29), each on its record's day —
+    # `rolling` needs the individual days (not the monthly means `raw` holds).
     rows = [
         (day, score) for day, score in
         db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
         .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
         .filter(EvaluationRecord.coach_player_id == link.id, EvaluationEntry.category_id == category.id)
     ]
-    by_month = defaultdict(list)
-    for day, score in rows:
-        by_month[day.strftime("%Y-%m")].append(score)
-    months = sorted(by_month)
-    raw = {m: sum(by_month[m]) / len(by_month[m]) for m in months}
-
-    on = today()
 
     def rolling(n):
         scores = [score for day, score in rows if _months_back(on, n) <= day <= on]
@@ -545,14 +594,30 @@ def evolution(coach, player_id, category_id) -> dict:
 # ── the class ───────────────────────────────────────────────────────────────
 
 
+def _players_with_users(player_ids) -> list:
+    """The players (users joined) in one statement. The caller keeps the list: the session's
+    identity map holds weak references, so a discarded result would be reloaded row by row."""
+    from sqlalchemy.orm import joinedload
+
+    from padel_app.models import Player
+
+    if not player_ids:
+        return []
+    return Player.query.options(joinedload(Player.user)).filter(Player.id.in_(player_ids)).all()
+
+
 def class_evaluations(coach, ref) -> dict:
     """A READ: who is in the class, and each one's most recent record in it. Never materialises."""
     ensure_starting_set(coach)
     instance, pending = _resolve_class(coach, ref)
+    rows = instance.presences if instance is not None else pending[0].players_relations
+    # One statement loads every participant's player and user into the session, so the
+    # `.player` / `.user` reads below hit the identity map, not one query per row (rule 3).
+    loaded = _players_with_users({row.player_id for row in rows})  # noqa: F841 — held for the identity map
     if instance is not None:
-        roster = [(p.player, p.status == "absent") for p in instance.presences]
+        roster = [(p.player, p.status == "absent") for p in rows]
     else:
-        roster = [(rel.player, False) for rel in pending[0].players_relations]
+        roster = [(rel.player, False) for rel in rows]
 
     links = {
         link.player_id: link
@@ -560,6 +625,7 @@ def class_evaluations(coach, ref) -> dict:
         .filter(Association_CoachPlayer.player_id.in_([p.id for p, _ in roster] or [0]))
     }
     on = today()
+    due = due_for_links(coach, links.values(), on)  # rule 8: once for the roster, never per row
     latest_record = {}
     if instance is not None and links:
         found = (
@@ -583,7 +649,7 @@ def class_evaluations(coach, ref) -> dict:
             "coachPlayerId": link.id,
             "name": player.user.name if player.user is not None else "",
             "absent": absent,
-            "due": False,  # evaluations.reminders (slice 8)
+            "due": due.get(link.id, False),  # evaluations.reminders rule 3 (PAD-404)
             "record": serialize_record(record, on=on) if record is not None else None,
         })
     participants.sort(key=lambda p: p["absent"])  # Q14: absent last; the rest keep the class detail's order (stable)
@@ -599,3 +665,124 @@ def class_evaluations(coach, ref) -> dict:
         "competencies": [serialize_competency(c, counts.get(c.id, 0)) for c in active],
         "participants": participants,
     }
+
+
+# ── the evaluation reminder (PAD-404, evaluations.reminders) ────────────────
+#
+# A frequency the coach chooses and a `due` marker the server computes from it.
+# In-app only (rule 5): nothing here writes a message, a push or a job. The
+# setting lives on `notification_configs` (rule 13 of notifications.config) but
+# is NOT the class reminder — `evaluation_reminder_type` / `_value` only.
+
+REMINDER_TYPES = ("never", "monthly", "every_n_classes")
+EVERY_N_MIN, EVERY_N_MAX = 1, 99
+MONTHLY_WINDOW_DAYS = 30   # rule 3: "in the last 30 days, today inclusive"
+
+
+def _reminder_setting(coach):
+    """(type, value) for the coach: the row's if there is one, else the defaults.
+    NEVER creates the row (rule 2) — `get_or_create_config` is for the PUT only."""
+    from padel_app.models import NotificationConfig
+
+    row = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    if row is None:
+        return "never", None
+    kind = row.evaluation_reminder_type if row.evaluation_reminder_type in REMINDER_TYPES else "never"
+    return kind, row.evaluation_reminder_value
+
+
+def _settings_payload(kind, value) -> dict:
+    payload = {"reminder": kind}
+    if kind == "every_n_classes":
+        payload["everyN"] = value
+    return payload
+
+
+def get_evaluation_settings(coach) -> dict:
+    return _settings_payload(*_reminder_setting(coach))
+
+
+def put_evaluation_settings(coach, body) -> dict:
+    """Rule 2 / 8: the body is read as sent — absent, null and 0 are three different things."""
+    kind = body.get("reminder", MISSING)
+    if kind not in REMINDER_TYPES:
+        raise ApiError(400, "reminder_invalid")
+    _current_kind, current_value = _reminder_setting(coach)
+    value = current_value   # never / monthly leave a stored N alone (they ignore it)
+    if kind == "every_n_classes":
+        sent = body.get("everyN", MISSING)
+        if sent is MISSING:
+            if current_value is None:
+                raise ApiError(400, "every_n_required")   # a fresh every_n_classes needs its N
+        elif isinstance(sent, bool) or not isinstance(sent, int) or not EVERY_N_MIN <= sent <= EVERY_N_MAX:
+            raise ApiError(400, "every_n_invalid")        # null, "2", true, 0 and 100 are all refused
+        else:
+            value = sent
+    from padel_app.services.notification_service import get_or_create_config
+
+    with unit_of_work():
+        config = get_or_create_config(coach.id)
+        config.evaluation_reminder_type = kind
+        config.evaluation_reminder_value = value
+    return _settings_payload(kind, value)
+
+
+def _as_date(value):
+    """`func.max` over a Date comes back as a date on Postgres and as text on sqlite."""
+    if value is None or isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
+
+
+def due_for_links(coach, links, on=None) -> dict:
+    """Rule 3 — `due` per `Association_CoachPlayer.id` for the coach's frequency, on the
+    club-zone calendar (`on`), in at most three statements whatever the roster size
+    (R-048: the server computes it; a client never compares dates)."""
+    links = list(links)
+    if not links:
+        return {}
+    kind, value = _reminder_setting(coach)
+    if kind == "never":
+        return {link.id: False for link in links}
+    on = on or today()
+    link_ids = [link.id for link in links]
+    newest = {
+        link_id: _as_date(day)
+        for link_id, day in (
+            db.session.query(EvaluationRecord.coach_player_id, func.max(EvaluationRecord.evaluated_on))
+            .filter(EvaluationRecord.coach_player_id.in_(link_ids))
+            .group_by(EvaluationRecord.coach_player_id)
+            .all()
+        )
+    }
+    if kind == "monthly":
+        # "The last 30 days, today inclusive" is on-29 … on: a record 29 days ago is inside,
+        # one exactly 30 days ago is not — that player is due.
+        floor = on - timedelta(days=MONTHLY_WINDOW_DAYS - 1)
+        return {link.id: newest.get(link.id) is None or newest[link.id] < floor for link in links}
+
+    # every_n_classes: present in >= N of this coach's occurrences dated after the newest record.
+    if not isinstance(value, int) or value < EVERY_N_MIN:
+        return {link.id: False for link in links}   # a row the API could not have written: mark nobody
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.presences import Presence
+
+    by_player = {link.player_id: link.id for link in links}
+    rows = (
+        db.session.query(Presence.player_id, LessonInstance.start_datetime)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .join(Association_CoachLessonInstance,
+              Association_CoachLessonInstance.lesson_instance_id == LessonInstance.id)
+        .filter(Association_CoachLessonInstance.coach_id == coach.id)
+        .filter(Presence.status == "present")          # unmarked (NULL) and absent never count
+        .filter(Presence.player_id.in_(list(by_player)))
+        .all()
+    )
+    attended = defaultdict(int)
+    for player_id, start in rows:
+        link_id = by_player[player_id]
+        last = newest.get(link_id)
+        # start is club wall-clock (R-023); an occurrence not yet reached cannot have been attended.
+        if start is not None and start.date() <= on and (last is None or start.date() > last):
+            attended[link_id] += 1                                          # every occurrence counts on its own
+    return {link.id: attended[link.id] >= value for link in links}

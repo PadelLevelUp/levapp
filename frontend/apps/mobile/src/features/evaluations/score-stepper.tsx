@@ -24,6 +24,8 @@ interface ScoreStepperProps {
  * The value's testID carries the score (`…-value-7`, `…-value-none`): an empty
  * RN view vanishes from Maestro's hierarchy, a testID does not.
  */
+// Dormant since PAD-403: every category is 1-5 and drawn as stars (`isStarScale`); this
+// stays for a scale that is not 1-5, e.g. a row the migration has not reached yet.
 export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onClear }: ScoreStepperProps) {
   const { t } = useTranslation();
   const value = (

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Plus, Settings2 } from "lucide-react";
 import type { ClassEvaluationParticipant, EvaluationClassRef, EvaluationCompetency } from "@levelup/types";
-import { classRowCompetencies, classRowSummary, isStarCompetency } from "@levelup/config";
+import { classRowCompetencies, classRowSummary } from "@levelup/config";
 import { useClassEvaluations, useEvaluationCompetencies, useHeldWhile, usePutEvaluationRecord } from "@levelup/hooks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -153,6 +153,13 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
                 {t("calendar.attendance.absent")}
               </Badge>
             )}
+            {/* evaluations.reminders rule 4 (PAD-404): the server's `due`. */}
+            {participant.due === true && (
+              <Badge variant="outline" className="shrink-0 border-primary/40 text-primary"
+                data-testid={`class-eval-due-${id}`} aria-label={t("evaluations.reminder.dueLabel")}>
+                {t("evaluations.reminder.dueLabel")}
+              </Badge>
+            )}
           </span>
           <span className="block text-xs text-muted-foreground" data-testid={`class-eval-summary-${id}`}
             data-rated={summary.rated} data-total={summary.total}>
@@ -199,16 +206,12 @@ interface ExpandedRowProps {
 
 function ExpandedRow({ rowCompetencies, known, todays, earlier, playerId, onSave, onClose, onManage }: ExpandedRowProps) {
   const { t } = useTranslation();
-  const isStars = (categoryId: number) => {
-    const competency = known.find((c) => c.id === categoryId);
-    return competency ? isStarCompetency(competency) : false;
-  };
 
   return (
     <>
       {earlier && (
         <div data-testid={`class-eval-earlier-${playerId}`}>
-          <EvaluationHistoryCard record={earlier} isStars={isStars} />
+          <EvaluationHistoryCard record={earlier} />
         </div>
       )}
       {rowCompetencies.length === 0 ? (

@@ -5,6 +5,7 @@ source:
   - ../bugs/B-146-model-clock-defaults-bound-at-import-escape-the-pinned-clock.md
 governs:
   - "backend/padel_app/models/**"
+  - "backend/padel_app/model.py"
 check:
   kind: grep
   pattern: "\\b(default|onupdate)\\s*=\\s*(?:(?:lambda\\s*:\\s*)?datetime\\.(?:utcnow|now)\\b|(?:lambda\\s*:\\s*)?(?:utcnow_naive|utcnow|func\\.now)\\b(?!\\s*\\()|(?:utcnow_naive|utcnow)\\s*\\()"
@@ -46,3 +47,9 @@ red every night from 00:00 UTC and green all day.
    `default=lambda: utcnow_naive()` and the same offender on a non-governed path were silent. The
    pytest guard is the enforcing instrument; the hook is the prompt at write time. Both hold the
    same pattern string, and the guard's own parametrised cases are the positive control.
+6. **The `Model` mixin is in scope (PAD-405).** `backend/padel_app/model.py` declares the
+   `created_at`/`updated_at` columns most models inherit, so it is governed and the guard scans it.
+   Its `save()` assigns `self.updated_at = utcnow_naive()` — a call at write time, which the pin
+   reaches, but which the `check:` pattern (it matches `default=`/`onupdate=` only) does not see.
+   That line is held by a behavioural test instead (`test_save_stamps_the_pinned_instant`); the
+   pattern is deliberately not widened to bare calls, which would sweep in every service's clock.

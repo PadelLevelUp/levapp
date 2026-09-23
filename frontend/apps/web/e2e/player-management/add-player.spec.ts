@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { clickPlayerCard } from "../helpers/players";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -47,7 +48,7 @@ test("US-38: player list displays enrolled players", async ({ page }) => {
 test("US-39: coach can open player profile", async ({ page }) => {
   // Search for the seeded student (they're on page 2 due to id-desc order with 30 players)
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   // Should navigate to the player detail page which shows the Evaluation and
   // Strengths & Weaknesses sections
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });

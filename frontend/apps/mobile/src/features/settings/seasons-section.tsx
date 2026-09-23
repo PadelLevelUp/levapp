@@ -36,6 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
+import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
 
 /**
  * calendar.seasons rule 12 (PAD-82) — Settings → Calendar on iOS, mirroring
@@ -68,6 +69,20 @@ function draftFrom(definition: SeasonDefinition | null): Draft {
     endDay: definition.endDay,
     endMonth: definition.endMonth,
   };
+}
+
+/** settings.unsaved-edits rule 2 — `draft` differs from `draftFrom(definition)`, the
+ *  last loaded/saved value. `definition` is the section's own baseline already (set on
+ *  load and on a successful save/remove), so no separate baseline state is needed. */
+export function seasonUnsaved(draft: Draft, definition: SeasonDefinition | null): boolean {
+  const baseline = draftFrom(definition);
+  return (
+    draft.label !== baseline.label ||
+    draft.startDay !== baseline.startDay ||
+    draft.startMonth !== baseline.startMonth ||
+    draft.endDay !== baseline.endDay ||
+    draft.endMonth !== baseline.endMonth
+  );
 }
 
 function dayFitsMonth(day: number, month: number): boolean {
@@ -126,6 +141,8 @@ export function SeasonsSection() {
     });
     return (iso: string) => fmt.format(new Date(`${iso}T00:00:00Z`));
   }, [i18n.language]);
+
+  useUnsavedReporter("seasons", seasonUnsaved(draft, definition));
 
   const dayOptions = React.useMemo<Option[]>(() => DAYS.map((d) => ({ value: String(d), label: String(d) })), []);
   const monthOptions = React.useMemo<Option[]>(

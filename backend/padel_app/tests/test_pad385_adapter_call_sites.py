@@ -53,7 +53,7 @@ LEGACY_MAX = {
     "services/coach_service.py": 3,
     "services/import_service.py": 1,
     "services/lesson_service.py": 4,
-    "services/messaging_service.py": 2,
+    "services/messaging_service.py": 1,  # PAD-411: POST /conversation creates through Conversation.get_or_insert
     "services/player_service.py": 4,
     "services/user_service.py": 2,
 }

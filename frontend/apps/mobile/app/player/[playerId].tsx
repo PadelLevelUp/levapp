@@ -306,12 +306,12 @@ export default function PlayerDetailScreen() {
   return (
     <Screen edges={["top"]} testID="player-detail">
       {header}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="max-h-14 grow-0 border-b border-border"
-        contentContainerClassName="flex-row items-center gap-2 px-4 py-2"
-      >
+      {/* PAD-410: the action row wraps (flexWrap) rather than scrolling
+          horizontally, so every action is visible without hiding any of
+          them off-screen, per the master-detail mock. Order mirrors the
+          mock exactly: presences, absences, add-to-classes, waiting list,
+          Avaliações (primary), Desassociar (destructive, last). */}
+      <View className="flex-row flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         {/* PAD-162: the coach-side entry into the shared attendance-history
             screen, first in the action row exactly as web puts it first in
             PlayerDetailPage's PageActions. The student reaches the same screen
@@ -426,7 +426,35 @@ export default function PlayerDetailScreen() {
           />
           <Text>{t("players.evaluationHistory.open")}</Text>
         </Button>
-      </ScrollView>
+        {/* PAD-410: Desassociar/delete moved into the action row (last, destructive)
+            from its old spot paired with Editar in the profile card — Editar is now
+            in the header, beside the avatar. Same testID, handler and copy as before. */}
+        <Button
+          variant="destructive"
+          size="sm"
+          testID="player-remove"
+          accessibilityLabel={
+            canDelete
+              ? t("players.deletePlayer")
+              : t("players.disconnectPlayer")
+          }
+          onPress={openRemove}
+        >
+          <Ionicons
+            name="person-remove-outline"
+            size={16}
+            color={lightTheme.destructiveForeground}
+          />
+          {/* PAD-320: the mode in the id, so a flow proves "delete" vs
+              "disconnect" without reading the rendered word. */}
+          <Text
+            testID={`player-remove-mode-${canDelete ? "delete" : "disconnect"}`}
+            className="text-destructive-foreground"
+          >
+            {canDelete ? t("common.delete") : t("players.disconnect")}
+          </Text>
+        </Button>
+      </View>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -460,110 +488,80 @@ export default function PlayerDetailScreen() {
         ) : (
           <Card>
             <CardContent className="gap-4 pt-6">
-              <View className="flex-row items-center gap-3">
-                <Avatar
-                  alt={player.name || t("players.defaultPlayerName")}
-                  className="h-14 w-14"
-                >
-                  <AvatarFallback>
-                    <Text className="text-lg text-primary">
-                      {getInitials(player.name || "")}
-                    </Text>
-                  </AvatarFallback>
-                </Avatar>
-                <View className="min-w-0 flex-1">
-                  <Text className="text-lg font-semibold" numberOfLines={1}>
-                    {player.name}
-                  </Text>
-                  {/* PAD-105: no @username line — the coach never sets it and
-                      the record holds a generated placeholder until the player
-                      activates their own account. */}
-                </View>
-              </View>
-
-              <View className="gap-1">
-                <Text className="text-sm text-muted-foreground">
-                  Email: {player.email || "—"}
-                </Text>
-                <Text className="text-sm text-muted-foreground">
-                  Phone: {player.phone || "—"}
-                </Text>
-              </View>
-
-              <View className="flex-row flex-wrap items-center gap-2">
-                {player.level ? (
-                  <Badge variant="outline">
-                    <LevelLabel
-                      code={player.level.code}
-                      label={player.level.label}
-                    />
-                  </Badge>
-                ) : (
-                  <Badge variant="warning">
-                    <Text>{t("players.noLevel")}</Text>
-                  </Badge>
-                )}
-                {player.side ? (
-                  <Badge variant="secondary">
-                    <Text>{t(SIDE_LABEL_KEYS[player.side])}</Text>
-                  </Badge>
-                ) : null}
-                {/* PAD-112 / PAD-165: the student switched their own class
-                    invitations off. Shown so a coach reads a silent student as
-                    a deliberate choice rather than as someone ignoring them. */}
-                {notificationBlock.blocked ? (
-                  <Badge
-                    variant="outline"
-                    className="gap-1 border-warning"
-                    testID="player-notifications-blocked-badge"
+              {/* PAD-410: header block — large avatar, name, level/side chips,
+                  and Editar at the top right (same testID, handler and copy
+                  as the old bottom-row button; only its position changed). */}
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="min-w-0 flex-1 flex-row items-center gap-3">
+                  <Avatar
+                    alt={player.name || t("players.defaultPlayerName")}
+                    className="h-14 w-14"
                   >
-                    <Ionicons
-                      name="notifications-off-outline"
-                      size={12}
-                      color="#b45309"
-                    />
-                    <Text className="text-warning">
-                      {t("players.notificationsBlockedBadge")}
+                    <AvatarFallback>
+                      <Text className="text-lg text-primary">
+                        {getInitials(player.name || "")}
+                      </Text>
+                    </AvatarFallback>
+                  </Avatar>
+                  <View className="min-w-0 flex-1">
+                    <Text className="text-lg font-semibold" numberOfLines={1}>
+                      {player.name}
                     </Text>
-                  </Badge>
-                ) : null}
-              </View>
+                    {/* PAD-105: no @username line — the coach never sets it and
+                        the record holds a generated placeholder until the player
+                        activates their own account. */}
 
-              {notificationBlock.blocked ? (
-                <View
-                  className="gap-1 rounded-lg border border-dashed border-warning bg-warning/5 p-3"
-                  testID="player-notifications-blocked-detail"
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Ionicons
-                      name="notifications-off-outline"
-                      size={14}
-                      color="#b45309"
-                    />
-                    <Text className="text-xs text-muted-foreground">
-                      {t("players.notificationsBlockedTitle")}
-                    </Text>
+                    {/* PAD-410: level and side chips under the name, as in the mock. */}
+                    <View className="mt-1 flex-row flex-wrap items-center gap-2">
+                      {player.level ? (
+                        <Badge variant="outline">
+                          <LevelLabel
+                            code={player.level.code}
+                            label={player.level.label}
+                          />
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning">
+                          <Text>{t("players.noLevel")}</Text>
+                        </Badge>
+                      )}
+                      {player.side ? (
+                        <Badge variant="secondary">
+                          <Text>{t(SIDE_LABEL_KEYS[player.side])}</Text>
+                        </Badge>
+                      ) : null}
+                      {/* PAD-112 / PAD-165: the student switched their own class
+                          invitations off. Shown so a coach reads a silent student as
+                          a deliberate choice rather than as someone ignoring them. */}
+                      {notificationBlock.blocked ? (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-warning"
+                          testID="player-notifications-blocked-badge"
+                        >
+                          <Ionicons
+                            name="notifications-off-outline"
+                            size={12}
+                            color="#b45309"
+                          />
+                          <Text className="text-warning">
+                            {t("players.notificationsBlockedBadge")}
+                          </Text>
+                        </Badge>
+                      ) : null}
+                    </View>
                   </View>
-                  {notificationBlock.levelKeys.map((key) => (
-                    <Text key={key} className="text-sm text-muted-foreground">
-                      {`• ${t(key)}`}
-                    </Text>
-                  ))}
-                  {/* Read-only for the coach — the reason belongs to the
-                      student and is edited only from the student's Settings
-                      (notifications.student-block-preferences rule 11). */}
-                  <Text className="mt-1 text-xs text-muted-foreground">
-                    {t("players.notificationsBlockedReason")}
-                  </Text>
-                  <Text
-                    className="text-sm"
-                    testID="player-notifications-blocked-reason"
-                  >
-                    {notificationBlock.reason ??
-                      t("players.notificationsBlockedNoReason")}
-                  </Text>
                 </View>
-              ) : null}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  testID="player-edit"
+                  accessibilityLabel={t("players.editPlayer")}
+                  onPress={() => setIsEditing(true)}
+                >
+                  <Text>{t("common.edit")}</Text>
+                </Button>
+              </View>
 
               {/* PAD-165: web's "no account yet" panel, available at any time
                   rather than only in the dialog that follows creation. */}
@@ -617,37 +615,6 @@ export default function PlayerDetailScreen() {
                   </Button>
                 </View>
               ) : null}
-
-              <View className="flex-row gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  testID="player-edit"
-                  accessibilityLabel={t("players.editPlayer")}
-                  onPress={() => setIsEditing(true)}
-                >
-                  <Text>{t("common.edit")}</Text>
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="flex-1"
-                  testID="player-remove"
-                  accessibilityLabel={
-                    canDelete
-                      ? t("players.deletePlayer")
-                      : t("players.disconnectPlayer")
-                  }
-                  onPress={openRemove}
-                >
-                  {/* PAD-320: the mode in the id, so a flow proves "delete" vs
-                      "disconnect" without reading the rendered word. */}
-                  <Text testID={`player-remove-mode-${canDelete ? "delete" : "disconnect"}`}>
-                    {canDelete ? t("common.delete") : t("players.disconnect")}
-                  </Text>
-                </Button>
-              </View>
             </CardContent>
           </Card>
         )}
@@ -679,6 +646,61 @@ export default function PlayerDetailScreen() {
             </Text>
           </CardContent>
         </Card>
+
+        {/* PAD-410: "Informação", the middle card of the mock — web's PlayerInfoCard
+            (players.info): contact details and the student's notification block. */}
+        {player ? (
+          <Card testID="player-info-card">
+            <CardHeader>
+              <CardTitle>{t("players.info")}</CardTitle>
+            </CardHeader>
+            <CardContent className="gap-3">
+              <View className="gap-1">
+                <Text className="text-sm text-muted-foreground">
+                  Email: {player.email || "—"}
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  Phone: {player.phone || "—"}
+                </Text>
+              </View>
+                {notificationBlock.blocked ? (
+                  <View
+                    className="gap-1 rounded-lg border border-dashed border-warning bg-warning/5 p-3"
+                    testID="player-notifications-blocked-detail"
+                  >
+                    <View className="flex-row items-center gap-1">
+                      <Ionicons
+                        name="notifications-off-outline"
+                        size={14}
+                        color="#b45309"
+                      />
+                      <Text className="text-xs text-muted-foreground">
+                        {t("players.notificationsBlockedTitle")}
+                      </Text>
+                    </View>
+                    {notificationBlock.levelKeys.map((key) => (
+                      <Text key={key} className="text-sm text-muted-foreground">
+                        {`• ${t(key)}`}
+                      </Text>
+                    ))}
+                    {/* Read-only for the coach — the reason belongs to the
+                        student and is edited only from the student's Settings
+                        (notifications.student-block-preferences rule 11). */}
+                    <Text className="mt-1 text-xs text-muted-foreground">
+                      {t("players.notificationsBlockedReason")}
+                    </Text>
+                    <Text
+                      className="text-sm"
+                      testID="player-notifications-blocked-reason"
+                    >
+                      {notificationBlock.reason ??
+                        t("players.notificationsBlockedNoReason")}
+                    </Text>
+                  </View>
+                ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <StrengthsWeaknesses
           playerId={String(player.playerId)}

@@ -31,7 +31,12 @@ class EvaluationCategory(db.Model, model.Model):
 
     name = Column(String(100), nullable=False)
     scale_min = Column(Integer, default=1)
-    scale_max = Column(Integer, default=10)
+    scale_max = Column(Integer, default=5)
+    # PAD-403 (evaluations.legacy-conversion rules 2, 3): the scale a legacy
+    # category held before the 1-10 -> 1-5 conversion; NULL for every category
+    # created afterwards. Written only by the migration; read by its downgrade.
+    scale_min_before_conversion = Column(Integer, nullable=True)
+    scale_max_before_conversion = Column(Integer, nullable=True)
 
     # PAD-363 (evaluations.competencies). `competency_group` NULL = a LEGACY
     # category: one made by the old editor or the import, and the only kind the

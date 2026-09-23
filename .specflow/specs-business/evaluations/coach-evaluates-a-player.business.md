@@ -13,6 +13,7 @@ implemented_by:
   - ../../specs/evaluations/history.spec.md
   - ../../specs/evaluations/evolution.spec.md
   - ../../specs/evaluations/reminders.spec.md
+  - ../../specs/evaluations/legacy-conversion.spec.md
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md
   - derives_from: archive/documents/sistema-de-avaliacoes-explained-2026-09-21/extracted/summary.md
@@ -40,19 +41,22 @@ coach shares an evaluation; a student sees their evaluations).
 
 Today:
 
-1. The coach sets up their own evaluation categories, each with a name and a scoring scale
-   (for example 1–10), in Settings.
+1. The coach sets up their own evaluation categories, each with a name, in Settings. Every
+   category is scored on five stars (1–5). Categories created before the stars existed were
+   scored 1–10, and their scores have been converted (see the business rules).
 2. From a player's page, the coach scores the player in any of those categories. Only the
    categories the coach actually scored are saved.
 3. The player's page shows the coach the latest score in each category. There is no chart and no
    history view, although every past score is kept.
 4. When importing player data in bulk, past evaluation scores come in with everything else,
-   linked to the right player and category, with their original dates.
+   linked to the right player and category, with their original dates. A score that is not
+   between 1 and 5 is reported back as a problem with that row, saying the scores are 1–5 stars
+   and the sheet must be rescaled, and it is not saved.
 
 Planned:
 
 5. The coach picks their competencies from a built-in catalogue of 17 in three groups, switched
-   on and off, plus their own; the categories they already had stay exactly as they were.
+   on and off, plus their own; the categories they already had stay, converted to stars.
 6. In a class, the coach opens "Avaliações", works down the participants and rates each on
    stars, with a private note if they want. Whatever they tap is saved as they tap it; nothing
    has to be filled in.
@@ -63,7 +67,8 @@ Planned:
    newest first, and, per competency, how it has moved month by month with monthly, half-yearly
    and yearly averages.
 10. The coach chooses how often to be reminded to evaluate, and the app marks the players who are
-    due. It never messages anyone. *(Pending owner decision Q4.)*
+    due. It never messages anyone. *(Owner decision Q4, 2026-09-22: in-app markers only — no
+    push, no e-mail.)*
 
 ## Business Rules
 
@@ -73,8 +78,10 @@ Today:
   A coach never has two with the same name.
 - A player can be scored in a category more than once over time; the player's page shows the
   latest score per category.
-- The scale is kept by the app's controls only. The server does not check it, so an imported or
-  hand-crafted score outside the scale can exist and is shown as it is.
+- Every score is 1 to 5 whole stars, and the server enforces it: a score outside that range is
+  refused, and nothing from that save is kept. An old App Store version whose screen was
+  opened before the conversion may still send its 1–10 numbers once; the app converts those
+  the same way as the stored scores instead of refusing them, so the coach does not get stuck.
 - A player's record holds only scores a coach actually gave. Saving records the categories the
   coach scored and nothing for the ones left alone, and a coach can decline to score a category.
   A category without a score shows as not rated, never as a number (PAD-337).
@@ -86,9 +93,12 @@ Planned:
 
 - Catalogue competencies are switched on and off, never deleted; switching one off keeps its
   history. The coach's own can be renamed and deleted with today's warning.
-- New competencies are rated on five whole stars. Categories a coach already had keep their scale
-  and their numbers; nothing existing is converted, deleted or re-dated.
-  *(Pending owner decision Q1.)*
+- Every competency is rated on five whole stars, including the categories a coach already had.
+  The owner decided on 2026-09-22 to convert every existing 1–10 score to stars now, with one
+  fixed rule: half the score, rounded up (1–2 → 1, 3–4 → 2, 5–6 → 3, 7–8 → 4, 9–10 → 5). The
+  original numbers are kept alongside, so the conversion can be undone. Nothing is deleted
+  or re-dated. Figures such as monthly and rolling averages follow the new values; a card
+  shared with a player before the conversion keeps the numbers it showed.
 - An evaluation is identified by the player, the class occurrence (or none) and the day. The same
   day in the same class is the same evaluation; another class, or none, is another one.
 - A rating can be taken back. An evaluation can be corrected on the day it was made; afterwards
@@ -113,8 +123,8 @@ evaluations recorded from a class versus from a player's page.
 
 The general player-data import flow itself, beyond evaluation entries (`import` domain). Showing
 anything to a player (the two sharing outcomes). Dark mode (web already has a theme selector; iOS
-dark mode is not this project). Converting existing scores to stars (a later, coach-triggered
-step, if the owner wants it — Q1).
+dark mode is not this project). A coach re-rating the scores the conversion merged together
+(for example a 9 and a 10 that both became five stars).
 
 ## Notes
 

@@ -23,6 +23,10 @@ Planned — all `draft`, from the canvas (archive `sistema-de-avaliacoes-2026-09
 - `evaluations.legacy-client-contract` — the five endpoints App Store 1.0/1.1.0 call, frozen and
   legacy-only **by endpoint**, whatever headers a client sends. **Read this before touching any
   evaluation endpoint.**
+- `evaluations.legacy-conversion` — implementing (PAD-403): every legacy 1–10 score becomes
+  1–5 stars in one reversible data migration (`max(1, ceil(score/2))`, originals kept). After
+  it, no category is off 1–5 on any write path, and the frozen save converts or refuses an
+  off-scale body before writing (contract rule 10).
 - `evaluations.competencies` — the catalogue of 17, on/off, custom, rename by id, delete
 - `evaluations.records` — one record per player, class-or-none and day; the one writer; the
   backfill; the server range check
@@ -30,10 +34,12 @@ Planned — all `draft`, from the canvas (archive `sistema-de-avaliacoes-2026-09
 - `evaluations.history` — the profile card, the "Avaliações" drawer, "Nova avaliação", history
   cards, delete; the strengths/weaknesses rule
 - `evaluations.evolution` — monthly means, rolling means, delta, the chart
-- `evaluations.sharing` — owner-pending — choose, preview, share, un-share
-- `evaluations.student-view` — owner-pending — what a player sees; the one job of the
+- `evaluations.sharing` — implemented (PAD-402, owner-decided 2026-09-22) — choose, preview,
+  share, un-share; one thread message, no push
+- `evaluations.student-view` — implemented (PAD-402) — what a player sees; the one job of the
   `evaluations` capability token (gating the student dashboard block)
-- `evaluations.reminders` — owner-pending — "Frequência de avaliações" and the due marker
+- `evaluations.reminders` — implementing (PAD-404, slice 8) — "Frequência de avaliações" and
+  the server-computed due marker on the class panel and the players list; in-app only (Q4)
 
 ## Why it's grouped this way
 

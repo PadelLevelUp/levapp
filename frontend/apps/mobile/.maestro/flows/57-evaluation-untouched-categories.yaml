@@ -7,16 +7,18 @@
 # rated and then cleared holds nothing, and finishing the form with nothing rated writes
 # no evaluation.
 # - clean slate through the API (scripts/evaluations-setup.js deletes E2E Student's
-#   records) — this flow DOES write: one "+" is one saved input, a record with one rating
+#   records) — this flow DOES write: one star tap is one saved input, a record with one rating
 # - open E2E Student's evaluations, open "Nova avaliação"
-# - step the seeded legacy category once → its clear control appears; clear → gone,
-#   and the emptied record goes with it
+# - PAD-403: the seeded legacy "Forehand" category is stars now, never a stepper (inverts the
+#   original "a legacy category is a stepper" assertion here) — tap its star once → rated;
+#   tap the SAME star again → cleared (nextStarScore; stars have no separate clear control the
+#   way the stepper did), and the emptied record goes with it
 # - finish with nothing rated → the history is still empty, so the flow leaves nothing behind
 # First simulator run (Session-D, 2026-09-21, pad-375 8093268c3): the "+" made "Evolução"
 # appear above the form and pushed it ~350 pt down, so the clear tap landed on nothing.
 # That was the product's fault, not the flow's: the section now keeps its shape while the
-# form is open (useHeldWhile). The tap below is deliberately NOT preceded by a wait for
-# the layout to settle — it is the measure of that fix.
+# form is open (useHeldWhile). The second star tap below is deliberately NOT preceded by a
+# wait for the layout to settle — it is the measure of that fix.
 # NOTE: player-card-1 is deterministic (see 04-attendance.yaml). Asserts test
 # ids only; the rendered copy differs between locales.
 appId: com.padellevelup.app
@@ -57,41 +59,32 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "evaluation-history-empty"
 
-# ── Open the form: nothing is rated, so no clear control shows ──
+# ── Open the form: nothing is rated anywhere, and no stepper appears at all (PAD-403) ──
 - tapOn:
     id: "evaluation-new"
 - extendedWaitUntil:
     visible:
       id: "evaluation-form"
     timeout: 15000
-- assertVisible:
-    id: "evaluation-stepper-.*-value-none"
+# The legacy category's id is not exposed by evaluations-setup.js (only the star row it
+# switches on, "technique"), and this flow's own row must be scoped to it: since PAD-403 made
+# every category a star, a bare "evaluation-star-.*" wildcard would also match "technique"'s.
+- evalScript: "${output.forehandId = json(http.get(output.api + '/api/app/evaluation_categories', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).find(function (c) { return c.name === 'Forehand'; }).id}"
 - assertNotVisible:
-    id: "evaluation-stepper-.*-clear"
+    id: "evaluation-stepper-.*-value-none"
+- assertVisible:
+    id: "evaluation-stars-${output.forehandId}"
 
 # ── Rate, then return to unrated ──
 - tapOn:
-    id: "evaluation-stepper-.*-plus"
-- extendedWaitUntil:
-    visible:
-      id: "evaluation-stepper-.*-clear"
-    timeout: 5000
-# The SERVER saw the "+": one record, one rating at the scale's middle (6/10). The step is one
-# input after ~400 ms of quiet, so wait for the row rather than read at once.
-- extendedWaitUntil:
-    visible:
-      id: "evaluation-stepper-.*-value-6"
-    timeout: 5000
-- evalScript: "${output.afterPlus = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
-- assertTrue: "${output.afterPlus.length === 1 && output.afterPlus[0].ratings.length === 1 && output.afterPlus[0].ratings[0].score === 6}"
+    id: "evaluation-star-${output.forehandId}-3"
+# A star tap saves at once — no quiet period to wait out. The SERVER saw it: one record, one
+# rating, exactly the tapped score (never a stepper's midpoint).
+- evalScript: "${output.afterTap = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterTap.length === 1 && output.afterTap[0].ratings.length === 1 && output.afterTap[0].ratings[0].score === 3}"
+# Tapping the SAME (lit) star clears it — stars have no separate clear control (nextStarScore).
 - tapOn:
-    id: "evaluation-stepper-.*-clear"
-- extendedWaitUntil:
-    visible:
-      id: "evaluation-stepper-.*-value-none"
-    timeout: 5000
-- assertNotVisible:
-    id: "evaluation-stepper-.*-clear"
+    id: "evaluation-star-${output.forehandId}-3"
 # The SERVER saw the clear too (PAD-337 on iOS): the emptied record is gone.
 - evalScript: "${output.afterClear = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
 - assertTrue: "${output.afterClear.length === 0}"

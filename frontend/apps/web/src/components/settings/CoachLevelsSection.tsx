@@ -9,6 +9,7 @@ import { ChevronDown, GripVertical, Loader2, Plus, Trash2, GraduationCap } from 
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
+import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
 
 interface LevelDraft {
   id: string;
@@ -21,7 +22,11 @@ export function CoachLevelsSection() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [levels, setLevels] = useState<LevelDraft[]>([]);
-  
+  // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved rows,
+  // compared BY VALUE against `levels` — not "was `levels` ever touched". A
+  // row added then removed, or a code typed then retyped back, is clean again.
+  const [baseline, setBaseline] = useState<LevelDraft[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -37,9 +42,20 @@ export function CoachLevelsSection() {
 
   useEffect(() => {
     getCoachLevels()
-      .then((data) => setLevels(toDrafts(data)))
+      .then((data) => {
+        const drafts = toDrafts(data);
+        setLevels(drafts);
+        setBaseline(drafts);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  // Order and content both carry meaning (displayOrder), id does not — a
+  // just-saved row is re-keyed with the server's id (PAD-101) but that alone
+  // must never read as "unsaved".
+  const comparableLevels = (rows: LevelDraft[]) => rows.map((r) => ({ code: r.code, label: r.label }));
+  const unsaved = JSON.stringify(comparableLevels(levels)) !== JSON.stringify(comparableLevels(baseline));
+  useReportUnsaved("coachLevels", unsaved);
 
   const handleAdd = () => {
     setLevels((prev) => [
@@ -58,6 +74,9 @@ export function CoachLevelsSection() {
     try {
       await deleteCoachLevel(id);
       setLevels((prev) => prev.filter((l) => l.id !== id));
+      // A delete persists immediately (it isn't behind the Save button below),
+      // so the row's absence is already the server's truth.
+      setBaseline((prev) => prev.filter((l) => l.id !== id));
     } catch {
       toast({ variant: "destructive", title: t("settings.coachLevels.deleteFailed") });
     } finally {
@@ -115,7 +134,9 @@ export function CoachLevelsSection() {
       // and does not echo ids back, so refetch the persisted ladder — otherwise a
       // just-added row keeps its temp `new-…` id and deleting it before a reload
       // sends that non-numeric id to the delete endpoint (PAD-101).
-      setLevels(toDrafts(await getCoachLevels()));
+      const fresh = toDrafts(await getCoachLevels());
+      setLevels(fresh);
+      setBaseline(fresh); // rule 2: a successful save is the new clean baseline
       toast({ title: t("settings.coachLevels.savedTitle"), description: t("settings.coachLevels.saved", { count: levels.length }) });
     } catch {
       toast({ variant: "destructive", title: t("settings.coachLevels.saveFailed") });

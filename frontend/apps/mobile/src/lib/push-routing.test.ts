@@ -77,3 +77,32 @@ describe("PAD-327: the `path` shape", () => {
     expect(routeForPushData({ type: "request", kind: "club_join.received" })).toBeNull();
   });
 });
+
+describe("routeForPushData carries the tapped message (PAD-408, rule 12)", () => {
+  it("targets the message when the push names one", () => {
+    expect(
+      routeForPushData({ type: "message", conversationId: 7, messageId: 42 })
+    ).toBe("/conversation/7?message=42");
+  });
+
+  it("accepts the id as a string, as APNs delivers it", () => {
+    expect(
+      routeForPushData({ type: "message", conversationId: "7", messageId: "42" })
+    ).toBe("/conversation/7?message=42");
+  });
+
+  it("keeps a push without messageId exactly as before", () => {
+    expect(routeForPushData({ type: "message", conversationId: 7 })).toBe(
+      "/conversation/7"
+    );
+  });
+
+  it("ignores a messageId that is not an id", () => {
+    expect(
+      routeForPushData({ type: "message", conversationId: 7, messageId: "abc" })
+    ).toBe("/conversation/7");
+    expect(
+      routeForPushData({ type: "message", conversationId: 7, messageId: null })
+    ).toBe("/conversation/7");
+  });
+});

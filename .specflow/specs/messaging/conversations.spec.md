@@ -23,7 +23,16 @@ Manage conversations between users (1:1 or group chats).
 
 ### Rules
 1. `participant_key` = comma-separated sorted user IDs (e.g., "1,5,12") — ensures idempotent lookup
-2. Creating a conversation first checks if one exists with the same participant_key
+2. Creating a conversation first checks if one exists with the same participant_key. **Two
+   creators at the same moment get the same conversation (PAD-411, B-172):** the system paths —
+   `notification_service._get_or_create_direct_conversation` (reminders, invitations, waiting-list
+   offers) and `replacement_approval_service._get_or_create_assistant_conversation` — go through
+   `Conversation.get_or_insert`, which inserts in a savepoint and, when the unique
+   `participant_key` refuses it because another caller got there first, re-reads that caller's
+   row. Neither caller fails and no message is lost. The user-facing `POST /api/app/conversation`
+   (rule 6) creates through the same helper, so a double submit answers `201` with the existing
+   conversation in the same shape as a fresh create, on every client including the App Store
+   builds, never a 500.
 3. `is_group=True` allows group_name display
 4. `last_read_at` per participant tracks read status
 5. `GET /api/app/conversations` returns all user's conversations
@@ -183,3 +192,9 @@ Manage conversations between users (1:1 or group chats).
 - **Given** an authenticated student
 - **When** they GET `/api/app/messageable-users`
 - **Then** every entry has role `coach`; no student appears
+
+#### Two first messages at once make one conversation (PAD-411)
+- **Given** a coach and a student with no conversation between them
+- **When** two system messages to that student are sent at the same moment (Postgres)
+- **Then** exactly one conversation exists, with both of them as participants
+- **And** both messages are in it

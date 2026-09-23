@@ -57,8 +57,9 @@ const made: Made[] = [];
 const recordIds: number[] = [];
 const switchedOn: number[] = [];
 
-/** The seeded coach owns legacy (stepper) categories only; a STAR row needs a catalogue competency
- *  switched on — idempotent POST, switched off again after the test (as Maestro 78's setup does). */
+/** PAD-403: the seeded coach's only category (legacy "Forehand") is now stars too, but it is shared
+ *  across specs; a fresh catalogue competency of this test's own keeps the rating isolated and its
+ *  cleanup exact — idempotent POST, switched off again after the test (as Maestro 78's setup does). */
 async function starCompetency(request: APIRequestContext, coachTok: string): Promise<number> {
   const res = await request.post(`${API_APP}/evaluation_competency`, { headers: bearer(coachTok), data: { catalogueKey: "technique" } });
   expect(res.ok(), `switch on technique: ${res.status()}`).toBeTruthy();

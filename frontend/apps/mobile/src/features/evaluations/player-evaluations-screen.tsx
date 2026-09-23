@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { isStarCompetency, lightTheme, todaysClasslessRecord } from "@levelup/config";
+import { lightTheme, todaysClasslessRecord } from "@levelup/config";
 import {
   useDeleteEvaluationRecord,
   useEvaluationCompetencies,
@@ -64,15 +64,6 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
 
   const records = history.data?.records ?? [];
   const competencies = competencySet.data?.competencies ?? [];
-  const starIds = React.useMemo(
-    () => new Set(competencies.filter(isStarCompetency).map((competency) => competency.id)),
-    [competencies]
-  );
-  // A rating whose competency was deleted is not in the set; its catalogue key still says it was a star one.
-  const isStars = (categoryId: number) =>
-    starIds.has(categoryId) ||
-    (!competencies.some((c) => c.id === categoryId) &&
-      records.some((r) => r.ratings.some((x) => x.categoryId === categoryId && x.key !== null)));
 
   const formRecord = target === "new" ? todaysClasslessRecord(records) : target;
   const classRef =
@@ -160,7 +151,8 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
               <HistoryCard
                 key={record.id}
                 record={record}
-                isStars={isStars}
+                playerId={playerId}
+                playerName={playerName}
                 onEdit={() => setTarget(record)}
                 onDelete={() => setDeleting(record)}
               />
@@ -178,6 +170,11 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
                 : ""}
             </AlertDialogTitle>
             <AlertDialogDescription>{t("players.evaluationHistory.deleteDescription")}</AlertDialogDescription>
+            {deleting?.share ? (
+              <Text testID="evaluation-delete-shared-warning" className="text-sm text-destructive">
+                {t("players.evaluationSharing.share.deleteSharedWarning")}
+              </Text>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel><Text>{t("common.cancel")}</Text></AlertDialogCancel>

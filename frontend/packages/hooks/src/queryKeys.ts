@@ -27,6 +27,8 @@ export const queryKeys = {
     (ref === undefined ? ["class-evaluations"] : ["class-evaluations", ref.model, ref.id, ref.date ?? null]) as readonly unknown[],
   // PAD-373: what deleting one competency would remove (scores, players) — read before the typed-name step.
   evaluationCompetencyImpact: (competencyId: number) => ["evaluation-competency-impact", competencyId] as const,
+  // PAD-404: the coach's evaluation reminder setting (one per coach).
+  evaluationSettings: ["evaluation-settings"] as const,
   conversations: (page = 1, limit = 20) =>
     ["conversations", { page, limit }] as const,
   conversation: (conversationId: string) =>
@@ -42,4 +44,6 @@ export const queryKeys = {
   exercises: ["exercises"] as const,
   exercise: (id: string) => ["exercises", id] as const,
   exerciseGroups: ["exercise-groups"] as const,
+  // ── PAD-402 evaluation sharing ──
+  myEvaluations: ["my-evaluations"] as const,
 };

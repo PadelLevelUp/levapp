@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { classRowCompetencies, classRowSummary, isStarCompetency, lightTheme } from "@levelup/config";
+import { classRowCompetencies, classRowSummary, lightTheme } from "@levelup/config";
 import { useClassEvaluations, useEvaluationCompetencies, useHeldWhile, usePutEvaluationRecord } from "@levelup/hooks";
 import type { ClassEvaluationParticipant, EvaluationClassRef, EvaluationCompetency } from "@levelup/types";
 import { useRouter } from "expo-router";
@@ -141,10 +141,6 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
   // opened once the read that carries its record has answered, so `null` here means "no earlier
   // record", never "loading". If rows ever become openable while loading, hold `undefined` instead.)
   const earlier = useHeldWhile(record && !record.editable ? record : null, open, `${id}:${open}`);
-  const isStars = (categoryId: number) => {
-    const competency = known?.find((c) => c.id === categoryId);
-    return competency ? isStarCompetency(competency) : false;
-  };
   const rowCompetencies = known ? classRowCompetencies(active, todays, known) : [];
 
   return (
@@ -165,6 +161,13 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
                 <Text>{t("calendar.attendance.absent")}</Text>
               </Badge>
             ) : null}
+            {/* evaluations.reminders rule 4 (PAD-404): the server's `due`. */}
+            {participant.due === true ? (
+              <Badge variant="outline" className="border-primary/40" testID={`class-eval-due-${id}`}
+                accessibilityLabel={t("evaluations.reminder.dueLabel")}>
+                <Text className="text-primary">{t("evaluations.reminder.dueLabel")}</Text>
+              </Badge>
+            ) : null}
           </View>
           {/* The counts ride in the testID: Maestro reads ids, and the copy differs by locale. */}
           <Text className="text-xs text-muted-foreground" testID={`class-eval-summary-${id}-${summary.rated}-${summary.total}`}>
@@ -181,7 +184,7 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
           {!known ? <Skeleton className="h-32 w-full" /> : null}
           {known && earlier ? (
             <View testID={`class-eval-earlier-${id}`}>
-              <HistoryCard record={earlier} isStars={isStars} />
+              <HistoryCard record={earlier} />
             </View>
           ) : null}
           {known && rowCompetencies.length === 0 ? (

@@ -24,6 +24,9 @@ interface ChatThreadProps {
   loadingOlder?: boolean;
   /** PAD-208 — the reader reached the top of the loaded page. */
   onLoadOlder?: () => void;
+  /** PAD-408 — a message to land on, from the push's `?message=`. */
+  targetMessageId?: string | null;
+  onTargetConsumed?: () => void;
 }
 
 export function ChatThread({
@@ -38,6 +41,8 @@ export function ChatThread({
   hasMore,
   loadingOlder,
   onLoadOlder,
+  targetMessageId,
+  onTargetConsumed,
 }: ChatThreadProps) {
   const { t } = useTranslation();
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -184,6 +189,8 @@ export function ChatThread({
         hasMore={hasMore}
         loadingOlder={loadingOlder}
         onLoadOlder={onLoadOlder}
+        targetMessageId={targetMessageId}
+        onTargetConsumed={onTargetConsumed}
       />
 
       {/* Assistant conversations are a one-way channel — no composer */}

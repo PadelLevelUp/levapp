@@ -17,6 +17,8 @@ interface ScoreStepperProps {
  * A legacy category keeps its own scale and is a NUMBER — "7/10" with a stepper,
  * never stars (evaluations.competencies rule 3, owner question Q1's default).
  */
+// Dormant since PAD-403: every category is 1-5 and drawn as stars (`isStarScale`); this
+// stays for a scale that is not 1-5, e.g. a row the migration has not reached yet.
 export function ScoreStepper({ id, name, score, scaleMin, scaleMax, onStep, onClear }: ScoreStepperProps) {
   const { t } = useTranslation();
   const value = (

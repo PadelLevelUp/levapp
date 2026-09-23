@@ -26,6 +26,12 @@ vi.mock("@levelup/hooks", async () => ({
   usePutEvaluationRecord: () => ({ mutateAsync: state.put }),
   useDeleteEvaluationRecord: () => ({ mutateAsync: state.remove, isPending: false }),
   usePlayerEvolution: () => ({ data: undefined, isLoading: false, isError: false }),
+  // PAD-402 (evaluations.sharing): the history card's share control and its dialog
+  // mount alongside every row here — covered on their own in EvaluationHistoryCard.test.tsx
+  // and ShareEvaluationDialog.test.tsx, so these are inert stand-ins.
+  useUnshareEvaluation: () => ({ mutateAsync: vi.fn() }),
+  useShareEvaluationPreview: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useShareEvaluation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -118,12 +124,14 @@ describe("the history", () => {
     expect(within(june).getByTestId("evaluation-stepper-30-value").getAttribute("data-score")).toBe("7");
   });
 
-  it("offers edit on today's cards only, delete on every card, and no share control", () => {
+  it("offers edit on today's cards only, delete and share on every card (PAD-402)", () => {
     open();
     expect(screen.queryByTestId("evaluation-history-edit-2")).toBeNull();
     expect(screen.getByTestId("evaluation-history-edit-8")).toBeTruthy();
     expect(screen.getByTestId("evaluation-history-delete-2")).toBeTruthy();
-    expect(screen.queryByText(/partilhar/i)).toBeNull();
+    // sharing rule 10: any record, editable or not, offers the share control.
+    expect(screen.getByTestId("evaluation-history-share-2")).toBeTruthy();
+    expect(screen.getByTestId("evaluation-history-share-8")).toBeTruthy();
   });
 
   it("deletes after a confirmation that names the date", async () => {

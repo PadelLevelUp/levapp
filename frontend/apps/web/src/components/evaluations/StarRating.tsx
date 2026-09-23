@@ -17,7 +17,8 @@ interface StarRatingProps {
  * The star row (PAD-374) — shared by the evaluation form, the history cards and,
  * in slice 6, the class panel. It draws and reports taps; what a tap MEANS
  * (`nextStarScore`: the lit star clears) is the caller's, from `@levelup/config`.
- * Only for 1-5 competencies: a legacy category is a number (`ScoreStepper`).
+ * For every 1-5 scale, converted legacy categories included (PAD-403); `ScoreStepper` is
+ * dormant, kept only for a scale that is not 1-5 (`isStarScale`).
  */
 export function StarRating({ id, name, score, max = 5, onRate, size = "md" }: StarRatingProps) {
   const { t } = useTranslation();

@@ -198,6 +198,21 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     justification sent is written, an omitted one is left as it was. The stale rows themselves are
     not rewritten by this rule. Un-marking attendance (`status: null`) is a separate, open product
     question and is not decided here.
+22. **The queue shows the state after the latest action (PAD-413, B-177).** The validation queue
+    (pending and "validated this week") always shows the server's answer to the most recent refresh.
+    A refresh issued earlier never replaces one issued later, whatever order their responses arrive
+    in. Every write (validate, bulk validate, undo) refreshes the queue, so two quick undos issue two
+    overlapping refreshes, and the first may answer last.
+    - **Web:** `PresencesPage.loadQueue` numbers its requests and applies a response only if it
+      belongs to the latest request. Before PAD-413 the last response to *resolve* won, and a class
+      the coach had just reopened could show as validated again until the next action.
+    - **iOS:** already holds by construction. The queue is a TanStack Query read, and
+      `useInvalidatePresences` refreshes it with `invalidateQueries`, which cancels an in-flight
+      refetch (`cancelRefetch`), so a late earlier answer is dropped.
+      `apps/mobile/src/features/presences/queue-ordering.test.ts` pins that on query-core, called
+      the way the hook calls it. Its control shows that a last-resolved-wins writer would have
+      kept the stale queue. The screen's wiring to that query is read from the code; it is not
+      driven on a simulator.
 
 ### Acceptance Criteria
 
@@ -259,6 +274,13 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the coach undoes the validation
 - **Then** its rows return to `validated=False` with status and justification unchanged
 - **And** the class returns to the pending list
+
+#### Two quick undos leave both classes in the queue (rule 22, PAD-413)
+- **Given** three classes the coach validated this week
+- **When** the coach undoes two of them in quick succession, and the refresh after the first
+  undo answers after the refresh after the second
+- **Then** both classes are back in the queue and only the third is under "validated this
+  week", and it stays that way once every response has arrived
 
 #### A guest is counted as a guest
 - **Given** a player with a presence on an instance but no enrolment in its parent lesson

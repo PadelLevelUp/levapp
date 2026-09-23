@@ -24,6 +24,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 PARENT = "8da963ad8591"
+# The revision under test. The walk stops HERE, not at head: later data migrations (PAD-403's
+# 1-10 -> 1-5 conversion, e25428020888) rewrite scores by design, and this test proves only
+# that PAD-363's own migration keeps every row. The `finally` still leaves the DB at head.
+REVISION = "21c864b3dd59"
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "migrations")
 
 CHECKSUM = (
@@ -98,7 +102,7 @@ def test_the_migration_walks_up_and_down_with_every_entry_intact(app):
             assert before["n"] == len(SEED)
             _release()
 
-            upgrade(directory=MIGRATIONS_DIR)
+            upgrade(directory=MIGRATIONS_DIR, revision=REVISION)
             assert _one(CHECKSUM) == before  # no row deleted, rescaled, re-dated or re-scored
             records = [
                 (r["evaluated_on"].isoformat(), r["lesson_instance_id"], r["note"], r["ratings"])
@@ -150,7 +154,7 @@ def test_the_migration_walks_up_and_down_with_every_entry_intact(app):
             assert _one("SELECT count(*) AS n FROM information_schema.tables WHERE table_name = 'evaluation_records'")["n"] == 0
             _release()
 
-            upgrade(directory=MIGRATIONS_DIR)
+            upgrade(directory=MIGRATIONS_DIR, revision=REVISION)
             assert _one(CHECKSUM) == before
             assert [tuple(r) for r in db.session.execute(
                 text("SELECT id, record_id IS NULL FROM evaluation_entries ORDER BY id")).fetchall()] == \

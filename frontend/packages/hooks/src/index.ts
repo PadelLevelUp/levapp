@@ -4,6 +4,7 @@ export { useFieldAvailability } from "./useFieldAvailability";
 export { queryKeys } from "./queryKeys";
 export * from "./queries";
 export * from "./conversationPaging";
+export * from "./messageTarget";
 export { useConversationThread } from "./useConversationThread";
 export * from "./evaluations";
 export { useHeldWhile } from "./useHeldWhile";
