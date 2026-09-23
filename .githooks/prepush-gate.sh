@@ -130,8 +130,14 @@ elif changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
     SELECT="padel_app/tests ../frontend/apps/web/e2e/scripts"
     echo "(full backend suite: $([ $FULL -eq 1 ] && echo --full || echo models or migrations changed))"
   else
-    # a) guards: tests that scan the source tree rather than exercise one feature
-    GUARDS="$(grep -lE 'read_text\(|rglob\(|os\.walk\(|ast\.parse\(|check_alembic|LEGACY_MAX|git ls-files' $T/test_*.py 2>/dev/null)"
+    # a) guards — the tests that check the codebase rather than one feature. Measured on
+    #    2026-09-23: "a test file no test of which takes app/client" (27 files, ~20 s) holds
+    #    the ratchets, heads, collection and rule-number checks; guards that need the app are
+    #    caught by name, and scanners by what they call. A read_text() pattern pulled in slow
+    #    feature tests (+65 s) and missed real guards, so it is not used.
+    GUARDS="$(for f in $T/test_*.py; do grep -qE 'def test_[a-zA-Z0-9_]*\([^)]*\b(app|client|app_with_config)\b' "$f" || echo "$f"; done)
+$(ls $T/test_*.py 2>/dev/null | grep -E 'guard|ratchet|registry|hygiene|heads|collected|rule_numbers|call_sites|no_top_level')
+$(grep -lE 'rglob\(|os\.walk\(|ast\.parse\(|check_alembic|LEGACY_MAX|git ls-files' $T/test_*.py 2>/dev/null)"
     # b) changed test files
     CT="$(printf '%s\n' "$CHANGED" | grep -E '^backend/padel_app/tests/test_.*\.py$' | while read -r f; do [ -f "$f" ] && echo "$f"; done)"
     # c) tests that import a changed module
