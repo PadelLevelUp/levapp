@@ -49,10 +49,6 @@ cannot change; making the legacy upsert guess at renames would change what that 
   belongs to PAD-364's spec.
 - Data already stranded on production (a renamed category's old twin) is not counted here.
 
-### Resolution
-
-_Open — resolved by PAD-364._
-
 ### Resolution — fixed for every current client; the legacy path stays by design (2026-09-22)
 
 Resolved by Session-C when PAD-365 closed as Done (Linear, 20:39:42Z), on the coordinator's
