@@ -43,7 +43,7 @@ other row is a **non-legacy competency** (catalogue or custom, `evaluations.comp
    | `GET /evaluation_categories` | `[{id:int, name, scaleMin, scaleMax}]` | lists legacy categories that are active; never a non-legacy row, never a switched-off one |
    | `POST /add_evaluation_entry` | `{playerId, scores:[{categoryId, value}], strengths, weaknesses}` → `{status:"ok", playerId}` | rule 3 |
    | `GET /player_profile/<id>` | `{playerId:str, evaluations:[…], strengths:[{id,text}], weaknesses:[{id,text}]}` | rule 4 |
-   | `POST /add_evaluation_categories` | `[{name, scaleMin, scaleMax}]` → echoes the body | rule 5 |
+   | `POST /add_evaluation_categories` | `[{name, scaleMin, scaleMax}]` → echoes the body, every scale 1/5 | rules 5, 9 |
    | `POST /delete/evaluation_category` | `{id}` → `{status}` | rule 6 |
 2. **Listing.** `GET /evaluation_categories` returns the coach's rows with `competency_group IS
    NULL AND is_active`. A legacy category a coach switched off in the new editor disappears from
@@ -190,7 +190,7 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
 - **Given** Ana holds the catalogue competency Bandeja (id 12) and no legacy category of that name
 - **When** a client posts `POST /add_evaluation_categories` with `[{"name": "Bandeja",
   "scaleMin": 0, "scaleMax": 10}]`
-- **Then** the response is 200 echoing the body, Ana still holds exactly one row named "Bandeja",
+- **Then** the response is 200 echoing the body with every scale at 1/5 (rule 9), Ana still holds exactly one row named "Bandeja",
   and its `scale_min`, `scale_max`, `competency_group` and `is_active` are unchanged
 
 #### The legacy delete refuses a non-legacy id (rule 6)
@@ -211,7 +211,7 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
 - **Given** Ana's legacy category Volley (id 2, 1–10) is switched off
 - **When** a client posts `POST /add_evaluation_categories` with `[{"name": "Volley", "scaleMin":
   1, "scaleMax": 5}]`
-- **Then** the response is 200 echoing the body; Ana still holds exactly one row named "Volley";
+- **Then** the response is 200 echoing the body with every scale at 1/5 (rule 9); Ana still holds exactly one row named "Volley";
   its `scale_max` is still 10 and `is_active` is still false; `GET /evaluation_categories` does
   not list it
 

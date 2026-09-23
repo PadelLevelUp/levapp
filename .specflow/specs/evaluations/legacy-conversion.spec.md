@@ -53,9 +53,10 @@ endpoints (R-047) keep working.
    two `*_before_conversion` columns for as long as the rows exist; `downgrade` restores `score`
    and the scale from them and nulls both; `upgrade` again re-converts. The `IS NULL` guards make
    a second `upgrade` a no-op; every DDL is guarded (prod-schema-drift rule); no row is deleted
-   or re-dated. Proof: the migration-walk test on Postgres — upgrade / downgrade / upgrade with
-   the seeded rows checksummed equal at each return — and Session-A's production-shaped dry-run
-   on a fresh dump, a promotion gate.
+   or re-dated. Proof: the migration-walk test on Postgres (`test_pad403_migration_postgres.py`)
+   — upgrade / downgrade / upgrade with the seeded rows checksummed equal at each return and the
+   converted values exact, 8.5 included — and Session-A's production-shaped dry-run on a fresh
+   dump, a promotion gate.
 4. **The owner's yes on the row table is a precondition, not a formality.** The 17 production
    rows before → after under rule 1 are on the ticket (entry ids only). Entry 17 is a real
    coach's rating, per the owner's ruling, and converts like the rest (6 → 3★); the migration reaches
@@ -175,7 +176,8 @@ endpoints (R-047) keep working.
 - **Given** a shared card frozen with Forehand 7/10 before the conversion
 - **When** the conversion runs and the player's evolution is read
 - **Then** the evolution's series is computed from 4★, and the shared card still holds 7 with
-  `scaleMax 10`
+  `scaleMax 10` (pinned on Postgres in `test_pad403_migration_postgres.py`: the share row's card is
+  byte-identical across upgrade, downgrade and re-upgrade)
 
 #### The App Store 2×2 (rule 7 — written for the chosen shape)
 - **Given** a converted legacy category and an unconverted-shaped request from a pinned build

@@ -121,6 +121,39 @@ def test_r047_evaluation_categories_hides_a_legacy_category_that_was_switched_of
     assert names == ["Forehand"]
 
 
+def test_r047_a_switched_off_legacy_category_keeps_its_score_on_the_old_profile(app, client):
+    """Rule 2: switching a legacy category off hides it from the list, and its scores stay:
+    rule 4's `player_profile` still returns them (PAD-403 retro coverage gap)."""
+    from padel_app.models import EvaluationCategory
+
+    ids = _seed(app)
+    assert _save(app, client, ids, [{"categoryId": ids["volley_id"], "value": 4}]).status_code == 200
+    with app.app_context():
+        db.session.get(EvaluationCategory, ids["volley_id"]).is_active = False
+        db.session.commit()
+
+    names = [c["name"] for c in client.get("/api/app/evaluation_categories", headers=_coach_headers(app, ids)).get_json()]
+    assert names == ["Forehand"]
+    evaluations = {e["categoryName"]: e for e in _profile(app, client, ids)["evaluations"]}
+    assert evaluations["Volley"]["score"] == 4.0
+
+
+def test_r047_a_legacy_score_written_through_the_new_api_reads_back_on_the_old_profile(app, client):
+    """The 2x2 cell "new endpoints, no competency exists": a legacy category rated through
+    PUT /evaluation_record is served by the frozen `player_profile` with its naive-ISO
+    `evaluatedAt` (PAD-403 retro coverage gap)."""
+    from padel_app.tests.test_pad364_records_api import _put
+
+    ids = _seed(app)
+    res = _put(app, client, ids, {"ratings": {str(ids["forehand_id"]): 4}})
+    assert res.status_code == 200, res.get_data(as_text=True)
+
+    (forehand,) = [e for e in _profile(app, client, ids)["evaluations"] if e["categoryName"] == "Forehand"]
+    assert forehand["score"] == 4.0
+    assert (forehand["scaleMin"], forehand["scaleMax"]) == (1, 5)
+    assert NAIVE_ISO.match(forehand["evaluatedAt"]), forehand["evaluatedAt"]
+
+
 def test_r047_a_posted_score_for_a_competency_is_ignored_even_at_its_midpoint(app, client):
     """What an old build would send if it ever learned the id: every category,
     the unrated ones at Math.round((min + max) / 2) — 3 on a 1-5 competency."""
