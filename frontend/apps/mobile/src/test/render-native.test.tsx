@@ -12,7 +12,25 @@ import { Pressable, View } from "react-native";
 import { Switch } from "@/components/ui/switch";
 import { renderNative } from "@/test/render-native";
 
+// PAD-401 (B-160): a module-level count of renders, so a rerender that React skipped shows.
+let counterRenders = 0;
+function Counter() {
+  counterRenders += 1;
+  return createElement(View, { testID: "counter" });
+}
+
 describe("renderNative", () => {
+  it("rerender re-renders even when handed the SAME element instance (PAD-401)", async () => {
+    // Reusing the mounted element hits React's `oldProps === newProps` bailout: without a clone
+    // the "rerender" is a silent no-op, and a test built on it passes against any mutant.
+    const el = createElement(Counter);
+    counterRenders = 0;
+    const n = await renderNative(el);
+    expect(counterRenders).toBe(1);
+    await n.rerender(el);
+    expect(counterRenders).toBe(2);
+  });
+
   it("renders the real ui/switch through @rn-primitives and toggles it", async () => {
     const onCheckedChange = vi.fn();
     const n = await renderNative(<Switch testID="sw" checked={false} onCheckedChange={onCheckedChange} />);
