@@ -68,6 +68,28 @@ bury it.
   yourself, promptly, before it becomes load-bearing. Correcting inside ten minutes is a
   correction; correcting after it has been acted on is an apology.
 
+## When the owner asks "status?"
+
+One message, in this order, and short — the owner reads it on a phone:
+
+1. **Headline:** the wave you are on out of how many, and one ETA for the whole run.
+2. **One table, one row per session:**
+
+   | Session | Doing | % | ETA |
+   |---|---|---|---|
+   | A | PAD-347 — reminder duplication; PR open, E2E running | 80% | 20 min |
+
+   "Doing" is the ticket and the concrete step, not "working on tickets". An idle session
+   says `idle` and why. The percentage is your estimate of that item, not the wave.
+3. **Blocked on the owner**, only if something is — one line each, with exactly what you
+   need from them. Nothing here means nothing is.
+4. **Anything they should know that doesn't fit above** — a defect found, a correction to a
+   number you gave earlier. Optional, and at most two lines.
+
+Nothing else: no narrative of what happened, no list of what's done unless they ask. The
+ETAs are the owner's way of deciding when to come back, so give real ones and correct them
+next time if they slip.
+
 ## Keeping the record
 
 Keep one plan file per wave with a timestamped line per event and every decision marked.
