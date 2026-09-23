@@ -11,27 +11,28 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$ZERO" ] && continue                       # deleting a remote branch
   case "$remote_ref" in refs/tags/*) continue ;; esac
 
-  # The commits this push adds: from the remote tip, or (new branch) from origin/staging.
+  # The commits this push adds: not on the remote tip, and not already on staging. A staging
+  # merge brings staging's commits in; their messages must not grant a skip (#409 review).
+  excludes="^origin/staging"
   if [ "$remote_sha" != "$ZERO" ] && git cat-file -e "$remote_sha" 2>/dev/null; then
-    range="$remote_sha..$local_sha"
-  else
-    range="$(git merge-base "$local_sha" origin/staging 2>/dev/null || echo "$local_sha~1")..$local_sha"
+    excludes="$excludes ^$remote_sha"
   fi
-
-  reason="$(git log --format=%B "$range" 2>/dev/null | grep -oE '\[skip-prepush: [^]]+\]' | head -1)"
+  # shellcheck disable=SC2086
+  reason="$(git log --format=%B "$local_sha" $excludes 2>/dev/null | grep -oE '\[skip-prepush: [^]]+\]' | head -1)"
   if [ -n "$reason" ]; then
     echo "pre-push gate SKIPPED for $remote_ref by a pushed commit: $reason"
     continue
   fi
 
-  if [ "$local_sha" != "$(git rev-parse HEAD)" ]; then
-    echo "pre-push gate: pushing $local_ref, which is not the checked-out commit. The gate tests the"
-    echo "working tree, so check out $local_ref and push from there (or name a [skip-prepush: …])."
-    status=1
-    continue
+  # Every pushed ref gets the checks that read the COMMIT (heads, JSON). The tiers that test the
+  # working tree (tsc, vitest, pytest) run only when that ref is the checked-out commit.
+  if [ "$local_sha" = "$(git rev-parse HEAD)" ]; then
+    PREPUSH_SHA="$local_sha" bash "$ROOT/.githooks/prepush-gate.sh" || status=1
+  else
+    echo "pre-push gate: $local_ref ($(git rev-parse --short "$local_sha")) is not the checked-out commit;"
+    echo "running its commit-tree checks only. Check it out and run the gate for the full set."
+    PREPUSH_SHA="$local_sha" PREPUSH_TREE_ONLY=1 bash "$ROOT/.githooks/prepush-gate.sh" || status=1
   fi
-
-  PREPUSH_SHA="$local_sha" bash "$ROOT/.githooks/prepush-gate.sh" || status=1
 done
 
 exit $status

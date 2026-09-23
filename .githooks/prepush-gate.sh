@@ -21,6 +21,8 @@
 # is reported as such, not as a compiler error.
 # Not covered locally (CI only): Postgres + `flask db check`, the Android/Maestro lane.
 #
+# A pushed ref that is not the checked-out commit gets the commit-tree checks only (heads, JSON);
+# the hook says so. Untracked files are warned about: they are in the tested tree, not the push.
 # Escape hatch: a line `[skip-prepush: <reason>]` in one of the pushed commits' messages. The hook
 # honours it and prints it; the reason is then in the history for review. Never --no-verify.
 set -uo pipefail
@@ -56,8 +58,12 @@ MB="$(git merge-base "$SHA" "$BASE_REF")" || { red "no merge base with $BASE_REF
 CHANGED="$(git diff --name-only "$MB" "$SHA")"
 echo "levapp pre-push gate: $(git rev-parse --short "$SHA") vs $BASE_REF ($(printf '%s\n' "$CHANGED" | grep -c . ) files changed)"
 
-if [ "$SHA" = "$(git rev-parse HEAD)" ] && [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-  echo "(note: uncommitted changes in the working tree are included in the test runs below)"
+TREE_ONLY="${PREPUSH_TREE_ONLY:-}"
+if [ -z "$TREE_ONLY" ] && [ "$SHA" = "$(git rev-parse HEAD)" ]; then
+  [ -n "$(git status --porcelain --untracked-files=no)" ] && \
+    echo "(note: uncommitted changes in the working tree are included in the test runs below)"
+  UNTRACKED="$(git status --porcelain --untracked-files=normal | grep -c '^??' || true)"
+  [ "${UNTRACKED:-0}" -gt 0 ] && echo "(warning: $UNTRACKED untracked path(s) are in the tree the tests run on and will not be pushed — e.g. a parent migration placed for local runs: git status --short | grep '^??')"
 fi
 
 # Markdown (CLAUDE.md, specs, notes) never triggers a code check; .cortex/.specflow have their own.
@@ -90,23 +96,32 @@ if [ -n "$JSONS" ]; then
 fi
 
 # 3. Frontend — CI's exact commands (checks-frontend.yaml).
-if changed '^frontend/' && [ ! -d frontend/node_modules ]; then
+if [ -n "$TREE_ONLY" ]; then
+  : # working-tree tiers skipped for a ref that is not checked out (the hook said so)
+elif changed '^frontend/' && [ ! -d frontend/node_modules ]; then
   red "frontend/ changed but frontend/node_modules is missing: run 'npm ci' in frontend/ (Node 22) first."
   FAILED+=("frontend dependencies")
 elif changed '^frontend/'; then
-  NODE_MAJOR="$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')"
-  if [ "${NODE_MAJOR:-0}" -lt 22 ] && [ -s "$HOME/.nvm/nvm.sh" ]; then
+  node_major() { node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/'; }
+  if [ "$(node_major || echo 0)" -lt 22 ] 2>/dev/null && [ -s "$HOME/.nvm/nvm.sh" ]; then
     # shellcheck disable=SC1091
-    . "$HOME/.nvm/nvm.sh" >/dev/null && nvm use 22 >/dev/null
+    . "$HOME/.nvm/nvm.sh" >/dev/null && nvm use 22 >/dev/null 2>&1
   fi
-  step "typecheck web"    bash -c 'cd frontend && npx tsc --noEmit -p apps/web/tsconfig.app.json'
-  step "typecheck mobile" bash -c 'cd frontend && npx tsc --noEmit -p apps/mobile/tsconfig.json'
-  step "unit tests (npm test: web, packages, mobile)" bash -c 'cd frontend && npm test --silent'
+  if [ "$(node_major || echo 0)" -lt 22 ] 2>/dev/null; then
+    red "frontend/ changed but Node $(node -v 2>/dev/null || echo '(none)') is active; the frontend checks need Node 22 (nvm install 22)."
+    FAILED+=("Node 22")
+  else
+    step "typecheck web"    bash -c 'cd frontend && npx tsc --noEmit -p apps/web/tsconfig.app.json'
+    step "typecheck mobile" bash -c 'cd frontend && npx tsc --noEmit -p apps/mobile/tsconfig.json'
+    step "unit tests (npm test: web, packages, mobile)" bash -c 'cd frontend && npm test --silent'
+  fi
 fi
 
 # 4. Backend — pytest on SQLite (backend-tests.yaml runs the whole suite on both databases).
 BACKEND_TOUCH='^backend/|^frontend/apps/web/e2e/scripts/|^frontend/apps/mobile/src/lib/push-routing'
-if { changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; } && [ ! -x "$PY" ]; then
+if [ -n "$TREE_ONLY" ]; then
+  :
+elif { changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; } && [ ! -x "$PY" ]; then
   red "backend changed but backend/.venv is missing: create it (or symlink the main checkout's) first."
   FAILED+=("backend dependencies")
 elif changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
@@ -134,7 +149,7 @@ elif changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
 fi
 
 # 5. The knowledge layer names none of the changed files.
-if changed_any '^\.cortex/|^\.specflow/' && command -v cortex >/dev/null; then
+if [ -z "$TREE_ONLY" ] && changed_any '^\.cortex/|^\.specflow/' && command -v cortex >/dev/null; then
   cortex_check() { local out; out="$(cortex validate 2>&1)"; local hit=0 f
     for f in $(printf '%s\n' "$CHANGED" | grep -E '^\.(cortex|specflow)/'); do
       if printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | grep -qF "$f"; then echo "cortex validate names $f"; hit=1; fi
