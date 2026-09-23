@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT2_USERNAME } from "../helpers/auth";
+import { clickPlayerCard } from "../helpers/players";
 
 // US-46: the coach manages their competencies from Settings → Preferences (PAD-373;
 // evaluations.competencies rule 11). The category editor that used to sit there is gone:
@@ -30,7 +31,7 @@ test("US-47: coach opens the evaluation form from a player's evaluations", async
   await loginAsCoach(page);
   await page.goto("/players");
   await page.getByPlaceholder(/search/i).first().fill("E2E Student Two");
-  await page.getByText("E2E Student Two", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT2_USERNAME);
 
   // "Avaliações" opens the drawer; "Nova avaliação" opens the form (PAD-374).
   await page.getByTestId("player-evaluations-open").click({ timeout: 5000 });

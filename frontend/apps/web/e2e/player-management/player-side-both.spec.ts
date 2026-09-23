@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { clickPlayerCard } from "../helpers/players";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -9,9 +10,9 @@ test.beforeEach(async ({ page }) => {
 
 // PAD-15: Coach can set a player's preferred side to "Both" (Left/Right/Both)
 test("PAD-15: coach sets player side to Both and it persists", async ({ page }) => {
-  // Open the E2E Student profile (exact match to avoid "E2E Student Two")
+  // Open the E2E Student profile
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
   // Enter inline edit mode via the PlayerHeader "Edit" button
