@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
 import { ui } from "../helpers/i18n";
+import { clickPlayerCard } from "../helpers/players";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -35,8 +36,7 @@ test("US-36: search filters player list", async ({ page }) => {
 test("US-37: coach edits player level and side", async ({ page }) => {
   // E2E Student is on page 2 (id-desc with 30 players) — use search to find them
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  // Navigate to the player profile page (exact match to avoid "E2E Student Two")
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
   // The PlayerHeader has an "Edit" button that toggles inline edit mode

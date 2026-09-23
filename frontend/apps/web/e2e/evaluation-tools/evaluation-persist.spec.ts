@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
+import { clickPlayerCard } from "../helpers/players";
 
 // PAD-56, carried into the record form (PAD-374): an evaluation the coach gives must actually
 // persist — the old sheet once showed a false-success toast while nothing saved. "Nova avaliação"
@@ -11,7 +12,7 @@ test("PAD-56: an evaluation given in the form persists and survives a reload", a
   // Open a seeded player's detail page via the UI.
   await page.goto("/players");
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   await expect(page).toHaveURL(/\/players\/\d+/);
   await expect(page.getByTestId("evaluation-card")).toBeVisible();
 

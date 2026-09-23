@@ -1,8 +1,9 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 import { ui } from "../helpers/i18n";
+import { clickPlayerCard } from "../helpers/players";
 
 // PAD-388 / players.edit rule 4 (B-136 step 3): a coach can DELETE a note about a
 // player, not only overwrite it. The web sheet used to drop an emptied box from
@@ -52,7 +53,7 @@ test("US-388a: emptying the notes box deletes the note — the body says null an
   await loginAsCoach(page);
   await openPlayers(page);
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   await page.waitForURL(/\/players\/\d+/, { timeout: 5000 });
 
   // Give the player a note first, through the same sheet (R-040: the spec puts back what it changes).
