@@ -26,7 +26,8 @@ export function PushTapRouter(): null {
 
   React.useEffect(() => {
     const target = takeReadyPushTap({
-      navigatorReady: navigatorReady && pastLaunchGate,
+      navigatorReady,
+      pastLaunchGate,
       authLoading: loading,
       signedIn: isAuthenticated,
     });

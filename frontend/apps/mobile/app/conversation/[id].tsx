@@ -712,6 +712,9 @@ export default function ConversationScreen() {
       hasOlder: hasMore,
     });
     if (step.kind === "load-older") {
+      // A failed page is not fatal: `loadOlder` swallows the error and drops
+      // `isLoadingOlder`, which re-runs this effect — each attempt counts
+      // against the bound, so failures retry and then fall back to the newest.
       targetOlderPagesRef.current += 1;
       void loadOlder();
       return;

@@ -15,7 +15,7 @@ import {
   takeReadyPushTap,
 } from "./push-tap-queue";
 
-const READY = { navigatorReady: true, authLoading: false, signedIn: true };
+const READY = { navigatorReady: true, pastLaunchGate: true, authLoading: false, signedIn: true };
 
 describe("push tap queue", () => {
   beforeEach(() => resetPushTapsForTest());
@@ -29,6 +29,12 @@ describe("push tap queue", () => {
   it("holds a tap while auth is still loading", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap({ ...READY, authLoading: true })).toBeNull();
+    expect(takeReadyPushTap(READY)).toBe("/conversation/1");
+  });
+
+  it("holds a tap while the launch gate is still the current route (its Redirect would replace the push)", () => {
+    offerPushTap("n1", "/conversation/1");
+    expect(takeReadyPushTap({ ...READY, pastLaunchGate: false })).toBeNull();
     expect(takeReadyPushTap(READY)).toBe("/conversation/1");
   });
 

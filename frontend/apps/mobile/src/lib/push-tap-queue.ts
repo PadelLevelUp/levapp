@@ -3,7 +3,10 @@
  *
  * A tap that launches the app is delivered before the root navigator exists;
  * navigating then loops the root layout and the tap is lost. So a tap is only
- * OFFERED here, and TAKEN once the navigator is mounted and auth has settled.
+ * OFFERED here, and TAKEN once the navigator is mounted, auth has settled, and
+ * the launch gate (`app/index.tsx`) has redirected — auth settles in the same
+ * commit the gate renders its `<Redirect>`, which replaces a push issued then
+ * (measured on the simulator, B-166).
  * State is module-level on purpose: "handled once" must survive a re-mount of
  * whatever component drives it (the cold-start path re-mounted it dozens of
  * times). Only the latest tap is kept — the user acted on that one.
@@ -21,10 +24,11 @@ export function offerPushTap(id: string, target: unknown): void {
 
 export function takeReadyPushTap(state: {
   navigatorReady: boolean;
+  pastLaunchGate: boolean;
   authLoading: boolean;
   signedIn: boolean;
 }): unknown {
-  if (!state.navigatorReady || state.authLoading) return null;
+  if (!state.navigatorReady || !state.pastLaunchGate || state.authLoading) return null;
   const target = pending;
   pending = null;
   // A tap that launched a signed-out app is dropped; login runs as normal.
