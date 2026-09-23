@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { CoachPlayer, CoachLevel } from "@/types";
 import { SIDE_LABEL_KEYS } from "@/types";
@@ -26,9 +26,12 @@ import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { AddByQrDialog } from "@/components/players/AddByQrDialog";
-import { LoadingPlayersGrid } from "@/components/ui/loading-skeleton";
+import { LoadingPlayerCard } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useLayout } from "@/components/layout/LayoutContext";
+import { PlayerDetailPane } from "./PlayerDetailPage";
 
 export default function PlayersPage() {
   const PAGE_SIZE = 25;
@@ -47,6 +50,13 @@ export default function PlayersPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
+  const { setScrollMode } = useLayout();
+  // PAD-410: `/players` and `/players/:playerId` both render this page (the
+  // MessagesPage pattern) so the roster's search/sort/page/filter state
+  // survives a selection change — only the route param changes.
+  const { playerId } = useParams<{ playerId?: string }>();
+  const mobileView = playerId ? "detail" : "list";
 
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -73,6 +83,14 @@ export default function PlayersPage() {
     return () => clearTimeout(debounceRef.current);
   }, []);
 
+  // The list scrolls internally (below), the same way MessagesPage does —
+  // both panes keep their own scroll position rather than the whole page
+  // scrolling as one, so selecting a row never shifts either pane.
+  useEffect(() => {
+    setScrollMode("none");
+    return () => setScrollMode("page");
+  }, [setScrollMode]);
+
   useEffect(() => {
     async function loadLevels() {
       try {
@@ -91,29 +109,77 @@ export default function PlayersPage() {
     return { sortBy, sortDir };
   };
 
-  useEffect(() => {
-    async function loadPlayersPage() {
-      setLoading(true);
+  const fetchPlayersPage = useCallback(
+    async (page: number) => {
+      const searchParam = debouncedSearch || undefined;
+      const { sortBy, sortDir } = parseSortOption(sortOption);
+      return getCoachPlayersPaginated(
+        page, PAGE_SIZE, searchParam,
+        sortBy, sortDir,
+        missingLevelFilter, missingSideFilter,
+      );
+    },
+    [debouncedSearch, sortOption, missingLevelFilter, missingSideFilter],
+  );
+
+  // PAD-410: every roster fetch goes through here. Each request takes a sequence
+  // number and only the newest one may write the list, so a slow refresh can never
+  // overwrite a newer search result (a create-then-search raced that way). Every fetch
+  // uses the list's current search, sort and filters: the list keeps its state.
+  const requestSeq = useRef(0);
+  // Read through refs, not dependencies: `t` changes identity when the language settles,
+  // and a loader that changed with it would refetch the list for nothing.
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const tRef = useRef(t);
+  tRef.current = t;
+  const loadPage = useCallback(
+    async (page: number, { showSkeleton }: { showSkeleton: boolean }) => {
+      const mine = ++requestSeq.current;
+      if (showSkeleton) setLoading(true);
       try {
-        const searchParam = debouncedSearch || undefined;
-        const { sortBy, sortDir } = parseSortOption(sortOption);
-        const playersData = await getCoachPlayersPaginated(
-          currentPage, PAGE_SIZE, searchParam,
-          sortBy, sortDir,
-          missingLevelFilter, missingSideFilter,
-        );
+        const playersData = await fetchPlayersPage(page);
+        if (mine !== requestSeq.current) return;
         setCoachPlayers(playersData.items);
         setTotalPages(playersData.pagination.pages || 1);
         setTotalItems(playersData.pagination.total || 0);
         if (playersData.alerts) {
           setAlertCounts(playersData.alerts);
         }
+      } catch {
+        // Keep the current rows, and say why the list did not change (Session-E's review).
+        if (mine === requestSeq.current) {
+          toastRef.current({ variant: "destructive", title: tRef.current("players.listLoadFailed") });
+        }
       } finally {
-        setLoading(false);
+        // Whatever its kind, the NEWEST request clears the skeleton when it settles: a skeleton
+        // fetch overtaken by a silent refetch would otherwise leave it up for good (#404 review).
+        if (mine === requestSeq.current) setLoading(false);
       }
-    }
-    loadPlayersPage();
-  }, [currentPage, debouncedSearch, sortOption, missingLevelFilter, missingSideFilter]);
+    },
+    [fetchPlayersPage],
+  );
+
+  useEffect(() => {
+    void loadPage(currentPage, { showSkeleton: true });
+  }, [currentPage, loadPage]);
+
+  // A background refresh of the CURRENT page, without the list skeleton, for the pane to call
+  // after it edits or removes the selected player: the row catches up and the list keeps
+  // its search, sort, page and filter ("nothing moves under the finger").
+  const silentRefetchCurrentPage = useCallback(
+    () => loadPage(currentPage, { showSkeleton: false }),
+    [loadPage, currentPage],
+  );
+
+  const handlePlayerUpdated = useCallback(() => {
+    void silentRefetchCurrentPage();
+  }, [silentRefetchCurrentPage]);
+
+  const handlePlayerRemoved = useCallback(() => {
+    navigate("/players");
+    void silentRefetchCurrentPage();
+  }, [navigate, silentRefetchCurrentPage]);
 
   const handleSortChange = (value: SortOption) => {
     setSortOption(value);
@@ -148,20 +214,8 @@ export default function PlayersPage() {
       .slice(0, 2);
 
   const refreshPlayersList = async () => {
-    setCurrentPage(1);
-    setLoading(true);
-    try {
-      const { sortBy, sortDir } = parseSortOption(sortOption);
-      const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE, undefined, sortBy, sortDir);
-      setCoachPlayers(playersData.items);
-      setTotalPages(playersData.pagination.pages || 1);
-      setTotalItems(playersData.pagination.total || 0);
-      if (playersData.alerts) {
-        setAlertCounts(playersData.alerts);
-      }
-    } finally {
-      setLoading(false);
-    }
+    if (currentPage !== 1) setCurrentPage(1); // the effect loads page 1
+    else await loadPage(1, { showSkeleton: true });
   };
 
   const handleAddPlayer = async (data: AddPlayerInput) => {
@@ -181,19 +235,8 @@ export default function PlayersPage() {
     setInviteDialogOpen(true);
     // Refresh the list in the background without the full-page loading
     // skeleton, so the invite dialog stays mounted and visible.
-    try {
-      const { sortBy, sortDir } = parseSortOption(sortOption);
-      const playersData = await getCoachPlayersPaginated(1, PAGE_SIZE, undefined, sortBy, sortDir);
-      setCurrentPage(1);
-      setCoachPlayers(playersData.items);
-      setTotalPages(playersData.pagination.pages || 1);
-      setTotalItems(playersData.pagination.total || 0);
-      if (playersData.alerts) {
-        setAlertCounts(playersData.alerts);
-      }
-    } catch {
-      // Non-fatal — the invite already succeeded.
-    }
+    if (currentPage !== 1) setCurrentPage(1);
+    else await loadPage(1, { showSkeleton: false });
   };
 
   const handleCopyInvite = async () => {
@@ -209,7 +252,7 @@ export default function PlayersPage() {
   const hasActiveFilter = missingLevelFilter || missingSideFilter;
 
   const alertsSection = (alertCounts.missingLevel > 0 || alertCounts.missingSide > 0) && (
-    <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+    <div className="flex flex-col gap-2">
       {alertCounts.missingLevel > 0 && (
         <Alert
           className={`cursor-pointer transition-colors ${
@@ -243,65 +286,54 @@ export default function PlayersPage() {
     </div>
   );
 
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="p-6 space-y-6">
-          <PlayersToolbar
-            search={search}
-            onSearchChange={handleSearchChange}
-            onAddPlayer={() => setIsAddOpen(true)}
-            onAddByQr={() => setQrDialogOpen(true)}
-            sortOption={sortOption}
-            onSortChange={handleSortChange}
-          />
-          <div className="relative h-full">
-            <LoadingPlayersGrid />
-          </div>
+  const listPane = (
+    <div className="p-4 space-y-4 h-full overflow-y-auto">
+      <PlayersToolbar
+        search={search}
+        onSearchChange={handleSearchChange}
+        onAddPlayer={() => setIsAddOpen(true)}
+        onAddByQr={() => setQrDialogOpen(true)}
+        sortOption={sortOption}
+        onSortChange={handleSortChange}
+      />
+
+      {alertsSection}
+
+      {hasActiveFilter && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm">
+            {missingLevelFilter ? t("players.missingLevelFilterActive") : t("players.missingSideFilterActive")}
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            aria-label={t("players.clearFilterAriaLabel")}
+          >
+            <X className="w-4 h-4 mr-1" />
+            {t("players.clearFilter")}
+          </Button>
         </div>
-      </AppLayout>
-    );
-  }
+      )}
 
-  return (
-    <AppLayout>
-      <div className="p-6 space-y-6">
-        <PlayersToolbar
-          search={search}
-          onSearchChange={handleSearchChange}
-          onAddPlayer={() => setIsAddOpen(true)}
-            onAddByQr={() => setQrDialogOpen(true)}
-          sortOption={sortOption}
-          onSortChange={handleSortChange}
-        />
-
-        {alertsSection}
-
-        {hasActiveFilter && (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-sm">
-              {missingLevelFilter ? t("players.missingLevelFilterActive") : t("players.missingSideFilterActive")}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              aria-label={t("players.clearFilterAriaLabel")}
-            >
-              <X className="w-4 h-4 mr-1" />
-              {t("players.clearFilter")}
-            </Button>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {loading ? (
+        <div className="space-y-2" data-testid="players-list-loading">
+          {[...Array(6)].map((_, i) => (
+            <LoadingPlayerCard key={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2" data-testid="players-list">
           {coachPlayers.map((cs) => {
             const level = cs.level;
+            const isSelected = playerId != null && String(cs.playerId) === String(playerId);
             return (
               <Card
                 key={`coach-player-${cs.id}-${cs.playerId}`}
                 data-testid={`player-card-${cs.playerId}`}
                 data-validated={cs.validated ? "true" : "false"}
+                data-selected={isSelected ? "true" : "false"}
+                aria-current={isSelected ? "true" : undefined}
                 // PAD-148 / R-026: the card is the only route to a player's
                 // detail page, so it has to be a real control. `role="button"`
                 // rather than a native <button> because Card and CardContent
@@ -310,9 +342,9 @@ export default function PlayersPage() {
                 role="button"
                 tabIndex={0}
                 aria-label={t("players.openPlayerAria", { name: cs.name })}
-                className={`cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  cs.validated ? "" : "opacity-60"
-                }`}
+                className={`cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  isSelected ? "bg-accent" : "hover:bg-accent/50"
+                } ${cs.validated ? "" : "opacity-60"}`}
                 onClick={() => navigate(`/players/${cs.playerId}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -322,10 +354,10 @@ export default function PlayersPage() {
                   }
                 }}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="flex items-center gap-3">
-                    <Avatar className="w-12 h-12">
-                      <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+                    <Avatar className="w-10 h-10 shrink-0">
+                      <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
                         {getInitials(cs.name || "")}
                       </AvatarFallback>
                     </Avatar>
@@ -337,98 +369,163 @@ export default function PlayersPage() {
                       >
                         {cs.name}
                       </p>
-                      <p className="text-sm text-muted-foreground truncate">{cs.email || "—"}</p>
+                      <div className="flex gap-1.5 mt-1 flex-wrap">
+                        {level && (
+                          <Badge variant="outline" className="text-xs" data-testid={`player-level-chip-${cs.playerId}`}>
+                            {t("players.masterDetail.levelChip", { code: level.code })}
+                          </Badge>
+                        )}
+                        {cs.side && (
+                          <Badge variant="secondary" className="text-xs" data-testid={`player-side-chip-${cs.playerId}`}>{t(SIDE_LABEL_KEYS[cs.side])}</Badge>
+                        )}
+                        {!cs.validated && (
+                          <Badge
+                            variant="outline"
+                            className="border-warning/40 text-warning text-xs"
+                            data-testid="pending-registration-badge"
+                          >
+                            {t("players.pendingRegistration")}
+                          </Badge>
+                        )}
+                        {/* evaluations.reminders rule 4 (PAD-404): the server's `due`; the list is not re-sorted by it. */}
+                        {cs.due === true && (
+                          <Badge
+                            variant="outline"
+                            className="border-primary/40 text-primary text-xs"
+                            data-testid={`player-due-${cs.playerId}`}
+                            aria-label={t("evaluations.reminder.dueLabel")}
+                          >
+                            {t("evaluations.reminder.dueLabel")}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2 mt-3 flex-wrap">
-                    {level && <Badge variant="outline">{level.code}</Badge>}
-                    {cs.side && (
-                      <Badge variant="secondary">{t(SIDE_LABEL_KEYS[cs.side])}</Badge>
-                    )}
-                    {!cs.validated && (
-                      <Badge
-                        variant="outline"
-                        className="border-warning/40 text-warning"
-                        data-testid="pending-registration-badge"
-                      >
-                        {t("players.pendingRegistration")}
-                      </Badge>
-                    )}
-                    {/* evaluations.reminders rule 4 (PAD-404): the server's `due`; the list is not re-sorted by it. */}
-                    {cs.due === true && (
-                      <Badge
-                        variant="outline"
-                        className="border-primary/40 text-primary"
-                        data-testid={`player-due-${cs.playerId}`}
-                        aria-label={t("evaluations.reminder.dueLabel")}
-                      >
-                        {t("evaluations.reminder.dueLabel")}
-                      </Badge>
-                    )}
                   </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+      )}
 
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-muted-foreground">
-            {t("players.pagination", { current: currentPage, total: totalPages, players: totalItems })}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              {t("common.previous")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              {t("common.next")}
-            </Button>
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-sm text-muted-foreground">
+          {t("players.pagination", { current: currentPage, total: totalPages, players: totalItems })}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          >
+            {t("common.previous")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          >
+            {t("common.next")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const detailPane = !playerId ? (
+    <div
+      className="flex-1 grid place-items-center p-6 h-full"
+      data-testid="player-detail-placeholder"
+    >
+      <div className="text-center">
+        <p className="font-medium">{t("players.masterDetail.selectPlayer")}</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("players.masterDetail.selectPlayerHint")}
+        </p>
+      </div>
+    </div>
+  ) : (
+    <div className="flex-1 min-w-0 h-full overflow-y-auto">
+      <PlayerDetailPane
+        // Keyed by player: a new selection starts its own load/edit state
+        // rather than inheriting the previous player's (rule 10, shared with
+        // the evaluations drawer).
+        key={playerId}
+        playerId={playerId}
+        onRemoved={handlePlayerRemoved}
+        onUpdated={handlePlayerUpdated}
+      />
+    </div>
+  );
+
+  return (
+    <AppLayout>
+      <div className="flex flex-col h-full">
+        <div className="flex h-full min-h-0">
+          {/* Roster (master) */}
+          <div
+            data-testid="players-list-pane"
+            className={
+              isMobile
+                ? mobileView === "list"
+                  ? "block w-full h-full"
+                  : "hidden"
+                : "flex flex-col w-80 lg:w-96 shrink-0 border-r h-full"
+            }
+          >
+            {listPane}
+          </div>
+
+          {/* Player detail */}
+          <div
+            data-testid="player-detail-pane"
+            className={
+              isMobile
+                ? mobileView === "detail"
+                  ? "flex flex-1 h-full"
+                  : "hidden"
+                : "flex flex-1 min-w-0 h-full"
+            }
+          >
+            {detailPane}
           </div>
         </div>
-
-        <AddPlayerSheet
-          open={isAddOpen}
-          onClose={() => setIsAddOpen(false)}
-          onSave={handleAddPlayer}
-          onInvite={handleInvitePlayer}
-          levels={levels}
-          coachId={user?.coachId}
-        />
-
-        <AddByQrDialog open={qrDialogOpen} onOpenChange={setQrDialogOpen} />
-
-        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("players.inviteDialogTitle")}</DialogTitle>
-              <DialogDescription>
-                {t("players.inviteDialogDescription")}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={inviteUrl ?? ""} />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleCopyInvite}
-                aria-label={t("players.copyInviteAriaLabel")}
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      <AddPlayerSheet
+        open={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        onSave={handleAddPlayer}
+        onInvite={handleInvitePlayer}
+        levels={levels}
+        coachId={user?.coachId}
+      />
+
+      <AddByQrDialog open={qrDialogOpen} onOpenChange={setQrDialogOpen} />
+
+      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("players.inviteDialogTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("players.inviteDialogDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={inviteUrl ?? ""} />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleCopyInvite}
+              aria-label={t("players.copyInviteAriaLabel")}
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

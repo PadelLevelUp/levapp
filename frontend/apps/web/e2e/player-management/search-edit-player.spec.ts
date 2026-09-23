@@ -44,7 +44,8 @@ test("US-37: coach edits player level and side", async ({ page }) => {
   await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
 
   // Change the side — the Side Select is the first combobox in the header
-  const sideSelect = page.locator('[role="combobox"]').first();
+  // PAD-410: the first Select inside the profile pane — the roster beside it has its own sort Select.
+  const sideSelect = page.getByTestId("player-detail-pane").locator('[role="combobox"]').first();
   await sideSelect.click();
   await page.getByRole("option", { name: "Left" }).click();
 

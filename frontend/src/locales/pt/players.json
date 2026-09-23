@@ -20,6 +20,7 @@
     "pagination": "Página {{current}} de {{total}} • {{players}} jogadores",
     "linkCopied": "Ligação copiada para a área de transferência",
     "linkCopyFailed": "Não foi possível copiar a ligação",
+    "listLoadFailed": "Não foi possível atualizar a lista de alunos.",
     "inviteDialogTitle": "Ligação de convite do jogador",
     "inviteDialogDescription": "Partilhe esta ligação com o jogador para que possa completar o seu próprio perfil.",
     "copyInviteAriaLabel": "Copiar ligação de convite",
@@ -388,6 +389,11 @@
         "empty": "Ainda não tens avaliações partilhadas.",
         "loadError": "Não foi possível carregar as avaliações."
       }
+    },
+    "masterDetail": {
+      "selectPlayer": "Escolhe um jogador",
+      "selectPlayerHint": "Os detalhes aparecem aqui, ao lado da lista.",
+      "levelChip": "Nível {{code}}"
     }
   }
 }

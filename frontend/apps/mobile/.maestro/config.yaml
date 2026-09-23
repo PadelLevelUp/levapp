@@ -181,6 +181,11 @@ executionOrder:
     # 1-5, then rates it as stars — never a stepper (PAD-403); it removes the record and the
     # category it made in its own teardown.
     - 98-legacy-conversion
+    # 100 and 101 (PAD-410) read the players list and player detail against
+    # the master-detail mock's row/action-row layout; read-only, position not
+    # load bearing. Unconfirmed — not yet run.
+    - 100-players-list-rows
+    - 101-player-detail-action-row
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

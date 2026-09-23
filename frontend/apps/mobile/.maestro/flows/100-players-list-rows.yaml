@@ -1,0 +1,41 @@
+# confirmed — Session-D, iPhone 17 Pro simulator, feature/pad-410 @ cd34535ec, 2026-09-23 00:04:53Z: 34 steps, 0 failed
+# PAD-410: master-detail mock parity for the players list row — initials
+# avatar, name, level chip, side chip, kept alongside every existing marker
+# (e.g. the PAD-404 due badge). Modelled on 82-clear-player-notes.yaml /
+# 07-player-notes.yaml's search-and-open pattern.
+# By test id and by the server's own answers — never rendered copy, except
+# the level-chip text itself, which no other flow asserts (grepped .maestro
+# before adding this — PAD-410 report has the details).
+# player-card-1 is deterministic: E2E Student (see 04-attendance.yaml).
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+
+# ── Search and find the seeded row ──
+- tapOn:
+    id: "players-search"
+# The Players tab keeps its search (Session-D's flow-97 run): clear it before typing.
+- eraseText: 40
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+
+# ── Row shows initials avatar, name, level chip, side chip ──
+- assertVisible:
+    id: "player-card-1"
+- assertVisible:
+    text: "E2E Student"
+# The level and side chips, by id: their copy follows the account's language (the seeded
+# coach reads English — "Level B1", Session-D's run at 126f9988f), so it is never asserted.
+- assertVisible:
+    id: "player-level-chip-1"
+- assertVisible:
+    id: "player-side-chip-1"
