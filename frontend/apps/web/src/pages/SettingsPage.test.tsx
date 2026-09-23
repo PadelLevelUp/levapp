@@ -14,6 +14,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@/components/layout/AppLayout", () => ({
   AppLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -104,11 +105,17 @@ function goto(path: string) {
   window.history.pushState({}, "", path);
 }
 
+// A fresh query client per render: the page's sections that are not stubbed here may read through
+// @levelup/hooks (PAD-404's reminder setting on the Preferences tab does), and a shared client
+// would carry one test's cache into the next.
 function renderSettings() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
-      <SettingsPage />
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
