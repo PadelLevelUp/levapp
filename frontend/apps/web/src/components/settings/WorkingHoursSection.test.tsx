@@ -35,6 +35,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { WorkingHoursSection } from "./WorkingHoursSection";
+import { SettingsUnsavedTestHarness } from "@/test/settingsUnsavedTestHarness";
 
 beforeAll(() => {
   window.HTMLElement.prototype.hasPointerCapture = () => false;
@@ -86,5 +87,66 @@ describe("WorkingHoursSection — a late load never undoes an edit (PAD-392)", (
     await screen.findByTestId("working-hours-works-sun");
     expect(sunday()).toHaveAttribute("data-state", "off");
     expect(screen.getByTestId("working-hours")).toHaveAttribute("data-state", "set");
+  });
+});
+
+/**
+ * settings.unsaved-edits rule 2 (PAD-394, ledger B-157): "unsaved" is whether the
+ * week differs BY VALUE from the last loaded/saved one — not the B-155 `touched`
+ * ref above, which only gates a late load and must keep working unchanged (it
+ * still does; these tests don't touch it).
+ */
+describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
+  const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
+
+  it("reports unsaved after an edit, and clean again once undone by hand", async () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <WorkingHoursSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("working-hours-works-sun");
+    expect(unsavedIds()).toBe("");
+
+    fireEvent.click(screen.getByTestId("working-hours-works-sun"));
+    expect(sunday()).toHaveAttribute("data-state", "off");
+    expect(unsavedIds()).toBe("workingHours");
+
+    // Undone by hand: rule 2 says this is clean again, not "was touched".
+    fireEvent.click(screen.getByTestId("working-hours-works-sun"));
+    expect(sunday()).toHaveAttribute("data-state", "working");
+    expect(unsavedIds()).toBe("");
+  });
+
+  it("is clean again after a successful save", async () => {
+    putCoachWorkingHours.mockImplementation((value: unknown) => Promise.resolve({ workingHours: value }));
+    render(
+      <SettingsUnsavedTestHarness>
+        <WorkingHoursSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("working-hours-works-sun");
+    fireEvent.click(screen.getByTestId("working-hours-works-sun"));
+    expect(unsavedIds()).toBe("workingHours");
+
+    fireEvent.click(screen.getByTestId("working-hours-save"));
+    await waitFor(() => expect(putCoachWorkingHours).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("stays unsaved after a failed save", async () => {
+    putCoachWorkingHours.mockRejectedValue(new Error("nope"));
+    render(
+      <SettingsUnsavedTestHarness>
+        <WorkingHoursSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("working-hours-works-sun");
+    fireEvent.click(screen.getByTestId("working-hours-works-sun"));
+    expect(unsavedIds()).toBe("workingHours");
+
+    fireEvent.click(screen.getByTestId("working-hours-save"));
+    await waitFor(() => expect(putCoachWorkingHours).toHaveBeenCalledTimes(1));
+    expect(unsavedIds()).toBe("workingHours");
   });
 });

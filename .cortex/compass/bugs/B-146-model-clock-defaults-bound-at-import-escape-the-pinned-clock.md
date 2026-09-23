@@ -6,6 +6,7 @@ severity: medium
 status: resolved
 affects:
   - backend/padel_app/models/*
+  - backend/padel_app/model.py
   - backend/padel_app/tests/helpers.py
   - R-054
 proposed_fix: "Every model column's clock default and onupdate becomes `lambda: utcnow_naive()` (looked up at write time); a grep guard and a per-column pinned test keep it so (PAD-397)."
@@ -36,3 +37,12 @@ resolved: 2026-09-22T13:05:00Z
 - Code: 14 model files, `default=` / `onupdate=` late-bound; imports adjusted.
 - Spec/compass: R-054 filed; this entry.
 - Resolved: 2026-09-22 (PAD-397).
+
+## Follow-up: PAD-405 (#389)
+
+The `Model` mixin in `backend/padel_app/model.py` sat outside both of PAD-397's instruments: the guard globbed only `models/*.py`, and R-054 governed only `models/**`. `created_at`/`updated_at`, the columns most models inherit, still defaulted to `datetime.utcnow`, and `save()` stamped `datetime.utcnow()` directly.
+
+PAD-405 late-binds all three, widens the guard and R-054's `governs` to `model.py`, adds three `User` cells to the pinned-column test, and adds a behavioural `save()` test. The rule's `check:` pattern matches only `default=`/`onupdate=`, so it cannot see the `save()` line.
+
+Classification, recorded in a specflow-entry retro on 2026-09-23: a test defect in this entry's lineage, dev-only, governed by R-054. No spec leaf, because nothing observable changes: production still writes naive UTC.
+

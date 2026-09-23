@@ -23,6 +23,7 @@ from padel_app.services.level_ladder import (
     next_display_order,
     normalize_display_orders,
 )
+from padel_app.services.evaluation_catalogue import NEW_SCALE
 from padel_app.sql_db import db
 from padel_app.models import (
     CoachLevel,
@@ -202,10 +203,12 @@ def bulk_create_evaluation_categories(rows, coach):
             if existing:
                 continue
 
+            # PAD-403 (evaluations.legacy-conversion rule 5): an imported legacy
+            # category is 1-5 whatever the sheet says; no 1-10 category is created.
             payload = {
                 "name": name,
-                "scale_min": row.get("scale_min"),
-                "scale_max": row.get("scale_max"),
+                "scale_min": NEW_SCALE[0],
+                "scale_max": NEW_SCALE[1],
                 "coach": coach.id,
             }
             category = EvaluationCategory()
@@ -590,6 +593,22 @@ def bulk_create_presences(rows, coach):
 # Evaluation entries
 # ---------------------------------------------------------------------------
 
+def _score_out_of_range(i, category_name, score):
+    """D111 (PAD-403, evaluations.legacy-conversion): every category is 1-5 stars
+    after the conversion, so an imported score outside 1-5 (an old 1-10 sheet) is
+    a row error. Nothing is guessed and nothing is stored. ``code`` lets the web
+    render the message in the coach's language."""
+    if NEW_SCALE[0] <= score <= NEW_SCALE[1]:
+        return None
+    return {
+        "row": i,
+        "code": "score_out_of_range",
+        "category": category_name,
+        "value": score,
+        "error": f"Score {score:g} for {category_name!r} is outside 1-5: scores are 1-5 stars, rescale the sheet",
+    }
+
+
 def bulk_create_evaluation_entries(rows, coach):
     """
     Create evaluation entries for one or more categories per row.
@@ -655,6 +674,9 @@ def bulk_create_evaluation_entries(rows, coach):
                 except (ValueError, TypeError):
                     errors.append({"row": i, "error": f"Invalid score: {value!r}"})
                     continue
+                if (out_of_range := _score_out_of_range(i, category_name, score)):
+                    errors.append(out_of_range)
+                    continue
 
                 ev_payload = {
                     "coach_player": coach_player.id,
@@ -683,6 +705,9 @@ def bulk_create_evaluation_entries(rows, coach):
                         score = float(value)
                     except (ValueError, TypeError):
                         errors.append({"row": i, "error": f"Invalid score for {key!r}: {value!r}"})
+                        continue
+                    if (out_of_range := _score_out_of_range(i, key, score)):
+                        errors.append(out_of_range)
                         continue
 
                     ev_payload = {

@@ -75,8 +75,11 @@ leaving it. Today the only entry point is the player's page.
 7. **(AV-015) "Gerir competências" is reachable from the panel twice** — an action beside the
    panel's heading and a "+ Gerir competências" button under the list
    (`evaluations.competencies` rule 11). Returning from it reloads `competencies`.
-8. **The due marker.** `due` comes from `evaluations.reminders` rule 3 and is `false` for every
-   participant until that leaf ships. **(pending owner decision Q4)**
+8. **The due marker.** `due` comes from `evaluations.reminders` rule 3 — computed by the server
+   for the acting coach's frequency setting, in one query for the whole roster (never one per
+   participant), and rendered as a small marker with an accessible label on the participant row.
+   A coach who never set a frequency reads the `monthly` answer (`evaluations.reminders` rule 7).
+   Until PAD-404 (slice 8) lands it was `false` for every participant.
 9. **(AV-077) The panel owns its state.** Closing the surface, or moving to another class or
    view, collapses the open row and unmounts the panel; reopening starts collapsed from a fresh
    read. Nothing typed is lost, because it was already saved (rule 6).

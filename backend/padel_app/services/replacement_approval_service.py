@@ -64,22 +64,12 @@ def get_or_create_assistant_user():
 def _get_or_create_assistant_conversation(coach_user_id: int):
     """Return (conversation, assistant_user) for the coach's Assistant
     conversation, creating both atomically when missing."""
-    from padel_app.models import Conversation, ConversationParticipant
+    from padel_app.models import Conversation
 
     assistant = get_or_create_assistant_user()
-    key = Conversation.build_participant_key([assistant.id, coach_user_id])
-    conv = Conversation.query.filter_by(participant_key=key).first()
-    if conv is None:
-        conv = Conversation(participant_key=key, is_group=False)
-        db.session.add(conv)
-        db.session.flush()
-        for uid in sorted({assistant.id, coach_user_id}):
-            db.session.add(
-                ConversationParticipant(conversation_id=conv.id, user_id=uid)
-            )
-        # flush only — the caller (create_approval_prompts) commits once at the
-        # end so prompts + conversation + message persist atomically.
-        db.session.flush()
+    # PAD-411: race-safe; flush only — the caller (create_approval_prompts) commits once at
+    # the end so prompts + conversation + message persist atomically.
+    conv = Conversation.get_or_insert([assistant.id, coach_user_id])
     return conv, assistant
 
 

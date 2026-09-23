@@ -7,6 +7,7 @@ implemented_by:
   - ../../specs/settings/role-scope.spec.md
   - ../../specs/settings/admin-editor.spec.md
   - ../../specs/settings/coach-working-hours.spec.md
+  - ../../specs/settings/unsaved-edits.spec.md
 ---
 
 # Coach configures preferences and access
@@ -56,6 +57,8 @@ managing only their own personal profile and preferences.
 - What each role can see in the UI and what the server will actually allow always agree — hiding a
   panel in the interface is never treated as the real security boundary; every coach-only action is
   independently checked on the server.
+- An edit is never lost without a word: leaving a Settings section that has changes not yet saved
+  asks whether to discard them or keep editing (PAD-394). Sections that save on every change never ask.
 - A blank name is never accepted; an email must be valid and not already used by someone else; those
   values are trimmed before checking.
 - An abbreviation (a short badge shown next to the user's name) defaults to the first letters of the

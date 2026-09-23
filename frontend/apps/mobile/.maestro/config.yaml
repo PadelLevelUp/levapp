@@ -43,6 +43,9 @@ executionOrder:
     - 79-evaluation-evolution
     # 80 (PAD-376) makes its own class for today and removes it and its record afterwards.
     - 80-class-evaluations
+    # 81 (PAD-402) shares E2E Student Two's seeded evaluation record and un-shares it again
+    # through the API before it ends, so its position is not load bearing.
+    - 81-share-evaluation
     # 58 (PAD-325) reads only: opens a class id no seed creates.
     - 58-class-gone-way-back
     - 09-direct-messages
@@ -170,6 +173,28 @@ executionOrder:
     # whole delete on it (PAD-372); it cancels the delete and withdraws the request
     # in onFlowComplete, so nothing of the seed changes.
     - 96-hold-occurrence-locked
+    # 97 (PAD-404) picks "monthly" in Settings → Preferences, asserts the never-evaluated
+    # seeded student is marked due on the Players list, then clears it with "never";
+    # onFlowComplete restores `{"reminder":"never"}` through the API. Unconfirmed — not yet run.
+    - 97-evaluation-reminder-setting
+    # 98 posts a legacy category as a 0-10 scale and proves the server stores and echoes it
+    # 1-5, then rates it as stars — never a stepper (PAD-403); it removes the record and the
+    # category it made in its own teardown.
+    - 98-legacy-conversion
+    # 100 and 101 (PAD-410) read the players list and player detail against
+    # the master-detail mock's row/action-row layout; read-only, position not
+    # load bearing. Unconfirmed — not yet run.
+    - 100-players-list-rows
+    - 101-player-detail-action-row
+    # 102 changes the Perfil phone field and leaves it unsaved, asserts the back row's
+    # confirm (settings.unsaved-edits rules 3-4, PAD-394): keep editing stays with the
+    # edit intact, discard returns to the list. Nothing is ever PATCHed, so there is
+    # nothing to restore — the server's phone is asserted unchanged instead.
+    - 102-settings-unsaved-edits
+    # 103 posts 45 messages as the student and opens conversation 1 on the 3rd (older
+    # than the first page) by deep link, asserting it — not the newest — is on screen
+    # (PAD-408); it deletes the 45 in onFlowComplete.
+    - 103-thread-lands-on-target-message
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

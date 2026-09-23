@@ -32,7 +32,7 @@ def _seed(app):
     ids = _seed_coach_and_student(app)
     with app.app_context():
         rel = Association_CoachPlayer(coach_id=ids["coach_id"], player_id=ids["student_id"])
-        forehand = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=10)
+        forehand = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=5)  # 1-5 since PAD-403
         bea_user = User(name="Bea", username="bea-coach", email="bea@test.com", password="x", status="active")
         db.session.add_all([rel, forehand, bea_user])
         db.session.flush()
@@ -64,10 +64,10 @@ def _entries(app):
 def test_a_score_in_the_coachs_own_category_is_written(app, client):
     ids = _seed(app)
 
-    res = _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 6}])
+    res = _save(app, client, ids, [{"categoryId": ids["forehand_id"], "value": 4}])
 
     assert res.status_code == 200
-    assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 6.0)]
+    assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 4.0)]
 
 
 def test_a_score_in_another_coachs_category_is_ignored(app, client):
@@ -82,7 +82,7 @@ def test_a_score_in_another_coachs_category_is_ignored(app, client):
 
 def test_the_profile_never_carries_another_coachs_category(app, client):
     ids = _seed(app)
-    _save(app, client, ids, [{"categoryId": ids["serve_id"], "value": 3}, {"categoryId": ids["forehand_id"], "value": 6}])
+    _save(app, client, ids, [{"categoryId": ids["serve_id"], "value": 3}, {"categoryId": ids["forehand_id"], "value": 4}])
 
     res = client.get(f"/api/app/player_profile/{ids['student_id']}", headers=_headers(app, ids["coach_user_id"]))
 
@@ -97,18 +97,18 @@ def test_an_unknown_or_malformed_category_id_is_ignored_and_the_other_scores_are
         {"categoryId": "not-a-number", "value": 3},
         {"categoryId": 1e999, "value": 3},  # int(inf) raises OverflowError, not ValueError
         {"value": 3},
-        {"categoryId": ids["forehand_id"], "value": 6},
+        {"categoryId": ids["forehand_id"], "value": 4},
     ])
 
     assert res.status_code == 200
-    assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 6.0)]
+    assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 4.0)]
 
 
 def test_a_category_id_sent_as_a_string_still_counts_as_the_coachs_own(app, client):
     """The TS type says `categoryId: string`; a client may send "12"."""
     ids = _seed(app)
 
-    res = _save(app, client, ids, [{"categoryId": str(ids["forehand_id"]), "value": 6}])
+    res = _save(app, client, ids, [{"categoryId": str(ids["forehand_id"]), "value": 4}])
 
     assert res.status_code == 200
-    assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 6.0)]
+    assert _entries(app) == [(ids["rel_id"], ids["forehand_id"], 4.0)]

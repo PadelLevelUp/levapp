@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { clickPlayerCard } from "../helpers/players";
 
 test.beforeEach(async ({ page }) => {
   await loginAsCoach(page);
@@ -8,8 +9,7 @@ test.beforeEach(async ({ page }) => {
   // E2E Student is on page 2 (id-desc with 30 players) — search to find them
   await page.getByPlaceholder(/search/i).first().fill("E2E Student");
   // Navigate to the seeded student's profile (card click navigates to detail page)
-  // Use exact match to avoid matching "E2E Student Two"
-  await page.getByText("E2E Student", { exact: true }).click();
+  await clickPlayerCard(page, STUDENT_USERNAME);
   await page.waitForURL(/\/players\//, { timeout: 5000 });
 });
 

@@ -30,6 +30,7 @@ import {
 } from "../helpers/auth";
 import { openSettings, openPlayers } from "../helpers/navigation";
 import { API_ROOT } from "../helpers/api";
+import { clickPlayerCard } from "../helpers/players";
 
 const API_BASE = `${API_ROOT}/app`;
 
@@ -330,14 +331,7 @@ test.describe("PAD-112: the coach sees the signal and the reason", () => {
     await loginAsCoach(page);
     await openPlayers(page);
 
-    await page
-      .getByText(new RegExp(STUDENT_USERNAME, "i"))
-      .first()
-      .click()
-      .catch(async () => {
-        // The card shows the display name, not the username, in some layouts.
-        await page.getByText(/E2E Student/i).first().click();
-      });
+    await clickPlayerCard(page, STUDENT_USERNAME);
 
     await expect(
       page.getByTestId("player-notifications-blocked-badge"),
@@ -355,7 +349,7 @@ test.describe("PAD-112: the coach sees the signal and the reason", () => {
 
     await loginAsCoach(page);
     await openPlayers(page);
-    await page.getByText(/E2E Student/i).first().click();
+    await clickPlayerCard(page, STUDENT_USERNAME);
 
     await expect(page.getByTestId("player-notifications-blocked-badge")).toHaveCount(0);
     await expect(page.getByTestId("player-notifications-blocked-detail")).toHaveCount(0);

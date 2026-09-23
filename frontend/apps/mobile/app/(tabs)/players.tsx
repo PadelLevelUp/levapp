@@ -155,13 +155,22 @@ export default function PlayersScreen() {
       </View>
       <View className="mt-3 flex-row flex-wrap gap-2">
         {item.level ? (
-          <Badge variant="outline">
-            <Text>{item.level.code}</Text>
+          <Badge variant="outline" testID={`player-level-chip-${item.playerId}`}>
+            {/* PAD-410: master-detail mock renders "Nível {code}" here; the id lets a flow
+                assert the chip without reading copy (the language is the account's). */}
+            <Text>{t("players.masterDetail.levelChip", { code: item.level.code })}</Text>
           </Badge>
         ) : null}
         {item.side ? (
-          <Badge variant="secondary">
+          <Badge variant="secondary" testID={`player-side-chip-${item.playerId}`}>
             <Text>{t(SIDE_LABEL_KEYS[item.side])}</Text>
+          </Badge>
+        ) : null}
+        {/* evaluations.reminders rule 4 (PAD-404): the server's `due`; the list is not re-sorted by it. */}
+        {item.due === true ? (
+          <Badge variant="outline" className="border-primary/40" testID={`player-due-${item.playerId}`}
+            accessibilityLabel={t("evaluations.reminder.dueLabel")}>
+            <Text className="text-primary">{t("evaluations.reminder.dueLabel")}</Text>
           </Badge>
         ) : null}
       </View>

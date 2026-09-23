@@ -27,6 +27,11 @@ vi.mock("@levelup/hooks", async () => ({
   },
   useEvaluationCompetencies: () => ({ data: state.known ?? undefined, isLoading: false, isError: false }),
   usePutEvaluationRecord: (playerId: string) => ({ mutateAsync: (input: unknown) => state.put(playerId, input) }),
+  // PAD-402: `EvaluationHistoryCard` (the earlier-record card here) always calls this
+  // hook — this panel never passes it a player, so the share control stays hidden and
+  // this stub is never exercised, only mounted.
+  useUnshareEvaluation: () => ({ mutateAsync: vi.fn() }),
+  useShareEvaluation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({

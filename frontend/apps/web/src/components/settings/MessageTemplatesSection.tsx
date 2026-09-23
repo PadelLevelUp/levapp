@@ -5,6 +5,7 @@ import { MessageSquare } from "lucide-react";
 import type { MessageTemplates } from "@/types";
 import { updateNotificationConfig } from "@/api/notificationEngine";
 import { toast } from "sonner";
+import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,7 +71,11 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
   const [saving, setSaving] = useState(false);
   const textareaRefs = useRef<Partial<Record<keyof MessageTemplates, HTMLTextAreaElement | null>>>({});
 
+  // settings.unsaved-edits rule 2 (PAD-394, B-157): already computed by value
+  // against `templates` (the last loaded/saved value passed down by the
+  // parent), not by "was `local` ever touched" — reused as-is.
   const isDirty = JSON.stringify(local) !== JSON.stringify(templates);
+  useReportUnsaved("messageTemplates", isDirty);
 
   const handleSave = async () => {
     setSaving(true);

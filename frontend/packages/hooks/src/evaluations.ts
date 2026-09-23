@@ -1,17 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ClassEvaluations,
+  EvaluationCard,
   EvaluationCategoryImpact,
   EvaluationClassRef,
   EvaluationCompetencies,
   EvaluationCompetency,
   EvaluationCompetencyPatch,
   EvaluationEvolution,
+  EvaluationRecord,
   EvaluationRecordInput,
+  EvaluationSettings,
+  EvaluationShareInput,
   PlayerEvaluations,
   PutEvaluationRecordResult,
 } from "@levelup/types";
 import * as evaluationRecordsApi from "@levelup/api/src/resources/evaluationRecords";
+import * as evaluationSettingsApi from "@levelup/api/src/resources/evaluationSettings";
+import * as evaluationSharingApi from "@levelup/api/src/resources/evaluationSharing";
 import { queryKeys } from "./queryKeys";
 
 // PAD-374 (evaluations.history): the player's evaluations on the v2 API, shared by
@@ -84,6 +90,52 @@ export function useClassEvaluations(ref: EvaluationClassRef | null, enabled = tr
     queryFn: () => evaluationRecordsApi.getClassEvaluations(ref as EvaluationClassRef),
     enabled: ref !== null && enabled,
     retry: false,
+  });
+}
+
+// ── PAD-402: sharing an evaluation with the player (evaluations.sharing, evaluations.student-view) ──
+
+/** Step 2 (sharing rule 3): writes nothing, returns the `Card` the coach previews. */
+export function useShareEvaluationPreview() {
+  return useMutation<EvaluationCard, unknown, { recordId: number; input: EvaluationShareInput }>({
+    mutationFn: ({ recordId, input }) => evaluationSharingApi.shareEvaluationPreview(recordId, input),
+  });
+}
+
+/**
+ * Sharing rule 7: create-or-update; the answer is the `Record` with `share` set.
+ * `playerId` names whose history to refresh — the coach's own read of this record —
+ * alongside the player's own `my_evaluations` cache (student-view rule 2).
+ */
+export function useShareEvaluation(playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<EvaluationRecord, unknown, { recordId: number; input: EvaluationShareInput }>({
+    mutationFn: ({ recordId, input }) => evaluationSharingApi.shareEvaluation(recordId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.myEvaluations });
+    },
+  });
+}
+
+/** Sharing rule 9: silent — no message, no push; the card leaves the player's list at once. */
+export function useUnshareEvaluation(playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<void, unknown, number>({
+    mutationFn: (recordId) => evaluationSharingApi.unshareEvaluation(recordId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.playerEvaluations(playerId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.myEvaluations });
+    },
+  });
+}
+
+/** Student-view rule 2: every card ever shared with the caller, newest `sharedAt` first. */
+export function useMyEvaluations(enabled = true) {
+  return useQuery<{ cards: EvaluationCard[] }>({
+    queryKey: queryKeys.myEvaluations,
+    queryFn: evaluationSharingApi.getMyEvaluations,
+    enabled,
   });
 }
 
@@ -186,4 +238,34 @@ export function evaluationApiErrorCode(error: unknown): string | null {
   const data = (error as { response?: { data?: unknown } } | null)?.response?.data;
   const code = (data as { error?: unknown } | null)?.error;
   return typeof data === "object" && typeof code === "string" ? code : null;
+}
+
+// ── PAD-404 (evaluations.reminders): the frequency and the `due` markers it drives ──
+
+export function useEvaluationSettings(enabled = true) {
+  return useQuery<EvaluationSettings>({
+    queryKey: queryKeys.evaluationSettings,
+    queryFn: () => evaluationSettingsApi.getEvaluationSettings(),
+    enabled,
+  });
+}
+
+/**
+ * Saves on change. `due` is the server's (R-048), so every surface that shows the marker
+ * is refetched rather than patched: both players lists (web's paginated, iOS's full list
+ * and the pickers' `coach-players-all`) and every class panel.
+ */
+export function useSaveEvaluationSettings() {
+  const queryClient = useQueryClient();
+  return useMutation<EvaluationSettings, unknown, EvaluationSettings>({
+    mutationFn: (body) => evaluationSettingsApi.putEvaluationSettings(body),
+    onSuccess: (saved) => queryClient.setQueryData(queryKeys.evaluationSettings, saved),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.evaluationSettings });
+      for (const prefix of ["coach-players-paginated", "coach-players", "coach-players-all"]) {
+        void queryClient.invalidateQueries({ queryKey: [prefix] });
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() });
+    },
+  });
 }

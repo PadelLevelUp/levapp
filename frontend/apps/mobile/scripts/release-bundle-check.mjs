@@ -10,7 +10,10 @@
 export const STRAY_API_URLS = ["https://padellevelup.com/api", "http://localhost:5001/api"];
 
 export const CAPABILITIES_HEADER = "X-LevApp-Capabilities";
-export const REQUIRED_CAPABILITIES = ["open-spots"];
+// PAD-402 (`mobile.release-build-target` touch, `evaluations.student-view` rule 5): the
+// student dashboard block is gated the same way `open-spots` is — a release bundle that
+// silently dropped the declaration would silently drop the feature on every device.
+export const REQUIRED_CAPABILITIES = ["open-spots", "evaluations"];
 
 /**
  * @param {string} bundle   the bundle's bytes, read as latin1

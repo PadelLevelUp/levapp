@@ -27,6 +27,7 @@ import {
   loginAsStudent,
 } from "../helpers/auth";
 import { API_APP, API_ROOT } from "../helpers/api";
+import { clickPlayerCard } from "../helpers/players";
 
 const API_BASE = `${API_ROOT}/app`;
 
@@ -315,10 +316,7 @@ test.describe("PAD-114 coach viewing a roster player", () => {
     await loginAsCoach(page);
     await page.goto("/players");
 
-    await page
-      .getByText("E2E Student", { exact: true })
-      .first()
-      .click({ timeout: 15_000 });
+    await clickPlayerCard(page, STUDENT_USERNAME);
     await page.waitForURL(/\/players\/\d+$/, { timeout: 15_000 });
     const playerId = new URL(page.url()).pathname.split("/").pop();
 
@@ -489,7 +487,7 @@ test.describe("PAD-82 season preset", () => {
 
     try {
       await page.goto("/players");
-      await page.getByText("E2E Student", { exact: true }).first().click({ timeout: 15_000 });
+      await clickPlayerCard(page, STUDENT_USERNAME);
       await page.waitForURL(/\/players\/\d+$/, { timeout: 15_000 });
       await waitForHistory(page, async () => {
         await page.getByTestId("player-attendance-link").click();

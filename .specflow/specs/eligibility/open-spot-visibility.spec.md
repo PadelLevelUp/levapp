@@ -72,6 +72,10 @@ separate browse screen. A coach controls whether their open spots are advertised
       Web and mobile both render the flag (rule 11), so both declare `open-spots`. The client's
       default is none, so a shell never inherits a promise it can't keep. The next App Store build
       (PAD-351) declares it because it is built from the mobile source.
+    - **The list has two tokens (PAD-402):** `open-spots` (this rule) and `evaluations`, which
+      gates the student dashboard's `evaluations` block and nothing else
+      (`evaluations.student-view` rule 5). Both shells declare both; the same fail-closed reading
+      applies to each token independently.
     - **Retirement:** once no App Store build that predates the declaration is still in use, serve
       open spots regardless of the header and delete this rule and its check. The header itself
       stays for later capabilities.

@@ -20,6 +20,7 @@ import { KpiTiles } from "./coach/KpiTiles";
 import { NeedsYouQueue } from "./coach/NeedsYouQueue";
 import { NextClassHero } from "./coach/NextClassHero";
 import { Schedule7Days } from "./coach/Schedule7Days";
+import { StudentEvaluationsBlock } from "./StudentEvaluationsBlock";
 import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
 import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
@@ -47,6 +48,9 @@ export function StudentDashboard({
   const needsYouBlock = pick(blocks, "needs_you");
   const scheduleBlock = pick(blocks, "schedule_7d");
   const kpiBlock = pick(blocks, "kpi_grid");
+  // evaluations.student-view rules 4-5: capability-gated and omitted when the
+  // player has no shared card — absent here means exactly that, never "loading".
+  const evaluationsBlock = pick(blocks, "evaluations");
 
   const hero = heroBlock ? <NextClassHero block={heroBlock} onAnswered={onRefresh} /> : null;
   const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} onAnswered={onRefresh} /> : null;
@@ -54,6 +58,7 @@ export function StudentDashboard({
     <Schedule7Days block={scheduleBlock} role="student" onAnswered={onRefresh} />
   ) : null;
   const kpis = kpiBlock ? <KpiTiles block={kpiBlock} /> : null;
+  const evaluations = evaluationsBlock ? <StudentEvaluationsBlock block={evaluationsBlock} /> : null;
 
   // players.join-token rule 8: a student with nothing scheduled and no next
   // class is, in practice, a student no coach has picked up yet — the payload
@@ -99,6 +104,7 @@ export function StudentDashboard({
         {needsYou}
         {schedule}
         {kpis}
+        {evaluations}
       </div>
     );
   }
@@ -134,6 +140,7 @@ export function StudentDashboard({
         <aside className="sticky top-6 flex flex-col gap-6">
           {hero}
           {kpis}
+          {evaluations}
         </aside>
       </div>
     </div>

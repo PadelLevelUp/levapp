@@ -22,8 +22,9 @@ test("US-37: coach can set a player's level", async ({ page }) => {
   // Enter inline edit mode via the PlayerHeader "Edit" button.
   await page.getByRole("button", { name: "Edit" }).first().click({ timeout: 5000 });
 
-  // The header has two Selects: [0] = Side, [1] = Level.
-  const levelSelect = page.locator('[role="combobox"]').nth(1);
+  // The header has two Selects: [0] = Side, [1] = Level. PAD-410: counted inside the
+  // profile pane — the roster beside it has its own sort Select.
+  const levelSelect = page.getByTestId("player-detail-pane").locator('[role="combobox"]').nth(1);
   await levelSelect.click();
 
   // Seeded levels: "B1 | Beginner" and "I1 | Intermediate" (code bold, "|"

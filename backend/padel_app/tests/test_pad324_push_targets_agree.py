@@ -44,8 +44,12 @@ def test_both_pushes_for_a_join_request_point_at_the_same_thread(app):
         "one has a message, and on iOS that payload lands on an error screen"
     )
     assert data["conversationId"] in conv_ids
-    assert url == "/messages/{}".format(data["conversationId"]), (
-        "the web and device pushes must name the same destination"
+    # PAD-408: the parity guard extends to the message id — both channels must
+    # name the same message, not just the same conversation.
+    assert url == "/messages/{}?message={}".format(
+        data["conversationId"], data.get("messageId")
+    ), (
+        "the web and device pushes must name the same destination and message"
     )
 
 
@@ -87,5 +91,9 @@ def test_both_pushes_for_a_class_request_point_at_the_same_thread(app):
 
     assert data["type"] == "message"
     assert data["conversationId"] in conv_ids
-    assert url == "/messages/{}".format(data["conversationId"])
+    # PAD-408: the parity guard extends to the message id — both channels must
+    # name the same message, not just the same conversation.
+    assert url == "/messages/{}?message={}".format(
+        data["conversationId"], data.get("messageId")
+    )
     assert "classRequestId" in data, "the request id survives as context"

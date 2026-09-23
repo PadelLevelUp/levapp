@@ -37,7 +37,30 @@ Coaches view their player roster with search, sorting, filtering, and pagination
    is mouse-only. iOS already satisfies this (`role="button"` + `accessibilityLabel` on the
    `Pressable`); web was the shell that lagged.
 
+9. **(PAD-404) The due marker.** Each row of `GET /api/app/coach_players` and
+   `/api/app/coach_players_paginated` carries `due: bool`, computed by the server per
+   `evaluations.reminders` rule 3 for the acting coach's frequency, in one query for the whole
+   page — never one per row. Both shells render it as a small marker with an accessible label
+   on the player card; the list's order, filters and sort options do not change because of it
+   (nothing moves under the finger). Coach-only, like the rows themselves. Old App Store builds
+   ignore the extra boolean.
+10. **(PAD-410) The selected row.** On web at ≥ 768px the roster shares the page with the profile
+    (`players.profile` rule 4). The row of the player in the URL is highlighted and carries
+    `aria-current="true"`. Choosing another row keeps the list exactly as it was: search text,
+    sort, page and filter stay, and nothing reloads under the finger. An edit or a removal made
+    in the profile is reflected in the list: the row updates, or it disappears and the URL
+    returns to `/players`. Each row shows an initials avatar, the name, a level chip and a side
+    chip, and keeps every badge it had (pending registration, the due marker of rule 9). Rows
+    stay real controls (rule 8, R-026).
+
 ### Acceptance Criteria
+
+#### The due marker on the roster (rule 9)
+- **Given** coach Ana on `monthly`, today 2026-09-21; Rui's newest record is 2026-08-20, Sara's
+  2026-08-23, Tiago has none
+- **When** she calls `GET /api/app/coach_players`
+- **Then** Rui and Tiago carry `due: true`, Sara `due: false`, in the same order as before
+- **And** the number of SQL statements the read issues does not grow with the roster size
 
 #### Roster endpoints reject a student with 403
 - **Given** an authenticated user with a player profile and no coach profile
@@ -68,4 +91,12 @@ Coaches view their player roster with search, sorting, filtering, and pagination
   player's name
 - **And** pressing `Enter` on the focused card opens that player's detail page
 - **And** pressing `Space` on the focused card does the same without scrolling the page
+
+#### The selected row survives a change of player (PAD-410)
+- **Given** a coach on `/players` at ≥ 768px, on page 2 of their roster, sorted by level
+- **When** they open one player and then another
+- **Then** the second player's row is highlighted with `aria-current="true"`, the first one is not,
+  and the list is still page 2 sorted by level
+- **And** after they remove the second player from the profile, the URL is `/players` and that
+  row is gone from the list
 

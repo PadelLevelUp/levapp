@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openSettings, openPlayers } from "../helpers/navigation";
+import { clickPlayerCard } from "../helpers/players";
 
 // PAD-101: Newly-added, not-yet-persisted rows are keyed with a temporary id
 // (coach levels: the string `new-<Date.now()>`; strengths/weaknesses: the
@@ -64,7 +65,7 @@ test.describe("PAD-101: just-added rows are deletable without a reload", () => {
     await loginAsCoach(page);
     await openPlayers(page);
 
-    await page.getByText("E2E Student", { exact: true }).click();
+    await clickPlayerCard(page, STUDENT_USERNAME);
     await page.waitForURL(/\/players\/\d+/, { timeout: 8000 });
 
     // Enter the Strengths & Weaknesses edit mode (its own "Edit" toggle is the

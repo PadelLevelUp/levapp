@@ -20,6 +20,7 @@ import { Loader2, Trash2, CalendarRange } from "lucide-react";
 import { clubTodayISO, nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
 import type { SeasonDefinition } from "@/types";
 import { deleteSeason, getSeason, saveSeason } from "@/api/seasons";
+import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
 
 /**
  * calendar.seasons rule 12 (PAD-82) — Settings → Calendar: the coach's ONE
@@ -65,6 +66,9 @@ export function SeasonsSection() {
 
   const [definition, setDefinition] = useState<SeasonDefinition | null>(null);
   const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
+  // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved draft,
+  // compared BY VALUE against `draft` — not "was `draft` ever touched".
+  const [baseline, setBaseline] = useState<Draft>(DEFAULT_DRAFT);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -86,6 +90,7 @@ export function SeasonsSection() {
         if (!active) return;
         setDefinition(data);
         setDraft(draftFrom(data));
+        setBaseline(draftFrom(data));
         setEditing(Boolean(data));
       })
       .catch(() => active && setError(tRef.current("settings.seasons.saveFailed")))
@@ -94,6 +99,9 @@ export function SeasonsSection() {
       active = false;
     };
   }, []);
+
+  const unsaved = JSON.stringify(draft) !== JSON.stringify(baseline);
+  useReportUnsaved("seasons", unsaved);
 
   const monthName = useMemo(() => {
     const fmt = new Intl.DateTimeFormat(i18n.language, { month: "long", timeZone: "UTC" });
@@ -143,6 +151,7 @@ export function SeasonsSection() {
       });
       setDefinition(saved);
       setDraft(draftFrom(saved));
+      setBaseline(draftFrom(saved)); // rule 2: a successful save is the new clean baseline
       setEditing(true);
       toast({ title: t("settings.seasons.saved") });
     } catch (err) {
@@ -163,6 +172,7 @@ export function SeasonsSection() {
       await deleteSeason();
       setDefinition(null);
       setDraft(DEFAULT_DRAFT);
+      setBaseline(DEFAULT_DRAFT);
       setEditing(false);
       setError(null);
       toast({ title: t("settings.seasons.removed") });

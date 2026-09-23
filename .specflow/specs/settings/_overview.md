@@ -13,6 +13,7 @@ The settings domain.
 - `settings.coach-working-hours` — draft (PAD-357: a coach's declared weekly working time, read by `classes.availability`)
 - `settings.tutorials` — implemented — the coach-only Tutorials section and its first walkthrough,
   "Understand invites" (data from `notifications.invite-simulation`)
+- `settings.unsaved-edits` — implemented (PAD-394 / B-157: leaving a section with unsaved edits asks "Descartar alterações?"; warn, not hold)
 
 ## Why it's grouped this way
 

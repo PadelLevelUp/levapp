@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
 import { cn } from "@/lib/utils";
 
 type LevelDraft = {
@@ -25,6 +26,25 @@ type LevelDraft = {
   label: string;
   isNew?: boolean;
 };
+
+type SavedLevel = { id: string; code: string; label: string };
+
+/**
+ * settings.unsaved-edits rule 2 — "differs by value from the last loaded or saved
+ * value", compared POSITIONALLY: reordering (`handleMove`) is itself a real edit
+ * (`handleSave` derives `displayOrder` from list position), so two lists with the same
+ * rows in a different order are NOT equal. A new row's generated id never matches a
+ * saved id, so add/remove fall out of the same comparison for free.
+ */
+export function levelsUnsaved(
+  drafts: readonly SavedLevel[],
+  saved: readonly SavedLevel[]
+): boolean {
+  if (drafts.length !== saved.length) return true;
+  return drafts.some(
+    (d, i) => d.id !== saved[i].id || d.code !== saved[i].code || d.label !== saved[i].label
+  );
+}
 
 /**
  * Coach skill-levels editor, mirroring web's CoachLevelsSection. Web reorders
@@ -38,6 +58,11 @@ export function CoachLevelsSection() {
   const { data, isLoading } = useCoachLevels();
 
   const [drafts, setDrafts] = React.useState<LevelDraft[]>([]);
+  // The last loaded/saved baseline (settings.unsaved-edits rule 2), separate from
+  // `drafts` (which holds in-progress edits). Updated on the initial load, on a
+  // successful Save, and on a successful per-row delete (that deletion IS already
+  // persisted the moment it succeeds — it does not wait for the main Save button).
+  const [saved, setSaved] = React.useState<SavedLevel[]>([]);
   const [saving, setSaving] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<string | null>(null);
@@ -46,12 +71,14 @@ export function CoachLevelsSection() {
   React.useEffect(() => {
     if (!data || hydratedRef.current) return;
     hydratedRef.current = true;
-    setDrafts(
-      [...data]
-        .sort((a, b) => a.displayOrder - b.displayOrder)
-        .map((level) => ({ id: level.id, code: level.code, label: level.label }))
-    );
+    const loaded = [...data]
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((level) => ({ id: level.id, code: level.code, label: level.label }));
+    setDrafts(loaded);
+    setSaved(loaded);
   }, [data]);
+
+  useUnsavedReporter("coachLevels", levelsUnsaved(drafts, saved));
 
   const handleAdd = () => {
     setDrafts((prev) => [
@@ -91,6 +118,9 @@ export function CoachLevelsSection() {
     try {
       await coachLevelApi.deleteCoachLevel(draft.id);
       setDrafts((prev) => prev.filter((l) => l.id !== draft.id));
+      // Already persisted — the baseline drops the same row, or the row's own
+      // removal would misreport as an unsaved edit.
+      setSaved((prev) => prev.filter((l) => l.id !== draft.id));
       void queryClient.invalidateQueries({ queryKey: queryKeys.coachLevels });
     } catch {
       setStatus(t("settings.coachLevels.deleteFailed"));
@@ -115,6 +145,10 @@ export function CoachLevelsSection() {
         }))
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.coachLevels });
+      // A successful save makes the section clean (rule 2) — the drafts just sent
+      // become the new baseline. (`hydratedRef` already blocks the invalidated
+      // query's data from re-hydrating `drafts` with server-assigned ids.)
+      setSaved(drafts.map((l) => ({ id: l.id, code: l.code, label: l.label })));
       setStatus(t("settings.coachLevels.saved", { count: drafts.length }));
     } catch {
       setStatus(t("settings.coachLevels.saveFailed"));

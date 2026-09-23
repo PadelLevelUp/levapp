@@ -96,7 +96,27 @@ describe("stars save on tap", () => {
   });
 });
 
-describe("a legacy category is a number with a stepper, never stars", () => {
+describe("a converted legacy category is stars (PAD-403, evaluations.legacy-conversion rule 5)", () => {
+  // After the conversion the server answers every legacy category as 1-5 (group stays null).
+  const CONVERTED = competency({ id: 3, name: "Volley", group: null, scaleMin: 1, scaleMax: 5 });
+
+  it("draws five stars, no stepper, pre-filled from the converted score", () => {
+    setup({ competencies: [TECNICA, CONVERTED], record: record({ ratings: [
+      { categoryId: 3, name: "Volley", key: null, score: 3, scaleMin: 1, scaleMax: 5 },
+    ] }) });
+    expect(screen.queryByTestId("evaluation-stepper-3-value")).toBeNull();
+    expect(lit(3)).toBe(3);
+  });
+
+  it("a tap saves that star, like any competency", async () => {
+    const { onSave } = setup({ competencies: [TECNICA, CONVERTED] });
+    await act(async () => fireEvent.click(star(3, 4)));
+    expect(onSave).toHaveBeenCalledWith({ ratings: { "3": 4 } });
+    expect(lit(3)).toBe(4);
+  });
+});
+
+describe("a scale that is not 1-5 keeps the stepper (dormant since PAD-403: the server holds none)", () => {
   it("draws no star for it and shows n/max", async () => {
     setup({ record: record({ ratings: [
       { categoryId: 2, name: "Forehand", key: null, score: 7, scaleMin: 1, scaleMax: 10 },

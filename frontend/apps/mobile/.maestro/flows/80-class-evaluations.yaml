@@ -2,7 +2,8 @@
 # (Flow number 80 is from Session E's reserved range.)
 # - setup: a one-off class TODAY with E2E Student enrolled, a clean slate for their evaluations
 # - setup also switches the catalogue competency "technique" ON (the seeded coach owns only the
-#   legacy stepper "Forehand"), so the row lists 2 and a STAR can be tapped; teardown switches it off
+#   legacy "Forehand", stars too since PAD-403), so the row lists 2 star competencies; teardown
+#   switches "technique" off (the row this flow's own tap uses, keeping "Forehand" untouched)
 # - calendar (opens on today) → the class → "Avaliações" (a pushed screen) → the student's row
 #   reads "Sem avaliação" (0/2) → open it → tap the technique star → the SERVER holds one record carrying the class
 # - "Concluir avaliação" collapses the row; the summary reads 1/2

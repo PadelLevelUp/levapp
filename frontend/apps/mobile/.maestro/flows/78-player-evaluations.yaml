@@ -6,7 +6,8 @@
 # What it proves, by test id and by the server's own answers — never rendered copy:
 # - the profile card offers "Avaliações", which PUSHES a screen (not a native Modal)
 # - "Nova avaliação": a star tap saves at once; tapping the lit star clears it, and a
-#   record left with nothing is deleted; a legacy category is a stepper ("n/max")
+#   record left with nothing is deleted; a legacy category is stars too (PAD-403), never a
+#   stepper — the stepper ("n/max") is dormant, kept only for a scale that is not 1-5
 # - "Concluir avaliação" closes the form and the evaluation is a history card
 # - delete asks first, then the history is empty again and the server agrees
 # The private note is not typed here (the keyboard covers the form's lower half on the
@@ -77,17 +78,20 @@ appId: com.padellevelup.app
 - evalScript: "${output.afterClear = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
 - assertTrue: "${output.afterClear.length === 0}"
 
-# Rate again, and step the legacy category: a number, never stars.
+# PAD-403: rate again, and rate the legacy "Forehand" category too — it is stars now, never a
+# stepper (inverts the original "a legacy category is a stepper" assertion held here). Its id is
+# not exposed by evaluations-setup.js, so it is read the same way the server would tell any client.
 - tapOn:
     id: "evaluation-star-${output.techniqueId}-3"
-- assertVisible:
+- evalScript: "${output.forehandId = json(http.get(output.api + '/api/app/evaluation_categories', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).find(function (c) { return c.name === 'Forehand'; }).id}"
+- assertNotVisible:
     id: "evaluation-stepper-.*-value-none"
+- assertVisible:
+    id: "evaluation-stars-${output.forehandId}"
 - tapOn:
-    id: "evaluation-stepper-.*-plus"
-- extendedWaitUntil:
-    visible:
-      id: "evaluation-stepper-.*-value-6"
-    timeout: 5000
+    id: "evaluation-star-${output.forehandId}-4"
+- evalScript: "${output.afterForehand = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.afterForehand.length === 1 && output.afterForehand[0].ratings.length === 2}"
 
 # ── "Concluir avaliação" flushes the pending step and only closes ──
 - scrollUntilVisible:

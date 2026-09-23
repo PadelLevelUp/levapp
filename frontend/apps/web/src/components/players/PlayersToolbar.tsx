@@ -31,12 +31,17 @@ export function PlayersToolbar({
   onSortChange,
 }: PlayersToolbarProps) {
   const { t } = useTranslation();
+  // PAD-410: this toolbar now also lives inside the fixed-width master list
+  // pane on desktop (w-80/w-96). Tailwind's `sm:` variants key off the
+  // viewport, not the pane, so a `sm:flex-row` layout would still try to lay
+  // everything out in one row even though the pane itself is much narrower
+  // than that breakpoint. Everything wraps in place instead.
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3">
       <h1 className="text-2xl font-bold">{t("players.title")}</h1>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative max-w-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             data-testid="players-search-input"

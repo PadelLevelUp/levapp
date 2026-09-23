@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
 
 type Row = { off: boolean; windows: [string, string][] };
 type Week = Record<WorkingDayKey, Row>;
@@ -58,18 +59,39 @@ function workingHoursFromWeek(week: Week): NonNullable<CoachWorkingHours> {
   return out;
 }
 
+/** settings.unsaved-edits rule 2 — value equality, not identity: two rows with the same
+ *  `off`/windows are equal even if their window arrays were rebuilt (every `update`
+ *  copies the row). */
+export function weeksEqual(a: Week, b: Week): boolean {
+  return WORKING_DAY_KEYS.every((key) => {
+    const ra = a[key];
+    const rb = b[key];
+    if (ra.off !== rb.off) return false;
+    if (ra.windows.length !== rb.windows.length) return false;
+    return ra.windows.every((w, i) => w[0] === rb.windows[i][0] && w[1] === rb.windows[i][1]);
+  });
+}
+
 export function WorkingHoursSection() {
   const { t } = useTranslation();
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [isSet, setIsSet] = React.useState(false);
   const [week, setWeek] = React.useState<Week>(() => weekFromWorkingHours(null));
+  // The last loaded/saved baseline (settings.unsaved-edits rule 2), set alongside
+  // `week` every time `apply` runs — on the initial load and after a successful
+  // save/clear, exactly the two moments rule 2 calls "loaded or saved".
+  const [savedWeek, setSavedWeek] = React.useState<Week>(() => weekFromWorkingHours(null));
   const [errorDay, setErrorDay] = React.useState<WorkingDayKey | null>(null);
 
   const apply = (value: CoachWorkingHours) => {
     setIsSet(value !== null);
-    setWeek(weekFromWorkingHours(value));
+    const next = weekFromWorkingHours(value);
+    setWeek(next);
+    setSavedWeek(next);
   };
+
+  useUnsavedReporter("workingHours", !weeksEqual(week, savedWeek));
 
   // PAD-392 (B-155): loaded ONCE, and a load never replaces a week the coach has
   // touched. `t` was in the deps; it gets a new identity whenever the language changes

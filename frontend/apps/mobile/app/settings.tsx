@@ -8,6 +8,16 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/auth/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { AccountSection } from "@/features/settings/account-section";
@@ -24,6 +34,10 @@ import { SeasonsSection } from "@/features/settings/seasons-section";
 import { WorkingHoursSection } from "@/features/settings/working-hours-section";
 import { StudentNotificationBlocksSection } from "@/features/settings/student-notification-blocks-section";
 import { TutorialsSection } from "@/features/settings/tutorials-section";
+import {
+  UnsavedRegistryProvider,
+  useUnsavedRegistry,
+} from "@/features/settings/unsaved-registry";
 import {
   visibleSections,
   type SettingsSectionDef,
@@ -87,14 +101,34 @@ function SectionRow({
  * the one action people come to Settings to perform, and the More tab that
  * used to hold it is gone. Maestro reaches it via the header avatar
  * (`.maestro/subflows/logout.yaml`).
+ *
+ * B-157 / settings.unsaved-edits: `UnsavedRegistryProvider` wraps the body in
+ * its OWN component (`SettingsScreenBody`) rather than this one, because a
+ * component cannot consume the context it itself provides in the same
+ * render — `useUnsavedRegistry()` needs to be called from a descendant.
  */
 export default function SettingsScreen() {
+  return (
+    <UnsavedRegistryProvider>
+      <SettingsScreenBody />
+    </UnsavedRegistryProvider>
+  );
+}
+
+function SettingsScreenBody() {
   const { t } = useTranslation();
   // The list ends under the system bar on Android's edge-to-edge (the transparent
   // 3-button bar): pad by the bottom inset so the last row — logout — is tappable
   // and not behind the Home button (PAD-304; Maestro hit Home 1 run in 5).
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
+  const unsavedRegistry = useUnsavedRegistry();
+  // settings.unsaved-edits rule 4: the confirm shown before the back row leaves an
+  // unsaved section. Not gated on `activeSection`'s id — the registry is the aggregate
+  // of whatever is CURRENTLY mounted under the open pane (rule 3's "the section stays"
+  // covers `calendar`'s two panels and `preferences`'s nested CoachLevelsSection alike;
+  // see unsaved-registry.tsx).
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = React.useState(false);
 
   // Fresh profile straight from /auth/me; `user` is the cached fallback so the
   // first frame isn't empty.
@@ -243,7 +277,16 @@ export default function SettingsScreen() {
               testID="settings-back"
               accessibilityLabel={t("settings.sections")}
               role="button"
-              onPress={() => setOpenId(null)}
+              onPress={() => {
+                // settings.unsaved-edits rule 3: the back row is the only way from a
+                // section to the section list on iOS, so it is where leaving is asked.
+                // Nothing unsaved leaves at once, exactly as before (rule 3's other half).
+                if (unsavedRegistry.hasUnsaved()) {
+                  setConfirmDiscardOpen(true);
+                } else {
+                  setOpenId(null);
+                }
+              }}
               className="flex-row items-center gap-1.5 self-start py-1 active:opacity-70"
             >
               <Ionicons
@@ -260,6 +303,39 @@ export default function SettingsScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* settings.unsaved-edits rule 4: "Descartar alterações?" / "Discard changes?",
+          keep editing (stay, every edit intact) or discard (leave; the section reloads
+          from the server when reopened — nothing here saves anything). */}
+      <AlertDialog open={confirmDiscardOpen} onOpenChange={setConfirmDiscardOpen}>
+        <AlertDialogContent testID="settings-unsaved-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("settings.unsavedChanges.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("settings.unsavedChanges.body")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              testID="settings-unsaved-keep"
+              accessibilityLabel={t("settings.unsavedChanges.keepEditing")}
+            >
+              <Text>{t("settings.unsavedChanges.keepEditing")}</Text>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              testID="settings-unsaved-discard"
+              accessibilityLabel={t("settings.unsavedChanges.discard")}
+              className="bg-destructive"
+              onPress={() => {
+                setConfirmDiscardOpen(false);
+                setOpenId(null);
+              }}
+            >
+              <Text>{t("settings.unsavedChanges.discard")}</Text>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </View>
   );
 }
