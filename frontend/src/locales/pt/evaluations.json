@@ -58,6 +58,22 @@
       "deleteConfirm": "Eliminar competência",
       "cancel": "Cancelar",
       "impactFailed": "Não foi possível verificar o que seria eliminado. Tente novamente."
+    },
+    "reminder": {
+      "title": "Frequência de avaliações",
+      "options": {
+        "never": "Nunca",
+        "monthly": "Mensalmente",
+        "every_2": "A cada 2 aulas",
+        "every_4": "A cada 4 aulas",
+        "custom": "Personalizado"
+      },
+      "suffix": "aulas",
+      "hint": "A cada quantas aulas queres ser lembrado",
+      "caption": "O lembrete só ajuda a manter o histórico atualizado — a avaliação continua opcional.",
+      "invalidNumber": "Escreve um número inteiro entre 1 e 99.",
+      "saveFailed": "Não foi possível guardar. Tenta novamente.",
+      "dueLabel": "Avaliação em falta"
     }
   }
 }

@@ -164,6 +164,13 @@ export default function PlayersScreen() {
             <Text>{t(SIDE_LABEL_KEYS[item.side])}</Text>
           </Badge>
         ) : null}
+        {/* evaluations.reminders rule 4 (PAD-404): the server's `due`; the list is not re-sorted by it. */}
+        {item.due === true ? (
+          <Badge variant="outline" className="border-primary/40" testID={`player-due-${item.playerId}`}
+            accessibilityLabel={t("evaluations.reminder.dueLabel")}>
+            <Text className="text-primary">{t("evaluations.reminder.dueLabel")}</Text>
+          </Badge>
+        ) : null}
       </View>
     </Pressable>
   );

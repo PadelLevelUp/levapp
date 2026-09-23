@@ -63,7 +63,8 @@ Planned:
    newest first, and, per competency, how it has moved month by month with monthly, half-yearly
    and yearly averages.
 10. The coach chooses how often to be reminded to evaluate, and the app marks the players who are
-    due. It never messages anyone. *(Pending owner decision Q4.)*
+    due. It never messages anyone. *(Owner decision Q4, 2026-09-22: in-app markers only — no
+    push, no e-mail.)*
 
 ## Business Rules
 

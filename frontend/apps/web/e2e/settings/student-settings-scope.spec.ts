@@ -103,6 +103,8 @@ test.describe("PAD-103: student settings surface", () => {
     // By test id — the old heading matcher would now pass for EVERYONE, the heading being gone.
     await expect(page.getByTestId("settings-competencies")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /^season$/i })).toHaveCount(0);
+    // PAD-404 (evaluations.reminders rule 1): "Frequência de avaliações" is coach-only too.
+    await expect(page.getByTestId("settings-evaluation-reminder")).toHaveCount(0);
   });
 });
 
@@ -131,6 +133,8 @@ test.describe("PAD-103: coach settings surface is unchanged", () => {
     // PAD-373 (settings.role-scope rule 3): the entry that opens "Gerir competências".
     await expect(page.getByTestId("settings-competencies")).toBeVisible();
     await expect(page.getByTestId("settings-competencies-open")).toBeEnabled();
+    // PAD-404 (evaluations.reminders rule 1): the coach still gets the reminder setting.
+    await expect(page.getByTestId("settings-evaluation-reminder")).toBeVisible();
 
     await page.getByTestId("settings-nav-calendar").click();
     await expect(

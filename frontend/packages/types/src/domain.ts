@@ -328,6 +328,11 @@ export interface CoachPlayer {
    */
   deletable?: boolean,
   /**
+   * evaluations.reminders rule 4 (PAD-404): the coach's frequency says this player is due an
+   * evaluation. Computed by the server only (R-048); optional because older payloads lack it.
+   */
+  due?: boolean,
+  /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
    * their own username at account activation. Do not render it in coach UI.
@@ -1657,4 +1662,13 @@ export interface DashboardEvaluationsBlock {
     cards: EvaluationCard[];
     href: string;
   };
+}
+
+// ── PAD-404 (evaluations.reminders): the evaluation reminder setting ──
+export type EvaluationReminder = "never" | "monthly" | "every_n_classes";
+
+/** `GET/PUT /app/evaluation_settings`. `everyN` is present only for `every_n_classes`. */
+export interface EvaluationSettings {
+  reminder: EvaluationReminder;
+  everyN?: number;
 }

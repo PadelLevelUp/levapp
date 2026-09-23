@@ -27,6 +27,8 @@ export * as dashboardApi from "./resources/dashboard";
 export * as editorApi from "./resources/editor";
 export * as evaluationApi from "./resources/evaluation";
 export * as evaluationRecordsApi from "./resources/evaluationRecords";
+// PAD-404: the evaluation reminder setting.
+export * as evaluationSettingsApi from "./resources/evaluationSettings";
 export * as fieldsApi from "./resources/fields";
 export * as invitationsApi from "./resources/invitations";
 export * as joinTokensApi from "./resources/joinTokens";

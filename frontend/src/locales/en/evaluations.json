@@ -58,6 +58,22 @@
       "deleteConfirm": "Delete competency",
       "cancel": "Cancel",
       "impactFailed": "Could not check what would be deleted. Try again."
+    },
+    "reminder": {
+      "title": "Evaluation frequency",
+      "options": {
+        "never": "Never",
+        "monthly": "Monthly",
+        "every_2": "Every 2 classes",
+        "every_4": "Every 4 classes",
+        "custom": "Custom"
+      },
+      "suffix": "classes",
+      "hint": "How many classes between reminders",
+      "caption": "The reminder only helps keep the history current — evaluating stays optional.",
+      "invalidNumber": "Enter a whole number between 1 and 99.",
+      "saveFailed": "Could not save. Try again.",
+      "dueLabel": "Evaluation due"
     }
   }
 }

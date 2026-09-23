@@ -10,11 +10,13 @@ import type {
   EvaluationEvolution,
   EvaluationRecord,
   EvaluationRecordInput,
+  EvaluationSettings,
   EvaluationShareInput,
   PlayerEvaluations,
   PutEvaluationRecordResult,
 } from "@levelup/types";
 import * as evaluationRecordsApi from "@levelup/api/src/resources/evaluationRecords";
+import * as evaluationSettingsApi from "@levelup/api/src/resources/evaluationSettings";
 import * as evaluationSharingApi from "@levelup/api/src/resources/evaluationSharing";
 import { queryKeys } from "./queryKeys";
 
@@ -236,4 +238,34 @@ export function evaluationApiErrorCode(error: unknown): string | null {
   const data = (error as { response?: { data?: unknown } } | null)?.response?.data;
   const code = (data as { error?: unknown } | null)?.error;
   return typeof data === "object" && typeof code === "string" ? code : null;
+}
+
+// ── PAD-404 (evaluations.reminders): the frequency and the `due` markers it drives ──
+
+export function useEvaluationSettings(enabled = true) {
+  return useQuery<EvaluationSettings>({
+    queryKey: queryKeys.evaluationSettings,
+    queryFn: () => evaluationSettingsApi.getEvaluationSettings(),
+    enabled,
+  });
+}
+
+/**
+ * Saves on change. `due` is the server's (R-048), so every surface that shows the marker
+ * is refetched rather than patched: both players lists (web's paginated, iOS's full list
+ * and the pickers' `coach-players-all`) and every class panel.
+ */
+export function useSaveEvaluationSettings() {
+  const queryClient = useQueryClient();
+  return useMutation<EvaluationSettings, unknown, EvaluationSettings>({
+    mutationFn: (body) => evaluationSettingsApi.putEvaluationSettings(body),
+    onSuccess: (saved) => queryClient.setQueryData(queryKeys.evaluationSettings, saved),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.evaluationSettings });
+      for (const prefix of ["coach-players-paginated", "coach-players", "coach-players-all"]) {
+        void queryClient.invalidateQueries({ queryKey: [prefix] });
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() });
+    },
+  });
 }
