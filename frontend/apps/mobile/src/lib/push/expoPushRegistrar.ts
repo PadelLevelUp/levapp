@@ -99,6 +99,10 @@ export class ExpoPushRegistrar implements PushRegistrar {
     }
   }
 
+  cachedToken(): string | null {
+    return this.currentToken;
+  }
+
   async unregister(): Promise<void> {
     try {
       let token = this.currentToken;

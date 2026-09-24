@@ -359,6 +359,19 @@ def coach_approval_reapply():
 @jwt_required()
 def logout():
     jti = get_jwt()["jti"]
+    # auth.logout rule 4 (PAD-418, B-167): the app may send its push token so the
+    # caller's own (user, token) row goes in this same authenticated request —
+    # an unregister DELETE sent separately can lose the race with the revocation
+    # below and leave the phone on this account's pushes. Optional: App Store
+    # 1.0/1.1.0 send no body and see no change. Only the caller's row is touched
+    # (messaging.push-notifications rule 9).
+    push_token = (request.get_json(silent=True) or {}).get("pushToken")
+    if isinstance(push_token, str) and push_token:
+        from padel_app.models import DeviceToken
+
+        DeviceToken.query.filter_by(user_id=int(get_jwt_identity()), token=push_token).delete(
+            synchronize_session=False
+        )
     db.session.add(TokenBlocklist(jti=jti))
     # auth.logout rule 3 (PAD-269): rows older than the token lifetime (plus a
     # day) belong to expired tokens and only slow the per-request lookup.

@@ -14,6 +14,8 @@ server a given build talks to.
 - `mobile.release-build-target` — draft (PAD-351: a release build names its API target, the
   archived bundle is checked against it before upload, and a non-production build shows its
   server in Settings and on sign-in)
+- `mobile.status-bar` — implementing (PAD-419 / D136: dark status-bar content on the light
+  screens, light on the navy ones; the shared `Screen` decides)
 
 ## Why it's grouped this way
 

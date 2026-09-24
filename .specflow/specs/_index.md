@@ -20,7 +20,7 @@ governing leaf spec and its dependencies before touching code.
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
-- `mobile/` — Mobile Platform Runtime (2 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351)
+- `mobile/` — Mobile Platform Runtime (3 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
 - `settings/` — User Preferences & Internationalization (7 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357; `settings.unsaved-edits` added 2026-09-22, PAD-394)

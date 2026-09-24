@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# levapp pre-push hook: runs .githooks/prepush-gate.sh on what is being pushed.
+# Install once per clone (all worktrees share it):  git config core.hooksPath .githooks
+# Escape hatch: a line `[skip-prepush: <reason>]` in one of the pushed commits' messages.
+set -uo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+ZERO=0000000000000000000000000000000000000000
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue                       # deleting a remote branch
+  case "$remote_ref" in refs/tags/*) continue ;; esac
+
+  # The commits this push adds: not on the remote tip, and not already on staging. A staging
+  # merge brings staging's commits in; their messages must not grant a skip (#409 review).
+  excludes="^origin/staging"
+  if [ "$remote_sha" != "$ZERO" ] && git cat-file -e "$remote_sha" 2>/dev/null; then
+    excludes="$excludes ^$remote_sha"
+  fi
+  # shellcheck disable=SC2086
+  reason="$(git log --format=%B "$local_sha" $excludes 2>/dev/null | grep -oE '\[skip-prepush: [^]]+\]' | head -1)"
+  if [ -n "$reason" ]; then
+    echo "pre-push gate SKIPPED for $remote_ref by a pushed commit: $reason"
+    continue
+  fi
+
+  # Every pushed ref gets the checks that read the COMMIT (heads, JSON). The tiers that test the
+  # working tree (tsc, vitest, pytest) run only when that ref is the checked-out commit.
+  if [ "$local_sha" = "$(git rev-parse HEAD)" ]; then
+    PREPUSH_SHA="$local_sha" bash "$ROOT/.githooks/prepush-gate.sh" || status=1
+  else
+    echo "pre-push gate: $local_ref ($(git rev-parse --short "$local_sha")) is not the checked-out commit;"
+    echo "running its commit-tree checks only. Check it out and run the gate for the full set."
+    PREPUSH_SHA="$local_sha" PREPUSH_TREE_ONLY=1 bash "$ROOT/.githooks/prepush-gate.sh" || status=1
+  fi
+done
+
+exit $status

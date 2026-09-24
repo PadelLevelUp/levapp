@@ -159,3 +159,26 @@ message overstates each list's file count by one (a counting script matched the
 backend constants), text values under three characters (a separate decision), and the regex
 forms of `getByPlaceholder` / `getByLabel`. These backlogs are the open remainder — tracked
 here, not in an open ticket.
+
+## 2026-09-23 (Session-B) — PAD-191's undo-count failure was a test race, not load (PAD-412, PAD-413)
+
+`presences-validation.spec.ts` › PAD-191 › "classes 2..N are disabled while the run is in flight"
+failed intermittently at its final `toHaveCount(n)` after the cleanup undo loop, with
+`Expected 3 · Received 0`. A scheduled test-health run filed it under this ledger's load family and
+proposed a 15 s timeout on that line (#405). **That diagnosis was wrong, and #405 was closed
+unmerged**, superseded under ruling D126.
+- Re-run with #405's 15 s timeout (`eb89cfb45`) on an isolated stack at load ~19, far below this
+  ledger's ≥100 threshold: the test failed 1 in 5 **at the pinned line itself**.
+- An instrumented 20× repeat on staging `8dc17185d` observed the cause. The queue response had
+  arrived (`pending=0 validated=3`), yet at the loop's start the page showed `undo=0 cards=0`, and
+  1.5 s later `undo=3`. The "validated this week" list renders only after both of
+  `PresencesPage.loadQueue`'s requests resolve. The loop's instant guard read 0 in that gap and
+  undid nothing, so no timeout could help.
+- Fixed in **B-176 / PAD-412** (#407): the test waits for the n undo buttons. It is proven by a
+  2×2 with a trigger that delays `/pending_validation/count`.
+- The same diagnosis found a **separate, user-visible race**: two quick undos could leave a
+  reopened class shown as validated. That is **B-177 / PAD-413** (#408).
+
+The lesson for this ledger: a failure that recurs at the **same** assertion at moderate load is not
+this family's signature, which is a *varying* failure locus under heavy load. Reproduce it at low
+load and instrument the boundary before filing it here.

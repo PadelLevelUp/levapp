@@ -65,9 +65,10 @@ def test_register_device_token_creates_row(client, app):
         assert row.platform == "ios"
 
 
-def test_another_users_token_is_never_taken_over(client, app):
-    """messaging.push-notifications rule 9 (PAD-269): posting someone else's Expo
-    token no longer reassigns their row; each user owns their (user, token) pair."""
+def test_a_second_user_registering_the_same_token_removes_the_first_users_row(client, app):
+    """messaging.push-notifications rule 9 (D137, superseding PAD-269): the latest login owns
+    the phone. When a second user registers a device token, every OTHER user's row for that
+    token goes, so the phone stops receiving the previous account's pushes (B-167)."""
     from padel_app.models import DeviceToken
 
     with app.app_context():
@@ -83,6 +84,8 @@ def test_another_users_token_is_never_taken_over(client, app):
         headers=_auth_header(app, user_a_id),
     )
     assert resp1.status_code == 200
+    with app.app_context():  # the subject exists before the act (R-032)
+        assert {r.user_id for r in DeviceToken.query.filter_by(token=token).all()} == {user_a_id}
     resp2 = client.post(
         "/api/notifications/device",
         json={"token": token, "platform": "android"},
@@ -91,10 +94,30 @@ def test_another_users_token_is_never_taken_over(client, app):
     assert resp2.status_code == 200
 
     with app.app_context():
-        rows = {r.user_id: r for r in DeviceToken.query.filter_by(token=token).all()}
-        assert set(rows) == {user_a_id, user_b_id}
-        assert rows[user_a_id].platform == "ios"
-        assert rows[user_b_id].platform == "android"
+        rows = DeviceToken.query.filter_by(token=token).all()
+        assert [(r.user_id, r.platform) for r in rows] == [(user_b_id, "android")]
+
+
+def test_taking_a_token_leaves_the_previous_users_other_devices_alone(client, app):
+    """D137 only moves the ONE token being registered; the previous owner's other devices keep
+    their rows (their pushes still reach those phones)."""
+    from padel_app.models import DeviceToken
+
+    with app.app_context():
+        user_a = _create_user("User A", "device-user-a2")
+        user_b = _create_user("User B", "device-user-b2")
+        db.session.commit()
+        user_a_id, user_b_id = user_a.id, user_b.id
+
+    for tok in ("ExponentPushToken[shared]", "ExponentPushToken[a-ipad]"):
+        assert client.post("/api/notifications/device", json={"token": tok, "platform": "ios"},
+                           headers=_auth_header(app, user_a_id)).status_code == 200
+    assert client.post("/api/notifications/device", json={"token": "ExponentPushToken[shared]", "platform": "ios"},
+                       headers=_auth_header(app, user_b_id)).status_code == 200
+
+    with app.app_context():
+        a_tokens = sorted(r.token for r in DeviceToken.query.filter_by(user_id=user_a_id).all())
+        assert a_tokens == ["ExponentPushToken[a-ipad]"]
 
 
 def test_reregistering_own_token_keeps_one_row(client, app):

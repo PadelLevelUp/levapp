@@ -40,10 +40,15 @@ def register_device_token():
     if platform not in DEVICE_PLATFORMS:
         abort(400, "platform must be one of: " + ", ".join(sorted(DEVICE_PLATFORMS)))
 
-    # messaging.push-notifications rule 9 (PAD-269): a token is owned per
-    # (user, token). Registering upserts the caller's own row and never touches
-    # another user's (it used to reassign it, so anyone who knew a token could
-    # take someone's notifications away).
+    # messaging.push-notifications rule 9 (D137, superseding PAD-269): the latest
+    # login owns the phone. Every OTHER user's row for this token goes, so a phone
+    # never keeps receiving a previous account's pushes (B-167: the owner's phone
+    # got another account's message previews and every tap hit a 403). The owner
+    # accepted the opposite risk: whoever holds someone's push ID can take their
+    # notifications by registering it.
+    DeviceToken.query.filter(DeviceToken.token == token, DeviceToken.user_id != user_id).delete(
+        synchronize_session=False
+    )
     record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
     if record is None:
         record = DeviceToken(user_id=user_id, token=token, platform=platform)

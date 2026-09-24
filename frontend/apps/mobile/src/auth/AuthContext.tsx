@@ -16,6 +16,7 @@ import {
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
 import { getPushRegistrar } from "@/lib/push";
+import { signOut } from "./sign-out";
 
 export type AuthUser = authApi.MeResponse;
 
@@ -161,17 +162,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    // Best-effort push token cleanup. Fire-and-forget (never awaited, the
-    // registrar never throws) but must be kicked off before the token is
-    // cleared below, since the DELETE call needs it for the auth header.
-    void getPushRegistrar().unregister();
     // Clear the home-screen badge: the tabs layout (which keeps it in sync
     // with the unread count) is about to unmount, so nothing else would
     // reset it and the signed-out app would keep a stale count (PAD-147).
     void Notifications.setBadgeCountAsync(0).catch(() => undefined);
-    // Best-effort server-side invalidation — ignore failures.
-    await api.post("/auth/logout").catch(() => undefined);
-    await secureTokenStorage.removeToken().catch(() => undefined);
+    // PAD-418 (B-167): unregister the push token FIRST, while the session is
+    // still valid — /auth/logout blocklists it, and a DELETE sent after that is
+    // refused, leaving this phone on this account's pushes. Bounded; see signOut.
+    await signOut({
+      unregisterPush: () => getPushRegistrar().unregister(),
+      // auth.logout rule 4: the token rides along so the server drops this
+      // user's row in the same authenticated request (no race at all); the
+      // unregister above stays as the fallback when the token is not cached.
+      revokeSession: async () => {
+        const pushToken = getPushRegistrar().cachedToken();
+        await api.post("/auth/logout", pushToken ? { pushToken } : undefined);
+      },
+      clearToken: () => secureTokenStorage.removeToken(),
+    });
     setUser(null);
     router.replace("/login");
   }, []);

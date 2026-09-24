@@ -3,7 +3,7 @@ id: B-161
 title: "Every class reminder went out 2–3× since 2026-09-16: materialisation's roster enrolment armed one ask pass per student, and concurrent passes raced a count-then-insert guard"
 type: incomplete-rule
 severity: high
-status: open
+status: resolved
 affects:
   - notifications.reminders
   - backend/padel_app/scheduler.py
@@ -11,6 +11,7 @@ affects:
   - backend/padel_app/services/notification_service.py
 proposed_fix: "Suppress PAD-331's ask arming for the roster enrolment done inside the occurrence job; serialise send_class_reminders per instance with a Postgres advisory lock (no migration); a scheduled pass skips a student whose latest attempt is younger than hoursBetweenReminders, so persisted twin retry chains send once."
 opened: 2026-09-22T19:03:00Z
+resolved: 2026-09-23T19:07:08Z
 ---
 
 # B-161 — class reminders sent two or three times
@@ -112,4 +113,24 @@ Type 2 (incomplete rule), built by Session-C on `feature/pad-407`:
 
 ### Resolution
 
-(filled when the hotfix is verified in production)
+Fixed by PAD-407: PR #391 (C, reviewed by A at `2a3dd2d1c`, four mutants red on Postgres), promoted in #398 as
+`3f5146f15`, live in production from 2026-09-22 22:31 UTC. The fix still holds under wave 5 (`aa7314be4`, live 18:20 UTC).
+- Spec: `notifications.reminders` rule 21 + 3 criteria.
+- Tests: `test_pad407_reminder_double_send.py` (Postgres race tests forced by a barrier; lock-leak and stuck-holder cells).
+  `test_pad347_one_reminder_job_per_occurrence.py`'s retry test was re-dated by the gap.
+- Code:
+  - `pg_advisory_lock(407, instance_id)` on one dedicated autocommit connection around each pass;
+  - scheduled passes skip a student whose latest counted attempt is younger than `hoursBetweenReminders`;
+  - `_asks_suppressed()` around the occurrence job's materialisation.
+
+**Verified in production** (read-only, Session-A). The first real runs after the deploy were the 2026-09-23 17:00 UTC
+first reminder and the 19:00 UTC retry for instances 405/406:
+- `reminder_attempts` since 16:55: **14 rows = 14 unique** (instance, player, number) (read 19:07:08 UTC):
+  - number 1: 7 at 17:00:11–17:00:16 (405 ×1, 406 ×6);
+  - number 2: 7 at 19:00:13–19:00:17, two hours later, once per student.
+- For comparison: 2026-09-21 24 rows / 12 unique, 2026-09-22 24 / 12.
+- 0 same-presence duplicates. 0 `ask_*` jobs.
+- One retry chain per class (`reminder_lesson_42/45_2026-09-24_retry_*`); the twin `reminder_<instance>_retry_*` chains are gone.
+- `pg_locks` advisory classid 407 = 0 at 18:14, 18:20 and 19:07. No errors in the backend log.
+
+The side finding (`_get_or_create_direct_conversation` check-then-insert) was fixed separately as PAD-411 / B-172 (#395).

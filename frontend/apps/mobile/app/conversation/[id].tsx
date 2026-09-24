@@ -7,12 +7,15 @@ import {
   queryKeys,
   shouldShowJumpToBottom,
   nextTargetStep,
+  canRetryThreadLoad,
+  threadLoadErrorKey,
   useConversationThread,
 } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
+import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -121,6 +124,7 @@ export default function ConversationScreen() {
     data: conversation,
     isLoading,
     isError,
+    error: loadError,
     refetch,
     hasMore,
     isLoadingOlder,
@@ -975,6 +979,8 @@ export default function ConversationScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
+      <StatusBar style="light" />
       {/* Custom header: navy chrome, our colours, and the name and role chip
           aligned on one baseline rather than centred as two boxes. */}
       <View
@@ -1074,8 +1080,10 @@ export default function ConversationScreen() {
           <ChatSkeleton />
         ) : isError || !conversation ? (
           <ErrorState
-            message={t("messages.couldNotLoadConversation")}
-            onRetry={() => void refetch()}
+            // D137: a 403 is a push for another account, not a load failure.
+            message={t(threadLoadErrorKey(loadError))}
+            // A 403 can never succeed on retry, so it gets no Retry button.
+            onRetry={canRetryThreadLoad(loadError) ? () => void refetch() : undefined}
           />
         ) : (
           <>
