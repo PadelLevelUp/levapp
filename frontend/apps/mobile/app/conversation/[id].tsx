@@ -13,6 +13,7 @@ import type { Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
+import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -975,6 +976,8 @@ export default function ConversationScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
+      <StatusBar style="light" />
       {/* Custom header: navy chrome, our colours, and the name and role chip
           aligned on one baseline rather than centred as two boxes. */}
       <View

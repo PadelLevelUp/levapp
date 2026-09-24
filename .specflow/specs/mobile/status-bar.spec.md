@@ -29,7 +29,13 @@ near-invisible status bar (PAD-419; D136).
 3. **The last mounted style wins, and leaving a screen restores the previous one.** This is
    `expo-status-bar`'s stacking. Going back from a light pushed screen to a tab restores light
    content with no extra code.
-4. **Web is out of scope.** The browser draws its own bar. The web app's `theme-color`
+4. **A pushed route that paints its own navy top sets light content itself.** In a native stack
+   the light `Screen` beneath stays mounted with its dark style, so a pushed route that paints navy
+   under the status bar (`lightTheme.sidebarBackground`: settings, the conversation screens, the
+   class-request wizard) renders `<StatusBar style="light" />`. Mounted later, it wins while shown,
+   and unmounting it gives the screen beneath its dark content back. A source scan over every
+   non-tab route pins this (`src/lib/status-bar-navy-screens.test.ts`; Session-B's #415 review).
+5. **Web is out of scope.** The browser draws its own bar. The web app's `theme-color`
    (`#0B1524`) and `apple-mobile-web-app-status-bar-style` (`default`) are fixed, and the
    browser picks a contrasting text colour itself.
 
@@ -49,6 +55,11 @@ near-invisible status bar (PAD-419; D136).
 - **Given** a `Screen` with `title="Aula"` and no `edges`, which owns the top edge through its title
 - **When** it is shown
 - **Then** it renders a `StatusBar` whose `style` is `"dark"`
+
+#### A navy route pushed over a light screen shows light content
+- **Given** a route file outside `(tabs)` that paints `lightTheme.sidebarBackground`, such as `app/conversation/[id].tsx`
+- **When** the route files are scanned
+- **Then** it renders `<StatusBar style="light" />`
 
 ### Notes
 - Swept on staging `1c7c249a1`: 16 files render `Screen` with a top edge. They are the evaluation

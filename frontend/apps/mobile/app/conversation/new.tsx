@@ -5,6 +5,7 @@ import type { User } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, Stack } from "expo-router";
 import * as React from "react";
+import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -206,6 +207,8 @@ export default function NewConversationScreen() {
       behavior={keyboardAvoidingBehavior()}
       testID="screen-new-conversation"
     >
+      {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
+      <StatusBar style="light" />
       <Stack.Screen options={{ ...HEADER_OPTIONS, title: t("messages.newConversation") }} />
       <FlatList
         data={isLoading || isError ? [] : candidates}
