@@ -27,6 +27,13 @@
 # honours it and prints it; the reason is then in the history for review. Never --no-verify.
 set -uo pipefail
 
+# Git runs a hook with its repository variables exported (in a worktree: GIT_DIR=<its gitdir>).
+# A tool that runs git from a subdirectory then resolves paths against the wrong root: the B-127
+# collection guard listed nothing from frontend/ and called every packages test orphaned, a false
+# red on every frontend push from a worktree. The gate runs from the checkout, so clear them all.
+# shellcheck disable=SC2046
+unset $(git rev-parse --local-env-vars)
+
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 2
 BASE_REF="${PREPUSH_BASE:-origin/staging}"
@@ -111,6 +118,7 @@ elif changed '^frontend/'; then
     red "frontend/ changed but Node $(node -v 2>/dev/null || echo '(none)') is active; the frontend checks need Node 22 (nvm install 22)."
     FAILED+=("Node 22")
   else
+    echo "(frontend checks on node $(node -v) — $(command -v node))"
     step "typecheck web"    bash -c 'cd frontend && npx tsc --noEmit -p apps/web/tsconfig.app.json'
     step "typecheck mobile" bash -c 'cd frontend && npx tsc --noEmit -p apps/mobile/tsconfig.json'
     step "unit tests (npm test: web, packages, mobile)" bash -c 'cd frontend && npm test --silent'
