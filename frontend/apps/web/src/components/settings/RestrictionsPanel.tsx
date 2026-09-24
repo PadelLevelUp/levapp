@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { NotificationRestrictions } from "@/types";
 import { searchPlayers } from "@/api/notificationEngine";
+import { canStepRestriction, stepRestriction, type SteppedRestrictionKey } from "@levelup/config";
 
 interface RestrictionRowProps {
   label: string;
@@ -14,9 +15,8 @@ interface RestrictionRowProps {
   enabled: boolean;
   value?: number;
   unit?: string;
-  min?: number;
-  max?: number;
-  step?: number;
+  /** PAD-433: bounds and step come from @levelup/config's RESTRICTION_BOUNDS, shared with iOS. */
+  boundKey?: SteppedRestrictionKey;
   showValue: boolean;
   disabled?: boolean;
   onToggle: () => void;
@@ -31,8 +31,7 @@ function RestrictionRow({
   enabled,
   value,
   unit,
-  min,
-  max,
+  boundKey,
   showValue,
   disabled,
   onToggle,
@@ -56,7 +55,7 @@ function RestrictionRow({
                 size="icon"
                 className="h-7 w-7"
                 onClick={onDecrement}
-                disabled={value !== undefined && min !== undefined && value <= min}
+                disabled={value !== undefined && boundKey !== undefined && !canStepRestriction(boundKey, value, -1)}
               >
                 <Minus className="w-3 h-3" />
               </Button>
@@ -68,7 +67,7 @@ function RestrictionRow({
                 size="icon"
                 className="h-7 w-7"
                 onClick={onIncrement}
-                disabled={value !== undefined && max !== undefined && value >= max}
+                disabled={value !== undefined && boundKey !== undefined && !canStepRestriction(boundKey, value, 1)}
               >
                 <Plus className="w-3 h-3" />
               </Button>
@@ -87,9 +86,7 @@ interface ScalarStepperRowProps {
   description: string;
   value: number;
   unit?: string;
-  min: number;
-  max: number;
-  step: number;
+  boundKey: SteppedRestrictionKey;
   disabled?: boolean;
   onIncrement: () => void;
   onDecrement: () => void;
@@ -105,8 +102,7 @@ function ScalarStepperRow({
   description,
   value,
   unit,
-  min,
-  max,
+  boundKey,
   disabled,
   onIncrement,
   onDecrement,
@@ -126,7 +122,7 @@ function ScalarStepperRow({
               size="icon"
               className="h-7 w-7"
               onClick={onDecrement}
-              disabled={value <= min}
+              disabled={!canStepRestriction(boundKey, value, -1)}
             >
               <Minus className="w-3 h-3" />
             </Button>
@@ -136,7 +132,7 @@ function ScalarStepperRow({
               size="icon"
               className="h-7 w-7"
               onClick={onIncrement}
-              disabled={value >= max}
+              disabled={!canStepRestriction(boundKey, value, 1)}
             >
               <Plus className="w-3 h-3" />
             </Button>
@@ -151,6 +147,8 @@ function ScalarStepperRow({
 interface ExcludedPlayersRowProps {
   enabled: boolean;
   playerIds: string[];
+  /** PAD-433 / B-168: names from the config GET, so a reload still names each chip. */
+  excludedPlayerNames: Record<string, string>;
   onToggle: () => void;
   onAddPlayer: (id: string, name: string) => void;
   onRemovePlayer: (id: string) => void;
@@ -161,6 +159,7 @@ interface ExcludedPlayersRowProps {
 function ExcludedPlayersRow({
   enabled,
   playerIds,
+  excludedPlayerNames,
   onToggle,
   onAddPlayer,
   onRemovePlayer,
@@ -242,7 +241,7 @@ function ExcludedPlayersRow({
             <div className="flex flex-wrap gap-1.5">
               {playerIds.map((id) => (
                 <Badge key={id} variant="secondary" className="gap-1 pr-1">
-                  <span className="text-xs">{playerNames[id] ?? id}</span>
+                  <span className="text-xs">{playerNames[id] ?? excludedPlayerNames[id] ?? id}</span>
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-foreground transition-colors"
@@ -262,11 +261,13 @@ function ExcludedPlayersRow({
 
 interface RestrictionsPanelProps {
   restrictions: NotificationRestrictions;
+  /** PAD-433 / B-168: `config.excludedPlayerNames` from GET /notify/config. */
+  excludedPlayerNames?: Record<string, string>;
   onChange: (restrictions: NotificationRestrictions) => void;
   disabled?: boolean;
 }
 
-export function RestrictionsPanel({ restrictions, onChange, disabled }: RestrictionsPanelProps) {
+export function RestrictionsPanel({ restrictions, excludedPlayerNames = {}, onChange, disabled }: RestrictionsPanelProps) {
   const { t } = useTranslation();
   // Only the object-valued restriction keys go through this helper; the scalar
   // cancellationDeadlineHours is updated directly via onChange (see below).
@@ -290,13 +291,12 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         enabled={restrictions.maxSimultaneous.enabled}
         value={restrictions.maxSimultaneous.value}
         unit={t("settings.restrictions.students")}
-        min={1}
-        max={20}
+        boundKey="maxSimultaneous"
         showValue
         disabled={disabled}
         onToggle={() => update("maxSimultaneous", { enabled: !restrictions.maxSimultaneous.enabled })}
-        onIncrement={() => update("maxSimultaneous", { value: Math.min(20, restrictions.maxSimultaneous.value + 1) })}
-        onDecrement={() => update("maxSimultaneous", { value: Math.max(1, restrictions.maxSimultaneous.value - 1) })}
+        onIncrement={() => update("maxSimultaneous", { value: stepRestriction("maxSimultaneous", restrictions.maxSimultaneous.value, 1) })}
+        onDecrement={() => update("maxSimultaneous", { value: stepRestriction("maxSimultaneous", restrictions.maxSimultaneous.value, -1) })}
       />
 
       <RestrictionRow
@@ -305,13 +305,12 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         enabled={restrictions.maxTotal.enabled}
         value={restrictions.maxTotal.value}
         unit={t("settings.restrictions.total")}
-        min={1}
-        max={50}
+        boundKey="maxTotal"
         showValue
         disabled={disabled}
         onToggle={() => update("maxTotal", { enabled: !restrictions.maxTotal.enabled })}
-        onIncrement={() => update("maxTotal", { value: Math.min(50, restrictions.maxTotal.value + 1) })}
-        onDecrement={() => update("maxTotal", { value: Math.max(1, restrictions.maxTotal.value - 1) })}
+        onIncrement={() => update("maxTotal", { value: stepRestriction("maxTotal", restrictions.maxTotal.value, 1) })}
+        onDecrement={() => update("maxTotal", { value: stepRestriction("maxTotal", restrictions.maxTotal.value, -1) })}
       />
 
       <RestrictionRow
@@ -320,13 +319,12 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         enabled={restrictions.maxInactiveTime.enabled}
         value={restrictions.maxInactiveTime.value}
         unit={t("settings.restrictions.min")}
-        min={15}
-        max={1440}
+        boundKey="maxInactiveTime"
         showValue
         disabled={disabled}
         onToggle={() => update("maxInactiveTime", { enabled: !restrictions.maxInactiveTime.enabled })}
-        onIncrement={() => update("maxInactiveTime", { value: Math.min(1440, restrictions.maxInactiveTime.value + 15) })}
-        onDecrement={() => update("maxInactiveTime", { value: Math.max(15, restrictions.maxInactiveTime.value - 15) })}
+        onIncrement={() => update("maxInactiveTime", { value: stepRestriction("maxInactiveTime", restrictions.maxInactiveTime.value, 1) })}
+        onDecrement={() => update("maxInactiveTime", { value: stepRestriction("maxInactiveTime", restrictions.maxInactiveTime.value, -1) })}
         testId="restriction-row-max-inactive-time"
       />
 
@@ -336,13 +334,12 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         enabled={restrictions.minTimeBeforeClass.enabled}
         value={restrictions.minTimeBeforeClass.value}
         unit={t("settings.restrictions.min")}
-        min={5}
-        max={240}
+        boundKey="minTimeBeforeClass"
         showValue
         disabled={disabled}
         onToggle={() => update("minTimeBeforeClass", { enabled: !restrictions.minTimeBeforeClass.enabled })}
-        onIncrement={() => update("minTimeBeforeClass", { value: Math.min(240, restrictions.minTimeBeforeClass.value + 5) })}
-        onDecrement={() => update("minTimeBeforeClass", { value: Math.max(5, restrictions.minTimeBeforeClass.value - 5) })}
+        onIncrement={() => update("minTimeBeforeClass", { value: stepRestriction("minTimeBeforeClass", restrictions.minTimeBeforeClass.value, 1) })}
+        onDecrement={() => update("minTimeBeforeClass", { value: stepRestriction("minTimeBeforeClass", restrictions.minTimeBeforeClass.value, -1) })}
       />
 
       <RestrictionRow
@@ -351,13 +348,12 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         enabled={restrictions.maxInvitesPerStudentPerDay.enabled}
         value={restrictions.maxInvitesPerStudentPerDay.value}
         unit={t("settings.restrictions.perDay")}
-        min={1}
-        max={10}
+        boundKey="maxInvitesPerStudentPerDay"
         showValue
         disabled={disabled}
         onToggle={() => update("maxInvitesPerStudentPerDay", { enabled: !restrictions.maxInvitesPerStudentPerDay.enabled })}
-        onIncrement={() => update("maxInvitesPerStudentPerDay", { value: Math.min(10, restrictions.maxInvitesPerStudentPerDay.value + 1) })}
-        onDecrement={() => update("maxInvitesPerStudentPerDay", { value: Math.max(1, restrictions.maxInvitesPerStudentPerDay.value - 1) })}
+        onIncrement={() => update("maxInvitesPerStudentPerDay", { value: stepRestriction("maxInvitesPerStudentPerDay", restrictions.maxInvitesPerStudentPerDay.value, 1) })}
+        onDecrement={() => update("maxInvitesPerStudentPerDay", { value: stepRestriction("maxInvitesPerStudentPerDay", restrictions.maxInvitesPerStudentPerDay.value, -1) })}
       />
 
       <RestrictionRow
@@ -372,6 +368,7 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
       <ExcludedPlayersRow
         enabled={restrictions.excludedPlayers.enabled}
         playerIds={restrictions.excludedPlayers.playerIds}
+        excludedPlayerNames={excludedPlayerNames}
         onToggle={() => update("excludedPlayers", { enabled: !restrictions.excludedPlayers.enabled })}
         onAddPlayer={(id) => update("excludedPlayers", { playerIds: [...restrictions.excludedPlayers.playerIds, id] })}
         onRemovePlayer={(id) => update("excludedPlayers", { playerIds: restrictions.excludedPlayers.playerIds.filter((p) => p !== id) })}
@@ -394,12 +391,10 @@ export function RestrictionsPanel({ restrictions, onChange, disabled }: Restrict
         description={t("settings.restrictions.cancellationDeadlineDescription")}
         value={cancellationDeadline}
         unit={t("settings.restrictions.hours")}
-        min={0}
-        max={168}
-        step={1}
+        boundKey="cancellationDeadlineHours"
         disabled={disabled}
-        onIncrement={() => onChange({ ...restrictions, cancellationDeadlineHours: Math.min(168, cancellationDeadline + 1) })}
-        onDecrement={() => onChange({ ...restrictions, cancellationDeadlineHours: Math.max(0, cancellationDeadline - 1) })}
+        onIncrement={() => onChange({ ...restrictions, cancellationDeadlineHours: stepRestriction("cancellationDeadlineHours", cancellationDeadline, 1) })}
+        onDecrement={() => onChange({ ...restrictions, cancellationDeadlineHours: stepRestriction("cancellationDeadlineHours", cancellationDeadline, -1) })}
       />
     </div>
   );

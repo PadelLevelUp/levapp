@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
-import type { InvitationMode, NotificationConfig } from "@levelup/types";
+import type { InvitationMode, NotificationConfig, NotificationRestrictions } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -17,14 +18,16 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
+import { RestrictionsSection } from "./restrictions-section";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
  * Auto-Invite Engine basic controls, mirroring the top-level portion of
  * web's NotificationsEngineSection.tsx: the master on/off toggle and the
- * automatic/semi-automatic mode choice. The seven sub-panels (Reminders,
- * Invitation Groups, Tiebreakers, Restrictions, Notify Groups, Message
- * Templates, Standing Waiting List) are deferred — see found_issues.md.
+ * automatic/semi-automatic mode choice, plus Eligibility (PAD-161) and
+ * Restrictions (PAD-433, notifications.config rule 14). The other sub-panels
+ * (Reminders, Invitation Groups, Tiebreakers, Notify Groups, Message Templates,
+ * Standing Waiting List) are deferred — see found_issues.md.
  *
  * Simplification vs. web: web's master toggle special-cases turning the
  * engine on with zero invitationGroups configured (auto-seeds
@@ -37,6 +40,14 @@ import type { EligibilityImpactEntry } from "@levelup/types";
  * choice is a two-option segmented control built on Pressable instead of
  * porting web's RadioGroup 1:1.
  */
+// Web's fallbacks (NotificationsEngineSection) for a config saved before these keys existed.
+const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
+  maxInactiveTime: { enabled: false, value: 120 },
+  excludedPlayers: { enabled: false, playerIds: [] },
+  excludeUnpaidSubscription: { enabled: false },
+  cancellationDeadlineHours: 24,
+};
+
 export function AutoInviteSection() {
   const { t } = useTranslation();
 
@@ -64,6 +75,8 @@ export function AutoInviteSection() {
   // PAD-150 (rule 9b): who the last saved bar would exclude; null = not saved yet.
   const [eligibilityImpact, setEligibilityImpact] =
     React.useState<EligibilityImpactEntry[] | null>(null);
+  // Closed by default, like web's collapsible sub-panels.
+  const [restrictionsOpen, setRestrictionsOpen] = React.useState(false);
 
   const save = async (patch: Partial<NotificationConfig>) => {
     if (!config) return;
@@ -201,6 +214,33 @@ export function AutoInviteSection() {
               onCheckedChange={(openSpotsVisible) => void save({ openSpotsVisible })}
             />
           </View>
+        </View>
+
+        {/* Restrictions — PAD-433, the port of web's RestrictionsPanel. Visible whatever the
+            engine state but disabled while it is off, as web's `disabled` does. */}
+        <View className="gap-3 border-t border-border pt-4">
+          <Pressable
+            testID="settings-restrictions-header"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: restrictionsOpen }}
+            onPress={() => setRestrictionsOpen((open) => !open)}
+            className="flex-row items-center justify-between"
+          >
+            <Text className="text-sm font-medium">{t("settings.engine.restrictions")}</Text>
+            <Ionicons
+              name={restrictionsOpen ? "chevron-up" : "chevron-down"}
+              size={16}
+              color={lightTheme.mutedForeground}
+            />
+          </Pressable>
+          {restrictionsOpen ? (
+            <RestrictionsSection
+              restrictions={{ ...RESTRICTION_FALLBACKS, ...config.restrictions }}
+              excludedPlayerNames={config.excludedPlayerNames ?? {}}
+              disabled={!config.autoNotifyEnabled}
+              onChange={(restrictions) => void save({ restrictions })}
+            />
+          ) : null}
         </View>
       </CardContent>
     </Card>

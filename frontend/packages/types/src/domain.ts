@@ -1183,6 +1183,11 @@ export interface NotificationConfig {
   eligibilityRules?: GroupRule[] | null;
   /** PAD-130: the coach standard of "advertise empty spots to eligible students". */
   openSpotsVisible?: boolean;
+  /**
+   * PAD-433 / B-168 (notifications.config rule 14a): `{playerId: name}` for the excluded
+   * players that are still the coach's own. Read-only — GET carries it, POST ignores it.
+   */
+  excludedPlayerNames?: Record<string, string>;
 }
 
 // ── Replacement approval (semi-automatic mode) ─────────────────────────────

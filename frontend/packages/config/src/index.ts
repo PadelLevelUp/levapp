@@ -34,3 +34,4 @@ export * from "./competency-manager";
 export * from "./evaluation-form-session";
 export * from "./hold-refusal";
 export * from "./evaluation-share";
+export * from "./restriction-bounds";
