@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginLanding } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
@@ -244,6 +245,7 @@ export default function VerifyEmailScreen() {
 
   return (
     <KeyboardAvoidingView className="flex-1 bg-sidebar" behavior={keyboardAvoidingBehavior()}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"
