@@ -28,8 +28,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    carry. Each new spot takes the side with fewer, and a tie gives `left` then alternates. Round 1
    ("same level and same side", `both`-inclusive, rule 4a) then invites that side first. Rounds 2â€“3
    widen as they always do, so a spot never stays empty for lack of a player of its side. Balancing
-   ranks and orders, and it is never an eligibility bar (`eligibility.rules` rule 4). Open structural
-   vacancies created before this rule keep side `null` and are not rewritten.
+   ranks and orders, and it is never an eligibility bar (`eligibility.rules` rule 4). If no player on
+   the coach's roster plays `left` or `right`, the spots keep side `null` exactly as before. A sided
+   spot would only empty round 1 (a player with no side matches no side, rule 4a) and delay the fill
+   by a tick (rule 3c). Open structural vacancies created before this rule keep side `null` and are
+   not rewritten.
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -349,6 +352,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** a class of 6 with 4 enrolled players: 2 `left`, 1 `both` and 1 with no side
 - **When** the structural vacancies are created
 - **Then** 2 vacancies are created, both with side `right`
+
+#### A roster with no left or right player keeps never-filled spots side-less (PAD-421)
+- **Given** a coach whose roster has no player with side `left` or `right`, and a class of 3 with 2 enrolled players (one `both`, one with no side)
+- **When** the structural vacancies are created
+- **Then** 1 vacancy is created, with side `null`
 
 #### A balancing side is filled by that side first, and by anyone if nobody matches (PAD-421)
 - **Given** a structural vacancy with side `right`, and the rounds "same level and same side" then "same level"
