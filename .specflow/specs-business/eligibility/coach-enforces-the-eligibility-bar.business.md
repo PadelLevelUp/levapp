@@ -1,6 +1,6 @@
 ---
 id: eligibility.coach-enforces-the-eligibility-bar
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/eligibility/enforcement.spec.md
 ---

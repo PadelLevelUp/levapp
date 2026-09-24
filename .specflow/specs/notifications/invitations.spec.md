@@ -31,13 +31,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - Round 1: Exact match (same level + same side)
    - Round 2: Same level only
    - Round 3: Open to all eligible
-3a. **(pending PAD-128) Every round is capped at the eligibility bar.** Candidate selection applies, in this order:
+3a. **Every round is capped at the eligibility bar.** Candidate selection applies, in this order:
    `effective_eligibility()` for the class (`eligibility.cascade`) → the current round's
    `invitation_groups` criteria → `restrictions` → the priority criteria and tiebreakers that rank
    what survives. The widest round therefore means "everyone **eligible**", never "everyone". The
    widening behaviour itself is unchanged: rounds still open up in the same order, at the same
    timings, and a spot still reaches progressively more students — it simply stops at the floor.
-3b. **(pending PAD-128) Round criteria and eligibility parameters are different sets and stay different.** Playing side
+3b. **Round criteria and eligibility parameters are different sets and stay different.** Playing side
    is a round criterion (rules 4a/4b) and is deliberately **not** an eligibility parameter
    (`eligibility.rules` rule 4). Removing side from the bar must not remove it from the rounds:
    `both`-side handling and its acceptance criteria below are unaffected by this work.
@@ -285,7 +285,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **And** when the other student declines too, the vacancy advances to Round 2 instead of
   re-inviting either of them
 
-#### The widest round is capped at the eligibility bar (pending PAD-128)
+#### The widest round is capped at the eligibility bar
 - **Given** a coach whose eligibility is `[{level, within_n_of_class, value: 1}]`
 - **And** a vacancy whose earlier rounds have all been exhausted
 - **When** the engine advances to the round whose `invitation_groups` entry has no rules

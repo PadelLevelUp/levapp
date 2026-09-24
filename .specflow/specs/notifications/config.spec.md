@@ -45,11 +45,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    This is the same defect family as rule 6a and `calendar` rule 6; the round-trip back to UTC is
    the part rule 6a did not need, because comparing an hour never had to leave local time.
 7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
-7a. **(pending PAD-128)** `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
+7a. `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
    of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
    and unset is not a value — see `eligibility.cascade` rule 1. They round-trip through
    `GET|POST /api/app/notify/config` as `eligibilityRules` and `openSpotsVisible`.
-7b. **(pending PAD-128)** `invitation_groups` and `eligibility_rules` are **separate settings with separate meanings**:
+7b. `invitation_groups` and `eligibility_rules` are **separate settings with separate meanings**:
    groups order who gets asked first, eligibility decides who may join at all. Neither is derived
    from the other, and existing coaches' `invitation_groups` are never migrated into
    `eligibility_rules` (`eligibility.rules` rule 10).
