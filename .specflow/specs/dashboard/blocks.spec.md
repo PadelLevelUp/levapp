@@ -113,7 +113,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    each shell (web `components/dashboard/coach/*`, iOS `features/dashboard/blocks.tsx`); they
    differ only in which blocks the server sends and how the desktop columns are arranged. The
    rules those components encode, so a role-specific screen never re-decides them:
-   - No in-page "Dashboard" heading. The greeting ("Bom dia, {first name}") plus today's long
+   - No in-page "Dashboard" heading. The greeting ("Bom dia / Boa tarde / Boa noite, {first name}";
+     English "Good morning / Good afternoon / Good evening, {first name}", PAD-419) plus today's long
      date is the page's orientation — in the content on web, in the navy app bar on iOS. The
      sub-line appends "· {n} things need you" when the queue is non-empty.
    - Sections are introduced by an uppercase tracked eyebrow, never a heading element.
