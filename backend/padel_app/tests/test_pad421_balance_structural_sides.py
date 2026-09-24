@@ -140,3 +140,31 @@ def test_a_roster_with_no_sided_player_keeps_spots_side_less(app):
         vacancies = _create_structural_vacancies(instance, coach.id)
 
         assert [v.side for v in vacancies] == [None]
+
+
+def test_a_player_who_gave_the_spot_up_counts_only_through_their_open_vacancy(app):
+    """Criterion "A player who gave the spot up counts only through their open vacancy" (rule 2b):
+    the count is the players HOLDING a spot (effective_filled_spots' predicate) plus the
+    open vacancies. An absent player's side is already carried by the vacancy they opened; counting
+    them too would weigh their side twice."""
+    from padel_app.models.presences import Presence
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import _create_structural_vacancies
+
+    with app.app_context():
+        coach = _create_coach("bal-absent")
+        level = _create_level(coach, "3", display_order=1)
+        db.session.commit()
+        _, instance = _create_class(coach, "bal-absent", instance_level=level, max_players=3)
+        gone = _enrol(coach, level, instance, "balabsent-l", "left")
+        _enrol(coach, level, instance, "balabsent-r", "right")
+        Presence.query.filter_by(player_id=gone.player_id, lesson_instance_id=instance.id).one().status = "absent"
+        db.session.add(Vacancy(lesson_instance_id=instance.id, coach_id=coach.id,
+                               original_player_id=gone.player_id, side="left",
+                               level_id=level.id, status="open", approval_status="not_required"))
+        db.session.commit()
+
+        vacancies = _create_structural_vacancies(instance, coach.id)
+
+        # 1 right holding + 1 left open → tie → left. Counting the absent left player too gives right.
+        assert [v.side for v in vacancies] == ["left"]

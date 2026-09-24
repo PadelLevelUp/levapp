@@ -165,11 +165,16 @@ class LessonInstance(db.Model, model.Model):
         class-detail "capacity" field, and the invitation engine's capacity
         checks — none of those may recompute this independently.
         """
-        # PAD-259: one table. A presence row is an enrolment; an absent one gave
-        # its spot up (classes.instance-enrollment rule 5).
-        enrolled = len(self.presences)
-        declined = sum(1 for p in self.presences if p.status == "absent")
-        return max(0, enrolled - declined)
+        return len(self.holding_presences)
+
+    @property
+    def holding_presences(self) -> list:
+        """The presences that hold a spot — the predicate behind ``effective_filled_spots``.
+
+        PAD-259: one table. A presence row is an enrolment; an absent one gave
+        its spot up (classes.instance-enrollment rule 5).
+        """
+        return [p for p in self.presences if p.status != "absent"]
 
     @property
     def confirmed_spots(self) -> int:

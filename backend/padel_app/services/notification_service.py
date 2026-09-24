@@ -621,8 +621,9 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
                 parts.append(-stats.get("attendance_rate", 0.0))
             elif criterion == "playing_side":
                 # Prefer an exact-side match first, then "both" players, then any
-                # remaining. A vacancy with no side (rule 2b leaves one side-less) favours no
-                # side: every player gets the same rank (PAD-420, invitations rule 4b).
+                # remaining. A vacancy with no side (a side-less player's who dropped out,
+                # or a never-filled spot rule 2b leaves side-less) favours no side: every
+                # player gets the same rank (PAD-420, invitations rule 4b).
                 if vacancy_side is not None:
                     parts.append(_side_preference_rank(cp.side, vacancy_side))
                 else:
@@ -2331,16 +2332,14 @@ def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> lis
     # Nothing to balance when nobody on the coach's roster plays a side: a sided spot would only
     # empty round 1 (a side-less player does not match a side, rule 4a) and delay the fill by a
     # tick (rule 3c). Keep side None, exactly as before.
-    if not db.session.query(
-        Association_CoachPlayer.query.filter(
-            Association_CoachPlayer.coach_id == coach_id,
-            Association_CoachPlayer.side.in_(("left", "right")),
-        ).exists()
-    ).scalar():
+    if Association_CoachPlayer.query.filter(
+        Association_CoachPlayer.coach_id == coach_id,
+        Association_CoachPlayer.side.in_(("left", "right")),
+    ).first() is None:
         return [None] * count
 
     counts = {"left": 0, "right": 0}
-    holding = [p.player_id for p in instance.presences if p.status != "absent"]
+    holding = [p.player_id for p in instance.holding_presences]
     if holding:
         for (side,) in (
             db.session.query(Association_CoachPlayer.side)
