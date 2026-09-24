@@ -10,6 +10,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
@@ -142,6 +143,7 @@ export default function LoginScreen() {
       className="flex-1 bg-sidebar"
       behavior={keyboardAvoidingBehavior()}
     >
+      <StatusBar style="light" />
       <ScrollView
         contentContainerClassName="flex-grow justify-center p-4"
         keyboardShouldPersistTaps="handled"

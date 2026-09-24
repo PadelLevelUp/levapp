@@ -31,8 +31,11 @@ near-invisible status bar (PAD-419; D136).
    content with no extra code.
 4. **A pushed route that paints its own navy top sets light content itself.** In a native stack
    the light `Screen` beneath stays mounted with its dark style, so a pushed route that paints navy
-   under the status bar (`lightTheme.sidebarBackground`: settings, the conversation screens, the
-   class-request wizard) renders `<StatusBar style="light" />`. Mounted later, it wins while shown,
+   under the status bar renders `<StatusBar style="light" />`. Navy is either marker: the
+   `lightTheme.sidebarBackground` token (settings, the conversation screens, the class-request
+   wizard) or the `bg-sidebar` class (connect, verify-email, login, signup, forgot-password,
+   coach-pending, club-onboarding; PAD-434). A stack root carries it too, so it stays right if a
+   route that is a root today is later pushed (`/connect` already is, from the student dashboard). Mounted later, it wins while shown,
    and unmounting it gives the screen beneath its dark content back. A source scan over every
    non-tab route pins this (`src/lib/status-bar-navy-screens.test.ts`; Session-B's #415 review).
 5. **Web is out of scope.** The browser draws its own bar. The web app's `theme-color`
@@ -57,7 +60,7 @@ near-invisible status bar (PAD-419; D136).
 - **Then** it renders a `StatusBar` whose `style` is `"dark"`
 
 #### A navy route pushed over a light screen shows light content
-- **Given** a route file outside `(tabs)` that paints `lightTheme.sidebarBackground`, such as `app/conversation/[id].tsx`
+- **Given** a route file outside `(tabs)` that paints `lightTheme.sidebarBackground` (such as `app/conversation/[id].tsx`) or the `bg-sidebar` class (such as `app/connect.tsx`, pushed from the student dashboard; PAD-434)
 - **When** the route files are scanned
 - **Then** it renders `<StatusBar style="light" />`
 

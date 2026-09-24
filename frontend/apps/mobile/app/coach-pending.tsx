@@ -4,6 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Linking, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
@@ -46,6 +47,7 @@ export default function CoachPendingScreen() {
 
   return (
     <View className="flex-1 justify-center bg-sidebar p-4">
+      <StatusBar style="light" />
       <View className="mb-6 items-center">
         <LevAppMark size={30} />
       </View>
