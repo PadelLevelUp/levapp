@@ -171,8 +171,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // refused, leaving this phone on this account's pushes. Bounded; see signOut.
     await signOut({
       unregisterPush: () => getPushRegistrar().unregister(),
+      // auth.logout rule 4: the token rides along so the server drops this
+      // user's row in the same authenticated request (no race at all); the
+      // unregister above stays as the fallback when the token is not cached.
       revokeSession: async () => {
-        await api.post("/auth/logout");
+        const pushToken = getPushRegistrar().cachedToken();
+        await api.post("/auth/logout", pushToken ? { pushToken } : undefined);
       },
       clearToken: () => secureTokenStorage.removeToken(),
     });

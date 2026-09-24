@@ -230,8 +230,8 @@ Send browser push notifications when a new message arrives and the recipient isn
 #### Logout unregisters the push token before the session ends (PAD-418)
 - **Given** a signed-in user whose phone registered push token `ExponentPushToken[abc]`
 - **When** they log out
-- **Then** `DELETE /api/notifications/device {token}` completes with their still-valid session **before** `/auth/logout` revokes it, so their row for that token is removed and the phone stops receiving their pushes
-- **And** an unregister that hangs or fails never holds logout for more than a few seconds; logout still revokes the session and clears the stored token
+- **Then** their row for that token is removed while their session is still valid: `/auth/logout` carries the token and deletes the row in the same request (`auth.logout` rule 4), and the separate `DELETE /api/notifications/device {token}` goes first as the fallback, so the phone stops receiving their pushes
+- **And** an unregister or a `/auth/logout` that hangs or fails never holds logout for more than a few seconds; logout still clears the stored token
 
 #### Push is sent off the calling thread and never holds the engine (PAD-294)
 - **Given** a student with a registered device token and a push service that answers after 300 ms

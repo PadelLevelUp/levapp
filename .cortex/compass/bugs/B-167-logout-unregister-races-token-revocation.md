@@ -57,4 +57,8 @@ Drift: none. The business spec says pushes reach the user they're for.
 - **Spec:** new criterion, "Logout unregisters the push token before the session ends (PAD-418)", under rule 9. The rule text is unchanged.
 - **Code:** new \`frontend/apps/mobile/src/auth/sign-out.ts\` runs unregister (awaited, bounded at 3 s), then revoke (\`/auth/logout\`), then clears the stored token, each step best-effort. \`AuthContext.logout\` uses it.
 - **Tests:** \`src/auth/sign-out.test.ts\` 3/3. It was red first against today's order (\`['revoke','clear']\` vs \`['delete','revoke','clear']\`). All three cells are proven by mutants: no await makes the ordering test red, no timeout makes the hang test time out, an unguarded revoke makes the failure test red. Mobile suite: 68 files, 621 passed. tsc: 0.
+- **Follow-up (D135, same PR, after Session-B's review):**
+  - \`/auth/logout\` accepts an optional \`{pushToken}\` and deletes the CALLER's row inside the same authenticated request (\`auth.logout\` rule 4). That removes the race rather than bounding it. It's backward compatible: no body behaves as before. The client sends the token from \`PushRegistrar.cachedToken()\` and keeps the separate unregister as the fallback.
+  - \`/auth/logout\` is now bounded at 5 s too, since the API client has no timeout.
+  - Tests: \`test_pad418_logout_drops_push_token.py\` 4/4, the two removal cells red first. The preservation cells were proven by a mutant with the caller filter dropped. The new sign-out cell "a hung revoke never blocks logout" was red first (timed out).
 - **Not done (owner decision):** phones already holding a stale row keep it until that user logs in and out again with the fix, or until Expo reports the token as \`DeviceNotRegistered\`.

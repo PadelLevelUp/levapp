@@ -82,4 +82,20 @@ describe("signOut", () => {
     });
     expect(events).toEqual(["revoke", "clear"]);
   });
+
+  it("never lets a hung revoke block logout (a blackholed /auth/logout)", async () => {
+    const events: string[] = [];
+    await signOut({
+      unregisterPush: async () => {
+        events.push("unregister");
+      },
+      revokeSession: () => new Promise<void>(() => undefined), // never settles
+      clearToken: async () => {
+        events.push("clear");
+      },
+      unregisterTimeoutMs: 30,
+      revokeTimeoutMs: 30,
+    });
+    expect(events).toEqual(["unregister", "clear"]);
+  });
 });
