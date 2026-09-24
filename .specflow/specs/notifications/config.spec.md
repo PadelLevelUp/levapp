@@ -44,6 +44,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    presents as intermittent.
    This is the same defect family as rule 6a and `calendar` rule 6; the round-trip back to UTC is
    the part rule 6a did not need, because comparing an hour never had to leave local time.
+6c. **`maxTotal` is a budget per CLASS OCCURRENCE (PAD-432).** It caps the invitations for one
+   class instance across ALL its open spots, counting the ones still pending (`sent`) and the ones
+   accepted (`confirmed`) together; each new batch is trimmed to the remaining budget, and a class at
+   its budget invites no one more (`notification_service`, the eligibility gate and the batch
+   builder). It is not per vacancy: two open spots in one class share the same budget. The settings
+   copy says so ("Max total per class").
 7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
 7a. `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
    of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
