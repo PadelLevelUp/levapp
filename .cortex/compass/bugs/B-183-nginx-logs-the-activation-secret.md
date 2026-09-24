@@ -3,13 +3,14 @@ id: B-183
 title: "nginx logged the activation link's secret (?t=, ?token=) and its Referer"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - auth.activate
   - infra/nginx/
   - frontend/apps/web/nginx.conf
 proposed_fix: "auth.activate gains rule 12. The log map also redacts t=, a second map cuts every Referer's query, /register/ and /api/app/register/ log errors only at crit, and /register/ answers with Referrer-Policy: no-referrer. Host and web nginx both. check-log-redaction.sh gains the probes."
 opened: 2026-09-24T21:24:43Z
+resolved: 2026-09-24T22:11:20Z
 ---
 
 # B-183: nginx logged the activation secret
@@ -46,3 +47,9 @@ A forged Referer on an upstream error still reaches error.log, since nginx print
 - Spec changes: `auth.activate` rule 12, plus its criterion.
 - Tests: `infra/nginx/check-log-redaction.sh`, three probes plus the header check (CI `nginx-log-redaction.yaml`).
 - Code: `infra/nginx/conf.d/levapp-log-redaction.conf`, the three vhosts, `frontend/apps/web/nginx.conf`.
+- Merged: #425 (PAD-435) into staging, `d82a2c585`.
+
+**Applied on the VM (coordinator, 2026-09-24 22:11 UTC):** the 4 files from #425 were installed (`conf.d/levapp-log-redaction.conf`, `sites-available/{levapp,levapp-staging,padellevelup}`), with a backup of the previous config kept on the VM. `nginx -t` passed and nginx was reloaded. levapp.app and staging both answer 200.
+- Live probe: `/api/app/events?token=<probe>` and `/register/1?t=<probe>` were logged as `?[redacted]`, with 0 hits for either probe in access.log or error.log.
+- Scrub: every `access.log*` and `error.log*`, `.gz` rotations included, went from 700+ leaked `token=` / `t=` values to 0. The current log files were rewritten in place (inodes kept).
+- No JWT secret rotation (D141): tokens that leaked before the scrub stay valid until they expire.

@@ -3,7 +3,7 @@ id: B-182
 title: "The host nginx logged the SSE access token (?token=<JWT>) in access.log and error.log"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - auth.login
   - R-009
@@ -11,6 +11,7 @@ affects:
   - frontend/apps/web/nginx.conf
 proposed_fix: "auth.login gains rule 4a (no proxy logs the SSE token). The host nginx is versioned under infra/nginx/: an http-level map and log_format redact any token= query, every server block logs with it, and the SSE location logs errors only at crit. The web image's nginx.conf does the same. infra/nginx/check-log-redaction.sh proves it in Docker, and CI runs it."
 opened: 2026-09-24T21:10:28Z
+resolved: 2026-09-24T22:11:20Z
 ---
 
 # B-182: the host nginx logged the SSE access token
@@ -48,3 +49,9 @@ opened: 2026-09-24T21:10:28Z
 - Spec changes: `auth.login` rule 4a, plus criterion "No nginx log holds the SSE token (B-182)".
 - Tests added: `infra/nginx/check-log-redaction.sh`, run in CI by `nginx-log-redaction.yaml`.
 - Code changes: `infra/nginx/` (new), `frontend/apps/web/nginx.conf`.
+- Merged: #425 (PAD-435) into staging, `d82a2c585`.
+
+**Applied on the VM (coordinator, 2026-09-24 22:11 UTC):** the 4 files from #425 were installed (`conf.d/levapp-log-redaction.conf`, `sites-available/{levapp,levapp-staging,padellevelup}`), with a backup of the previous config kept on the VM. `nginx -t` passed and nginx was reloaded. levapp.app and staging both answer 200.
+- Live probe: `/api/app/events?token=<probe>` and `/register/1?t=<probe>` were logged as `?[redacted]`, with 0 hits for either probe in access.log or error.log.
+- Scrub: every `access.log*` and `error.log*`, `.gz` rotations included, went from 700+ leaked `token=` / `t=` values to 0. The current log files were rewritten in place (inodes kept).
+- No JWT secret rotation (D141): tokens that leaked before the scrub stay valid until they expire.
