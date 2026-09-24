@@ -101,16 +101,44 @@ def get_or_create_config(coach_id: int) -> NotificationConfig:
     return config
 
 
+def _excluded_player_names(coach_id: int, player_ids) -> dict:
+    """PAD-433 / B-168: ``{player_id: name}`` for the excluded ids that are still this
+    coach's players and not deleted accounts (the same scope as the player search)."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.players import Player
+
+    ids = {int(pid) for pid in player_ids or [] if str(pid).isdigit()}
+    if not ids:
+        return {}
+    rows = (
+        db.session.query(Player.id, User.name)
+        .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
+        .join(User, User.id == Player.user_id)
+        .filter(Association_CoachPlayer.coach_id == coach_id)
+        .filter(Player.id.in_(ids))
+        .filter(User.status != "disabled")
+        .all()
+    )
+    return {str(pid): name for pid, name in rows}
+
+
 def get_config_dict(coach_id: int) -> dict:
     from padel_app.models import Coach
 
     config = get_or_create_config(coach_id)
     locale = _resolve_locale(Coach.query.get(coach_id))
+    restrictions = config.get_restrictions()
     return {
         "autoNotifyEnabled": config.auto_notify_enabled,
         "invitationMode": config.get_invitation_mode(),
         "priorityCriteria": config.get_priority_criteria(),
-        "restrictions": config.get_restrictions(),
+        "restrictions": restrictions,
+        # PAD-433 / B-168 (rule 14a): read-only names for the excluded-player chips.
+        # The restriction stores ids only; POST ignores this key.
+        "excludedPlayerNames": _excluded_player_names(
+            coach_id, restrictions["excludedPlayers"]["playerIds"]
+        ),
         "notificationGroups": config.get_notification_groups(),
         "messageTemplates": config.get_message_templates(locale),
         "reminderTiming": config.reminder_timing,

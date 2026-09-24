@@ -298,6 +298,7 @@ export function NotificationsEngineSection() {
                 cancellationDeadlineHours: 24,
                 ...config.restrictions,
               }}
+              excludedPlayerNames={config.excludedPlayerNames ?? {}}
               onChange={(restrictions) => save({ restrictions })}
               disabled={disabled}
             />
