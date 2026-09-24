@@ -621,7 +621,7 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
                 parts.append(-stats.get("attendance_rate", 0.0))
             elif criterion == "playing_side":
                 # Prefer an exact-side match first, then "both" players, then any
-                # remaining. A vacancy with no side (a never-filled spot) favours no
+                # remaining. A vacancy with no side (rule 2b leaves one side-less) favours no
                 # side: every player gets the same rank (PAD-420, invitations rule 4b).
                 if vacancy_side is not None:
                     parts.append(_side_preference_rank(cp.side, vacancy_side))

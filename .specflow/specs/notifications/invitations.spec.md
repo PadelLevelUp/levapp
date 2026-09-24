@@ -32,7 +32,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    the coach's roster plays `left` or `right`, the spots keep side `null` exactly as before. A sided
    spot would only empty round 1 (a player with no side matches no side, rule 4a) and delay the fill
    by a tick (rule 3c). Open structural vacancies created before this rule keep side `null` and are
-   not rewritten.
+   not rewritten. There is no per-class or coach-wide opt-out: the owner's words ("invite players in a
+   way that makes the class simetrical if possible") named none, so balancing is the default for
+   every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -313,7 +315,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **And** Left-Lucy is ranked ahead of Both-Bob by the playing-side tiebreaker (exact side preferred over "both")
 
 #### The playing-side tiebreaker favours no side for a vacancy with no side (PAD-420)
-- **Given** a class with a never-filled spot, so its structural vacancy has no side
+- **Given** a vacancy with no side (a never-filled spot of a coach whose roster plays no left or right side, rule 2b, or one opened before PAD-421)
 - **And** the "Playing side" priority criterion is enabled
 - **And** an eligible player Right-Rita with side "right" listed ahead of an eligible player Left-Leo with side "left"
 - **When** the candidates are ranked
