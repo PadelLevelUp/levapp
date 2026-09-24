@@ -20,7 +20,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 
 ### Rules
 1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
-2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`; structural vacancies with no departing player have side `null`)
+2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
+2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
+   structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
+   class as close to even as possible. The count is the class's enrolled players (`left` / `right`;
+   `both` and no side are flexible and count on neither) plus the sides its open vacancies already
+   carry. Each new spot takes the side with fewer, and a tie gives `left` then alternates. Round 1
+   ("same level and same side", `both`-inclusive, rule 4a) then invites that side first. Rounds 2–3
+   widen as they always do, so a spot never stays empty for lack of a player of its side. Balancing
+   ranks and orders, and it is never an eligibility bar (`eligibility.rules` rule 4). Open structural
+   vacancies created before this rule keep side `null` and are not rewritten.
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -330,6 +339,22 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** the vacancy carries level `Beginner`
 - **And** only `Beginner` students pass the group — students at other levels are NOT invited
 - **And** the `{level}` placeholder in the invitation message renders `Beginner`
+
+#### Never-filled spots balance the class's sides (PAD-421)
+- **Given** a class of 16 with 6 enrolled players (4 `left`, 2 `right`) and no open vacancy
+- **When** the structural vacancies are created
+- **Then** 10 vacancies are created, 6 with side `right` and 4 with side `left`, so the class would end 8/8
+
+#### "Both" and side-less players count on neither side when balancing (PAD-421)
+- **Given** a class of 6 with 4 enrolled players: 2 `left`, 1 `both` and 1 with no side
+- **When** the structural vacancies are created
+- **Then** 2 vacancies are created, both with side `right`
+
+#### A balancing side is filled by that side first, and by anyone if nobody matches (PAD-421)
+- **Given** a structural vacancy with side `right`, and the rounds "same level and same side" then "same level"
+- **When** eligible players Rui (`right`) and Leo (`left`) are both available
+- **Then** round 1 invites Rui and not Leo
+- **And** if no `right` or `both` player is eligible, round 1 invites nobody and round 2 invites Leo
 
 #### A vacancy with no level anywhere invites nobody through a level rule
 - **Given** a class instance with no `level_id` whose parent lesson has no `default_level_id` either
