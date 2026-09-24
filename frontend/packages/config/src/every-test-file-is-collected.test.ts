@@ -125,7 +125,16 @@ describe("every test file is collected by a runner (B-127)", () => {
       for (const file of files) collected.set(file, [...(collected.get(file) ?? []), runner.name]);
     }
 
-    const candidates = filesOnDisk().filter((f) => LOOKS_LIKE_A_TEST.test(f) && !f.startsWith(PLAYWRIGHT_DIR));
+    const onDisk = filesOnDisk();
+    // The instrument reads THIS repository, relative to frontend/. Under an inherited GIT_DIR git took
+    // frontend/ for the top and listed the index's repo-root paths ("frontend/packages/…"), so every
+    // test looked orphaned (B-173): say that, not "332 orphans".
+    expect(onDisk).toContain("packages/config/src/every-test-file-is-collected.test.ts");
+    expect(
+      onDisk.filter((f) => f.startsWith("frontend/")),
+      "git listed paths from the repository root, not frontend/ — is GIT_DIR inherited?",
+    ).toEqual([]);
+    const candidates = onDisk.filter((f) => LOOKS_LIKE_A_TEST.test(f) && !f.startsWith(PLAYWRIGHT_DIR));
     expect(candidates.length).toBeGreaterThan(0);
 
     const orphans = candidates.filter((f) => !collected.has(f));
