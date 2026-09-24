@@ -5,6 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
@@ -299,6 +300,7 @@ export default function ClubOnboardingScreen() {
       contentContainerClassName="flex-grow justify-center p-4"
       keyboardShouldPersistTaps="handled"
     >
+      <StatusBar style="light" />
       <View className="mb-6 items-center">
         <LevAppMark size={30} />
       </View>

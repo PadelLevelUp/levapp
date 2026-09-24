@@ -11,6 +11,7 @@ import {
   type TextInput,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { z } from "zod";
 import { useAuth } from "@/auth/AuthContext";
 import { needsEmailVerification, postLoginRoute } from "@/auth/postLoginRoute";
@@ -320,6 +321,7 @@ export default function SignUpScreen() {
       className="flex-1 bg-sidebar"
       behavior={keyboardAvoidingBehavior()}
     >
+      <StatusBar style="light" />
       <ScrollView
         ref={scrollRef}
         contentContainerClassName="flex-grow justify-center p-4"
