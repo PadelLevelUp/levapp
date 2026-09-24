@@ -1,0 +1,89 @@
+# PAD-433 / notifications.config rule 14, 14a — the restrictions on iOS. A coach opens
+# Settings → Notifications → Restrictions, sees the saved values and the excluded
+# student BY NAME (B-168), presses + on "max simultaneous" once, leaves Settings and
+# comes back: the new value is read back from the server, on screen and through the API.
+#
+# Setup (scripts/restrictions-setup.js) turns the engine on, sets maxSimultaneous to 3 and
+# excludes one of the coach's students; teardown restores the coach's own config (R-040).
+# Assertions are by testID and server values only, never rendered copy (the account
+# language). Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 105
+# was reserved for PAD-433 by the coordinator.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/restrictions-setup.js
+onFlowComplete:
+  - runScript: ../scripts/restrictions-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-notifications"
+- extendedWaitUntil:
+    visible:
+      id: "settings-restrictions-header"
+    timeout: 15000
+- tapOn:
+    id: "settings-restrictions-header"
+
+# ── The saved state, as the server holds it ──
+- scrollUntilVisible:
+    element:
+      id: "restriction-maxSimultaneous-inc"
+    direction: DOWN
+- assertVisible:
+    id: "restriction-maxSimultaneous-value"
+    text: "3"
+- scrollUntilVisible:
+    element:
+      id: "restriction-excluded-chip-${output.pid}"
+    direction: DOWN
+- assertVisible:
+    id: "restriction-excluded-chip-${output.pid}"
+    text: "${output.pname}"
+
+# ── One press of + ──
+- scrollUntilVisible:
+    element:
+      id: "restriction-maxSimultaneous-inc"
+    direction: UP
+- tapOn:
+    id: "restriction-maxSimultaneous-inc"
+- assertVisible:
+    id: "restriction-maxSimultaneous-value"
+    text: "4"
+
+# ── Leave Settings and come back ──
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+- tapOn:
+    id: "settings-back"
+- extendedWaitUntil:
+    visible:
+      id: "settings-nav-notifications"
+    timeout: 10000
+- tapOn:
+    id: "settings-nav-notifications"
+- extendedWaitUntil:
+    visible:
+      id: "settings-restrictions-header"
+    timeout: 15000
+- tapOn:
+    id: "settings-restrictions-header"
+- scrollUntilVisible:
+    element:
+      id: "restriction-maxSimultaneous-value"
+    direction: DOWN
+- assertVisible:
+    id: "restriction-maxSimultaneous-value"
+    text: "4"
+
+# ── And the server holds it ──
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).restrictions.maxSimultaneous.value}"
+- assertTrue: "${output.after == 4}"

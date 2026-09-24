@@ -13,11 +13,14 @@ from pathlib import Path
 
 import pytest
 
+from padel_app.tests.git_env import git_env
+
 SCRIPT = Path(__file__).resolve().parents[3] / ".claude" / "skills" / "weekly-qa" / "scripts" / "reset-qa-db.sh"
 
 
 def _git(repo, *args):
-    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True).stdout.strip()
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True,
+                          env=git_env()).stdout.strip()
 
 
 def _checkout(root: Path, name="levapp-qa", message="tree under test") -> tuple[Path, str]:
@@ -40,7 +43,8 @@ def _checkout(root: Path, name="levapp-qa", message="tree under test") -> tuple[
 
 
 def _run(env_extra, *args):
-    env = {k: v for k, v in os.environ.items() if k not in ("QA_CHECKOUT", "QA_COMMIT", "PYTHONPATH")}
+    # the script runs git on QA_CHECKOUT: an inherited GIT_DIR would point it elsewhere (B-173)
+    env = {k: v for k, v in git_env().items() if k not in ("QA_CHECKOUT", "QA_COMMIT", "PYTHONPATH")}
     env.update({"QA_RESET_DRY_RUN": "1", **env_extra})
     return subprocess.run(["bash", str(SCRIPT), *args], env=env, capture_output=True, text=True, timeout=60)
 
@@ -53,7 +57,7 @@ def tree(tmp_path):
 def test_the_script_is_tracked_next_to_the_skill_not_under_the_ignored_docs():
     assert SCRIPT.is_file()
     tracked = subprocess.run(["git", "-C", str(SCRIPT.parent), "ls-files", "--error-unmatch", SCRIPT.name],
-                             capture_output=True, text=True)
+                             capture_output=True, text=True, env=git_env())
     assert tracked.returncode == 0, "the QA checkout only carries the script if git tracks it"
 
 

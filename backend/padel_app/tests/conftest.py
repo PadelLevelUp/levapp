@@ -32,6 +32,12 @@ from sqlalchemy import event, text
 from padel_app import create_app
 from padel_app.models import User
 from padel_app.sql_db import db, init_db
+from padel_app.tests.git_env import GIT_LOCAL_ENV_VARS
+
+# B-173: a suite started from a git hook inherits GIT_DIR & co.; a test's `git init <scratch>`
+# then re-initialised the shared repository as bare. No test ever needs them — drop them first.
+for _name in GIT_LOCAL_ENV_VARS:
+    os.environ.pop(_name, None)
 
 TEST_DB_BACKEND = os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower()
 MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parents[2] / "migrations"

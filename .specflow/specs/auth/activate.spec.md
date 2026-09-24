@@ -69,6 +69,16 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     screens already send every field, `""` when emptied (their own validation stops an empty name,
     username, e-mail or password before the request), so the one visible change is that an emptied
     phone box now removes the coach-typed phone instead of silently keeping it.
+12. **No proxy logs the secret (B-183, PAD-435).** The secret rides in URLs: the link's `?t=`
+    and rule 4's `?token=`. Every nginx in front of the app (the VM's host nginx, `infra/nginx/`,
+    and the web image's `frontend/apps/web/nginx.conf`) logs such a request with its query cut to
+    `?[redacted]`, logs every Referer with its query cut, and logs errors for `/register/` and
+    `/api/app/register/` only at `crit` (an upstream error writes the request line and the Referer at
+    level `error`, and no format can redact that). `/register/` answers with
+    `Referrer-Policy: no-referrer`, so the page's own requests carry no Referer to leak. What stays:
+    a client that ignores the policy and forges a Referer still reaches error.log on an upstream
+    error. `infra/nginx/check-log-redaction.sh` proves the rest in Docker, and CI runs it (`auth.login`
+    rule 4a is the same guarantee for the SSE token).
 
 ### Acceptance Criteria
 
@@ -116,6 +126,13 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **When** it opens the full link
 - **Then** the form renders with Bruno's name and an empty username box, and activation succeeds
 - **And** the iOS `RegisterScreen` behaves the same, reading `t` from the universal link
+
+#### No nginx log holds the activation secret (B-183)
+- **Given** the tracked host config (`infra/nginx/`) or the web image's `nginx.conf`, running in the VM's nginx image with the upstreams down
+- **When** `GET /register/7?t=<a canary>` and `GET /api/app/register/user/7?token=<a canary>` reach every vhost on every port it serves, and `GET /api/app/players?page=2` arrives with `Referer: …/register/7?t=<a canary>`
+- **Then** the canary is in no access.log line, and in no error.log line except the forged-Referer control's
+- **And** each secret-bearing request is still logged, as `…?[redacted]`, the control is logged with `?page=2` and the Referer `…/register/7?[redacted]`
+- **And** `/register/7` answers with `Referrer-Policy: no-referrer`
 
 ### Notes
 - Why a derived token rather than a column: the fix had to ship without a migration in the

@@ -20,7 +20,22 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 
 ### Rules
 1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
-2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`; structural vacancies with no departing player have side `null`)
+2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
+2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
+   structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
+   class as close to even as possible. The count is the players holding a spot (`effective_filled_spots`'s predicate: an
+   absent player gave theirs up; `left` / `right`, with `both` and no side flexible and counted on
+   neither) plus the sides its open vacancies already carry, so a player who dropped out counts once,
+   through the vacancy they opened. Each new spot takes the side with fewer, and a tie gives `left` then alternates. Round 1
+   ("same level and same side", `both`-inclusive, rule 4a) then invites that side first. Rounds 2â€“3
+   widen as they always do, so a spot never stays empty for lack of a player of its side. Balancing
+   ranks and orders, and it is never an eligibility bar (`eligibility.rules` rule 4). If no player on
+   the coach's roster plays `left` or `right`, the spots keep side `null` exactly as before. A sided
+   spot would only empty round 1 (a player with no side matches no side, rule 4a) and delay the fill
+   by a tick (rule 3c). Open structural vacancies created before this rule keep side `null` and are
+   not rewritten. There is no per-class or coach-wide opt-out: the owner's words ("invite players in a
+   way that makes the class simetrical if possible") named none, so balancing is the default for
+   every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -301,7 +316,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **And** Left-Lucy is ranked ahead of Both-Bob by the playing-side tiebreaker (exact side preferred over "both")
 
 #### The playing-side tiebreaker favours no side for a vacancy with no side (PAD-420)
-- **Given** a class with a never-filled spot, so its structural vacancy has no side
+- **Given** a vacancy with no side (a side-less player dropped out; or a never-filled spot of a coach whose roster plays no left or right side, rule 2b; or one opened before PAD-421)
 - **And** the "Playing side" priority criterion is enabled
 - **And** an eligible player Right-Rita with side "right" listed ahead of an eligible player Left-Leo with side "left"
 - **When** the candidates are ranked
@@ -338,6 +353,32 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Then** the vacancy carries level `Beginner`
 - **And** only `Beginner` students pass the group â€” students at other levels are NOT invited
 - **And** the `{level}` placeholder in the invitation message renders `Beginner`
+
+#### Never-filled spots balance the class's sides (PAD-421)
+- **Given** a class of 16 with 6 enrolled players (4 `left`, 2 `right`) and no open vacancy
+- **When** the structural vacancies are created
+- **Then** 10 vacancies are created, 6 with side `right` and 4 with side `left`, so the class would end 8/8
+
+#### "Both" and side-less players count on neither side when balancing (PAD-421)
+- **Given** a class of 6 with 4 enrolled players: 2 `left`, 1 `both` and 1 with no side
+- **When** the structural vacancies are created
+- **Then** 2 vacancies are created, both with side `right`
+
+#### A roster with no left or right player keeps never-filled spots side-less (PAD-421)
+- **Given** a coach whose roster has no player with side `left` or `right`, and a class of 3 with 2 enrolled players (one `both`, one with no side)
+- **When** the structural vacancies are created
+- **Then** 1 vacancy is created, with side `null`
+
+#### A player who gave the spot up counts only through their open vacancy (PAD-421)
+- **Given** a class of 3 with a `left` player marked absent (their open vacancy has side `left`) and a present `right` player
+- **When** the structural vacancies are created
+- **Then** 1 vacancy is created, with side `left` (1 right holding + 1 left open is a tie), not `right`
+
+#### A balancing side is filled by that side first, and by anyone if nobody matches (PAD-421)
+- **Given** a structural vacancy with side `right`, and the rounds "same level and same side" then "same level"
+- **When** eligible players Rui (`right`) and Leo (`left`) are both available
+- **Then** round 1 invites Rui and not Leo
+- **And** if no `right` or `both` player is eligible, round 1 invites nobody and round 2 invites Leo
 
 #### A vacancy with no level anywhere invites nobody through a level rule
 - **Given** a class instance with no `level_id` whose parent lesson has no `default_level_id` either

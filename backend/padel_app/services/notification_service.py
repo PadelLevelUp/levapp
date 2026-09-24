@@ -101,16 +101,44 @@ def get_or_create_config(coach_id: int) -> NotificationConfig:
     return config
 
 
+def _excluded_player_names(coach_id: int, player_ids) -> dict:
+    """PAD-433 / B-168: ``{player_id: name}`` for the excluded ids that are still this
+    coach's players and not deleted accounts (the same scope as the player search)."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.players import Player
+
+    ids = {int(pid) for pid in player_ids or [] if str(pid).isdigit()}
+    if not ids:
+        return {}
+    rows = (
+        db.session.query(Player.id, User.name)
+        .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
+        .join(User, User.id == Player.user_id)
+        .filter(Association_CoachPlayer.coach_id == coach_id)
+        .filter(Player.id.in_(ids))
+        .filter(User.status != "disabled")
+        .all()
+    )
+    return {str(pid): name for pid, name in rows}
+
+
 def get_config_dict(coach_id: int) -> dict:
     from padel_app.models import Coach
 
     config = get_or_create_config(coach_id)
     locale = _resolve_locale(Coach.query.get(coach_id))
+    restrictions = config.get_restrictions()
     return {
         "autoNotifyEnabled": config.auto_notify_enabled,
         "invitationMode": config.get_invitation_mode(),
         "priorityCriteria": config.get_priority_criteria(),
-        "restrictions": config.get_restrictions(),
+        "restrictions": restrictions,
+        # PAD-433 / B-168 (rule 14a): read-only names for the excluded-player chips.
+        # The restriction stores ids only; POST ignores this key.
+        "excludedPlayerNames": _excluded_player_names(
+            coach_id, restrictions["excludedPlayers"]["playerIds"]
+        ),
         "notificationGroups": config.get_notification_groups(),
         "messageTemplates": config.get_message_templates(locale),
         "reminderTiming": config.reminder_timing,
@@ -621,8 +649,9 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
                 parts.append(-stats.get("attendance_rate", 0.0))
             elif criterion == "playing_side":
                 # Prefer an exact-side match first, then "both" players, then any
-                # remaining. A vacancy with no side (a never-filled spot) favours no
-                # side: every player gets the same rank (PAD-420, invitations rule 4b).
+                # remaining. A vacancy with no side (a side-less player's who dropped out,
+                # or a never-filled spot rule 2b leaves side-less) favours no side: every
+                # player gets the same rank (PAD-420, invitations rule 4b).
                 if vacancy_side is not None:
                     parts.append(_side_preference_rank(cp.side, vacancy_side))
                 else:
@@ -2318,6 +2347,50 @@ def _create_vacancy_for_absent_player(
     return vacancy
 
 
+def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> list[str | None]:
+    """PAD-421 (notifications.invitations rule 2b): the side each of ``count`` new structural
+    vacancies takes, so the class ends as close to even as it can.
+
+    Counts the sides of the players holding a spot (their side with this coach; ``both`` and no
+    side are flexible and count on neither) plus the sides the class's open vacancies already
+    carry. Each new spot takes the side with fewer; a tie gives ``left``, so they alternate.
+    """
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    # Nothing to balance when nobody on the coach's roster plays a side: a sided spot would only
+    # empty round 1 (a side-less player does not match a side, rule 4a) and delay the fill by a
+    # tick (rule 3c). Keep side None, exactly as before.
+    if Association_CoachPlayer.query.filter(
+        Association_CoachPlayer.coach_id == coach_id,
+        Association_CoachPlayer.side.in_(("left", "right")),
+    ).first() is None:
+        return [None] * count
+
+    counts = {"left": 0, "right": 0}
+    holding = [p.player_id for p in instance.holding_presences]
+    if holding:
+        for (side,) in (
+            db.session.query(Association_CoachPlayer.side)
+            .filter(Association_CoachPlayer.coach_id == coach_id,
+                    Association_CoachPlayer.player_id.in_(holding))
+        ):
+            if side in counts:
+                counts[side] += 1
+    for (side,) in (
+        db.session.query(Vacancy.side)
+        .filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open")
+    ):
+        if side in counts:
+            counts[side] += 1
+
+    sides = []
+    for _ in range(count):
+        side = "left" if counts["left"] <= counts["right"] else "right"
+        counts[side] += 1
+        sides.append(side)
+    return sides
+
+
 def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> list[Vacancy]:
     """
     Create Vacancy records for spots that are open because the class was never
@@ -2342,12 +2415,13 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
     approval_status = "pending" if _is_semi_auto(config) else "not_required"
 
     vacancies = []
-    for _ in range(spots_to_create):
+    # PAD-421 (rule 2b): each never-filled spot looks for the side the class is short of first.
+    for side in _balancing_sides(instance, coach_id, spots_to_create):
         v = Vacancy(
             lesson_instance_id=instance.id,
             coach_id=coach_id,
             original_player_id=None,
-            side=None,
+            side=side,
             # PAD-86: the level often lives only on the parent lesson.
             level_id=effective_level_id(instance),
             status="open",
