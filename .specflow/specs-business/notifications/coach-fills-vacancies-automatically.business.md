@@ -49,6 +49,9 @@ the waiting list.
 
 - Matching widens progressively: exact level-and-side match first, then level-only, then anyone
   still eligible — so the engine tries the closest replacement before it tries everyone.
+- When a class has spots that were never filled, the app aims to balance left- and right-side
+  players: each open spot looks for the side the class is short of first, and falls back to any
+  side, so no spot stays empty for lack of the "right" side.
 - A student marked "both sides" is a match for either a left or right vacancy, and a "both" vacancy
   accepts a player of any side; when both an exact-side and a "both" candidate are available, the
   exact-side player is offered first.
@@ -80,6 +83,8 @@ Not yet measured.
 
 ## Notes
 
+- **[2026-09-24, PAD-421]** Balancing the class's sides has no per-class or coach-wide opt-out:
+  the owner asked for it "if possible" and named no switch. Add one if the owner asks.
 - **[DEC 2026-09-04, PAD-124]** RESOLVED: a student can self-serve onto the waiting list — by
   answering Yes on the same message they get when a spot was just filled by someone else. That
   answer already worked once tapped, but neither app actually showed a Yes/No on the message, so
