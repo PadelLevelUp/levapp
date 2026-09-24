@@ -464,7 +464,7 @@
       "maxSimultaneousDescription": "How many students are notified at the same time",
       "students": "students",
       "maxTotal": "Max total per class",
-      "maxTotalDescription": "Invitations for one class, pending and accepted together",
+      "maxTotalDescription": "Invitations for one class date, pending and accepted together",
       "total": "total",
       "maxInactiveTime": "Max inactive time",
       "maxInactiveTimeDescription": "Minutes to wait before sending the next batch if no one responds",

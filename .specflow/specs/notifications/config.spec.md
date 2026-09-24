@@ -45,11 +45,14 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    This is the same defect family as rule 6a and `calendar` rule 6; the round-trip back to UTC is
    the part rule 6a did not need, because comparing an hour never had to leave local time.
 6c. **`maxTotal` is a budget per CLASS OCCURRENCE (PAD-432).** It caps the invitations for one
-   class instance across ALL its open spots, counting the ones still pending (`sent`) and the ones
-   accepted (`confirmed`) together; each new batch is trimmed to the remaining budget, and a class at
-   its budget invites no one more (`notification_service`, the eligibility gate and the batch
-   builder). It is not per vacancy: two open spots in one class share the same budget. The settings
-   copy says so ("Max total per class").
+   class instance (`lesson_instance_id`, one date of a class) across ALL its open spots, counting the
+   ones still pending (`sent`) and the ones accepted (`confirmed`) together: two open spots in one
+   occurrence share one budget, each new batch is trimmed to what remains, and an occurrence at its
+   budget invites no one more (`notification_service._check_restrictions` and
+   `_send_invitation_batch`). **Queued and expired invitations do not count**: a queued one is not
+   charged until it is sent, and an invitation that expires gives its place back to the budget, so
+   "max total" is not a lifetime cap. The settings copy says "Max total per class" / "Invitations
+   for one class date, pending and accepted together".
 7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
 7a. `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
    of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
@@ -147,3 +150,14 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** the migration runs
 - **Then** the row still sends no reminder (`reminder_type = "none"`, the scheduler creates no reminder job), is logged with its id, and `reminderCount` is 2 and `hoursBetweenReminders` is 6
 - **And** the `1` reads as enabled and the `"false"` as disabled
+
+#### maxTotal is one budget per class date, shared by its open spots (PAD-432)
+- **Given** a coach with `maxTotal` = 3 (enabled) and a class occurrence with two open spots, where 2 invitations for it are already `sent`
+- **When** the engine builds the next invitation batch for that occurrence, with 5 eligible students
+- **Then** at most 1 invitation goes out (the batch is trimmed to the remaining budget of 3 − 2), whichever open spot it is for
+- **And** once 3 are `sent`/`confirmed` for that occurrence, the eligibility gate refuses further invitations for it
+
+#### An expired invitation gives its place back (PAD-432)
+- **Given** the same occurrence at its budget of 3, where one of the 3 invitations then expires
+- **When** the engine checks the occurrence again
+- **Then** one more invitation may be sent: `expired` (and `queued`) invitations do not count against `maxTotal`
