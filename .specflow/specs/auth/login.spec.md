@@ -23,6 +23,12 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 4. Token is sent in the `Authorization` header. The `?token=` query string is accepted on the SSE
    endpoint `/api/app/events` alone, because `EventSource` cannot set headers (R-009; PAD-269 —
    until then the query string worked on every route and put tokens in access logs).
+4a. **No proxy logs the SSE token (B-182, PAD-435).** Every nginx in front of the API (the VM's host
+   nginx, `infra/nginx/`, and the web image's `frontend/apps/web/nginx.conf`) writes a request
+   whose query carries `token=` (or `access_token=`) to its access log with the query cut to
+   `?[redacted]`, and the SSE location logs to its error log only at `crit`, since an upstream
+   error writes the full request line at level `error`. Other requests keep their query in the
+   log. `infra/nginx/check-log-redaction.sh` proves it in Docker, and CI runs it.
 5. Token contains user identity (user_id)
 6. The login screen (web `/auth` and the iOS login screen) carries a **Forgot your password?** link under the sign-in button that opens `auth.password-recovery` (its rule 7).
 7. **Per-IP throttle (PAD-228).** `POST /api/auth/login` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_LOGIN` (`"count/seconds"`, default `20/60`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. Account lockout after repeated failures (B-002) stays out of scope.
@@ -108,6 +114,12 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **When** they GET `/api/auth/me?token=<the token>` with no `Authorization` header
 - **Then** the response is 401
 - **And** GET `/api/app/events?token=<the token>` is accepted (200, `text/event-stream`)
+
+#### No nginx log holds the SSE token (B-182)
+- **Given** the tracked host config (`infra/nginx/`) or the web image's `nginx.conf`, running in the VM's nginx image with the upstreams down
+- **When** `GET /api/app/events?token=<a canary>` reaches every vhost on every port it serves, followed by `GET /api/app/players?page=2`
+- **Then** the canary is in neither access.log nor error.log
+- **And** each SSE request is still logged, as `/api/app/events?[redacted]`, and the control request is logged with `?page=2`
 
 #### An unactivated account is an ordinary 401 (PAD-269)
 - **Given** a coach-created user `bruno` with no password

@@ -1,0 +1,75 @@
+server {
+    server_name padellevelup.com www.padellevelup.com;
+    # B-182: the SSE token (?token=) is redacted in this log; see conf.d/levapp-log-redaction.conf.
+    access_log /var/log/nginx/access.log redacted;
+
+    # SSE endpoint — must come before /api/ block
+    location /api/app/events {
+        # B-182: an upstream error writes the request line, token included, at level error.
+        error_log /var/log/nginx/error.log crit;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection '';
+        chunked_transfer_encoding on;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+        keepalive_timeout 86400s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /register/ {
+        # B-183: the activation page carries its secret as ?t=; an upstream error would log it.
+        error_log /var/log/nginx/error.log crit;
+        # B-183: no Referer from this page, so its own requests never repeat the secret in one (an
+        # upstream error prints the Referer to error.log too). The web image sets it as well; hide
+        # that copy so the response carries one.
+        proxy_hide_header Referrer-Policy;
+        add_header Referrer-Policy "no-referrer" always;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/app/register/ {
+        # B-183: the account lookup carries the activation secret as ?token=; same.
+        error_log /var/log/nginx/error.log crit;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/padellevelup.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/padellevelup.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
