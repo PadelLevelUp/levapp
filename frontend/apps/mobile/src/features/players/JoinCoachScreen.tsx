@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
 import { rememberPendingJoin } from "@/auth/pendingJoin";
 import { LevAppMark } from "@/components/brand/LevAppMark";
@@ -81,6 +82,7 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
 
   const shell = (children: React.ReactNode, testID: string) => (
     <View className="flex-1 justify-center bg-sidebar p-4">
+      <StatusBar style="light" />
       <View className="mb-6 items-center">
         <LevAppMark size={30} />
       </View>

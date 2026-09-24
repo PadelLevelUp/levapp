@@ -34,7 +34,9 @@ near-invisible status bar (PAD-419; D136).
    under the status bar renders `<StatusBar style="light" />`. Navy is either marker: the
    `lightTheme.sidebarBackground` token (settings, the conversation screens, the class-request
    wizard) or the `bg-sidebar` class (connect, verify-email, login, signup, forgot-password,
-   coach-pending, club-onboarding; PAD-434). A stack root carries it too, so it stays right if a
+   coach-pending, club-onboarding; PAD-434). A shared component that is a screen's navy root (a
+   `flex-1` element with `bg-sidebar`: `PreAuthShell` for invite/coach, invite/player and register;
+   `JoinCoachScreen` for join/coach) renders it itself, and the scan covers `src/` for such roots. A stack root carries it too, so it stays right if a
    route that is a root today is later pushed (`/connect` already is, from the student dashboard). Mounted later, it wins while shown,
    and unmounting it gives the screen beneath its dark content back. A source scan over every
    non-tab route pins this (`src/lib/status-bar-navy-screens.test.ts`; Session-B's #415 review).

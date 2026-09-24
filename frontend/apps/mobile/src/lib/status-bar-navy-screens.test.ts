@@ -16,28 +16,57 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const APP = join(__dirname, "..", "..", "app");
+const SRC = join(__dirname, "..");
 
-/** The two ways a route paints navy: the theme token, or the `bg-sidebar` class (whole word). */
-const NAVY = /lightTheme\.sidebarBackground|(?<![\w-])bg-sidebar(?![\w-])/;
+/**
+ * The ways a screen paints navy. In a route file: the theme token, or the `bg-sidebar` class
+ * (whole word). Under src/ only a SCREEN ROOT counts — a `flex-1` element whose class list has
+ * `bg-sidebar` (PreAuthShell, JoinCoachScreen; C's #423 review) — so a navy chip or card
+ * (calendar, dashboard blocks) or a board drawn with the token is not a screen.
+ */
+const MARKERS = {
+  token: /lightTheme\.sidebarBackground/,
+  routeClass: /(?<![\w-])bg-sidebar(?![\w-])/,
+  screenRoot: /className="(?=[^"]*(?<![\w-])flex-1(?![\w-]))[^"]*(?<![\w-])bg-sidebar(?![\w-])[^"]*"/,
+};
+const LIGHT_BAR = /<StatusBar\s+style="light"\s*\/>/;
 
-function routeFiles(dir: string): string[] {
+function tsxFiles(dir: string, skip: (name: string) => boolean): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    // Tab screens sit at the base of the stack under the root's "light"; the rule is about
-    // routes PUSHED over a light Screen, so the (tabs) group is out of scope.
-    if (statSync(path).isDirectory()) return name === "(tabs)" ? [] : routeFiles(path);
-    return /\.tsx$/.test(name) ? [path] : [];
+    if (skip(name)) return [];
+    if (statSync(path).isDirectory()) return tsxFiles(path, skip);
+    return /\.tsx$/.test(name) && !/\.test\.tsx$/.test(name) ? [path] : [];
   });
 }
 
-describe("navy self-headed routes set their own light status bar (PAD-419)", () => {
-  it("every route painting navy renders <StatusBar style=\"light\" />", () => {
-    const navy = routeFiles(APP).filter((f) => NAVY.test(readFileSync(f, "utf8")));
-    // Both markers are live: a scan that finds only one of them has lost the other.
-    expect(navy.map((f) => relative(APP, f))).toEqual(expect.arrayContaining(["settings.tsx", "connect.tsx"]));
-    const missing = navy
-      .filter((f) => !/<StatusBar\s+style="light"\s*\/>/.test(readFileSync(f, "utf8")))
-      .map((f) => relative(APP, f));
+// Tab screens sit at the base of the stack under the root's "light"; the rule is about screens
+// PUSHED over a light Screen, so the (tabs) group is out of scope.
+const routes = tsxFiles(APP, (name) => name === "(tabs)");
+const components = tsxFiles(SRC, () => false);
+const read = (f: string) => readFileSync(f, "utf8");
+
+const navyRoutes = routes.filter((f) => MARKERS.token.test(read(f)) || MARKERS.routeClass.test(read(f)));
+const navyRoots = components.filter((f) => MARKERS.screenRoot.test(read(f)));
+
+describe("navy self-headed screens set their own light status bar (PAD-419, PAD-434)", () => {
+  it("every marker still finds a navy screen (a marker that matches nothing has gone stale)", () => {
+    expect(routes.filter((f) => MARKERS.token.test(read(f))).length).toBeGreaterThan(0);
+    expect(routes.filter((f) => MARKERS.routeClass.test(read(f))).length).toBeGreaterThan(0);
+    expect(navyRoots.length).toBeGreaterThan(0);
+  });
+
+  it("a navy chip or card is not a screen root", () => {
+    expect(MARKERS.screenRoot.test('className="h-12 w-12 items-center rounded-full bg-sidebar"')).toBe(false);
+    expect(MARKERS.screenRoot.test('className="rounded-2xl bg-sidebar p-5"')).toBe(false);
+    expect(MARKERS.screenRoot.test('className="flex-1 bg-sidebar-accent"')).toBe(false);
+    expect(MARKERS.screenRoot.test('className="flex-1 justify-center bg-sidebar p-4"')).toBe(true);
+  });
+
+  it("every navy route and navy screen root renders <StatusBar style=\"light\" />", () => {
+    const missing = [...navyRoutes, ...navyRoots]
+      .filter((f) => !LIGHT_BAR.test(read(f)))
+      .map((f) => relative(join(APP, ".."), f));
     expect(missing).toEqual([]);
   });
 });
