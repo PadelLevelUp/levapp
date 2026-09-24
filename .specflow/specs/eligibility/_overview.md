@@ -8,10 +8,10 @@ among students already above the floor.
 
 ## What it covers
 
-- `eligibility.rules` — draft
-- `eligibility.cascade` — draft
-- `eligibility.enforcement` — draft
-- `eligibility.open-spot-visibility` — draft
+- `eligibility.rules` — implemented
+- `eligibility.cascade` — implemented
+- `eligibility.enforcement` — implemented
+- `eligibility.open-spot-visibility` — implemented
 
 ## Why it's grouped this way
 

@@ -5,6 +5,7 @@ export { queryKeys } from "./queryKeys";
 export * from "./queries";
 export * from "./conversationPaging";
 export * from "./messageTarget";
+export * from "./threadLoadError";
 export { useConversationThread } from "./useConversationThread";
 export * from "./evaluations";
 export { useHeldWhile } from "./useHeldWhile";
