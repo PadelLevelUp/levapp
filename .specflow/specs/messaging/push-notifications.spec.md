@@ -105,14 +105,23 @@ Send browser push notifications when a new message arrives and the recipient isn
    still arrive in the app; copy that reads as "notifications are off" for the
    whole app is the PAD-195 defect (a coach with push blocked believed the app
    had stopped notifying them)
-9. **Native device tokens are owned per (user, token) (PAD-269).** `POST /api/notifications/device`
-   `{token, platform}` (JWT) records the pair (caller, token) once. `device_tokens` is unique on
-   `(user_id, token)`, and the route never touches another user's row, so posting someone else's
-   Expo token no longer takes their notifications away (it used to reassign the row to the
-   caller). `DELETE /api/notifications/device` `{token}` removes only the caller's row and is
-   idempotent. An Expo `DeviceNotRegistered` receipt deletes every row holding that token. The
-   iOS app unregisters its token on logout, so a shared phone stops getting the previous user's
-   pushes.
+9. **The latest login owns the phone (D137, PAD-418, superseding PAD-269's per-user rows).**
+   `POST /api/notifications/device` `{token, platform}` (JWT) records the pair (caller, token) and
+   **deletes every OTHER user's row for that token**, so one device token has exactly one owner:
+   whoever last signed in on that phone. `device_tokens` stays unique on `(user_id, token)`.
+   `DELETE /api/notifications/device` `{token}` removes only the caller's row and is idempotent; an
+   Expo `DeviceNotRegistered` receipt deletes every row holding that token. The app also removes
+   its token on logout (`auth.logout` rule 4 and the logout criterion below), and re-registers on
+   every launch with a restored session and on every login, so a phone left holding a previous
+   user's row heals itself the next time the app starts.
+   **The trade-off, accepted by the owner (D137, 2026-09-24):** PAD-269 kept one row per
+   (user, token) so that posting someone else's Expo token could not take their notifications
+   away. The cost of that design was measured on the owner's own phone: a stale row left a
+   previous account's pushes (with message previews) arriving on a phone signed into someone
+   else, and every tap dead-ended on a 403 (B-167). The owner chose the opposite risk: someone who
+   holds another user's push ID can redirect that user's notifications to themselves by
+   registering it. That is accepted over leaked previews; a push ID is not exposed in the app or
+   API.
 
 10. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
    PAD-276 decision 1).** Every push channel (web push, Expo) does its database work on the
@@ -221,11 +230,18 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **And** reading a conversation in-app (which invalidates the unread count) and a cold launch both end with the badge equal to the fetched count, even when unchanged
 - **And** the badge is never written from a pending or failed fetch, and is cleared on logout
 
-#### Another user's device token is never taken over (PAD-269)
+#### A second user registering the same token removes the first user's row (D137)
 - **Given** user `ana` registered the Expo token `ExponentPushToken[abc]`
-- **When** user `bruno` POSTs the same token to `/api/notifications/device`
-- **Then** `ana`'s row is unchanged and `bruno` has a row of his own for that token
-- **And** `bruno` posting it again still leaves exactly one row for the pair
+- **When** user `bruno` signs in on the same phone and POSTs that token to `/api/notifications/device`
+- **Then** `bruno` has the only row for that token, and `ana`'s row is gone, so her pushes no longer reach that phone
+- **And** `bruno` posting it again still leaves exactly one row, his
+- **And** `ana`'s rows for OTHER tokens (her other devices) are untouched
+
+#### A push opened on the wrong account says so (D137)
+- **Given** a phone signed in as `bruno` that still receives a push for conversation 176, where `bruno` is not a participant
+- **When** the tap opens the thread and `GET /api/app/conversation/176` answers 403
+- **Then** the thread shows "This notification belongs to another account" / "Esta notificação pertence a outra conta", not the generic "couldn't load" error
+- **And** on web, opening `/messages/176` from a notification when the fetch answers 403 shows the same message
 
 #### Logout unregisters the push token before the session ends (PAD-418)
 - **Given** a signed-in user whose phone registered push token `ExponentPushToken[abc]`

@@ -53,10 +53,20 @@ def test_logout_without_a_body_leaves_the_row_as_before(client, app, coach):
     assert _rows(app) == [coach]
 
 
+def _seed_row(app, user_id, token=TOKEN):
+    """A row written straight to the table: the pre-D137 duplicate (two users on one token)
+    that registration can no longer create but production still holds until it heals."""
+    from padel_app.models import DeviceToken
+
+    with app.app_context():
+        db.session.add(DeviceToken(user_id=user_id, token=token, platform="ios"))
+        db.session.commit()
+
+
 def test_logout_never_touches_another_users_row_for_the_same_token(client, app, coach):
     other = _other_user(app)
-    _register(client, app, coach)
-    _register(client, app, other)
+    _seed_row(app, coach)
+    _seed_row(app, other)
     assert _rows(app) == sorted([coach, other])
     client.post("/api/auth/logout", headers=_hdr(_token(app, coach)), json={"pushToken": TOKEN})
     assert _rows(app) == [other]

@@ -23,7 +23,7 @@ Invalidate the current JWT token so it cannot be reused.
    `{pushToken}` makes the server delete the CALLER's `device_tokens` row for that token in the same
    authenticated request, before the token is blocklisted, so a phone cannot stay on this account's
    pushes because a separate unregister lost the race with the revocation. Only the caller's
-   (user, token) row is touched (`messaging.push-notifications` rule 9 stands). **Backward
+   (user, token) row is touched here; registration then gives the token to whoever signs in next (`messaging.push-notifications` rule 9, D137). **Backward
    compatible:** App Store 1.0/1.1.0 post no body and see no change; a missing, empty or non-string
    `pushToken` is ignored. The mobile app still sends the separate unregister first, as a fallback.
 
