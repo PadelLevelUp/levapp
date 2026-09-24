@@ -240,7 +240,7 @@ Send browser push notifications when a new message arrives and the recipient isn
 #### A push opened on the wrong account says so (D137)
 - **Given** a phone signed in as `bruno` that still receives a push for conversation 176, where `bruno` is not a participant
 - **When** the tap opens the thread and `GET /api/app/conversation/176` answers 403
-- **Then** the thread shows "This notification belongs to another account" / "Esta notificação pertence a outra conta", not the generic "couldn't load" error
+- **Then** the thread shows "This conversation belongs to another account" / "Esta conversa pertence a outra conta" (true of every 403: a push for another account, a stale link, a thread the user left) with no Retry, since a retry can never succeed, instead of the generic "couldn't load" error
 - **And** on web, opening `/messages/176` from a notification when the fetch answers 403 shows the same message
 
 #### Logout unregisters the push token before the session ends (PAD-418)

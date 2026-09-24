@@ -7,6 +7,7 @@ import {
   queryKeys,
   shouldShowJumpToBottom,
   nextTargetStep,
+  canRetryThreadLoad,
   threadLoadErrorKey,
   useConversationThread,
 } from "@levelup/hooks";
@@ -1078,7 +1079,8 @@ export default function ConversationScreen() {
           <ErrorState
             // D137: a 403 is a push for another account, not a load failure.
             message={t(threadLoadErrorKey(loadError))}
-            onRetry={() => void refetch()}
+            // A 403 can never succeed on retry, so it gets no Retry button.
+            onRetry={canRetryThreadLoad(loadError) ? () => void refetch() : undefined}
           />
         ) : (
           <>
