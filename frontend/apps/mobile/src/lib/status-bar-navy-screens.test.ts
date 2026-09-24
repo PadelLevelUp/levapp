@@ -7,8 +7,9 @@
  * forget it.
  *
  * PAD-434: navy is either marker — the `lightTheme.sidebarBackground` token or the `bg-sidebar`
- * class (connect, verify-email and the auth screens). The scan only knew the token, so `/connect`,
- * pushed from the student dashboard, showed the dashboard's dark glyphs on navy.
+ * class (connect, verify-email and the auth screens). The scan only knew the token, so those seven
+ * relied on whatever sat beneath them: light today (the dashboard asks for no style, Settings sets
+ * light), dark the day one is pushed from a titled light Screen.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";

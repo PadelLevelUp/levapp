@@ -60,7 +60,7 @@ near-invisible status bar (PAD-419; D136).
 - **Then** it renders a `StatusBar` whose `style` is `"dark"`
 
 #### A navy route pushed over a light screen shows light content
-- **Given** a route file outside `(tabs)` that paints `lightTheme.sidebarBackground` (such as `app/conversation/[id].tsx`) or the `bg-sidebar` class (such as `app/connect.tsx`, pushed from the student dashboard; PAD-434)
+- **Given** a route file outside `(tabs)` that paints `lightTheme.sidebarBackground` (such as `app/conversation/[id].tsx`) or the `bg-sidebar` class (such as `app/connect.tsx`; PAD-434)
 - **When** the route files are scanned
 - **Then** it renders `<StatusBar style="light" />`
 
