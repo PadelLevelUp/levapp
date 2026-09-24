@@ -3,12 +3,13 @@ id: B-178
 title: "The \"Playing side\" tiebreaker ranked left-side players first for a vacancy with no side"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - notifications.invitations
   - backend/padel_app/services/notification_service.py
 proposed_fix: "Invitations rule 4b gains a sentence: a vacancy with no side ranks every side equally. _build_sort_key appends a constant in the side-less branch; pinned by test_pad420_side_sort_no_side.py."
 opened: 2026-09-24T18:05:18Z
+resolved: 2026-09-24T18:19:46Z
 ---
 
 # B-178: the side tiebreaker favoured left for a side-less vacancy
@@ -40,3 +41,11 @@ opened: 2026-09-24T18:05:18Z
 5. Run the side, config and simulation tests, then the full backend suite.
 
 Out of scope: *balancing* sides across never-filled spots is a separate, owner-decided feature (PAD-421).
+
+### Resolution
+
+- **Spec changes:** `notifications.invitations` rule 4b gains the no-side sentence, plus the new criterion "The playing-side tiebreaker favours no side for a vacancy with no side".
+- **Tests added:** `test_pad420_side_sort_no_side.py`, 3 cells. Two were red on staging and the sided control was green; all three are green with the fix.
+- **Code changes:** `_build_sort_key` appends `0` in the `vacancy_side is None` branch.
+- **Suite:** backend SQLite 2557 passed, 23 skipped.
+- **Resolved:** 2026-09-24T18:19:46Z, commit `55beafcde` (PAD-420).
