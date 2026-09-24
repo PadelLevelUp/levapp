@@ -57,7 +57,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    - A `left`/`right` player is eligible for a `both` vacancy (a both-side vacancy accepts any player).
    - A `null`-side vacancy accepts any player (no side constraint).
    - Formally, a candidate passes a "same side" criterion when: `vacancy.side is None` OR `cp.side == vacancy.side` OR `cp.side == "both"` OR `vacancy.side == "both"`.
-4b. Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them).
+4b. Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them). **A vacancy with no side ranks every side equally (PAD-420):** the tiebreaker contributes the same value for `left`, `right`, `both` and unset players, so it never favours a side; the remaining criteria decide.
 4c. Level rules are evaluated against the coach's **level ladder position**, never against the
    raw `display_order` integer. The ladder is the coach's levels ordered by the convention in
    levels.coach-levels rule 3 (lower `display_order` = stronger; unset order sorts last). Given
@@ -299,6 +299,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **When** Round 1 (same level + same side) eligibility is computed
 - **Then** both Left-Lucy and Both-Bob are eligible (Both-Bob is NOT filtered out by the same-side criterion)
 - **And** Left-Lucy is ranked ahead of Both-Bob by the playing-side tiebreaker (exact side preferred over "both")
+
+#### The playing-side tiebreaker favours no side for a vacancy with no side (PAD-420)
+- **Given** a class with a never-filled spot, so its structural vacancy has no side
+- **And** the "Playing side" priority criterion is enabled
+- **And** an eligible player Right-Rita with side "right" listed ahead of an eligible player Left-Leo with side "left"
+- **When** the candidates are ranked
+- **Then** the playing-side tiebreaker gives them the same rank, and Right-Rita stays ahead of Left-Leo
+- **And** for a vacancy with side "right" the same criterion still ranks "right" ahead of "both" ahead of "left"
 
 #### "Both"-side vacancy accepts any-side players
 - **Given** a vacancy with side "both" (a "both" player dropped out)
