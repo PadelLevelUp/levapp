@@ -20,6 +20,8 @@ import {
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
   mergeOlderPage,
+  threadLoadErrorKey,
+  type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -79,6 +81,8 @@ export default function MessagesPage() {
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
+  // D137: why the last thread open failed; a 403 names another account.
+  const [threadError, setThreadError] = useState<ThreadLoadErrorKey | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -306,6 +310,7 @@ export default function MessagesPage() {
 
   const handleSelectConversation = async (conversationId: string) => {
     setThreadLoading(true);
+    setThreadError(null);
     try {
       const convo = await getConversation(conversationId, {
         // PAD-224 rule 9 — the open is a smaller page than a walk-back page, so
@@ -332,6 +337,11 @@ export default function MessagesPage() {
         pathname: `/messages/${conversationId}`,
         search: id === conversationId ? location.search : "",
       });
+    } catch (error) {
+      // D137: the fetch failed (a 403 when a notification belongs to another
+      // account); show why in the thread pane instead of nothing at all.
+      setSelectedConversation(null);
+      setThreadError(threadLoadErrorKey(error));
     } finally {
       setThreadLoading(false);
     }
@@ -555,6 +565,10 @@ export default function MessagesPage() {
             <div className="flex flex-col flex-1 min-h-0">
               {threadLoading ? (
                 <LoadingChatThread />
+              ) : !selectedConversation && threadError ? (
+                <div className="flex-1 grid place-items-center p-6" data-testid="thread-load-error">
+                  <p className="font-medium text-center">{t(threadError)}</p>
+                </div>
               ) : !selectedConversation ? (
                 <div className="flex-1 grid place-items-center p-6">
                   <div className="text-center">

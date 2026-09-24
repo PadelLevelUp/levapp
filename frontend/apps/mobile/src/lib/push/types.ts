@@ -8,4 +8,10 @@ export interface PushRegistrar {
   register(): Promise<void>;
   /** Remove this device's token from the backend (e.g. on logout). */
   unregister(): Promise<void>;
+  /**
+   * The token this session registered, if it is known without a lookup —
+   * sent in the /auth/logout body so the server drops the row in the same
+   * authenticated request (auth.logout rule 4, PAD-418). Null when unknown.
+   */
+  cachedToken(): string | null;
 }

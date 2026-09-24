@@ -7,6 +7,8 @@ import {
   queryKeys,
   shouldShowJumpToBottom,
   nextTargetStep,
+  canRetryThreadLoad,
+  threadLoadErrorKey,
   useConversationThread,
 } from "@levelup/hooks";
 import type { Message } from "@levelup/types";
@@ -122,6 +124,7 @@ export default function ConversationScreen() {
     data: conversation,
     isLoading,
     isError,
+    error: loadError,
     refetch,
     hasMore,
     isLoadingOlder,
@@ -1077,8 +1080,10 @@ export default function ConversationScreen() {
           <ChatSkeleton />
         ) : isError || !conversation ? (
           <ErrorState
-            message={t("messages.couldNotLoadConversation")}
-            onRetry={() => void refetch()}
+            // D137: a 403 is a push for another account, not a load failure.
+            message={t(threadLoadErrorKey(loadError))}
+            // A 403 can never succeed on retry, so it gets no Retry button.
+            onRetry={canRetryThreadLoad(loadError) ? () => void refetch() : undefined}
           />
         ) : (
           <>
