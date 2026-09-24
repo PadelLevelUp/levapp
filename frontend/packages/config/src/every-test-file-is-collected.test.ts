@@ -40,6 +40,24 @@ const RUNNERS: { name: string; cwd: string; args: string[] }[] = [
 const LOOKS_LIKE_A_TEST = /(\.(test|spec)\.[cm]?[jt]sx?$)|(^|\/)__tests__\//;
 const PLAYWRIGHT_DIR = "apps/web/e2e/";
 
+/**
+ * B-173: git's repository variables. A git hook exports GIT_DIR (a worktree's gitdir) and
+ * friends; a child git inheriting them ignores its cwd — `git ls-files` from frontend/ listed
+ * from the wrong root and every packages test looked orphaned. Every child here drops them.
+ */
+const GIT_LOCAL_ENV_VARS = new Set(
+  execFileSync("git", ["rev-parse", "--local-env-vars"], { cwd: "/", encoding: "utf8", env: { PATH: process.env.PATH } })
+    .split("\n")
+    .filter(Boolean),
+);
+
+/** process.env without VITEST* (a child vitest must not think it is a worker) or git's repo variables. */
+function childEnv(): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !k.startsWith("VITEST") && !GIT_LOCAL_ENV_VARS.has(k)),
+  );
+}
+
 function vitestEntry(): string {
   const require = createRequire(import.meta.url);
   return join(dirname(require.resolve("vitest/package.json")), "vitest.mjs");
@@ -47,8 +65,7 @@ function vitestEntry(): string {
 
 /** What this runner would run, from the runner itself. Paths relative to frontend/. */
 function collectedBy(runner: (typeof RUNNERS)[number]): string[] {
-  // A child vitest must not think it is a worker of this one.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("VITEST")));
+  const env = childEnv();
   const out = execFileSync(process.execPath, [vitestEntry(), "list", "--filesOnly", "--json", ...runner.args], {
     cwd: runner.cwd,
     env,
@@ -64,7 +81,7 @@ function collectedBy(runner: (typeof RUNNERS)[number]): string[] {
 function collectedByPlaywright(): string[] {
   const require = createRequire(import.meta.url);
   const cli = join(dirname(require.resolve("@playwright/test/package.json")), "cli.js");
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("VITEST")));
+  const env = childEnv();
   const out = execFileSync(process.execPath, [cli, "test", "--list", "--reporter=json"], {
     cwd: join(FRONTEND, "apps", "web"),
     env,
@@ -90,6 +107,7 @@ function collectedByPlaywright(): string[] {
 function filesOnDisk(): string[] {
   return execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "--", "."], {
     cwd: FRONTEND,
+    env: childEnv(),
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
   })
