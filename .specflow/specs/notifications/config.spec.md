@@ -107,6 +107,24 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    the other. The `GET` of the evaluation setting must not upsert a row (rule 1 is the class
    config's behaviour, not this setting's).
 
+14. **(PAD-433) One restrictions section, on both clients.** Web (`RestrictionsPanel`) and iOS
+   (Settings → Auto-Invite Engine → Restrictions) show the same nine controls over the same
+   `restrictions` object of `GET|POST /api/app/notify/config`: `maxSimultaneous` 1–20 step 1,
+   `maxTotal` 1–50 step 1, `maxInactiveTime` 15–1440 min step 15, `minTimeBeforeClass` 5–240 min
+   step 5, `maxInvitesPerStudentPerDay` 1–10 step 1, the `quietHours`, `excludedPlayers` and
+   `excludeUnpaidSubscription` toggles, and `cancellationDeadlineHours` 0–168 h step 1 (no toggle).
+   The bounds and steps live in ONE place, `RESTRICTION_BOUNDS` in `@levelup/config`, and a step
+   clamps to them; neither client carries its own copy, so the two cannot drift. A disabled
+   stepper row hides its value, as on web. While `autoNotifyEnabled` is false the section stays
+   visible but its controls are disabled, as on web (`NotificationsEngineSection`'s `disabled`).
+14a. **Excluded players are named (B-168).** `GET /api/app/notify/config` adds a read-only
+   `excludedPlayerNames` map `{playerId: name}` for every id in `restrictions.excludedPlayers.playerIds`
+   that is still one of the coach's players and not a deleted account (`users.status != "disabled"`, as the
+   search, PAD-268); `POST` ignores the key. Each client's chip shows that
+   name (or the name picked from the search in this session) and falls back to the id only for a
+   player the coach no longer has. The key is additive: App Store clients that do not read it are
+   unaffected.
+
 ### Acceptance Criteria
 
 #### Get or create config
@@ -161,3 +179,25 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Given** the same occurrence at its budget of 3, where one of the 3 invitations then expires
 - **When** the engine checks the occurrence again
 - **Then** one more invitation may be sent: `expired` (and `queued`) invitations do not count against `maxTotal`
+
+#### iOS shows the same nine restriction controls as web (PAD-433)
+- **Given** a coach on iOS Settings with restrictions `maxSimultaneous {enabled: true, value: 3}`, `maxTotal {enabled: true, value: 10}`, `quietHours {enabled: true}` and `cancellationDeadlineHours` 24
+- **When** they open the Restrictions section of the Auto-Invite Engine card
+- **Then** the nine controls of rule 14 are shown, in web's order, with "3", "10" and "24" as the values and the quiet-hours switch on
+
+#### A step clamps at the shared bounds (PAD-433)
+- **Given** `maxSimultaneous` at 20, `maxInactiveTime` at 15, and `cancellationDeadlineHours` at 0
+- **When** the coach presses + on `maxSimultaneous`, − on `maxInactiveTime` and − on the cancellation deadline, on either client
+- **Then** the values stay 20, 15 and 0, and the pressed button is disabled; a − on `maxInactiveTime` at 60 gives 45 (step 15)
+
+#### An excluded player is named after a reload (PAD-433, B-168)
+- **Given** a coach whose saved `restrictions.excludedPlayers` is `{enabled: true, playerIds: ["<Alice's player id>"]}`
+- **When** they load `GET /api/app/notify/config` and open the Restrictions section on either client
+- **Then** the response carries `excludedPlayerNames: {"<Alice's player id>": "Alice Andrade"}` and the chip reads "Alice Andrade", not the id
+- **And** a `POST` carrying `excludedPlayerNames` changes nothing stored
+
+#### A restriction changed on iOS survives reopening Settings (PAD-433)
+- **Given** a coach on iOS Settings with `maxSimultaneous` at 3
+- **When** they press + once, leave Settings and open it again
+- **Then** `maxSimultaneous` reads 4, read back from `GET /api/app/notify/config`
+
