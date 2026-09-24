@@ -1,6 +1,6 @@
 ---
 id: eligibility.coach-sets-the-eligibility-bar
-status: draft
+status: implemented
 implemented_by:
   - ../../specs/eligibility/rules.spec.md
   - ../../specs/eligibility/cascade.spec.md

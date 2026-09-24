@@ -13,7 +13,7 @@ governed_by: []
 Players can join a waiting list for full classes. Standing waiting list entries with credits get priority.
 
 > Rule 1's client wiring landed with the PAD-124 build (decided 2026-09-04). Everything else in
-> this spec is implemented (rules 3a/4a-4d aside, which are pending PAD-128 as noted inline).
+> this spec is implemented, rules 3a/4a-4d included (they landed with PAD-128).
 
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
@@ -56,25 +56,25 @@ Players can join a waiting list for full classes. Standing waiting list entries 
    - `credits_used`: credits consumed
    - `expires_at`: expiration date
 3. When a new instance is materialized, `_sync_standing_entries_for_new_instance()` auto-creates waiting list entries for standing members
-3a. **(pending PAD-128) Fan-out is not a promise of placement.** A standing entry fans out to every upcoming class of
+3a. **Fan-out is not a promise of placement.** A standing entry fans out to every upcoming class of
    the coach, and matching happens at fill time (rule 4a), not at fan-out time — a student's level
    and absence record change over time, so a bar evaluated at fan-out would be stale by the time it
    mattered. `activeClassCount` therefore reports how many classes the entry is queued for, not how
    many the student could actually be placed into.
 4. Standing entries get priority when vacancies open (in semi-automatic mode, only after the vacancy is approved — see notifications.semi-auto-approval)
-4a. **(pending PAD-128) Placement is gated by eligibility.** A waiting-list candidate is admitted only if they pass
+4a. **Placement is gated by eligibility.** A waiting-list candidate is admitted only if they pass
    `effective_eligibility()` for that class (`eligibility.cascade`). Waiting-list candidates are
    **not** subject to the invitation rounds — they are being placed, not invited — so they are
    filtered by the bar and ranked by the configured priority criteria. With an unset bar, placement
    is unfiltered; that is the coach's configuration, not an engine decision.
-4b. **(pending PAD-128) A student is never placed into a class they are already in.** Candidates are excluded if they
+4b. **A student is never placed into a class they are already in.** Candidates are excluded if they
    already hold an enrolment association for that instance, **or** a presence for it with status
    `absent`. The second exclusion is what stops the student whose cancellation created the vacancy
    from being placed straight back into it.
-4c. **(pending PAD-128) Placement honours the same restrictions invitations honour**: `restrictions.excludedPlayers`,
+4c. **Placement honours the same restrictions invitations honour**: `restrictions.excludedPlayers`,
    `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), and the availability-blocker filter of
    `calendar.student-blockers`. Rules 4b and 4c apply whether or not an eligibility bar is defined.
-4d. **(pending PAD-128) Placement is silent enrolment**, and every guard above exists because of that: the student is
+4d. **Placement is silent enrolment**, and every guard above exists because of that: the student is
    added without being asked. Any path that adds a student without an invitation is held to the
    same guards.
 5. `GET /api/app/waiting_list/{instance_id}` lists active entries
@@ -192,14 +192,14 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **When** a new instance is materialized
 - **Then** a WaitingListEntry is auto-created for that instance linked to the standing entry
 
-#### An ineligible waiting-list member is not placed (pending PAD-128)
+#### An ineligible waiting-list member is not placed
 - **Given** a coach whose eligibility is `[{level, same_as_class}]`
 - **And** a standing waiting-list member whose level does not match a class they are queued for
 - **When** a vacancy opens in that class
 - **Then** they are not placed and no credit is consumed
 - **And** the vacancy proceeds to normal invitations
 
-#### The student who cancels is not placed back into their own vacated spot (pending PAD-128)
+#### The student who cancels is not placed back into their own vacated spot
 - **Given** a student enrolled in a class who also has an active standing waiting-list entry
 - **When** they cancel their attendance and the resulting vacancy is processed
 - **Then** they are not placed back into that class
@@ -207,13 +207,13 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **And** no `waiting_list_placed` message is sent to them
 - **And** the vacancy is offered to other students
 
-#### An already-enrolled member is not a placement candidate (pending PAD-128)
+#### An already-enrolled member is not a placement candidate
 - **Given** a student already enrolled in a class who has an active standing waiting-list entry
 - **When** another student's cancellation opens a vacancy in that class
 - **Then** the enrolled student is not considered
 - **And** the vacancy is offered to students who are not already in the class
 
-#### Placement honours the excluded-players restriction (pending PAD-128)
+#### Placement honours the excluded-players restriction
 - **Given** a coach with `restrictions.excludedPlayers` enabled naming a student
 - **And** that student has an active standing waiting-list entry
 - **When** a vacancy opens
