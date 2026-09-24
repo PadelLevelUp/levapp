@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from padel_app.tests.git_env import git_env
+
 REPO = Path(__file__).resolve().parents[3]
 BACKEND = REPO / "backend"
 WORKFLOW = REPO / ".github" / "workflows" / "backend-tests.yaml"
@@ -72,7 +74,7 @@ def files_defining_tests() -> list[Path]:
     that defines a test function or class."""
     listed = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "*.py"],
-        cwd=REPO, check=True, capture_output=True, text=True,
+        cwd=REPO, check=True, capture_output=True, text=True, env=git_env(),
     ).stdout.splitlines()
     found = []
     for name in listed:

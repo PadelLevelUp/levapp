@@ -20,6 +20,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from padel_app.tests.git_env import git_env
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Pathspecs, from the repository root. `:(glob)*.md` is root-level Markdown only.
@@ -68,6 +70,7 @@ def tracked_knowledge_files():
         cwd=REPO_ROOT,
         capture_output=True,
         check=True,
+        env=git_env(),
     ).stdout.decode()
     paths = [p for p in out.split("\0") if p]
     return [p for p in paths if not p.startswith(EXCLUDED_PREFIXES)]
