@@ -14,16 +14,22 @@ copy the changed files over, run `sudo nginx -t`, then `sudo systemctl reload ng
 editing on the VM (Certbot rewrites the `# managed by Certbot` lines when it renews or adds a
 name), copy the file back here, or the next hand-apply will undo the VM's change.
 
-## Log redaction (B-182)
+## Log redaction (B-182, B-183)
 
 The SSE endpoint takes the access token in the query string (`/api/app/events?token=<JWT>`,
-R-009), because `EventSource` cannot set headers. Two things keep it out of the logs:
+R-009), because `EventSource` cannot set headers, and the activation link carries its secret the
+same way (`/register/<id>?t=`, then `/api/app/register/user/<id>?token=`). These keep both out
+of the logs:
 
 - every `server` block logs with `access_log /var/log/nginx/access.log redacted;`, a
   combined-style format whose URI comes from a map that turns any `token=` query into
-  `?[redacted]`. That line replaces the http-level combined log for the server;
+  `?[redacted]` (parameters `t`, `token`, `access_token`) and whose Referer has its query cut.
+  That line replaces the http-level combined log for the server;
 - the SSE location raises its `error_log` to `crit`, because an upstream error writes the full
   request line at level `error`, and no format can redact that.
+- `/register/` and `/api/app/register/` do the same, and `/register/` answers with
+  `Referrer-Policy: no-referrer`, because the error log also prints the Referer of the page's own
+  requests.
 
 `check-log-redaction.sh` proves both in Docker: it fails if the token reaches either log. CI runs
 it (`.github/workflows/nginx-log-redaction.yaml`), along with the same check on the web image's

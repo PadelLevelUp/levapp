@@ -31,6 +31,33 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location /register/ {
+        # B-183: the activation page carries its secret as ?t=; an upstream error would log it.
+        error_log /var/log/nginx/error.log crit;
+        # B-183: no Referer from this page, so its own requests never repeat the secret in one (an
+        # upstream error prints the Referer to error.log too). The web image sets it as well; hide
+        # that copy so the response carries one.
+        proxy_hide_header Referrer-Policy;
+        add_header Referrer-Policy "no-referrer" always;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/app/register/ {
+        # B-183: the account lookup carries the activation secret as ?token=; same.
+        error_log /var/log/nginx/error.log crit;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
