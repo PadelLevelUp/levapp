@@ -621,12 +621,12 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
                 parts.append(-stats.get("attendance_rate", 0.0))
             elif criterion == "playing_side":
                 # Prefer an exact-side match first, then "both" players, then any
-                # remaining. When the vacancy has no side, fall back to the legacy
-                # "left first" ordering so behaviour is unchanged for that case.
+                # remaining. A vacancy with no side (a never-filled spot) favours no
+                # side: every player gets the same rank (PAD-420, invitations rule 4b).
                 if vacancy_side is not None:
                     parts.append(_side_preference_rank(cp.side, vacancy_side))
                 else:
-                    parts.append(0 if cp.side == "left" else 1)
+                    parts.append(0)
             elif criterion == "subscription_status":
                 parts.append(0 if getattr(cp, "player", None) and cp.player.user.status == "active" else 1)
         return tuple(parts)
