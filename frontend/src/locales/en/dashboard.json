@@ -38,9 +38,9 @@
     "conversationsToReplyCount_one": "{{count}} conversation to reply",
     "conversationsToReplyCount_other": "{{count}} conversations to reply",
     "greeting": {
-      "morning": "Morning, {{name}}",
-      "afternoon": "Afternoon, {{name}}",
-      "evening": "Evening, {{name}}"
+      "morning": "Good morning, {{name}}",
+      "afternoon": "Good afternoon, {{name}}",
+      "evening": "Good evening, {{name}}"
     },
     "thingsNeedYou_one": "{{count}} thing needs you",
     "thingsNeedYou_other": "{{count}} things need you",

@@ -13,6 +13,7 @@ import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as React from "react";
+import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -59,6 +60,8 @@ export default function ClassRequestWizardScreen() {
 
   return (
     <KeyboardAvoidingView className="flex-1 bg-background" behavior={keyboardAvoidingBehavior()}>
+      {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
+      <StatusBar style="light" />
       <Stack.Screen
         options={{
           headerShown: true,
