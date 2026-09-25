@@ -99,8 +99,10 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
-        # PAD-198 (retired, PAD-457): old App Store clients still read this key,
-        # so /me keeps emitting it; no new "granted" rows are created anymore.
+        # PAD-198 (retired, PAD-457): no client reads this key — the App Store
+        # builds never did, and the current web and iOS code does not. It is
+        # additive and harmless, and goes with the guardian columns in the later,
+        # checked migration; no new "granted" value is produced anymore.
         "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
