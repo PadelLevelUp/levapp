@@ -129,7 +129,8 @@ def ensure_starting_set(coach) -> None:
             for order, key in enumerate(STARTING_KEYS):
                 entry = BY_KEY[key]
                 db.session.add(EvaluationCategory(
-                    coach_id=coach.id, name=entry["pt"], scale_min=NEW_SCALE[0], scale_max=NEW_SCALE[1],
+                    # PAD-423 (evaluations.scale rule 2): non-legacy, so on the coach's scale.
+                    coach_id=coach.id, name=entry["pt"], scale_min=1, scale_max=coach_scale(coach),
                     catalogue_key=key, competency_group=entry["group"], is_active=True, sort_order=order,
                 ))
         db.session.commit()
@@ -181,7 +182,7 @@ def _name_taken(coach, name, *, except_id=None) -> bool:
 
 def create_competency(coach, body):
     """`{catalogueKey}` switches a built-in on; `{name}` adds a custom one. Both
-    are 1-5 and active. With `ensure_starting_set` this is what can create a
+    are created on the coach's scale (PAD-423; 1-5 unless they chose another) and active. With `ensure_starting_set` this is what can create a
     NON-LEGACY row — the rollback boundary named in PAD-363. Switching on a
     built-in that is already a row is idempotent. Returns `(competency, created)`.
 
@@ -214,7 +215,8 @@ def create_competency(coach, body):
             raise ApiError(409, "duplicate_name")
 
     category = EvaluationCategory(
-        coach_id=coach.id, name=name, scale_min=NEW_SCALE[0], scale_max=NEW_SCALE[1],
+        # PAD-423 (evaluations.scale rule 2): non-legacy, so on the coach's scale.
+        coach_id=coach.id, name=name, scale_min=1, scale_max=coach_scale(coach),
         catalogue_key=key, competency_group=group, is_active=True, sort_order=None,
     )
     try:

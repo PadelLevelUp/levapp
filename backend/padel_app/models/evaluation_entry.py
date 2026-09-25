@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Index, func, text
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Index, event, func, text
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -123,3 +124,27 @@ class EvaluationEntry(db.Model, model.Model):
         form.add_block(info_block)
 
         return form
+
+
+# PAD-423 (evaluations.scale rule 3): every entry stores the scale it was given on, whoever writes
+# it (the records API, the frozen legacy save, the import): the category's scale at that moment.
+# On insert, and on an update that changes the score; any other update leaves the snapshot alone,
+# so the coach changing scale later never rewrites a score's scale.
+def _snapshot_scale(connection, target):
+    row = connection.execute(
+        text("SELECT scale_min, scale_max FROM evaluation_categories WHERE id = :id"), {"id": target.category_id}
+    ).first()
+    if row is not None:
+        target.scale_min = 1 if row[0] is None else row[0]
+        target.scale_max = 5 if row[1] is None else row[1]
+
+
+@event.listens_for(EvaluationEntry, "before_insert")
+def _entry_scale_on_insert(mapper, connection, target):
+    _snapshot_scale(connection, target)
+
+
+@event.listens_for(EvaluationEntry, "before_update")
+def _entry_scale_on_rescore(mapper, connection, target):
+    if sa_inspect(target).attrs.score.history.has_changes():
+        _snapshot_scale(connection, target)

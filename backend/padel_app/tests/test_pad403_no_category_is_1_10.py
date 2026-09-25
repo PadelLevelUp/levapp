@@ -6,7 +6,9 @@ both end in ``bulk_create_evaluation_categories``), or created with no scale at
 all (the model default).
 
 The count is the guard: ``SELECT count(*) FROM evaluation_categories WHERE
-scale_min <> 1 OR scale_max <> 5`` is 0.
+competency_group IS NULL AND (scale_min <> 1 OR scale_max <> 5)`` is 0. Since PAD-423 it counts
+LEGACY categories only: a coach may put their non-legacy competencies on 1-10/20/100
+(evaluations.scale rule 2), and every legacy category stays 1-5.
 """
 import sqlalchemy as sa
 
