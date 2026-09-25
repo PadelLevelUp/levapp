@@ -76,4 +76,25 @@ test.describe("PAD-394: Settings — switching tab with an unsaved edit asks fir
     await expect(dialogEl).not.toBeVisible();
     await expect(sunday).toHaveAttribute("data-state", "working", { timeout: 15_000 });
   });
+
+  test("PAD-447: the avatar menu's My connections, with an unsaved edit, asks first too", async ({ page }) => {
+    await loginAsCoach(page);
+    await page.goto("/settings?tab=calendar");
+    const sunday = page.getByTestId("working-hours-day-sun");
+    await expect(sunday).toHaveAttribute("data-state", "working", { timeout: 15_000 });
+    await page.getByTestId("working-hours-works-sun").click();
+    await expect(sunday).toHaveAttribute("data-state", "off");
+
+    // The menu navigates to /settings?tab=connections while Settings is mounted (B-199): the same
+    // rule-3 question, and keeping the edit keeps Calendar on screen.
+    await page.getByTestId("user-menu-trigger").click();
+    await page.getByTestId("user-menu-connections").click();
+    const dialogEl = page.getByTestId("settings-unsaved-dialog");
+    await expect(dialogEl).toBeVisible();
+    await page.getByTestId("settings-unsaved-keep").click();
+    await expect(dialogEl).not.toBeVisible();
+    await expect(sunday).toHaveAttribute("data-state", "off");
+    await expect(page.getByTestId("blocked-users")).toHaveCount(0);
+  });
 });
+
