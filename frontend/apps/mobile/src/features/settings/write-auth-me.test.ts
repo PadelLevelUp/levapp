@@ -45,20 +45,44 @@ describe("writeAuthMe (B-185)", () => {
 });
 
 describe("every save writes its answer through writeAuthMe (B-185)", () => {
-  // The mobile harness cannot mount these sections, so pin the wiring in the source: a save's
-  // answer written straight into ["auth-me"] reopens the race. The optimistic update and the
-  // rollback in preferences-section (an updater function and `previous`) are not answers.
-  it("no mobile file writes a save's answer into ['auth-me'] directly", () => {
-    const root = join(__dirname, "..", "..", "..");
-    const walk = (dir: string): string[] =>
-      readdirSync(dir).flatMap((name) => {
-        const path = join(dir, name);
-        if (statSync(path).isDirectory()) return name === "node_modules" ? [] : walk(path);
-        return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
-      });
-    const files = [join(root, "src"), join(root, "app")].flatMap((dir) => walk(dir));
-    const direct = files.filter((f) => /setQueryData\(\s*\["auth-me"\]\s*,\s*updated\s*\)/.test(readFileSync(f, "utf8")));
-    expect(direct.map((f) => relative(root, f))).toEqual([]);
+  // The mobile harness cannot mount these sections, so pin the wiring in the source. Every
+  // setQueryData on ["auth-me"] (by literal or AUTH_ME_KEY, whatever the value is called) outside
+  // write-auth-me.ts must be one of two shapes that are not a save's answer: an updater function
+  // (an optimistic write, which must follow a cancelQueries in the same file) or the `previous`
+  // rollback. Anything else is an answer written past writeAuthMe, which reopens the race.
+  const root = join(__dirname, "..", "..", "..");
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((name) => {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) return name === "node_modules" ? [] : walk(path);
+      return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
+    });
+  const files = [join(root, "src"), join(root, "app")]
+    .flatMap((dir) => walk(dir))
+    .filter((f) => !f.endsWith(join("settings", "write-auth-me.ts")));
+  const WRITE = /setQueryData(?:<[^>]*>)?\(\s*(?:\["auth-me"\]|AUTH_ME_KEY)\s*,\s*([^,)\s][^,)]*)/g;
+  const CANCEL = /cancelQueries\(\s*\{\s*queryKey:\s*(?:\["auth-me"\]|AUTH_ME_KEY)/;
+
+  it("writes to ['auth-me'] outside writeAuthMe are only optimistic updaters or the rollback", () => {
+    const bad: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      for (const m of src.matchAll(WRITE)) {
+        const value = m[1].trim();
+        const rel = `${relative(root, f)}: setQueryData(auth-me, ${value.slice(0, 20)}…)`;
+        if (value === "previous") continue;
+        if (value.startsWith("(")) {
+          const cancelAt = src.search(CANCEL);
+          if (cancelAt < 0 || cancelAt > (m.index ?? 0)) bad.push(`${rel} (optimistic write without a cancelQueries before it)`);
+          continue;
+        }
+        bad.push(rel);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("the three sections write a save's answer through writeAuthMe", () => {
     const wired = files.filter((f) => /writeAuthMe\(queryClient, updated\)/.test(readFileSync(f, "utf8")));
     expect(wired.map((f) => relative(root, f)).sort()).toEqual([
       "src/features/settings/preferences-section.tsx",

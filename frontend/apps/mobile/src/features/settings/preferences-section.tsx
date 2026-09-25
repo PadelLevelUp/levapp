@@ -24,7 +24,7 @@ import { Text } from "@/components/ui/text";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { CompetenciesSettingsEntry } from "@/features/evaluations/competency-manager/competencies-settings-entry";
 import { EvaluationReminderSetting } from "@/features/evaluations/evaluation-reminder-setting";
-import { writeAuthMe } from "@/features/settings/write-auth-me";
+import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -85,6 +85,8 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const handleRequestAlertsChange = async (checked: boolean) => {
     setRequestAlertsStatusKey(null);
     const previous = me;
+    // B-185 (C's #430 review): an in-flight read landing mid-save would flicker the toggle back.
+    await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
     queryClient.setQueryData(["auth-me"], (cur: typeof me) =>
       cur ? { ...cur, requestAlerts: checked } : cur
     );
