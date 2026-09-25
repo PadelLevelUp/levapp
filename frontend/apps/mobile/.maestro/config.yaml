@@ -196,6 +196,9 @@ executionOrder:
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.
     - 103-thread-lands-on-target-message
+    # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
+    # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
+    - 113-join-first-dashboard
     # 105 opens Settings → Notifications → Restrictions (PAD-433): the saved values and the
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
