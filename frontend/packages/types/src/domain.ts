@@ -977,6 +977,8 @@ export interface DashboardSchedule7dBlock {
       filled: number;
       capacity: number;
       href: string;
+      /** PAD-425: coach rows only, the class with Notificar/Convidar open (the empty-seats link). */
+      inviteHref?: string;
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
