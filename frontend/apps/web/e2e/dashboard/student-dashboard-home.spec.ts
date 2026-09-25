@@ -64,8 +64,9 @@ test.describe("PAD-202: student dashboard home", () => {
     await expect(home).toBeVisible({ timeout: 10_000 });
 
     // The greeting is the page's orientation; there is no "Dashboard" heading.
+    // PAD-419 changed the English copy to "Good morning/afternoon/evening, {name}".
     await expect(
-      page.getByRole("heading", { name: /^(Morning|Afternoon|Evening),/ })
+      page.getByRole("heading", { name: /^(Good morning|Good afternoon|Good evening),/ })
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: /^(Dashboard|Painel)$/ })).toHaveCount(0);
 
