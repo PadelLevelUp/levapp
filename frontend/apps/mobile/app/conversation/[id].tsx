@@ -63,6 +63,10 @@ import {
 import { isAtBottomOf } from "@/features/messages/scroll-position";
 import { composerBottomPadding } from "@/features/messages/composer-padding";
 import { isFirstUnreadMessage } from "@/features/messages/unread-divider";
+import {
+  shouldFreezeFirstUnread,
+  shouldMarkRead,
+} from "@/features/messages/open-sequence";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
@@ -186,8 +190,8 @@ export default function ConversationScreen() {
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!conversation || !isFetchedAfterMount) return;
-    if (markedRef.current === conversationId) return;
+    const open = { conversationId, hasConversation: !!conversation, isFetchedAfterMount };
+    if (!shouldMarkRead(open, markedRef.current)) return;
     markedRef.current = conversationId;
     messagesApi
       .markConversationRead(conversationId)
@@ -209,8 +213,10 @@ export default function ConversationScreen() {
   } | null>(null);
   if (
     conversation &&
-    isFetchedAfterMount &&
-    firstUnreadRef.current?.conversationId !== conversationId
+    shouldFreezeFirstUnread(
+      { conversationId, hasConversation: true, isFetchedAfterMount },
+      firstUnreadRef.current?.conversationId ?? null
+    )
   ) {
     firstUnreadRef.current = {
       conversationId,

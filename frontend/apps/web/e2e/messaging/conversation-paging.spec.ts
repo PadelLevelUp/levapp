@@ -16,6 +16,8 @@ import {
   loginAsCoachNoLevels,
   STUDENT_USERNAME,
   STUDENT_PASSWORD,
+  COACH_NOLEVELS_USERNAME,
+  COACH_NOLEVELS_PASSWORD,
 } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
@@ -94,6 +96,20 @@ async function fillThread(
 }
 
 /**
+ * PAD-415 (messaging.conversation-detail rule 9a): a thread with unread messages opens at
+ * the first unread one, not the newest. These specs are about paging from the NEWEST page
+ * (rule 9), so the coach reads the thread first: nothing unread, the open anchors at the
+ * newest message.
+ */
+async function coachHasReadThread(request: APIRequestContext, conversationId: string) {
+  const coachToken = await token(request, COACH_NOLEVELS_USERNAME, COACH_NOLEVELS_PASSWORD);
+  const res = await request.post(`${API_APP}/conversation/${conversationId}/read`, {
+    headers: { Authorization: `Bearer ${coachToken}` },
+  });
+  expect(res.status()).toBeLessThan(300);
+}
+
+/**
  * Open the dedicated conversation as the no-levels coach and wait for its first
  * page. That coach has exactly one conversation — the student's — so the
  * sidebar row is unambiguous.
@@ -122,6 +138,7 @@ test.describe("PAD-208 — the conversation thread pages instead of loading ever
     const studentToken = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
     const conversationId = await dedicatedConversationId(request, studentToken);
     await fillThread(request, studentToken, conversationId, 60, "pad208-open");
+    await coachHasReadThread(request, conversationId);
 
     await loginAsCoachNoLevels(page);
     await openThread(page);
@@ -144,6 +161,7 @@ test.describe("PAD-208 — the conversation thread pages instead of loading ever
     const studentToken = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
     const conversationId = await dedicatedConversationId(request, studentToken);
     await fillThread(request, studentToken, conversationId, 60, "pad208-anchor");
+    await coachHasReadThread(request, conversationId);
 
     await loginAsCoachNoLevels(page);
     await openThread(page);
@@ -205,6 +223,7 @@ test.describe("PAD-208 — the conversation thread pages instead of loading ever
     const studentToken = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
     const conversationId = await dedicatedConversationId(request, studentToken);
     await fillThread(request, studentToken, conversationId, 60, "pad208-stable");
+    await coachHasReadThread(request, conversationId);
 
     await loginAsCoachNoLevels(page);
     await openThread(page);
