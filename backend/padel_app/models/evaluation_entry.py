@@ -128,8 +128,8 @@ class EvaluationEntry(db.Model, model.Model):
 
 # PAD-423 (evaluations.scale rule 3): every entry stores the scale it was given on, whoever writes
 # it (the records API, the frozen legacy save, the import): the category's scale at that moment.
-# On insert, and on an update that changes the score; any other update leaves the snapshot alone,
-# so the coach changing scale later never rewrites a score's scale.
+# Taken on insert only (D149): a re-score keeps the entry's own scale, and nothing else rewrites it,
+# so the coach changing scale later never changes what a score meant.
 def _snapshot_scale(connection, target):
     row = connection.execute(
         text("SELECT scale_min, scale_max FROM evaluation_categories WHERE id = :id"), {"id": target.category_id}
@@ -146,5 +146,7 @@ def _entry_scale_on_insert(mapper, connection, target):
 
 @event.listens_for(EvaluationEntry, "before_update")
 def _entry_scale_on_rescore(mapper, connection, target):
-    if sa_inspect(target).attrs.score.history.has_changes():
+    # D149: a re-score keeps the entry's own scale (4/5 never silently becomes 4/10); only an
+    # entry that has no snapshot yet (a row from before PAD-423 the backfill missed) takes one.
+    if target.scale_max is None and sa_inspect(target).attrs.score.history.has_changes():
         _snapshot_scale(connection, target)
