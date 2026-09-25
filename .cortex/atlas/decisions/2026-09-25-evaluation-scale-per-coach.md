@@ -35,8 +35,8 @@ coach's scale by rewriting `scale_max` would silently turn every existing "4 of 
 ## Decided (D147)
 
 1. **Each score keeps the scale it was given on.** `EvaluationEntry` gains `scale_min` and
-   `scale_max`, written on every save and backfilled from the entry's competency by an
-   idempotent migration. A score is never rewritten when the coach changes scale; history
+   `scale_max`, written when the entry is created and backfilled from the entry's competency by
+   an idempotent migration. A score is never rewritten when the coach changes scale; history
    shows "4/5" beside "7/10". Rejected: converting every score on change (PAD-403's way; lossy,
    and repeated changes compound the rounding), and storing percentages (every read path
    changes meaning).
@@ -55,6 +55,17 @@ coach's scale by rewriting `scale_max` would silently turn every existing "4 of 
    non-1–5 competency with the dormant `ScoreStepper` using the payload's bounds
    (`origin/main` `ac5b4f844`: `evaluation-form.tsx:109-115`), so they can still rate, with
    taps instead of a slider.
+
+## Amended by D149 (coordinator, 2026-09-25): editing keeps the entry's own scale
+
+Found while building the clients: a coach who changes scale and then edits a record that is still
+editable (same day) would see an earlier 4 (given on 1–5) pre-filled on the new 1–10 slider, and
+re-saving it would silently turn 4/5 (80%) into 4/10 (40%): the meaning change D147 exists to
+prevent. Ruled: **editing an existing entry keeps that entry's own snapshot scale** (the form draws
+it with its own scale's input; the server validates against, and keeps, the snapshot); only a NEW
+entry takes the coach's current scale (`evaluations.scale` rule 3). Builds 23–25 draw the row from
+the competency's payload bounds, so on that edge they can offer a value above the entry's own scale;
+the server refuses it (`score_out_of_range`) and nothing is written. That is the safe failure.
 
 ## Why not keep stars at every scale
 

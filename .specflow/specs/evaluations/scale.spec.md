@@ -39,8 +39,11 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
    written on every save from the competency's scale at that moment. The migration adds them
    (guarded, idempotent: memory prod-schema-drift) and backfills every existing entry from its
    competency; an entry whose competency is gone keeps NULL and is read as 1–5. **No score is
-   ever rewritten when the scale changes.** Re-scoring an existing entry writes the new score on
-   the competency's current scale and updates the entry's snapshot with it.
+   ever rewritten when the scale changes.** Editing an existing entry (a same-day re-score) keeps
+   **that entry's own scale** (D149): the form draws it with its own scale's input (stars on 1–5,
+   the slider otherwise), the server validates the new score against the entry's snapshot and keeps
+   the snapshot, so 4/5 (80%) can never silently become 4/10 (40%). Only a **new** entry takes the
+   competency's current scale.
 4. **Validation.** A score is valid when `scale_min ≤ score ≤ scale_max` of the competency's
    **current** scale (`evaluations.records`'s existing check), else **400** `score_out_of_range`
    and nothing in the request is written. Whole numbers only.
@@ -87,6 +90,12 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
 - **Then** Bandeja's scale is 1–10, the 2026-09-01 entry still reads 4 on 1–5 (history "4/5"),
   and a new rating of 7 is stored as 7 on 1–10 (history "7/10")
 - **And** the profile mean for Bandeja is (7.75 + 7) / 2 = 7.375 on 1–10
+
+#### Editing a same-day rating after a scale change keeps its own scale (D149)
+- **Given** a coach on 1–5 who rated Garra 4 today, who then moves to 1–10 and creates Bandeja
+- **When** they edit today's record
+- **Then** Garra is drawn with stars (1–5): saving 5 stores 5 on 1–5, and 7 is refused (**400**
+  `score_out_of_range`); Bandeja, new to the record, is rated on the 1–10 slider
 
 #### The scale is one of four
 - **When** a coach PUTs `{scaleMax: 7}`

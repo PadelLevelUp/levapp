@@ -430,8 +430,10 @@ def _materialise(pending) -> LessonInstance:
     return get_or_materialize_instance(lesson, occurrence)
 
 
-def _validated_ratings(coach, raw) -> dict:
-    """{category: int | None} — every key checked before anything is written."""
+def _validated_ratings(coach, raw, *, check_range=True) -> dict:
+    """{category: int | None} — every key checked before anything is written. `put_record`
+    defers the range check (`check_range=False`) until it knows the record: a rating the record
+    already holds is checked against ITS OWN scale (D149), see `_check_ranges`."""
     if not isinstance(raw, dict):
         raise ApiError(400, "ratings_invalid")
     ratings = {}
@@ -440,12 +442,24 @@ def _validated_ratings(coach, raw) -> dict:
         if value is not None:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not float(value).is_integer():
                 raise ApiError(400, "score_not_an_integer")
-            low, high = _scale(category)
-            if not low <= int(value) <= high:
-                raise ApiError(400, "score_out_of_range")  # B-126: the range rule, enforced at last
             value = int(value)
+            if check_range:
+                _check_ranges({category: value}, {})
         ratings[category] = value
     return ratings
+
+
+def _check_ranges(ratings, held_entries) -> None:
+    """B-126's range rule. A score is checked against the scale it will be stored on: the held
+    entry's own snapshot when the record already rates that competency (D149, evaluations.scale
+    rule 3: editing keeps the entry's scale), else the competency's current scale."""
+    for category, value in ratings.items():
+        if value is None:
+            continue
+        entry = held_entries.get(category.id)
+        low, high = _own_scale(entry) if entry is not None else _scale(category)
+        if not low <= value <= high:
+            raise ApiError(400, "score_out_of_range")
 
 
 def put_record(coach, body):
@@ -455,7 +469,7 @@ def put_record(coach, body):
     if not isinstance(body, dict) or "playerId" not in body:
         raise ApiError(400, "player_id_required")
     link = coach_player_for(coach, body["playerId"])
-    ratings = _validated_ratings(coach, body["ratings"]) if "ratings" in body else {}
+    ratings = _validated_ratings(coach, body["ratings"], check_range=False) if "ratings" in body else {}
     note = body.get("note", MISSING)
     if note is not MISSING and note is not None:
         if not isinstance(note, str) or len(note) > NOTE_MAX:
@@ -487,7 +501,9 @@ def put_record(coach, body):
         existing = EvaluationRecord.query.filter_by(coach_player_id=link.id, evaluated_on=on)
         existing = (existing.filter(EvaluationRecord.lesson_instance_id.is_(None)) if instance_id is None
                     else existing.filter_by(lesson_instance_id=instance_id)).first()
-    held = {e.category_id for e in existing.entries} if existing is not None else set()
+    held_entries = {e.category_id: e for e in existing.entries} if existing is not None else {}
+    held = set(held_entries)
+    _check_ranges(ratings, held_entries)
     for category, value in ratings.items():
         if value is not None and not category.is_active and category.id not in held:
             raise ApiError(409, "competency_inactive")  # an existing rating may still change (Q26)
