@@ -447,6 +447,20 @@ export interface ClassJoinRequest {
   note?: string | null;
 }
 
+/**
+ * classes.join-requests rule 17 (PAD-460): a row of `GET /app/class-join-requests` —
+ * the request plus the class it is for, so the coach's "Pedidos de Aula" and the
+ * student's Availability list can show it beside a private `ClassRequest` without a
+ * second read.
+ */
+export interface ClassJoinRequestListRow extends ClassJoinRequest {
+  kind: "academy";
+  classTitle: string | null;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;

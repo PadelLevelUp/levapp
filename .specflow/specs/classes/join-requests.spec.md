@@ -118,9 +118,11 @@ by a student's request — and whichever lands first wins.
     - **The coach's "Pedidos de Aula"** (web `/class-requests`, iOS Settings → Pedidos de Aula)
       **and the student's requests list** (Availability, web and iOS) show these rows beside the
       private class requests (`classes.class-requests` rule 9). The two kinds are merged newest
-      first and split into the same open (`pending`) / closed sections. An academy row is marked
-      "Academy class" and names the class, its date and time, and the student (coach) or coach
-      (student).
+      first and split into the same open (`pending`) / closed sections. An academy row carries an
+      "Academy" badge (pt "Aula de academia") and names the class, its date and time, and the
+      student (coach) or coach (student). The English badge is not "Academy class": that phrase
+      is the seeded "E2E Academy Class" title an E2E regex matches, and the rendered-text ratchet
+      would read a locale value equal to it as a new bilingual alternation.
     - **Actions from the list:**
       - The coach may **accept or decline** a pending academy request through rule 15's endpoints.
         Accepting a student who is below the bar asks for the same confirmation the class sheet
@@ -207,7 +209,7 @@ by a student's request — and whichever lands first wins.
 - **Given** Carla asked to join Ana's academy class "Terça 18h" on 2026-10-06 18:00–19:00, and Bruno sent Ana a private class request afterwards
 - **When** Ana reads `GET /app/class-join-requests`, and opens "Pedidos de Aula"
 - **Then** the API returns Carla's request with `classTitle` "Terça 18h", `date` 2026-10-06, `startTime` 18:00, `endTime` 19:00, `status` `pending`, `kind` `academy`
-- **And** the list shows Bruno's private request first and Carla's academy request below it, marked "Academy class"
+- **And** the list shows Bruno's private request first and Carla's academy request below it, with the "Academy" badge
 
 #### The coach accepts an academy request from the list (PAD-460)
 - **Given** Carla's pending academy request above, and Carla within the class's bar

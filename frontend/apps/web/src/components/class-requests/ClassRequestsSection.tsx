@@ -13,8 +13,15 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
-import type { ClassRequest } from "@levelup/types";
-import { CLASS_REQUEST_DURATIONS, clubTodayISO, slotOptions } from "@levelup/config";
+import type { ClassJoinRequestListRow, ClassRequest, EligibilityCheckEntry } from "@levelup/types";
+import {
+  CLASS_REQUEST_DURATIONS,
+  clubTodayISO,
+  mergeClassRequestRows,
+  slotOptions,
+  splitClassRequestRows,
+  type MergedClassRequestRow,
+} from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ClassRequestWizard } from "./wizard/ClassRequestWizard";
+import { EligibilityConfirmDialog } from "@/components/calendar/EligibilityConfirmDialog";
 import { cn } from "@/lib/utils";
 import {
   acceptClassRequest,
@@ -35,6 +43,13 @@ import {
   proposeClassRequest,
   withdrawClassRequest,
 } from "@/api/classRequests";
+import {
+  acceptClassJoinRequest,
+  joinRequestRefusal,
+  listClassJoinRequests,
+  rejectClassJoinRequest,
+  withdrawClassJoinRequest,
+} from "@/api/classJoinRequests";
 
 const OPEN = new Set(["pending", "countered"]);
 
@@ -42,10 +57,12 @@ function todayIso(): string {
   return clubTodayISO(); // B-060: the club's date, not the device's
 }
 
-function statusVariant(status: ClassRequest["status"]): "default" | "secondary" | "outline" | "destructive" {
+// Shared by the private row and the academy row (rule 17) — `rejected` and
+// `superseded` are academy-only statuses a private ClassRequest never has.
+function statusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
   if (status === "accepted") return "default";
-  if (status === "declined") return "destructive";
-  if (status === "withdrawn") return "outline";
+  if (status === "declined" || status === "rejected") return "destructive";
+  if (status === "withdrawn" || status === "superseded") return "outline";
   return "secondary";
 }
 
@@ -57,8 +74,22 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const queryClient = useQueryClient();
   const requestsQuery = useQuery({ queryKey: queryKeys.classRequests, queryFn: listClassRequests });
   const requests = useMemo(() => requestsQuery.data ?? [], [requestsQuery.data]);
-  const loading = requestsQuery.isPending;
+  // classes.join-requests rule 17 (PAD-460): academy requests, shown beside the
+  // private ones above, merged newest first (`@levelup/config`, shared with iOS).
+  const joinRequestsQuery = useQuery({ queryKey: queryKeys.classJoinRequests, queryFn: listClassJoinRequests });
+  const joinRequests = useMemo(() => joinRequestsQuery.data ?? [], [joinRequestsQuery.data]);
+  const loading = requestsQuery.isPending || joinRequestsQuery.isPending;
   const [busyId, setBusyId] = useState<number | null>(null);
+  // A separate busy key: academy join-request ids are their own id space, never
+  // compared against a private request's.
+  const [busyJoinId, setBusyJoinId] = useState<number | null>(null);
+  // Rule 7: accepting an academy row is a manual add — the same named-reason
+  // confirmation the class sheet asks (ClassDetailSheet, EligibilityConfirmDialog).
+  const [pendingAcademyAccept, setPendingAcademyAccept] = useState<{
+    id: number;
+    playerName: string;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
   const [proposingId, setProposingId] = useState<number | null>(null);
   const [proposal, setProposal] = useState({ date: "", startTime: "10:00", endTime: "11:00" });
   // Rule 10: the student's "propose another time" picker, opened from the row or
@@ -71,12 +102,20 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const [booking, setBooking] = useState(false);
 
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
+      // The class sheet's own read, wherever it is cached — an academy decision
+      // made from this list must not leave it stale.
+      queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
+    ]);
   };
 
   useEffect(() => {
-    if (requestsQuery.isError) toast({ variant: "destructive", title: t("classRequests.loadFailed") });
-  }, [requestsQuery.isError, t, toast]);
+    if (requestsQuery.isError || joinRequestsQuery.isError) {
+      toast({ variant: "destructive", title: t("classRequests.loadFailed") });
+    }
+  }, [requestsQuery.isError, joinRequestsQuery.isError, t, toast]);
 
   // `?proposeFor=<id>` comes from the chat bubble's "Propose another time":
   // the student's picker on a countered request, the coach's form on a pending one.
@@ -117,8 +156,64 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     }
   };
 
-  const open = requests.filter((r) => OPEN.has(r.status));
-  const closed = requests.filter((r) => !OPEN.has(r.status));
+  // Rule 17: the academy row's decision mirrors ClassDetailSheet's
+  // handleDecideJoinRequest/handleWithdrawJoinRequest exactly, so refusals and
+  // toasts read the same from the list as from the class sheet.
+  const handleAcademyAccept = async (row: ClassJoinRequestListRow, confirm = false) => {
+    setBusyJoinId(row.id);
+    try {
+      await acceptClassJoinRequest(row.id, confirm);
+      toast({ title: t("calendar.joinRequest.acceptedToast", { name: row.playerName }) });
+    } catch (err) {
+      const refusal = joinRequestRefusal(err);
+      if (refusal?.code === "ineligible") {
+        setBusyJoinId(null);
+        setPendingAcademyAccept({ id: row.id, playerName: row.playerName, ineligible: refusal.ineligible ?? [] });
+        return;
+      }
+      toast({
+        title:
+          refusal?.code === "spot_filled"
+            ? t("calendar.joinRequest.spotFilledToast")
+            : refusal?.code === "class_closed"
+              ? t("calendar.joinRequest.classClosedToast")
+              : t("calendar.joinRequest.decideFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setBusyJoinId(null);
+      await refresh();
+    }
+  };
+
+  const handleAcademyReject = async (row: ClassJoinRequestListRow) => {
+    setBusyJoinId(row.id);
+    try {
+      await rejectClassJoinRequest(row.id);
+      toast({ title: t("calendar.joinRequest.rejectedToast", { name: row.playerName }) });
+    } catch {
+      toast({ title: t("calendar.joinRequest.decideFailed"), variant: "destructive" });
+    } finally {
+      setBusyJoinId(null);
+      await refresh();
+    }
+  };
+
+  const handleAcademyWithdraw = async (row: ClassJoinRequestListRow) => {
+    setBusyJoinId(row.id);
+    try {
+      await withdrawClassJoinRequest(row.id);
+      toast({ title: t("calendar.joinRequest.withdrawn") });
+    } catch {
+      toast({ title: t("calendar.joinRequest.decideFailed"), variant: "destructive" });
+    } finally {
+      setBusyJoinId(null);
+      await refresh();
+    }
+  };
+
+  const merged = useMemo(() => mergeClassRequestRows(requests, joinRequests), [requests, joinRequests]);
+  const { open, closed } = useMemo(() => splitClassRequestRows(merged), [merged]);
 
   const renderRow = (r: ClassRequest) => {
     const who = role === "student" ? t("classRequests.with", { name: r.coachName }) : t("classRequests.from", { name: r.playerName });
@@ -218,48 +313,114 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     );
   };
 
-  return (
-    <Card data-testid="class-requests">
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarPlus className="w-5 h-5" />
-              {t(role === "student" ? "classRequests.title" : "classRequests.coachTitle")}
-            </CardTitle>
-            <CardDescription>{t(role === "student" ? "classRequests.cardIntro" : "classRequests.coachIntro")}</CardDescription>
+  // Rule 17: an academy row — the badge, the class it is for, its date and
+  // time, and the student (coach) or nothing extra (student). No "propose
+  // another time"; it exists only for private requests (rule 17, last bullet).
+  const renderAcademyRow = (r: ClassJoinRequestListRow) => {
+    const statusKey = role === "student" ? `classRequests.status.${r.status}` : `classRequests.coachStatus.${r.status}`;
+    const busy = busyJoinId === r.id;
+    return (
+      <div
+        key={`academy-${r.id}`}
+        className="rounded-lg border p-3 space-y-2"
+        data-testid="class-join-list-row"
+        data-status={r.status}
+        data-request-id={r.id}
+        data-kind="academy"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" data-testid="class-join-list-kind">{t("classRequests.academyBadge")}</Badge>
+              <p className="font-medium">{r.classTitle}</p>
+            </div>
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Clock className="w-4 h-4 shrink-0" />
+              {r.date} · {r.startTime}–{r.endTime}
+            </p>
+            {role === "coach" && <p className="text-sm text-muted-foreground">{r.playerName}</p>}
+            {r.note && <p className="text-sm text-muted-foreground italic">“{r.note}”</p>}
           </div>
-          {role === "student" && (
-            <Button onClick={() => setBooking(true)} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="class-request-book">
-              <CalendarPlus className="w-4 h-4" />
-              {t("classRequests.book")}
-            </Button>
-          )}
+          <Badge variant={statusVariant(r.status)}>{t(statusKey)}</Badge>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* PAD-357: "Marcar aula" opens the wizard (coach → kind → private / academy). */}
-        {role === "student" && (
-          <ClassRequestWizard open={booking} onClose={() => setBooking(false)} onDone={refresh} />
-        )}
 
-        {loading ? (
-          <p className="text-sm text-muted-foreground">…</p>
-        ) : requests.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("classRequests.empty")}</p>
-        ) : (
-          <>
-            {open.map(renderRow)}
-            {closed.length > 0 && (
-              <details className="text-sm">
-                <summary className="cursor-pointer text-muted-foreground">{t("classRequests.history")} ({closed.length})</summary>
-                <div className="mt-2 space-y-2">{closed.map(renderRow)}</div>
-              </details>
-            )}
-          </>
+        {role === "coach" && r.status === "pending" && (
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busy} onClick={() => handleAcademyAccept(r)} data-testid="class-join-list-accept">
+              {t("calendar.joinRequest.accept")}
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => handleAcademyReject(r)} data-testid="class-join-list-reject">
+              {t("calendar.joinRequest.reject")}
+            </Button>
+          </div>
         )}
-      </CardContent>
-    </Card>
+        {role === "student" && r.status === "pending" && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => handleAcademyWithdraw(r)} data-testid="class-join-list-withdraw">
+            {t("classRequests.withdraw")}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  const renderMergedRow = (row: MergedClassRequestRow) => (row.kind === "academy" ? renderAcademyRow(row) : renderRow(row));
+
+  return (
+    <>
+      <Card data-testid="class-requests">
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarPlus className="w-5 h-5" />
+                {t(role === "student" ? "classRequests.title" : "classRequests.coachTitle")}
+              </CardTitle>
+              <CardDescription>{t(role === "student" ? "classRequests.cardIntro" : "classRequests.coachIntro")}</CardDescription>
+            </div>
+            {role === "student" && (
+              <Button onClick={() => setBooking(true)} className="gap-2 w-full sm:w-auto sm:shrink-0" data-testid="class-request-book">
+                <CalendarPlus className="w-4 h-4" />
+                {t("classRequests.book")}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* PAD-357: "Marcar aula" opens the wizard (coach → kind → private / academy). */}
+          {role === "student" && (
+            <ClassRequestWizard open={booking} onClose={() => setBooking(false)} onDone={refresh} />
+          )}
+
+          {loading ? (
+            <p className="text-sm text-muted-foreground">…</p>
+          ) : merged.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("classRequests.empty")}</p>
+          ) : (
+            <>
+              {open.map(renderMergedRow)}
+              {closed.length > 0 && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-muted-foreground">{t("classRequests.history")} ({closed.length})</summary>
+                  <div className="mt-2 space-y-2">{closed.map(renderMergedRow)}</div>
+                </details>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Rule 7: accepting an academy row is a manual add — same warning as the class sheet. */}
+      <EligibilityConfirmDialog
+        open={pendingAcademyAccept !== null}
+        ineligible={pendingAcademyAccept?.ineligible ?? []}
+        onCancel={() => setPendingAcademyAccept(null)}
+        onConfirm={() => {
+          const parked = pendingAcademyAccept;
+          setPendingAcademyAccept(null);
+          if (parked) void handleAcademyAccept({ id: parked.id, playerName: parked.playerName } as ClassJoinRequestListRow, true);
+        }}
+      />
+    </>
   );
 }
 
