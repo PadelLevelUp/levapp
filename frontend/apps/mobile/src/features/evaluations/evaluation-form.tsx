@@ -2,9 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   competencyLabel,
   formCompetencies,
-  isStarCompetency,
   lightTheme,
   nextStarScore,
+  ratingInputKind,
   stableFormRows,
   stepScore,
 } from "@levelup/config";
@@ -25,6 +25,7 @@ import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 
+import { ScoreSlider } from "./score-slider";
 import { ScoreStepper } from "./score-stepper";
 import { StarRating } from "./star-rating";
 import { useFlushOnBackground } from "./use-flush-on-background";
@@ -103,13 +104,20 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         const key = String(competency.id);
         const score = scores[key] ?? null;
         const name = competencyLabel(t, competency);
+        const input = ratingInputKind(competency); // evaluations.scale rule 7
         return (
           <View key={key} className="gap-1" testID={`evaluation-row-${key}`}>
             <Text className="text-sm font-medium">{name}</Text>
-            {isStarCompetency(competency) ? (
+            {input === "stars" ? (
               <StarRating
                 id={competency.id} name={name} score={score} max={competency.scaleMax}
                 onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
+              />
+            ) : input === "slider" ? (
+              <ScoreSlider
+                id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
+                onCommit={(value) => session.rate(key, value)}
+                onClear={() => session.rate(key, null)}
               />
             ) : (
               <ScoreStepper
