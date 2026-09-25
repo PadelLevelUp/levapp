@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { z } from "zod";
 import { useAuth } from "@/auth/AuthContext";
 import { needsEmailVerification, postLoginRoute } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
@@ -32,7 +31,8 @@ import { Text } from "@/components/ui/text";
 import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
 import { describeApiError } from "@/lib/apiError";
 import type { authApi } from "@levelup/api";
-import { COUNTRIES, consentAgeFor, countryName, needsGuardian } from "@levelup/config";
+import { COUNTRIES, consentAgeFor, countryName } from "@levelup/config";
+import { CODE_KEYS, formatBirthInput, showGuardianFor, signUpSchema, toIso } from "@/features/auth/signup-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
@@ -40,81 +40,6 @@ import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 type Role = "coach" | "student";
 type Field = "name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "guardianEmail";
 type FieldErrors = Partial<Record<Field | "country", string>>;
-
-/**
- * auth.parental-consent rule 10 (PAD-198): the birth date is typed as
- * DD/MM/AAAA with the number pad — the wheel picker opens on today, which is
- * slow for a date years back and cannot be driven by Maestro.
- */
-function formatBirthInput(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
-
-/** DD/MM/AAAA → YYYY-MM-DD for a real calendar date; null otherwise. */
-function toIso(display: string): string | null {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display);
-  if (!m) return null;
-  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(y, mo - 1, d);
-  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
-  return `${m[3]}-${m[2]}-${m[1]}`;
-}
-
-/** auth.parental-consent rule 2: the server's codes, in the form's own words. */
-const CODE_KEYS: Record<string, string> = {
-  BIRTH_DATE_REQUIRED: "birthDateRequired",
-  INVALID_BIRTH_DATE: "birthDateInvalid",
-  COUNTRY_REQUIRED: "countryRequired",
-  INVALID_COUNTRY: "countryRequired",
-  GUARDIAN_EMAIL_REQUIRED: "guardianEmailRequired",
-  INVALID_GUARDIAN_EMAIL: "guardianEmailInvalid",
-  GUARDIAN_EMAIL_IS_OWN: "guardianEmailIsOwn",
-};
-
-/** Same rules as web's SignUpPage (auth.register rules 2–4). */
-const signUpSchema = z
-  .object({
-    name: z.string().trim().min(2, "nameMin"),
-    username: z
-      .string()
-      .trim()
-      .min(3, "usernameMin")
-      .max(80, "usernameMax")
-      .regex(/^[A-Za-z0-9._-]+$/, "usernameChars")
-      .refine((u) => !u.toLowerCase().startsWith("pending-"), "usernameReserved"),
-    email: z.string().trim().email("emailInvalid"),
-    password: z.string().min(8, "passwordMin"),
-    repeatPassword: z.string(),
-    birthDate: z.string(),
-    country: z.string().length(2, "countryRequired"),
-    guardianEmail: z.string().trim(),
-    forceGuardian: z.boolean(),
-  })
-  .refine((d) => d.password === d.repeatPassword, {
-    message: "passwordsMismatch",
-    path: ["repeatPassword"],
-  })
-  .superRefine((d, ctx) => {
-    const iso = toIso(d.birthDate);
-    if (!d.birthDate) {
-      ctx.addIssue({ code: "custom", message: "birthDateRequired", path: ["birthDate"] });
-      return;
-    }
-    if (!iso || new Date(`${iso}T00:00:00`) > new Date()) {
-      ctx.addIssue({ code: "custom", message: "birthDateInvalid", path: ["birthDate"] });
-      return;
-    }
-    if (!d.forceGuardian && !needsGuardian(iso, d.country)) return;
-    const g = d.guardianEmail.toLowerCase();
-    if (!g) ctx.addIssue({ code: "custom", message: "guardianEmailRequired", path: ["guardianEmail"] });
-    else if (!z.string().email().safeParse(g).success)
-      ctx.addIssue({ code: "custom", message: "guardianEmailInvalid", path: ["guardianEmail"] });
-    else if (g === d.email.trim().toLowerCase())
-      ctx.addIssue({ code: "custom", message: "guardianEmailIsOwn", path: ["guardianEmail"] });
-  });
 
 /**
  * auth.register — self-service signup, mirroring web's SignUpPage. On success
@@ -141,7 +66,7 @@ export default function SignUpScreen() {
   const [forceGuardian, setForceGuardian] = React.useState(false);
   const [pending, setPending] = React.useState<authApi.GuardianPendingInfo | null>(null);
   const birthIso = toIso(form.birthDate);
-  const showGuardian = forceGuardian || (!!birthIso && needsGuardian(birthIso, country));
+  const showGuardian = showGuardianFor(birthIso, country, forceGuardian);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
