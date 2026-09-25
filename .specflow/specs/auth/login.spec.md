@@ -41,10 +41,12 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    there is nothing to port (R-024 exception recorded here and in the PR).
 9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
    token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
-10. **Guardian consent (PAD-198).** Right credentials of a user whose `guardian_consent_status` is
-    `pending` answer 403 `GUARDIAN_CONSENT_PENDING` with the masked guardian email and no token; a
-    `disabled` user (deleted, or withdrawn by a guardian) gets 401 `ACCOUNT_DISABLED` (rule 12,
-    B-053; `auth.parental-consent` rule 4). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
+10. **No guardian branch any more (PAD-457; was PAD-198's guardian consent).** LevApp accepts adults
+    only and the guardian flow is removed, so login has no pending-consent answer. As a safety net
+    for any row left from before (the `guardian_consent_status` column is kept, see
+    `auth.parental-consent`), a user whose status there is `pending` or `revoked` is refused exactly
+    like a `disabled` one: 401 `ACCOUNT_DISABLED`, and the JWT loader refuses their tokens (rule 12,
+    B-053). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
     PAD-228, PAD-186 and PAD-233 in parallel branches.
 11. **An account with no password yet** (created by a coach, not activated) answers the ordinary
     401 `Invalid credentials`, never a 500 — the 500 told a caller which usernames exist (PAD-269,

@@ -101,6 +101,42 @@ _UPDATE_APP = {
 }
 
 
+#: auth.activate rule 13 (PAD-457): the activation form's own "update the app" text.
+UPDATE_APP_TO_ACTIVATE = (
+    "Atualiza a app para ativares a conta: a data de nascimento passou a ser obrigatória. "
+    "/ Update the app to activate your account: date of birth is now required."
+)
+
+
+def age_on(birth, today):
+    """Full years on `today` (a 29 February birth turns a year older on 1 March in a non-leap year)."""
+    return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+
+
+def validate_adult_birth_date(raw, today, *, update_app_message):
+    """auth.register rule 18 / auth.activate rule 13: the one birth-date check both paths share.
+    Returns the date, or raises RegistrationError with BIRTH_DATE_REQUIRED / INVALID_BIRTH_DATE /
+    UNDERAGE on `birthDate`."""
+    from datetime import date
+
+    if _absent(raw):
+        raise RegistrationError(update_app_message, 400, "birthDate", code="BIRTH_DATE_REQUIRED")
+    birth = None
+    if isinstance(raw, str) and _DATE_RE.match(raw.strip()):
+        try:
+            birth = date.fromisoformat(raw.strip())
+        except ValueError:
+            birth = None
+    if birth is None or birth > today or birth.year < today.year - 120:
+        raise RegistrationError(
+            "birthDate must be a real date (YYYY-MM-DD), not in the future", 400, "birthDate",
+            code="INVALID_BIRTH_DATE",
+        )
+    if age_on(birth, today) < MINIMUM_SIGNUP_AGE:
+        raise RegistrationError(_UNDERAGE_MESSAGE, 400, "birthDate", code="UNDERAGE")
+    return birth
+
+
 def _absent(value):
     return value is None or (isinstance(value, str) and not value.strip())
 
@@ -115,24 +151,8 @@ def validate_consent_fields(data, email, today=None):
     data = data or {}
     today = today or utcnow_naive().date()
 
-    raw = data.get("birthDate")
-    if _absent(raw):
-        raise RegistrationError(_UPDATE_APP["birthDate"], 400, "birthDate", code="BIRTH_DATE_REQUIRED")
-    birth = None
-    if isinstance(raw, str) and _DATE_RE.match(raw.strip()):
-        try:
-            birth = date.fromisoformat(raw.strip())
-        except ValueError:
-            birth = None
-    if birth is None or birth > today or birth.year < today.year - 120:
-        raise RegistrationError(
-            "birthDate must be a real date (YYYY-MM-DD), not in the future", 400, "birthDate",
-            code="INVALID_BIRTH_DATE",
-        )
-    # auth.register rule 18: before the country and the guardian fields, so no minor ever
-    # reaches the guardian branch (auth.parental-consent rule 3).
-    if age_on(birth, today) < MINIMUM_SIGNUP_AGE:
-        raise RegistrationError(_UNDERAGE_MESSAGE, 400, "birthDate", code="UNDERAGE")
+    # auth.register rule 18: before the country, so an under-18 is refused whatever else is sent.
+    birth = validate_adult_birth_date(data.get("birthDate"), today, update_app_message=_UPDATE_APP["birthDate"])
 
     raw_country = data.get("country")
     if _absent(raw_country):
