@@ -219,7 +219,9 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         {/* Class list */}
         {/* PAD-439: a native scroller, not Radix ScrollArea. Inside the Dialog's scroll lock the
             wheel/trackpad did not reach ScrollArea's viewport, so a long week could not be scrolled
-            (programmatic scrolling still worked, which is how it passed unnoticed). */}
+            (programmatic scrolling still worked, which is how it passed unnoticed).
+            overscroll-contain: reaching the end of the list does not chain the scroll to the
+            page behind the dialog. */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain -mx-6 px-6" data-testid="add-to-classes-list">
           {loading ? (
             <div className="space-y-3 py-2">
