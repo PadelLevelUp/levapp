@@ -141,7 +141,9 @@ function EmptySeatsCard({
           })}
         </span>
       </div>
-      <div className="flex gap-2">
+      {/* PAD-424: the pair wraps. With the sidebar open the card is narrow and neither
+          nowrap button can shrink past its label, so "Mais tarde" used to leave the card. */}
+      <div className="flex flex-wrap gap-2">
         <Button className="h-11 flex-1 lg:h-10" onClick={() => navigate(item.href)}>
           {t("dashboard.needsYou.emptySeats.invite", { count: item.seatsMissing })}
         </Button>

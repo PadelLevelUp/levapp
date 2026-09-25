@@ -73,7 +73,8 @@ executionOrder:
     # 28 changes the seeded coach's password and puts it back within itself,
     # 29 registers and rejects its own coach, so its position is not load bearing.
     - 29-coach-rejection
-    # 33 creates its own minor and guardian, so its position is not load bearing.
+    # 33 fills the sign-up form as a minor and is refused (PAD-445); it creates nothing, so
+    # its position is not load bearing.
     # (29 is PAD-233's; 31-32 belong to the calendar work — numbers kept by the coordinator.)
     - 33-parental-consent
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
@@ -199,6 +200,9 @@ executionOrder:
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
     - 105-settings-restrictions
+    # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
+    # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
+    - 117-month-grid-seven-columns
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
