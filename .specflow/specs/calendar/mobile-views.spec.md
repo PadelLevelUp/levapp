@@ -129,17 +129,18 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 16. **Month grid.** A weekday header row, then Monday-start cells for every week that touches
     the month. In-month cells show a 26px date circle using rule 10's states and the dot row
     from rule 10; out-of-month cells render at 32% opacity and are not tappable.
-17. **Single-day grid and sheet.** Below the month grid, rule 13's time grid for the selected
-    day only (one full-width column) with rule 3's bottom sheet over it. Its hour range applies rule 13 to the
-    selected day's events alone (08:00–20:00 when that day is empty), so a quiet day is not
-    squeezed by a busy one elsewhere in the month. **(PAD-286)** The sheet's travel spans
-    the month grid as well as the single-day grid: at rest it sits at rule 3's default
-    height over the day grid, and dragged up it stops one hour-row below the top of the
-    month grid, so on a phone it covers more than half of the screen; the month grid is
-    under it until it is dragged back down. Rule 18's "raised" test is unchanged — raised
-    still means above the resting height. At its maximum the sheet leaves the weekday
-    header row fully visible: the row is a fixed shared height (`MONTH_WEEKDAY_HEADER_HEIGHT`,
-    30px, labels not font-scaled on iOS) that is shorter than the hour row the maximum keeps.
+17. **Day sheet under the month grid (PAD-436; owner, 2026-09-24).** Below the month grid there is
+    only rule 3's bottom sheet for the selected day: no time grid. **At rest the sheet starts right
+    under the month grid and fills everything below it.** (Until PAD-436 a single-day time grid sat
+    there with the sheet over it, so the selected day showed twice: once in that grid, once in the
+    sheet; with the sheet lowered, both were visible.) The sheet still drags on both shells: up, it
+    stops one hour-row below the top of the month grid **(PAD-286)**, so on a phone it covers more
+    than half of the screen and the month grid is under it until it is dragged back down; down, to
+    its collapsed height. Rule 18's "raised" test is unchanged: raised still means above the
+    resting height. At its maximum the sheet leaves the weekday header row fully visible: the row
+    is a fixed shared height (`MONTH_WEEKDAY_HEADER_HEIGHT`, 30px, labels not font-scaled on iOS)
+    that is shorter than the hour row the maximum keeps. Web mobile and iOS share the geometry
+    (`sheetTopBounds` in `@levelup/config`).
 
 #### Controls, roles, chrome
 18. **Add controls are floating action buttons on both shells:** `Add event`
@@ -288,7 +289,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **When** the grid renders
 - **Then** Monday 31 August renders at 32% opacity and does not respond to a tap
 - **And** each September day with events shows up to three dots
-- **And** tapping 10 September selects it, shows its single-day grid and its sheet
+- **And** tapping 10 September selects it and shows it in the day sheet
+
+#### The selected day shows once, in the sheet under the month grid (PAD-436)
+- **Given** `Mês` on a phone, web or iOS, with a day selected
+- **When** the month view renders with the sheet at rest
+- **Then** no time grid is rendered under the month grid; the sheet's top is the month grid's bottom edge, and the sheet fills the rest
+- **And** dragging the sheet up still stops one hour-row below the top of the month grid, and dragging it back down restores the rest position
 
 #### Month paging refetches and reselects
 - **Given** `Mês` on September 2026 with 10 September selected, today being 8 September
