@@ -19,7 +19,7 @@ import { needsEmailVerification, postLoginPath } from "@/auth/postLoginPath";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
-import { COUNTRIES, consentAgeFor, countryName, needsGuardian } from "@levelup/config";
+import { COUNTRIES, consentAgeFor, countryName, isUnderSignupAge, needsGuardian } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GuardianPendingCard } from "@/components/auth/GuardianPendingCard";
 import type { GuardianPendingInfo } from "@/api/auth";
@@ -62,6 +62,11 @@ const signUpSchema = z
     path: ["repeatPassword"],
   })
   .superRefine((d, ctx) => {
+    // auth.register rule 18 (PAD-445): adults only; a minor never reaches the guardian fields.
+    if (isUnderSignupAge(d.birthDate)) {
+      ctx.addIssue({ code: "custom", message: "birthDateUnderage", path: ["birthDate"] });
+      return;
+    }
     if (!d.forceGuardian && !needsGuardian(d.birthDate, d.country)) return;
     const g = d.guardianEmail.toLowerCase();
     if (!g) ctx.addIssue({ code: "custom", message: "guardianEmailRequired", path: ["guardianEmail"] });
@@ -84,6 +89,8 @@ const CODE_KEYS: Record<string, string> = {
   GUARDIAN_EMAIL_REQUIRED: "guardianEmailRequired",
   INVALID_GUARDIAN_EMAIL: "guardianEmailInvalid",
   GUARDIAN_EMAIL_IS_OWN: "guardianEmailIsOwn",
+  // auth.register rule 18 (PAD-445).
+  UNDERAGE: "birthDateUnderage",
 };
 
 const SignUpPage = () => {
@@ -109,7 +116,9 @@ const SignUpPage = () => {
   // without a release): a GUARDIAN_EMAIL_REQUIRED reveals the field anyway.
   const [forceGuardian, setForceGuardian] = useState(false);
   const [pending, setPending] = useState<GuardianPendingInfo | null>(null);
-  const showGuardian = forceGuardian || needsGuardian(form.birthDate, form.country);
+  // PAD-445: nobody under 18 signs up, so the guardian field only appears if the server asks.
+  const showGuardian =
+    !isUnderSignupAge(form.birthDate) && (forceGuardian || needsGuardian(form.birthDate, form.country));
 
   const setField = (field: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));

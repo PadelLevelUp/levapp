@@ -50,6 +50,19 @@ export function ageOn(birthDate: string, today: Date = new Date()): number | nul
   return ty - y - (tm < mo || (tm === mo && td < d) ? 1 : 0);
 }
 
+/** auth.register rule 18 (PAD-445): LevApp accepts adults only, whatever the country. */
+export const MINIMUM_SIGNUP_AGE = 18;
+
+/**
+ * Whether sign-up must refuse this birth date. The client's instant feedback on the device's
+ * date; the server judges on the UTC date and stays the authority. A malformed or empty date is
+ * left to the date checks (false here).
+ */
+export function isUnderSignupAge(birthDate: string, today: Date = new Date()): boolean {
+  const age = ageOn(birthDate, today);
+  return age !== null && age < MINIMUM_SIGNUP_AGE;
+}
+
 /** Whether the form should ask for a guardian's email (the server decides for real). */
 export function needsGuardian(birthDate: string, country: string, today: Date = new Date()): boolean {
   const age = ageOn(birthDate, today);

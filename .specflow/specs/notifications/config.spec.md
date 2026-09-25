@@ -136,6 +136,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    clamps to them; neither client carries its own copy, so the two cannot drift. A disabled
    stepper row hides its value, as on web. While `autoNotifyEnabled` is false the section stays
    visible but its controls are disabled, as on web (`NotificationsEngineSection`'s `disabled`).
+   **Words (PAD-450):** `maxSimultaneous` caps invitations, so it reads "Máximo de convites
+   simultâneos / Quantos alunos são convidados ao mesmo tempo" (en "Max simultaneous invitations / How
+   many students are invited at the same time"), and `maxTotal` reads as rule 6c says. Quiet hours and
+   the minimum time before class keep "notificações / notify": `_check_restrictions` also gates the
+   reminder armed for a student who joins late, so they cover more than invitations.
 14a. **Excluded players are named (B-168).** `GET /api/app/notify/config` adds a read-only
    `excludedPlayerNames` map `{playerId: name}` for every id in `restrictions.excludedPlayers.playerIds`
    that is still one of the coach's players and not a deleted account (`users.status != "disabled"`, as the

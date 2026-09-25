@@ -460,8 +460,8 @@
       "activeSubscription": "Active account"
     },
     "restrictions": {
-      "maxSimultaneous": "Max simultaneous notifications",
-      "maxSimultaneousDescription": "How many students are notified at the same time",
+      "maxSimultaneous": "Max simultaneous invitations",
+      "maxSimultaneousDescription": "How many students are invited at the same time",
       "students": "students",
       "maxTotal": "Max total per class",
       "maxTotalDescription": "Invitations for one class date, pending and accepted together",

@@ -460,8 +460,8 @@
       "activeSubscription": "Conta ativa"
     },
     "restrictions": {
-      "maxSimultaneous": "Máximo de notificações simultâneas",
-      "maxSimultaneousDescription": "Quantos alunos são notificados ao mesmo tempo",
+      "maxSimultaneous": "Máximo de convites simultâneos",
+      "maxSimultaneousDescription": "Quantos alunos são convidados ao mesmo tempo",
       "students": "alunos",
       "maxTotal": "Máximo total por aula",
       "maxTotalDescription": "Convites para uma aula, pendentes e aceites em conjunto",
