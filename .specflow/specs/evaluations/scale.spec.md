@@ -28,7 +28,8 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
    `GET/PUT /api/app/evaluation_settings` carries it as `scaleMax` beside the reminder fields;
    any other value is **400** `invalid_scale`, and nothing is written.
 2. **Where it applies.** The coach's scale is the scale of every one of their **non-legacy**
-   competencies (catalogue and custom, `evaluations.competencies`), active or not. Setting it
+   competencies (catalogue and custom, `evaluations.competencies`; non-legacy means
+   `competency_group IS NOT NULL`, `EvaluationCategory.is_legacy` is false), active or not. Setting it
    updates their `scale_min`/`scale_max` in the same transaction; a competency created later is
    created on it. **Legacy categories keep their own scale, and the five R-047-frozen endpoints
    do not change in any way.**
@@ -56,7 +57,7 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
    shadcn `ui/slider`; iOS: `@react-native-community/slider` (Expo SDK 54's bundled 5.0.1,
    autolinked by prebuild; no dev-client change). A slider drag is ONE input: the save fires
    once on release, like the stars' tap (`evaluations.records`'s one-request-per-input rule).
-   Legacy categories keep their stepper.
+   Legacy categories keep 1–5 and their stars (every legacy category is 1–5 since PAD-403).
 8. **The setting.** In Settings → Evaluations, beside "Frequência de avaliações", on web and
    iOS: "Escala de avaliações" with 1–5, 1–10, 1–20, 1–100. Changing it saves at once (like the
    frequency) and says that existing evaluations keep their own scale.
@@ -64,9 +65,12 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
    (R-047), which serve legacy categories only, so a coach's scale never reaches them. Builds
    23–25 (1.2.0) use the current endpoints and draw a competency that is not 1–5 with the
    dormant `ScoreStepper`, bounds from the payload (`origin/main` `ac5b4f844`,
-   `evaluation-form.tsx:109-115`), so they can still rate, by taps. No capability token is
-   needed: nothing an old client draws is wrong, only slower to use. The first iOS build with
-   the slider retires that fallback for its users.
+   `evaluation-form.tsx:109-115`, the source line those builds were archived from; each build's
+   exact commit is pinned by the xcarchive/upload-time method, memory app-store-client-compat-
+   audit, in the plan's compat task), so they can still rate, by taps: on 1–100 that is up to 99
+   taps per competency. No capability token is needed: nothing an old client draws is wrong, only
+   slower to use (D147 accepts that). The first iOS build with the slider retires that fallback
+   for its users.
 
 ### Acceptance Criteria
 
@@ -97,13 +101,13 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
 - **Then** exactly one save request is sent, with score 14, and the value reads "14/20"
 
 #### Legacy is untouched
-- **Given** a coach with a legacy category on 1–10 and catalogue competencies on 1–5
+- **Given** a coach with a legacy category (1–5, since PAD-403) and catalogue competencies on 1–5
 - **When** they set their scale to 20
-- **Then** the catalogue competencies are 1–20, the legacy category stays 1–10 with its stepper,
+- **Then** the catalogue competencies are 1–20, the legacy category stays 1–5 with its stars,
   and the five R-047 endpoints answer exactly as before
 
 #### The backfill gives every existing entry its competency's scale
-- **Given** a database with entries on 1–5 competencies and on a legacy 1–10 category
+- **Given** a database with entries on 1–5 competencies and on a legacy (1–5) category
 - **When** the migration runs, and runs again
 - **Then** each entry's `scale_min`/`scale_max` equal its competency's, the second run changes
   nothing, and no `score` changes
@@ -117,6 +121,12 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
 
 - Evolution's chart axis runs on the current scale (rule 5); `evaluations.evolution` rule 10 is
   amended to say so.
-- Bulk import (`evaluations.bulk-import`) keeps its file format: scores are 1–5 and are stored
-  with a 1–5 snapshot (rule 3). A competency it creates is created on the coach's scale (rule 2),
-  so imported scores read "4/5" and count by proportion (rule 5), like any older score.
+- **Bulk import is unchanged.** It creates LEGACY categories (no `competency_group`), pinned to
+  1–5 (`legacy-conversion` rule 5, `import_service.py:205-216`), so they keep their stars, are
+  untouched by the coach's scale (rule 2), and stay visible to App Store 1.0/1.1.0 (the frozen
+  GET lists legacy only). Their entries snapshot 1–5 (rule 3).
+- **PAD-403's guard is narrowed, not dropped.** `test_pad403_no_category_is_1_10.py`'s
+  `NOT_1_5` counts every category; once a coach picks 1–10, non-legacy categories are legitimately
+  off 1–5. It becomes a legacy-only count (`competency_group IS NULL`), and its four tests stay.
+- Rule 3's "competency gone → NULL" is defensive: entries cascade with their category (PAD-274),
+  so it should not occur.
