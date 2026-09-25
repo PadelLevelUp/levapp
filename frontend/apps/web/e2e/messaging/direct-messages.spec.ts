@@ -6,7 +6,6 @@ import { openMessages, conversationRow } from "../helpers/navigation";
 // containing two messages: one from coach ("Welcome to the academy!") and one
 // unread message from student ("Thanks coach!"). See e2e/scripts/seed.py.
 
-const SEEDED_COACH_MESSAGE = "Welcome to the academy!";
 const SEEDED_STUDENT_MESSAGE = "Thanks coach!";
 
 test.beforeEach(async ({ page }) => {
@@ -98,8 +97,21 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
     conversationRow(page, "E2E Student").click(),
   ]);
 
-  // The seeded coach message is editable (mine=true, so Edit/Delete are exposed).
-  const bubble = page.getByText(SEEDED_COACH_MESSAGE).first();
+  // Edit a message this test sends (as US-61 deletes one), not the seeded "Welcome to the
+  // academy!": in a full run earlier specs' class messages push the seeded one out of the thread's
+  // first page, so it is not rendered (PAD-452 / B-179).
+  const msgInput = page.getByPlaceholder(/type a message/i);
+  const original = `US-60 to edit ${Date.now()}`;
+  await msgInput.fill(original);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/message(\?|$)/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    msgInput.press("Enter"),
+  ]);
+  // Mine, so Edit/Delete are exposed. Last DOM match: the first would be the sidebar preview.
+  const bubble = page.getByText(original).last();
   await expect(bubble).toBeVisible({ timeout: 5000 });
   await bubble.click({ button: "right" });
 
@@ -110,7 +122,7 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
 
   // Edit input replaces the bubble text — find the editable input.
   const editInput = page.locator('textarea, input[type="text"]').last();
-  await editInput.fill("Welcome to the academy! [edited]");
+  await editInput.fill(`${original} [edited]`);
   await Promise.all([
     page.waitForResponse(
       (r) => /\/api\/app\/message\/\d+/.test(r.url()) && r.request().method() === "PUT" && r.status() < 400,
@@ -119,7 +131,7 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
     editInput.press("Enter"),
   ]);
 
-  await expect(page.getByText("Welcome to the academy! [edited]").last()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(`${original} [edited]`).last()).toBeVisible({ timeout: 5000 });
 });
 
 // US-61: Coach can delete a sent message via the right-click context menu
