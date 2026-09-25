@@ -134,7 +134,10 @@ def serialize_conversation_detail(
     page, so it is computed the same way whichever branch produced `messages`.
     """
     from padel_app.models import User
-    from padel_app.services.messaging_service import is_known_contact
+    from padel_app.services.messaging_service import (
+        first_unread_message_id,
+        is_known_contact,
+    )
 
     last_read_at = conversation.last_read_by(user_id)
     viewer = User.query.get(user_id)
@@ -156,4 +159,6 @@ def serialize_conversation_detail(
         ],
         "hasMore": has_more,
         "oldestMessageId": messages[0].id if messages else None,
+        # messaging.conversation-detail rule 9a: where the clients open.
+        "firstUnreadMessageId": first_unread_message_id(conversation.id, user_id),
     }

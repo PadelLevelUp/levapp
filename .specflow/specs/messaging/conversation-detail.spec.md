@@ -46,6 +46,18 @@ through the history without the thread ever moving under the reader.
    by a delay — and carries a bounded fallback, so a measurement that never settles reveals the
    thread anyway rather than leaving it blank. The first page is small (`limit` 30) so the
    anchor is reached immediately; the rest of the history arrives by rule 11
+9a. **It opens at the first unread message (PAD-415).** `GET /api/app/conversation/<id>` also returns
+   `firstUnreadMessageId`: the caller's earliest unread message in the thread — sent by someone
+   else, not soft-deleted (R-016), `sent_at > coalesce(last_read_at, epoch)`, the same predicate as
+   the unread counts (`messaging.conversations` rule 12) — or `null` when nothing is unread. It is
+   computed from the read mark as it stood BEFORE this open, because the client marks the thread
+   read after loading it (`messaging.read-tracking` rule 6). Both clients then open anchored AT that
+   message instead of the newest one, through the same target machinery a push tap uses
+   (`messaging.push-notifications` rule 12: walk back through older pages if needed, reveal only when
+   anchored — rule 9 still holds, at the target), with an **"Unread messages"** divider directly
+   above it. An explicit `?message=` target (a push tap, a deep link) wins over the first unread.
+   With nothing unread the thread opens at the newest message, as before. The field is additive:
+   older app builds ignore it.
 10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
     bubble's height), **no content change moves it**: not a new incoming message, an edit, a
     reaction, a background refetch, the keyboard opening, or an image finishing layout. A "new
@@ -158,3 +170,25 @@ through the history without the thread ever moving under the reader.
 - **Given** a participant who has just opened that thread and not scrolled
 - **When** the thread is anchored at the newest message
 - **Then** no jump-to-bottom control is shown
+
+#### A thread opens at its first unread message, under a divider (PAD-415)
+- **Given** coach Maria's conversation with Ana holds 60 messages; Maria has read up to message 45 and Ana has since sent 46–60
+- **When** Maria opens the conversation (no `?message=`), on web and on iOS
+- **Then** `GET /api/app/conversation/<id>` returned `firstUnreadMessageId` = 46, the thread is revealed anchored at message 46 with the "Unread messages" divider directly above it, and message 60 is not in view
+- **And** re-opening after this visit (everything read) opens at the newest message with no divider
+
+#### The first unread may be older than the first page (PAD-415)
+- **Given** 80 unread messages, so the first unread is older than the first page of 30
+- **When** the conversation opens
+- **Then** the thread walks back to it before revealing, as for a push target
+
+#### A push target wins over the first unread (PAD-415)
+- **Given** the conversation has unread messages and the user opens it from a push for message 58
+- **When** the thread opens
+- **Then** it is anchored at message 58, not at the first unread
+
+#### The server names the first unread before it is marked read (PAD-415)
+- **Given** a participant whose `last_read_at` is before messages 46–60 from the other participant, and message 47 is soft-deleted by its sender
+- **When** they GET the conversation
+- **Then** `firstUnreadMessageId` is 46; for a participant with nothing unread it is `null`; their own messages are never the first unread
+

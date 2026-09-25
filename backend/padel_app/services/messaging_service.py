@@ -208,6 +208,38 @@ def get_unread_count(user_id):
     return int(unread or 0)
 
 
+def first_unread_message_id(conversation_id, user_id):
+    """The caller's earliest unread message in one thread, or None.
+
+    PAD-415 / messaging.conversation-detail rule 9a. The predicate is
+    `get_unread_count`'s (rule 12 of messaging.conversations): from someone
+    else, not soft-deleted (R-016), after the caller's read mark. The outer join
+    keeps "no participant row" meaning "never read", as in
+    `unread_counts_for_conversations`. Callers ask before the thread is marked
+    read, so the mark is the one this open started from.
+    """
+    CP = ConversationParticipant
+    M = Message
+
+    row = (
+        db.session.query(M.id)
+        .outerjoin(
+            CP,
+            and_(
+                CP.conversation_id == M.conversation_id,
+                CP.user_id == user_id,
+            ),
+        )
+        .filter(M.conversation_id == conversation_id)
+        .filter(M.sender_id != user_id)
+        .filter(M.is_deleted == False)
+        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .order_by(M.sent_at.asc(), M.id.asc())
+        .first()
+    )
+    return row[0] if row else None
+
+
 def unread_counts_for_conversations(user_id, conversation_ids):
     """`{conversation_id: unread count}` for `user_id`, in ONE query.
 
