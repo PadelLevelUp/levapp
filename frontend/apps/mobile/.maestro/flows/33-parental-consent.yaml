@@ -1,15 +1,16 @@
-# PAD-198 — auth.parental-consent. A 10-year-old in Portugal signs up on the
-# phone: the form asks for a guardian's email, the account gets no session and
-# the "waiting for your guardian" card shows; signing in before consent shows
-# the same card. The guardian's consent is given through the API with the
-# token read from the flag-gated debug route (the consent page itself is
-# web-only: the guardian arrives from an email); the minor then signs in and
-# lands on the email code screen.
+# PAD-445 — auth.register rule 18: LevApp accepts adults only. A 10-year-old in Portugal fills
+# the sign-up form on the phone: no guardian's-email field appears, submitting shows the refusal
+# under the birth date and the screen stays on sign-up. The same person sent straight to the API
+# is refused with UNDERAGE and cannot sign in.
+#
+# Until PAD-445 this flow walked PAD-198's guardian consent from a minor's sign-up. That journey
+# can no longer start (the guardian flow is kept for accounts created before; owner decision
+# pending) and is covered for those accounts by the backend's test_parental_consent.py.
 #
 # Mirrors: apps/web/e2e/auth-onboarding/parental-consent.spec.ts
 appId: com.padellevelup.app
 ---
-# The backend the debug calls hit: Maestro -e API_BASE=http://localhost:<port> for an
+# The backend the API checks hit: Maestro -e API_BASE=http://localhost:<port> for an
 # isolated backend; the shared test backend on :5001 otherwise.
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - launchApp:
@@ -17,7 +18,6 @@ appId: com.padellevelup.app
 - evalScript: ${output.stamp = String(Date.now())}
 - evalScript: ${output.year = String(new Date().getFullYear() - 10)}
 - evalScript: ${output.username = 'maestro-minor-' + output.stamp}
-- evalScript: ${output.guardian = 'g-' + output.username + '@example.com'}
 - extendedWaitUntil:
     visible:
       id: "login-create-account"
@@ -36,8 +36,7 @@ appId: com.padellevelup.app
 - tapOn:
     id: "signup-username"
 - inputText: ${output.username}
-# PAD-198: Next moves focus down the form and scrolls the field into view. A field
-# under the keyboard still counts as visible, so tapping it would hit the keyboard.
+# Next moves focus down the form and scrolls the field into view (PAD-198).
 - pressKey: Enter
 - inputText: ${output.username + '@example.com'}
 - pressKey: Enter
@@ -50,16 +49,9 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "signup-birthDate"
     text: "${'01/01/' + output.year}"
-- scrollUntilVisible:
-    element:
-      id: "signup-guardianEmail"
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: "signup-guardianEmail"
-- inputText: ${output.guardian}
-# Done on the guardian email closes the keyboard.
-- pressKey: Enter
+# No guardian's email for a minor any more.
+- assertNotVisible:
+    id: "signup-guardian"
 - scrollUntilVisible:
     element:
       id: "signup-submit"
@@ -67,48 +59,18 @@ appId: com.padellevelup.app
     timeout: 10000
 - tapOn:
     id: "signup-submit"
-- extendedWaitUntil:
-    visible:
-      id: "guardian-pending"
-    timeout: 25000
+- scrollUntilVisible:
+    element:
+      id: "signup-error-birthDate"
+    direction: UP
+    timeout: 10000
+- assertVisible:
+    id: "screen-signup"
+- assertNotVisible:
+    id: "guardian-pending"
 
-# ── Signing in before consent shows the same card ──
-- tapOn:
-    id: "guardian-pending-back"
-- extendedWaitUntil:
-    visible:
-      id: "login-username"
-    timeout: 15000
-- tapOn:
-    id: "login-username"
-- eraseText: 40
-- inputText: ${output.username}
-- tapOn:
-    id: "login-password"
-- eraseText: 40
-- inputText: "Segura1234"
-- hideKeyboard
-- tapOn:
-    id: "login-submit"
-- extendedWaitUntil:
-    visible:
-      id: "guardian-pending"
-    timeout: 15000
-
-# ── The guardian consents (web-only page; driven through the API here) ──
-- evalScript: ${output.token = json(http.get(output.api + '/api/auth/guardian-consent/debug/last-link?email=' + output.guardian).body).consentToken}
-- evalScript: "${output.consented = http.post(output.api + '/api/auth/guardian-consent/' + output.token, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guardianName: 'Maestro Guardian', relationship: 'parent', confirmMinorDetails: true, acceptTerms: true }) }).ok}"
-
-# ── The minor gets in, to the email code screen first ──
-- tapOn:
-    id: "guardian-pending-back"
-- extendedWaitUntil:
-    visible:
-      id: "login-submit"
-    timeout: 15000
-- tapOn:
-    id: "login-submit"
-- extendedWaitUntil:
-    visible:
-      id: "verify-email"
-    timeout: 25000
+# ── The server is the authority: straight to the API, refused and not created ──
+- evalScript: "${output.reg = http.post(output.api + '/api/auth/register', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'student', name: 'Maestro Minor', username: output.username, email: output.username + '@example.com', password: 'Segura1234', birthDate: output.year + '-01-01', country: 'PT', guardianEmail: 'g-' + output.username + '@example.com' }) })}"
+- assertTrue: "${output.reg.status == 400 && json(output.reg.body).code == 'UNDERAGE' && json(output.reg.body).field == 'birthDate'}"
+- evalScript: "${output.login = http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: output.username, password: 'Segura1234' }) })}"
+- assertTrue: "${output.login.status == 401}"

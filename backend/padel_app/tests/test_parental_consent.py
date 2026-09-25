@@ -1,4 +1,10 @@
-"""auth.parental-consent — a minor's self-sign-up waits for a guardian (PAD-198)."""
+"""auth.parental-consent — a minor's self-sign-up waits for a guardian (PAD-198).
+
+Since PAD-445 (auth.register rule 18) no minor can sign up: the bar is 18, before the guardian
+branch. The guardian flow stays for the accounts that were created before that — pending or
+granted — so this file keeps testing it end to end, with the bar lowered by `legacy_minor_signups`
+to recreate those accounts the way they were made. test_pad445_adults_only.py tests the real bar.
+"""
 import re
 from datetime import date, datetime, timedelta
 
@@ -16,6 +22,14 @@ AGE14_BIRTH = f"{TODAY.year - 14}-01-01"          # age 14
 @pytest.fixture(autouse=True)
 def _jwt_secret(app):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+
+
+@pytest.fixture(autouse=True)
+def legacy_minor_signups(monkeypatch):
+    """PAD-445: recreate the pre-rule-18 world these accounts come from (see the module docstring)."""
+    from padel_app.services import registration_service
+
+    monkeypatch.setattr(registration_service, "MINIMUM_SIGNUP_AGE", 0)
 
 
 @pytest.fixture(autouse=True)
