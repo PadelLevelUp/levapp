@@ -1203,6 +1203,12 @@ export default function ClassDetailScreen() {
               onOpenSpotsChange={(openSpotsVisible) =>
                 setDraft((d) => (d ? { ...d, openSpotsVisible } : d))
               }
+              autoInvites={active.autoInvites ?? null}
+              effectiveAutoInvites={active.effectiveAutoInvites ?? false}
+              autoInvitesSource={active.autoInvitesSource ?? "type"}
+              onAutoInvitesChange={(autoInvites) =>
+                setDraft((d) => (d ? { ...d, autoInvites } : d))
+              }
             />
           ) : null}
 

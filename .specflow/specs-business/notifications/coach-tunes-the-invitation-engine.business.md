@@ -44,6 +44,10 @@ students, and occasionally auditing what the engine has done.
    sent an empty message.
 5. For one particular class they don't want the engine touching — a private lesson, say — they
    turn notifications off just for that class, leaving the rest of their schedule untouched.
+   A private class already starts that way for new students: automatic invitations to fill its
+   open spots are off by default, while its own students still get their reminders. If the coach
+   does want the engine to fill a private class's spots, they switch automatic invitations on for
+   that class (PAD-429).
 6. Later, on the dashboard or in Settings, they open the notification activity feed to see what
    invitations went out, to whom, and what happened to them.
 
@@ -66,6 +70,17 @@ students, and occasionally auditing what the engine has done.
   a template still gets a sensible default, and the system never sends a message that renders empty.
 - Turning notifications off for one class is scoped to that class alone; it never touches the
   coach's engine-wide switch or any other class.
+- **Automatic invitations are a per-class setting of their own, separate from notifications
+  (PAD-429, owner, 2026-09-24).** Off means the engine never invites new students to fill that
+  class's open spots on its own. The class's students still get their reminders, the coach can
+  still invite students by hand, and students on the class's waiting list are still offered a
+  spot. By default a **private** class has automatic invitations off and an **academy** class has
+  them on. The coach can switch either way for a whole series or for one date, and that choice
+  wins over the default.
+- **The private default applies to existing private classes too** (coordinator, 2026-09-25,
+  option a). It is worked out from the class type every time it is needed and never written onto
+  the classes, so any private class a coach had not set explicitly stops being filled
+  automatically from the release on. A choice a coach had already made for a class is kept.
 - The activity feed is a read-only history — reviewing it never resends or changes anything.
 
 ## Success Metrics

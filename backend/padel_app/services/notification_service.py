@@ -311,10 +311,41 @@ def effective_eligibility_with_source(class_obj, coach_id: int, config: Notifica
     return config.get_eligibility_rules(), "coach"
 
 
-def _tier_flag(obj):
-    """A tier's stored visibility: ``None`` = inherit, else the boolean."""
-    value = getattr(obj, "open_spots_visible", None)
+def _tier_flag(obj, column: str = "open_spots_visible"):
+    """A tier's stored tri-state: ``None`` = inherit, else the boolean."""
+    value = getattr(obj, column, None)
     return value if isinstance(value, bool) else None
+
+
+def _instance_and_lesson(class_obj):
+    """``(instance_or_None, lesson_or_None)`` for a LessonInstance or a Lesson."""
+    if getattr(class_obj, "model_name", None) == "LessonInstance" or hasattr(class_obj, "lesson_id"):
+        return class_obj, getattr(class_obj, "lesson", None)
+    return None, class_obj
+
+
+def effective_auto_invites_with_source(class_obj):
+    """``(on, source)`` — PAD-429, notifications.toggle-class rule 5.
+
+    Instance → lesson → the lesson's type: a ``private`` lesson defaults to off, any other to on.
+    Resolved at read time and never written, so existing private lessons get the default and an
+    explicit lesson/instance value is kept (coordinator, 2026-09-25, option a). No coach tier:
+    the engine-wide switch is ``auto_notify_enabled``.
+    """
+    instance, lesson = _instance_and_lesson(class_obj)
+    if instance is not None:
+        own = _tier_flag(instance, "auto_invites")
+        if own is not None:
+            return own, "instance"
+    if lesson is not None:
+        series = _tier_flag(lesson, "auto_invites")
+        if series is not None:
+            return series, "lesson"
+    return getattr(lesson, "type", None) != "private", "type"
+
+
+def effective_auto_invites(class_obj) -> bool:
+    return effective_auto_invites_with_source(class_obj)[0]
 
 
 def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: NotificationConfig | None = None):
@@ -335,6 +366,10 @@ def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: N
         series = _tier_flag(lesson)
         if series is not None:
             return series, "lesson"
+        # PAD-429 (rule 3a): a private class is hidden unless the class itself says otherwise,
+        # whatever the coach standard. Read-time, never written.
+        if getattr(lesson, "type", None) == "private":
+            return False, "type"
     if config is None:
         config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
     if config is None:
@@ -3811,6 +3846,10 @@ def _send_next_on_decline(
     config: NotificationConfig,
 ) -> None:
     """After a decline, immediately invite the next single eligible player."""
+    # PAD-429 (toggle-class rule 6, Session-B's #445 review): the decline's follow-up invite is
+    # an automatic one too — none when automatic invitations are off for the class.
+    if not effective_auto_invites(instance):
+        return
     _send_invitation_batch(vacancy, instance, config, coach_id, max_sim_override=1)
 
 
@@ -3868,6 +3907,10 @@ def trigger_invitations(
     if not config.auto_notify_enabled:
         return []
     if not instance.notifications_enabled:
+        return []
+    # PAD-429 (toggle-class rule 6): automatic invitations off for this class (a private class
+    # by default) — no vacancy, no approval prompt, nothing sent. Manual sends are unaffected.
+    if not effective_auto_invites(instance):
         return []
     # PAD-68: never open/refresh vacancies for a class that already happened.
     if _instance_is_over(instance, now):
@@ -4074,6 +4117,10 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
             continue
         # Approved "at the invitation window": hold until the window opens.
         if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
+            continue
+        # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the
+        # vacancy (a coach who turns it off mid-fill stops the rounds; turning it back on resumes).
+        if not effective_auto_invites(instance):
             continue
 
         config = get_or_create_config(vacancy.coach_id)
