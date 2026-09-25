@@ -3804,6 +3804,10 @@ def _send_next_on_decline(
     config: NotificationConfig,
 ) -> None:
     """After a decline, immediately invite the next single eligible player."""
+    # PAD-429 (toggle-class rule 6, Session-B's #445 review): the decline's follow-up invite is
+    # an automatic one too — none when automatic invitations are off for the class.
+    if not effective_auto_invites(instance):
+        return
     _send_invitation_batch(vacancy, instance, config, coach_id, max_sim_override=1)
 
 

@@ -290,3 +290,62 @@ def test_creating_a_private_class_stores_nothing_unless_the_coach_chose(app):
         chosen = add_class_service({**base, "date": "2027-03-02", "autoInvites": True}, coach, club)
         assert plain.auto_invites is None
         assert chosen.auto_invites is True
+
+
+def test_a_decline_after_automatic_invitations_go_off_invites_no_one_next(app):
+    """Rule 6 (Session-B's #445 review): a decline normally invites the next student at once
+    (`_send_next_on_decline`). With auto-invites off for the class, it must not."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import respond_to_notification
+
+    ids = _class_with_a_candidate(app, lesson_type="academy", name="decline")
+    with app.app_context():
+        # a second candidate, so a decline has someone next in line
+        extra = _create_player(_create_user("Extra", "decline-extra"))
+        from padel_app.models.coaches import Coach
+        from padel_app.models.coach_levels import CoachLevel
+        coach = Coach.query.get(ids["coach_id"])
+        level = CoachLevel.query.get(LessonInstance.query.get(ids["instance_id"]).level_id)
+        _create_coach_player(coach, extra, level)
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).first()
+        cfg.max_simultaneous_enabled, cfg.max_simultaneous_value = True, 1  # one invite at a time
+        db.session.commit()
+
+    assert _trigger(app, ids) == 1
+    _set(app, LessonInstance, ids["instance_id"], auto_invites=False)
+
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        event = NotificationEvent.query.filter_by(lesson_instance_id=ids["instance_id"], status="sent").one()
+        declining_user = Player.query.get(event.player_id).user_id
+        respond_to_notification(event.id, "no", declining_user)
+    assert _invites_sent(app, ids) == 1, "the decline invited the next student with auto-invites off"
+
+
+def test_a_decline_with_automatic_invitations_on_still_invites_the_next(app):
+    """The control for the cell above: with auto-invites on, the next student is invited at once."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import respond_to_notification
+
+    ids = _class_with_a_candidate(app, lesson_type="academy", name="decline-on")
+    with app.app_context():
+        extra = _create_player(_create_user("Extra", "decline-on-extra"))
+        from padel_app.models.coaches import Coach
+        from padel_app.models.coach_levels import CoachLevel
+        coach = Coach.query.get(ids["coach_id"])
+        level = CoachLevel.query.get(LessonInstance.query.get(ids["instance_id"]).level_id)
+        _create_coach_player(coach, extra, level)
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).first()
+        cfg.max_simultaneous_enabled, cfg.max_simultaneous_value = True, 1
+        db.session.commit()
+
+    assert _trigger(app, ids) == 1
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        event = NotificationEvent.query.filter_by(lesson_instance_id=ids["instance_id"], status="sent").one()
+        respond_to_notification(event.id, "no", Player.query.get(event.player_id).user_id)
+    assert _invites_sent(app, ids) == 2

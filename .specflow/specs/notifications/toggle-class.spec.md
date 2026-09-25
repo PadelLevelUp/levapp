@@ -30,6 +30,11 @@ Toggle notification engine on/off for a specific class.
      included);
    - the periodic sweep (`process_invitation_batches`) holds every open vacancy of that class and
      sends no batch, so a coach who turns it off mid-fill stops the rounds;
+   - a decline does not invite the next student (`_send_next_on_decline`), so no path advances
+     a round on its own;
+   - standing waiting-list PLACEMENT stops too, because it happens inside the gated trigger.
+     Offers to students who asked (their own waiting-list place) are not automatic invitations
+     and still go out;
    - reminders, `send_manual_notifications` and waiting-list offers are untouched, as is
      `notifications_enabled` (rules 1–3).
    Turning it back on lets the next tick invite for the class's open vacancies.
@@ -63,6 +68,12 @@ Toggle notification engine on/off for a specific class.
 - **Given** an academy class with an open vacancy whose first batch has gone out
 - **When** the coach sets `autoInvites` `false` on that date and the sweep runs past `maxInactiveTime`
 - **Then** no further batch is sent for the vacancy
+
+#### A decline doesn't invite the next student when automatic invitations are off (PAD-429)
+- **Given** an academy class with one invitation out (`maxSimultaneous` 1) and a second eligible student, and `autoInvites` then set to `false` on that date
+- **When** the invited student declines
+- **Then** no invitation is sent to the second student
+- **And** with `autoInvites` on, the same decline invites the second student at once
 
 #### Manual invitations ignore the setting (PAD-429)
 - **Given** a private class with `effectiveAutoInvites` `false`
