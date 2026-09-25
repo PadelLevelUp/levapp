@@ -225,6 +225,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** they press + once, leave Settings and open it again
 - **Then** `maxSimultaneous` reads 4, read back from `GET /api/app/notify/config`
 
+#### An excluded player is never invited (PAD-449)
+- **Given** a coach with `restrictions.excludedPlayers` `{enabled: true, playerIds: ["<Excluded Student's player id>"]}`, two students on the roster and one open spot whose invitation group admits both
+- **When** the engine evaluates the candidates and sends the first batch
+- **Then** the excluded student's verdict is `excluded_by_coach` and only the other student is invited
+
 #### Quiet hours hold the sweep (B-200)
 - **Given** quiet hours on, and an open vacancy with no invitation yet for a class at 09:00 Lisbon
 - **When** the sweep runs at 23:30 Lisbon, and again at 07:30
