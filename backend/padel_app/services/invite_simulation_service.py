@@ -45,6 +45,9 @@ GATE_CODES = (
     "quiet_hours",
     "min_time_before_class",
     "max_total_reached",
+    # PAD-429 (toggle-class rule 6): sent only to a client that declares class-type-defaults;
+    # an older build gets it folded into class_notifications_disabled (see _gates).
+    "class_auto_invites_off",
 )
 
 QUIET_HOURS_START = 22
@@ -154,12 +157,22 @@ def _gates(instance, config, now: datetime) -> list[dict]:
     total_limit = max_total.get("value")
     total_blocked = total_enabled and total_limit is not None and sent >= total_limit
 
+    from padel_app.services.notification_service import effective_auto_invites
+    from padel_app.utils.client_capabilities import CLASS_TYPE_DEFAULTS, client_declares
+
+    notifications_off = not bool(getattr(instance, "notifications_enabled", True))
+    auto_invites_off = not effective_auto_invites(instance)
+    # PAD-429: a build that predates the code would render its label key raw, so it hears
+    # "notifications are off for this class", the nearest gate it knows. Still true.
+    declares = client_declares(CLASS_TYPE_DEFAULTS)
+    auto_gate = [{"code": "class_auto_invites_off", "blocked": auto_invites_off}] if declares else []
     return [
         {"code": "auto_notify_disabled", "blocked": not bool(config.auto_notify_enabled)},
         {
             "code": "class_notifications_disabled",
-            "blocked": not bool(getattr(instance, "notifications_enabled", True)),
+            "blocked": notifications_off or (auto_invites_off and not declares),
         },
+        *auto_gate,
         {"code": "class_over", "blocked": bool(_instance_is_over(instance, now))},
         {
             "code": "invitation_window",
