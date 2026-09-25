@@ -273,7 +273,11 @@ export default function SettingsPage() {
   // section picker above it hid what else existed and made the page read as a
   // pile of unrelated controls.
   const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
-  const [language, setLanguage] = useState<AppLanguage>("pt");
+  // B-184: start from the language the app is showing (AuthContext applied the user's stored one
+  // before this page renders), not a hard "pt". With "pt", a coach whose language is English saw
+  // "Português" before the profile read landed; choosing it changed nothing (no change event), so
+  // nothing marked it chosen and the late read put English back.
+  const [language, setLanguage] = useState<AppLanguage>(() => (i18n.language === "en" ? "en" : "pt"));
   // PAD-81: the profile form is hydrated from the API. `savedProfile` keeps the
   // last server-confirmed values so we only PATCH what actually changed.
   const [profile, setProfile] = useState<ProfileForm>(EMPTY_PROFILE);
@@ -284,6 +288,9 @@ export default function SettingsPage() {
   // Set as soon as the coach edits a field, so a late `getMe()` response can
   // refresh the "what's on the server" baseline without wiping what they typed.
   const profileDirty = useRef(false);
+  // B-184: the same guard for the language. Once the user has chosen one, the mount-time
+  // profile read (which can land later) must not put the stored language back.
+  const languageDirty = useRef(false);
   // PAD-57: real dark theme owned by next-themes (persists + toggles `.dark`).
   const { theme, setTheme } = useTheme();
   // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
@@ -358,9 +365,11 @@ export default function SettingsPage() {
     getMe()
       .then((me) => {
         if (!active) return;
-        const lang = (me.language ?? "pt") as AppLanguage;
-        setLanguage(lang);
-        i18n.changeLanguage(lang);
+        if (!languageDirty.current) {
+          const lang = (me.language ?? "pt") as AppLanguage;
+          setLanguage(lang);
+          i18n.changeLanguage(lang);
+        }
         const loaded: ProfileForm = {
           name: me.name ?? "",
           abbreviation: me.abbreviation ?? "",
@@ -622,6 +631,7 @@ export default function SettingsPage() {
                       value={language}
                       onValueChange={(v) => {
                         const lang = v as AppLanguage;
+                        languageDirty.current = true;
                         setLanguage(lang);
                         i18n.changeLanguage(lang);
                       }}

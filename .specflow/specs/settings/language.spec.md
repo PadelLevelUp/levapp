@@ -40,6 +40,12 @@ login (not only while the Settings screen is mounted).
    template strings accordingly.
 6. Weekday, date, and time tokens in notification/reminder templates render in the resolved locale
    (e.g. `pt` → "quarta-feira"; `en` → "Wednesday"), using Flask-Babel, not hardcoded name tables.
+7. **A choice survives the page's own profile load (B-184, PAD-453).** The web Settings page reads the
+   profile on mount. Until that read lands, the language select shows the language the app is
+   already showing (AuthContext applied the stored one), never a hard-coded `pt`. Once the coach has
+   chosen a language, a read that lands later leaves the choice alone, as it already did for the
+   profile fields, so Save writes what the coach chose. iOS saves the tapped value immediately, so a
+   late read cannot change what it writes; this rule is web-only.
 
 ### Acceptance Criteria
 
@@ -76,6 +82,12 @@ login (not only while the Settings screen is mounted).
 - **Then** the interface chrome (navigation, headings, buttons, labels) renders in English
 - **And** switching their language to `pt` in Settings re-renders the same chrome in Portuguese without a full reload
 - **And** the applied language survives a page reload (it is re-applied from the persisted preference on session restore, not only while Settings is mounted)
+
+#### A late profile read does not undo the chosen language (B-184)
+- **Given** the coach `e2e-coach`, whose `language` is `en`, on the web Settings page, with the page's own `GET /auth/me` still in flight
+- **When** they choose Portuguese, the held read then lands, and they click Save
+- **Then** the select still shows Portuguese
+- **And** the `PATCH /auth/me` body carries `{"language": "pt"}`
 
 ### Notes
 - Source: ticket PAD-39
