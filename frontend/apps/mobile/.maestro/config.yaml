@@ -203,6 +203,8 @@ executionOrder:
     # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
     # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
     - 117-month-grid-seven-columns
+    # 118 (PAD-439): the add-to-classes picker cannot step back from the current week; next week offers classes.
+    - 118-add-to-classes-no-past
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -9,6 +9,7 @@ whether a failure mode has been seen before.
 **How to navigate:** follow `affects:` to the rule, file, or spec involved; follow
 `related_specs:` to the governing specs. IDs are monotonic and never reused.
 - [B-053](B-053-disabled-account-login-issues-token.md) — both login routes signed in a disabled (deleted, withdrawn or rejected) account (incomplete-rule, high, resolved)
+- [B-202](B-202-add-to-classes-list-does-not-wheel-scroll.md) — Web "Add to classes" picker: the class list could not be scrolled by wheel or trackpad (Radix ScrollArea inside the Dialog); now a native overflow-y-auto list (missing-criterion, high, resolved in PAD-439)
 - [B-023](B-023-auth-register-api-never-existed.md) — auth.register is spec-ahead-of-code: no JSON register route exists (layer-drift, medium, resolved in PAD-210)
 - [B-029](B-029-ios-composer-band-under-keyboard-and-round-send.md) — iOS composer band under the keyboard, round send button, web send button shorter than the input (incomplete-rule, low, resolved)
 - [B-080](B-080-nightly-prod-backup-is-a-no-op.md) — the nightly prod backup cron reads an unset variable, runs pg_dump on the host and uploads to an empty bucket; prod has had no automatic backup (incomplete-rule, high, open — unverified on the VM)
