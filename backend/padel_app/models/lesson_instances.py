@@ -49,6 +49,8 @@ class LessonInstance(db.Model, model.Model):
     eligibility_rules = Column(JSON, nullable=True)
     # PAD-130: single-class tier of the "advertise empty spots" toggle.
     open_spots_visible = Column(Boolean, nullable=True)
+    # PAD-429: single-class tier of automatic invitations (toggle-class rule 5). NULL = inherit.
+    auto_invites = Column(Boolean, nullable=True)
 
     status = Column(
         Enum(
