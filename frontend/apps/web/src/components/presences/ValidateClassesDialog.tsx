@@ -631,7 +631,7 @@ function ClassCard({
           {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {t("presences.validate.validate")}
         </Button>
-        <Button variant="outline" size="sm" onClick={onOpen}>
+        <Button variant="outline" size="sm" onClick={onOpen} data-testid="presences-open-class">
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           {t("presences.validate.open")}
         </Button>

@@ -3,7 +3,7 @@
  * flight, EVERY queued class is disabled — not just the first.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentType } from "react";
 import type { PendingValidationClass } from "@/types";
 import { ValidateClassesDialog } from "./ValidateClassesDialog";
@@ -90,5 +90,51 @@ describe("ValidateClassesDialog bulk-run guard", () => {
     const [first, second] = screen.getAllByTestId("presences-validate-class");
     expect(first).toBeDisabled();
     expect(second).toBeEnabled();
+  });
+});
+
+// PAD-443 (attendance.validation rule 24): a player who still needs a decision stands out —
+// an alert icon and a flagged row — until the coach marks them, and the header counts them.
+// Criterion: "An undecided player stands out until marked".
+describe("ValidateClassesDialog undecided players (PAD-443)", () => {
+  function openSilentClass() {
+    const silent = klass(1, "First");
+    silent.players = [
+      { ...silent.players[0], playerId: 11, presenceId: 11, name: "Rui", response: "none" },
+      { ...silent.players[0], playerId: 12, presenceId: 12, name: "Ana", response: "confirmed" },
+    ];
+    render(
+      <Dialog
+        pending={[silent]}
+        validated={[]}
+        pendingCount={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={async () => {}}
+        onUnvalidate={async () => {}}
+        busyClassIds={[]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    fireEvent.click(screen.getByTestId("presences-open-class"));
+  }
+
+  it("flags only the undecided player and counts them in the header", () => {
+    openSilentClass();
+    expect(screen.getByTestId("validate-player-row-11")).toHaveAttribute("data-undecided", "true");
+    expect(screen.getByTestId("validate-undecided-icon-11")).toBeInTheDocument();
+    expect(screen.getByTestId("validate-player-row-12")).toHaveAttribute("data-undecided", "false");
+    expect(screen.queryByTestId("validate-undecided-icon-12")).toBeNull();
+    expect(screen.getByTestId("validate-undecided-summary")).toHaveTextContent("presences.validate.awaiting:1");
+  });
+
+  it("drops the flag the moment the player is marked", () => {
+    openSilentClass();
+    const row = screen.getByTestId("validate-player-row-11");
+    fireEvent.click(within(row).getByTestId("presence-mark-present"));
+    expect(screen.getByTestId("validate-player-row-11")).toHaveAttribute("data-undecided", "false");
+    expect(screen.queryByTestId("validate-undecided-icon-11")).toBeNull();
+    expect(screen.queryByTestId("validate-undecided-summary")).toBeNull();
   });
 });
