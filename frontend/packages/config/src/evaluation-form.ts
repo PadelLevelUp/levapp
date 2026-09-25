@@ -13,6 +13,16 @@ export function isStarScale(scale: Pick<EvaluationCompetency, "scaleMin" | "scal
   return scale.scaleMin === 1 && scale.scaleMax === 5;
 }
 
+/** Which input rates a competency (evaluations.scale rule 7, PAD-423): the five stars on 1-5; a
+ *  slider on the coach's 1-10, 1-20 or 1-100 (catalogue and custom competencies); the dormant
+ *  stepper only for a LEGACY category (`group` null) that is somehow not 1-5 (see `isStarScale`). */
+export type RatingInputKind = "stars" | "slider" | "stepper";
+
+export function ratingInputKind(competency: Pick<EvaluationCompetency, "scaleMin" | "scaleMax" | "group">): RatingInputKind {
+  if (isStarScale(competency)) return "stars";
+  return competency.group === null ? "stepper" : "slider";
+}
+
 /** A competency in the form: stars when its scale is 1-5 (see `isStarScale`). */
 export function isStarCompetency(competency: Pick<EvaluationCompetency, "scaleMin" | "scaleMax">): boolean {
   return isStarScale(competency);
