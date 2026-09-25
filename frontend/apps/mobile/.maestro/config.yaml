@@ -199,6 +199,9 @@ executionOrder:
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
     - 105-settings-restrictions
+    # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
+    # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
+    - 117-month-grid-seven-columns
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -1,0 +1,46 @@
+# PAD-437 (B-201): the Mês grid is seven columns wide, Sunday included.
+#
+# The React Native grid wrapped each cell at width `${100 / 7}%`; seven of those rounded past the
+# row's width, so the Sunday cell wrapped onto the next line and every later date sat one
+# weekday off (Sun 4 Oct under SEG, Thu 29 Oct under TER). Asserted by position, not by copy:
+# each Sunday is to the RIGHT of its Saturday, on the same row; a wrapped Sunday sits at the far
+# left of the next row and fails. (Maestro's `below` compares only y, so it cannot catch a column
+# shift and is not used.) October 2026 starts on a Thursday: its first row is 28 Sep–4 Oct.
+appId: com.padellevelup.app
+# R-040: the view mode persists, and goto-seeded-monday (every later flow) needs the week view.
+onFlowComplete:
+  - tapOn:
+      id: "calendar-view-week"
+      optional: true
+---
+- runFlow: ../subflows/login-student.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+- tapOn:
+    id: "calendar-view-month"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-month-grid"
+    timeout: 20000
+
+# Step to October 2026 whichever month the seed anchor opened on.
+- repeat:
+    while:
+      notVisible:
+        id: "calendar-month-cell-2026-10-15"
+    times: 14
+    commands:
+      - tapOn:
+          id: "calendar-month-next"
+- assertVisible:
+    id: "calendar-month-cell-2026-10-15"
+
+# Sunday stays on its week's row, to the right of Saturday.
+- assertVisible:
+    id: "calendar-month-cell-2026-10-04"
+    rightOf:
+      id: "calendar-month-cell-2026-10-03"
+- assertVisible:
+    id: "calendar-month-cell-2026-10-11"
+    rightOf:
+      id: "calendar-month-cell-2026-10-10"
