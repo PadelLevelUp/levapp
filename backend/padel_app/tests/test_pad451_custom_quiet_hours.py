@@ -128,3 +128,19 @@ def test_a_held_vacancy_goes_out_at_the_custom_end(app):
         assert _sent(vid) == 0
         process_invitation_batches(now=datetime(2026, 6, 11, 7, 0))   # 08:00: the end
         assert _sent(vid) == 1
+
+
+# ── the invite simulation explains the same window (Session-C's #444 review) ────────
+
+def test_the_simulation_gate_reports_the_coachs_window(app):
+    """A 20:00–06:00 window at 21:00 Lisbon (20:00Z in June): the engine holds, and the simulation's
+    explanation must say so too, with the window's own end — not the old fixed 22:00–07:00."""
+    from padel_app.services.invite_simulation_service import _quiet_hours_gate
+
+    with app.app_context():
+        gate = _quiet_hours_gate(_quiet("20:00", "06:00"), datetime(2026, 6, 10, 20, 0))
+        assert gate["blocked"] is True
+        assert gate["until"] == "06:00"
+        assert gate["untilAt"] == datetime(2026, 6, 11, 5, 0).isoformat()   # 06:00 Lisbon
+        outside = _quiet_hours_gate(_quiet("20:00", "06:00"), datetime(2026, 6, 10, 12, 0))
+        assert outside["blocked"] is False and outside["untilAt"] is None

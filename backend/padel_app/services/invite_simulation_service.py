@@ -29,7 +29,7 @@ client (eligibility.enforcement rule 7a).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from padel_app.utils.dates import CLUB_TZ, utcnow_naive, wall_to_utc_naive
 
@@ -47,8 +47,6 @@ GATE_CODES = (
     "max_total_reached",
 )
 
-QUIET_HOURS_START = 22
-QUIET_HOURS_END = 7
 
 
 # ---------------------------------------------------------------------------
@@ -99,27 +97,26 @@ def _to_local(now: datetime) -> datetime:
     return now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
 
 
-def _to_naive_utc(local: datetime) -> datetime:
-    return local.astimezone(timezone.utc).replace(tzinfo=None)
-
 
 def _quiet_hours_gate(restrictions: dict, now: datetime) -> dict:
-    """PAD-136: the window is a CLUB-LOCAL wall clock (notifications.config
-    rule 6a), so `now` is converted before the hour is read — the same
-    conversion `_check_restrictions` performs."""
+    """PAD-136 / PAD-451: the coach's window on the CLUB-LOCAL wall clock (notifications.config
+    rule 6a). Judged by the engine's own helpers, so the explanation can never disagree with what
+    `_check_restrictions` holds (Session-C's #444 review: a 20:00–06:00 window at 21:00)."""
+    from padel_app.services.notification_service import (
+        _in_quiet_window,
+        _next_quiet_hours_end,
+        _quiet_window,
+    )
+
     enabled = bool(restrictions.get("quietHours", {}).get("enabled"))
-    local = _to_local(now)
-    inside = local.hour >= QUIET_HOURS_START or local.hour < QUIET_HOURS_END
-    blocked = enabled and inside
-    until_local = local.replace(hour=QUIET_HOURS_END, minute=0, second=0, microsecond=0)
-    if local.hour >= QUIET_HOURS_START:
-        until_local = until_local + timedelta(days=1)
+    blocked = enabled and _in_quiet_window(_to_local(now), restrictions)
+    _, end_min = _quiet_window(restrictions)
     return {
         "code": "quiet_hours",
         "blocked": blocked,
         "enabled": enabled,
-        "until": f"{QUIET_HOURS_END:02d}:00",
-        "untilAt": _to_naive_utc(until_local).isoformat() if blocked else None,
+        "until": f"{end_min // 60:02d}:{end_min % 60:02d}",
+        "untilAt": _next_quiet_hours_end(now, restrictions).isoformat() if blocked else None,
     }
 
 
