@@ -77,3 +77,18 @@ export function ui(key: string, opts: { exact?: boolean } = {}): RegExp {
   const body = parts.length === 1 ? parts[0] : `(?:${parts.join("|")})`;
   return new RegExp(opts.exact === false ? body : `^${body}$`, "i");
 }
+
+/**
+ * The rendered copy of any of `keys` in ONE language, for a check that must tell the languages
+ * apart: a Portuguese page asserting that no English heading is left is `toHaveCount(0)` on
+ * `uiIn(keys, "en")`. Read from the locale file, it follows a copy change; a typed regex went
+ * vacuous when PAD-419 changed "Morning, …" to "Good morning, …" and kept passing.
+ */
+export function uiIn(keys: string | string[], lang: Lang, opts: { exact?: boolean } = {}): RegExp {
+  const parts = [...new Set((Array.isArray(keys) ? keys : [keys]).map((key) => withSlots(uiText(key, lang))))];
+  const body = parts.length === 1 ? parts[0] : `(?:${parts.join("|")})`;
+  return new RegExp(opts.exact === false ? body : `^${body}$`, "i");
+}
+
+/** The dashboard greeting's keys (both dashboards render `dashboard.greeting.<time of day>`). */
+export const GREETING_KEYS = ["dashboard.greeting.morning", "dashboard.greeting.afternoon", "dashboard.greeting.evening"];
