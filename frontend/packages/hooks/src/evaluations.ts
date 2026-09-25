@@ -152,7 +152,14 @@ export function useMyEvaluations(enabled = true) {
  */
 function useCompetencyCache() {
   const queryClient = useQueryClient();
-  const relist = () => queryClient.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies });
+  // PAD-422: the class panel builds its form rows from the class read's own `competencies`
+  // (`classRowCompetencies`), so a change made from the panel's manager must mark every class
+  // read stale too, or the open form only shows it after a reload.
+  const relist = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() }),
+    ]);
   const put = (competency: EvaluationCompetency) =>
     queryClient.setQueryData<EvaluationCompetencies>(queryKeys.evaluationCompetencies, (data) => {
       if (!data) return data;
