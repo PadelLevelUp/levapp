@@ -7,6 +7,11 @@ implemented_by:
 
 # Minor signs up with a guardian's consent
 
+> **Superseded for new sign-ups (PAD-445, owner decision 2026-09-24).** LevApp now accepts adults only
+> (see "Newcomer signs up on their own"), so no minor can start this journey any more. It is kept
+> because accounts already waiting for, or holding, a guardian's consent still follow it. Whether they
+> keep it, and whether this journey is retired, is still open with the owner.
+
 ## Outcome
 
 A young player can create their own LevApp account, but if they are under the age at which their

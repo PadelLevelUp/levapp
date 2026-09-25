@@ -76,6 +76,17 @@ def validate_registration(data):
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+#: auth.register rule 18 (PAD-445, owner decision 2026-09-24): LevApp accepts adults only,
+#: whatever the country's age of digital consent.
+MINIMUM_SIGNUP_AGE = 18
+
+#: Bilingual because an older app build shows the server's text verbatim; web and iOS map
+#: the `UNDERAGE` code to their own localized copy.
+_UNDERAGE_MESSAGE = (
+    "Data de nascimento inválida. Esta app só aceita maiores de 18 anos. "
+    "/ Invalid date of birth. This app only accepts people aged 18 or over."
+)
+
 #: auth.parental-consent rule 2: an absent field means an app build from
 #: before PAD-198, which shows this text verbatim — so it says what to do.
 _UPDATE_APP = {
@@ -99,7 +110,7 @@ def validate_consent_fields(data, email, today=None):
     guardian_email_or_None, is_minor) or raises RegistrationError with a code."""
     from datetime import date
 
-    from padel_app.services.parental_consent_service import is_minor
+    from padel_app.services.parental_consent_service import age_on, is_minor
 
     data = data or {}
     today = today or utcnow_naive().date()
@@ -118,6 +129,10 @@ def validate_consent_fields(data, email, today=None):
             "birthDate must be a real date (YYYY-MM-DD), not in the future", 400, "birthDate",
             code="INVALID_BIRTH_DATE",
         )
+    # auth.register rule 18: before the country and the guardian fields, so no minor ever
+    # reaches the guardian branch (auth.parental-consent rule 3).
+    if age_on(birth, today) < MINIMUM_SIGNUP_AGE:
+        raise RegistrationError(_UNDERAGE_MESSAGE, 400, "birthDate", code="UNDERAGE")
 
     raw_country = data.get("country")
     if _absent(raw_country):

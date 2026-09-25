@@ -45,7 +45,7 @@ vi.mock("@tanstack/react-query", async () => {
       }, []);
       return { data, isPending: data === undefined };
     },
-    useQueryClient: () => ({ setQueryData: vi.fn() }),
+    useQueryClient: () => ({ setQueryData: vi.fn(), cancelQueries: vi.fn(async () => undefined) }),
   };
 });
 
