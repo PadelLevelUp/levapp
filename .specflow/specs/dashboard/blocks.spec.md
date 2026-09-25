@@ -207,6 +207,11 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      `notify` param), for a coach only. The hero and the schedule keep the plain link.
    - the student's asks and KPIs keep `dashboard.navigation` rules 6–8 / 11.
 
+11. **(PAD-443) The validation card is tiered.** The coach's `validation` item renders with
+    `attendance.validation` rule 23's tier (`validationTier(count)`: yellow for 1–5, red above 5)
+    and reads "Tens N aulas por validar" (singular "Tens 1 aula por validar"), linking as rule 10.
+    Its number is the one the Presences badge shows.
+
 ### Acceptance Criteria
 
 #### Coach dashboard
@@ -235,6 +240,12 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** the seeded `e2e-coach` on the dashboard with an under-capacity class in the next 7 days
 - **When** they press **Later** on that card
 - **Then** the card is gone after the dashboard refetches and the "needs you" count drops by one
+
+#### The validation card carries its tier (rule 11, PAD-443)
+- **Given** a coach with 7 classes to validate this week
+- **When** the dashboard renders
+- **Then** the validation card reads "Tens 7 aulas por validar" in the red tier, and the Presences
+  badge reads 7
 
 #### Validation card counts classes for the tab's week (PAD-190 / PAD-201)
 - **Given** a coach with two classes ended last week that still have an unvalidated presence,
