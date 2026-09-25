@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { ui } from "../helpers/i18n";
 
 const TITLE = "E2E Academy Class";
 
@@ -17,7 +18,7 @@ async function openSeededClass(page: import("@playwright/test").Page) {
 test("US-52: notification config is accessible from class detail", async ({ page }) => {
   await openSeededClass(page);
   // The class detail has a "Notify" button — that's the notification entry point
-  await expect(page.getByRole("button", { name: /notify/i }).first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("button", { name: ui("calendar.detail.notify") }).first()).toBeVisible({ timeout: 5000 });
 });
 
 // US-53: Notification config has advanced options

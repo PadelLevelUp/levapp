@@ -17,6 +17,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { ui } from "../helpers/i18n";
 
 const CLASS_TITLE = "E2E Academy Class";
 
@@ -27,7 +28,7 @@ async function openNotifyModal(page: Page) {
 
   await page.getByText(CLASS_TITLE).first().click();
 
-  const notifyBtn = page.getByRole("button", { name: /^notify$/i }).first();
+  const notifyBtn = page.getByRole("button", { name: ui("calendar.detail.notify") }).first();
   await notifyBtn.waitFor({ state: "visible", timeout: 10_000 });
   await notifyBtn.click();
 

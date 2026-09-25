@@ -461,11 +461,17 @@ def build_schedule_block(
     """The week ahead. Shows the first few rows and links out for the rest."""
     now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
-    return schedule_block(window)
+    return schedule_block(window, invite=True)
 
 
-def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-    """The ``schedule_7d`` block for ``events`` already cut to the 7-day window."""
+def schedule_block(events: Sequence[Dict[str, Any]], *, invite: bool = False) -> Dict[str, Any]:
+    """The ``schedule_7d`` block for ``events`` already cut to the 7-day window.
+
+    ``invite`` (the coach's schedule, PAD-425): each row also carries ``inviteHref``, the class
+    with Notificar/Convidar already open, the same link as the empty-seats queue item. The row
+    itself keeps the plain class link (dashboard.blocks rule 10). The student's schedule passes
+    nothing: a student has no invite flow.
+    """
     items = []
     for event in events[:SCHEDULE_ROWS]:
         start = _event_start(event)
@@ -482,6 +488,7 @@ def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                 "filled": filled,
                 "capacity": capacity,
                 "href": class_href(event),
+                **({"inviteHref": class_href(event) + "&notify=1"} if invite else {}),
             }
         )
 
