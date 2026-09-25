@@ -1,3 +1,4 @@
+import { formatBirthInput, toIso } from "@/features/auth/signup-form";
 import { invitationsApi } from "@levelup/api";
 import { router } from "expo-router";
 import * as React from "react";
@@ -13,6 +14,7 @@ import {
 import {
   coachInviteSchema,
   submitOutcomeForError,
+  ACTIVATION_BIRTH_CODES,
   validateAccountForm,
 } from "@/features/auth/account-setup";
 
@@ -41,6 +43,8 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     username: "",
     password: "",
     repeatPassword: "",
+    // PAD-457: DD/MM/AAAA, typed with the number pad as on sign-up.
+    birthDate: "",
   });
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>(
     {}
@@ -75,7 +79,8 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
   }, []);
 
   const onChangeField = React.useCallback((id: string, value: string) => {
-    setValues((prev) => ({ ...prev, [id]: value }));
+    const next = id === "birthDate" ? formatBirthInput(value) : value;
+    setValues((prev) => ({ ...prev, [id]: next }));
     setErrors((prev) => ({ ...prev, [id]: undefined }));
   }, []);
 
@@ -100,6 +105,7 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
         name: values.name,
         username: values.username,
         password: values.password,
+        birthDate: toIso(values.birthDate) ?? "",
       });
       toast.success(
         t("auth.coachInvite.welcomeTitle"),
@@ -108,6 +114,13 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
       await login(accessToken);
       router.replace("/(tabs)/dashboard");
     } catch (error) {
+      // PAD-457: a birth-date refusal belongs on the field, in the form's words.
+      const res = (error as { response?: { status?: number; data?: { field?: string; code?: string } } }).response;
+      const birthKey = res?.data?.code ? ACTIVATION_BIRTH_CODES[res.data.code] : undefined;
+      if (res?.status === 400 && res.data?.field === "birthDate" && birthKey) {
+        setErrors({ birthDate: t(`auth.coachInvite.${birthKey}`) });
+        return;
+      }
       const outcome = submitOutcomeForError(error);
       if (outcome === "username-taken") {
         setSubmitError(t("auth.coachInvite.usernameTaken"));
@@ -155,6 +168,13 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
       label: t("auth.coachInvite.repeatPassword"),
       secure: true,
       autoComplete: "new-password",
+    },
+
+    {
+      id: "birthDate",
+      label: t("auth.coachInvite.birthDate"),
+      keyboardType: "number-pad",
+      placeholder: "DD/MM/AAAA",
     },
   ];
 
