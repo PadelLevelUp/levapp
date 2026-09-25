@@ -10,14 +10,14 @@ Every DDL statement is guarded (the column is added only if absent, dropped only
 the migration is idempotent on a database that drifted (memory prod-schema-drift).
 
 Revision ID: 149faa7df297
-Revises: e25428020888
+Revises: 4dbac8a33648
 """
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "149faa7df297"
-down_revision = "e25428020888"  # PAD-403
+down_revision = "4dbac8a33648"  # PAD-451; D148 order: PAD-429 -> PAD-451 -> PAD-423
 branch_labels = None
 depends_on = None
 
