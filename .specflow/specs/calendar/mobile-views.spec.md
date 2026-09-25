@@ -128,7 +128,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     the six-week range that covers the grid.
 16. **Month grid.** A weekday header row, then Monday-start cells for every week that touches
     the month. In-month cells show a 26px date circle using rule 10's states and the dot row
-    from rule 10; out-of-month cells render at 32% opacity and are not tappable.
+    from rule 10; out-of-month cells render at 32% opacity and are not tappable. **(PAD-437)** The grid is
+    seven columns on every screen: one row per week, seven equal cells, never one wrapping row of
+    percentage-width cells (Yoga's rounding can push the seventh cell to the next line).
 17. **Day sheet under the month grid (PAD-436; owner, 2026-09-24).** Below the month grid there is
     only rule 3's bottom sheet for the selected day: no time grid. **At rest the sheet starts right
     under the month grid and fills everything below it.** (Until PAD-436 a single-day time grid sat

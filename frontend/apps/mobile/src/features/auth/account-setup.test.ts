@@ -119,6 +119,8 @@ const validPlayer = {
   username: "nina",
   password: "Nina123!",
   repeatPassword: "Nina123!",
+  // PAD-457: both invitations create a login, so they ask for an adult birth date too.
+  birthDate: "01/01/1990",
 };
 
 const validCoach = { name: "Nina Coach", ...validPlayer };
@@ -130,6 +132,8 @@ const validRegister = {
   phone: "",
   password: "Nina123!",
   repeatPassword: "Nina123!",
+  // PAD-457 (auth.activate rule 13): activation asks for the birth date, typed DD/MM/AAAA.
+  birthDate: "01/01/1990",
 };
 
 describe("validateAccountForm — player invite", () => {
@@ -186,6 +190,7 @@ describe("validateAccountForm — coach invite", () => {
         username: "a",
         password: "x",
         repeatPassword: "y",
+        birthDate: "01/01/1990",
       })
     ).toEqual({
       name: "nameMin",
@@ -219,6 +224,33 @@ describe("validateAccountForm — register", () => {
         repeatPassword: "Other123!",
       })
     ).toEqual({ repeatPassword: "passwordsMismatch" });
+  });
+
+  // PAD-457 (auth.activate rule 13): adults only at activation too, on the device's date (the
+  // server judges on UTC and stays the authority).
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const yearsAgo = (years: number, days = 0) => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - years);
+    d.setDate(d.getDate() + days);
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  };
+
+  it("requires a birth date", () => {
+    expect(validateAccountForm(registerSchema, { ...validRegister, birthDate: "" })).toEqual({ birthDate: "birthDateRequired" });
+  });
+
+  it("refuses a date that does not exist", () => {
+    expect(validateAccountForm(registerSchema, { ...validRegister, birthDate: "31/02/2000" })).toEqual({
+      birthDate: "birthDateInvalid",
+    });
+  });
+
+  it("refuses a day short of 18 and accepts an 18th birthday today", () => {
+    expect(validateAccountForm(registerSchema, { ...validRegister, birthDate: yearsAgo(18, 1) })).toEqual({
+      birthDate: "birthDateUnderage",
+    });
+    expect(validateAccountForm(registerSchema, { ...validRegister, birthDate: yearsAgo(18) })).toEqual({});
   });
 });
 
@@ -409,3 +441,18 @@ describe("auth namespace on mobile", () => {
     expect(leaf(trees.pt, "universalLink")).toBeUndefined();
   });
 });
+
+describe("adults only on both invitations too (PAD-457)", () => {
+  it("refuses a 16-year-old on the player invite and on the coach invite", () => {
+    const d = new Date();
+    const young = `01/01/${d.getFullYear() - 16}`;
+    expect(validateAccountForm(playerInviteSchema, { ...validPlayer, birthDate: young })).toEqual({ birthDate: "birthDateUnderage" });
+    expect(validateAccountForm(coachInviteSchema, { ...validCoach, birthDate: young })).toEqual({ birthDate: "birthDateUnderage" });
+  });
+
+  it("requires the date on both", () => {
+    expect(validateAccountForm(playerInviteSchema, { ...validPlayer, birthDate: "" })).toEqual({ birthDate: "birthDateRequired" });
+    expect(validateAccountForm(coachInviteSchema, { ...validCoach, birthDate: "" })).toEqual({ birthDate: "birthDateRequired" });
+  });
+});
+

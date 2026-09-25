@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { coachPlayersKey } from "@/features/players/hooks";
+import { useAuth } from "@/auth/AuthContext";
 
 export const myClaimRequestsKey = ["my-claim-requests"] as const;
 
@@ -19,6 +20,7 @@ export const myClaimRequestsKey = ["my-claim-requests"] as const;
 export function ClaimRequests({ variant }: { variant: "banner" | "list" }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { refreshUser } = useAuth();
   const { data, isPending } = useQuery({
     queryKey: myClaimRequestsKey,
     queryFn: playerClaimsApi.listMyClaimRequests,
@@ -30,6 +32,8 @@ export function ClaimRequests({ variant }: { variant: "banner" | "list" }) {
     try {
       if (accept) {
         await playerClaimsApi.acceptClaimRequest(req.id);
+        // players.join-token rule 8a (PAD-444): the claim linked a coach, so re-read /me.
+        void refreshUser().catch(() => null);
         toast.success(t("players.claim.accepted"));
       } else {
         await playerClaimsApi.rejectClaimRequest(req.id);

@@ -46,6 +46,12 @@ login (not only while the Settings screen is mounted).
    chosen a language, a read that lands later leaves the choice alone, as it already did for the
    profile fields, so Save writes what the coach chose. iOS saves the tapped value immediately, so a
    late read cannot change what it writes; this rule is web-only.
+8. **On iOS, a save's answer is the newest profile (B-185, PAD-454).** Every iOS Settings save that
+   writes the profile cache (`["auth-me"]`: language, request alerts, profile, notification blocks)
+   first cancels any `["auth-me"]` read still in flight, then writes the server's answer
+   (`src/features/settings/write-auth-me.ts`). Without that, a read that started before the save and
+   landed after it put the old value back. The picker, which follows the cache, showed the old
+   language while the server and i18n held the new one.
 
 ### Acceptance Criteria
 
@@ -88,6 +94,12 @@ login (not only while the Settings screen is mounted).
 - **When** they choose Portuguese, the held read then lands, and they click Save
 - **Then** the select still shows Portuguese
 - **And** the `PATCH /auth/me` body carries `{"language": "pt"}`
+
+#### An iOS save is not undone by an older profile read (B-185)
+- **Given** the iOS profile cache holds `language` `en`, and an `["auth-me"]` read that will answer `en` is in flight
+- **When** a language save answers `pt` and is written through `writeAuthMe`, and the older read then lands
+- **Then** the cache still holds `pt`
+- **And** no mobile file writes a save's answer into `["auth-me"]` except through `writeAuthMe`
 
 ### Notes
 - Source: ticket PAD-39

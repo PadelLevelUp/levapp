@@ -493,7 +493,16 @@ export interface ClassInstance {
   /** PAD-130: the open-spot toggle at this tier (`null` = inherit), what resolved, and where from. */
   openSpotsVisible?: boolean | null;
   effectiveOpenSpotsVisible?: boolean;
-  openSpotsSource?: "instance" | "lesson" | "coach";
+  /** PAD-429: `"type"` is the lesson-type default (private → hidden); gated behind `class-type-defaults`. */
+  openSpotsSource?: "instance" | "lesson" | "coach" | "type";
+  /**
+   * PAD-429 (notifications.toggle-class rule 5/7): the automatic-invitations
+   * tri-state at this tier (`null` = inherit), what resolved, and where from.
+   * No coach tier — the engine-wide switch is `NotificationConfig.autoNotifyEnabled`.
+   */
+  autoInvites?: boolean | null;
+  effectiveAutoInvites?: boolean;
+  autoInvitesSource?: "instance" | "lesson" | "type";
   invitations?: ClassInvitation[];
   /** PAD-131: coach only — the pending join requests for this class. */
   joinRequests?: ClassJoinRequest[];
@@ -977,6 +986,8 @@ export interface DashboardSchedule7dBlock {
       filled: number;
       capacity: number;
       href: string;
+      /** PAD-425: coach rows only, the class with Notificar/Convidar open (the empty-seats link). */
+      inviteHref?: string;
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
