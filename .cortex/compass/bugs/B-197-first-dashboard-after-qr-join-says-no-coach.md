@@ -55,6 +55,6 @@ Drift: none. The business spec wants the QR path to land the student on their co
   - E2E US-212 extended: red on staging (the prompt was held for 5 s), green on the fix. Full file plus claim-existing-account: 6/6.
   - iOS `join-coach-screen.test.tsx` 3/3: accept then refresh; a failed join refreshes nothing; a failed refresh keeps the success card.
   - iOS `claim-requests.test.tsx` 2/2 and web `ClaimRequestsList.test.tsx` 2/2: red first on the accept cell.
-- **Still open:** the iOS simulator run of the QR journey. The pinned-simulator lane was held by Session-E.
+- **iOS, on the pinned simulator (2026-09-25):** Maestro flow 113 (a minted join link, then the Dashboard tab in the same session) passes on the fix. With the join refresh reverted it fails at exactly `student-connect-prompt is not visible`. That reproduces the founder's iPhone report and closes the 2×2.
 
 The ticket also asked what happens if the student taps "Ligar-me a um treinador" in the stale state. It opens /connect, and pasting the same link again is harmless: accept is idempotent (`alreadyMember`).

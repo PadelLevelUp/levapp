@@ -1,0 +1,45 @@
+# PAD-444 / players.join-token rule 8a (B-197): a student who joins a coach through the QR link is
+# not told "No coach yet?" on the dashboard she opens next, in the same session.
+#
+# e2e-student-3 has no coach. Setup mints a join token as the coach (Maestro cannot read the QR, so
+# the flow opens the link it encodes); the student signs in, opens levelup://join/coach/<token>,
+# confirms, and goes to the Dashboard tab without signing in again: the connect prompt is gone.
+# Teardown disconnects her again (R-040). Assertions are by testID only. Backend:
+# -e API_BASE=http://localhost:<port>, else :5001. Flow number 113 was reserved for Session-D.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/join-first-dashboard-setup.js
+onFlowComplete:
+  - runScript: ../scripts/join-first-dashboard-teardown.js
+---
+- assertTrue: "${output.joinToken && output.joinToken.length > 10}"
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-3
+      PASSWORD: E2eStudent3123!
+- openLink: "levelup://join/coach/${output.joinToken}"
+- extendedWaitUntil:
+    visible:
+      id: "join-coach-confirm"
+    timeout: 20000
+- tapOn:
+    id: "join-coach-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "join-coach-go-calendar"
+    timeout: 20000
+- tapOn:
+    id: "join-coach-go-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 15000
+- tapOn:
+    id: "tab-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "student-dashboard"
+    timeout: 15000
+- assertNotVisible:
+    id: "student-connect-prompt"
