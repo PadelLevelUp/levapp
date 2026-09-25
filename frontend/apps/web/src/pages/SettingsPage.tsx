@@ -60,6 +60,7 @@ import { SeasonsSection } from "@/components/settings/SeasonsSection";
 import { WorkingHoursSection } from "@/components/settings/WorkingHoursSection";
 import { CompetenciesSettingsEntry } from "@/components/evaluations/competency-manager/CompetenciesSettingsEntry";
 import { EvaluationReminderSetting } from "@/components/evaluations/EvaluationReminderSetting";
+import { EvaluationScaleSetting } from "@/components/evaluations/EvaluationScaleSetting";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
@@ -702,6 +703,10 @@ export default function SettingsPage() {
                       <Separator />
 
                       <EvaluationReminderSetting />
+
+                      <Separator />
+
+                      <EvaluationScaleSetting />
                     </>
                   )}
                 </CardContent>
