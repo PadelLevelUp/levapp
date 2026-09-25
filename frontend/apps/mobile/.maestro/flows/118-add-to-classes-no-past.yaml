@@ -1,0 +1,51 @@
+# PAD-439 (players.profile rules 5a/5b), iOS side: the "Add to classes" picker opens on the
+# current week with "previous week" disabled (it never steps back into the past), and the next
+# week still offers the seeded future class. Rule 5a (a started class is never offered) is the
+# shared `upcomingPickerClasses` in @levelup/config, unit-tested there with a pinned clock.
+# The dialog persists nothing, so there is nothing to tidy. By test id only.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-add-to-classes"
+    timeout: 15000
+- tapOn:
+    id: "player-add-to-classes"
+- extendedWaitUntil:
+    visible:
+      id: "add-to-classes-dialog"
+    timeout: 15000
+
+# Rule 5b: the current week cannot step back.
+- assertVisible:
+    id: "add-to-classes-week-prev"
+    enabled: false
+
+# The next week still offers classes (seed.py puts E2E Academy Class on next Monday), and from
+# there the picker can step back again, to the current week.
+- tapOn:
+    id: "add-to-classes-week-next"
+- extendedWaitUntil:
+    visible:
+      id: "add-to-classes-class-.*"
+    timeout: 15000
+- assertVisible:
+    id: "add-to-classes-week-prev"
+    enabled: true
