@@ -31,3 +31,24 @@ test("PAD-287: a coach's My connections offers invite by link or QR and blocked 
   await expect(page).toHaveURL(/\/players\?addByQr=1/);
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 15_000 });
 });
+
+test("PAD-447: the avatar menu's My connections and Settings each land on their own section, even from inside Settings", async ({ page }) => {
+  await loginAsCoach(page);
+  await page.goto("/");
+
+  // The reported path: Settings first, then My connections from the same menu.
+  await page.getByTestId("user-menu-trigger").click();
+  await page.getByTestId("user-menu-settings").click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByTestId("blocked-users")).toHaveCount(0);
+  await page.getByTestId("user-menu-trigger").click();
+  await page.getByTestId("user-menu-connections").click();
+  await expect(page).toHaveURL(/\/settings\?tab=connections/);
+  await expect(page.getByTestId("blocked-users")).toBeVisible({ timeout: 15_000 });
+
+  // And back: Settings from inside My connections leaves it.
+  await page.getByTestId("user-menu-trigger").click();
+  await page.getByTestId("user-menu-settings").click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByTestId("blocked-users")).toHaveCount(0);
+});
