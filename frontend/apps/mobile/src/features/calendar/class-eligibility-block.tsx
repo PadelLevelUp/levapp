@@ -22,6 +22,8 @@ const MODES: EligibilityTierMode[] = ["standard", "everyone", "custom"];
 type Tier = "instance" | "lesson" | "coach";
 type VisibilityMode = "inherit" | "on" | "off";
 const VISIBILITY_MODES: VisibilityMode[] = ["inherit", "on", "off"];
+type AutoInvitesTier = "instance" | "lesson" | "type";
+const AUTO_INVITES_MODES: VisibilityMode[] = ["inherit", "on", "off"];
 
 export function ClassEligibilityBlock({
   current,
@@ -33,6 +35,10 @@ export function ClassEligibilityBlock({
   effectiveOpenSpots,
   openSpotsSource,
   onOpenSpotsChange,
+  autoInvites,
+  effectiveAutoInvites,
+  autoInvitesSource,
+  onAutoInvitesChange,
 }: {
   current: GroupRule[] | null;
   effective: GroupRule[] | null;
@@ -42,12 +48,18 @@ export function ClassEligibilityBlock({
   /** PAD-130: the open-spot toggle at this tier (`null` = inherit). */
   openSpots?: boolean | null;
   effectiveOpenSpots?: boolean;
-  openSpotsSource?: Tier;
+  openSpotsSource?: Tier | "type";
   onOpenSpotsChange?: (value: boolean | null) => void;
+  /** PAD-429 (notifications.toggle-class rule 5): the auto-invites tri-state at this tier (`null` = inherit). No coach tier. */
+  autoInvites?: boolean | null;
+  effectiveAutoInvites?: boolean;
+  autoInvitesSource?: AutoInvitesTier;
+  onAutoInvitesChange?: (value: boolean | null) => void;
 }) {
   const { t } = useTranslation();
   const mode = tierMode(current);
   const visibilityMode: VisibilityMode = openSpots == null ? "inherit" : openSpots ? "on" : "off";
+  const autoInvitesMode: VisibilityMode = autoInvites == null ? "inherit" : autoInvites ? "on" : "off";
 
   return (
     <View className="gap-2 rounded-lg border border-border bg-card p-3" testID="class-eligibility">
@@ -136,6 +148,46 @@ export function ClassEligibilityBlock({
                     >
                       <Text className={cn("text-xs font-sans-semibold", selected ? "text-primary-foreground" : "text-muted-foreground")}>
                         {t(`calendar.openSpot.mode.${m}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* PAD-429 (notifications.toggle-class rules 5, 7): the automatic-invitations
+          tri-state — instance → lesson → the lesson's type. No coach tier. */}
+      {onAutoInvitesChange ? (
+        <View className="gap-2 border-t border-border pt-2" testID="class-auto-invites-control">
+          <View className="flex-row items-center justify-between gap-2">
+            <Text className="text-xs font-medium">{t("calendar.autoInvites.title")}</Text>
+            <Badge variant="outline" testID="class-auto-invites-source">
+              <Text>
+                {t(`calendar.autoInvites.source.${autoInvitesSource ?? "type"}`)} ·{" "}
+                {t(effectiveAutoInvites ? "calendar.autoInvites.mode.on" : "calendar.autoInvites.mode.off")}
+              </Text>
+            </Badge>
+          </View>
+          {editing ? (
+            <View className="gap-2">
+              <Text className="text-xs text-muted-foreground">{t("calendar.autoInvites.hint")}</Text>
+              <View className="flex-row gap-1.5" accessibilityRole="radiogroup">
+                {AUTO_INVITES_MODES.map((m) => {
+                  const selected = autoInvitesMode === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      testID={`class-auto-invites-mode-${m}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => onAutoInvitesChange(m === "inherit" ? null : m === "on")}
+                      className={cn("rounded-full px-3 py-1.5", selected ? "bg-primary" : "bg-muted")}
+                    >
+                      <Text className={cn("text-xs font-sans-semibold", selected ? "text-primary-foreground" : "text-muted-foreground")}>
+                        {t(`calendar.autoInvites.mode.${m}`)}
                       </Text>
                     </Pressable>
                   );
