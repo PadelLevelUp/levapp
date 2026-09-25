@@ -14,6 +14,12 @@ consent gets an account that nobody can use until a parent or legal guardian con
 emailed web form; the guardian can withdraw, which anonymises the account. This is the "parental
 consent process" the 2026-09-06 privacy policy and terms of service describe and PAD-198 asked for.
 
+> **PAD-445 (2026-09-25): no minor can sign up any more.** `auth.register` rule 18 refuses anyone
+> under 18 before the minor branch of rule 3 is reached, so no new `pending` account is created.
+> Everything below stays in force for accounts that are already `pending` or `granted`: login's
+> gate, resend, the consent page, withdrawal. What happens to those accounts, and whether this flow is
+> removed, is an open owner decision (coordinator, 2026-09-25); nothing here is deleted until then.
+
 ### Entities
 - **WRITES:** User — new nullable columns `birth_date` (date), `country` (string(2), ISO 3166-1
   alpha-2, upper case), `guardian_consent_status` (string(16): NULL = not required, `pending`,

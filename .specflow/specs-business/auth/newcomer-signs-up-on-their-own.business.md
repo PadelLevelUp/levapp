@@ -68,6 +68,10 @@ without their knowledge (that case is picked up in
 
 - Self-registration is open to both roles; the role is chosen at signup and cannot be changed
   from the form afterwards.
+- LevApp accepts adults only (owner decision, 2026-09-24, PAD-445). Anyone under 18 on the day they
+  sign up is refused with "Data de nascimento inválida. Esta app só aceita maiores de 18 anos." and no
+  account is created, whatever their country, on every sign-up path — web, iPhone, a coach's QR code or
+  an invite link. Someone who turns 18 today can sign up.
 - A self-registered account is active immediately. The "inactive until activated" state is
   reserved for accounts created by someone else on the person's behalf (see
   [[auth.newcomer-creates-and-activates-an-account]]).
