@@ -47,6 +47,11 @@ class EvaluationEntry(db.Model, model.Model):
     # conversion to stars; NULL for every score rated afterwards. Migration-only. FLOAT
     # like `score`, so a non-whole original is restored exactly by the downgrade.
     score_before_conversion = Column(Float, nullable=True)
+    # PAD-423 (evaluations.scale rule 3): the scale this score was given on, written on every save
+    # from the category's scale at that moment and never rewritten when the coach changes scale.
+    # NULL only for a row the migration could not backfill: read as 1-5.
+    scale_min = Column(Integer, nullable=True)
+    scale_max = Column(Integer, nullable=True)
     comment = Column(String(500), nullable=True)
     # PAD-273 (audit M12): `.strftime` is called on it, so it can never be NULL.
     # The app's own clock, looked up at WRITE time (`lambda`, not the function object): the tests

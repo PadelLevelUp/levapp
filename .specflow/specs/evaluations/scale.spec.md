@@ -25,8 +25,10 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
 
 1. **The coach's scale.** `NotificationConfig.evaluation_scale_max` is one of 5, 10, 20, 100
    (the minimum is always 1), default 5, so nothing changes for a coach who never sets it.
-   `GET/PUT /api/app/evaluation_settings` carries it as `scaleMax` beside the reminder fields;
-   any other value is **400** `invalid_scale`, and nothing is written.
+   `GET/PUT /api/app/evaluation_scale` carries it as `{scaleMax}`; any other value (a string, a
+   bool, null, absent) is **400** `invalid_scale`, and nothing is written. A GET never creates the
+   coach's config row. It is a sibling of `evaluation_settings`, not a field on it, so PAD-404's
+   exact `{reminder, everyN}` contract is unchanged and each setting saves on its own.
 2. **Where it applies.** The coach's scale is the scale of every one of their **non-legacy**
    competencies (catalogue and custom, `evaluations.competencies`; non-legacy means
    `competency_group IS NOT NULL`, `EvaluationCategory.is_legacy` is false), active or not. Setting it
@@ -76,7 +78,7 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
 
 #### A new coach evaluates on 1–5 stars, as today
 - **Given** a coach who never set a scale
-- **When** they GET `/api/app/evaluation_settings` and open a player's evaluation form
+- **When** they GET `/api/app/evaluation_scale` and open a player's evaluation form
 - **Then** `scaleMax` is 5 and every non-legacy competency is rated with five stars
 
 #### Moving to 1–10 keeps every existing score's meaning

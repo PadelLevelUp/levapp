@@ -698,6 +698,44 @@ def _settings_payload(kind, value) -> dict:
     return payload
 
 
+# ── the coach's evaluation scale (PAD-423, evaluations.scale rules 1–2) ─────
+
+SCALES = (5, 10, 20, 100)
+
+
+def coach_scale(coach) -> int:
+    """The coach's scale maximum (the minimum is always 1): the config row's, else 5.
+    NEVER creates the row. Separate from NEW_SCALE, which the frozen legacy save and the import
+    keep at (1, 5) (R-047, legacy-client-contract rules 9-10)."""
+    from padel_app.models import NotificationConfig
+
+    row = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    value = getattr(row, "evaluation_scale_max", None) if row is not None else None
+    return value if value in SCALES else 5
+
+
+def get_evaluation_scale(coach) -> dict:
+    return {"scaleMax": coach_scale(coach)}
+
+
+def put_evaluation_scale(coach, body) -> dict:
+    """Rule 1: one of the four, else 400 and nothing written. Rule 2: the coach's NON-legacy
+    competencies (catalogue and custom) take it in the same transaction; legacy keeps 1-5."""
+    from padel_app.models import EvaluationCategory
+    from padel_app.services.notification_service import get_or_create_config
+
+    value = body.get("scaleMax", MISSING)
+    if isinstance(value, bool) or value not in SCALES:
+        raise ApiError(400, "invalid_scale")
+    with unit_of_work():
+        get_or_create_config(coach.id).evaluation_scale_max = value
+        EvaluationCategory.query.filter(
+            EvaluationCategory.coach_id == coach.id,
+            EvaluationCategory.competency_group.isnot(None),
+        ).update({"scale_min": 1, "scale_max": value}, synchronize_session=False)
+    return {"scaleMax": value}
+
+
 def get_evaluation_settings(coach) -> dict:
     return _settings_payload(*_reminder_setting(coach))
 

@@ -18,7 +18,9 @@ from padel_app.tests.test_pad362_evaluation_contract import (  # noqa: F401 — 
 )
 from padel_app.tests.test_pad403_migration import _run, _scratch
 
-NOT_1_5 = "SELECT count(*) FROM evaluation_categories WHERE scale_min <> 1 OR scale_max <> 5"
+# Legacy categories only (competency_group NULL): since PAD-423 a coach may put their non-legacy
+# competencies on 1-10/20/100 (evaluations.scale rule 2); every LEGACY category stays 1-5.
+NOT_1_5 = "SELECT count(*) FROM evaluation_categories WHERE competency_group IS NULL AND (scale_min <> 1 OR scale_max <> 5)"
 
 
 def _count_not_1_5(app):
