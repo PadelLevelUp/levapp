@@ -23,7 +23,28 @@ describe("EDITABLE_CLASS_FIELDS", () => {
       "notificationsEnabled",
       "eligibilityRules",
       "openSpotsVisible",
+      "autoInvites",
     ]);
+  });
+});
+
+describe("EDITABLE_CLASS_FIELDS carries autoInvites through the tri-state (PAD-429)", () => {
+  it("passes null (inherit) through diffInstance when cleared", () => {
+    const original = { autoInvites: true } as { autoInvites: boolean | null };
+    const updated = { autoInvites: null } as { autoInvites: boolean | null };
+    expect(diffInstance(original, updated, ["autoInvites"])).toEqual({ autoInvites: null });
+  });
+
+  it("passes true through diffInstance when turned on", () => {
+    const original = { autoInvites: null } as { autoInvites: boolean | null };
+    const updated = { autoInvites: true } as { autoInvites: boolean | null };
+    expect(diffInstance(original, updated, ["autoInvites"])).toEqual({ autoInvites: true });
+  });
+
+  it("passes false through diffInstance when turned off", () => {
+    const original = { autoInvites: null } as { autoInvites: boolean | null };
+    const updated = { autoInvites: false } as { autoInvites: boolean | null };
+    expect(diffInstance(original, updated, ["autoInvites"])).toEqual({ autoInvites: false });
   });
 });
 
