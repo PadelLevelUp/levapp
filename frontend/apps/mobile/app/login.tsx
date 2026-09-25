@@ -28,7 +28,6 @@ import { postLoginLanding } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LegalLinks } from "@/features/auth/LegalLinks";
-import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
 import { TestServerNotice } from "@/features/settings/build-info";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
@@ -45,8 +44,6 @@ export default function LoginScreen() {
   // auth.coach-approval rule 13 (PAD-233): a rejected coach sees why and can ask again.
   const [rejected, setRejected] = React.useState<{ reason: string | null } | null>(null);
   const [reapplying, setReapplying] = React.useState(false);
-  // auth.login rule 10 / auth.parental-consent rule 10 (PAD-198).
-  const [guardianPending, setGuardianPending] = React.useState<authApi.GuardianPendingInfo | null>(null);
 
   const validate = (): boolean => {
     const result = loginSchema.safeParse({ username, password });
@@ -104,13 +101,6 @@ export default function LoginScreen() {
       const res = await getApi().post("/auth/login", { username, password });
       await enter(res.data.accessToken);
     } catch (err: any) {
-      if (err?.response?.status === 403 && err.response?.data?.error === "GUARDIAN_CONSENT_PENDING") {
-        setGuardianPending({
-          guardianEmail: err.response.data.guardianEmail ?? null,
-          resendAvailableInSeconds: err.response.data.resendAvailableInSeconds ?? 0,
-        });
-        return;
-      }
       if (err?.response?.status === 403 && err.response?.data?.error === "COACH_REJECTED") {
         setRejected({ reason: err.response.data.reason ?? null });
         return;
@@ -188,15 +178,6 @@ export default function LoginScreen() {
           </CardHeader>
 
           <CardContent className="gap-4">
-            {guardianPending ? (
-              <GuardianPendingCard
-                username={username}
-                password={password}
-                info={guardianPending}
-                onBack={() => setGuardianPending(null)}
-              />
-            ) : (
-            <>
             <View className="gap-1.5">
               <Label testID="login-username-label">{t("auth.login.username")}</Label>
               <Input
@@ -310,8 +291,6 @@ export default function LoginScreen() {
                 </Text>
               </Pressable>
             </View>
-            </>
-            )}
           </CardContent>
         </Card>
 

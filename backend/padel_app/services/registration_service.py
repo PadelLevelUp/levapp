@@ -142,12 +142,8 @@ def _absent(value):
 
 
 def validate_consent_fields(data, email, today=None):
-    """auth.parental-consent rule 2. Returns (birth_date, country,
-    guardian_email_or_None, is_minor) or raises RegistrationError with a code."""
-    from datetime import date
-
-    from padel_app.services.parental_consent_service import age_on, is_minor
-
+    """auth.register rule 18: birth date and country, both required at sign-up.
+    Returns (birth_date, country) or raises RegistrationError with a code."""
     data = data or {}
     today = today or utcnow_naive().date()
 
@@ -161,25 +157,7 @@ def validate_consent_fields(data, email, today=None):
     if not re.fullmatch(r"[A-Z]{2}", country):
         raise RegistrationError("country must be a two-letter code", 400, "country", code="INVALID_COUNTRY")
 
-    minor = is_minor(birth, country, today)
-    guardian = None
-    if minor:
-        guardian = _clean(data.get("guardianEmail")).lower()
-        if not guardian:
-            raise RegistrationError(
-                "a parent or guardian's email is required", 400, "guardianEmail",
-                code="GUARDIAN_EMAIL_REQUIRED",
-            )
-        if not EMAIL_RE.match(guardian):
-            raise RegistrationError(
-                "the guardian's email is not valid", 400, "guardianEmail", code="INVALID_GUARDIAN_EMAIL",
-            )
-        if guardian == (email or "").lower():
-            raise RegistrationError(
-                "the guardian's email must be different from yours", 400, "guardianEmail",
-                code="GUARDIAN_EMAIL_IS_OWN",
-            )
-    return birth, country, guardian, minor
+    return birth, country
 
 
 def _assert_unique(username, email):
@@ -198,16 +176,13 @@ def register_user_service(data, now=None):
     Coach accounts start `pending` unless the coach-approval gate is off
     (`app_settings.coach_approval_required`, else `COACH_APPROVAL_REQUIRED`).
     Any `club` key in the body is ignored: the club is chosen after approval.
-    `now` is the request's one instant (B-130): a minor's consent link is
-    stamped with it, so the caller can compute the resend countdown from the
-    same value instead of a second clock read.
+    `now` is the request's one instant (B-130): the age check is judged on
+    it, so the caller can reuse the same value instead of a second clock read.
     """
-    # B-130: one instant for the whole request — the age is judged on the same
-    # date the consent link is stamped with (a child who comes of age at midnight
-    # during a slow request is a minor on both, or an adult on both).
+    # B-130: one instant for the whole request.
     now = now or utcnow_naive()
     role, name, username, email, password = validate_registration(data)
-    birth_date, country, guardian_email, minor = validate_consent_fields(data, email, today=now.date())
+    birth_date, country = validate_consent_fields(data, email, today=now.date())
     _assert_unique(username, email)
 
     # auth.coach-approval rule 9 (PAD-238/PAD-279): the app_settings row wins,
@@ -226,11 +201,6 @@ def register_user_service(data, now=None):
             birth_date=birth_date,
             country=country,
         )
-        if minor:
-            # auth.parental-consent rule 3: the account exists but nobody can
-            # use it until a guardian consents; the email code waits too.
-            user.guardian_consent_status = "pending"
-            user.email_verification_required = True
         db.session.add(user)
         db.session.flush()
 
@@ -252,14 +222,6 @@ def register_user_service(data, now=None):
     except Exception:
         db.session.rollback()
         raise
-
-    if minor:
-        # auth.parental-consent rule 3: mail the guardian instead; the first
-        # verification code and a coach's admin notification wait for consent.
-        from padel_app.services.parental_consent_service import start_consent
-
-        start_consent(user, guardian_email, now=now)
-        return user
 
     # auth.register rule 14 / auth.email-verification rule 6: the first code
     # goes out inside the signup request, best-effort. Runs before the admin

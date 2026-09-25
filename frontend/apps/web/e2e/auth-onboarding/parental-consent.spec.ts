@@ -2,18 +2,15 @@ import { test, expect } from "@playwright/test";
 import { API_AUTH } from "../helpers/api";
 
 /**
- * auth.parental-consent (PAD-198) under auth.register rule 18 (PAD-445): no minor can sign up
- * any more, so the guardian's consent page is reached only by accounts created before. Portugal
- * is the default country.
+ * auth.register rule 18 (PAD-445): no minor can sign up. The guardian/parental-consent flow
+ * itself was removed in PAD-457 (owner decision: LevApp accepts adults only, no minors exist).
+ * Portugal is the default country.
  */
 const stamp = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 const PASSWORD = "Segura1234";
 const minorBirth = () => `${new Date().getFullYear() - 10}-01-01`;
 
 test("US-445: a minor cannot sign up, on the form or through the API", async ({ page }) => {
-  // auth.register rule 18: adults only. The guardian journey (US-198) can no
-  // longer be started from sign-up; the accounts it created are covered by the backend's
-  // test_parental_consent.py (guardian flow kept, owner decision pending).
   const username = `e2e-minor-${stamp()}`;
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/signup");
@@ -48,9 +45,4 @@ test("US-445: a minor cannot sign up, on the form or through the API", async ({ 
   expect(body.field).toBe("birthDate");
   const login = await page.request.post(`${API_AUTH}/login`, { data: { username, password: PASSWORD } });
   expect(login.status()).toBe(401);
-});
-
-test("US-198: an unknown consent link says it is no longer valid", async ({ page }) => {
-  await page.goto("/guardian-consent/not-a-real-token-at-all-0000000000");
-  await expect(page.getByTestId("consent-expired")).toBeVisible({ timeout: 10_000 });
 });
