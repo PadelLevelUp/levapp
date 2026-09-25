@@ -196,6 +196,9 @@ executionOrder:
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.
     - 103-thread-lands-on-target-message
+    # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
+    # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
+    - 113-join-first-dashboard
     # 105 opens Settings → Notifications → Restrictions (PAD-433): the saved values and the
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
@@ -203,6 +206,8 @@ executionOrder:
     # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
     # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
     - 117-month-grid-seven-columns
+    # 118 (PAD-439): the add-to-classes picker cannot step back from the current week; next week offers classes.
+    - 118-add-to-classes-no-past
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
