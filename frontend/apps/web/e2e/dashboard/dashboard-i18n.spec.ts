@@ -1,6 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach, loginAsStudent } from "../helpers/auth";
 import { openSettings, openDashboard } from "../helpers/navigation";
+import { GREETING_KEYS, uiIn } from "../helpers/i18n";
 
 /**
  * PAD-77: The Dashboard (coach and student) mixed Portuguese and English —
@@ -88,9 +89,9 @@ test.describe("PAD-77: dashboard i18n consistency", () => {
       await expect(page.getByText(/NEXT 7 DAYS/)).toHaveCount(0);
       await expect(page.getByText(/NEEDS YOU/)).toHaveCount(0);
       await expect(page.getByText("THIS WEEK")).toHaveCount(0);
-      await expect(
-        page.getByRole("heading", { name: /^(Morning|Afternoon|Evening),/ })
-      ).toHaveCount(0);
+      // From the en locale, not typed: a typed /^(Morning|…),/ went vacuous when PAD-419 made the
+      // copy "Good morning, …" and kept passing with an English greeting on the page.
+      await expect(page.getByRole("heading", { name: uiIn(GREETING_KEYS, "en") })).toHaveCount(0);
     } finally {
       await openPreferences(page);
       await selectLanguage(page, /english|inglês/i);
@@ -134,6 +135,7 @@ test.describe("PAD-77: dashboard i18n consistency", () => {
       await expect(page.getByText("Upcoming lessons")).toHaveCount(0);
       await expect(page.getByText("Invites to confirm")).toHaveCount(0);
       await expect(page.getByText(/of \d+ lessons/)).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: uiIn(GREETING_KEYS, "en") })).toHaveCount(0);
     } finally {
       await openPreferences(page);
       await selectLanguage(page, /english|inglês/i);
