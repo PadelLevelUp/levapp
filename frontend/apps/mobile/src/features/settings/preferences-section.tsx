@@ -24,6 +24,7 @@ import { Text } from "@/components/ui/text";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { CompetenciesSettingsEntry } from "@/features/evaluations/competency-manager/competencies-settings-entry";
 import { EvaluationReminderSetting } from "@/features/evaluations/evaluation-reminder-setting";
+import { writeAuthMe } from "@/features/settings/write-auth-me";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -89,7 +90,7 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
     );
     try {
       const updated = await authApi.updateMe({ requestAlerts: checked });
-      queryClient.setQueryData(["auth-me"], updated);
+      await writeAuthMe(queryClient, updated);
       setRequestAlertsStatusKey("settings.preferences.requestAlertsSaved");
     } catch {
       queryClient.setQueryData(["auth-me"], previous);
@@ -103,7 +104,7 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
     setLanguageStatusKey(null);
     try {
       const updated = await authApi.updateMe({ language: value });
-      queryClient.setQueryData(["auth-me"], updated);
+      await writeAuthMe(queryClient, updated);
       void i18n.changeLanguage(value);
       setLanguageStatusKey("settings.mobile.languageSaved");
     } catch {
