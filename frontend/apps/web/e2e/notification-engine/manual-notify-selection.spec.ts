@@ -2,7 +2,7 @@
  * PAD-74 — Checkbox does not respond to clicks in the manual notification
  * student selector.
  *
- * The coach opens a class, clicks "Notify", searches for a student and clicks
+ * The coach opens a class, clicks "Convidar"/"Invite" (PAD-426), searches for a student and clicks
  * the checkbox next to the name. Nothing happens: the row carried its own
  * onClick AND the checkbox carried its own onCheckedChange, so a click on the
  * checkbox toggled the selection twice (select + deselect) and netted out to

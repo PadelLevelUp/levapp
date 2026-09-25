@@ -17,7 +17,7 @@ async function openSeededClass(page: import("@playwright/test").Page) {
 // US-52: Coach can access notification configuration for a class
 test("US-52: notification config is accessible from class detail", async ({ page }) => {
   await openSeededClass(page);
-  // The class detail has a "Notify" button — that's the notification entry point
+  // The class detail has a "Convidar"/"Invite" button (PAD-426; key calendar.detail.notify) — that's the notification entry point
   await expect(page.getByRole("button", { name: ui("calendar.detail.notify") }).first()).toBeVisible({ timeout: 5000 });
 });
 

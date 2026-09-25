@@ -210,7 +210,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      `notify` param), for a coach only. The hero and a schedule row keep the plain link.
      **(PAD-425)** The coach's schedule row also carries `inviteHref`, the same `&notify=1`
      link, and its **Convidar** button (rows with free seats) opens it; tapping the row itself
-     still opens the plain class. The student's schedule carries no `inviteHref`.
+     still opens the plain class. The student's schedule carries no `inviteHref`. Web only by
+     nature (R-024): the iOS schedule rows have no Convidar button (a row opens the class), so
+     there is nothing to port; iOS's "Precisa de ti" card already uses the same link.
      **(PAD-426)** The class-detail button that opens this picker is labelled **Convidar**
      (en "Invite"), no longer "Notificar": it is how a coach invites players.
    - the student's asks and KPIs keep `dashboard.navigation` rules 6–8 / 11.

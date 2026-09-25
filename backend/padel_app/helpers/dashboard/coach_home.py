@@ -180,6 +180,11 @@ def _combine(day: Optional[str], clock: Optional[str], fallback: datetime) -> da
         return fallback
 
 
+def invite_href(event: Dict[str, Any]) -> str:
+    """The class with its Notificar/Convidar picker already open (PAD-285, PAD-425)."""
+    return class_href(event) + "&notify=1"
+
+
 def class_href(event: Dict[str, Any]) -> str:
     """Deep link that opens this one occurrence in the calendar.
 
@@ -345,7 +350,7 @@ def _empty_seat_items(
                 # PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class
                 # with Notificar already open; the hero and the schedule keep
                 # the plain calendar link.
-                "href": class_href(event) + "&notify=1",
+                "href": invite_href(event),
             }
         )
     return out
@@ -488,7 +493,7 @@ def schedule_block(events: Sequence[Dict[str, Any]], *, invite: bool = False) ->
                 "filled": filled,
                 "capacity": capacity,
                 "href": class_href(event),
-                **({"inviteHref": class_href(event) + "&notify=1"} if invite else {}),
+                **({"inviteHref": invite_href(event)} if invite else {}),
             }
         )
 
