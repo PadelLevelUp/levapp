@@ -1373,6 +1373,21 @@ def class_instances_pending_validation_count():
     )
 
 
+@bp.get("/class_instances/pending_validation/badge")
+@jwt_required()
+def class_instances_pending_validation_badge():
+    """The Presences badge (PAD-443, `attendance.validation` rule 23).
+
+    The dashboard validation item's own derivation — the current week, else the
+    previous one — so the badge, the card and the tab's trigger show one number.
+    ``count`` is 0 when both weeks are clean.
+    """
+    from padel_app.helpers.dashboard.coach_home import validation_badge
+
+    coach = require_coach()
+    return jsonify(validation_badge(coach_id=coach.id, now=club_now_naive()))
+
+
 @bp.post("/class_instance/<int:instance_id>/presences/unvalidate")
 @jwt_required()
 def class_instance_unvalidate(instance_id):
