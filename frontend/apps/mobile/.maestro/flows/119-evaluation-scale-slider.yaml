@@ -1,0 +1,99 @@
+# confirmed — Session-E, iPhone 17 Pro simulator (debug build with the slider), feature/pad-423-clients @ e18275ec7 + this flow, 2026-09-25 23:21:08Z and 23:33:40Z: 50 steps, 0 failed; red with the pre-slider form (no slider row)
+# PAD-423 / evaluations.scale rules 7-8 on iOS: the coach picks "1–10" in Settings →
+# Preferences ("Escala de avaliações", beside the frequency), and a competency on the coach's
+# scale is then rated with a SLIDER, not stars. A tap on the slider (tapToSeek) is one input:
+# the server holds exactly one rating, on 1-10, and the value beside the slider shows it.
+# Mirrors apps/web/e2e/evaluations/pad423-scale.spec.ts. Needs a debug build with
+# @react-native-community/slider (a native module: rebuild with `npx expo run:ios`).
+#
+# By test id and by the server's own answers, never rendered copy. onFlowComplete removes the
+# record and the competency and puts the coach back on 1-5 (R-040), pass or fail.
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/evaluation-scale-teardown.js
+---
+- runScript: ../scripts/evaluation-scale-setup.js
+
+- runFlow: ../subflows/login-coach.yaml
+
+# ── Rule 8: the setting, beside the frequency; 1–10 saves at once and rescales ──
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-scale-option-10"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-evaluation-scale-option-10"
+- evalScript: "${output.scaleNow = json(http.get(output.api + '/api/app/evaluation_scale', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).scaleMax}"
+- assertTrue: "${output.scaleNow == 10}"
+- evalScript: "${output.compMax = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return String(c.id) === output.competencyId; })[0].scaleMax}"
+- assertTrue: "${output.compMax == 10}"
+
+# ── Rule 7: the form rates it with a slider ──
+# Maestro's `back` is a no-op on iOS; open Players by link, as flow 97 does.
+- openLink: levelup://players
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+# The Players tab keeps its search across the link: clear it first.
+- eraseText: 40
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-evaluations-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-evaluations-open"
+- extendedWaitUntil:
+    visible:
+      id: "player-evaluations"
+    timeout: 15000
+- tapOn:
+    id: "evaluation-new"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "evaluation-slider-${output.competencyId}-value-none"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible:
+    id: "evaluation-stars-${output.competencyId}"
+
+# One tap on the slider (tapToSeek) is one input: one rating, on 1-10, saved at once.
+- tapOn:
+    id: "evaluation-slider-${output.competencyId}-input"
+- extendedWaitUntil:
+    notVisible:
+      id: "evaluation-slider-${output.competencyId}-value-none"
+    timeout: 10000
+- evalScript: "${output.records = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records}"
+- assertTrue: "${output.records.length === 1 && output.records[0].ratings.length === 1}"
+- evalScript: "${output.rating = output.records[0].ratings[0]}"
+- assertTrue: "${String(output.rating.categoryId) === output.competencyId && output.rating.scaleMax === 10 && output.rating.score > 1 && output.rating.score < 10}"
+- assertVisible:
+    id: "evaluation-slider-${output.competencyId}-value-${output.rating.score}"
