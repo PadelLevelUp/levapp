@@ -10,7 +10,13 @@ import { cn } from "@/lib/utils";
 import { dayDotColors } from "./day-dots";
 
 const SURFACES = nativeCalendarSurfaces("light");
-const CELL_WIDTH = `${100 / 7}%` as const;
+
+/** The grid's weeks, seven days each (monthDays is whole Monday-start weeks). */
+export function monthWeeks(monthDays: Date[]): Date[][] {
+  const weeks: Date[][] = [];
+  for (let i = 0; i < monthDays.length; i += 7) weeks.push(monthDays.slice(i, i + 7));
+  return weeks;
+}
 
 /**
  * The Mês grid — calendar.mobile-views rule 16. React Native port of
@@ -18,6 +24,10 @@ const CELL_WIDTH = `${100 / 7}%` as const;
  * every week touching the month. In-month cells carry the Dia strip's circle
  * states and dot row; the neighbouring months' days render at 32% opacity and
  * cannot be pressed.
+ *
+ * PAD-437 (B-201): one row per week, seven `flex-1` cells each. The cells used to wrap in a
+ * single flex-wrap row at width `${100 / 7}%`; seven of those rounded past the row's width, so
+ * Sunday wrapped onto the next line and every later date sat one weekday off.
  */
 export function MonthGrid({
   monthDays,
@@ -54,8 +64,9 @@ export function MonthGrid({
           </Text>
         ))}
       </View>
-      <View className="flex-row flex-wrap">
-        {monthDays.map((day) => {
+      {monthWeeks(monthDays).map((week) => (
+      <View key={format(week[0], "yyyy-MM-dd")} testID="calendar-month-week" className="flex-row">
+        {week.map((day) => {
           const key = format(day, "yyyy-MM-dd");
           const inMonth = isInMonth(day, monthStart);
           const selected = inMonth && isSameDay(day, selectedDay);
@@ -63,7 +74,7 @@ export function MonthGrid({
           const events = inMonth ? eventsByDay[key] ?? [] : [];
           const dots = dayDotColors(events, SURFACES);
           return (
-            <View key={key} style={{ width: CELL_WIDTH, padding: 1 }}>
+            <View key={key} className="flex-1" style={{ padding: 1 }}>
               <Pressable
                 testID={`calendar-month-cell-${key}`}
                 role="button"
@@ -111,6 +122,7 @@ export function MonthGrid({
           );
         })}
       </View>
+      ))}
     </View>
   );
 }
