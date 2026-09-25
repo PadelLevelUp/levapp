@@ -78,6 +78,14 @@ export default function MessagesPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  // PAD-415 (messaging.conversation-detail rule 9a): the open response's
+  // firstUnreadMessageId, frozen for this visit — the follow-up
+  // markConversationRead call clears it server-side, so a later refetch of
+  // this same conversation would read back null. Captured once per open,
+  // before that call, in handleSelectConversation.
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<
+    string | number | null
+  >(null);
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -318,6 +326,10 @@ export default function MessagesPage() {
         limit: CONVERSATION_FIRST_PAGE_SIZE,
       });
       setSelectedConversation(convo);
+      // PAD-415 rule 9a: captured from THIS response, before the mark-read
+      // call below clears it server-side — a later refetch of the same
+      // conversation would otherwise read back null.
+      setFirstUnreadMessageId(convo.firstUnreadMessageId ?? null);
       // Awaited, not fire-and-forget: refreshUnreadCount re-queries the
       // server, so firing it alongside an uncommitted mark-read races it and
       // can read back the pre-read count — which would leave both the nav
@@ -341,6 +353,7 @@ export default function MessagesPage() {
       // D137: the fetch failed (a 403 when a notification belongs to another
       // account); show why in the thread pane instead of nothing at all.
       setSelectedConversation(null);
+      setFirstUnreadMessageId(null);
       setThreadError(threadLoadErrorKey(error));
     } finally {
       setThreadLoading(false);
@@ -593,6 +606,7 @@ export default function MessagesPage() {
                   onLoadOlder={handleLoadOlder}
                   targetMessageId={targetMessageId}
                   onTargetConsumed={handleTargetConsumed}
+                  firstUnreadMessageId={firstUnreadMessageId}
                 />
               )}
             </div>

@@ -29,3 +29,24 @@ export function nextTargetStep(args: {
   }
   return { kind: "give-up" };
 }
+
+/**
+ * Which message a thread opens anchored at (PAD-415, messaging.conversation-
+ * detail rule 9a). An explicit target — a push tap, a deep link's `?message=` —
+ * always wins over the thread's first unread message; with neither, there is
+ * no target and the thread opens at the newest message, exactly as before this
+ * ticket. Once resolved, the id feeds the same `nextTargetStep` walk a push
+ * target already uses, so the two paths cannot drift.
+ */
+export function openingTarget(args: {
+  explicit?: string | number | null;
+  firstUnread?: string | number | null;
+}): string | null {
+  if (args.explicit !== undefined && args.explicit !== null && args.explicit !== "") {
+    return String(args.explicit);
+  }
+  if (args.firstUnread !== undefined && args.firstUnread !== null) {
+    return String(args.firstUnread);
+  }
+  return null;
+}

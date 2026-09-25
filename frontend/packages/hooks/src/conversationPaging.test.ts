@@ -161,6 +161,16 @@ describe("mergeOlderPage — rule 11's prepend", () => {
     expect(merged.messages.map((m) => m.id)).toEqual(["1"]);
     expect(merged.hasMore).toBe(false);
   });
+
+  it("keeps the latest firstUnreadMessageId — an older page never carries one (PAD-415)", () => {
+    const current = { ...conversation([message(11)]), firstUnreadMessageId: 46 };
+    const merged = mergeOlderPage(current, {
+      messages: [message(10)],
+      hasMore: true,
+    });
+
+    expect(merged.firstUnreadMessageId).toBe(46);
+  });
 });
 
 describe("applyIncomingMessage — rule 10's 'newest page only'", () => {

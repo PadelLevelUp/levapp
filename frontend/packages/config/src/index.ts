@@ -36,3 +36,4 @@ export * from "./hold-refusal";
 export * from "./evaluation-share";
 export * from "./restriction-bounds";
 export * from "./class-picker";
+export * from "./unread-badge";
