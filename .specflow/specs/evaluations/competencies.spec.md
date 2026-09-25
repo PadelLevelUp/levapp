@@ -51,8 +51,10 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 2. **Three kinds of row.** *Legacy* (`competency_group` NULL): every category that existed before
    this leaf, and every one created by a legacy endpoint or the import. *Catalogue*
    (`catalogue_key` set, group `general`/`technique`/`tactics`). *Custom* (group `custom`, no key).
-3. **(AV-003) Scale.** Catalogue and custom competencies are created 1–5 and rendered as five
-   whole stars. A legacy category keeps its own `scale_min`/`scale_max` and every score it holds,
+3. **(AV-003) Scale.** Catalogue and custom competencies are created on **the coach's scale**
+   (`evaluations.scale` rules 1–2; 1–5 unless the coach chose another) and rated with five whole
+   stars on 1–5 or a slider on 1–10/20/100 (`evaluations.scale` rule 7; PAD-423 partly reverses
+   PAD-403 here). A legacy category keeps its own `scale_min`/`scale_max` and every score it holds,
    is rendered as a number with a stepper ("7/10"), never as stars, and charts on its own scale.
    No row is rescaled by any migration. **(pending owner decision Q1)**
 4. **(AV-021, build default Q17) What a coach starts with.** A coach who holds any category keeps
