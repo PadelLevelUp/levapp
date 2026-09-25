@@ -108,6 +108,31 @@ by a student's request — and whichever lands first wins.
     (`classes.detail-visibility` rule 3). A never-materialized occurrence is not covered: the read
     stays a series read until a request materializes it (rule 2). Reconciled in the 2026-09-10
     batch, where PAD-257 and PAD-131 met.
+17. **Both request lists show academy join requests (PAD-460, part 1 of PAD-427).** A join request
+    used to be visible only on its class. Now:
+    - `GET /app/class-join-requests` lists the caller's join requests. A coach gets every request
+      addressed to them (`coach_id`); a student gets their own. Anyone else gets `403`. Rows are
+      newest first (`created_at` desc, then `id` desc), all statuses. Each row is rule 15's
+      request shape plus the class it is for: `classTitle`, `date` (club-local `YYYY-MM-DD`),
+      `startTime` and `endTime` (`HH:MM`, club wall clock), and `kind: "academy"`.
+    - **The coach's "Pedidos de Aula"** (web `/class-requests`, iOS Settings → Pedidos de Aula)
+      **and the student's requests list** (Availability, web and iOS) show these rows beside the
+      private class requests (`classes.class-requests` rule 9). The two kinds are merged newest
+      first and split into the same open (`pending`) / closed sections. An academy row is marked
+      "Academy class" and names the class, its date and time, and the student (coach) or coach
+      (student).
+    - **Actions from the list:**
+      - The coach may **accept or decline** a pending academy request through rule 15's endpoints.
+        Accepting a student who is below the bar asks for the same confirmation the class sheet
+        asks (rule 7: `409 ineligible` → confirm → `{confirm: true}`), and every refusal
+        (`spot_filled`, `class_closed`, `not_pending`) shows as it does on the class sheet.
+      - The student may **withdraw** their own pending request.
+      - There's no "propose another time" for academy requests; it exists only for private ones
+        (coordinator, 2026-09-26).
+    - **Both lists refresh** on `join_request_created`, `join_requests_superseded` and on a
+      decision, the same way they refresh on `class_request_changed`.
+    - `GET /app/class-requests` is unchanged. Builds that predate this rule never call the new
+      endpoint and see the lists as before.
 
 ### Acceptance Criteria
 
@@ -177,6 +202,24 @@ by a student's request — and whichever lands first wins.
 - **Then** the eligible one gets the student view with `myJoinRequest: null`
 - **And** the other gets 403, as does the eligible one while the class is not advertised
 - **And** a student who has requested the class reads it with their request in `myJoinRequest`
+
+#### The coach sees an academy request in "Pedidos de Aula" (PAD-460)
+- **Given** Carla asked to join Ana's academy class "Terça 18h" on 2026-10-06 18:00–19:00, and Bruno sent Ana a private class request afterwards
+- **When** Ana reads `GET /app/class-join-requests`, and opens "Pedidos de Aula"
+- **Then** the API returns Carla's request with `classTitle` "Terça 18h", `date` 2026-10-06, `startTime` 18:00, `endTime` 19:00, `status` `pending`, `kind` `academy`
+- **And** the list shows Bruno's private request first and Carla's academy request below it, marked "Academy class"
+
+#### The coach accepts an academy request from the list (PAD-460)
+- **Given** Carla's pending academy request above, and Carla within the class's bar
+- **When** Ana accepts it from "Pedidos de Aula"
+- **Then** Carla is enrolled in that occurrence and the row moves to the closed section as `accepted`
+
+#### The student sees and withdraws her academy request in Availability (PAD-460)
+- **Given** Carla's pending academy request
+- **When** Carla opens her requests list in Availability
+- **Then** the request is listed with the class name, date and time and status `pending`
+- **When** she withdraws it there
+- **Then** its status becomes `withdrawn`, and Ana's list shows it closed
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
