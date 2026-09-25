@@ -88,6 +88,23 @@ def _scale(category):
             NEW_SCALE[1] if category.scale_max is None else category.scale_max)
 
 
+def _own_scale(entry):
+    """evaluations.scale rule 6: the scale a score was given on (its snapshot, PAD-423). An entry
+    with no snapshot reads its competency's scale; one with neither reads 1-5 (rule 3)."""
+    if entry.scale_max is not None:
+        return (1 if entry.scale_min is None else entry.scale_min, entry.scale_max)
+    return _scale(entry.category) if entry.category is not None else NEW_SCALE
+
+
+def on_scale(score, given, current):
+    """evaluations.scale rule 5: `score`, given on `given` (min, max), placed on `current` by
+    proportion, v' = cmin + (v - smin)(cmax - cmin)/(smax - smin). 4 on 1-5 is 7.75 on 1-10."""
+    (smin, smax), (cmin, cmax) = given, current
+    if (smin, smax) == (cmin, cmax) or smax == smin:
+        return score
+    return cmin + (score - smin) * (cmax - cmin) / (smax - smin)
+
+
 def serialize_competency(category, score_count=None) -> dict:
     if score_count is None:
         score_count = EvaluationEntry.query.filter_by(category_id=category.id).count()
@@ -282,7 +299,7 @@ def _number(score):
 
 
 def _rating(entry) -> dict:
-    low, high = _scale(entry.category)
+    low, high = _own_scale(entry)  # evaluations.scale rule 6: a single score on its own scale
     return {
         "categoryId": entry.category_id, "name": entry.category.name, "key": entry.category.catalogue_key,
         "score": _number(entry.score), "scaleMin": low, "scaleMax": high,
@@ -542,8 +559,20 @@ def monthly_means(coach_player_id, category_id, *, since: date | None = None, un
     `_months_back(record.evaluated_on, 6|12) … record.evaluated_on` (sharing.spec.md
     decision 3) — so a rating entirely before the window's cutoff falls out of its
     month's mean, not just out of an already-computed monthly figure."""
+    by_month = defaultdict(list)
+    for day, score in _scores_on_current_scale(coach_player_id, category_id, since=since, until=until):
+        by_month[day.strftime("%Y-%m")].append(score)
+    return {m: sum(scores) / len(scores) for m, scores in by_month.items()}
+
+
+def _scores_on_current_scale(coach_player_id, category_id, *, since=None, until=None) -> list:
+    """`(record day, score)` for every record-held rating of `category_id` (Q29), each score
+    placed on the competency's CURRENT scale (evaluations.scale rule 5): every figure that
+    combines scores is built from these, never from the raw column."""
+    current = _scale(db.session.get(EvaluationCategory, category_id))
     query = (
-        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
+        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score,
+                         EvaluationEntry.scale_min, EvaluationEntry.scale_max)
         .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
         .filter(EvaluationRecord.coach_player_id == coach_player_id, EvaluationEntry.category_id == category_id)
     )
@@ -551,10 +580,10 @@ def monthly_means(coach_player_id, category_id, *, since: date | None = None, un
         query = query.filter(EvaluationRecord.evaluated_on >= since)
     if until is not None:
         query = query.filter(EvaluationRecord.evaluated_on <= until)
-    by_month = defaultdict(list)
-    for day, score in query:
-        by_month[day.strftime("%Y-%m")].append(score)
-    return {m: sum(scores) / len(scores) for m, scores in by_month.items()}
+    return [
+        (day, on_scale(score, current if smax is None else (1 if smin is None else smin, smax), current))
+        for day, score, smin, smax in query
+    ]
 
 
 def evolution(coach, player_id, category_id) -> dict:
@@ -570,12 +599,7 @@ def evolution(coach, player_id, category_id) -> dict:
 
     # Only the ratings that sit in a record count (Q29), each on its record's day —
     # `rolling` needs the individual days (not the monthly means `raw` holds).
-    rows = [
-        (day, score) for day, score in
-        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
-        .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
-        .filter(EvaluationRecord.coach_player_id == link.id, EvaluationEntry.category_id == category.id)
-    ]
+    rows = _scores_on_current_scale(link.id, category.id)
 
     def rolling(n):
         scores = [score for day, score in rows if _months_back(on, n) <= day <= on]
