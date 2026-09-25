@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { openMessages, conversationRow } from "../helpers/navigation";
 
 // PAD-33: Chat messages show incorrect timestamp (1 hour behind Lisbon time).
 //
@@ -31,7 +31,7 @@ test("PAD-33: conversation message timestamps carry an explicit UTC offset", asy
       (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
       { timeout: 10_000 }
     ),
-    page.getByText("E2E Student").first().click(),
+    conversationRow(page, "E2E Student").click(),
   ]);
 
   const body = await resp.json();
