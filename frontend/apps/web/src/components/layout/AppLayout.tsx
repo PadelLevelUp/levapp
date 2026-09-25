@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@levelup/hooks";
+import { queryKeys, usePendingValidationBadge } from "@levelup/hooks";
 import {
   Calendar,
   CalendarOff,
@@ -32,6 +32,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
+import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
 import { CompetencyManagerHost } from "@/components/evaluations/competency-manager/CompetencyManagerHost";
 
@@ -156,6 +157,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     if (item.superAdminOnly) return user?.isSuperAdmin === true;
     return item.roles.some(role => user?.roles.includes(role));
   });
+
+  // PAD-443 (attendance.validation rule 23): the dashboard's "classes to validate" number on the
+  // Presences item, tiered. Coach-only, like the item itself.
+  const isCoach = user?.roles.includes("coach") ?? false;
+  const pendingValidation = usePendingValidationBadge(isCoach).data?.count ?? 0;
 
   // PAD-183: Settings is dropped from the mobile bottom nav only — at 390px
   // wide, seven (coach) or five (student) tabs with Portuguese labels overflow
@@ -290,6 +296,9 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                       {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                     </span>
                   )}
+                  {item.path === "/presences" && (
+                    <PresencesBadge count={pendingValidation} className="absolute -top-1.5 -right-1.5" />
+                  )}
                 </div>
                 {!sidebarCollapsed && (
                   <span className="text-sm font-medium">{t(item.labelKey)}</span>
@@ -369,6 +378,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                   >
                     {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
+                )}
+                {item.path === "/presences" && (
+                  <PresencesBadge
+                    count={pendingValidation}
+                    testId="bottom-nav-presences-badge"
+                    className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] text-[9px] px-0.5"
+                  />
                 )}
               </div>
               <span className={cn("text-[10px]", isActive ? "font-semibold" : "font-medium")}>

@@ -1609,6 +1609,17 @@ export interface PendingValidationCount {
   pendingCount: number;
 }
 
+/**
+ * `GET /class_instances/pending_validation/badge` — `attendance.validation` rule 23 (PAD-443): the
+ * dashboard validation item's number (current week, else the previous one; 0 when both are clean),
+ * shown on the Presences badge of both shells.
+ */
+export interface PendingValidationBadge {
+  count: number;
+  weekOffset: number;
+  href: string;
+}
+
 // ── PAD-402 evaluation sharing ──
 
 /** `evaluations.sharing` rule 2. */
