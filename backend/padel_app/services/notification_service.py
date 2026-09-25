@@ -1406,6 +1406,15 @@ def _next_quiet_hours_end(now):
     return end.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def _held_only_by_quiet_hours(instance, coach_id, restrictions, *, now) -> bool:
+    """B-200 (notifications.config rule 6d): the check refuses, and quiet hours are the ONLY
+    reason — every other restriction would let the batch go."""
+    if not restrictions.get("quietHours", {}).get("enabled"):
+        return False
+    without_quiet = {**restrictions, "quietHours": {"enabled": False}}
+    return _check_restrictions(instance, coach_id, without_quiet, now=now)
+
+
 def _check_restrictions(
     instance: LessonInstance,
     coach_id: int,
@@ -3839,6 +3848,13 @@ def trigger_invitations(
 
     restrictions = config.get_restrictions()
     if not _check_restrictions(instance, coach_id, restrictions, now=now):
+        # B-200 (rule 6d): quiet hours hold, they do not drop. The invitation-start trigger fires
+        # once; returning before the vacancies exist left a never-filled spot with nothing for the
+        # sweep to invite once the window ended. Create them now, send nothing.
+        if open_vacancies is None and _held_only_by_quiet_hours(
+            instance, coach_id, restrictions, now=now or utcnow_naive()
+        ):
+            _find_or_create_open_vacancies(instance, coach_id)
         return []
 
     if open_vacancies is None:
@@ -4020,6 +4036,11 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 
         config = get_or_create_config(vacancy.coach_id)
         restrictions = config.get_restrictions()
+
+        # B-200 (rule 6d): the sweep sends too, so it asks the same restrictions as
+        # trigger_invitations. A refused vacancy is held and retried on the next tick.
+        if not _check_restrictions(instance, vacancy.coach_id, restrictions, now=_now):
+            continue
 
         last = vacancy.last_activity_at
 
