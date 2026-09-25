@@ -102,4 +102,28 @@ test.describe("PAD-195: in-app feed with browser push denied", () => {
       "must not have reloaded"
     ).toBe(true);
   });
+
+  for (const vp of [
+    { name: "phone", width: 390, height: 844 },
+    { name: "short laptop", width: 1280, height: 600 },
+    { name: "laptop", width: 1280, height: 720 },
+  ]) test(`PAD-417 (${vp.name}): with the banner showing, the open thread's composer stays inside the viewport`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    // messaging.push-notifications rule 8a: the banner takes its own height from the page; the
+    // conversation list and the thread share what is left, so the composer is never pushed off.
+    await studentMessagesCoach(request, `PAD-417 ${Date.now()}`);
+    await loginAsCoach(page);
+    await openMessages(page);
+    await expect(page.getByTestId("push-blocked-banner")).toBeVisible({ timeout: 10_000 });
+    await page.getByText("E2E Student").first().click();
+    const send = page.getByTestId("composer-send");
+    await expect(send).toBeVisible({ timeout: 10_000 });
+    const viewport = page.viewportSize();
+    const box = await send.boundingBox();
+    expect(viewport && box, "viewport and composer box").toBeTruthy();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+  });
 });

@@ -223,6 +223,11 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **And** when a student sends them a message, it appears in the list and the nav unread badge shows, live over SSE, without a reload
 - **And** iOS shows the equivalent copy for a device-level denial
 
+#### The alerts-blocked banner leaves the thread and composer on screen (PAD-417)
+- **Given** a signed-in coach on the web whose browser notification permission is `denied`, so the banner shows above the Messages page
+- **When** they open a conversation at 390×844, 1280×600 or 1280×720
+- **Then** the page's remaining height is shared by the list and the thread, and the composer's send button ends inside the viewport
+
 #### The app icon badge always equals the server unread count (PAD-147)
 - **Given** the iOS icon badge shows 1 because a push arrived while the app was closed
 - **When** the user reads that message on another device and then foregrounds the app, so the unread count fetch returns 0 — the same value the app last held

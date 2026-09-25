@@ -157,3 +157,4 @@ whether a failure mode has been seen before.
 - [B-204](B-204-needs-you-later-button-overflows-card.md) — Coach dashboard: "Mais tarde" overflowed its needs-you card with the sidebar open (missing-criterion, medium, resolved)
 - [B-216](B-216-moving-a-class-onto-or-off-a-sunday-corrupts-its-weekdays.md) — Moving a recurring class onto or off a Sunday corrupted its daysOfWeek (ISO 7 vs calendar 0) (incomplete-rule, high, resolved)
 - [B-219](B-219-a-visibility-only-class-edit-was-never-saved.md) — A class edit that changed only openSpotsVisible was never saved (missing-criterion, high, resolved)
+- [B-198](B-198-blocked-alerts-banner-pushes-composer-off-screen.md) — web: the browser-alerts-blocked banner reportedly pushed the composer off-screen; unreproduced in Chromium at 3 sizes, guard E2E + criterion in, Safari untested (missing-criterion, medium, open)

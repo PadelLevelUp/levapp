@@ -117,6 +117,7 @@ export function Composer({ onSend, onEditSave, editingMessage, replyingTo, userI
           disabled={!text.trim() || disabled}
           aria-label={t("messages.sendMessageAria")}
           className="shrink-0"
+          data-testid="composer-send"
         >
           <Send className="w-4 h-4" />
         </Button>
