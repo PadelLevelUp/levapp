@@ -6,7 +6,7 @@ today's window with no backfill. Additive and idempotent: each column is guarded
 drift, see the memory on idempotent migrations); downgrade drops what is present.
 
 Revision ID: 4dbac8a33648
-Revises: e25428020888
+Revises: 2ad9b898d99b
 Create Date: 2026-09-25
 """
 import logging
@@ -16,7 +16,7 @@ from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "4dbac8a33648"
-down_revision = "e25428020888"
+down_revision = "2ad9b898d99b"
 branch_labels = None
 depends_on = None
 
