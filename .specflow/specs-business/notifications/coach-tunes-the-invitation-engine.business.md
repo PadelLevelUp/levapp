@@ -33,7 +33,11 @@ students, and occasionally auditing what the engine has done.
    time before class), and tiebreakers (level, attendance, side, subscription status) for who gets
    asked first.
 3. They define notification groups — ordered, rule-based buckets (level, side, subscription
-   status) that shape the multi-round matching the engine uses when a spot opens.
+   status) that shape the multi-round matching the engine uses when a spot opens. These are the
+   "Invitation groups". A separate setting, "Manual invite groups", only chooses which quick-pick
+   groups (same level, recent absences, justified absences, all students) the coach sees when
+   inviting students by hand from a class. It has no effect on the automatic engine, and the
+   settings page says so on both (PAD-448).
 4. They customize the wording of invite, confirmation, decline, reminder and waiting-list messages,
    with placeholders for the student's name, class, date, time and level, in their own language
    (pt or en). A blank template quietly falls back to the built-in wording so a student is never
