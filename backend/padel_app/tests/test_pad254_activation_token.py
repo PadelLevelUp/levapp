@@ -129,7 +129,7 @@ def test_activate_with_the_token(app, client):
     uid = _inactive_user(app)
     res = client.post(
         f"/api/app/activate/user/{uid}",
-        json={"token": _token(app, uid), "password": "NewPass1!", "name": "Updated Name",
+        json={"token": _token(app, uid), "birthDate": "1990-01-01", "password": "NewPass1!", "name": "Updated Name",
               "username": "bruno"},
     )
     assert res.status_code == 200 and res.get_json() == {"success": True}
@@ -144,14 +144,14 @@ def test_only_an_inactive_account_can_be_activated(app, client):
     before = _fresh(app, uid)["password"]
     res = client.post(
         f"/api/app/activate/user/{uid}",
-        json={"token": _token(app, uid), "password": "Other1!"},
+        json={"token": _token(app, uid), "birthDate": "1990-01-01", "password": "Other1!"},
     )
     assert res.status_code == 410
     assert _fresh(app, uid)["password"] == before
 
     # A disabled account is not inactive either.
     did = _inactive_user(app, status="disabled", username="pending-d", email="d@example.com", password="Original1!")
-    res = client.post(f"/api/app/activate/user/{did}", json={"token": _token(app, did), "password": "Other1!"})
+    res = client.post(f"/api/app/activate/user/{did}", json={"token": _token(app, did), "birthDate": "1990-01-01", "password": "Other1!"})
     assert res.status_code == 410
 
 
@@ -159,7 +159,7 @@ def test_activation_writes_only_the_five_fields(app, client):
     uid = _inactive_user(app)
     res = client.post(
         f"/api/app/activate/user/{uid}",
-        json={"token": _token(app, uid), "password": "NewPass1!", "username": "bruno",
+        json={"token": _token(app, uid), "birthDate": "1990-01-01", "password": "NewPass1!", "username": "bruno",
               "status": "disabled", "language": "en", "is_superadmin": True},
     )
     assert res.status_code == 200
@@ -191,7 +191,7 @@ def test_the_roster_carries_the_secret_until_activation(app, coach_id):
         assert row["activationToken"] == expected
         assert player.coach_player_info(coach_id)["activationToken"] == expected
 
-        activate_user_service(player.user_id, {"password": "NewPass1!", "username": "bruno-roster"}, token=expected)
+        activate_user_service(player.user_id, {"password": "NewPass1!", "username": "bruno-roster", "birthDate": "1990-01-01"}, token=expected)
         db.session.commit()
 
         roster = get_coach_players_list(Coach.query.get(coach_id))

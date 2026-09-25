@@ -13,6 +13,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { isUnderSignupAge } from "@levelup/config";
+
+/** PAD-457: the server's birth-date codes, in this form's own words. */
+const BIRTH_CODE_KEYS: Record<string, string> = {
+  BIRTH_DATE_REQUIRED: "birthDateRequired",
+  INVALID_BIRTH_DATE: "birthDateInvalid",
+  UNDERAGE: "birthDateUnderage",
+};
 import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -24,6 +32,12 @@ const acceptSchema = z
     username: z.string().min(3, "usernameMin"),
     password: z.string().min(6, "passwordMin"),
     repeatPassword: z.string(),
+    // PAD-457: adults only — this form creates a login.
+    birthDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "birthDateRequired")
+      .refine((d) => !Number.isNaN(Date.parse(d)) && new Date(`${d}T00:00:00`) <= new Date(), "birthDateInvalid")
+      .refine((d) => !isUnderSignupAge(d), "birthDateUnderage"),
   })
   .refine((data) => data.password === data.repeatPassword, {
     message: "passwordsMismatch",
@@ -48,6 +62,7 @@ const CoachInvitePage = () => {
     username: "",
     password: "",
     repeatPassword: "",
+    birthDate: "",
   });
 
   useEffect(() => {
@@ -98,6 +113,7 @@ const CoachInvitePage = () => {
         name: form.name,
         username: form.username,
         password: form.password,
+        birthDate: form.birthDate,
       });
 
       toast({
@@ -109,6 +125,12 @@ const CoachInvitePage = () => {
       navigate("/");
     } catch (error: any) {
       const code = error?.response?.status;
+      // PAD-457: a birth-date refusal belongs on the field, in the form's words.
+      const birthKey = BIRTH_CODE_KEYS[error?.response?.data?.code ?? ""];
+      if (code === 400 && error?.response?.data?.field === "birthDate" && birthKey) {
+        setErrors((prev) => ({ ...prev, birthDate: t(`auth.coachInvite.${birthKey}`) }));
+        return;
+      }
       if (code === 409) {
         setSubmitError(t("auth.coachInvite.usernameTaken"));
       } else if (code === 404 || code === 410) {
@@ -168,6 +190,7 @@ const CoachInvitePage = () => {
                 label: t("auth.coachInvite.repeatPassword"),
                 type: "password",
               },
+              { id: "birthDate", label: t("auth.coachInvite.birthDate"), type: "date" },
             ].map(({ id, label, type = "text" }) => (
               <div key={id} className="space-y-2">
                 <Label htmlFor={id}>{label}</Label>
@@ -184,7 +207,7 @@ const CoachInvitePage = () => {
                   }}
                 />
                 {errors[id] && (
-                  <p className="text-sm text-destructive">{errors[id]}</p>
+                  <p className="text-sm text-destructive" data-testid={`coachInvite-${id}-error`}>{errors[id]}</p>
                 )}
               </div>
             ))}

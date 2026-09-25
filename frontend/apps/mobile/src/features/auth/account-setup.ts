@@ -27,6 +27,8 @@
  * them against the numbers web uses (name ≥ 2, username ≥ 3, password ≥ 6,
  * matching repeat, valid email on register).
  */
+import { isUnderSignupAge } from "@levelup/config";
+import { toIso } from "./signup-form";
 import { z } from "zod";
 
 import { parseUniversalLink } from "@/lib/universalLinks";
@@ -100,13 +102,36 @@ const mismatchIssue = {
   path: ["repeatPassword"],
 };
 
+/**
+ * PAD-457 (auth.register rule 18, auth.activate rule 13, and both invitations): every form that
+ * creates a login asks for the birth date, typed DD/MM/AAAA as on sign-up, and refuses under 18 on
+ * the device's date — the server judges on UTC and stays the authority. One rule for all three.
+ */
+const birthDateField = { birthDate: z.string() };
+function adultBirthDate(d: { birthDate: string }, ctx: z.RefinementCtx) {
+  if (!d.birthDate) {
+    ctx.addIssue({ code: "custom", message: "birthDateRequired", path: ["birthDate"] });
+    return;
+  }
+  const iso = toIso(d.birthDate);
+  if (!iso || new Date(`${iso}T00:00:00`) > new Date()) {
+    ctx.addIssue({ code: "custom", message: "birthDateInvalid", path: ["birthDate"] });
+    return;
+  }
+  if (isUnderSignupAge(iso)) {
+    ctx.addIssue({ code: "custom", message: "birthDateUnderage", path: ["birthDate"] });
+  }
+}
+
 /** `/invite/player/:token` — the player picks a username and password. */
 export const playerInviteSchema = z
   .object({
     username: z.string().min(3, "usernameMin"),
     ...passwordPair,
+    ...birthDateField,
   })
-  .refine(passwordsMatch, mismatchIssue);
+  .refine(passwordsMatch, mismatchIssue)
+  .superRefine(adultBirthDate);
 
 /** `/invite/coach/:token` — a coach also gives their display name. */
 export const coachInviteSchema = z
@@ -114,8 +139,10 @@ export const coachInviteSchema = z
     name: z.string().min(2, "nameMin"),
     username: z.string().min(3, "usernameMin"),
     ...passwordPair,
+    ...birthDateField,
   })
-  .refine(passwordsMatch, mismatchIssue);
+  .refine(passwordsMatch, mismatchIssue)
+  .superRefine(adultBirthDate);
 
 /** `/register/:userId` — activation of an account a coach already created. */
 export const registerSchema = z
@@ -125,8 +152,17 @@ export const registerSchema = z
     email: z.string().email("emailInvalid"),
     phone: z.string().optional(),
     ...passwordPair,
+    ...birthDateField,
   })
-  .refine(passwordsMatch, mismatchIssue);
+  .refine(passwordsMatch, mismatchIssue)
+  .superRefine(adultBirthDate);
+
+/** The server's birth-date codes (PAD-457), in the forms' own words — the same on all three forms. */
+export const ACTIVATION_BIRTH_CODES: Record<string, string> = {
+  BIRTH_DATE_REQUIRED: "birthDateRequired",
+  INVALID_BIRTH_DATE: "birthDateInvalid",
+  UNDERAGE: "birthDateUnderage",
+};
 
 export type FieldErrorCodes = Record<string, string>;
 

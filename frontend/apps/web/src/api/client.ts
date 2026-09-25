@@ -31,7 +31,9 @@ initApi({
   // PAD-364: `evaluations` is declared from slice 2 on and consumed by nothing yet — it will gate
   // the student dashboard block of a shared evaluation. Keep it: a missing token silently
   // removes the feature, nothing crashes.
-  capabilities: ["open-spots", "evaluations"],
+  // PAD-429 (eligibility.open-spot-visibility rule 12): `class-type-defaults` lets the server
+  // send the `type` open-spots source label instead of falling it back to `coach`.
+  capabilities: ["open-spots", "evaluations", "class-type-defaults"],
 });
 
 export const api = getApi();

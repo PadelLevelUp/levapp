@@ -1,16 +1,14 @@
 ---
 id: auth.minor-signs-up-with-a-guardians-consent
-status: implemented
+status: deprecated
 implemented_by:
   - ../../specs/auth/parental-consent.spec.md
 ---
 
 # Minor signs up with a guardian's consent
 
-> **Superseded for new sign-ups (PAD-445, owner decision 2026-09-24).** LevApp now accepts adults only
-> (see "Newcomer signs up on their own"), so no minor can start this journey any more. It is kept
-> because accounts already waiting for, or holding, a guardian's consent still follow it. Whether they
-> keep it, and whether this journey is retired, is still open with the owner.
+> **Retired (PAD-457, owner decision 2026-09-25).** LevApp accepts adults only and no minors use it,
+> so this journey was removed. Kept as the record of what existed.
 
 ## Outcome
 

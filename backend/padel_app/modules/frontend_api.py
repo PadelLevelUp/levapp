@@ -731,7 +731,13 @@ def activate_user(user_id):
     token = data.pop("token", None)
     # PAD-389: a blank name/username, a missing username on a placeholder, or no
     # password raises NotNullableFieldError before any write; the blueprint answers 400.
-    activate_user_service(user_id, data, token=token)
+    from padel_app.services.registration_service import RegistrationError
+
+    try:
+        activate_user_service(user_id, data, token=token)
+    except RegistrationError as exc:
+        # auth.activate rule 13 (PAD-457): the birth-date refusals answer as sign-up's do.
+        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
     return jsonify(success=True)
 
 
@@ -2165,7 +2171,13 @@ def accept_coach_invitation(token):
         accept_coach_invitation_service(token, coach=coach)
         return jsonify({"success": True})
 
-    user = accept_coach_invitation_service(token, data=data)
+    from padel_app.services.registration_service import RegistrationError
+
+    try:
+        user = accept_coach_invitation_service(token, data=data)
+    except RegistrationError as exc:
+        # PAD-457: the birth-date refusals answer as sign-up's do.
+        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
     return jsonify({
         "accessToken": issue_access_token(user.id),
     })
@@ -2223,7 +2235,13 @@ def get_player_invitation(token):
 @bp.post("/player-invitations/<token>/accept")
 def accept_player_invitation(token):
     data = request.get_json(silent=True) or {}
-    user = accept_player_invitation_service(token, data=data)
+    from padel_app.services.registration_service import RegistrationError
+
+    try:
+        user = accept_player_invitation_service(token, data=data)
+    except RegistrationError as exc:
+        # PAD-457: the birth-date refusals answer as sign-up's do.
+        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
     return jsonify({
         "accessToken": issue_access_token(user.id),
     })

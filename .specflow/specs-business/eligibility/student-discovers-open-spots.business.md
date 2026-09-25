@@ -38,6 +38,12 @@ invited — and a coach deciding whether they want their open spots advertised a
 - Visibility is a coach-controlled toggle, and it cascades the same way the eligibility bar itself
   does: a coach standard, overridable per recurring series and per single occurrence, most specific
   wins.
+- **A private class is not shown to students by default (PAD-429, owner, 2026-09-24).** Its open
+  spots stay out of students' calendars and out of the "book a class" list, whatever the coach's
+  standard says, unless the coach makes that class (or that date) visible. An academy class
+  follows the coach's standard as before. This holds for private classes that already exist, too:
+  it is worked out from the class type, never written onto the classes, and a visibility choice
+  a coach already made for a class is kept.
 - A class only ever counts as "open" if it genuinely has room — the same capacity measure the rest
   of the calendar already uses, whether or not that occurrence has been created as a concrete
   record yet.
