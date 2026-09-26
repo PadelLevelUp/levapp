@@ -38,7 +38,7 @@ test("PAD-463: a series that ends after 5 classes has exactly 5, Sunday included
   try {
     await loginAsCoach(page);
     await openCalendar(page);
-    await page.getByRole("button", { name: /new class|add class/i }).first().click();
+    await page.getByRole("button", { name: ui("calendar.toolbar.addClass") }).first().click();
     await expect(page.getByTestId("add-class-end-mode").or(page.getByRole("heading", { name: ui("calendar.addClass.title") })).first()).toBeVisible({ timeout: 5000 });
 
     await page.getByPlaceholder(/e\.g\./i).first().fill(name);
@@ -52,9 +52,13 @@ test("PAD-463: a series that ends after 5 classes has exactly 5, Sunday included
     await page.getByTestId("add-class-end-count").fill("5");
     await expect(page.getByTestId("add-class-end-count-last")).toHaveAttribute("data-date", expected[4]);
 
-    const posted = page.waitForRequest((r) => r.method() === "POST" && /\/add_class$/.test(r.url()));
+    // The create's RESPONSE, not its request: the sheet closes without waiting for the server, so
+    // reading the calendar before the answer races the create.
+    const created = page.waitForResponse((r) => r.request().method() === "POST" && /\/add_class$/.test(r.url()));
     await page.getByRole("button", { name: ui("calendar.addClass.createClass") }).click();
-    const payload = (await posted).postDataJSON() as { endDate: string | null; recursUntilSeasonEnd: boolean };
+    const response = await created;
+    expect(response.ok(), `add_class answered ${response.status()}`).toBeTruthy();
+    const payload = response.request().postDataJSON() as { endDate: string | null; recursUntilSeasonEnd: boolean };
     expect(payload).toMatchObject({ endDate: expected[4], recursUntilSeasonEnd: false });
     await expect(page.getByRole("button", { name: ui("calendar.addClass.createClass") })).toHaveCount(0, { timeout: 10_000 });
 

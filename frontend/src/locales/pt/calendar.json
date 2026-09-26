@@ -86,7 +86,8 @@
       "classesUnit": "aulas",
       "lastClass": "Última aula: {{date}}",
       "countPastSeason": "A última aula ({{last}}) é depois do fim da época ({{end}}).",
-      "fieldEndCount": "Número de aulas"
+      "fieldEndCount": "Número de aulas",
+      "endCountInvalid": "Escolha entre 1 e 52 aulas."
     },
     "overlap": {
       "title": "Horário sobreposto",

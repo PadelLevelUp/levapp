@@ -1,0 +1,88 @@
+# PAD-463 — classes.create rule 9 on iOS: a coach's recurring series ends "after N classes", and
+# then it has exactly N. Mirrors apps/web/e2e/calendar/pad463-series-ends-after-n-classes.spec.ts.
+#
+# Sunday + Wednesday on purpose: the calendar's daysOfWeek is 0 = Sunday and the shared helper
+# counts on ISO days; Sunday is the one day they disagree on. The start is a Sunday about two
+# years out (deep link `class/new?date=`), so no season or other flow's class is in the way.
+# Proven by the server's own calendar, never rendered copy. Flow number 115 (D's range, routed to
+# Session-B by the coordinator). Setup and teardown remove the series.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/series-count-setup.js
+onFlowComplete:
+  - runScript: ../scripts/series-count-setup.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://class/new?date=${output.startDate}"
+- extendedWaitUntil:
+    visible:
+      id: "class-name"
+    timeout: 15000
+- tapOn:
+    id: "class-name"
+- inputText: "Maestro PAD-463 Series"
+- pressKey: Enter
+
+- scrollUntilVisible:
+    element:
+      id: "class-recurring-switch"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "class-recurring-switch"
+# The chosen date's weekday (Sunday, 0) is preselected; add Wednesday.
+- scrollUntilVisible:
+    element:
+      id: "class-day-3"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "class-day-3"
+
+- scrollUntilVisible:
+    element:
+      id: "class-end-mode-count"
+    direction: DOWN
+    timeout: 15000
+    centerElement: true
+- tapOn:
+    id: "class-end-mode-count"
+- tapOn:
+    id: "class-end-count"
+- inputText: "5"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "class-end-count-last"
+    timeout: 5000
+
+- scrollUntilVisible:
+    element:
+      id: "class-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-save"
+- extendedWaitUntil:
+    visible:
+      id: "overlap-confirm"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "overlap-confirm"
+    commands:
+      - tapOn:
+          id: "overlap-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+
+# The server's own expansion: exactly the five dates, the last the fifth class's. Bounded re-read:
+# the create may land a moment after the screen goes back.
+- evalScript: "${output.dates = (function () { var got = ''; for (var i = 0; i < 40 && got !== output.expected; i++) { got = json(http.get(output.api + '/api/app/calendar?from=' + output.startDate + 'T00:00:00&to=' + output.rangeTo + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.type === 'class' && e.title === 'Maestro PAD-463 Series' }).map(function (e) { return e.date }).sort().join(','); } return got; })()}"
+- assertTrue: "${output.dates === output.expected}"

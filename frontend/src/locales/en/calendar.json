@@ -86,7 +86,8 @@
       "classesUnit": "classes",
       "lastClass": "Last class: {{date}}",
       "countPastSeason": "The last class ({{last}}) is after the season ends ({{end}}).",
-      "fieldEndCount": "Number of classes"
+      "fieldEndCount": "Number of classes",
+      "endCountInvalid": "Choose between 1 and 52 classes."
     },
     "overlap": {
       "title": "Overlapping event",
