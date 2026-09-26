@@ -39,6 +39,7 @@ import {
   effectiveMark,
   fromMark,
   undecidedCount,
+  validationGroup,
   type PresenceMark,
 } from "@levelup/config";
 
@@ -497,8 +498,9 @@ function ClassList({
 
   // "Needs your input" first — the whole point of the queue is what's blocked.
   const groups: Array<{ key: "needsInput" | "ready"; items: PendingValidationClass[] }> = [
-    { key: "needsInput", items: classes.filter((c) => remainingFor(c) > 0) },
-    { key: "ready", items: classes.filter((c) => remainingFor(c) === 0) },
+    // Rule 25 (PAD-442): grouped by the server's state, so a class the coach completes stays put.
+    { key: "needsInput", items: classes.filter((c) => validationGroup(c.players) === "needsInput") },
+    { key: "ready", items: classes.filter((c) => validationGroup(c.players) === "ready") },
   ];
 
   const dayFmt = new Intl.DateTimeFormat(i18n.language, {
@@ -513,7 +515,7 @@ function ClassList({
       {groups
         .filter((g) => g.items.length > 0)
         .map((group) => (
-          <section key={group.key} className="space-y-2">
+          <section key={group.key} data-testid={`presences-group-${group.key}`} className="space-y-2">
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t(`presences.validate.group.${group.key}`, {
                 count: group.items.length,

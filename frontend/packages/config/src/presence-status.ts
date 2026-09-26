@@ -79,3 +79,14 @@ export function undecidedCount(
 ): number {
   return players.filter((p) => effectiveMark(p, edits[p.playerId]) === null).length;
 }
+
+/**
+ * attendance.validation rule 25 (PAD-442): which group a class sits in comes from the server's
+ * state only — no local marks — so a class the coach completes stays where it was (with its
+ * Validate button available, which follows the marks) until the queue is next loaded.
+ */
+export function validationGroup(
+  players: PendingValidationPlayer[]
+): "needsInput" | "ready" {
+  return undecidedCount(players, {}) > 0 ? "needsInput" : "ready";
+}

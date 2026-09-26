@@ -7,6 +7,7 @@ import {
   prefillMark,
   toMark,
   undecidedCount,
+  validationGroup,
 } from "./presence-status";
 
 function player(
@@ -96,5 +97,24 @@ describe("undecidedCount", () => {
 
   it("clears once the coach decides the last one", () => {
     expect(undecidedCount(players, { 3: "present" })).toBe(0);
+  });
+});
+
+describe("validationGroup (PAD-442)", () => {
+  it("groups by the server's state: a silent player means needs-input", () => {
+    expect(validationGroup([player({ playerId: 1, response: "none" })])).toBe("needsInput");
+  });
+
+  it("a class whose players all answered is ready", () => {
+    expect(
+      validationGroup([
+        player({ playerId: 1, response: "confirmed" }),
+        player({ playerId: 2, response: "declined" }),
+      ])
+    ).toBe("ready");
+  });
+
+  it("a stored status decides the player", () => {
+    expect(validationGroup([player({ playerId: 1, response: "none", status: "present" })])).toBe("ready");
   });
 });
