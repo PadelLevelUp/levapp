@@ -95,6 +95,8 @@ test.describe("PAD-394: Settings — switching tab with an unsaved edit asks fir
     await expect(dialogEl).not.toBeVisible();
     await expect(sunday).toHaveAttribute("data-state", "off");
     await expect(page.getByTestId("blocked-users")).toHaveCount(0);
+    // PAD-459: the URL follows the section still shown, not the one the menu asked for.
+    await expect(page).toHaveURL(/\/settings\?tab=calendar$/);
   });
 });
 
