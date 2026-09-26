@@ -199,6 +199,9 @@ executionOrder:
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
     - 105-settings-restrictions
+    # 107 (PAD-443): the dashboard's tiered validation pill, then the validate sheet on last
+    # week — the seed's silent student is flagged until marked present. Stores nothing.
+    - 107-validation-highlight
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

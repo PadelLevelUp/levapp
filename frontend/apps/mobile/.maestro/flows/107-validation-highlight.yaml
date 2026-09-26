@@ -1,0 +1,41 @@
+# PAD-443 — attendance.validation rules 23-24, dashboard.blocks rule 11, on iOS.
+#
+# 1. The dashboard's validation card carries the tiered number pill
+#    (dashboard-queue-validation-tier), the same number the Presences tab badge shows.
+# 2. In the validate sheet, the seed's silent student (E2E Validation Class, previous week) is
+#    flagged with the warning icon until the coach marks them; marking clears the flag.
+#
+# Mirrors: apps/web/e2e/attendance/pad443-validation-highlight.spec.ts.
+# Marking is a local edit in the sheet (nothing is validated), so the flow stores nothing.
+# List-row ids are keyed by class AND player (validate-list-row-<class>-<player>); the seed has
+# exactly one silent student, so one undecided icon. Flow number 107 is from Session-B's range.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+
+# ── The dashboard card's tiered number ──
+- extendedWaitUntil:
+    visible:
+      id: "dashboard-queue-validation"
+    timeout: 20000
+- assertVisible:
+    id: "dashboard-queue-validation-tier"
+
+# ── The validate sheet, on the week the seed's classes are in ──
+- openLink: "levelup://presences?validate=1&week=-1"
+- extendedWaitUntil:
+    visible:
+      id: "validate-list-undecided-icon-.*"
+    timeout: 20000
+- assertVisible:
+    id: "validate-list-row-.*"
+
+# Mark the flagged student present: the toggle row sits below their name row.
+- tapOn:
+    id: "presence-mark-present"
+    below:
+      id: "validate-list-undecided-icon-.*"
+- extendedWaitUntil:
+    notVisible:
+      id: "validate-list-undecided-icon-.*"
+    timeout: 10000
