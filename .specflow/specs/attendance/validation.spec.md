@@ -244,6 +244,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     holds; a class whose players all answered themselves still appears under "ready to confirm".
     Refreshing the queue after another write (rule 22) does not move it either, because the server's
     state for it has not changed.
+26. **(PAD-441) Each selected mark has its own colour.** `presenceMarkTone(mark)` in
+    `@levelup/config` is the one mapping: `present` → `positive` (green), `justified` → `warning`
+    (amber, the design system's `warning` token — the colour the class sheet already gives a justified
+    absence), `unjustified` → `negative` (red). An unselected option stays neutral grey. The selected
+    option also carries a full-strength border in its colour, and its selected state is exposed to
+    assistive tech (`aria-pressed` on web, `accessibilityState.selected` on iOS), so the colour is
+    never the only signal. The amber of "Justificada" is a different hue from rule 24's yellow
+    "needs a decision" flag, so a justified player never reads as one still to decide.
 
 ### Acceptance Criteria
 
@@ -281,6 +289,12 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the coach marks the silent player present
 - **Then** the class stays under "needs your input", in the same position, and its Validate button becomes available there
 - **And** after validating it, it leaves the list
+
+#### Each selected mark reads as its own colour (PAD-441)
+- **Given** a class in the validate view with Ana marked present, Rui justified and Sara unjustified
+- **When** the coach looks at their rows
+- **Then** Ana's selected option is green, Rui's amber and Sara's red, each with a full-strength border, and every unselected option is neutral grey
+- **And** Rui's amber is not the yellow of the "needs a decision" flag
 
 #### A completed class is regrouped only on the next load (PAD-442)
 - **Given** a class the coach completed by marking its silent player, without validating it
