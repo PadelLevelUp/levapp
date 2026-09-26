@@ -1,3 +1,5 @@
+import { seasonOccurrenceContaining, type SeasonDefinitionLike } from "./season-coverage";
+
 /**
  * classes.class-requests rule 14a (PAD-428): the wizard's "Termina ao fim de N
  * aulas" option. The client turns a class COUNT into the `endDate` the wire
@@ -47,4 +49,29 @@ export function endDateAfterClasses(startDate: string, weekdays: number[], count
     day = addDays(day, 1);
   }
   return null;
+}
+
+/**
+ * classes.create rule 9 (PAD-463): the coach's recurring class ends after N classes. Its
+ * `daysOfWeek` are the calendar's convention (0 = Sunday … 6 = Saturday, `calendar_tools.WEEKDAY_MAP`),
+ * not the ISO days `endDateAfterClasses` counts on, so Sunday is mapped 0 → 7 first. The series
+ * expands with no skipped dates up to an inclusive end, so this end date gives exactly N classes.
+ */
+export function seriesEndAfterClasses(startDate: string, calendarDays: number[], count: number): string | null {
+  return endDateAfterClasses(startDate, calendarDays.map((day) => (day === 0 ? 7 : day)), count);
+}
+
+/**
+ * classes.create rule 9: a count is never capped by the season, but the form says when the last
+ * class falls after the end of the season occurrence containing the start date. The end of that
+ * occurrence, or `null` when there is nothing to say (no season, a start in a gap, or inside it).
+ */
+export function countPassesSeasonEnd(
+  startDate: string,
+  lastDate: string | null,
+  definition: SeasonDefinitionLike | null | undefined
+): string | null {
+  if (!lastDate) return null;
+  const occurrence = seasonOccurrenceContaining(startDate, definition);
+  return occurrence && lastDate > occurrence.endDate ? occurrence.endDate : null;
 }
