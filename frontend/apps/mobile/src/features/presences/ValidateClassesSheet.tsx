@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
-import { effectiveMark, type PresenceMark } from "@levelup/config";
+import { effectiveMark, validationGroup, type PresenceMark } from "@levelup/config";
 import type { PendingValidationClass } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
@@ -216,8 +216,10 @@ export function ValidateClassesSheet({
     return `${name} · ${fmt.format(monday)} – ${fmt.format(sunday)}`;
   }, [weekOffset, i18n.language, t]);
 
-  const needsInput = pendingClasses.filter((c) => remainingFor(c) > 0);
-  const ready = pendingClasses.filter((c) => remainingFor(c) === 0);
+  // Rule 25 (PAD-442): grouped by the server's state, so a class the coach completes stays put
+  // with its Validate button available in place; it regroups on the next load.
+  const needsInput = pendingClasses.filter((c) => validationGroup(c.players) === "needsInput");
+  const ready = pendingClasses.filter((c) => validationGroup(c.players) === "ready");
 
   return (
     <Dialog
@@ -311,7 +313,7 @@ export function ValidateClassesSheet({
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    disabled={!ready.length}
+                    disabled={!readyClassIds(pendingClasses, edits).length}
                     onPress={() => {
                       setSelected(readyClassIds(pendingClasses, edits));
                       setNotice(null);
@@ -397,7 +399,10 @@ export function ValidateClassesSheet({
                     .filter((g) => g.items.length > 0)
                     .map((group) => (
                       <View key={group.key} className="gap-2">
-                        <Text className="text-xs uppercase text-muted-foreground">
+                        <Text
+                          testID={`presences-group-${group.key}`}
+                          className="text-xs uppercase text-muted-foreground"
+                        >
                           {t(`presences.validate.group.${group.key}`, {
                             count: group.items.length,
                           })}

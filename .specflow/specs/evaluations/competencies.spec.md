@@ -152,7 +152,9 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 12. **(AV-072) No dirty state, explicit close.** Every toggle, rename and
     creation applies when made and each is individually reversible, so there is nothing to
     discard; the editor has an explicit close control ("Concluído") besides the scrim. Delete
-    keeps its own confirmation (rule 9).
+    keeps its own confirmation (rule 9). "Applies when made" includes every evaluation surface
+    already open under the manager (PAD-422): the player's form and the class panel's rows,
+    which read the class's own competency list, show the change without a reload.
 13. **(AV-071) A coach may switch everything off.** There is no minimum; the entry surfaces
     handle the empty set (`evaluations.class-panel` rule 6, `evaluations.history` rule 5).
 14. **(build default Q23) Layout.** A modal on desktop web, a sheet at phone width, a pushed
@@ -295,6 +297,13 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 - **Then** the server held Smash as active before she closed, she is back on Rui's page with
   no flag in the URL, and the next "Nova avaliação" form lists Smash
 - **And** the manager called no legacy evaluation endpoint
+
+#### A competency created from the class panel appears in its open form (rule 12, PAD-422)
+- **Given** coach Ana in a class's evaluation panel, with Rui's evaluation form open
+- **When** she opens "Gerir competências" from the panel, creates the custom competency "Bandeja"
+  and presses "Concluído"
+- **Then** Rui's still-open form lists "Bandeja", without a reload
+- **And** the same holds on iOS
 
 #### An existing coach opens onto their own categories (rule 5, Q31)
 - **Given** Ana holds the legacy "Forehand" (1–10) and has switched nothing else on
