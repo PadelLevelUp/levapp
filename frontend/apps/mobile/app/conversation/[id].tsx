@@ -136,13 +136,8 @@ export default function ConversationScreen() {
     isLoadingOlder,
     loadOlder,
     isFetchedAfterMount,
-  } = useConversationThread(conversationId, {
-    // PAD-415 (rule 9a): `firstUnreadMessageId` must come from THIS open's GET,
-    // made before the thread is marked read. A cached thread (staleTime 30 s)
-    // still renders at once, but the freeze below and the mark-read wait for
-    // the fresh response — a cached copy carries the previous visit's value.
-    refetchOnMount: "always",
-  });
+    isFetching,
+  } = useConversationThread(conversationId);
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -190,14 +185,19 @@ export default function ConversationScreen() {
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    const open = { conversationId, hasConversation: !!conversation, isFetchedAfterMount };
+    const open = {
+      conversationId,
+      hasConversation: !!conversation,
+      isFetchedAfterMount,
+      isFetching,
+    };
     if (!shouldMarkRead(open, markedRef.current)) return;
     markedRef.current = conversationId;
     messagesApi
       .markConversationRead(conversationId)
       .then(() => invalidateMessagesLists(queryClient))
       .catch(() => undefined);
-  }, [conversation, conversationId, isFetchedAfterMount, queryClient]);
+  }, [conversation, conversationId, isFetchedAfterMount, isFetching, queryClient]);
 
   // PAD-415 (messaging.conversation-detail rule 9a): the first value this
   // component observes for `conversation.firstUnreadMessageId` from THIS
@@ -214,7 +214,7 @@ export default function ConversationScreen() {
   if (
     conversation &&
     shouldFreezeFirstUnread(
-      { conversationId, hasConversation: true, isFetchedAfterMount },
+      { conversationId, hasConversation: true, isFetchedAfterMount, isFetching },
       firstUnreadRef.current?.conversationId ?? null
     )
   ) {
