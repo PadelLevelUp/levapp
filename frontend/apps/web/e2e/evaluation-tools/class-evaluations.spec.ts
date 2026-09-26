@@ -56,6 +56,7 @@ async function makeClass(request: APIRequestContext, coachTok: string, day: stri
 const made: Made[] = [];
 const recordIds: number[] = [];
 const switchedOn: number[] = [];
+const createdCompetencies: number[] = [];
 
 /** PAD-403: the seeded coach's only category (legacy "Forehand") is now stars too, but it is shared
  *  across specs; a fresh catalogue competency of this test's own keeps the rating isolated and its
@@ -73,6 +74,7 @@ test.afterEach(async ({ request }) => {
   for (const id of recordIds.splice(0)) await request.delete(`${API_APP}/evaluation_record/${id}`, { headers: bearer(coachTok) });
   for (const m of made.splice(0)) await removeClassesOnDay(request, bearer(coachTok), m.day, (e) => e.title === m.title);
   for (const id of switchedOn.splice(0)) await request.patch(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(coachTok), data: { isActive: false } });
+  for (const id of createdCompetencies.splice(0)) await request.delete(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(coachTok) });
 });
 
 /** Open the class's detail from the calendar by its card (never by the title alone: a name can also be
@@ -218,12 +220,62 @@ test("US-376d: a participant whose latest record is from an earlier day — the 
   await expect(row.getByTestId(`class-eval-summary-${playerId}`)).toHaveAttribute("data-rated", "1");
   await expect(earlier).toBeVisible();
   await expect(form.getByTestId(`evaluation-stars-${techniqueId}`)).toHaveAttribute("data-score", "4");
-  // Closing the row releases the hold: reopened, today's record alone.
-  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
-  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
-  await expect(row.getByTestId(`class-eval-earlier-${playerId}`)).toHaveCount(0);
+  // Closing the row releases the hold: reopened, today's record alone — once the panel holds the
+  // read that carries it (class-panel rule 5, "which the next read returns"). PAD-455 (B-187):
+  // under load the row can reopen before that read has landed; it then captures the earlier-day
+  // record and, by the same F1 hold, keeps it while open. No network wait says when the panel's
+  // data is fresh (a read in flight at the tap, or one React Query cancels, answers too), so the
+  // close/reopen is retried until the reopened row shows today's record alone.
+  const toggle = row.getByTestId(`class-eval-row-toggle-${playerId}`);
+  await expect(async () => {
+    await toggle.click(); // close: releases the hold
+    await toggle.click(); // reopen: captures what the panel holds now
+    // The row must really be open again: a closed row has no card either, so the count alone
+    // would pass on a row that never reopened (B's review of #458).
+    await expect(toggle).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+    await expect(row.getByTestId("evaluation-form")).toBeVisible({ timeout: 1_000 });
+    await expect(row.getByTestId(`class-eval-earlier-${playerId}`)).toHaveCount(0, { timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
 
   const history = await (await request.get(`${API_APP}/player/${playerId}/evaluations`, { headers: bearer(coachTok) })).json();
   const inClass = (history.records as { id: number; className: string | null; editable: boolean }[]).filter((r) => r.className === title);
   expect(inClass.map((r) => r.editable).sort()).toEqual([false, true]); // yesterday's and today's, two records
+});
+
+// PAD-422 (evaluations.competencies rule 12): a coach in class, with a participant's form open,
+// adds a competency from the panel's "Gerir competências" — the open form lists it once the manager
+// closes, without a reload. The panel's rows come from the class read, which the competency
+// mutations must mark stale (the coach's report: the new one only appeared after a refresh).
+test("US-376e: a competency created from the class panel appears in the open form without a reload", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
+  const playerId = await studentPlayerId(request, coachTok);
+  await starCompetency(request, coachTok); // at least one active, so the form (not its empty state) renders
+  const title = `E2E Eval Manage ${Date.now()}`;
+  made.push(await makeClass(request, coachTok, isoDaysFromToday(0), title, playerId));
+
+  await loginAsCoach(page);
+  await openClassDetail(page, title);
+  await page.getByTestId("class-evaluations-open").click();
+  await expect(page.getByTestId("class-evaluations-panel")).toBeVisible({ timeout: 10_000 });
+  const row = page.getByTestId(`class-eval-row-${playerId}`);
+  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
+  const form = row.getByTestId("evaluation-form");
+  await expect(form).toBeVisible();
+
+  await page.getByTestId("class-eval-manage-header").click();
+  const manager = page.getByTestId("competency-manager");
+  await expect(manager).toBeVisible({ timeout: 10_000 });
+  await manager.getByTestId("competency-add-name").fill(`E2E Nova ${Date.now()}`);
+  const created = page.waitForResponse(
+    (r) => r.request().method() === "POST" && /\/evaluation_competency$/.test(r.url()) && r.status() < 400,
+  );
+  await manager.getByTestId("competency-add-submit").click();
+  const competency = await (await created).json();
+  createdCompetencies.push(Number(competency.id));
+  await manager.getByTestId("competency-manager-done").click();
+  await expect(manager).toHaveCount(0);
+
+  // The same open form now has a row for it — no reload.
+  await expect(form.getByTestId(`evaluation-row-${competency.id}`)).toBeVisible({ timeout: 10_000 });
 });

@@ -214,6 +214,46 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       kept the stale queue. The screen's wiring to that query is read from the code; it is not
       driven on a simulator.
 
+23. **(PAD-443) Pending validations are highlighted by count, one number everywhere.** Validating
+    classes is how attendance gets recorded, so the number of classes waiting must be hard to miss.
+    - **One derivation.** `validation_badge(coach_id, now)` (backend) is the dashboard validation
+      item's derivation: the current Monday–Sunday week, else the previous one (`dashboard.blocks`
+      rule 3), `count` 0 when both are clean. It is exposed as
+      `GET /class_instances/pending_validation/badge` → `{ count, weekOffset, href }` (coach-only,
+      403 otherwise). The dashboard's validation item, the web sidebar's Presences badge and the iOS
+      Presences tab badge all show this number; no client re-derives it (rule 18).
+    - **Tiers.** `validationTier(count)` in `@levelup/config`: `0` → `none` (no badge), `1`–`5` →
+      `attention` (yellow), more than `5` → `urgent` (red). Both shells render the badge with the
+      number in it, so the colour is never the only signal.
+    - **Fresh.** The badge refreshes after a validate, a bulk validate or an undo, and when the app
+      regains focus.
+24. **(PAD-443) Players who still need a decision stand out.** In the validate view, a player
+    whose `effectiveMark` is `null` (rule 5's undecided) shows an alert icon before the name, a soft
+    yellow left border on the row, and an accessible label saying they need a decision. The class
+    header shows "N jogadores por decidir", the same count as `undecidedCount`. The highlight
+    disappears the moment a mark is set. The alert styling never paints the state buttons, and its
+    hue is distinct from the selected "Justificada" (PAD-441), so "needs a decision" and "justified"
+    never read alike.
+25. **(PAD-442) A class stays where the coach found it until the page is reloaded.** Which group a
+    class sits in ("needs your input" or "ready to confirm") comes from the server's state only
+    (`validationGroup(players)` in `@levelup/config`, i.e. `undecidedCount` with no local marks),
+    never from the marks the coach has made in this visit. Marking the last undecided player keeps
+    the class in "needs your input", in the same position, and its Validate button becomes available
+    right there (the button follows the local marks, rule 5). Validating it removes it from the list
+    as usual. Local marks are not saved, so on the next load the class is grouped by what the server
+    holds; a class whose players all answered themselves still appears under "ready to confirm".
+    Refreshing the queue after another write (rule 22) does not move it either, because the server's
+    state for it has not changed.
+26. **(PAD-441) Each selected mark has its own colour.** `presenceMarkTone(mark)` in
+    `@levelup/config` is the one mapping: `present` → `positive` (green), `justified` → `warning`
+    (amber, the design system's `warning` token — the colour the class sheet already gives a justified
+    absence), `unjustified` → `negative` (red). An unselected option stays neutral grey. Colour is
+    never the only signal: the selected option's label is **bold** on both shells (web reserves the
+    bold width in both states, so selecting never widens the button), its border takes its colour,
+    and its selected state is exposed to assistive tech (`aria-pressed` on web,
+    `accessibilityState.selected` on iOS). The amber of "Justificada" is a different hue from rule 24's yellow
+    "needs a decision" flag, so a justified player never reads as one still to decide.
+
 ### Acceptance Criteria
 
 #### The count endpoint is the listing's count
@@ -245,10 +285,23 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** it appears under "needs your input" and its Validate action is disabled
 - **And** the unanswered player is listed first
 
-#### Deciding the last player unblocks the class
+#### Deciding the last player unblocks the class in place (PAD-442)
 - **Given** that class
 - **When** the coach marks the silent player present
-- **Then** the class moves to "ready to confirm" and Validate becomes available
+- **Then** the class stays under "needs your input", in the same position, and its Validate button becomes available there
+- **And** after validating it, it leaves the list
+
+#### Each selected mark reads as its own colour (PAD-441)
+- **Given** a class in the validate view with Ana marked present, Rui justified and Sara unjustified
+- **When** the coach looks at their rows
+- **Then** Ana's selected option is green, Rui's amber and Sara's red, each with a bold label and a border in its colour, and every unselected option is neutral grey with a regular-weight label
+- **And** Rui's amber is not the yellow of the "needs a decision" flag
+
+#### A completed class is regrouped only on the next load (PAD-442)
+- **Given** a class the coach completed by marking its silent player, without validating it
+- **When** the queue is refreshed by another class's validation
+- **Then** the completed class is still under "needs your input"
+- **And** a class whose players all answered themselves is under "ready to confirm" on every load
 
 #### Validating persists attendance and finalizes the rows
 - **Given** a ready class
@@ -346,6 +399,31 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Given** a signed-in student
 - **When** they request any Presences endpoint
 - **Then** the request is rejected with 403
+
+#### The Presences badge is the dashboard's number, with its tier (rule 23, PAD-443)
+- **Given** a coach with 1 class this week that still has an unvalidated presence
+- **When** they look at the web sidebar and the iOS tab bar
+- **Then** the Presences item shows a yellow badge reading 1, the same count as the dashboard's
+  validation item
+- **And** with 7 such classes the badge reads 7 in red, and with none there is no badge
+
+#### Validating clears the badge (rule 23, PAD-443)
+- **Given** a coach whose Presences badge reads 1
+- **When** they validate that class
+- **Then** the badge disappears without a reload
+
+#### An undecided player stands out until marked (rule 24, PAD-443)
+- **Given** a class in the validate view where Rui never answered and has no stored status
+- **When** the coach opens it
+- **Then** Rui's row shows the alert icon and the yellow left border, and the header reads
+  "1 jogador por decidir"
+- **And** when the coach marks Rui "Presente", the icon and border disappear and the header no
+  longer shows a count
+
+#### The alert never looks like "Justificada" (rule 24, PAD-443)
+- **Given** a class where Rui is undecided and Ana is marked "Justificada"
+- **When** the coach views the rows
+- **Then** only Rui's row carries the alert icon, and Ana's state button keeps its own colour
 
 ### Notes
 - Source: ticket PAD-140.

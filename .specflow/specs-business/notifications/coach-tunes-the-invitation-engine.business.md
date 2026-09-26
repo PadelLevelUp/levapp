@@ -29,7 +29,7 @@ students, and occasionally auditing what the engine has done.
 
 1. The coach opens Settings → Notifications and turns on the automatic invitation engine.
 2. They set timing (how long before invitations start, how soon reminders go out), restrictions
-   (max simultaneous invites, max per student per day, quiet hours 22:00–07:00 club-local, minimum
+   (max simultaneous invites, max per student per day, quiet hours — a window they choose, 22:00–07:00 unless they change it, on the club's clock — minimum
    time before class), and tiebreakers (level, attendance, side, subscription status) for who gets
    asked first.
 3. They define notification groups — ordered, rule-based buckets (level, side, subscription
@@ -39,8 +39,9 @@ students, and occasionally auditing what the engine has done.
    inviting students by hand from a class. It has no effect on the automatic engine, and the
    settings page says so on both (PAD-448).
 4. They customize the wording of invite, confirmation, decline, reminder and waiting-list messages,
-   with placeholders for the student's name, class, date, time and level, in their own language
-   (pt or en). A blank template quietly falls back to the built-in wording so a student is never
+   with placeholders for the student's name, class, date, time and level — and the class type
+   (academy or private), the day and month ("23/02") and the court, which simply disappears when the
+   class has none — in their own language (pt or en). A blank template quietly falls back to the built-in wording so a student is never
    sent an empty message.
 5. For one particular class they don't want the engine touching — a private lesson, say — they
    turn notifications off just for that class, leaving the rest of their schedule untouched.
@@ -57,7 +58,7 @@ students, and occasionally auditing what the engine has done.
 - The engine can be off entirely, on in fully automatic mode, or on in semi-automatic mode (see
   "Coach approves replacements"). Switching modes never edits any of the timing, restriction or
   template settings.
-- Quiet hours (22:00–07:00) and the daily per-student invite cap are measured on the coach's own
+- Quiet hours (the coach's own window, 22:00–07:00 by default, and it may cross midnight) and the daily per-student invite cap are measured on the coach's own
   club-local clock, not server UTC — so a coach reading "22:00" off their own calendar gets exactly
   that boundary, every season of the year.
 - Changing timing settings immediately reschedules every future engine job — nothing waits for a
@@ -105,3 +106,4 @@ Not yet measured.
   leaf's Notes section cross-references the other outcome.
 - `notifications.toggle-class` is also read by the reminder scheduler and the invitation engine —
   "off" for a class silences both.
+- An invitation that falls inside quiet hours is held, not lost: it goes out when the window ends.

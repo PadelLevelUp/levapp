@@ -28,6 +28,8 @@ export interface AcceptPlayerInvitationPayload {
   password: string;
   email?: string;
   phone?: string;
+  /** PAD-457 (players.invite-completion rule 10): `YYYY-MM-DD`, required; under 18 is refused. */
+  birthDate?: string;
 }
 
 export interface AcceptPlayerInvitationResponse {

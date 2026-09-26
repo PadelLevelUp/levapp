@@ -51,8 +51,10 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 2. **Three kinds of row.** *Legacy* (`competency_group` NULL): every category that existed before
    this leaf, and every one created by a legacy endpoint or the import. *Catalogue*
    (`catalogue_key` set, group `general`/`technique`/`tactics`). *Custom* (group `custom`, no key).
-3. **(AV-003) Scale.** Catalogue and custom competencies are created 1–5 and rendered as five
-   whole stars. A legacy category keeps its own `scale_min`/`scale_max` and every score it holds,
+3. **(AV-003) Scale.** Catalogue and custom competencies are created on **the coach's scale**
+   (`evaluations.scale` rules 1–2; 1–5 unless the coach chose another) and rated with five whole
+   stars on 1–5 or a slider on 1–10/20/100 (`evaluations.scale` rule 7; PAD-423 partly reverses
+   PAD-403 here). A legacy category keeps its own `scale_min`/`scale_max` and every score it holds,
    is rendered as a number with a stepper ("7/10"), never as stars, and charts on its own scale.
    No row is rescaled by any migration. **(pending owner decision Q1)**
 4. **(AV-021, build default Q17) What a coach starts with.** A coach who holds any category keeps
@@ -133,7 +135,9 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 12. **(AV-072) No dirty state, explicit close.** Every toggle, rename and
     creation applies when made and each is individually reversible, so there is nothing to
     discard; the editor has an explicit close control ("Concluído") besides the scrim. Delete
-    keeps its own confirmation (rule 9).
+    keeps its own confirmation (rule 9). "Applies when made" includes every evaluation surface
+    already open under the manager (PAD-422): the player's form and the class panel's rows,
+    which read the class's own competency list, show the change without a reload.
 13. **(AV-071) A coach may switch everything off.** There is no minimum; the entry surfaces
     handle the empty set (`evaluations.class-panel` rule 6, `evaluations.history` rule 5).
 14. **(build default Q23) Layout.** A modal on desktop web, a sheet at phone width, a pushed
@@ -207,6 +211,13 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 - **Then** the server held Smash as active before she closed, she is back on Rui's page with
   no flag in the URL, and the next "Nova avaliação" form lists Smash
 - **And** the manager called no legacy evaluation endpoint
+
+#### A competency created from the class panel appears in its open form (rule 12, PAD-422)
+- **Given** coach Ana in a class's evaluation panel, with Rui's evaluation form open
+- **When** she opens "Gerir competências" from the panel, creates the custom competency "Bandeja"
+  and presses "Concluído"
+- **Then** Rui's still-open form lists "Bandeja", without a reload
+- **And** the same holds on iOS
 
 #### An existing coach opens onto their own categories (rule 5, Q31)
 - **Given** Ana holds the legacy "Forehand" (1–10) and has switched nothing else on

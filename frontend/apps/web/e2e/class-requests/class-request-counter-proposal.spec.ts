@@ -13,6 +13,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
+import { conversationRow } from "../helpers/navigation";
 
 const STUDENT_NAME = "E2E Student";
 
@@ -59,7 +60,7 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
     // Rule 6: the proposal is answerable in chat.
     await loginAsStudent(page);
     await page.goto("/messages");
-    await page.getByText("E2E Coach").first().click();
+    await conversationRow(page, "E2E Coach").click();
     const actions = page.locator(`[data-testid="class-request-proposal-actions"][data-request-id="${requestId}"]`);
     await expect(actions).toHaveAttribute("data-state", "actions", { timeout: 15_000 });
     await expect(actions.getByTestId("class-request-bubble-accept")).toBeVisible();
@@ -95,7 +96,7 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
     });
     expect(again.status(), await again.text()).toBe(200);
     await page.goto("/messages");
-    await page.getByText("E2E Coach").first().click();
+    await conversationRow(page, "E2E Coach").click();
     const bubbles = page.locator(`[data-testid="class-request-proposal-actions"][data-request-id="${requestId}"]`);
     await expect(bubbles).toHaveCount(3, { timeout: 15_000 });
     await expect(bubbles.nth(0)).toHaveAttribute("data-state", "superseded");

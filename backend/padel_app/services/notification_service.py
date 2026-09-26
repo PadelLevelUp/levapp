@@ -169,6 +169,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     if "priorityCriteria" in data:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
+        _validate_quiet_hours(data["restrictions"])
         config.restrictions = data["restrictions"]
     if "notificationGroups" in data:
         config.notification_groups = data["notificationGroups"]
@@ -1415,7 +1416,7 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
 
     when = _now
     if not _check_restrictions(instance, coach.id, restrictions, now=when):
-        when = _next_quiet_hours_end(when)
+        when = _next_quiet_hours_end(when, restrictions)
         if when is None or not _check_restrictions(instance, coach.id, restrictions, now=when):
             return None
 
@@ -1424,20 +1425,61 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     return when
 
 
-def _next_quiet_hours_end(now):
-    """The next instant quiet hours allow, i.e. 07:00 on the club's clock.
+_QUIET_BOUND = re.compile(r"^([01]\d|2[0-3]):(00|30)$")
 
-    Quiet hours are a club-local window (22:00–07:00, notifications.config rule
-    6a), so the answer is computed on the club's clock and handed back as the
-    UTC instant everything else compares.
+
+def _validate_quiet_hours(restrictions) -> None:
+    """PAD-451 (rule 6a): bounds, when given, are "HH:00"/"HH:30" and differ; else 400, nothing stored."""
+    quiet = restrictions.get("quietHours") if isinstance(restrictions, dict) else None
+    if not isinstance(quiet, dict):
+        return
+    start, end = quiet.get("start"), quiet.get("end")
+    if start is None and end is None:
+        return  # an app from before PAD-451: the stored bounds stay
+    from flask import abort
+
+    for bound in (start, end):
+        if bound is not None and not (isinstance(bound, str) and _QUIET_BOUND.match(bound)):
+            abort(400, "quietHours start and end must be HH:00 or HH:30")
+    default = DEFAULT_RESTRICTIONS["quietHours"]
+    if (start or default["start"]) == (end or default["end"]):
+        abort(400, "quietHours start and end must differ")
+
+
+def _quiet_window(restrictions) -> tuple[int, int]:
+    """The coach's quiet window as (start, end) minutes of the club-local day (rule 6a)."""
+    quiet = (restrictions or {}).get("quietHours") or {}
+    default = DEFAULT_RESTRICTIONS["quietHours"]
+
+    def minutes(value, fallback):
+        if not (isinstance(value, str) and _QUIET_BOUND.match(value)):
+            value = fallback
+        h, m = value.split(":")
+        return int(h) * 60 + int(m)
+
+    return minutes(quiet.get("start"), default["start"]), minutes(quiet.get("end"), default["end"])
+
+
+def _in_quiet_window(local, restrictions) -> bool:
+    """`[start, end)` on the club's clock; a window with start > end crosses midnight."""
+    start, end = _quiet_window(restrictions)
+    m = local.hour * 60 + local.minute
+    return start <= m < end if start < end else (m >= start or m < end)
+
+
+def _next_quiet_hours_end(now, restrictions=None):
+    """The next instant quiet hours allow: the window's end on the club's clock (rule 6a).
+
+    Computed on the club's clock and handed back as the UTC instant everything else compares.
+    Outside the window it is ``now``.
     """
     local = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
-    if local.hour < 7:
-        end = local.replace(hour=7, minute=0, second=0, microsecond=0)
-    elif local.hour >= 22:
-        end = (local + timedelta(days=1)).replace(hour=7, minute=0, second=0, microsecond=0)
-    else:
+    if not _in_quiet_window(local, restrictions):
         return now
+    _, end_min = _quiet_window(restrictions)
+    end = local.replace(hour=end_min // 60, minute=end_min % 60, second=0, microsecond=0)
+    if end <= local:
+        end = end + timedelta(days=1)
     return end.astimezone(timezone.utc).replace(tzinfo=None)
 
 
@@ -1472,8 +1514,8 @@ def _check_restrictions(
         # replaces existed only to avoid closing the scheduler <-> service
         # import cycle; sourcing the constant from a leaf module removes the
         # cycle rather than working around it.
-        local_hour = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ).hour
-        if local_hour >= 22 or local_hour < 7:
+        # PAD-451: the coach's own window (default 22:00–07:00), which may cross midnight.
+        if _in_quiet_window(now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ), restrictions):
             return False
 
     min_time = restrictions.get("minTimeBeforeClass", {})
@@ -1525,7 +1567,20 @@ def _check_per_student_daily_limit(
 # Conversation / message helpers
 # ---------------------------------------------------------------------------
 
+# The connectors an empty placeholder takes with it (notifications.message-templates
+# rules 7 and 14): the genitives for every placeholder, and for ``{court}`` the
+# locative prepositions too ("às 19:00 no {court}" -> "às 19:00").
+_EMPTY_PLACEHOLDER_CONNECTORS = ("de", "da", "do", "of")
+_EMPTY_COURT_CONNECTORS = _EMPTY_PLACEHOLDER_CONNECTORS + ("em", "no", "na", "in", "on", "at")
+
+
+_LEADING_PUNCTUATION = re.compile(r"^[,.;:!?\-–—\s]+")
+
+
 def _format_template(template: str, **variables) -> str:
+    # The coach may open a template on punctuation ("- Lembrete: …"); only a
+    # leading run the substitution *exposed* is stripped below (B's #455 review).
+    opens_on_punctuation = bool(_LEADING_PUNCTUATION.match(template.strip()))
     for key, val in variables.items():
         val = str(val)
         if val == "":
@@ -1533,19 +1588,28 @@ def _format_template(template: str, **variables) -> str:
             # phrase disappears whole. Every pt default puts {level} after the
             # genitive "de", so an empty string alone left "aula de esta
             # quarta-feira"; the connector goes with the placeholder.
+            connectors = _EMPTY_COURT_CONNECTORS if key == "court" else _EMPTY_PLACEHOLDER_CONNECTORS
             template = re.sub(
-                r"\b(?:de|da|do|of)\s+\{" + re.escape(key) + r"\}",
+                r"\b(?:" + "|".join(connectors) + r")\s+\{" + re.escape(key) + r"\}",
                 "{" + key + "}",
                 template,
                 flags=re.IGNORECASE,
             )
         template = template.replace("{" + key + "}", val)
+    # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
+    template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a
     # double space or a space before punctuation; collapse those so the rendered
     # message stays grammatical.
     template = re.sub(r"\s{2,}", " ", template)
     template = re.sub(r"\s+([,.!?;:])", r"\1", template)
-    return template.strip()
+    template = template.strip()
+    # A message that opened with the empty phrase ("No {court}, às …") is left
+    # starting on punctuation: drop it and capitalise what now leads.
+    trimmed = _LEADING_PUNCTUATION.sub("", template)
+    if trimmed != template and not opens_on_punctuation:
+        template = trimmed[:1].upper() + trimmed[1:]
+    return template
 
 
 # Portuguese weekday names, indexed by ``datetime.weekday()`` (Monday == 0).
@@ -1591,6 +1655,31 @@ def _format_weekday(dt, locale):
         return format_date(dt, format="EEEE", locale=locale)
     except Exception:
         return dt.strftime("%A")
+
+
+_CLASS_TYPE_WORDS = {
+    "pt": {"academy": "academia", "private": "privada"},
+    "en": {"academy": "academy", "private": "private"},
+}
+
+
+def class_placeholders(source, locale) -> dict:
+    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
+
+    ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
+    locale like every other placeholder (notifications.message-templates rule 12);
+    the date is ``dd/mm`` of the wall-clock start (rule 13); the court is the
+    lesson's court name, empty when it has none (rule 14).
+    """
+    lesson = source.lesson if isinstance(source, LessonInstance) else source
+    start = getattr(source, "start_datetime", None)
+    court = getattr(lesson, "court", None) if lesson is not None else None
+    lesson_type = getattr(lesson, "type", None) if lesson is not None else None
+    return {
+        "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
+        "date": start.strftime("%d/%m") if start else "",
+        "court": (getattr(court, "name", None) or "") if court is not None else "",
+    }
 
 
 def _get_or_create_direct_conversation(coach_user_id: int, player_user_id: int):
@@ -2019,6 +2108,7 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
                 # title is what a student recognises, and one `{when}` serves a
                 # series and a single occurrence alike.
                 "level": effective_level_code(source),
+                **class_placeholders(source, locale),
                 "weekday": _format_weekday(started_at, locale) if started_at else "",
                 "time": started_at.strftime("%H:%M") if started_at else "",
             },
@@ -2102,6 +2192,7 @@ def collect_cancellation_recipients(source) -> list[dict]:
             level=level_code,
             weekday=weekday,
             time=time_str,
+            **class_placeholders(source, locale),
         )
         recipients.append(
             {
@@ -2715,6 +2806,7 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
             level=level_code,
             weekday=weekday,
             time=time_str,
+            **class_placeholders(instance, locale),
         )
 
         # PAD-49: Supersede older un-actioned reminders for THIS (player, instance)
@@ -3712,6 +3804,7 @@ def _send_invitation_batch(
             level=level_code,
             weekday=weekday,
             time=time_str,
+            **class_placeholders(instance, locale),
         )
         msg = _send_system_message(
             coach_user_id=coach_user_id,
@@ -4452,6 +4545,7 @@ def send_manual_notifications(
                 level=level_code,
                 weekday=weekday,
                 time=time_str,
+                **class_placeholders(instance, locale),
             )
 
             msg = _send_system_message(
@@ -4907,6 +5001,7 @@ def _fill_from_waiting_list(
         level=level_code,
         weekday=weekday,
         time=time_str,
+        **class_placeholders(instance, locale),
     )
     _send_system_message(
         coach_user_id=coach.user_id,

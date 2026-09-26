@@ -108,6 +108,45 @@ by a student's request — and whichever lands first wins.
     (`classes.detail-visibility` rule 3). A never-materialized occurrence is not covered: the read
     stays a series read until a request materializes it (rule 2). Reconciled in the 2026-09-10
     batch, where PAD-257 and PAD-131 met.
+17. **Both request lists show academy join requests (PAD-460, part 1 of PAD-427).** A join request
+    used to be visible only on its class. Now:
+    - `GET /app/class-join-requests` lists the caller's join requests. A coach gets every request
+      addressed to them (`coach_id`); a student gets their own. Anyone else gets `403`. Rows are
+      newest first (`created_at` desc, then `id` desc), all statuses. Each row is rule 15's
+      request shape plus the class it is for: `classTitle`, `date` (club-local `YYYY-MM-DD`),
+      `startTime` and `endTime` (`HH:MM`, club wall clock), and `kind: "academy"`.
+    - **The coach's "Pedidos de Aula"** (web `/class-requests`, iOS Settings → Pedidos de Aula)
+      **and the student's requests list** (Availability, web and iOS) show these rows beside the
+      private class requests (`classes.class-requests` rule 9). The two kinds are merged newest
+      first and split into the same open (`pending`) / closed sections. An academy row carries an
+      "Academy" badge (pt "Aula de academia") and names the class, its date and time, and the
+      student (coach) or coach (student). The English badge is not "Academy class": that phrase
+      is the seeded "E2E Academy Class" title an E2E regex matches, and the rendered-text ratchet
+      would read a locale value equal to it as a new bilingual alternation.
+    - **Actions from the list:**
+      - The coach may **accept or decline** a pending academy request through rule 15's endpoints.
+        Accepting a student who is below the bar asks for the same confirmation the class sheet
+        asks (rule 7: `409 ineligible` → confirm → `{confirm: true}`), and every refusal
+        (`spot_filled`, `class_closed`, `not_pending`) shows as it does on the class sheet.
+      - The student may **withdraw** their own pending request.
+      - There's no "propose another time" for academy requests; it exists only for private ones
+        (coordinator, 2026-09-26).
+    - **Both lists refresh** on `join_request_created`, `join_requests_superseded` and on a
+      decision, the same way they refresh on `class_request_changed`.
+    - `GET /app/class-requests` is unchanged. Builds that predate this rule never call the new
+      endpoint and see the lists as before.
+
+18. **The coach answers an academy request from its chat bubble (PAD-461, part 2 of PAD-427).**
+    - **The bubble:** the student's ask is mirrored into the coach ↔ student conversation (rule 15,
+      `msg_metadata.joinRequest {id, status}`). The coach's view of that message offers Accept /
+      Decline while the request's live status (`GET /app/class-join-requests`, rule 17) is
+      `pending`.
+    - **Accept** asks rule 7's confirmation on `409 ineligible`; `spot_filled`, `class_closed` and
+      `not_pending` show as they do on the class sheet and the list.
+    - **Once the request is decided**, withdrawn or superseded, the bubble shows that outcome
+      instead of the actions.
+    - The student's own copy of the message never offers actions.
+    - There's no "propose another time" for academy requests (coordinator, 2026-09-26).
 
 ### Acceptance Criteria
 
@@ -177,6 +216,37 @@ by a student's request — and whichever lands first wins.
 - **Then** the eligible one gets the student view with `myJoinRequest: null`
 - **And** the other gets 403, as does the eligible one while the class is not advertised
 - **And** a student who has requested the class reads it with their request in `myJoinRequest`
+
+#### The coach sees an academy request in "Pedidos de Aula" (PAD-460)
+- **Given** Carla asked to join Ana's academy class "Terça 18h" on 2026-10-06 18:00–19:00, and Bruno sent Ana a private class request afterwards
+- **When** Ana reads `GET /app/class-join-requests`, and opens "Pedidos de Aula"
+- **Then** the API returns Carla's request with `classTitle` "Terça 18h", `date` 2026-10-06, `startTime` 18:00, `endTime` 19:00, `status` `pending`, `kind` `academy`
+- **And** the list shows Bruno's private request first and Carla's academy request below it, with the "Academy" badge
+
+#### The coach accepts an academy request from the list (PAD-460)
+- **Given** Carla's pending academy request above, and Carla within the class's bar
+- **When** Ana accepts it from "Pedidos de Aula"
+- **Then** Carla is enrolled in that occurrence and the row moves to the closed section as `accepted`
+
+#### The student sees and withdraws her academy request in Availability (PAD-460)
+- **Given** Carla's pending academy request
+- **When** Carla opens her requests list in Availability
+- **Then** the request is listed with the class name, date and time and status `pending`
+- **When** she withdraws it there
+- **Then** its status becomes `withdrawn`, and Ana's list shows it closed
+
+#### The coach accepts an academy request from the chat (PAD-461)
+- **Given** Carla asked to join Ana's academy class "Terça 18h" on 2026-10-06, and the request is `pending`
+- **When** Ana opens her conversation with Carla
+- **Then** Carla's request message offers Accept and Decline
+- **When** Ana accepts it from the bubble
+- **Then** Carla is enrolled, the request is `accepted`, and the bubble shows the outcome instead of the actions
+
+#### A decided academy request's bubble shows the outcome (PAD-461)
+- **Given** Carla's academy request was already declined from the class sheet
+- **When** Ana opens her conversation with Carla
+- **Then** the request message shows it was declined and offers no actions
+- **And** Carla's own copy of her request message never offers actions
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the

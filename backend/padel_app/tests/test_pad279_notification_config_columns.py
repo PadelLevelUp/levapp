@@ -111,7 +111,9 @@ def test_the_dict_properties_decompose_into_columns_and_compose_back(app):
         r = cfg.get_restrictions()
         assert r["maxSimultaneous"] == {"enabled": True, "value": 5}
         assert r["maxTotal"] == {"enabled": True, "value": 10}
-        assert r["quietHours"] == {"enabled": True}
+        # PAD-451 (notifications.config rule 6a): the window's bounds are sent back too; none were
+        # given, so they read as the default 22:00-07:00.
+        assert r["quietHours"] == {"enabled": True, "start": "22:00", "end": "07:00"}
         assert r["excludedPlayers"] == {"enabled": True, "playerIds": ["7", "9"]}
         assert r["excludeUnpaidSubscription"] == {"enabled": False}
         assert r["cancellationDeadlineHours"] == 12

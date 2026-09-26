@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach, loginAsStudent } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { openMessages, conversationRow } from "../helpers/navigation";
 
 // All tests rely on a seeded conversation between e2e-coach and e2e-student
 // containing two messages: one from coach ("Welcome to the academy!") and one
 // unread message from student ("Thanks coach!"). See e2e/scripts/seed.py.
 
-const SEEDED_COACH_MESSAGE = "Welcome to the academy!";
 const SEEDED_STUDENT_MESSAGE = "Thanks coach!";
 
 test.beforeEach(async ({ page }) => {
@@ -17,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 // US-27: Coach can view the messaging inbox
 test("US-27: messages page renders", async ({ page }) => {
   // Conversation list should show the seeded conversation with the student.
-  await expect(page.getByText("E2E Student").first()).toBeVisible({ timeout: 5000 });
+  await expect(conversationRow(page, "E2E Student")).toBeVisible({ timeout: 5000 });
 });
 
 // US-57: Coach can start a new conversation via the "+" button next to search
@@ -30,7 +29,7 @@ test("US-57: coach can open new conversation flow", async ({ page }) => {
 
 // US-58: Coach can send a message in an existing conversation
 test("US-58: coach can type and send a message", async ({ page }) => {
-  await page.getByText("E2E Student").first().click();
+  await conversationRow(page, "E2E Student").click();
   // Wait for the conversation to load before typing.
   await page.waitForResponse(
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
@@ -65,7 +64,7 @@ test("US-59: sent messages appear immediately in the conversation", async ({ pag
       (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
       { timeout: 10_000 }
     ),
-    page.getByText("E2E Student").first().click(),
+    conversationRow(page, "E2E Student").click(),
   ]);
 
   const msgInput = page.getByPlaceholder(/type a message/i);
@@ -95,11 +94,24 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
       (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
       { timeout: 10_000 }
     ),
-    page.getByText("E2E Student").first().click(),
+    conversationRow(page, "E2E Student").click(),
   ]);
 
-  // The seeded coach message is editable (mine=true, so Edit/Delete are exposed).
-  const bubble = page.getByText(SEEDED_COACH_MESSAGE).first();
+  // Edit a message this test sends (as US-61 deletes one), not the seeded "Welcome to the
+  // academy!": in a full run earlier specs' class messages push the seeded one out of the thread's
+  // first page, so it is not rendered (PAD-452 / B-179).
+  const msgInput = page.getByPlaceholder(/type a message/i);
+  const original = `US-60 to edit ${Date.now()}`;
+  await msgInput.fill(original);
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/message(\?|$)/.test(r.url()) && r.request().method() === "POST" && r.status() < 400,
+      { timeout: 10_000 }
+    ),
+    msgInput.press("Enter"),
+  ]);
+  // Mine, so Edit/Delete are exposed. Last DOM match: the first would be the sidebar preview.
+  const bubble = page.getByText(original).last();
   await expect(bubble).toBeVisible({ timeout: 5000 });
   await bubble.click({ button: "right" });
 
@@ -110,7 +122,7 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
 
   // Edit input replaces the bubble text — find the editable input.
   const editInput = page.locator('textarea, input[type="text"]').last();
-  await editInput.fill("Welcome to the academy! [edited]");
+  await editInput.fill(`${original} [edited]`);
   await Promise.all([
     page.waitForResponse(
       (r) => /\/api\/app\/message\/\d+/.test(r.url()) && r.request().method() === "PUT" && r.status() < 400,
@@ -119,7 +131,7 @@ test("US-60: coach can edit a sent message", async ({ page }) => {
     editInput.press("Enter"),
   ]);
 
-  await expect(page.getByText("Welcome to the academy! [edited]").last()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(`${original} [edited]`).last()).toBeVisible({ timeout: 5000 });
 });
 
 // US-61: Coach can delete a sent message via the right-click context menu
@@ -132,7 +144,7 @@ test("US-61: coach can delete a sent message", async ({ page }) => {
       (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
       { timeout: 10_000 }
     ),
-    page.getByText("E2E Student").first().click(),
+    conversationRow(page, "E2E Student").click(),
   ]);
 
   // Send a fresh message that we can safely delete (avoids racing against the
@@ -190,7 +202,7 @@ test("US-62: unread badge updates when a message is received", async ({ page, br
         (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
         { timeout: 10_000 }
       ),
-      studentPage.getByText("E2E Coach").first().click(),
+      conversationRow(studentPage, "E2E Coach").click(),
     ]);
 
     const msgInput = studentPage.getByPlaceholder(/type a message/i);
@@ -227,7 +239,7 @@ test("US-63: opening a conversation clears the unread count", async ({ page }) =
 
   // Open messages and click the seeded conversation.
   await openMessages(page);
-  const conv = page.getByText("E2E Student").first();
+  const conv = conversationRow(page, "E2E Student");
   await expect(conv).toBeVisible({ timeout: 5000 });
   await Promise.all([
     page.waitForResponse(
@@ -253,7 +265,7 @@ test("US-64: new message in open conversation is scrolled into view", async ({ p
       (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
       { timeout: 10_000 }
     ),
-    page.getByText("E2E Student").first().click(),
+    conversationRow(page, "E2E Student").click(),
   ]);
 
   const studentCtx = await browser.newContext();
@@ -269,7 +281,7 @@ test("US-64: new message in open conversation is scrolled into view", async ({ p
         (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
         { timeout: 10_000 }
       ),
-      studentPage.getByText("E2E Coach").first().click(),
+      conversationRow(studentPage, "E2E Coach").click(),
     ]);
 
     const uniqueText = `US-64 scroll test ${Date.now()}`;

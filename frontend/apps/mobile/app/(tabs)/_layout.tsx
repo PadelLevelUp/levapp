@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
-import { queryKeys, useUnreadCount } from "@levelup/hooks";
+import { lightTheme, validationTier } from "@levelup/config";
+import { queryKeys, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
@@ -81,8 +81,17 @@ export default function TabsLayout() {
         }
         // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
         // Availability section render off the request's live row.
-        if (evt.type === "class_request_changed") {
+        // classes.join-requests rule 17 (PAD-460): the two lists are merged in
+        // one section now, so a private OR an academy event refreshes both —
+        // "both lists refresh on join_request_created, join_requests_superseded
+        // and on a decision, the same way they refresh on class_request_changed".
+        if (
+          evt.type === "class_request_changed" ||
+          evt.type === "join_request_created" ||
+          evt.type === "join_requests_superseded"
+        ) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests });
         }
       },
       [queryClient]
@@ -109,6 +118,14 @@ export default function TabsLayout() {
     count: unreadCount,
     dataUpdatedAt: unreadUpdatedAt,
   });
+
+  // PAD-443 (attendance.validation rule 23): the dashboard's "classes to validate" number on the
+  // Presences tab, tiered by the shared `validationTier` (yellow 1-5, red above 5). Coach-only, and
+  // called before the early returns below (a hook runs on every render). Presence writes refresh it
+  // through the `presence-pending` prefix (useInvalidatePresences).
+  const coachSession = isAuthenticated && (user?.roles?.includes("coach") ?? false);
+  const pendingValidation = usePendingValidationBadge(coachSession).data?.count ?? 0;
+  const validationBadgeTier = validationTier(pendingValidation);
 
   if (loading) {
     return (
@@ -217,6 +234,16 @@ export default function TabsLayout() {
           href: isCoach ? undefined : null,
           title: t("nav.presences"),
           tabBarButtonTestID: "tab-presences",
+          tabBarBadge:
+            validationBadgeTier === "none" ? undefined : pendingValidation > 99 ? "99+" : pendingValidation,
+          tabBarBadgeStyle:
+            validationBadgeTier === "attention"
+              ? { backgroundColor: "#FACC15", color: "#422006" } // yellow-400 / yellow-950, as web
+              : { backgroundColor: lightTheme.destructive, color: "#FFFFFF" },
+          tabBarAccessibilityLabel:
+            validationBadgeTier === "none"
+              ? t("nav.presences")
+              : `${t("nav.presences")}, ${t("nav.presencesBadge", { count: pendingValidation })}`,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="clipboard-outline" color={color} size={size} />
           ),

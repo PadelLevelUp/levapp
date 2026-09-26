@@ -1,0 +1,108 @@
+# PAD-428 — classes.class-requests rule 14a on iOS: a weekly request ends "after N classes".
+#
+# Mirrors: packages/config recurrence-end.test.ts (the arithmetic) and the web
+# PrivateClassStep.endMode.test.tsx (the choice). Built on flow 86's weekly wizard walk: the
+# student picks tomorrow's weekday, then "Termina ao fim de 3 aulas", sees the last-class line,
+# sends, and the API reads the request back. Its endDate must be the 3rd occurrence of that
+# weekday from the request's own startDate, recomputed here independently of the app's code.
+# Setup and teardown withdraw any open request of e2e-student's (flow 86's pattern).
+# Flow number 121 is from Session C's block (121–124, coordinator 2026-09-26).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.before = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
+# 1 = Monday … 7 = Sunday, the recurrence's convention.
+- evalScript: "${output.wd = (function () { var d = new Date(); d.setDate(d.getDate() + 1); return d.getDay() === 0 ? 7 : d.getDay(); })()}"
+
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- scrollUntilVisible:
+    element:
+      id: "class-request-book"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-kind"
+    timeout: 15000
+- tapOn:
+    id: "wizard-kind-private"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private"
+    timeout: 15000
+
+# ── Weekly, one weekday, the default date range ──
+- scrollUntilVisible:
+    element:
+      id: "wizard-recurrence-weekly"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "wizard-recurrence-weekly"
+- scrollUntilVisible:
+    element:
+      id: "wizard-weekday-${output.wd}"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "wizard-weekday-${output.wd}"
+
+# ── PAD-428: end after 3 classes (counts classes, not weeks) ──
+- scrollUntilVisible:
+    element:
+      id: "request-end-mode-count"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "request-end-mode-count"
+- tapOn:
+    id: "request-end-count"
+- eraseText: 3
+- inputText: "3"
+- pressKey: Enter
+- assertVisible:
+    id: "request-end-count-last-date"
+
+# ── The first start time free on every occurrence, send ──
+- scrollUntilVisible:
+    element:
+      id: "wizard-slots-ready"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "wizard-slot-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "wizard-send"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "wizard-send"
+
+# ── Back on the tab: one pending request, weekly on that weekday ──
+- scrollUntilVisible:
+    element:
+      id: "class-request-row-pending"
+    direction: DOWN
+    timeout: 30000
+- evalScript: "${output.open = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var out = []; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending') { out.push(rows[i]); } } return out; })()}"
+- assertTrue: "${output.open.length == 1 && output.open[0].recurrence != null && output.open[0].recurrence.weekdays.length == 1 && output.open[0].recurrence.weekdays[0] == output.wd}"
+# The 3rd occurrence of that weekday from the request's own startDate (inclusive), in UTC.
+- evalScript: "${output.expectedEnd = (function (start, wd, n) { var p = start.split('-'); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); var c = 0; for (var i = 0; i < 400; i++) { var w = d.getUTCDay() === 0 ? 7 : d.getUTCDay(); if (w === wd) { c++; if (c === n) { return d.toISOString().slice(0, 10); } } d.setUTCDate(d.getUTCDate() + 1); } return null; })(output.open[0].recurrence.startDate, output.wd, 3)}"
+- assertTrue: "${output.expectedEnd != null && output.open[0].recurrence.endDate === output.expectedEnd}"
+
+- tapOn:
+    id: "class-request-withdraw"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-request-row-pending"
+    timeout: 15000
+
+- evalScript: "${output.after = (function () { var rows = json(http.get(output.api + '/api/app/class-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body); var n = 0; for (var i = 0; i < rows.length; i++) { if (rows[i].status === 'pending' || rows[i].status === 'proposed') { if (http.post(output.api + '/api/app/class-requests/' + rows[i].id + '/withdraw', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: '{}' }).ok) { n++; } } } return n; })()}"
+- assertTrue: "${output.after == 0}"

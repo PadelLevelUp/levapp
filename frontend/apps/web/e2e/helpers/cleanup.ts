@@ -148,3 +148,34 @@ export async function deleteClassJoinRequests(
     expect.soft([200, 404], `delete class join request ${id}: ${res.status()}`).toContain(res.status());
   }
 }
+
+/** The ids of every evaluation record the coach holds for one player (the whole history, unpaged). */
+export async function evaluationRecordIds(
+  request: APIRequestContext,
+  auth: Auth,
+  playerId: number | string,
+): Promise<Set<number>> {
+  const res = await request.get(`${API_ROOT}/app/player/${playerId}/evaluations`, { headers: auth });
+  expect(res.ok()).toBeTruthy();
+  const records: { id: number }[] = (await res.json()).records ?? [];
+  return new Set(records.map((r) => Number(r.id)));
+}
+
+/**
+ * PAD-452 (B-180): delete the evaluation records a test created for `playerId` — every id that
+ * was not in `before`, a snapshot taken with {@link evaluationRecordIds} before the test ran.
+ * A record left on the seeded "E2E Student" makes them "evaluated", and evaluation-reminder's
+ * fixture ("never evaluated, so due") stops holding for every spec that runs after.
+ */
+export async function removeEvaluationRecordsSince(
+  request: APIRequestContext,
+  auth: Auth,
+  playerId: number | string,
+  before: Set<number>,
+): Promise<void> {
+  for (const id of await evaluationRecordIds(request, auth, playerId)) {
+    if (before.has(id)) continue;
+    const gone = await request.delete(`${API_ROOT}/app/evaluation_record/${id}`, { headers: auth });
+    expect.soft(gone.ok(), `evaluation record ${id} was cleaned up`).toBeTruthy();
+  }
+}

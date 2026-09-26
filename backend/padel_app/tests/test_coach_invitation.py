@@ -205,7 +205,7 @@ def test_accept_as_new_user_creates_active_coach(client, app):
 
     resp = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={"name": "New Coach", "username": "new_coach", "password": "Secret123!"},
+        json={"birthDate": "1990-01-01", "name": "New Coach", "username": "new_coach", "password": "Secret123!"},
     )
     assert resp.status_code == 200
     assert resp.get_json()["accessToken"]
@@ -237,13 +237,13 @@ def test_accept_twice_410(client, app):
 
     first = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={"name": "C1", "username": "c1", "password": "pw123456"},
+        json={"birthDate": "1990-01-01", "name": "C1", "username": "c1", "password": "pw123456"},
     )
     assert first.status_code == 200
 
     second = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={"name": "C2", "username": "c2", "password": "pw123456"},
+        json={"birthDate": "1990-01-01", "name": "C2", "username": "c2", "password": "pw123456"},
     )
     assert second.status_code == 410
 
@@ -254,7 +254,7 @@ def test_accept_with_missing_fields_400(client, app):
 
     resp = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={"username": "no_name_or_pw"},
+        json={"birthDate": "1990-01-01", "username": "no_name_or_pw"},
     )
     assert resp.status_code == 400
 
@@ -265,7 +265,7 @@ def test_accept_with_duplicate_username_409(client, app):
 
     resp = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={"name": "Dup", "username": "taken_username", "password": "pw123456"},
+        json={"birthDate": "1990-01-01", "name": "Dup", "username": "taken_username", "password": "pw123456"},
     )
     assert resp.status_code == 409
 
@@ -285,7 +285,7 @@ def test_accept_expired_invitation_410(client, app):
 
     resp = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={"name": "Late", "username": "late_coach", "password": "pw123456"},
+        json={"birthDate": "1990-01-01", "name": "Late", "username": "late_coach", "password": "pw123456"},
     )
     assert resp.status_code == 410
 
@@ -301,7 +301,7 @@ def test_accept_as_existing_coach_creates_association_only(client, app):
 
     resp = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={},
+        json={"birthDate": "1990-01-01", },
         headers=_auth_header(app, outsider_user_id),
     )
     assert resp.status_code == 200
@@ -328,7 +328,7 @@ def test_accept_as_existing_member_is_noop(client, app):
 
     resp = client.post(
         f"/api/app/coach-invitations/{token}/accept",
-        json={},
+        json={"birthDate": "1990-01-01", },
         headers=_auth_header(app, user_id),
     )
     assert resp.status_code == 200

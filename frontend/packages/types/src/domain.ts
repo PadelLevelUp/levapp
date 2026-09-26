@@ -447,6 +447,20 @@ export interface ClassJoinRequest {
   note?: string | null;
 }
 
+/**
+ * classes.join-requests rule 17 (PAD-460): a row of `GET /app/class-join-requests` —
+ * the request plus the class it is for, so the coach's "Pedidos de Aula" and the
+ * student's Availability list can show it beside a private `ClassRequest` without a
+ * second read.
+ */
+export interface ClassJoinRequestListRow extends ClassJoinRequest {
+  kind: "academy";
+  classTitle: string | null;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;
@@ -729,6 +743,17 @@ export interface Message {
       status: ClassRequestStatus;
       kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
       slot?: { date: string; startTime: string; endTime: string };
+    };
+    /**
+     * classes.join-requests rule 18 (PAD-461): the academy join-request ask
+     * mirrored into the coach ↔ student conversation, status frozen at send
+     * time (always `pending` on the ask itself — a decision or "spot taken"
+     * reply is a separate, plain message). `lessonInstanceId` above names the
+     * class it is for.
+     */
+    joinRequest?: {
+      id: number;
+      status: ClassJoinRequest["status"];
     };
     [key: string]: unknown;
   };
@@ -1133,7 +1158,9 @@ export interface NotificationRestrictions {
   maxInactiveTime: { enabled: boolean; value: number };
   minTimeBeforeClass: { enabled: boolean; value: number };
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
-  quietHours: { enabled: boolean };
+  /** PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local. A
+   * server from before PAD-451 omits start/end; read them through quietWindowOf (@levelup/config). */
+  quietHours: { enabled: boolean; start?: string; end?: string };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
@@ -1632,6 +1659,17 @@ export interface PendingValidationCount {
   pendingCount: number;
 }
 
+/**
+ * `GET /class_instances/pending_validation/badge` — `attendance.validation` rule 23 (PAD-443): the
+ * dashboard validation item's number (current week, else the previous one; 0 when both are clean),
+ * shown on the Presences badge of both shells.
+ */
+export interface PendingValidationBadge {
+  count: number;
+  weekOffset: number;
+  href: string;
+}
+
 // ── PAD-402 evaluation sharing ──
 
 /** `evaluations.sharing` rule 2. */
@@ -1696,6 +1734,13 @@ export interface DashboardEvaluationsBlock {
 export type EvaluationReminder = "never" | "monthly" | "every_n_classes";
 
 /** `GET/PUT /app/evaluation_settings`. `everyN` is present only for `every_n_classes`. */
+/** evaluations.scale rule 1 (PAD-423): the coach's evaluation scale, 1 to `scaleMax`. 5 by default. */
+export type EvaluationScaleMax = 5 | 10 | 20 | 100;
+
+export interface EvaluationScale {
+  scaleMax: EvaluationScaleMax;
+}
+
 export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;

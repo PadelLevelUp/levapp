@@ -731,7 +731,13 @@ def activate_user(user_id):
     token = data.pop("token", None)
     # PAD-389: a blank name/username, a missing username on a placeholder, or no
     # password raises NotNullableFieldError before any write; the blueprint answers 400.
-    activate_user_service(user_id, data, token=token)
+    from padel_app.services.registration_service import RegistrationError
+
+    try:
+        activate_user_service(user_id, data, token=token)
+    except RegistrationError as exc:
+        # auth.activate rule 13 (PAD-457): the birth-date refusals answer as sign-up's do.
+        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
     return jsonify(success=True)
 
 
@@ -1371,6 +1377,21 @@ def class_instances_pending_validation_count():
             ),
         }
     )
+
+
+@bp.get("/class_instances/pending_validation/badge")
+@jwt_required()
+def class_instances_pending_validation_badge():
+    """The Presences badge (PAD-443, `attendance.validation` rule 23).
+
+    The dashboard validation item's own derivation — the current week, else the
+    previous one — so the badge, the card and the tab's trigger show one number.
+    ``count`` is 0 when both weeks are clean.
+    """
+    from padel_app.helpers.dashboard.coach_home import validation_badge
+
+    coach = require_coach()
+    return jsonify(validation_badge(coach_id=coach.id, now=club_now_naive()))
 
 
 @bp.post("/class_instance/<int:instance_id>/presences/unvalidate")
@@ -2052,6 +2073,15 @@ def decide_class_request(request_id, action):
 # ── PAD-131: classes.join-requests (rule 15) ─────────────────────────────────
 
 
+@bp.get("/class-join-requests")
+@jwt_required()
+def list_class_join_requests():
+    """classes.join-requests rule 17 (PAD-460): the request lists' academy rows."""
+    from padel_app.services.class_join_request_service import list_join_requests_for
+
+    return jsonify(list_join_requests_for(current_user()))
+
+
 @bp.post("/class-join-requests")
 @jwt_required()
 def create_class_join_request():
@@ -2156,7 +2186,13 @@ def accept_coach_invitation(token):
         accept_coach_invitation_service(token, coach=coach)
         return jsonify({"success": True})
 
-    user = accept_coach_invitation_service(token, data=data)
+    from padel_app.services.registration_service import RegistrationError
+
+    try:
+        user = accept_coach_invitation_service(token, data=data)
+    except RegistrationError as exc:
+        # PAD-457: the birth-date refusals answer as sign-up's do.
+        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
     return jsonify({
         "accessToken": issue_access_token(user.id),
     })
@@ -2214,7 +2250,13 @@ def get_player_invitation(token):
 @bp.post("/player-invitations/<token>/accept")
 def accept_player_invitation(token):
     data = request.get_json(silent=True) or {}
-    user = accept_player_invitation_service(token, data=data)
+    from padel_app.services.registration_service import RegistrationError
+
+    try:
+        user = accept_player_invitation_service(token, data=data)
+    except RegistrationError as exc:
+        # PAD-457: the birth-date refusals answer as sign-up's do.
+        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
     return jsonify({
         "accessToken": issue_access_token(user.id),
     })

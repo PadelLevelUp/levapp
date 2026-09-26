@@ -19,7 +19,7 @@ import {
   COACH_NOLEVELS_USERNAME,
   COACH_NOLEVELS_PASSWORD,
 } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { openMessages, conversationRow } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 /**
@@ -120,7 +120,7 @@ async function openThread(page: Page) {
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
     { timeout: 15_000 }
   );
-  await page.getByText("E2E Student").first().click();
+  await conversationRow(page, "E2E Student").click();
   await detail;
   await expect(page.locator("[data-msg-id]").last()).toBeVisible({ timeout: 10_000 });
 }

@@ -42,7 +42,9 @@ describe("classRequestBubbleState (classes.class-requests rule 6, PAD-281)", () 
   });
 
   it("renders nothing extra for the other kinds and while the live status is unknown", () => {
-    expect(classRequestBubbleState({ id: 7, status: "pending", kind: "requested" }, live, { own: false })).toEqual({ kind: "none", status: "pending" });
+    // `live` here is `countered`, not `pending`: the coach's first proposal moved
+    // the request on, so a `requested` bubble (rule 10a) is superseded, not "none".
+    expect(classRequestBubbleState({ id: 7, status: "pending", kind: "requested" }, live, { own: false })).toEqual({ kind: "superseded", status: "countered" });
     expect(classRequestBubbleState({ id: 7, status: "accepted", kind: "accepted" }, live, { own: false })).toEqual({ kind: "none", status: "accepted" });
     expect(classRequestBubbleState(proposed, undefined, { own: false })).toEqual({ kind: "none", status: "countered" });
     expect(classRequestBubbleState(undefined, live, { own: false })).toEqual({ kind: "none", status: undefined });
@@ -50,5 +52,33 @@ describe("classRequestBubbleState (classes.class-requests rule 6, PAD-281)", () 
 
   it("falls back to the message's own status when the request is not in the live list", () => {
     expect(classRequestBubbleState(proposed, null, { own: false })).toEqual({ kind: "outcome", status: "countered" });
+  });
+});
+
+describe("classRequestBubbleState — the coach answers a new request from its bubble (PAD-461, rule 10a)", () => {
+  const askSlot = { date: "2026-10-06", startTime: "18:00", endTime: "19:00" };
+  const requested: ClassRequestMessageMeta = { id: 9, status: "pending", kind: "requested", slot: askSlot };
+  const askLive = { id: 9, status: "pending" as const, ...askSlot };
+
+  it("offers the coach Accept / Decline / Propose while the request is still pending at that slot", () => {
+    expect(classRequestBubbleState(requested, askLive, { own: false })).toEqual({ kind: "actions", status: "pending" });
+  });
+
+  it("shows the student their own new request as waiting", () => {
+    expect(classRequestBubbleState(requested, askLive, { own: true })).toEqual({ kind: "waiting", status: "pending" });
+  });
+
+  it("shows the outcome once the coach has decided", () => {
+    expect(classRequestBubbleState(requested, { ...askLive, status: "accepted" }, { own: false })).toEqual({ kind: "outcome", status: "accepted" });
+    expect(classRequestBubbleState(requested, { ...askLive, status: "declined" }, { own: true })).toEqual({ kind: "outcome", status: "declined" });
+  });
+
+  it("is superseded once the slot has moved on (a counter-proposal round already happened)", () => {
+    expect(classRequestBubbleState(requested, { ...askLive, startTime: "20:00", endTime: "21:00" }, { own: false })).toEqual({ kind: "superseded", status: "pending" });
+  });
+
+  it("falls back to outcome / none exactly like the counter-proposal bubble", () => {
+    expect(classRequestBubbleState(requested, null, { own: false })).toEqual({ kind: "outcome", status: "pending" });
+    expect(classRequestBubbleState(requested, undefined, { own: false })).toEqual({ kind: "none", status: "pending" });
   });
 });

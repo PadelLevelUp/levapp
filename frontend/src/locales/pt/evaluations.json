@@ -74,6 +74,17 @@
       "invalidNumber": "Escreve um número inteiro entre 1 e 99.",
       "saveFailed": "Não foi possível guardar. Tenta novamente.",
       "dueLabel": "Avaliação em falta"
+    },
+    "scale": {
+      "title": "Escala de avaliações",
+      "options": {
+        "5": "1–5 (estrelas)",
+        "10": "1–10",
+        "20": "1–20",
+        "100": "1–100"
+      },
+      "caption": "As avaliações já feitas mantêm a sua escala; as novas usam a escolhida.",
+      "saveFailed": "Não foi possível guardar. Tenta novamente."
     }
   }
 }
