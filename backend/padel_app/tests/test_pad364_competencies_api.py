@@ -38,9 +38,9 @@ def test_the_list_carries_every_competency_and_the_catalogue_not_yet_switched_on
 
     assert body["competencies"] == [
         {"id": ids["forehand_id"], "key": None, "name": "Forehand", "group": None, "scaleMin": 1,
-         "scaleMax": 5, "isActive": True, "sortOrder": None, "scoreCount": 1},
+         "scaleMax": 5, "isActive": True, "sortOrder": None, "scoreCount": 1, "parentId": None},
         {"id": ids["volley_id"], "key": None, "name": "Volley", "group": None, "scaleMin": 1,
-         "scaleMax": 5, "isActive": True, "sortOrder": None, "scoreCount": 0},
+         "scaleMax": 5, "isActive": True, "sortOrder": None, "scoreCount": 0, "parentId": None},
     ]
     keys = [c["key"] for c in body["catalogue"]]
     # 17 built-in entries in three groups, minus the twins of names the coach already holds (rule 4):
@@ -110,11 +110,11 @@ def test_a_rename_is_by_id_and_keeps_the_scores(app, client):
     assert _patch(app, client, ids, ids["forehand_id"], {"name": ""}).status_code == 400
 
 
-def test_a_catalogue_competency_can_be_switched_off_and_ordered_but_not_renamed(app, client):
+def test_a_catalogue_competency_can_be_switched_off_and_ordered(app, client):
+    """PAD-431 reversed "but not renamed" (rule 8): renaming is pinned in test_pad431_categories_api."""
     ids = _seed(app)
     cid = _post(app, client, ids, {"catalogueKey": "tactics"}).get_json()["id"]
 
-    assert _patch(app, client, ids, cid, {"name": "My tactics"}).status_code == 409
     res = _patch(app, client, ids, cid, {"isActive": False, "sortOrder": 3})
 
     assert res.status_code == 200
@@ -147,7 +147,8 @@ def test_switching_off_never_deletes_scores(app, client):
         assert EvaluationEntry.query.filter_by(category_id=ids["forehand_id"]).count() == 1
 
 
-def test_delete_shows_its_impact_is_audited_and_refuses_a_catalogue_competency(app, client):
+def test_delete_shows_its_impact_is_audited_and_takes_a_catalogue_competency_too(app, client):
+    """PAD-431 reversed "a catalogue competency can only be switched off" (rule 9)."""
     from padel_app.models import EvaluationCategory, EvaluationEntry
     from padel_app.models.deletion_audit import DeletionAudit
 
@@ -160,15 +161,17 @@ def test_delete_shows_its_impact_is_audited_and_refuses_a_catalogue_competency(a
     impact = client.get(f"{BASE}/evaluation_competency/{ids['forehand_id']}/impact", headers=headers)
     assert impact.status_code == 200 and impact.get_json() == {"name": "Forehand", "scores": 1, "players": 1}
 
-    assert client.delete(f"{BASE}/evaluation_competency/{catalogue}", headers=headers).status_code == 409
+    assert client.delete(f"{BASE}/evaluation_competency/{catalogue}", headers=headers).status_code == 200
     assert client.delete(f"{BASE}/evaluation_competency/{custom}", headers=headers).status_code == 200
     assert client.delete(f"{BASE}/evaluation_competency/{ids['forehand_id']}", headers=headers).status_code == 200
 
     with app.app_context():
-        assert {c.id for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"])} == {ids["volley_id"], catalogue}
+        assert {c.id for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"])} == {ids["volley_id"]}
         assert EvaluationEntry.query.count() == 0
         audits = DeletionAudit.query.order_by(DeletionAudit.id).all()
-        assert [(a.entity, a.label) for a in audits] == [("evaluation_category", "Grit"), ("evaluation_category", "Forehand")]
+        assert [(a.entity, a.label) for a in audits] == [
+            ("evaluation_category", "Tática"), ("evaluation_category", "Grit"), ("evaluation_category", "Forehand"),
+        ]
 
 
 def test_the_legacy_list_still_hides_what_this_api_creates(app, client):
@@ -182,8 +185,9 @@ def test_the_legacy_list_still_hides_what_this_api_creates(app, client):
     assert names == ["Forehand", "Volley"]
 
 
-def test_a_coach_with_no_category_at_all_starts_with_the_three_general_competencies(app, client):
-    """Rule 4 (AV-021): created by the first v2 read, never by a legacy endpoint."""
+def test_a_coach_with_no_category_at_all_starts_with_the_default_tree(app, client):
+    """Rule 4 (AV-021; PAD-431 D3): created by the first v2 read, never by a legacy endpoint.
+    The tree's shape is pinned in test_pad431_categories_api."""
     from padel_app.models import EvaluationCategory
     from padel_app.tests.test_notification_reminder_flow import _seed_coach_and_student
 
@@ -197,10 +201,11 @@ def test_a_coach_with_no_category_at_all_starts_with_the_three_general_competenc
     body = _get(app, client, ids)
     again = _get(app, client, ids)
 
-    assert [(c["key"], c["group"], c["isActive"], c["scaleMax"]) for c in body["competencies"]] == [
+    assert [(c["key"], c["group"], c["isActive"], c["scaleMax"]) for c in body["competencies"][:3]] == [
         ("technique", "general", True, 5), ("tactics", "general", True, 5), ("consistency", "general", True, 5),
     ]
-    assert again == body and len(body["catalogue"]) == 14
+    assert len(body["competencies"]) == 17 and all(c["scaleMax"] == 5 for c in body["competencies"])
+    assert again == body and body["catalogue"] == []
     assert client.get(f"{BASE}/evaluation_categories", headers=headers).get_json() == []  # R-047 still holds
 
 
@@ -223,7 +228,7 @@ def test_a_lost_race_for_the_starting_set_does_not_double_it(app):
         real_first = EvaluationCategory.query.filter_by(coach_id=coach.id).first
 
         service.ensure_starting_set(coach)             # the winner
-        assert EvaluationCategory.query.count() == 3
+        assert EvaluationCategory.query.count() == 17  # PAD-431: the whole default tree
 
         class _Blind:  # the loser read "no category" before the winner committed
             def filter_by(self, **kw):
@@ -238,4 +243,4 @@ def test_a_lost_race_for_the_starting_set_does_not_double_it(app):
         finally:
             del type(EvaluationCategory).query
         assert real_first is not None and original is not None
-        assert EvaluationCategory.query.filter_by(coach_id=coach.id).count() == 3
+        assert EvaluationCategory.query.filter_by(coach_id=coach.id).count() == 17
