@@ -38,3 +38,4 @@ export * from "./restriction-bounds";
 export * from "./quiet-hours";
 export * from "./class-picker";
 export * from "./class-request-list";
+export * from "./recurrence-end";

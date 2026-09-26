@@ -50,6 +50,13 @@
     },
     "startDate": "Data de início",
     "endDate": "Data de fim",
+    "endMode": {
+      "date": "Termina no dia",
+      "count": "Termina ao fim de"
+    },
+    "classesUnit": "aulas",
+    "countHint": "Conta aulas, não semanas.",
+    "lastClass": "Última aula: {{date}}",
     "recurrenceInvalid": "Escolhe pelo menos um dia da semana e uma data de fim igual ou posterior à de início.",
     "defaultHoursNote": "Horário de trabalho não definido: {{start}}–{{end}}.",
     "noWeeklySlots": "Nenhum horário está livre em todos esses dias.",
