@@ -21,6 +21,8 @@ export function managerRowId(row: ManagerRow): string {
 interface CompetencyRowProps {
   row: ManagerRow;
   onDelete: (competency: EvaluationCompetency) => void;
+  /** PAD-431: a category heads its section; a sub-category is indented under it. */
+  level?: "category" | "sub";
 }
 
 /**
@@ -28,7 +30,7 @@ interface CompetencyRowProps {
  * when made: while its request is in flight the row is disabled — one request per
  * tap — and a failure puts the switch back and says so on this row.
  */
-export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
+export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyRowProps) {
   const { t } = useTranslation();
   const switchOn = useSwitchOnCatalogueCompetency();
   const update = useUpdateEvaluationCompetency();
@@ -49,7 +51,8 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
   const scale = competency ? legacyScaleLabel(competency) : null;
   const busy = wanted !== null || update.isPending || switchOn.isPending;
   const checked = wanted ?? competency?.isActive ?? false;
-  const editable = kind === "custom" || kind === "legacy";
+  // PAD-431 (rules 8, 9): every row the coach holds can be renamed and deleted, a default included.
+  const editable = kind !== "available";
 
   const fail = (error: unknown) =>
     setErrorKey(evaluationApiErrorCode(error) === "duplicate_name" ? "duplicateName"
@@ -90,7 +93,8 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
       data-testid={`competency-row-${rowId}`}
       data-kind={kind}
       data-active={checked ? "true" : "false"}
-      className="flex flex-col gap-1 py-2"
+      data-level={level}
+      className={level === "sub" ? "flex flex-col gap-1 py-1.5 pl-6" : "flex flex-col gap-1 py-2"}
     >
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
@@ -116,7 +120,7 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
             </div>
           ) : (
             <>
-              <p className="truncate text-sm font-medium">{label}</p>
+              <p className={level === "sub" ? "truncate text-sm" : "truncate text-sm font-semibold"}>{label}</p>
               {scale ? (
                 <p data-testid={`competency-scale-${rowId}`} className="text-xs text-muted-foreground">
                   {t("evaluations.manager.legacyScale", { scale })}

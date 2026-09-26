@@ -59,6 +59,24 @@ const lit = (id: number) =>
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
+// PAD-431 (evaluations.competencies rules 15-16, D7): sub-categories under their category.
+describe("categories and sub-categories on the form (PAD-431)", () => {
+  const VIBORA = competency({ id: 3, key: "vibora", name: "Víbora", group: "technique", parentId: 1 });
+  const SMASH = competency({ id: 4, key: "smash", name: "Smash", group: "technique", parentId: 1 });
+
+  it("lists the sub-categories under their category's heading, and no input for the category itself", () => {
+    setup({ competencies: [TECNICA, VIBORA, SMASH, FOREHAND] });
+
+    const group = screen.getByTestId("evaluation-group-1");
+    expect(group).toHaveTextContent("Técnica"); // this file's t returns the defaultValue
+    expect(group.querySelector('[data-testid="evaluation-row-3"]')).not.toBeNull();
+    expect(group.querySelector('[data-testid="evaluation-row-4"]')).not.toBeNull();
+    expect(screen.queryByTestId("evaluation-row-1")).toBeNull();
+    // a row scored directly has no heading of its own
+    expect(screen.getByTestId("evaluation-row-2").closest('[data-testid^="evaluation-group-"]')).toBeNull();
+  });
+});
+
 describe("stars save on tap", () => {
   it("one tap is one save, carrying only that competency", async () => {
     const { onSave } = setup();

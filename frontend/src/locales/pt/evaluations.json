@@ -26,14 +26,14 @@
       "custom": "Personalizada"
     },
     "manager": {
-      "title": "Gerir competências",
-      "open": "Gerir competências",
-      "settingsTitle": "Competências de avaliação",
-      "settingsDescription": "Escolha em que competências avalia os seus jogadores: ative as do catálogo, crie as suas e mantenha as que já tinha.",
+      "title": "Definir categorias de avaliação",
+      "open": "Definir categorias de avaliação",
+      "settingsTitle": "Categorias de avaliação",
+      "settingsDescription": "Escolha as categorias e sub-categorias em que avalia os seus jogadores: ative as predefinidas, crie as suas e mantenha as que já tinha.",
       "legacyTitle": "As tuas categorias",
       "legacyCaption": "Mantêm a escala que definiste.",
-      "customTitle": "Competência personalizada",
-      "namePlaceholder": "Nome da competência",
+      "customTitle": "Nova categoria",
+      "namePlaceholder": "Nome da categoria",
       "add": "Adicionar",
       "caption": "As alterações aplicam-se imediatamente às próximas avaliações.",
       "done": "Concluído",
@@ -45,19 +45,22 @@
       "renameSave": "Guardar nome",
       "renameCancel": "Cancelar",
       "delete": "Eliminar",
-      "duplicateName": "Já tem uma competência com este nome.",
+      "duplicateName": "Já tem uma categoria com este nome.",
       "nameInvalid": "Escreva um nome com até 100 caracteres.",
       "saveFailed": "Não foi possível guardar. Tente novamente.",
-      "loadFailed": "Não foi possível carregar as competências.",
+      "loadFailed": "Não foi possível carregar as categorias.",
       "retry": "Tentar novamente",
-      "noneActive": "Não tem nenhuma competência ativa. Não será pedida nenhuma nota nas próximas avaliações até ativar pelo menos uma; o histórico mantém-se.",
+      "noneActive": "Não tem nenhuma categoria ativa. Não será pedida nenhuma nota nas próximas avaliações até ativar pelo menos uma; o histórico mantém-se.",
       "deleteTitle": "Eliminar \"{{name}}\"?",
       "deleteImpact": "Vai eliminar {{scores}} notas de {{players}} jogadores. Esta ação não pode ser desfeita.",
-      "deleteImpactNone": "Esta competência ainda não tem notas.",
-      "deleteTypeName": "Escreva o nome da competência para confirmar",
-      "deleteConfirm": "Eliminar competência",
+      "deleteImpactNone": "Esta categoria ainda não tem notas.",
+      "deleteTypeName": "Escreva o nome da categoria para confirmar",
+      "deleteConfirm": "Eliminar categoria",
       "cancel": "Cancelar",
-      "impactFailed": "Não foi possível verificar o que seria eliminado. Tente novamente."
+      "impactFailed": "Não foi possível verificar o que seria eliminado. Tente novamente.",
+      "subTitle": "Nova sub-categoria",
+      "subNamePlaceholder": "Nome da sub-categoria",
+      "deleteSubCategories": "As sub-categorias {{names}} também são eliminadas."
     },
     "reminder": {
       "title": "Frequência de avaliações",
@@ -85,6 +88,7 @@
       },
       "caption": "As avaliações já feitas mantêm a sua escala; as novas usam a escolhida.",
       "saveFailed": "Não foi possível guardar. Tenta novamente."
-    }
+    },
+    "settingsGroupTitle": "Avaliações"
   }
 }

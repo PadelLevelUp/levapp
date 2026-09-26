@@ -175,9 +175,12 @@ export function categorySections(data: EvaluationCompetencies): CategorySection[
     });
   }
 
+  const ids = new Set(rows.map((c) => c.id));
   for (const c of rows) {
     const isDefault = c.key !== null && (DEFAULT_CATEGORIES as readonly string[]).includes(c.key);
-    if (c.group === null || c.parentId != null || isDefault) continue;
+    // A row whose category is not in the list (never from the server) is shown on its own, not lost.
+    const underParent = c.parentId != null && ids.has(c.parentId);
+    if (c.group === null || underParent || (isDefault && c.parentId == null)) continue;
     // A sub-level catalogue row the server left top-level (its default's name was taken) is scored
     // as a category but cannot hold sub-categories (rule 15: two levels, defaults by group word).
     const orphan = c.key !== null && SUB_LEVEL.includes(c.group);
@@ -187,7 +190,7 @@ export function categorySections(data: EvaluationCompetencies): CategorySection[
       head: existingRow(c),
       headKey: null,
       subs: orderedSubs(children.get(c.id) ?? [], []),
-      parentId: orphan ? null : c.id,
+      parentId: orphan || c.parentId != null ? null : c.id,
     });
   }
   return sections;

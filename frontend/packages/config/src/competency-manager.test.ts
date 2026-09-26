@@ -239,6 +239,12 @@ describe("categorySections (PAD-431)", () => {
     expect(shape(sections).find((s) => s[0] === "key-bandeja")).toEqual(["key-bandeja", 10, [], null]);
   });
 
+  it("a row whose category is missing from the list is shown on its own, never lost", () => {
+    const stray = competency({ id: 8, key: null, name: "Stray", group: "custom", parentId: 99 });
+    // …and, being a sub-category, it cannot hold sub-categories (two levels only)
+    expect(shape(categorySections({ competencies: [stray], catalogue: [] }))).toEqual([["id-8", 8, [], null]]);
+  });
+
   it("nothing moves when a switch is flipped", () => {
     const { cats, subs } = tree();
     const before = categorySections({ competencies: [...cats, ...subs], catalogue: [] });

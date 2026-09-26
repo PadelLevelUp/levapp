@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import type { EvaluationCompetency, EvaluationRecord, EvaluationRecordInput, PutEvaluationRecordResult } from "@levelup/types";
-import { competencyLabel, formCompetencies, nextStarScore, ratingInputKind, rowOnItsOwnScale, stableFormRows, stepScore } from "@levelup/config";
+import { competencyLabel, formCompetencies, formGroups, nextStarScore, ratingInputKind, rowOnItsOwnScale, stableFormRows, stepScore } from "@levelup/config";
 import { useEvaluationFormSession } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -72,6 +72,38 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
     );
   }
 
+  const renderRow = (row: EvaluationCompetency) => {
+    // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
+    const competency = rowOnItsOwnScale(row, record);
+    const key = String(competency.id);
+    const score = scores[key] ?? null;
+    const name = competencyLabel(t, competency);
+    const input = ratingInputKind(competency); // evaluations.scale rule 7
+    return (
+      <div key={key} className="flex flex-wrap items-center justify-between gap-2" data-testid={`evaluation-row-${key}`}>
+        <span className="text-sm font-medium">{name}</span>
+        {input === "stars" ? (
+          <StarRating
+            id={competency.id} name={name} score={score} max={competency.scaleMax}
+            onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
+          />
+        ) : input === "slider" ? (
+          <ScoreSlider
+            id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
+            onCommit={(value) => session.rate(key, value)}
+            onClear={() => session.rate(key, null)}
+          />
+        ) : (
+          <ScoreStepper
+            id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
+            onStep={(delta) => session.step(key, stepScore(score, delta, competency.scaleMin, competency.scaleMax))}
+            onClear={() => session.rate(key, null)}
+          />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 rounded-lg border p-4" data-testid="evaluation-form">
       <div className="flex items-center justify-between">
@@ -82,37 +114,20 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         </Button>
       </div>
 
-      {rows.map((row) => {
-        // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
-        const competency = rowOnItsOwnScale(row, record);
-        const key = String(competency.id);
-        const score = scores[key] ?? null;
-        const name = competencyLabel(t, competency);
-        const input = ratingInputKind(competency); // evaluations.scale rule 7
-        return (
-          <div key={key} className="flex flex-wrap items-center justify-between gap-2" data-testid={`evaluation-row-${key}`}>
-            <span className="text-sm font-medium">{name}</span>
-            {input === "stars" ? (
-              <StarRating
-                id={competency.id} name={name} score={score} max={competency.scaleMax}
-                onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
-              />
-            ) : input === "slider" ? (
-              <ScoreSlider
-                id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
-                onCommit={(value) => session.rate(key, value)}
-                onClear={() => session.rate(key, null)}
-              />
-            ) : (
-              <ScoreStepper
-                id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
-                onStep={(delta) => session.step(key, stepScore(score, delta, competency.scaleMin, competency.scaleMax))}
-                onClear={() => session.rate(key, null)}
-              />
-            )}
+      {/* PAD-431 (rule 15, D7): sub-categories under their category's heading; a row scored
+          directly (a category with no active sub-category, a legacy one) stands alone. */}
+      {formGroups(rows, competencies).map((group) =>
+        group.category ? (
+          <div key={`g${group.category.id}`} className="space-y-2" data-testid={`evaluation-group-${group.category.id}`}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {competencyLabel(t, group.category)}
+            </p>
+            <div className="space-y-4 pl-3">{group.rows.map(renderRow)}</div>
           </div>
-        );
-      })}
+        ) : (
+          group.rows.map(renderRow)
+        ),
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="evaluation-note">{t("players.evaluationHistory.note")}</Label>
