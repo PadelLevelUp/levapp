@@ -755,26 +755,48 @@ function ClassDetail({
 
       <p
         className={cn(
-          "rounded-lg px-3 py-2 text-sm",
+          "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
           remaining > 0
-            ? "bg-warning/10 text-warning-strong"
+            ? "bg-yellow-50 text-yellow-900 dark:bg-yellow-950/40 dark:text-yellow-200"
             : "bg-success/10 text-success-strong"
         )}
+        data-testid={remaining > 0 ? "validate-undecided-summary" : undefined}
       >
+        {/* PAD-443 (attendance.validation rule 24): "N jogadores por decidir", with the alert icon,
+            in the yellow "needs a decision" hue — never the warning amber "Justificada" uses (PAD-441). */}
+        {remaining > 0 && <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />}
         {remaining > 0
           ? t("presences.validate.awaiting", { count: remaining })
           : t("presences.validate.readyBanner")}
       </p>
 
       <ul className="space-y-2">
-        {sortPlayers(klass.players, edits).map((player) => (
+        {sortPlayers(klass.players, edits).map((player) => {
+          // PAD-443 (rule 24): a player with no mark yet (rule 5's undecided) stands out — an alert
+          // icon, a yellow left edge and a spoken label — until a mark is set. The state buttons
+          // keep their own colours; only the row's edge and icon carry the alert.
+          const undecided = effectiveMark(player, edits[player.playerId]) === null;
+          return (
           <li
             key={player.playerId}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
+            data-testid={`validate-player-row-${player.playerId}`}
+            data-undecided={undecided ? "true" : "false"}
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2",
+              undecided && "border-l-4 border-l-yellow-500"
+            )}
           >
             <span className="min-w-0">
-              <span className="block truncate text-sm font-medium">
-                {player.name}
+              <span className="flex items-center gap-1.5 truncate text-sm font-medium">
+                {undecided && (
+                  <AlertTriangle
+                    className="h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-400"
+                    data-testid={`validate-undecided-icon-${player.playerId}`}
+                    aria-label={t("presences.validate.needsDecision")}
+                    role="img"
+                  />
+                )}
+                <span className="truncate">{player.name}</span>
               </span>
               <span className="block text-xs text-muted-foreground">
                 {/* PAD-313 rule 20: the same state word the class sheet shows.
@@ -792,7 +814,8 @@ function ClassDetail({
               onChange={(mark) => onMark(player.playerId, mark)}
             />
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       {available.length > 0 && (
