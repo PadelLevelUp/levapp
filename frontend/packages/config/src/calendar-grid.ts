@@ -177,10 +177,11 @@ export interface SheetBounds {
 /**
  * Rules 3 and 17: the sheet's travel, measured as its top edge from the top of
  * the container it is dragged in. In Semana the container is the time grid. In
- * Mês (PAD-286) it is the month grid plus the single-day grid, and `gridTop`
- * is where the day grid starts inside it: the sheet still rests over the day
- * grid, but dragged up it stops one row below the top of the month grid, so
- * it can cover more than half of a phone screen.
+ * Mês (PAD-286) it is the month grid plus the space below it, and `gridTop` is
+ * where the month grid ends: the sheet rests there, filling everything below
+ * (PAD-436: the single-day grid that used to sit under it showed the selected
+ * day twice), and dragged up it stops one row below the top of the month grid,
+ * so it can cover more than half of a phone screen.
  */
 export function sheetTopBounds(
   containerHeight: number,
@@ -192,10 +193,11 @@ export function sheetTopBounds(
 ): SheetBounds {
   const min = rowHeight;
   const max = containerHeight - collapsedHeight;
-  const initial = clampSheetTop(gridTop + Math.round((containerHeight - gridTop) * 0.6), {
-    min,
-    max,
-  });
+  // PAD-436 (rule 17): with a block above (Mês's month grid) the sheet rests right under it and
+  // fills the rest; there is no day grid below it any more. Without one (Semana), it rests at 60%
+  // of the time grid, as before.
+  const rest = gridTop > 0 ? gridTop : Math.round(containerHeight * 0.6);
+  const initial = clampSheetTop(rest, { min, max });
   return { min, max, initial };
 }
 

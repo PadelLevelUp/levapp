@@ -112,17 +112,21 @@ export function GridWithSheet({
           {above}
         </div>
       )}
-      <div className="relative min-h-0 flex-1">
-        <TimeGrid
-          className="absolute inset-0"
-          weekDays={days}
-          selectedDay={selectedDay}
-          onSelectDay={onSelectDay}
-          eventsByDay={eventsByDay}
-          hourRange={hourRange}
-          nextEventId={nextEventId}
-          onEventClick={onEventClick}
-        />
+      <div className="relative min-h-0 flex-1" data-testid={hasAbove ? "calendar-month-sheet-space" : undefined}>
+        {/* PAD-436 (rule 17): under a block above (Mês) there is no time grid: the sheet shows the
+            selected day, and a second single-day grid here showed it twice. */}
+        {!hasAbove && (
+          <TimeGrid
+            className="absolute inset-0"
+            weekDays={days}
+            selectedDay={selectedDay}
+            onSelectDay={onSelectDay}
+            eventsByDay={eventsByDay}
+            hourRange={hourRange}
+            nextEventId={nextEventId}
+            onEventClick={onEventClick}
+          />
+        )}
       </div>
       {sheetTop !== null && (
         <DaySheet
