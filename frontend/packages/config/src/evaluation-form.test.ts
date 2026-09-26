@@ -183,6 +183,13 @@ describe("formCompetencies over categories and sub-categories (PAD-431)", () => 
     expect(formCompetencies([technique, vibora, smashOff, consistency], null).map((c) => c.id)).toEqual([11, 20]);
   });
 
+  it("toggles with its sub-categories: all off → the category is offered; one back on → hidden again", () => {
+    const viboraOff = { ...vibora, isActive: false };
+    expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);
+    const smashOn = { ...smashOff, isActive: true };
+    expect(formCompetencies([technique, viboraOff, smashOn], null).map((c) => c.id)).toEqual([12]);
+  });
+
   it("offers a category directly once none of its sub-categories is active", () => {
     const viboraOff = { ...vibora, isActive: false };
     expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);

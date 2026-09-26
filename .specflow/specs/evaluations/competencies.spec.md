@@ -277,6 +277,13 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 - **Then** the save succeeds, the score is stored on Técnica and shows on that record's card as a
   history score, and no figure for Víbora or any other competency changes
 
+#### A category is scored directly again once its sub-categories are all off (rule 16)
+- **Given** Técnica (id 3) whose only sub-categories, Víbora and Smash, are both switched off
+- **When** Ana opens "Nova avaliação" for Rui
+- **Then** the form offers a Técnica input
+- **When** she switches Smash back on and opens the form again
+- **Then** the form offers Smash and no Técnica input
+
 #### Existing technique and tactics rows are placed under their category (migration, PAD-431)
 - **Given** coach Carla holds the catalogue rows Víbora and Smash (group `technique`), no Técnica row,
   and the custom "Saque cruzado"
