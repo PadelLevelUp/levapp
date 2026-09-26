@@ -188,9 +188,10 @@ describe("formCompetencies over categories and sub-categories (PAD-431)", () => 
     expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);
   });
 
-  it("hides a sub-category whose category is switched off", () => {
+  it("offers an active sub-category even when its category is switched off", () => {
+    // A coach who had Técnica off and Smash on before PAD-431 keeps Smash on the form.
     const techniqueOff = { ...technique, isActive: false };
-    expect(formCompetencies([techniqueOff, vibora, consistency], null).map((c) => c.id)).toEqual([20]);
+    expect(formCompetencies([techniqueOff, vibora, consistency], null).map((c) => c.id)).toEqual([11, 20]);
   });
 
   it("keeps whatever the record being edited already rates — a history score included", () => {

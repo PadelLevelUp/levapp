@@ -41,9 +41,9 @@ export function isStarCompetency(competency: Pick<EvaluationCompetency, "scaleMi
 }
 
 /** What "Nova avaliação" lists — in the order the server sent them:
- *  - the active competencies, where a category with at least one active sub-category is not
- *    offered (its sub-categories are) and a sub-category is offered only while its category is
- *    active too (PAD-431, evaluations.competencies rules 15-16);
+ *  - the active competencies, except a category with at least one active sub-category (its
+ *    sub-categories are offered instead). A sub-category's own flag decides, whatever its
+ *    category's (PAD-431, evaluations.competencies rules 15-16);
  *  - plus anything the record being edited already rates, a switched-off one or a category's
  *    history score included. */
 export function formCompetencies(
@@ -51,14 +51,10 @@ export function formCompetencies(
   record: Pick<EvaluationRecord, "ratings"> | null
 ): EvaluationCompetency[] {
   const rated = new Set((record?.ratings ?? []).map((rating) => rating.categoryId));
-  const active = new Set(competencies.filter((c) => c.isActive).map((c) => c.id));
   const withActiveChild = new Set(
     competencies.filter((c) => c.isActive && c.parentId != null).map((c) => c.parentId as number)
   );
-  const offered = (c: EvaluationCompetency) =>
-    c.isActive &&
-    !withActiveChild.has(c.id) &&
-    (c.parentId == null || active.has(c.parentId));
+  const offered = (c: EvaluationCompetency) => c.isActive && !withActiveChild.has(c.id);
   return competencies.filter((competency) => offered(competency) || rated.has(competency.id));
 }
 

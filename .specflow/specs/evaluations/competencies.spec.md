@@ -168,16 +168,19 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
       sub-level `{catalogueKey}` (a `technique` / `tactics` group entry). A sub-level catalogue
       entry sent without `parentId` goes under the coach's category keyed by its group word
       (rule 1), which is created active if the coach lacks it. A `general` entry never takes a
-      `parentId` → 400.
+      `parentId` → 400. When the coach already holds a row of that default category's name (a
+      legacy "Técnica"), no category is created and the entry is created as a category itself, as
+      the migration leaves such rows.
     - **Reading.** Every item of `competencies` gains `parentId` (null for a category). The order
       of rule 5 holds; a client builds the tree from `parentId`.
     - **Offered defaults.** The manager offers each catalogue sub-category the coach lacks under
       the coach's category that holds its group word's key; while the coach holds no such
       category (renamed or deleted), those entries are offered with that default category, which
       adding brings back first.
-    - **Switching.** A sub-category is offered on an entry form only while it **and** its
-      category are active. Switching a category off leaves its sub-categories' own flags as they
-      are.
+    - **Switching.** Each row keeps its own flag. A sub-category is offered on an entry form
+      whenever it is active, **whatever its category's flag**; a category's flag governs only the
+      category's own row. So a coach who, before PAD-431, had Técnica switched off and Smash on
+      keeps Smash on the form. Switching a category off changes none of its sub-categories.
 16. **(PAD-431 D1, D6) What is scored.** A category with at least one active sub-category is
     **not offered** for scoring: its sub-categories are. A category with none (Consistência, or a
     category whose sub-categories are all off) is scored directly. A score a category already
