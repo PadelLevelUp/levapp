@@ -192,11 +192,15 @@ export function useSwitchOnCatalogueCompetency() {
   });
 }
 
-/** Rule 6: 409 `duplicate_name`, 400 `name_invalid` — see `evaluationApiErrorCode`. */
+/** Rule 6: 409 `duplicate_name`, 400 `name_invalid` — see `evaluationApiErrorCode`. A name alone
+ *  makes a category; with `parentId`, a sub-category of it (PAD-431, rule 15). */
 export function useCreateCustomCompetency() {
   const cache = useCompetencyCache();
-  return useMutation<EvaluationCompetency, unknown, string>({
-    mutationFn: (name) => evaluationRecordsApi.createCustomCompetency(name),
+  return useMutation<EvaluationCompetency, unknown, string | { name: string; parentId: number }>({
+    mutationFn: (input) =>
+      typeof input === "string"
+        ? evaluationRecordsApi.createCustomCompetency(input)
+        : evaluationRecordsApi.createCustomCompetency(input.name, input.parentId),
     onSuccess: cache.put,
     onSettled: cache.relist,
   });

@@ -98,3 +98,97 @@ export function legacyScaleLabel(competency: Pick<EvaluationCompetency, "group" 
 export function activeCount(data: EvaluationCompetencies): number {
   return data.competencies.filter((c) => c.isActive).length;
 }
+
+// ── PAD-431: categories and sub-categories ───────────────────────────────────────────────
+
+/**
+ * A section of "Definir categorias de avaliação" (evaluations.competencies rule 15). `legacy`
+ * holds the categories the coach already had (flat, first, as Q31 set). A `category` section is
+ * one category — its own row, or a default not yet held (`available`), or `null` when a default
+ * cannot be offered because the coach already holds a row of its name — with its sub-categories.
+ * `parentId` is the id new sub-categories are created under, `null` when there is none yet (a
+ * default's sub-categories are then added without one, and the server brings the default back).
+ */
+export interface CategorySection {
+  id: string;
+  kind: "legacy" | "category";
+  head: ManagerRow | null;
+  /** The default's key when `head` is null — what the section is called. */
+  headKey: string | null;
+  subs: ManagerRow[];
+  parentId: number | null;
+}
+
+/** The three default categories, in the catalogue's order (rule 1). */
+const DEFAULT_CATEGORIES = ["technique", "tactics", "consistency"] as const;
+/** A default category whose group word names sub-level entries (rule 1). */
+const SUB_LEVEL: readonly string[] = ["technique", "tactics"];
+
+const existingRow = (competency: EvaluationCompetency): ManagerRow => ({
+  kind: "existing", competency, rowKind: competencyKind(competency),
+});
+
+/** Sub-categories in the catalogue's fixed order, held and offered interleaved, so nothing moves
+ *  the first time an entry becomes a row; the coach's own (no key) follow in the API's order. */
+function orderedSubs(held: EvaluationCompetency[], offered: EvaluationCatalogueEntry[]): ManagerRow[] {
+  const keyed: ManagerRow[] = [
+    ...held.filter((c) => c.key).map(existingRow),
+    ...offered.map((entry) => ({ kind: "available" as const, entry })),
+  ];
+  const sorted = keyed
+    .map((row, listedAt) => ({ row, listedAt, at: cataloguePosition(rowKey(row)) }))
+    .sort((a, b) => a.at - b.at || a.listedAt - b.listedAt)
+    .map(({ row }) => row);
+  return [...sorted, ...held.filter((c) => !c.key).map(existingRow)];
+}
+
+/**
+ * [the coach's legacy categories] → the three defaults in the catalogue's order → the coach's
+ * own categories (the API's order), each with its sub-categories. Static: toggling moves nothing.
+ */
+export function categorySections(data: EvaluationCompetencies): CategorySection[] {
+  const rows = data.competencies;
+  const children = new Map<number, EvaluationCompetency[]>();
+  for (const c of rows) {
+    if (c.parentId != null) children.set(c.parentId, [...(children.get(c.parentId) ?? []), c]);
+  }
+  const sections: CategorySection[] = [];
+
+  const legacy = rows.filter((c) => c.group === null);
+  if (legacy.length) {
+    sections.push({ id: "legacy", kind: "legacy", head: null, headKey: null, subs: legacy.map(existingRow), parentId: null });
+  }
+
+  for (const key of DEFAULT_CATEGORIES) {
+    const held = rows.find((c) => c.key === key && c.parentId == null);
+    const available = data.catalogue.find((entry) => entry.key === key);
+    const offered = SUB_LEVEL.includes(key) ? data.catalogue.filter((entry) => entry.group === key) : [];
+    const kids = held ? children.get(held.id) ?? [] : [];
+    if (!held && !available && offered.length === 0) continue;
+    sections.push({
+      id: `key-${key}`,
+      kind: "category",
+      head: held ? existingRow(held) : available ? { kind: "available", entry: available } : null,
+      headKey: key,
+      subs: orderedSubs(kids, offered),
+      parentId: held?.id ?? null,
+    });
+  }
+
+  for (const c of rows) {
+    const isDefault = c.key !== null && (DEFAULT_CATEGORIES as readonly string[]).includes(c.key);
+    if (c.group === null || c.parentId != null || isDefault) continue;
+    // A sub-level catalogue row the server left top-level (its default's name was taken) is scored
+    // as a category but cannot hold sub-categories (rule 15: two levels, defaults by group word).
+    const orphan = c.key !== null && SUB_LEVEL.includes(c.group);
+    sections.push({
+      id: c.key ? `key-${c.key}` : `id-${c.id}`,
+      kind: "category",
+      head: existingRow(c),
+      headKey: null,
+      subs: orderedSubs(children.get(c.id) ?? [], []),
+      parentId: orphan ? null : c.id,
+    });
+  }
+  return sections;
+}
