@@ -30,15 +30,13 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
 import { describeApiError } from "@/lib/apiError";
-import type { authApi } from "@levelup/api";
-import { COUNTRIES, consentAgeFor, countryName } from "@levelup/config";
-import { CODE_KEYS, formatBirthInput, showGuardianFor, signUpSchema, toIso } from "@/features/auth/signup-form";
+import { COUNTRIES, countryName } from "@levelup/config";
+import { CODE_KEYS, formatBirthInput, signUpSchema, toIso } from "@/features/auth/signup-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GuardianPendingCard } from "@/features/auth/GuardianPendingCard";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 type Role = "coach" | "student";
-type Field = "name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "guardianEmail";
+type Field = "name" | "username" | "email" | "password" | "repeatPassword" | "birthDate";
 type FieldErrors = Partial<Record<Field | "country", string>>;
 
 /**
@@ -58,15 +56,9 @@ export default function SignUpScreen() {
     password: "",
     repeatPassword: "",
     birthDate: "",
-    guardianEmail: "",
   });
   const [country, setCountry] = React.useState("PT");
-  // The server is the authority on consent ages (an operator may change one
-  // without a release): a GUARDIAN_EMAIL_REQUIRED reveals the field anyway.
-  const [forceGuardian, setForceGuardian] = React.useState(false);
-  const [pending, setPending] = React.useState<authApi.GuardianPendingInfo | null>(null);
   const birthIso = toIso(form.birthDate);
-  const showGuardian = showGuardianFor(birthIso, country, forceGuardian);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -77,7 +69,7 @@ export default function SignUpScreen() {
   const fieldOffsets = React.useRef<Partial<Record<Field, number>>>({});
   // Next on each text field moves focus down the form and scrolls that field into
   // view: the keyboard covers the lower half of the form, so a field below it can't
-  // be tapped (auth.parental-consent rule 10).
+  // be tapped.
   const inputRefs = React.useRef<Partial<Record<Field, TextInput | null>>>({});
   const NEXT_FIELD: Partial<Record<Field, Field>> = {
     name: "username",
@@ -92,7 +84,7 @@ export default function SignUpScreen() {
     inputRefs.current[field]?.focus();
   };
 
-  const FIELD_ORDER: Field[] = ["name", "username", "email", "password", "repeatPassword", "birthDate", "guardianEmail"];
+  const FIELD_ORDER: Field[] = ["name", "username", "email", "password", "repeatPassword", "birthDate"];
   const revealFirstError = (next: FieldErrors) => {
     const first = FIELD_ORDER.find((f) => next[f]);
     const y = first ? fieldOffsets.current[first] : undefined;
@@ -105,7 +97,7 @@ export default function SignUpScreen() {
   };
 
   const validate = (): boolean => {
-    const result = signUpSchema.safeParse({ ...form, country, forceGuardian });
+    const result = signUpSchema.safeParse({ ...form, country });
     if (result.success) {
       setErrors({});
       return true;
@@ -134,13 +126,7 @@ export default function SignUpScreen() {
         password: form.password,
         birthDate: birthIso ?? "",
         country,
-        ...(showGuardian ? { guardianEmail: form.guardianEmail.trim() } : {}),
       });
-      // auth.parental-consent rule 3: a minor gets no session; the guardian decides.
-      if (result.guardianPending) {
-        setPending(result.guardianPending);
-        return;
-      }
       const me = result.user;
       let destination: string;
       if (role === "student") {
@@ -167,7 +153,6 @@ export default function SignUpScreen() {
       const code = (err as { response?: { data?: { code?: string } } }).response?.data?.code;
       const codeKey = code ? CODE_KEYS[code] : undefined;
       if (info.status === 400 && codeKey && info.field) {
-        if (code === "GUARDIAN_EMAIL_REQUIRED") setForceGuardian(true);
         const next = { ...errors, [info.field]: t(`auth.signup.${codeKey}`) };
         setErrors(next);
         setFormError(t("auth.signup.fixHighlighted"));
@@ -264,15 +249,6 @@ export default function SignUpScreen() {
           </CardHeader>
 
           <CardContent className="gap-4">
-            {pending ? (
-              <GuardianPendingCard
-                username={form.username.trim()}
-                password={form.password}
-                info={pending}
-                onBack={() => router.replace("/login")}
-              />
-            ) : (
-            <>
             <View className="gap-1.5">
               <Label>{t("auth.signup.role")}</Label>
               <View className="flex-row gap-2">
@@ -337,7 +313,6 @@ export default function SignUpScreen() {
               </View>
             ))}
 
-            {/* auth.parental-consent rule 10 (PAD-198). */}
             <View
               className="gap-1.5"
               onLayout={(e) => {
@@ -396,38 +371,6 @@ export default function SignUpScreen() {
               ) : null}
             </View>
 
-            {showGuardian ? (
-              <View
-                className="gap-1.5"
-                testID="signup-guardian"
-                onLayout={(e) => {
-                  fieldOffsets.current.guardianEmail = e.nativeEvent.layout.y;
-                }}
-              >
-                <Label>{t("auth.signup.guardianEmail")}</Label>
-                <Text className="text-xs text-muted-foreground">
-                  {t("auth.signup.guardianEmailHint", { age: consentAgeFor(country) })}
-                </Text>
-                <Input
-                  testID="signup-guardianEmail"
-                  accessibilityLabel={t("auth.signup.guardianEmail")}
-                  keyboardType="email-address"
-                  returnKeyType="done"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={form.guardianEmail}
-                  onChangeText={(v) => setField("guardianEmail", v)}
-                  editable={!loading}
-                  className={errors.guardianEmail ? "border-destructive" : undefined}
-                />
-                {errors.guardianEmail ? (
-                  <Text className="text-sm text-destructive" testID="signup-error-guardianEmail" accessibilityLiveRegion="polite">
-                    {errors.guardianEmail}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-
             {formError ? (
               <Text className="text-center text-sm text-destructive" testID="signup-error">
                 {formError}
@@ -454,8 +397,6 @@ export default function SignUpScreen() {
                 <Text className="text-sm font-medium text-primary underline">{t("auth.signup.signIn")}</Text>
               </Pressable>
             </View>
-            </>
-            )}
           </CardContent>
         </Card>
 

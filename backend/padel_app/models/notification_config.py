@@ -20,7 +20,7 @@ DEFAULT_RESTRICTIONS = {
     "maxTotal": {"enabled": True, "value": 10},
     "minTimeBeforeClass": {"enabled": False, "value": 30},
     "maxInvitesPerStudentPerDay": {"enabled": False, "value": 3},
-    "quietHours": {"enabled": False},
+    "quietHours": {"enabled": False, "start": "22:00", "end": "07:00"},
     "maxInactiveTime": {"enabled": True, "value": 120},
     "excludedPlayers": {"enabled": False, "playerIds": []},
     # PAD-132: "exclude inactive accounts" — reads users.status, never payment.
@@ -256,6 +256,10 @@ class NotificationConfig(db.Model, model.Model):
     max_invites_per_student_per_day_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     max_invites_per_student_per_day_value = Column(Integer, nullable=False, default=3, server_default="3")
     quiet_hours_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local.
+    # NULL reads as the default 22:00 / 07:00.
+    quiet_hours_start = Column(String(5), nullable=True)
+    quiet_hours_end = Column(String(5), nullable=True)
     max_inactive_time_enabled = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     max_inactive_time_value = Column(Integer, nullable=False, default=120, server_default="120")
     exclude_inactive_accounts = Column(Boolean, nullable=False, default=False, server_default=text("false"))
@@ -326,7 +330,11 @@ class NotificationConfig(db.Model, model.Model):
                                           DEFAULT_RESTRICTIONS[key]["enabled"])),
                 "value": self._col(getattr(self, value_col), DEFAULT_RESTRICTIONS[key]["value"]),
             }
-        out["quietHours"] = {"enabled": bool(self._col(self.quiet_hours_enabled, False))}
+        out["quietHours"] = {
+            "enabled": bool(self._col(self.quiet_hours_enabled, False)),
+            "start": self.quiet_hours_start or DEFAULT_RESTRICTIONS["quietHours"]["start"],
+            "end": self.quiet_hours_end or DEFAULT_RESTRICTIONS["quietHours"]["end"],
+        }
         out["excludedPlayers"] = {
             "enabled": bool(self._col(self.excluded_players_enabled, False)),
             "playerIds": list(self.excluded_player_ids or []),
@@ -354,6 +362,13 @@ class NotificationConfig(db.Model, model.Model):
             setattr(self, value_col, _int_or(sub.get("value"), DEFAULT_RESTRICTIONS[key]["value"]))
         quiet = data.get("quietHours")
         self.quiet_hours_enabled = _bool_or(quiet.get("enabled"), False) if isinstance(quiet, dict) else False
+        # PAD-451 compat: a quietHours object without start/end (an app from before PAD-451) keeps
+        # the stored bounds; update_config validated any bounds that are present.
+        if isinstance(quiet, dict):
+            if quiet.get("start"):
+                self.quiet_hours_start = quiet["start"]
+            if quiet.get("end"):
+                self.quiet_hours_end = quiet["end"]
         excl = data.get("excludeUnpaidSubscription")
         self.exclude_inactive_accounts = _bool_or(excl.get("enabled"), False) if isinstance(excl, dict) else False
         players = data.get("excludedPlayers")

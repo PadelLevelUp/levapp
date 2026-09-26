@@ -107,7 +107,9 @@ class TestUserPrivilegeFlagsAreNotFormSettable:
             from padel_app.tools.activation_token import activation_token_for
 
             token = activation_token_for(user)
+            # PAD-457: activation requires an adult birth date (auth.activate rule 13).
             activate_user_service(user_id, {"password": "Str0ngPass!",
+                                            "birthDate": "1990-01-01",
                                             "is_superadmin": True}, token=token)
             db.session.commit()
 

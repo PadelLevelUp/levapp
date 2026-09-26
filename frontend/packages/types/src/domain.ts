@@ -493,7 +493,16 @@ export interface ClassInstance {
   /** PAD-130: the open-spot toggle at this tier (`null` = inherit), what resolved, and where from. */
   openSpotsVisible?: boolean | null;
   effectiveOpenSpotsVisible?: boolean;
-  openSpotsSource?: "instance" | "lesson" | "coach";
+  /** PAD-429: `"type"` is the lesson-type default (private → hidden); gated behind `class-type-defaults`. */
+  openSpotsSource?: "instance" | "lesson" | "coach" | "type";
+  /**
+   * PAD-429 (notifications.toggle-class rule 5/7): the automatic-invitations
+   * tri-state at this tier (`null` = inherit), what resolved, and where from.
+   * No coach tier — the engine-wide switch is `NotificationConfig.autoNotifyEnabled`.
+   */
+  autoInvites?: boolean | null;
+  effectiveAutoInvites?: boolean;
+  autoInvitesSource?: "instance" | "lesson" | "type";
   invitations?: ClassInvitation[];
   /** PAD-131: coach only — the pending join requests for this class. */
   joinRequests?: ClassJoinRequest[];
@@ -1112,7 +1121,9 @@ export interface NotificationRestrictions {
   maxInactiveTime: { enabled: boolean; value: number };
   minTimeBeforeClass: { enabled: boolean; value: number };
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
-  quietHours: { enabled: boolean };
+  /** PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local. A
+   * server from before PAD-451 omits start/end; read them through quietWindowOf (@levelup/config). */
+  quietHours: { enabled: boolean; start?: string; end?: string };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };

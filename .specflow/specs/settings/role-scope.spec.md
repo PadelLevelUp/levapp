@@ -46,7 +46,11 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    - both see **Blocked users** (`messaging.block-and-report` rule 10).
    Account keeps only account deletion and the legal links. On web the avatar menu also offers
    "My connections" directly (`/settings?tab=connections`); on iOS the initials open Settings,
-   where the section is in the list.
+   where the section is in the list. **(PAD-447, B-199)** The web Settings page follows every
+   navigation to it, not only the first: the menu's "My connections" (`?tab=connections`) and
+   "Settings" (no `tab`, so Preferences) each land on their own section even when Settings is
+   already open, through the same unsaved-edit question as the in-page nav (`settings.unsaved-edits`
+   rule 3).
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
@@ -164,3 +168,15 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
   `POST /api/app/class_instance/training/confirm` carries no coach/ownership check at all, and the
   `exercises`, `exercise-groups`, `players`, `coach_players*` and `player_profile` routes still use
   bare `current_coach()` and so 500 rather than 403 for a student caller.
+
+#### The avatar menu lands on its section even from inside Settings (PAD-447)
+- **Given** a coach on web who chose "Settings" from the avatar menu and is on Preferences
+- **When** they choose "My connections" from the same menu
+- **Then** the URL is `/settings?tab=connections` and My connections is shown
+- **And** choosing "Settings" again from the menu goes back to Preferences
+
+#### The menu still asks before dropping an unsaved edit (PAD-447)
+- **Given** a coach on Settings → Calendar with Sunday switched off and not saved
+- **When** they choose "My connections" from the avatar menu
+- **Then** the unsaved-changes question appears, and "Keep editing" leaves Calendar shown with Sunday still off
+

@@ -87,6 +87,8 @@ test.describe("players.invite-completion", () => {
     if (await repeat.isVisible({ timeout: 1000 }).catch(() => false)) {
       await repeat.fill(NEW_PLAYER_PASSWORD);
     }
+    // PAD-457 (players.invite-completion rule 10): the invitation asks for an adult birth date.
+    await invitePage.locator("#birthDate").fill("1990-01-01");
 
     await invitePage
       .getByRole("button", {
