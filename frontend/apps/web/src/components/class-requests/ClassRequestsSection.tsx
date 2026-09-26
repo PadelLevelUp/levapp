@@ -400,7 +400,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
               {open.map(renderMergedRow)}
               {closed.length > 0 && (
                 <details className="text-sm">
-                  <summary className="cursor-pointer text-muted-foreground">{t("classRequests.history")} ({closed.length})</summary>
+                  <summary className="cursor-pointer text-muted-foreground" data-testid="class-requests-history-toggle">{t("classRequests.history")} ({closed.length})</summary>
                   <div className="mt-2 space-y-2">{closed.map(renderMergedRow)}</div>
                 </details>
               )}

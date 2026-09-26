@@ -339,7 +339,7 @@ export function ClassRequestsSection({
               {open.map(renderMergedRow)}
               {closed.length > 0 ? (
                 <View className="gap-2">
-                  <Pressable onPress={() => setShowClosed((v) => !v)} className="flex-row items-center gap-1 py-1">
+                  <Pressable onPress={() => setShowClosed((v) => !v)} className="flex-row items-center gap-1 py-1" testID="class-requests-history-toggle">
                     <Ionicons name={showClosed ? "chevron-down" : "chevron-forward"} size={14} color={lightTheme.mutedForeground} />
                     <Text className="text-sm text-muted-foreground">
                       {t("classRequests.history")} ({closed.length})

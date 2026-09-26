@@ -69,9 +69,19 @@ appId: com.padellevelup.app
     commands:
       - tapOn:
           id: "eligibility-confirm-proceed"
+# A decided request moves to the collapsed "earlier requests" section (first run, 2026-09-26:
+# the accept worked but the accepted row was hidden there). Wait for the pending row to go,
+# then open the history by id.
 - extendedWaitUntil:
-    visible:
+    notVisible:
+      id: "class-join-list-row-pending"
+    timeout: 20000
+- tapOn:
+    id: "class-requests-history-toggle"
+- scrollUntilVisible:
+    element:
       id: "class-join-list-row-accepted"
+    direction: DOWN
     timeout: 20000
 - evalScript: "${output.after = json(http.get(output.api + '/api/app/class-join-requests', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (r) { return r.id === output.req.id; })[0]}"
 - assertTrue: "${output.after.status === 'accepted' && output.after.kind === 'academy' && output.after.classTitle === output.title}"
