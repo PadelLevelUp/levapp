@@ -114,6 +114,10 @@ function RouterProbe() {
       <span data-testid="probe-search">{location.search}</span>
       <button data-testid="probe-go-connections" onClick={() => navigate("/settings?tab=connections")} />
       <button data-testid="probe-go-settings" onClick={() => navigate("/settings")} />
+      <button
+        data-testid="probe-go-connections-with-param"
+        onClick={() => navigate("/settings?tab=connections&competencies=open")}
+      />
     </>
   );
 }
@@ -327,6 +331,16 @@ describe("SettingsPage — the tab follows the URL (PAD-459, settings.role-scope
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.getByTestId("probe-search").textContent).toBe("?tab=connections");
     expect(screen.getByTestId("settings-connections")).toBeInTheDocument();
+  });
+
+  it("the revert keeps the URL's other params (B's review of #456)", async () => {
+    await openOnCalendarAndToggleSunday();
+    fireEvent.click(screen.getByTestId("probe-go-connections-with-param"));
+    fireEvent.click(screen.getByTestId("settings-unsaved-keep"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-search").textContent).toBe("?tab=calendar&competencies=open")
+    );
   });
 
   it("Escape on a URL-driven switch keeps editing and reverts the URL too", async () => {

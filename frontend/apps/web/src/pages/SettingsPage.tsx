@@ -359,7 +359,12 @@ export default function SettingsPage() {
     setPendingTab({ id, openMobile, fromUrl });
   };
   const keepEditing = () => {
-    if (pendingTab?.fromUrl) navigate(`/settings?tab=${activeTab}`, { replace: true });
+    if (pendingTab?.fromUrl) {
+      // Only `tab` changes: the URL's other params (the competency manager's `competencies=open`) stay.
+      const params = new URLSearchParams(location.search);
+      params.set("tab", activeTab);
+      navigate(`/settings?${params.toString()}`, { replace: true });
+    }
     setPendingTab(null);
   };
 
