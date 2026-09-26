@@ -14,11 +14,14 @@ consent gets an account that nobody can use until a parent or legal guardian con
 emailed web form; the guardian can withdraw, which anonymises the account. This is the "parental
 consent process" the 2026-09-06 privacy policy and terms of service describe and PAD-198 asked for.
 
-> **PAD-445 (2026-09-25): no minor can sign up any more.** `auth.register` rule 18 refuses anyone
-> under 18 before the minor branch of rule 3 is reached, so no new `pending` account is created.
-> Everything below stays in force for accounts that are already `pending` or `granted`: login's
-> gate, resend, the consent page, withdrawal. What happens to those accounts, and whether this flow is
-> removed, is an open owner decision (coordinator, 2026-09-25); nothing here is deleted until then.
+> **DEPRECATED (PAD-457, owner 2026-09-25): LevApp accepts adults only and no minors exist.** The
+> guardian flow below is REMOVED from the code: the consent and withdrawal pages, the resend, the
+> mails, the sign-up guardian field and login's pending-consent answer. `auth.register` rule 18
+> refuses under-18s at sign-up; `auth.activate` rule 13 does the same at activation. The data is
+> kept: `guardian_consents`, `digital_consent_ages` and the `users.guardian_consent_status` column
+> stay because their prod rows could not be checked (no gcloud access on 2026-09-25); a `pending` or
+> `revoked` status is refused at login as disabled (`auth.login` rule 10). Dropping them is a later,
+> checked migration. Kept as the record of what existed.
 
 ### Entities
 - **WRITES:** User — new nullable columns `birth_date` (date), `country` (string(2), ISO 3166-1

@@ -53,6 +53,13 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
    their existing account and the invitation is `accepted`. The two paths are exclusive — a
    token is consumed by whichever runs first.
 
+10. **Adults only (PAD-457).** Completing the invitation creates a login, so the body also carries
+    `birthDate` (`YYYY-MM-DD`), judged exactly as sign-up judges it (`auth.register` rule 18, one shared
+    check): absent → 400 `BIRTH_DATE_REQUIRED` (bilingual "update the app" text), not a real past date →
+    400 `INVALID_BIRTH_DATE`, under 18 → 400 `UNDERAGE`, all on `field: "birthDate"`. A refusal writes
+    nothing (no username, no password, the account stays `inactive`, the invitation stays pending); an
+    accepted date is stored on the user. Web and iOS add the field (iOS typed DD/MM/AAAA).
+
 ### Acceptance Criteria
 
 #### Coach creates an incomplete player and gets an invite link
@@ -89,3 +96,13 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 - **When** a visitor with an active student session opens `/invite/player/<token>`
 - **Then** the page offers "Link this record to my account" instead of asking for a new username and password
 - **And** confirming calls `POST /api/app/player-invitations/<token>/claim` (see `players.claim`)
+
+#### An invitation refuses someone under 18 (PAD-457)
+- **Given** a coach's pending player invitation, today 2026-09-25 (UTC)
+- **When** it is accepted with username `teen457`, a password and `birthDate` `2008-09-26`
+- **Then** the response is 400 `UNDERAGE` on `birthDate` and no user holds `teen457`
+
+#### An adult completes the invitation with a birth date (PAD-457)
+- **Given** the same invitation
+- **When** it is accepted with `birthDate` `2008-09-25` (18 today)
+- **Then** the account is `active` and its `birth_date` is 2008-09-25; without a `birthDate` it is 400 `BIRTH_DATE_REQUIRED`
