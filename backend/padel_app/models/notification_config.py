@@ -241,6 +241,8 @@ class NotificationConfig(db.Model, model.Model):
     # (rule 7): `never` | `monthly` | `every_n_classes`; the value is N for the last.
     evaluation_reminder_type = Column(String(16), nullable=False, default="never", server_default="never")
     evaluation_reminder_value = Column(Integer, nullable=True)
+    # PAD-423 (evaluations.scale rule 1): the coach's evaluation scale, 1 to this (5, 10, 20, 100).
+    evaluation_scale_max = Column(Integer, nullable=False, default=5, server_default="5")
     # attendance.confirm: hours before class after which a cancellation is "late".
     cancellation_deadline_hours = Column(Float, nullable=False, default=24.0, server_default="24")
     # Restrictions (rule 6); the wire keys are unchanged, including
