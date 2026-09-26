@@ -49,6 +49,11 @@ class EvaluationCategory(db.Model, model.Model):
     competency_group = Column(String(16), nullable=True)  # general | technique | tactics | custom
     is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     sort_order = Column(Integer, nullable=True)
+    # PAD-431 (evaluations.competencies rule 15): the category a sub-category belongs to; NULL for a
+    # category. Two levels only, and never on a legacy row — enforced by the service, not here.
+    parent_id = Column(
+        Integer, ForeignKey("evaluation_categories.id", ondelete="CASCADE"), nullable=True, index=True
+    )
 
     entries = relationship(
         "EvaluationEntry", back_populates="category", cascade="all, delete-orphan",

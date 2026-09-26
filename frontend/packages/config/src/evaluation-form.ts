@@ -40,14 +40,22 @@ export function isStarCompetency(competency: Pick<EvaluationCompetency, "scaleMi
   return isStarScale(competency);
 }
 
-/** What "Nova avaliação" lists: the active competencies plus any switched-off one
- *  already rated in the record being edited — in the order the server sent them. */
+/** What "Nova avaliação" lists — in the order the server sent them:
+ *  - the active competencies, except a category with at least one active sub-category (its
+ *    sub-categories are offered instead). A sub-category's own flag decides, whatever its
+ *    category's (PAD-431, evaluations.competencies rules 15-16);
+ *  - plus anything the record being edited already rates, a switched-off one or a category's
+ *    history score included. */
 export function formCompetencies(
   competencies: EvaluationCompetency[],
   record: Pick<EvaluationRecord, "ratings"> | null
 ): EvaluationCompetency[] {
   const rated = new Set((record?.ratings ?? []).map((rating) => rating.categoryId));
-  return competencies.filter((competency) => competency.isActive || rated.has(competency.id));
+  const withActiveChild = new Set(
+    competencies.filter((c) => c.isActive && c.parentId != null).map((c) => c.parentId as number)
+  );
+  const offered = (c: EvaluationCompetency) => c.isActive && !withActiveChild.has(c.id);
+  return competencies.filter((competency) => offered(competency) || rated.has(competency.id));
 }
 
 /** Today's class-less record, if there is one. The server's `editable` says which day is today. */

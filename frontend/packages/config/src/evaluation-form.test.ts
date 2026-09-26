@@ -171,3 +171,38 @@ describe("the debounced writer (a stepper's consecutive steps are one input)", (
     expect(writer.pending()).toBe(true);
   });
 });
+
+// PAD-431 (evaluations.competencies rules 15-16): the tree on the form.
+describe("formCompetencies over categories and sub-categories (PAD-431)", () => {
+  const technique = competency({ id: 10, key: "technique", group: "general", parentId: null });
+  const vibora = competency({ id: 11, key: "vibora", group: "technique", parentId: 10 });
+  const smashOff = competency({ id: 12, key: "smash", group: "technique", parentId: 10, isActive: false });
+  const consistency = competency({ id: 20, key: "consistency", group: "general", parentId: null });
+
+  it("offers the sub-categories, not a category that has an active one", () => {
+    expect(formCompetencies([technique, vibora, smashOff, consistency], null).map((c) => c.id)).toEqual([11, 20]);
+  });
+
+  it("toggles with its sub-categories: all off → the category is offered; one back on → hidden again", () => {
+    const viboraOff = { ...vibora, isActive: false };
+    expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);
+    const smashOn = { ...smashOff, isActive: true };
+    expect(formCompetencies([technique, viboraOff, smashOn], null).map((c) => c.id)).toEqual([12]);
+  });
+
+  it("offers a category directly once none of its sub-categories is active", () => {
+    const viboraOff = { ...vibora, isActive: false };
+    expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);
+  });
+
+  it("offers an active sub-category even when its category is switched off", () => {
+    // A coach who had Técnica off and Smash on before PAD-431 keeps Smash on the form.
+    const techniqueOff = { ...technique, isActive: false };
+    expect(formCompetencies([techniqueOff, vibora, consistency], null).map((c) => c.id)).toEqual([11, 20]);
+  });
+
+  it("keeps whatever the record being edited already rates — a history score included", () => {
+    const today = record({ ratings: [{ categoryId: 10, name: "Técnica", key: "technique", score: 4, scaleMin: 1, scaleMax: 5 }] });
+    expect(formCompetencies([technique, vibora, consistency], today).map((c) => c.id)).toEqual([10, 11, 20]);
+  });
+});
