@@ -61,8 +61,8 @@
       "statusFor": "Attendance for {{name}}",
       "validatedThisWeek": "Validated this week",
       "readyBanner": "Everyone answered — ready to confirm.",
-      "awaiting_one": "{{count}} player still needs a decision",
-      "awaiting_other": "{{count}} players still need a decision",
+      "awaiting_one": "{{count}} player still to decide",
+      "awaiting_other": "{{count}} players still to decide",
       "skipped_one": "{{count}} class skipped — it has players with no answer and must be reviewed on its own.",
       "skipped_other": "{{count}} classes skipped — they have players with no answer and must be reviewed one by one.",
       "empty": "Nothing left to validate this week. Nice work.",
@@ -70,7 +70,8 @@
         "needsInput": "Needs your input ({{count}})",
         "ready": "Ready to confirm ({{count}})"
       },
-      "triggerEmpty": "Nothing to validate"
+      "triggerEmpty": "Nothing to validate",
+      "needsDecision": "Needs a decision"
     },
     "column": {
       "name": "Player",

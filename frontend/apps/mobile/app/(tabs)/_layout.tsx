@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
-import { queryKeys, useUnreadCount } from "@levelup/hooks";
+import { lightTheme, validationTier } from "@levelup/config";
+import { queryKeys, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
@@ -119,6 +119,14 @@ export default function TabsLayout() {
     dataUpdatedAt: unreadUpdatedAt,
   });
 
+  // PAD-443 (attendance.validation rule 23): the dashboard's "classes to validate" number on the
+  // Presences tab, tiered by the shared `validationTier` (yellow 1-5, red above 5). Coach-only, and
+  // called before the early returns below (a hook runs on every render). Presence writes refresh it
+  // through the `presence-pending` prefix (useInvalidatePresences).
+  const coachSession = isAuthenticated && (user?.roles?.includes("coach") ?? false);
+  const pendingValidation = usePendingValidationBadge(coachSession).data?.count ?? 0;
+  const validationBadgeTier = validationTier(pendingValidation);
+
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
@@ -226,6 +234,16 @@ export default function TabsLayout() {
           href: isCoach ? undefined : null,
           title: t("nav.presences"),
           tabBarButtonTestID: "tab-presences",
+          tabBarBadge:
+            validationBadgeTier === "none" ? undefined : pendingValidation > 99 ? "99+" : pendingValidation,
+          tabBarBadgeStyle:
+            validationBadgeTier === "attention"
+              ? { backgroundColor: "#FACC15", color: "#422006" } // yellow-400 / yellow-950, as web
+              : { backgroundColor: lightTheme.destructive, color: "#FFFFFF" },
+          tabBarAccessibilityLabel:
+            validationBadgeTier === "none"
+              ? t("nav.presences")
+              : `${t("nav.presences")}, ${t("nav.presencesBadge", { count: pendingValidation })}`,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="clipboard-outline" color={color} size={size} />
           ),
