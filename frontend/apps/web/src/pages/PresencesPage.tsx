@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@levelup/hooks";
 import { CalendarCheck, TrendingUp, UserCheck, Users } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -57,6 +59,13 @@ const TREND_DEBOUNCE_MS = 300;
 export default function PresencesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  // PAD-443 (attendance.validation rule 23): every write moves the Presences badge, so refresh it
+  // after each one, including a bulk run that stopped part-way.
+  const queryClient = useQueryClient();
+  const refreshBadge = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: queryKeys.pendingValidationBadge }),
+    [queryClient]
+  );
 
   const [stats, setStats] = useState<PresenceStats | null>(null);
   const [trend, setTrend] = useState<PresenceTrend | null>(null);
@@ -211,9 +220,10 @@ export default function PresencesPage() {
         });
       } finally {
         setBusyClassIds([]);
+        refreshBadge();
       }
     },
-    [loadQueue, loadStats, t, toast]
+    [loadQueue, loadStats, refreshBadge, t, toast]
   );
 
   const handleUnvalidate = useCallback(
@@ -230,9 +240,10 @@ export default function PresencesPage() {
         });
       } finally {
         setBusyClassIds([]);
+        refreshBadge();
       }
     },
-    [loadQueue, loadStats, t, toast]
+    [loadQueue, loadStats, refreshBadge, t, toast]
   );
 
   const totals = stats?.totals;

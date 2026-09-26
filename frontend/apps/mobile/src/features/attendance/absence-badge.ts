@@ -16,7 +16,7 @@ import type { AbsenceJustification } from "@levelup/types";
 export interface AbsenceBadge {
   justification: AbsenceJustification;
   labelKey: "absences.justified" | "absences.unjustified";
-  variant: "secondary" | "destructive";
+  variant: "warning" | "destructive";
 }
 
 export function absenceBadge(
@@ -27,6 +27,7 @@ export function absenceBadge(
   return {
     justification,
     labelKey: justified ? "absences.justified" : "absences.unjustified",
-    variant: justified ? "secondary" : "destructive",
+    // PAD-441 (attendance.absences rule 14): amber, the tone `presenceMarkTone` gives it.
+    variant: justified ? "warning" : "destructive",
   };
 }

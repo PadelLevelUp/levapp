@@ -8,6 +8,7 @@ export * from "./class-colors";
 export * from "./dashboard-format";
 export * from "./dateLocale";
 export * from "./presence-status";
+export * from "./validation-tier";
 export * from "./presence-scope";
 export * from "./eligibility-report";
 export * from "./eligibility-tier";

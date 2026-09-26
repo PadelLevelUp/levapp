@@ -14,6 +14,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { evaluationRecordIds, removeEvaluationRecordsSince } from "../helpers/cleanup";
 
 async function coachToken(request: APIRequestContext): Promise<string> {
   const login = await request.post(`${API_AUTH}/login`, { data: { username: COACH_USERNAME, password: COACH_PASSWORD } });
@@ -59,9 +60,17 @@ async function todaysRecord(request: APIRequestContext, token: string, playerId:
 }
 
 const created: string[] = [];
-test.afterEach(async ({ request }) => {
-  if (created.length === 0) return;
+// PAD-452 (B-180): each test's note edit files today's record on E2E Student. Left behind, it makes
+// the student "evaluated" for every later spec (evaluation-reminder's due marker needs "never").
+let recordsBefore: Set<number> = new Set();
+test.beforeEach(async ({ request }) => {
   const token = await coachToken(request);
+  recordsBefore = await evaluationRecordIds(request, bearer(token), await studentId(request, token));
+});
+
+test.afterEach(async ({ request }) => {
+  const token = await coachToken(request);
+  await removeEvaluationRecordsSince(request, bearer(token), await studentId(request, token), recordsBefore);
   for (const id of created.splice(0)) {
     const gone = await request.delete(`${API_APP}/evaluation_competency/${id}`, { headers: bearer(token) });
     expect(gone.ok(), `category ${id} was cleaned up`).toBeTruthy();

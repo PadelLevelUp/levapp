@@ -39,3 +39,18 @@ export async function openAvailability(page: Page) {
   await page.goto("/availability");
   await page.waitForURL("**/availability");
 }
+
+/**
+ * The conversation-list row whose participant is exactly `name`.
+ *
+ * `page.getByText("E2E Student").first()` also matches "E2E Student Two" and any message preview
+ * containing the name, so it opened whichever of those rows was newest. In a full serial run that
+ * is E2E Student Two (the evaluation-tools specs' "shared an evaluation" messages bump it to the
+ * top), and the spec then asserted against the wrong thread.
+ */
+export function conversationRow(page: Page, name: string) {
+  return page
+    .getByRole("button")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .first();
+}

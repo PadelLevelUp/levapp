@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { openMessages, conversationRow } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 // PAD-98: the chat conversation list (left panel) must show the DAY, not only
@@ -51,7 +51,7 @@ test("US-98: conversation list shows a day label for older conversations", async
   await openMessages(page);
 
   // Wait for the conversation list to load.
-  await expect(page.getByText("E2E Student").first()).toBeVisible({ timeout: 5000 });
+  await expect(conversationRow(page, "E2E Student")).toBeVisible({ timeout: 5000 });
 
   // The yesterday-dated conversation row.
   const yesterdayRow = page.locator("button", { hasText: PARTNER });

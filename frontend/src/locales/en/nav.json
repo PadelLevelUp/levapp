@@ -11,6 +11,8 @@
     "editor": "Editor",
     "logout": "Log out",
     "presences": "Presences",
+    "presencesBadge_one": "{{count}} class to validate",
+    "presencesBadge_other": "{{count}} classes to validate",
     "classRequests": "Class requests"
   }
 }
