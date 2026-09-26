@@ -1711,6 +1711,13 @@ export interface DashboardEvaluationsBlock {
 export type EvaluationReminder = "never" | "monthly" | "every_n_classes";
 
 /** `GET/PUT /app/evaluation_settings`. `everyN` is present only for `every_n_classes`. */
+/** evaluations.scale rule 1 (PAD-423): the coach's evaluation scale, 1 to `scaleMax`. 5 by default. */
+export type EvaluationScaleMax = 5 | 10 | 20 | 100;
+
+export interface EvaluationScale {
+  scaleMax: EvaluationScaleMax;
+}
+
 export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;

@@ -24,6 +24,7 @@ import { Text } from "@/components/ui/text";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { CompetenciesSettingsEntry } from "@/features/evaluations/competency-manager/competencies-settings-entry";
 import { EvaluationReminderSetting } from "@/features/evaluations/evaluation-reminder-setting";
+import { EvaluationScaleSetting } from "@/features/evaluations/evaluation-scale-setting";
 import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
 import i18n from "@/lib/i18n";
 
@@ -194,6 +195,7 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
       {isCoach ? <CoachLevelsSection /> : null}
       {isCoach ? <CompetenciesSettingsEntry /> : null}
       {isCoach ? <EvaluationReminderSetting /> : null}
+      {isCoach ? <EvaluationScaleSetting /> : null}
     </View>
   );
 }

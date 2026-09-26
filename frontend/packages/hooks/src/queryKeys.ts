@@ -29,6 +29,8 @@ export const queryKeys = {
   evaluationCompetencyImpact: (competencyId: number) => ["evaluation-competency-impact", competencyId] as const,
   // PAD-404: the coach's evaluation reminder setting (one per coach).
   evaluationSettings: ["evaluation-settings"] as const,
+  // PAD-423: the coach's evaluation scale (one per coach).
+  evaluationScale: ["evaluation-scale"] as const,
   conversations: (page = 1, limit = 20) =>
     ["conversations", { page, limit }] as const,
   conversation: (conversationId: string) =>

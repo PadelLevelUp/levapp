@@ -220,6 +220,10 @@ executionOrder:
     - 117-month-grid-seven-columns
     # 118 (PAD-439): the add-to-classes picker cannot step back from the current week; next week offers classes.
     - 118-add-to-classes-no-past
+    # 119/120 (PAD-423): the coach's evaluation scale — 1-10 gives a slider (one tap, one rating);
+    # a scale change rewrites no score (4/5 stars beside 7/10 on one history card).
+    - 119-evaluation-scale-slider
+    - 120-evaluation-scale-history
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

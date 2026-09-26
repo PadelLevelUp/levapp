@@ -74,6 +74,17 @@
       "invalidNumber": "Enter a whole number between 1 and 99.",
       "saveFailed": "Could not save. Try again.",
       "dueLabel": "Evaluation due"
+    },
+    "scale": {
+      "title": "Evaluation scale",
+      "options": {
+        "5": "1–5 (stars)",
+        "10": "1–10",
+        "20": "1–20",
+        "100": "1–100"
+      },
+      "caption": "Past evaluations keep their own scale; new ones use the one you choose.",
+      "saveFailed": "Could not save. Try again."
     }
   }
 }
