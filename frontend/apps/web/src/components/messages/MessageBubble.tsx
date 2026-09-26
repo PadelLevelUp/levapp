@@ -639,6 +639,8 @@ export function MessageBubble({
             data-testid="class-request-proposal-actions"
             data-state={classRequestState.kind}
             data-request-id={classRequestMeta.id}
+            // B-188: which message carries it — the request itself (rule 10a) or a proposal (rule 6).
+            data-kind={isClassRequestAsk ? "request" : "proposal"}
           >
             {classRequestState.kind === "actions" ? (
               <>
