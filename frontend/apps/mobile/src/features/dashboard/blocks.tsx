@@ -17,7 +17,7 @@
  * and opens the class detail screen with the params it needs, the way the
  * calendar does.
  */
-import { shortDate, weekdayLong, weekdayShort } from "@levelup/config";
+import { shortDate, validationTier, weekdayLong, weekdayShort } from "@levelup/config";
 import type {
   DashboardKpiGridBlock,
   DashboardNeedsYouBlock,
@@ -601,10 +601,35 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
   }
 
   const it = item as DashboardNeedsYouValidation;
+  // PAD-443 (dashboard.blocks rule 11): the card carries the Presences badge's tiered number — yellow
+  // 1-5, red above 5 — from the shared `validationTier`, so the card, the tab badge and the web agree.
+  const tier = validationTier(it.count);
   return (
-    // No accent — validation is a chore, not a problem.
+    // No edge accent (those stay for classes needing players and replies); the tiered number instead.
     <ActionCard testID="dashboard-queue-validation">
       <View className="flex-row items-center gap-3.5">
+        {tier !== "none" && (
+          <View
+            testID="dashboard-queue-validation-tier"
+            accessibilityLabel={t("nav.presencesBadge", { count: it.count })}
+            accessibilityValue={{ text: tier }}
+            className={
+              tier === "attention"
+                ? "h-7 min-w-[28px] items-center justify-center rounded-full bg-yellow-400 px-2"
+                : "h-7 min-w-[28px] items-center justify-center rounded-full bg-destructive px-2"
+            }
+          >
+            <Text
+              className={
+                tier === "attention"
+                  ? "text-[13px] font-sans-semibold text-yellow-950"
+                  : "text-[13px] font-sans-semibold text-destructive-foreground"
+              }
+            >
+              {it.count > 99 ? "99+" : it.count}
+            </Text>
+          </View>
+        )}
         <View className="flex-1">
           <Text
             className="text-[15px] font-sans-bold text-foreground"

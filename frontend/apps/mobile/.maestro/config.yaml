@@ -203,6 +203,9 @@ executionOrder:
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
     - 105-settings-restrictions
+    # 107 (PAD-443): the dashboard's tiered validation pill, then the validate sheet on last
+    # week — the seed's silent student is flagged until marked present. Stores nothing.
+    - 107-validation-highlight
     # 110 creates a private class by API, opens it as the coach and asserts "Automatic
     # invitations" (PAD-429): the type default read back by API, then switched On for that
     # class and read back as the override. Teardown removes the class.

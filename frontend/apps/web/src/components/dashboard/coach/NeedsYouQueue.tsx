@@ -28,7 +28,8 @@ import { ActionCard, Eyebrow } from "./primitives";
 import { AnswerButtons } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
 import { useAnswerVacancyInvite, useAnswerWaitingListOffer } from "./useAnswerAsk";
-import { shortDate } from "@levelup/config";
+import { shortDate, validationTier } from "@levelup/config";
+import { PresencesBadge } from "@/components/layout/PresencesBadge";
 
 export function NeedsYouQueue({
   block,
@@ -346,16 +347,23 @@ function ValidationCard({ item }: { item: DashboardNeedsYouValidation }) {
   const navigate = useNavigate();
 
   return (
-    // No accent: validation is a chore, not a problem. And it is a single line,
-    // so on desktop it spans both columns rather than leaving a half-empty row.
+    // No edge accent (those stay for classes needing players and replies); PAD-443 gives it the
+    // Presences badge's tiered number instead (dashboard.blocks rule 11), so the card and the badge
+    // read the same. A single line, so on desktop it spans both columns.
     <ActionCard
       className="flex items-center gap-3.5 lg:col-span-2"
       testId="dashboard-queue-validation"
     >
+      <PresencesBadge
+        count={item.count}
+        testId="dashboard-queue-validation-tier"
+        className="h-7 min-w-[28px] shrink-0 px-2 text-[13px]"
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span
           className="text-[15px] font-bold tabular-nums"
           data-testid="dashboard-queue-validation-count"
+          data-tier={validationTier(item.count)}
         >
           {t("dashboard.needsYou.validation.title", { count: item.count })}
         </span>

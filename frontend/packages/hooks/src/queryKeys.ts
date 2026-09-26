@@ -51,4 +51,7 @@ export const queryKeys = {
   exerciseGroups: ["exercise-groups"] as const,
   // ── PAD-402 evaluation sharing ──
   myEvaluations: ["my-evaluations"] as const,
+  // PAD-443: the Presences badge. Under the `presence-pending` prefix, so every presence write that
+  // already invalidates the pending list (iOS `useInvalidatePresences`) refreshes the badge too.
+  pendingValidationBadge: ["presence-pending", "badge"] as const,
 };

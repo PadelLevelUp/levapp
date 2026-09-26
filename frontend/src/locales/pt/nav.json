@@ -11,6 +11,8 @@
     "editor": "Editor",
     "logout": "Terminar sessão",
     "presences": "Presenças",
+    "presencesBadge_one": "{{count}} aula por validar",
+    "presencesBadge_other": "{{count}} aulas por validar",
     "classRequests": "Pedidos de aula"
   }
 }
