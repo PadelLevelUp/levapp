@@ -77,9 +77,10 @@ onFlowComplete:
     commands:
       - tapOn:
           id: "overlap-confirm"
+# The screen goes back to where the deep link came from (the dashboard), so wait for it to close.
 - extendedWaitUntil:
-    visible:
-      id: "screen-calendar"
+    notVisible:
+      id: "class-new"
     timeout: 15000
 
 # The server's own expansion: exactly the five dates, the last the fifth class's. Bounded re-read:
