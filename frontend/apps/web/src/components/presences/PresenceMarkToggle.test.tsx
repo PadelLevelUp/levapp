@@ -28,6 +28,8 @@ describe("PresenceMarkToggle colours (PAD-441)", () => {
     expect(button).toHaveAttribute("aria-pressed", "true");
     expect(button).toHaveAttribute("data-tone", tone);
     expect(button.className.split(/\s+/)).toContain(border);
+    // The non-colour cue (E's #461 review): the selected label is bold.
+    expect(screen.getByTestId(`presence-mark-${mark}-label`).className.split(/\s+/)).toContain("font-semibold");
   });
 
   it("leaves every unselected option neutral", () => {
@@ -36,6 +38,7 @@ describe("PresenceMarkToggle colours (PAD-441)", () => {
       const button = screen.getByTestId(`presence-mark-${mark}`);
       expect(button).toHaveAttribute("aria-pressed", "false");
       expect(button).toHaveAttribute("data-tone", "neutral");
+      expect(screen.getByTestId(`presence-mark-${mark}-label`).className.split(/\s+/)).not.toContain("font-semibold");
     }
   });
 });

@@ -53,6 +53,9 @@ export function PresenceMarkToggle({
       {OPTIONS.map((option) => {
         const active = value === option;
         const tone = active ? presenceMarkTone(option) : "neutral";
+        const label = t(
+          size === "sm" ? `presences.mark.short.${option}` : `presences.mark.${option}`
+        );
         return (
           <button
             key={option}
@@ -63,7 +66,7 @@ export function PresenceMarkToggle({
             data-tone={tone}
             onClick={() => onChange(option)}
             className={cn(
-              "rounded-md border font-medium transition-colors",
+              "rounded-md border transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
               "disabled:cursor-not-allowed disabled:opacity-50",
               size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
@@ -73,11 +76,23 @@ export function PresenceMarkToggle({
                   SELECTED_CLASSES[tone]
             )}
           >
-            {t(
-              size === "sm"
-                ? `presences.mark.short.${option}`
-                : `presences.mark.${option}`
-            )}
+            {/* PAD-441 (rule 26): the selected label is bold, so colour is never the only cue. A
+                hidden bold copy reserves the bold width in both states, so selecting never
+                widens the button under the finger. */}
+            <span className="inline-grid">
+              <span aria-hidden className="invisible col-start-1 row-start-1 font-semibold">
+                {label}
+              </span>
+              <span
+                data-testid={`presence-mark-${option}-label`}
+                className={cn(
+                  "col-start-1 row-start-1",
+                  tone === "neutral" ? "font-medium" : "font-semibold"
+                )}
+              >
+                {label}
+              </span>
+            </span>
           </button>
         );
       })}
