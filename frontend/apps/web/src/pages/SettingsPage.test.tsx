@@ -13,7 +13,7 @@
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@/components/layout/AppLayout", () => ({
@@ -77,7 +77,7 @@ vi.mock("@/components/evaluations/competency-manager/CompetenciesSettingsEntry",
   CompetenciesSettingsEntry: () => <div data-testid="stub-competencies" />,
 }));
 
-import SettingsPage from "./SettingsPage";
+import SettingsPage, { parseTab } from "./SettingsPage";
 
 const ME = {
   name: "Coach",
@@ -105,6 +105,19 @@ function goto(path: string) {
   window.history.pushState({}, "", path);
 }
 
+// PAD-459: the avatar menu's navigation, from outside the page, plus the router's current search.
+function RouterProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <span data-testid="probe-search">{location.search}</span>
+      <button data-testid="probe-go-connections" onClick={() => navigate("/settings?tab=connections")} />
+      <button data-testid="probe-go-settings" onClick={() => navigate("/settings")} />
+    </>
+  );
+}
+
 // A fresh query client per render: the page's sections that are not stubbed here may read through
 // @levelup/hooks (PAD-404's reminder setting on the Preferences tab does), and a shared client
 // would carry one test's cache into the next.
@@ -112,8 +125,9 @@ function renderSettings() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[window.location.pathname + window.location.search]}>
         <SettingsPage />
+        <RouterProbe />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -277,5 +291,64 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
 
     addSpy.mockRestore();
     removeSpy.mockRestore();
+  });
+});
+
+describe("SettingsPage — the tab follows the URL (PAD-459, settings.role-scope rule 2)", () => {
+  it("parseTab reads ?tab=, and an unknown or missing tab is Preferences", () => {
+    expect(parseTab("?tab=connections")).toBe("connections");
+    expect(parseTab("?tab=calendar")).toBe("calendar");
+    expect(parseTab("?tab=nonsense")).toBe("preferences");
+    expect(parseTab("")).toBe("preferences");
+  });
+
+  it("a second navigation while Settings is open lands on My connections, without a remount", async () => {
+    goto("/settings");
+    renderSettings();
+    await screen.findByTestId("settings-request-alerts");
+    const readsBefore = getMe.mock.calls.length;
+
+    fireEvent.click(screen.getByTestId("probe-go-connections"));
+    expect(await screen.findByTestId("settings-connections")).toBeInTheDocument();
+    // The page did not remount: its mount-time profile read did not run again.
+    expect(getMe.mock.calls.length).toBe(readsBefore);
+
+    fireEvent.click(screen.getByTestId("probe-go-settings"));
+    expect(await screen.findByTestId("settings-request-alerts")).toBeInTheDocument();
+  });
+
+  it("Discard on a URL-driven switch lands on My connections and the URL stays there", async () => {
+    await openOnCalendarAndToggleSunday();
+    fireEvent.click(screen.getByTestId("probe-go-connections"));
+    fireEvent.click(screen.getByTestId("settings-unsaved-discard"));
+
+    expect(await screen.findByTestId("settings-connections")).toBeInTheDocument();
+    // Give any stray revert a chance to land before asserting it did not.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByTestId("probe-search").textContent).toBe("?tab=connections");
+    expect(screen.getByTestId("settings-connections")).toBeInTheDocument();
+  });
+
+  it("Escape on a URL-driven switch keeps editing and reverts the URL too", async () => {
+    await openOnCalendarAndToggleSunday();
+    fireEvent.click(screen.getByTestId("probe-go-connections"));
+    fireEvent.keyDown(screen.getByTestId("settings-unsaved-dialog"), { key: "Escape" });
+
+    await waitFor(() => expect(dialog()).not.toBeInTheDocument());
+    expect(screen.getByTestId("working-hours")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("probe-search").textContent).toBe("?tab=calendar"));
+  });
+
+  it("Keep editing on a URL-driven switch puts ?tab= back on the section still shown", async () => {
+    await openOnCalendarAndToggleSunday();
+    fireEvent.click(screen.getByTestId("probe-go-connections"));
+    expect(dialog()).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-unsaved-keep"));
+
+    expect(dialog()).not.toBeInTheDocument();
+    expect(screen.getByTestId("working-hours")).toBeInTheDocument();
+    expect(sunday()).toHaveAttribute("data-state", "off");
+    await waitFor(() => expect(screen.getByTestId("probe-search").textContent).toBe("?tab=calendar"));
   });
 });
