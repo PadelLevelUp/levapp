@@ -19,6 +19,8 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 beforeAll(() => {
   window.HTMLElement.prototype.scrollIntoView = () => {};
+  // Radix's slider (a 1-10 competency's input, PAD-423) measures itself.
+  globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 });
 
 const competency = (over: Partial<EvaluationCompetency>): EvaluationCompetency => ({
@@ -255,5 +257,27 @@ describe("what the form lists", () => {
     expect(screen.queryByTestId("evaluation-note")).toBeNull();
     fireEvent.click(screen.getByTestId("evaluation-manage-competencies"));
     expect(onManageCompetencies).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("a rating the record already holds keeps its own scale (D149)", () => {
+  // The coach moved to 1-10 after rating Garra 4 today (on 1-5); Bandeja is new, on 1-10.
+  const GARRA = competency({ id: 4, name: "Garra", scaleMin: 1, scaleMax: 10 });
+  const BANDEJA = competency({ id: 5, name: "Bandeja", scaleMin: 1, scaleMax: 10 });
+  const TODAY = record({ ratings: [{ categoryId: 4, name: "Garra", key: null, score: 4, scaleMin: 1, scaleMax: 5 }] });
+
+  it("draws the earlier 4/5 as four stars, never as 4 on the new 1-10 slider", () => {
+    setup({ competencies: [GARRA, BANDEJA], record: TODAY });
+    expect(lit(4)).toBe(4);
+    expect(screen.queryByTestId("evaluation-slider-4-input")).toBeNull();
+    // A competency the record does not rate yet takes the coach's current scale.
+    expect(screen.getByTestId("evaluation-slider-5-input")).toBeTruthy();
+  });
+
+  it("re-saving it stays on its own 1-5: a tap on the fifth star sends 5", async () => {
+    const { onSave } = setup({ competencies: [GARRA, BANDEJA], record: TODAY });
+    await act(async () => fireEvent.click(star(4, 5)));
+    expect(onSave).toHaveBeenCalledWith({ ratings: { "4": 5 }, recordId: 40 });
   });
 });

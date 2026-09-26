@@ -1567,7 +1567,20 @@ def _check_per_student_daily_limit(
 # Conversation / message helpers
 # ---------------------------------------------------------------------------
 
+# The connectors an empty placeholder takes with it (notifications.message-templates
+# rules 7 and 14): the genitives for every placeholder, and for ``{court}`` the
+# locative prepositions too ("às 19:00 no {court}" -> "às 19:00").
+_EMPTY_PLACEHOLDER_CONNECTORS = ("de", "da", "do", "of")
+_EMPTY_COURT_CONNECTORS = _EMPTY_PLACEHOLDER_CONNECTORS + ("em", "no", "na", "in", "on", "at")
+
+
+_LEADING_PUNCTUATION = re.compile(r"^[,.;:!?\-–—\s]+")
+
+
 def _format_template(template: str, **variables) -> str:
+    # The coach may open a template on punctuation ("- Lembrete: …"); only a
+    # leading run the substitution *exposed* is stripped below (B's #455 review).
+    opens_on_punctuation = bool(_LEADING_PUNCTUATION.match(template.strip()))
     for key, val in variables.items():
         val = str(val)
         if val == "":
@@ -1575,19 +1588,28 @@ def _format_template(template: str, **variables) -> str:
             # phrase disappears whole. Every pt default puts {level} after the
             # genitive "de", so an empty string alone left "aula de esta
             # quarta-feira"; the connector goes with the placeholder.
+            connectors = _EMPTY_COURT_CONNECTORS if key == "court" else _EMPTY_PLACEHOLDER_CONNECTORS
             template = re.sub(
-                r"\b(?:de|da|do|of)\s+\{" + re.escape(key) + r"\}",
+                r"\b(?:" + "|".join(connectors) + r")\s+\{" + re.escape(key) + r"\}",
                 "{" + key + "}",
                 template,
                 flags=re.IGNORECASE,
             )
         template = template.replace("{" + key + "}", val)
+    # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
+    template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a
     # double space or a space before punctuation; collapse those so the rendered
     # message stays grammatical.
     template = re.sub(r"\s{2,}", " ", template)
     template = re.sub(r"\s+([,.!?;:])", r"\1", template)
-    return template.strip()
+    template = template.strip()
+    # A message that opened with the empty phrase ("No {court}, às …") is left
+    # starting on punctuation: drop it and capitalise what now leads.
+    trimmed = _LEADING_PUNCTUATION.sub("", template)
+    if trimmed != template and not opens_on_punctuation:
+        template = trimmed[:1].upper() + trimmed[1:]
+    return template
 
 
 # Portuguese weekday names, indexed by ``datetime.weekday()`` (Monday == 0).
@@ -1633,6 +1655,31 @@ def _format_weekday(dt, locale):
         return format_date(dt, format="EEEE", locale=locale)
     except Exception:
         return dt.strftime("%A")
+
+
+_CLASS_TYPE_WORDS = {
+    "pt": {"academy": "academia", "private": "privada"},
+    "en": {"academy": "academy", "private": "private"},
+}
+
+
+def class_placeholders(source, locale) -> dict:
+    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
+
+    ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
+    locale like every other placeholder (notifications.message-templates rule 12);
+    the date is ``dd/mm`` of the wall-clock start (rule 13); the court is the
+    lesson's court name, empty when it has none (rule 14).
+    """
+    lesson = source.lesson if isinstance(source, LessonInstance) else source
+    start = getattr(source, "start_datetime", None)
+    court = getattr(lesson, "court", None) if lesson is not None else None
+    lesson_type = getattr(lesson, "type", None) if lesson is not None else None
+    return {
+        "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
+        "date": start.strftime("%d/%m") if start else "",
+        "court": (getattr(court, "name", None) or "") if court is not None else "",
+    }
 
 
 def _get_or_create_direct_conversation(coach_user_id: int, player_user_id: int):
@@ -2061,6 +2108,7 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
                 # title is what a student recognises, and one `{when}` serves a
                 # series and a single occurrence alike.
                 "level": effective_level_code(source),
+                **class_placeholders(source, locale),
                 "weekday": _format_weekday(started_at, locale) if started_at else "",
                 "time": started_at.strftime("%H:%M") if started_at else "",
             },
@@ -2144,6 +2192,7 @@ def collect_cancellation_recipients(source) -> list[dict]:
             level=level_code,
             weekday=weekday,
             time=time_str,
+            **class_placeholders(source, locale),
         )
         recipients.append(
             {
@@ -2757,6 +2806,7 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
             level=level_code,
             weekday=weekday,
             time=time_str,
+            **class_placeholders(instance, locale),
         )
 
         # PAD-49: Supersede older un-actioned reminders for THIS (player, instance)
@@ -3754,6 +3804,7 @@ def _send_invitation_batch(
             level=level_code,
             weekday=weekday,
             time=time_str,
+            **class_placeholders(instance, locale),
         )
         msg = _send_system_message(
             coach_user_id=coach_user_id,
@@ -4494,6 +4545,7 @@ def send_manual_notifications(
                 level=level_code,
                 weekday=weekday,
                 time=time_str,
+                **class_placeholders(instance, locale),
             )
 
             msg = _send_system_message(
@@ -4949,6 +5001,7 @@ def _fill_from_waiting_list(
         level=level_code,
         weekday=weekday,
         time=time_str,
+        **class_placeholders(instance, locale),
     )
     _send_system_message(
         coach_user_id=coach.user_id,

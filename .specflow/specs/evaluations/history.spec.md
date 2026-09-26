@@ -50,7 +50,9 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
    lists competencies, then "Nota privada (opcional)", then "Concluir avaliação", which only
    closes it; it also has an explicit close control. It writes today's **class-less** record;
    if that record already exists the form opens on it, pre-filled. Tapping nothing creates
-   nothing. Stars for a 1–5 competency, a number with a stepper for a legacy scale; tapping the
+   nothing. Stars for a 1–5 competency, a slider for 1–10/20/100 (`evaluations.scale` rule 7), a
+   number with a stepper for a legacy scale; a past score shows on its own scale ("4/5" after the
+   coach moved to 1–10, `evaluations.scale` rule 6); tapping the
    lit star clears it (`evaluations.records` rule 10).
 5. **(build default Q26, AV-071) What the form lists.** The coach's active competencies plus any
    switched-off competency already rated in today's class-less record. When that list is empty

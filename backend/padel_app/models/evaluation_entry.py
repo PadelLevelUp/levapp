@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Index, func, text
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Index, event, func, text
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -47,6 +48,11 @@ class EvaluationEntry(db.Model, model.Model):
     # conversion to stars; NULL for every score rated afterwards. Migration-only. FLOAT
     # like `score`, so a non-whole original is restored exactly by the downgrade.
     score_before_conversion = Column(Float, nullable=True)
+    # PAD-423 (evaluations.scale rule 3): the scale this score was given on, written on every save
+    # from the category's scale at that moment and never rewritten when the coach changes scale.
+    # NULL only for a row the migration could not backfill: read as 1-5.
+    scale_min = Column(Integer, nullable=True)
+    scale_max = Column(Integer, nullable=True)
     comment = Column(String(500), nullable=True)
     # PAD-273 (audit M12): `.strftime` is called on it, so it can never be NULL.
     # The app's own clock, looked up at WRITE time (`lambda`, not the function object): the tests
@@ -118,3 +124,29 @@ class EvaluationEntry(db.Model, model.Model):
         form.add_block(info_block)
 
         return form
+
+
+# PAD-423 (evaluations.scale rule 3): every entry stores the scale it was given on, whoever writes
+# it (the records API, the frozen legacy save, the import): the category's scale at that moment.
+# Taken on insert only (D149): a re-score keeps the entry's own scale, and nothing else rewrites it,
+# so the coach changing scale later never changes what a score meant.
+def _snapshot_scale(connection, target):
+    row = connection.execute(
+        text("SELECT scale_min, scale_max FROM evaluation_categories WHERE id = :id"), {"id": target.category_id}
+    ).first()
+    if row is not None:
+        target.scale_min = 1 if row[0] is None else row[0]
+        target.scale_max = 5 if row[1] is None else row[1]
+
+
+@event.listens_for(EvaluationEntry, "before_insert")
+def _entry_scale_on_insert(mapper, connection, target):
+    _snapshot_scale(connection, target)
+
+
+@event.listens_for(EvaluationEntry, "before_update")
+def _entry_scale_on_rescore(mapper, connection, target):
+    # D149: a re-score keeps the entry's own scale (4/5 never silently becomes 4/10); only an
+    # entry that has no snapshot yet (a row from before PAD-423 the backfill missed) takes one.
+    if target.scale_max is None and sa_inspect(target).attrs.score.history.has_changes():
+        _snapshot_scale(connection, target)

@@ -136,6 +136,18 @@ by a student's request — and whichever lands first wins.
     - `GET /app/class-requests` is unchanged. Builds that predate this rule never call the new
       endpoint and see the lists as before.
 
+18. **The coach answers an academy request from its chat bubble (PAD-461, part 2 of PAD-427).**
+    - **The bubble:** the student's ask is mirrored into the coach ↔ student conversation (rule 15,
+      `msg_metadata.joinRequest {id, status}`). The coach's view of that message offers Accept /
+      Decline while the request's live status (`GET /app/class-join-requests`, rule 17) is
+      `pending`.
+    - **Accept** asks rule 7's confirmation on `409 ineligible`; `spot_filled`, `class_closed` and
+      `not_pending` show as they do on the class sheet and the list.
+    - **Once the request is decided**, withdrawn or superseded, the bubble shows that outcome
+      instead of the actions.
+    - The student's own copy of the message never offers actions.
+    - There's no "propose another time" for academy requests (coordinator, 2026-09-26).
+
 ### Acceptance Criteria
 
 #### Eligible student requests an open spot
@@ -222,6 +234,19 @@ by a student's request — and whichever lands first wins.
 - **Then** the request is listed with the class name, date and time and status `pending`
 - **When** she withdraws it there
 - **Then** its status becomes `withdrawn`, and Ana's list shows it closed
+
+#### The coach accepts an academy request from the chat (PAD-461)
+- **Given** Carla asked to join Ana's academy class "Terça 18h" on 2026-10-06, and the request is `pending`
+- **When** Ana opens her conversation with Carla
+- **Then** Carla's request message offers Accept and Decline
+- **When** Ana accepts it from the bubble
+- **Then** Carla is enrolled, the request is `accepted`, and the bubble shows the outcome instead of the actions
+
+#### A decided academy request's bubble shows the outcome (PAD-461)
+- **Given** Carla's academy request was already declined from the class sheet
+- **When** Ana opens her conversation with Carla
+- **Then** the request message shows it was declined and offers no actions
+- **And** Carla's own copy of her request message never offers actions
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the

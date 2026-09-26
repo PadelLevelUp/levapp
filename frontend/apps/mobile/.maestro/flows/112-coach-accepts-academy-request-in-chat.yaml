@@ -1,0 +1,70 @@
+# PAD-461 — classes.join-requests rule 18 on iOS: the coach accepts a student's academy join
+# request straight from its message in their conversation.
+#
+# Mirrors: packages/config join-request-message.test.ts (the bubble state) and the web
+# MessageBubble.coachRequestActions.test.tsx (the bubble's actions and the ineligible confirm).
+#
+# Setup and teardown through the API, like flows 67 and 111 (R-040):
+# - as e2e-coach: remember openSpotsVisible, turn it on, add "E2E Chat Join Class" (academy,
+#   two days out, 18:00–19:00, 4 spots, no players);
+# - as e2e-student: read the class from /academy-classes and ask to join it. The ask is
+#   mirrored into the coach ↔ student conversation with msg_metadata.joinRequest;
+# - at the end: remove the class and restore openSpotsVisible.
+#
+# The conversation is found by API (the coach's conversation whose participant is
+# e2e-student) and opened by deep link, never by tapping a row by name, which is the
+# wrong-thread trap. Assertions are by id; the outcome is read back from
+# GET /api/app/class-join-requests. Flow number 112 is from Session C's wave-8 range (110–112).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'E2E Chat Join Class'}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.studentUserId = String(json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).id)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.wasVisible = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).openSpotsVisible === true}"
+- evalScript: "${output.toggled = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: true }) }).ok}"
+- assertTrue: "${output.toggled == true}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 4, playerIds: [], isRecurring: false, notificationsEnabled: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.cls = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0]}"
+- assertTrue: "${output.cls != null}"
+- evalScript: "${output.req = json(http.post(output.api + '/api/app/class-join-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ model: output.cls.model, originalId: output.cls.originalId, date: output.cls.date }) }).body)}"
+- assertTrue: "${output.req.status === 'pending'}"
+- evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).conversations.filter(function (c) { return String(c.participantId) === output.studentUserId; })[0].id)}"
+
+# ── The coach opens the conversation and answers from the bubble ──
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://conversation/${output.convId}"
+- scrollUntilVisible:
+    element:
+      id: "join-request-bubble-actions-${output.req.id}"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "join-request-bubble-accept"
+- runFlow:
+    when:
+      visible:
+        id: "eligibility-confirm"
+    commands:
+      - tapOn:
+          id: "eligibility-confirm-proceed"
+- extendedWaitUntil:
+    notVisible:
+      id: "join-request-bubble-accept"
+    timeout: 20000
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/class-join-requests', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (r) { return r.id === output.req.id; })[0]}"
+- assertTrue: "${output.after.status === 'accepted'}"
+
+# ── Leave, then clean up ──
+- openLink: "levelup://players"
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"
+- evalScript: "${output.restored = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }).ok}"
+- assertTrue: "${output.restored == true}"

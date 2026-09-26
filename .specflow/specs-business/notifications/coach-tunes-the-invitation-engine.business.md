@@ -39,8 +39,9 @@ students, and occasionally auditing what the engine has done.
    inviting students by hand from a class. It has no effect on the automatic engine, and the
    settings page says so on both (PAD-448).
 4. They customize the wording of invite, confirmation, decline, reminder and waiting-list messages,
-   with placeholders for the student's name, class, date, time and level, in their own language
-   (pt or en). A blank template quietly falls back to the built-in wording so a student is never
+   with placeholders for the student's name, class, date, time and level — and the class type
+   (academy or private), the day and month ("23/02") and the court, which simply disappears when the
+   class has none — in their own language (pt or en). A blank template quietly falls back to the built-in wording so a student is never
    sent an empty message.
 5. For one particular class they don't want the engine touching — a private lesson, say — they
    turn notifications off just for that class, leaving the rest of their schedule untouched.

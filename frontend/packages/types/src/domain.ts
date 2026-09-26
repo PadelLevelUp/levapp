@@ -744,6 +744,17 @@ export interface Message {
       kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
       slot?: { date: string; startTime: string; endTime: string };
     };
+    /**
+     * classes.join-requests rule 18 (PAD-461): the academy join-request ask
+     * mirrored into the coach ↔ student conversation, status frozen at send
+     * time (always `pending` on the ask itself — a decision or "spot taken"
+     * reply is a separate, plain message). `lessonInstanceId` above names the
+     * class it is for.
+     */
+    joinRequest?: {
+      id: number;
+      status: ClassJoinRequest["status"];
+    };
     [key: string]: unknown;
   };
 }
@@ -1700,6 +1711,13 @@ export interface DashboardEvaluationsBlock {
 export type EvaluationReminder = "never" | "monthly" | "every_n_classes";
 
 /** `GET/PUT /app/evaluation_settings`. `everyN` is present only for `every_n_classes`. */
+/** evaluations.scale rule 1 (PAD-423): the coach's evaluation scale, 1 to `scaleMax`. 5 by default. */
+export type EvaluationScaleMax = 5 | 10 | 20 | 100;
+
+export interface EvaluationScale {
+  scaleMax: EvaluationScaleMax;
+}
+
 export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;
