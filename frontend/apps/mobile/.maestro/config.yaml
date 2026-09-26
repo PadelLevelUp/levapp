@@ -211,6 +211,10 @@ executionOrder:
     # Pedidos de Aula with the Academy badge; the coach accepts it there and the API reads back
     # accepted. Teardown removes the class and restores openSpotsVisible.
     - 111-coach-accepts-academy-request-from-list
+    # 112 (PAD-461): an academy join request made by API is answered from its chat bubble —
+    # the coach opens the conversation by deep link (found by API, never by row name), accepts,
+    # and the API reads back accepted. Teardown removes the class and restores openSpotsVisible.
+    - 112-coach-accepts-academy-request-in-chat
     # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
     # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
     - 117-month-grid-seven-columns

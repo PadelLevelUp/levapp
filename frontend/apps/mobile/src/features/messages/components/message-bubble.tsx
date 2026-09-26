@@ -1,5 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { classRequestBubbleState, lightTheme, type ClassRequestLive } from "@levelup/config";
+import {
+  classRequestBubbleState,
+  joinRequestBubbleState,
+  lightTheme,
+  type ClassRequestLive,
+  type JoinRequestLive,
+} from "@levelup/config";
 import type { Message, MessageStatus } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -130,6 +136,14 @@ type MessageBubbleProps = {
   onAnswerClassRequest?: (accept: boolean) => void;
   /** "Propose another time": opens the Availability picker on the request. */
   onCounterClassRequest?: () => void;
+  /** classes.join-requests rule 18 (PAD-461): the live row of the academy
+   * join-request ask this message is about — same loading/absent shape as
+   * `classRequestLive`. */
+  joinRequestLive?: JoinRequestLive | null;
+  /** True while an answer to the join-request ask is in flight. */
+  respondingJoinRequest?: boolean;
+  /** Accept / decline the academy join-request ask from the bubble. */
+  onAnswerJoinRequest?: (accept: boolean) => void;
 };
 
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
@@ -154,17 +168,30 @@ export function MessageBubble({
   respondingClassRequest,
   onAnswerClassRequest,
   onCounterClassRequest,
+  joinRequestLive,
+  respondingJoinRequest,
+  onAnswerJoinRequest,
   onScrollToReply,
 }: MessageBubbleProps) {
   const { t } = useTranslation();
 
-  // PAD-281 / B-077: the coach's proposal is a question in chat, so its answers
+  // PAD-281 / B-077 and rule 10a (PAD-461): the coach's proposal AND the
+  // student's very first request are both questions in chat, so their answers
   // live on this bubble. Same derivation as web's MessageBubble, off the
   // request's live row the screen fetches (class-request-message.ts).
   const classRequestMeta = message.metadata?.classRequest;
   const isClassRequestProposal =
     classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
+  const isClassRequestAsk = classRequestMeta?.kind === "requested";
   const classRequest = classRequestBubbleState(classRequestMeta, classRequestLive, { own });
+
+  // classes.join-requests rule 18 (PAD-461): the coach's view of the student's
+  // academy join-request ask. Only the ask carries `status: "pending"` in its
+  // frozen metadata — a decision or "spot taken" reply is a separate, plain
+  // message — so that gates rendering this block at all.
+  const joinRequestMeta = message.metadata?.joinRequest;
+  const isJoinRequestAsk = joinRequestMeta?.status === "pending";
+  const joinRequest = joinRequestBubbleState(joinRequestMeta, joinRequestLive, { own });
 
   // Notification-invite response area, mirrors web's MessageBubble.tsx
   // messageType === "notification_invite" block: own messages show a
@@ -701,11 +728,12 @@ export function MessageBubble({
           </View>
         ) : null}
 
-        {/* Class-request proposal (classes.class-requests rule 6, PAD-281),
-            mirroring web's block: the student answers here or goes to pick
-            another time; the coach sees it waiting; a decided or superseded
-            proposal shows where it ended up. */}
-        {isClassRequestProposal && classRequest.kind !== "none" ? (
+        {/* Class-request proposal (classes.class-requests rule 6, PAD-281) and
+            a brand new request (rule 10a, PAD-461), mirroring web's block: the
+            other side answers here or goes to pick another time; the sender
+            sees it waiting; a decided or superseded one shows where it ended
+            up. */}
+        {(isClassRequestProposal || isClassRequestAsk) && classRequest.kind !== "none" ? (
           <View
             testID={`class-request-proposal-actions-${classRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: classRequest.kind }}
@@ -795,6 +823,75 @@ export function MessageBubble({
                   )}
                 >
                   {t(`classRequests.bubble.outcome.${classRequest.status ?? "pending"}`)}
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        {/* Academy join-request ask (classes.join-requests rule 18, PAD-461),
+            mirroring web's block: the coach answers here — accept or decline,
+            no "propose another time"; once decided, withdrawn or superseded
+            it shows the outcome. The student's own copy never offers actions
+            (joinRequestBubbleState({ own: true }) is always "none"). */}
+        {isJoinRequestAsk && joinRequest.kind !== "none" ? (
+          <View
+            testID={`join-request-bubble-actions-${joinRequestMeta?.id ?? ""}`}
+            accessibilityValue={{ text: joinRequest.kind }}
+            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+          >
+            {joinRequest.kind === "actions" ? (
+              <View className="flex-row gap-2">
+                <Pressable
+                  testID="join-request-bubble-accept"
+                  accessibilityLabel={t("calendar.joinRequest.accept")}
+                  role="button"
+                  disabled={respondingJoinRequest}
+                  onPress={() => onAnswerJoinRequest?.(true)}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-primary px-3 py-1.5",
+                    respondingJoinRequest && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-primary-foreground">
+                    {t("calendar.joinRequest.accept")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID="join-request-bubble-decline"
+                  accessibilityLabel={t("calendar.joinRequest.reject")}
+                  role="button"
+                  disabled={respondingJoinRequest}
+                  onPress={() => onAnswerJoinRequest?.(false)}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-muted px-3 py-1.5",
+                    respondingJoinRequest && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-foreground">
+                    {t("calendar.joinRequest.reject")}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View
+                className={cn(
+                  "flex-row items-center gap-1.5 rounded-full px-3 py-1.5",
+                  joinRequest.status === "accepted" ? "bg-success/15" : "bg-muted"
+                )}
+              >
+                <Ionicons
+                  name={joinRequest.status === "accepted" ? "checkmark" : "close"}
+                  size={14}
+                  color={joinRequest.status === "accepted" ? ACCEPTED_ICON_COLOR : lightTheme.mutedForeground}
+                />
+                <Text
+                  className={cn(
+                    "text-xs font-medium",
+                    joinRequest.status === "accepted" ? "text-success" : "text-muted-foreground"
+                  )}
+                >
+                  {t(`classRequests.coachStatus.${joinRequest.status ?? "pending"}`)}
                 </Text>
               </View>
             )}

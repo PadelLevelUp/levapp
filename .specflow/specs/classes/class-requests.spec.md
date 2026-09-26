@@ -106,6 +106,14 @@ held on the coach's calendar while the request is open.
     student (Propose opens the inbox on that request). Any other status answers `409 not_countered`; another
     student's request answers `403`. `GET /app/class-requests/free-blocks?…&excludeRequestId=<id>`
     leaves the caller's own hold out of the busy time so the picker can offer it.
+10a. **The coach answers a new request from its chat bubble too (PAD-461, part 2 of PAD-427).**
+    The coach's view of the student's FIRST message (kind `requested`) offers Accept / Decline /
+    Propose another time while the request's live status (`GET /app/class-requests`) is still
+    `pending` at that message's slot, exactly like rule 10's counter-proposal bubble:
+    - Propose opens the inbox on that request.
+    - A late answer degrades to the same refusal, never an error page. Once the status or the
+      slot has moved on, the bubble shows the outcome.
+    - The student's own `requested` bubble shows that it's waiting, with no actions.
 11. **The booking form opens on the first day with a free block (PAD-302; rule number
     self-assigned, unconfirmed).** Once the student has picked a coach, the form's date
     defaults to the earliest day — today if any block remains, else the next day in the coming
@@ -277,6 +285,13 @@ held on the coach's calendar while the request is open.
 - **Then** it offers Accept, Decline and Propose another time
 - **When** the student accepts from the bubble
 - **Then** the request is `accepted` and the bubble shows "Class booked"
+
+#### The coach answers a new request from the chat (PAD-461)
+- **Given** Bruno asked coach Ana for 18:00–19:00 on 2026-10-06 and the request is `pending`
+- **When** Ana opens her conversation with Bruno
+- **Then** Bruno's request message offers Accept, Decline and Propose another time
+- **When** Ana accepts from the bubble
+- **Then** the request is `accepted` at 18:00–19:00, the bubble shows the outcome, and Bruno's own copy of the message never offered actions
 
 #### Decline and withdraw release the hold
 - **Given** a pending request
