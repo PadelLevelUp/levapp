@@ -87,13 +87,9 @@ appId: com.padellevelup.app
 - assertTrue: "${output.after.status === 'accepted' && output.after.kind === 'academy' && output.after.classTitle === output.title}"
 
 # ── Leave, then clean up ──
-- scrollUntilVisible:
-    element:
-      id: "settings-back"
-    direction: UP
-    timeout: 30000
-- tapOn:
-    id: "settings-back"
+# Back to the tab shell by deep link: settings-back only returns to Settings' own section list,
+# where the logout subflow's header-account is not on screen (second run, 2026-09-26).
+- openLink: "levelup://players"
 - runFlow: ../subflows/logout.yaml
 - evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
 - evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
