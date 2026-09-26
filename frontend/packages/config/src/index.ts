@@ -37,3 +37,4 @@ export * from "./evaluation-share";
 export * from "./restriction-bounds";
 export * from "./class-picker";
 export * from "./class-request-list";
+export * from "./join-request-message";

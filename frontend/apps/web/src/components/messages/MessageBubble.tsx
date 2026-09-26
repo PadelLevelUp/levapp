@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ApprovalBundle, Message, MessageStatus } from '@/types';
+import type { ApprovalBundle, EligibilityCheckEntry, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
@@ -13,8 +13,10 @@ import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@levelup/hooks';
-import { classRequestBubbleState } from '@levelup/config';
+import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
+import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest } from '@/api/classJoinRequests';
+import { EligibilityConfirmDialog } from '@/components/calendar/EligibilityConfirmDialog';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -88,23 +90,26 @@ export function MessageBubble({
     ? (message.metadata as unknown as ApprovalBundle | undefined)
     : undefined;
 
-  // classes.class-requests rule 6 (PAD-281, B-077): the coach's proposal is a
-  // question in chat, so its answers live on this bubble. What it offers is
-  // derived from the request's LIVE row (the request moves on; the bubble does
-  // not), which is why the list is fetched here and refreshed by
+  // classes.class-requests rule 6 (PAD-281, B-077) and rule 10a (PAD-461): the
+  // coach's proposal AND the student's very first request are both questions
+  // in chat, so their answers live on this bubble. What it offers is derived
+  // from the request's LIVE row (the request moves on; the bubble does not),
+  // which is why the list is fetched here and refreshed by
   // `class_request_changed` in AppLayout. A stale answer gets the server's 409
   // and the bubble re-reads — never an error page.
-  // `proposed` is the coach's proposal (the student answers); `counter_proposal` is
-  // the student's counter-proposal (the coach answers, rule 10).
+  // `proposed` is the coach's proposal (the student answers); `counter_proposal`
+  // is the student's counter-proposal and `requested` is the student's first
+  // ask (the coach answers both, rules 10 and 10a).
   const classRequestMeta = message.metadata?.classRequest;
   const isClassRequestProposal = classRequestMeta?.kind === "proposed" || classRequestMeta?.kind === "counter_proposal";
+  const isClassRequestAsk = classRequestMeta?.kind === "requested";
   const studentAnswers = classRequestMeta?.kind === "proposed";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const liveRequests = useQuery({
     queryKey: queryKeys.classRequests,
     queryFn: listClassRequests,
-    enabled: isClassRequestProposal,
+    enabled: isClassRequestProposal || isClassRequestAsk,
   });
   const liveRequest = liveRequests.data === undefined
     ? undefined
@@ -126,6 +131,62 @@ export function MessageBubble({
     } finally {
       setResponding(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+    }
+  };
+
+  // classes.join-requests rule 18 (PAD-461): the coach's view of the student's
+  // academy join-request ask offers Accept / Decline while it is live pending.
+  // Only the ask itself carries `status: "pending"` in its frozen metadata — a
+  // decision or "spot taken" reply is a separate, plain message — so that is
+  // the gate for rendering this block at all (never duplicated on those).
+  const joinRequestMeta = message.metadata?.joinRequest;
+  const isJoinRequestAsk = joinRequestMeta?.status === "pending";
+  const liveJoinRequests = useQuery({
+    queryKey: queryKeys.classJoinRequests,
+    queryFn: listClassJoinRequests,
+    enabled: isJoinRequestAsk,
+  });
+  const liveJoinRequest = liveJoinRequests.data === undefined
+    ? undefined
+    : (liveJoinRequests.data.find((r) => r.id === joinRequestMeta?.id) ?? null);
+  const joinRequestState = joinRequestBubbleState(joinRequestMeta, liveJoinRequest, { own: isMine });
+  // Rule 7: accepting is a manual add — the same named-reason confirmation the
+  // class sheet and "Pedidos de Aula" ask (ClassRequestsSection).
+  const [pendingJoinIneligible, setPendingJoinIneligible] = useState<EligibilityCheckEntry[] | null>(null);
+
+  const invalidateJoinRequestQueries = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
+    queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
+  ]);
+
+  const handleAnswerJoinRequest = async (accept: boolean, confirm = false) => {
+    if (!joinRequestMeta || responding) return;
+    setResponding(true);
+    try {
+      if (accept) {
+        await acceptClassJoinRequest(joinRequestMeta.id, confirm);
+        toast.success(t("calendar.joinRequest.acceptedToast", { name: participantName }));
+      } else {
+        await rejectClassJoinRequest(joinRequestMeta.id);
+        toast.success(t("calendar.joinRequest.rejectedToast", { name: participantName }));
+      }
+    } catch (err) {
+      const refusal = joinRequestRefusal(err);
+      if (accept && refusal?.code === "ineligible") {
+        setPendingJoinIneligible(refusal.ineligible ?? []);
+      } else {
+        toast.error(
+          refusal?.code === "spot_filled"
+            ? t("calendar.joinRequest.spotFilledToast")
+            : refusal?.code === "class_closed"
+              ? t("calendar.joinRequest.classClosedToast")
+              : t("calendar.joinRequest.decideFailed")
+        );
+      }
+    } finally {
+      setResponding(false);
+      await invalidateJoinRequestQueries();
     }
   };
 
@@ -567,11 +628,12 @@ export function MessageBubble({
           );
         })()}
 
-        {/* Class-request proposal (classes.class-requests rule 6, PAD-281). The
-            student answers here — accept, decline, or go and pick another time;
-            the coach sees their proposal waiting; a decided or superseded one
-            shows where it ended up. */}
-        {isClassRequestProposal && classRequestState.kind !== "none" && classRequestMeta && (
+        {/* Class-request proposal (classes.class-requests rule 6, PAD-281) and
+            a brand new request (rule 10a, PAD-461). The other side answers
+            here — accept, decline, or go and pick another time; the sender
+            sees it waiting; a decided or superseded one shows where it ended
+            up. Same component, same testids: it is the same bubble either way. */}
+        {(isClassRequestProposal || isClassRequestAsk) && classRequestState.kind !== "none" && classRequestMeta && (
           <div
             className="flex flex-wrap gap-2 mt-1.5 ml-1"
             data-testid="class-request-proposal-actions"
@@ -627,6 +689,51 @@ export function MessageBubble({
           </div>
         )}
 
+        {/* Academy join-request ask (classes.join-requests rule 18, PAD-461).
+            The coach answers here — accept or decline, no "propose another
+            time" (academy requests don't have one); once decided, withdrawn
+            or superseded it shows the outcome. The student's own copy never
+            offers actions (joinRequestBubbleState({ own: true }) is always
+            "none"). */}
+        {isJoinRequestAsk && joinRequestState.kind !== "none" && joinRequestMeta && (
+          <div
+            className="flex flex-wrap gap-2 mt-1.5 ml-1"
+            data-testid="join-request-bubble-actions"
+            data-state={joinRequestState.kind}
+            data-request-id={joinRequestMeta.id}
+          >
+            {joinRequestState.kind === "actions" ? (
+              <>
+                <button
+                  onClick={() => handleAnswerJoinRequest(true)}
+                  disabled={responding}
+                  className="flex-1 py-1.5 px-3 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="join-request-bubble-accept"
+                >
+                  {responding ? "…" : t("calendar.joinRequest.accept")}
+                </button>
+                <button
+                  onClick={() => handleAnswerJoinRequest(false)}
+                  disabled={responding}
+                  className="flex-1 py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+                  data-testid="join-request-bubble-decline"
+                >
+                  {t("calendar.joinRequest.reject")}
+                </button>
+              </>
+            ) : (
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full ${
+                  joinRequestState.status === "accepted" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {joinRequestState.status === "accepted" ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                {t(`classRequests.coachStatus.${joinRequestState.status ?? "pending"}`)}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (
           <div className={`absolute bottom-0 z-10 flex flex-wrap gap-1 ${isMine ? 'right-2 justify-end' : 'left-2 justify-start'}`}>
@@ -664,6 +771,18 @@ export function MessageBubble({
           open={reportOpen}
           onOpenChange={setReportOpen}
           messageId={String(message.id)}
+        />
+
+        {/* Rule 7: accepting an academy row is a manual add — same warning as
+            the class sheet and "Pedidos de Aula" (ClassRequestsSection). */}
+        <EligibilityConfirmDialog
+          open={pendingJoinIneligible !== null}
+          ineligible={pendingJoinIneligible ?? []}
+          onCancel={() => setPendingJoinIneligible(null)}
+          onConfirm={() => {
+            setPendingJoinIneligible(null);
+            void handleAnswerJoinRequest(true, true);
+          }}
         />
       </motion.div>
     </div>

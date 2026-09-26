@@ -744,6 +744,17 @@ export interface Message {
       kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
       slot?: { date: string; startTime: string; endTime: string };
     };
+    /**
+     * classes.join-requests rule 18 (PAD-461): the academy join-request ask
+     * mirrored into the coach ↔ student conversation, status frozen at send
+     * time (always `pending` on the ask itself — a decision or "spot taken"
+     * reply is a separate, plain message). `lessonInstanceId` above names the
+     * class it is for.
+     */
+    joinRequest?: {
+      id: number;
+      status: ClassJoinRequest["status"];
+    };
     [key: string]: unknown;
   };
 }
