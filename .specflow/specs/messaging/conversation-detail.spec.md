@@ -65,6 +65,15 @@ through the history without the thread ever moving under the reader.
     `showScrollDown` button; the native shell needs the equivalent). While the viewport **is** at
     the bottom, an incoming message keeps it pinned there. The user's **own** sent message always
     scrolls to the bottom, wherever they were
+    - **(B-189, PAD-415) A landing is never re-pinned.** Once the thread scrolls to a target on its
+      own (rule 9a's first unread, a push or deep-link target), following the newest is suspended
+      until the reader acts — drags the list, sends a message, or taps the "new messages"
+      affordance. While suspended, neither the list settling at the bottom mid-landing nor a new
+      incoming message pulls the viewport back to the newest; the affordance appears instead. (iOS:
+      `follow-state.ts`.)
+    - **(B-190, PAD-415)** On iOS a plain open always makes its own GET, even when the cached
+      thread is still fresh from live updates, so rule 9a's `firstUnreadMessageId` is this open's
+      value; an open with an explicit target keeps the cache.
 11. Reaching the **top of the loaded messages** fetches the previous page (`before` =
     `oldestMessageId`) and prepends it with the viewport **anchored to the message that was at the
     top** — the reader's position over the text does not jump. A small loading indicator shows
@@ -94,6 +103,19 @@ through the history without the thread ever moving under the reader.
     is unchanged.
 
 ### Acceptance Criteria
+
+#### A landing is not re-pinned by the list settling or a new message (B-189)
+- **Given** a thread whose first unread sits behind the first page of 30
+- **When** the coach opens it, and while the landing settles the list reports the bottom and a new
+  message arrives
+- **Then** the thread stays on the first unread under the "Unread messages" divider, with the newest
+  off screen and the "new messages" affordance showing
+- **And** once the coach drags, sends or taps the affordance, rule 10 behaves as before
+
+#### A thread just made fresh by live updates still opens at its first unread (B-190)
+- **Given** the coach had the thread cached and a new message arrived through live updates seconds ago
+- **When** they open it with no push target
+- **Then** the open makes its own GET and lands on the first unread under the divider
 
 #### A reminder for a deleted class offers no answer (PAD-325)
 - **Given** a student's thread holds a reminder whose class occurrence was deleted, and a reminder for a live class
