@@ -74,6 +74,11 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 13. Justification (rule 8) renders as a badge on each row, same rule as web: presentational only,
     never filters the set.
 
+14. **(PAD-441) The justification badge uses the attendance colours.** A justified absence's badge
+    is amber (`presenceMarkTone("justified")`, the `warning` token) and an unjustified one red, on
+    both shells — the same colours the validate view and the class sheet use, so "justified" never
+    looks like a neutral, unmarked grey.
+
 ### Acceptance Criteria
 
 #### Student sees their own absence history
@@ -128,6 +133,11 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 - **Given** a coach on a roster player's detail screen
 - **When** they tap the absences action, next to the attendance action
 - **Then** the same absences screen opens for that player, subtitled with their name
+
+#### A justified absence badge is amber, an unjustified one red (PAD-441)
+- **Given** a student with one justified and one unjustified absence
+- **When** the absence history is shown (web or iOS)
+- **Then** the justified row's badge has the `warning` tone and the unjustified row's the `negative` tone
 
 ### Notes
 - Source: ticket PAD-141. iOS parity: PAD-163 (from the PAD-152 parity audit, finding A2).
