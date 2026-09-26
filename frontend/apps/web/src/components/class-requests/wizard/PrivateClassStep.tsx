@@ -85,6 +85,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   const [endDate, setEndDate] = useState(addDaysIso(today, 28));
   const [endMode, setEndMode] = useState<EndMode>("date");
   const [endCount, setEndCount] = useState(DEFAULT_END_COUNT);
+  // The field's own text: it may be empty while the student retypes it ("4" -> "" -> "3"),
+  // which the numeric count cannot be. Blur puts back the last valid count.
+  const [endCountText, setEndCountText] = useState(String(DEFAULT_END_COUNT));
 
   // ── Slot ──
   const [duration, setDuration] = useState<number>(60);
@@ -377,16 +380,20 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                   min={1}
                   max={MAX_REQUEST_CLASSES}
                   step={1}
-                  value={endCount}
+                  value={endCountText}
                   disabled={endMode !== "count"}
                   data-testid="request-end-count"
                   className="w-20"
                   onFocus={() => setEndMode("count")}
                   onChange={(e) => {
                     setEndMode("count");
+                    setEndCountText(e.target.value);
                     const n = Math.round(Number(e.target.value));
-                    if (Number.isFinite(n)) setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
+                    if (e.target.value.trim() !== "" && Number.isFinite(n)) {
+                      setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
+                    }
                   }}
+                  onBlur={() => setEndCountText(String(endCount))}
                 />
                 <span className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</span>
               </div>

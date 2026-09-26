@@ -141,6 +141,9 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   const [endDate, setEndDate] = React.useState(addDaysIso(today, 28));
   const [endMode, setEndMode] = React.useState<EndMode>("date");
   const [endCount, setEndCount] = React.useState(DEFAULT_END_COUNT);
+  // The field's own text: it may be empty while the student retypes it ("4" -> "" -> "3"),
+  // which the numeric count cannot be. Blur puts back the last valid count.
+  const [endCountText, setEndCountText] = React.useState(String(DEFAULT_END_COUNT));
 
   // ── Slot ──
   const [duration, setDuration] = React.useState<number>(60);
@@ -414,15 +417,19 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                 <View className="w-20">
                   <Input
                     testID="request-end-count"
-                    value={String(endCount)}
+                    value={endCountText}
                     editable={endMode === "count"}
                     keyboardType="number-pad"
                     onFocus={() => setEndMode("count")}
                     onChangeText={(text) => {
                       setEndMode("count");
+                      setEndCountText(text);
                       const n = Math.round(Number(text));
-                      if (Number.isFinite(n)) setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
+                      if (text.trim() !== "" && Number.isFinite(n)) {
+                        setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
+                      }
                     }}
+                    onBlur={() => setEndCountText(String(endCount))}
                   />
                 </View>
                 <Text className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</Text>

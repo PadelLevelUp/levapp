@@ -160,6 +160,8 @@ held on the coach's calendar while the request is open.
     - The request on the wire is unchanged (`recurrence {weekdays, startDate, endDate}`), so the
       backend, rules 14–17 and older builds are untouched.
     - Changing the weekdays or the start date recomputes the end while "after N" is chosen.
+    - The count field can be empty while the student retypes it ("4" → "" → "3" gives 3, not 13).
+      An empty or invalid entry leaves the last valid count in force, and leaving the field puts it back.
     - The coach's own class creation keeps its current fields; the same pattern there is PAD-463.
     - "After N" is only how the student PICKS `endDate`; the request stores a date, not a count.
       So when a proposal re-anchors a weekly series (rule 16: `startDate` moves, `endDate` stays),

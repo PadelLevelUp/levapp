@@ -89,6 +89,37 @@ describe("\"after N classes\" (rule 14a, PAD-428)", () => {
   });
 });
 
+describe("editing the class count (rule 14a, PAD-428, found by flow 121 on iOS)", () => {
+  it("clearing the field and typing 3 gives 3, not 13", async () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
+
+    renderStep();
+    await goWeekly(["wizard-weekday-2"], "2026-10-06");
+
+    fireEvent.click(screen.getByTestId("request-end-mode-count"));
+    const input = screen.getByTestId("request-end-count") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    expect(input.value).toBe("");
+    fireEvent.change(input, { target: { value: "3" } });
+    expect(input.value).toBe("3");
+
+    // Tue from 2026-10-06, 3 classes -> 10-06, 10-13, 10-20.
+    expect((await screen.findByTestId("request-end-count-last-date")).textContent).toContain("10/20/2026");
+  });
+
+  it("an empty field falls back to the last valid count on blur", () => {
+    availabilityApi.getCoachAvailability.mockResolvedValue({ freeWindows: {}, workingHoursSource: "custom" });
+
+    renderStep();
+    fireEvent.click(screen.getByTestId("wizard-recurrence-weekly"));
+    fireEvent.click(screen.getByTestId("request-end-mode-count"));
+    const input = screen.getByTestId("request-end-count") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    expect(input.value).toBe("4");
+  });
+});
+
 describe("\"on a date\" (rule 14a, PAD-428)", () => {
   it("propagates the picked end date exactly as before PAD-428", async () => {
     availabilityApi.getCoachAvailability.mockResolvedValue({
