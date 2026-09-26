@@ -3,6 +3,7 @@ import {
   MAX_REQUEST_CLASSES,
   countPassesSeasonEnd,
   endDateAfterClasses,
+  recurrenceEndPayload,
   seriesEndAfterClasses,
 } from "./recurrence-end";
 
@@ -79,5 +80,38 @@ describe("countPassesSeasonEnd (PAD-463)", () => {
     expect(countPassesSeasonEnd("2026-10-05", "2026-11-30", season)).toBeNull();
     expect(countPassesSeasonEnd("2027-07-05", "2027-08-09", null)).toBeNull();
     expect(countPassesSeasonEnd("2027-08-10", "2027-08-30", season)).toBeNull();
+  });
+});
+
+describe("recurrenceEndPayload (PAD-463, classes.create rule 9)", () => {
+  const base = { startDate: "2026-10-04", calendarDays: [0, 3], endDate: "", count: null as number | null };
+
+  it("an end date is sent as is", () => {
+    expect(recurrenceEndPayload({ ...base, mode: "date", endDate: "2026-12-20" })).toEqual({
+      ok: true, endDate: "2026-12-20", recursUntilSeasonEnd: false,
+    });
+  });
+
+  it("a date mode without a date is an endDate error", () => {
+    expect(recurrenceEndPayload({ ...base, mode: "date" })).toEqual({ ok: false, field: "endDate" });
+  });
+
+  it("N classes become the date of the Nth class", () => {
+    expect(recurrenceEndPayload({ ...base, mode: "count", count: 5 })).toEqual({
+      ok: true, endDate: "2026-10-18", recursUntilSeasonEnd: false,
+    });
+  });
+
+  it("a count outside 1..52, or no weekday to count on, is a count error", () => {
+    for (const count of [null, 0, 53, 2.5]) {
+      expect(recurrenceEndPayload({ ...base, mode: "count", count })).toEqual({ ok: false, field: "count" });
+    }
+    expect(recurrenceEndPayload({ ...base, mode: "count", count: 5, calendarDays: [] })).toEqual({ ok: false, field: "count" });
+  });
+
+  it("the season sends the flag and no date", () => {
+    expect(recurrenceEndPayload({ ...base, mode: "season", endDate: "2026-12-20" })).toEqual({
+      ok: true, endDate: null, recursUntilSeasonEnd: true,
+    });
   });
 });

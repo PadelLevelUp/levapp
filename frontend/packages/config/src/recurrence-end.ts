@@ -75,3 +75,31 @@ export function countPassesSeasonEnd(
   const occurrence = seasonOccurrenceContaining(startDate, definition);
   return occurrence && lastDate > occurrence.endDate ? occurrence.endDate : null;
 }
+
+/** classes.create rule 9: how a coach's recurring series ends. */
+export type RecurrenceEndMode = "date" | "count" | "season";
+
+/**
+ * classes.create rule 9: what the add-class payload carries for the chosen end, shared by web and
+ * iOS. A date is sent as is; N classes become the date of the Nth class (exactly N,
+ * `seriesEndAfterClasses`); the season sends `recursUntilSeasonEnd` and no date. An invalid choice
+ * names the field to flag.
+ */
+export function recurrenceEndPayload(input: {
+  mode: RecurrenceEndMode;
+  startDate: string;
+  calendarDays: number[];
+  endDate: string;
+  count: number | null;
+}): { ok: true; endDate: string | null; recursUntilSeasonEnd: boolean } | { ok: false; field: "endDate" | "count" } {
+  if (input.mode === "season") return { ok: true, endDate: null, recursUntilSeasonEnd: true };
+  if (input.mode === "date") {
+    return input.endDate ? { ok: true, endDate: input.endDate, recursUntilSeasonEnd: false } : { ok: false, field: "endDate" };
+  }
+  const { count } = input;
+  if (count === null || !Number.isInteger(count) || count < 1 || count > MAX_REQUEST_CLASSES) {
+    return { ok: false, field: "count" };
+  }
+  const endDate = seriesEndAfterClasses(input.startDate, input.calendarDays, count);
+  return endDate ? { ok: true, endDate, recursUntilSeasonEnd: false } : { ok: false, field: "count" };
+}
