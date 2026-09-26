@@ -1146,7 +1146,9 @@ export interface NotificationRestrictions {
   maxInactiveTime: { enabled: boolean; value: number };
   minTimeBeforeClass: { enabled: boolean; value: number };
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
-  quietHours: { enabled: boolean };
+  /** PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local. A
+   * server from before PAD-451 omits start/end; read them through quietWindowOf (@levelup/config). */
+  quietHours: { enabled: boolean; start?: string; end?: string };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };

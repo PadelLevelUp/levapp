@@ -35,6 +35,7 @@ export * from "./evaluation-form-session";
 export * from "./hold-refusal";
 export * from "./evaluation-share";
 export * from "./restriction-bounds";
+export * from "./quiet-hours";
 export * from "./class-picker";
 export * from "./class-request-list";
 export * from "./join-request-message";
