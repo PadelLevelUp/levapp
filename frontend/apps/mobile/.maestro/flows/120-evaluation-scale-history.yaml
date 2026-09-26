@@ -1,4 +1,4 @@
-# confirmed — Session-E, iPhone 17 Pro simulator, feature/pad-423-clients @ e18275ec7 + this flow, 2026-09-25 23:23:36Z: 0 failed; red with a backend that labels every rating with its competency's current scale
+# confirmed — Session-E, iPhone 17 Pro simulator, feature/pad-423-clients @ 2f6550124 (staging 8e61b419a merged), 2026-09-26 01:08:57Z: 0 failed, D149 edit step included; red with a backend labelling ratings with the current scale (23:24:21Z) and with the pre-D149 iOS form (23:48:31Z)
 # PAD-423 / evaluations.scale rules 3 and 6 on iOS: each score keeps the scale it was given on.
 # Competency A is rated 4 while the coach is on 1-5; the coach moves to 1-10; competency B
 # (created after the move, so on 1-10) is rated 7 in the same record. The history card then

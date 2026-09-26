@@ -1,4 +1,4 @@
-# confirmed — Session-E, iPhone 17 Pro simulator (debug build with the slider), feature/pad-423-clients @ e18275ec7 + this flow, 2026-09-25 23:21:08Z and 23:33:40Z: 50 steps, 0 failed; red with the pre-slider form (no slider row)
+# confirmed — Session-E, iPhone 17 Pro simulator (debug build with the slider), feature/pad-423-clients @ 2f6550124 (staging 8e61b419a merged), 2026-09-26 01:11:18Z: 0 failed (also 2026-09-25 23:21:08Z / 23:33:40Z); red with the pre-slider form (no slider row)
 # PAD-423 / evaluations.scale rules 7-8 on iOS: the coach picks "1–10" in Settings →
 # Preferences ("Escala de avaliações", beside the frequency), and a competency on the coach's
 # scale is then rated with a SLIDER, not stars. A tap on the slider (tapToSeek) is one input:
