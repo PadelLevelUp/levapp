@@ -9,6 +9,7 @@ import {
   todaysClasslessRecord,
   isStarScale,
   ratingInputKind,
+  rowOnItsOwnScale,
 } from "./evaluation-form";
 
 // evaluations.history rules 4-5, evaluations.records rules 7 and 10 (PAD-374).
@@ -57,6 +58,23 @@ describe("which input a competency gets (evaluations.scale rule 7, PAD-423)", ()
   it("the dormant stepper only for a legacy category that is not 1-5", () => {
     expect(ratingInputKind(competency({ group: null, scaleMin: 1, scaleMax: 10 }))).toBe("stepper");
     expect(ratingInputKind(competency({ group: null, scaleMin: 0, scaleMax: 10 }))).toBe("stepper");
+  });
+});
+
+describe("a row the record already rates keeps that rating's scale (D149)", () => {
+  const garra = competency({ id: 4, group: "custom", scaleMin: 1, scaleMax: 10 }); // the coach moved to 1-10
+  const rated = record({ ratings: [{ categoryId: 4, name: "Garra", key: null, score: 4, scaleMin: 1, scaleMax: 5 }] });
+
+  it("draws an earlier 4/5 on its own 1-5 (stars), never as 4 on the new 1-10", () => {
+    const row = rowOnItsOwnScale(garra, rated);
+    expect([row.scaleMin, row.scaleMax]).toEqual([1, 5]);
+    expect(ratingInputKind(row)).toBe("stars");
+  });
+
+  it("a competency the record does not rate yet uses its current scale", () => {
+    expect(rowOnItsOwnScale(garra, record({ ratings: [] }))).toBe(garra);
+    expect(rowOnItsOwnScale(garra, null)).toBe(garra);
+    expect(ratingInputKind(rowOnItsOwnScale(garra, null))).toBe("slider");
   });
 });
 

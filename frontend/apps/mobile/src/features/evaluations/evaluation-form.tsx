@@ -5,6 +5,7 @@ import {
   lightTheme,
   nextStarScore,
   ratingInputKind,
+  rowOnItsOwnScale,
   stableFormRows,
   stepScore,
 } from "@levelup/config";
@@ -100,7 +101,9 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         </Button>
       </View>
 
-      {rows.map((competency) => {
+      {rows.map((row) => {
+        // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
+        const competency = rowOnItsOwnScale(row, record);
         const key = String(competency.id);
         const score = scores[key] ?? null;
         const name = competencyLabel(t, competency);

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import type { EvaluationCompetency, EvaluationRecord, EvaluationRecordInput, PutEvaluationRecordResult } from "@levelup/types";
-import { competencyLabel, formCompetencies, nextStarScore, ratingInputKind, stableFormRows, stepScore } from "@levelup/config";
+import { competencyLabel, formCompetencies, nextStarScore, ratingInputKind, rowOnItsOwnScale, stableFormRows, stepScore } from "@levelup/config";
 import { useEvaluationFormSession } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -82,7 +82,9 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         </Button>
       </div>
 
-      {rows.map((competency) => {
+      {rows.map((row) => {
+        // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
+        const competency = rowOnItsOwnScale(row, record);
         const key = String(competency.id);
         const score = scores[key] ?? null;
         const name = competencyLabel(t, competency);

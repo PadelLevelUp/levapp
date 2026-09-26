@@ -3,6 +3,8 @@
 # Competency A is rated 4 while the coach is on 1-5; the coach moves to 1-10; competency B
 # (created after the move, so on 1-10) is rated 7 in the same record. The history card then
 # shows A as four stars (its 4/5) beside B as the number 7/10: a scale change rewrote nothing.
+# D149: editing that same-day record keeps A on its own 1-5 (stars, and a fifth-star tap stores
+# 5 on 1-5), never 4 on the new 1-10 slider; B keeps its 1-10 slider.
 # Seeded through the API (the web E2E and flow 119 drive the UI side); this flow proves the
 # card draws each rating from its own scale.
 #
@@ -23,7 +25,8 @@ onFlowComplete:
 - evalScript: "${output.putB = http.put(output.api + '/api/app/evaluation_record', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ playerId: Number(output.evalPlayerId), ratings: { [output.competencyBId]: 7 } }) }).ok}"
 - assertTrue: "${output.putB == true}"
 # The server's own answer: A still 4 on 1-5, B 7 on 1-10, in one record.
-- evalScript: "${output.ratings = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records[0].ratings}"
+- evalScript: "${output.record = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records[0]}"
+- evalScript: "${output.ratings = output.record.ratings}"
 - assertTrue: "${output.ratings.filter(function (r) { return String(r.categoryId) === output.competencyId && r.score === 4 && r.scaleMax === 5; }).length === 1}"
 - assertTrue: "${output.ratings.filter(function (r) { return String(r.categoryId) === output.competencyBId && r.score === 7 && r.scaleMax === 10; }).length === 1}"
 
@@ -74,3 +77,35 @@ onFlowComplete:
     id: "evaluation-stepper-${output.competencyBId}-value-7"
 - assertNotVisible:
     id: "evaluation-stars-${output.competencyBId}-7"
+
+# ── D149: editing today's record keeps A on its own 1-5 ──
+- tapOn:
+    id: "evaluation-history-edit-${output.record.id}"
+- extendedWaitUntil:
+    visible:
+      id: "evaluation-form"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "evaluation-stars-${output.competencyId}"
+    direction: DOWN
+    timeout: 20000
+- assertNotVisible:
+    id: "evaluation-slider-${output.competencyId}-input"
+- scrollUntilVisible:
+    element:
+      id: "evaluation-slider-${output.competencyBId}-value-7"
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "evaluation-star-${output.competencyId}-5"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "evaluation-star-${output.competencyId}-5"
+# A star tap saves at once; the server's answer is the observable.
+- waitForAnimationToEnd:
+    timeout: 5000
+- evalScript: "${output.edited = json(http.get(output.api + '/api/app/player/' + output.evalPlayerId + '/evaluations', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).records[0].ratings.filter(function (r) { return String(r.categoryId) === output.competencyId; })[0]}"
+- assertTrue: "${output.edited.score === 5 && output.edited.scaleMin === 1 && output.edited.scaleMax === 5}"
