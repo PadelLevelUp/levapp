@@ -24,6 +24,12 @@ A coach who belongs to a club can invite another coach to join that club via a s
 6. Used, revoked, or expired tokens are rejected (410)
 7. Inviter can list and revoke pending invitations for their club. `GET /api/app/club/<clubId>/coach-invitations` returns each pending invitation's `id`, `email`, `expiresAt` and `createdAt`, never its token (PAD-269: the list used to hand every coach of the club every live link). Revoking from the list is `POST /api/app/club/<clubId>/coach-invitations/<id>/revoke` (403 for a non-member, 404 for an id outside the club, 410 unless pending). `POST /api/app/coach-invitations/<token>/revoke` still works for whoever holds the link.
 
+8. **A new coach account is adults-only (PAD-457).** The new-user branch of the accept creates a
+   login, so it takes `birthDate` and refuses exactly as sign-up does (`auth.register` rule 18, one
+   shared check; 400 on `birthDate` with `BIRTH_DATE_REQUIRED`, `INVALID_BIRTH_DATE` or `UNDERAGE`), creating
+   nothing on a refusal. The existing-coach branch creates no account and is unchanged. Web and iOS
+   add the field.
+
 ### Acceptance Criteria
 
 #### Create invitation
@@ -63,3 +69,8 @@ A coach who belongs to a club can invite another coach to join that club via a s
 - **When** a member coach POSTs `/api/app/club/1/coach-invitations/7/revoke`
 - **Then** the invitation becomes `revoked` and accepting its link answers 410
 - **And** the same call from a coach outside club 1 is 403
+
+#### A club invitation does not create an under-18 coach (PAD-457)
+- **Given** a pending coach invitation and no user `teencoach457`, today 2026-09-25 (UTC)
+- **When** it is accepted as a new user with `birthDate` `2009-01-01`
+- **Then** the response is 400 `UNDERAGE` and no user `teencoach457` exists; with `birthDate` `1990-05-05` the coach is created with that birth date

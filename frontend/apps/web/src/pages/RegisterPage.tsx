@@ -14,8 +14,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { registerUser, activateAccount } from "@/api/register";
+import { isUnderSignupAge } from "@levelup/config";
 
 type RegistrationStatus = "loading" | "ok" | "already-registered" | "invalid";
+
+/** auth.activate rule 13 (PAD-457): the server's birth-date codes, in the form's own words. */
+const BIRTH_CODE_KEYS: Record<string, string> = {
+  BIRTH_DATE_REQUIRED: "birthDateRequired",
+  INVALID_BIRTH_DATE: "birthDateInvalid",
+  UNDERAGE: "birthDateUnderage",
+};
 
 const registerSchema = z
   .object({
@@ -25,6 +33,12 @@ const registerSchema = z
     phone: z.string().optional(),
     password: z.string().min(6, "passwordMin"),
     repeatPassword: z.string(),
+    // PAD-457 (auth.activate rule 13): adults only at activation too.
+    birthDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "birthDateRequired")
+      .refine((d) => !Number.isNaN(Date.parse(d)) && new Date(`${d}T00:00:00`) <= new Date(), "birthDateInvalid")
+      .refine((d) => !isUnderSignupAge(d), "birthDateUnderage"),
   })
   .refine((data) => data.password === data.repeatPassword, {
     message: "passwordsMismatch",
@@ -54,6 +68,7 @@ const RegisterPage = () => {
     phone: "",
     password: "",
     repeatPassword: "",
+    birthDate: "",
   });
 
   useEffect(() => {
@@ -126,6 +141,7 @@ const RegisterPage = () => {
           email: form.email,
           phone: form.phone,
           password: form.password,
+          birthDate: form.birthDate,
         },
       });
 
@@ -135,7 +151,14 @@ const RegisterPage = () => {
       });
 
       navigate("/auth");
-    } catch {
+    } catch (err) {
+      // auth.activate rule 13: a birth-date refusal belongs on the field, in the form's words.
+      const res = (err as { response?: { status?: number; data?: { field?: string; code?: string } } }).response;
+      const key = res?.data?.code ? BIRTH_CODE_KEYS[res.data.code] : undefined;
+      if (res?.status === 400 && res.data?.field === "birthDate" && key) {
+        setErrors((prev) => ({ ...prev, birthDate: t(`auth.register.${key}`) }));
+        return;
+      }
       toast({
         variant: "destructive",
         title: t("auth.register.failedTitle"),
@@ -217,6 +240,7 @@ const RegisterPage = () => {
                 label: t("auth.register.repeatPassword"),
                 type: "password",
               },
+              { id: "birthDate", label: t("auth.register.birthDate"), type: "date" },
             ].map(({ id, label, type = "text" }) => (
               <div key={id} className="space-y-2">
                 <Label htmlFor={id}>{label}</Label>
@@ -233,7 +257,7 @@ const RegisterPage = () => {
                   }}
                 />
                 {errors[id] && (
-                  <p className="text-sm text-destructive">{errors[id]}</p>
+                  <p className="text-sm text-destructive" data-testid={`register-${id}-error`}>{errors[id]}</p>
                 )}
               </div>
             ))}

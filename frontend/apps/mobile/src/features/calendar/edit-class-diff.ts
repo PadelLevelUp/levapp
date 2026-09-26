@@ -18,6 +18,9 @@ export const EDITABLE_CLASS_FIELDS = [
   "eligibilityRules",
   // PAD-130: the open-spot toggle at this tier (null / true / false).
   "openSpotsVisible",
+  // PAD-429 (notifications.toggle-class rule 7): the auto-invites tri-state
+  // at this tier (null / true / false).
+  "autoInvites",
 ] as const satisfies readonly (keyof ClassInstance)[];
 
 /** Generic before/after diff for scalar/object/array fields — values are

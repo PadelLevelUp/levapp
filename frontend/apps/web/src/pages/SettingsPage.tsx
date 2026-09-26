@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
 import {
   getMe,
@@ -60,6 +60,7 @@ import { SeasonsSection } from "@/components/settings/SeasonsSection";
 import { WorkingHoursSection } from "@/components/settings/WorkingHoursSection";
 import { CompetenciesSettingsEntry } from "@/components/evaluations/competency-manager/CompetenciesSettingsEntry";
 import { EvaluationReminderSetting } from "@/components/evaluations/EvaluationReminderSetting";
+import { EvaluationScaleSetting } from "@/components/evaluations/EvaluationScaleSetting";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
@@ -78,7 +79,7 @@ import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
  * different audiences, so two different ids — reusing the name would make the
  * student section inherit the coach section's visibility rules.
  */
-type SettingsTab =
+export type SettingsTab =
   | "profile"
   | "preferences"
   | "calendar"
@@ -221,6 +222,15 @@ function SettingsNav({
   );
 }
 
+/**
+ * PAD-459 (settings.role-scope rule 2): the one reader of `?tab=`. An unknown or missing id is
+ * Preferences; a known id this role may not see still falls back later, through `activeTab`.
+ */
+export function parseTab(search: string): SettingsTab {
+  const wanted = new URLSearchParams(search).get("tab");
+  return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -264,10 +274,9 @@ export default function SettingsPage() {
   // nav, and several existing flows/tests land on Preferences first.
   // PAD-287: `/settings?tab=<id>` (the avatar menu's "My connections") lands on
   // that section; an unknown or disallowed id falls back through `activeTab`.
-  const [tab, setTab] = useState<SettingsTab>(() => {
-    const wanted = new URLSearchParams(window.location.search).get("tab");
-    return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
-  });
+  // PAD-459: read through the router, like every later navigation below, not `window.location`.
+  const location = useLocation();
+  const [tab, setTab] = useState<SettingsTab>(() => parseTab(location.search));
   // Mobile is a DRILL-IN, not a dropdown: the phone shows the list of sections
   // first and opens one on tap. Landing straight inside Preferences with a
   // section picker above it hid what else existed and made the page read as a
@@ -336,8 +345,10 @@ export default function SettingsPage() {
   // mobile-width "back to the list" button is a separate, CSS-only hide (the
   // section stays mounted, see :mobileSectionOpen below) and is NOT a tab
   // change, so it does not go through here and never asks.
-  const [pendingTab, setPendingTab] = useState<{ id: SettingsTab; openMobile: boolean } | null>(null);
-  const requestTab = (id: SettingsTab, openMobile: boolean) => {
+  // `fromUrl`: the switch came from a navigation (the avatar menu), so the URL already names the
+  // new section; "Keep editing" must put it back (PAD-459).
+  const [pendingTab, setPendingTab] = useState<{ id: SettingsTab; openMobile: boolean; fromUrl: boolean } | null>(null);
+  const requestTab = (id: SettingsTab, openMobile: boolean, fromUrl = false) => {
     // Choosing the tab that's already active changes nothing and unmounts
     // nothing — never ask, even with an unsaved edit sitting in it.
     if (id === activeTab || !hasUnsaved) {
@@ -345,8 +356,30 @@ export default function SettingsPage() {
       if (openMobile) setMobileSectionOpen(true);
       return;
     }
-    setPendingTab({ id, openMobile });
+    setPendingTab({ id, openMobile, fromUrl });
   };
+  const keepEditing = () => {
+    if (pendingTab?.fromUrl) {
+      // Only `tab` changes: the URL's other params (the competency manager's `competencies=open`) stay.
+      const params = new URLSearchParams(location.search);
+      params.set("tab", activeTab);
+      navigate(`/settings?${params.toString()}`, { replace: true });
+    }
+    setPendingTab(null);
+  };
+
+  // PAD-447 (B-199): the avatar menu navigates to `/settings` or `/settings?tab=<id>` while this page
+  // may already be mounted. The initial state reads `?tab=` only once, so follow every later
+  // navigation here too — through `requestTab`, so an unsaved edit still asks first (rule 3).
+  const seenLocationKey = useRef(location.key);
+  useEffect(() => {
+    if (seenLocationKey.current === location.key) return;
+    seenLocationKey.current = location.key;
+    const next = parseTab(location.search);
+    // A "Keep editing" revert lands here too, already on `activeTab`, so it changes nothing.
+    if (next !== activeTab) requestTab(next, new URLSearchParams(location.search).has("tab"), true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   // Rule 5: the browser's own leave-page prompt while any section is unsaved.
   useEffect(() => {
@@ -702,6 +735,10 @@ export default function SettingsPage() {
                       <Separator />
 
                       <EvaluationReminderSetting />
+
+                      <Separator />
+
+                      <EvaluationScaleSetting />
                     </>
                   )}
                 </CardContent>
@@ -871,14 +908,16 @@ export default function SettingsPage() {
 
       {/* Rule 3/4: switching tab (either nav) while any section is unsaved
           asks first, instead of silently discarding it (B-157). */}
+      {/* The URL revert lives on the two "keep" gestures, not on onOpenChange: Radix also closes
+          through onOpenChange on Discard, which must leave the URL on the new section (PAD-459). */}
       <AlertDialog open={pendingTab !== null} onOpenChange={(open) => !open && setPendingTab(null)}>
-        <AlertDialogContent data-testid="settings-unsaved-dialog">
+        <AlertDialogContent data-testid="settings-unsaved-dialog" onEscapeKeyDown={keepEditing}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("settings.unsavedChanges.title")}</AlertDialogTitle>
             <AlertDialogDescription>{t("settings.unsavedChanges.body")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="settings-unsaved-keep" onClick={() => setPendingTab(null)}>
+            <AlertDialogCancel data-testid="settings-unsaved-keep" onClick={keepEditing}>
               {t("settings.unsavedChanges.keepEditing")}
             </AlertDialogCancel>
             <AlertDialogAction

@@ -23,6 +23,14 @@ separate browse screen. A coach controls whether their open spots are advertised
    **eligible** (`eligibility.cascade`).
 2. Open-spot classes render in a **distinct colour** from the student's own enrolled classes, so the
    two are never confused. They are visibly "available", not "yours".
+3a. **A private class resolves to hidden before the coach standard (PAD-429).** When neither the
+    instance nor the lesson sets `open_spots_visible`, a lesson of `type` `private` resolves to
+    `false` with source `type`; only an `academy` lesson falls through to the coach standard. The
+    default is read-time resolution from `Lesson.type`: no row is written, so private lessons that
+    already exist get it too, and an explicit lesson or instance value is kept (coordinator,
+    2026-09-25, option a). Everything gated on `effective_open_spots_visible` follows: calendar
+    discovery, the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2) and join
+    requests (`classes.join-requests`).
 3. **Visibility is a coach toggle that cascades exactly like eligibility** — coach standard,
    overridable per recurring group and per single class, most specific wins, tiers do not merge
    (`eligibility.cascade` rules 1–3). Coach-facing label: "make empty spots for future classes
@@ -76,6 +84,10 @@ separate browse screen. A coach controls whether their open spots are advertised
       gates the student dashboard's `evaluations` block and nothing else
       (`evaluations.student-view` rule 5). Both shells declare both; the same fail-closed reading
       applies to each token independently.
+    - **A third token, `class-type-defaults` (PAD-429):** `openSpotsSource` may be `type`
+      (rule 3a). A client that doesn't declare `class-type-defaults` is sent `coach` in its place. The resolved value is the same;
+      only the label of where it came from differs, because a build that predates rule 3a looks
+      the label up by source and would show a missing key. Both shells declare it.
     - **Retirement:** once no App Store build that predates the declaration is still in use, serve
       open spots regardless of the header and delete this rule and its check. The header itself
       stays for later capabilities.
@@ -110,6 +122,24 @@ separate browse screen. A coach controls whether their open spots are advertised
 - **Given** a recurring class with visibility on, and one occurrence overridden to off
 - **When** an eligible student loads a range covering that occurrence
 - **Then** that occurrence does not appear, and the other occurrences still do
+
+#### A private class is hidden unless the coach makes it visible (PAD-429)
+- **Given** coach Ana's standard `open_spots_visible` is `true`, a private weekly lesson with room
+  and no lesson or instance override, and an eligible student Bruno on her roster
+- **When** Bruno reads his calendar, and Ana reads the class
+- **Then** no open spot for the private class is in Bruno's calendar
+- **And** the class reports `effectiveOpenSpotsVisible` `false` with `openSpotsSource` `type`
+- **And** after Ana sets the lesson's `openSpotsVisible` to `true`, Bruno's calendar shows it
+
+#### An academy class still follows the coach standard (PAD-429)
+- **Given** coach Ana's standard `open_spots_visible` is `true` and an academy lesson with room and no override
+- **When** the class is read
+- **Then** `effectiveOpenSpotsVisible` is `true` with `openSpotsSource` `coach`
+
+#### A client without `class-type-defaults` never sees the `type` source (PAD-429)
+- **Given** the private lesson above, read by a request whose `X-LevApp-Capabilities` lacks `class-type-defaults`
+- **When** the class is serialised
+- **Then** `effectiveOpenSpotsVisible` is `false` and `openSpotsSource` is `coach`
 
 #### The toggle off restores today's behaviour
 - **Given** a coach with the visibility toggle off

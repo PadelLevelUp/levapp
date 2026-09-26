@@ -12,11 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
+// notifications.message-templates rule 3: every template that describes a class
+// takes the same vocabulary. {type}, {date} (dd/mm) and {court} are PAD-430's.
+const CLASS_VARIABLES = ["{name}", "{level}", "{weekday}", "{time}", "{type}", "{date}", "{court}"];
+
 const VARIABLE_HINTS: Partial<Record<keyof MessageTemplates, string[]>> = {
-  invite: ["{name}", "{level}", "{weekday}", "{time}"],
-  reminder: ["{name}", "{level}", "{weekday}", "{time}"],
-  reminder_followup: ["{name}", "{level}", "{weekday}", "{time}"],
-  waiting_list_placed: ["{name}", "{level}", "{weekday}", "{time}"],
+  invite: CLASS_VARIABLES,
+  reminder: CLASS_VARIABLES,
+  reminder_followup: CLASS_VARIABLES,
+  waiting_list_placed: CLASS_VARIABLES,
 };
 
 const LABEL_KEYS: Record<keyof MessageTemplates, string> = {

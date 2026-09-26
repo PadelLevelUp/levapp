@@ -166,7 +166,7 @@ Marketing screenshots must use fictional names (repaint real players' names, kee
 
 Collected, **not shared** with third parties (hosting, email and push providers act as processors).
 All data is **encrypted in transit** (HTTPS). Users can **delete their account in the app**
-(Settings → Delete account), and a guardian can withdraw consent for a minor (PAD-198).
+(Settings → Delete account). Sign-up is adults-only (18+, PAD-445/PAD-457); there is no guardian flow.
 
 | Data type (Play category) | Collected | Optional | Purpose |
 |---|---|---|---|
@@ -192,13 +192,10 @@ notice.
 
 ## Target audience — owner decision
 
-LevApp's players include minors, and PAD-198 lets under-13s sign up with a guardian's consent.
-Declaring the **under-13** age group in Play Console brings the app into Google's **Families Policy**
-(stricter review, privacy disclosures, SDK restrictions; LevApp has no ads or analytics SDKs, which
-helps). Declaring **13+ only** is simpler but must then be true — the Android sign-up would have to
-refuse under-13s. Recommendation: land PAD-198 first, then declare the age groups that match the
-consent rule the owner keeps. This answers the ticket's open question: PAD-198 does not block
-internal testing, but it should land before a production release.
+LevApp accepts **adults only**: sign-up, invitation acceptance and account activation all refuse
+anyone under 18 (PAD-445, PAD-457), and the PAD-198 guardian-consent flow was removed. Declare the
+**18+** age group in Play Console; the app does not target children, so the Families Policy does
+not apply.
 
 ## Follow-ups (not in this change)
 

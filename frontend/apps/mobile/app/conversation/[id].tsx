@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { classRequestsApi, messagesApi, notificationEngineApi } from "@levelup/api";
+import { classJoinRequestsApi, classRequestsApi, messagesApi, notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
@@ -11,7 +11,7 @@ import {
   threadLoadErrorKey,
   useConversationThread,
 } from "@levelup/hooks";
-import type { Message } from "@levelup/types";
+import type { EligibilityCheckEntry, Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/auth/AuthContext";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import { ErrorState } from "@/components/error-state";
+import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -883,15 +884,19 @@ export default function ConversationScreen() {
     }
   };
 
-  // ── Class-request proposal (classes.class-requests rule 6, PAD-281) ──
+  // ── Class-request proposal (classes.class-requests rule 6, PAD-281) and a
+  // brand new request (rule 10a, PAD-461) ──
   // The bubble renders off the request's LIVE row, not the metadata frozen at
   // send time, so the list is fetched here (one row for the whole thread) and
   // refreshed by `class_request_changed` in the tabs layout. Only threads that
-  // hold a proposal message pay for it.
+  // hold a proposal or a first-ask message pay for it.
   const hasClassRequestProposal = React.useMemo(
     () =>
       (conversation?.messages ?? []).some(
-        (m) => m.metadata?.classRequest?.kind === "proposed" || m.metadata?.classRequest?.kind === "counter_proposal"
+        (m) =>
+          m.metadata?.classRequest?.kind === "proposed" ||
+          m.metadata?.classRequest?.kind === "counter_proposal" ||
+          m.metadata?.classRequest?.kind === "requested"
       ),
     [conversation?.messages]
   );
@@ -941,6 +946,75 @@ export default function ConversationScreen() {
       router.push({ pathname: "/(tabs)/availability", params: { proposeFor: String(id) } });
     } else {
       router.push({ pathname: "/settings", params: { section: "classRequests", proposeFor: String(id) } });
+    }
+  };
+
+  // ── Academy join-request ask (classes.join-requests rule 18, PAD-461) ──
+  // Only the ask itself carries `status: "pending"` in its frozen metadata (a
+  // decision or "spot taken" reply is a separate, plain message), so that is
+  // what gates fetching the live list at all — only threads holding an ask pay
+  // for it, mirrored from the classRequest pattern above.
+  const hasJoinRequestAsk = React.useMemo(
+    () => (conversation?.messages ?? []).some((m) => m.metadata?.joinRequest?.status === "pending"),
+    [conversation?.messages]
+  );
+  const liveJoinRequests = useQuery({
+    queryKey: queryKeys.classJoinRequests,
+    queryFn: classJoinRequestsApi.listClassJoinRequests,
+    enabled: hasJoinRequestAsk,
+  });
+  const joinRequestLiveFor = (message: Message) => {
+    const id = message.metadata?.joinRequest?.id;
+    if (id == null || liveJoinRequests.data === undefined) return undefined;
+    return liveJoinRequests.data.find((r) => r.id === id) ?? null;
+  };
+  const [respondingJoinRequestId, setRespondingJoinRequestId] = React.useState<
+    string | number | null
+  >(null);
+  // Rule 7: accepting is a manual add — the same named-reason confirmation the
+  // class detail screen and "Pedidos de Aula" ask (class-requests-section.tsx).
+  const [pendingJoinIneligible, setPendingJoinIneligible] = React.useState<{
+    message: Message;
+    ineligible: EligibilityCheckEntry[];
+  } | null>(null);
+  const invalidateJoinRequestQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
+      queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
+    ]);
+  const handleAnswerJoinRequest = async (
+    message: Message,
+    accept: boolean,
+    confirm = false
+  ) => {
+    const id = message.metadata?.joinRequest?.id;
+    if (id == null || respondingJoinRequestId !== null) return;
+    setRespondingJoinRequestId(message.id);
+    try {
+      if (accept) {
+        await classJoinRequestsApi.acceptClassJoinRequest(id, confirm);
+        toast.success(t("calendar.joinRequest.acceptedToast", { name: participantName }));
+      } else {
+        await classJoinRequestsApi.rejectClassJoinRequest(id);
+        toast.success(t("calendar.joinRequest.rejectedToast", { name: participantName }));
+      }
+    } catch (err) {
+      const refusal = classJoinRequestsApi.joinRequestRefusal(err);
+      if (accept && refusal?.code === "ineligible") {
+        setPendingJoinIneligible({ message, ineligible: refusal.ineligible ?? [] });
+      } else {
+        toast.error(
+          refusal?.code === "spot_filled"
+            ? t("calendar.joinRequest.spotFilledToast")
+            : refusal?.code === "class_closed"
+              ? t("calendar.joinRequest.classClosedToast")
+              : t("calendar.joinRequest.decideFailed")
+        );
+      }
+    } finally {
+      setRespondingJoinRequestId(null);
+      void invalidateJoinRequestQueries();
     }
   };
 
@@ -1228,6 +1302,9 @@ export default function ConversationScreen() {
                   respondingClassRequest={respondingClassRequestId === item.id}
                   onAnswerClassRequest={(accept) => void handleAnswerClassRequest(item, accept)}
                   onCounterClassRequest={() => handleCounterClassRequest(item)}
+                  joinRequestLive={joinRequestLiveFor(item)}
+                  respondingJoinRequest={respondingJoinRequestId === item.id}
+                  onAnswerJoinRequest={(accept) => void handleAnswerJoinRequest(item, accept)}
                 />
               );
             }}
@@ -1550,6 +1627,19 @@ export default function ConversationScreen() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rule 7: accepting an academy join-request ask is a manual add — same
+          warning as the class detail screen and "Pedidos de Aula". */}
+      <EligibilityConfirmDialog
+        open={pendingJoinIneligible !== null}
+        ineligible={pendingJoinIneligible?.ineligible ?? []}
+        onCancel={() => setPendingJoinIneligible(null)}
+        onConfirm={() => {
+          const parked = pendingJoinIneligible;
+          setPendingJoinIneligible(null);
+          if (parked) void handleAnswerJoinRequest(parked.message, true, true);
+        }}
+      />
     </View>
   );
 }

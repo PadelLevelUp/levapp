@@ -1,11 +1,5 @@
 /**
- * auth.parental-consent (PAD-198) — the countries offered at sign-up.
- *
- * `consentAge` mirrors the backend's seed of `digital_consent_ages` so the form
- * can show the guardian-email field before submitting. The server stays the
- * authority: an operator may change an age in the database without a release,
- * and a 400 `GUARDIAN_EMAIL_REQUIRED` then reveals the field anyway.
- * `ZZ` ("another country") has no row server-side and uses the default, 16.
+ * The countries offered at sign-up (auth.register rule 18).
  */
 export type Country = { code: string; pt: string; en: string; consentAge: number };
 
@@ -37,10 +31,6 @@ export function countryName(code: string, language: string): string {
   return language.startsWith("en") ? c.en : c.pt;
 }
 
-export function consentAgeFor(code: string): number {
-  return COUNTRIES.find((x) => x.code === code)?.consentAge ?? DEFAULT_CONSENT_AGE;
-}
-
 /** Full years on `today` for an ISO `YYYY-MM-DD` birth date; null when unparsable. */
 export function ageOn(birthDate: string, today: Date = new Date()): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
@@ -61,10 +51,4 @@ export const MINIMUM_SIGNUP_AGE = 18;
 export function isUnderSignupAge(birthDate: string, today: Date = new Date()): boolean {
   const age = ageOn(birthDate, today);
   return age !== null && age < MINIMUM_SIGNUP_AGE;
-}
-
-/** Whether the form should ask for a guardian's email (the server decides for real). */
-export function needsGuardian(birthDate: string, country: string, today: Date = new Date()): boolean {
-  const age = ageOn(birthDate, today);
-  return age !== null && age >= 0 && age < consentAgeFor(country);
 }

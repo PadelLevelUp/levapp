@@ -447,6 +447,20 @@ export interface ClassJoinRequest {
   note?: string | null;
 }
 
+/**
+ * classes.join-requests rule 17 (PAD-460): a row of `GET /app/class-join-requests` —
+ * the request plus the class it is for, so the coach's "Pedidos de Aula" and the
+ * student's Availability list can show it beside a private `ClassRequest` without a
+ * second read.
+ */
+export interface ClassJoinRequestListRow extends ClassJoinRequest {
+  kind: "academy";
+  classTitle: string | null;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;
@@ -493,7 +507,16 @@ export interface ClassInstance {
   /** PAD-130: the open-spot toggle at this tier (`null` = inherit), what resolved, and where from. */
   openSpotsVisible?: boolean | null;
   effectiveOpenSpotsVisible?: boolean;
-  openSpotsSource?: "instance" | "lesson" | "coach";
+  /** PAD-429: `"type"` is the lesson-type default (private → hidden); gated behind `class-type-defaults`. */
+  openSpotsSource?: "instance" | "lesson" | "coach" | "type";
+  /**
+   * PAD-429 (notifications.toggle-class rule 5/7): the automatic-invitations
+   * tri-state at this tier (`null` = inherit), what resolved, and where from.
+   * No coach tier — the engine-wide switch is `NotificationConfig.autoNotifyEnabled`.
+   */
+  autoInvites?: boolean | null;
+  effectiveAutoInvites?: boolean;
+  autoInvitesSource?: "instance" | "lesson" | "type";
   invitations?: ClassInvitation[];
   /** PAD-131: coach only — the pending join requests for this class. */
   joinRequests?: ClassJoinRequest[];
@@ -720,6 +743,17 @@ export interface Message {
       status: ClassRequestStatus;
       kind: "requested" | "proposed" | "counter_proposal" | "accepted" | "declined" | "withdrawn";
       slot?: { date: string; startTime: string; endTime: string };
+    };
+    /**
+     * classes.join-requests rule 18 (PAD-461): the academy join-request ask
+     * mirrored into the coach ↔ student conversation, status frozen at send
+     * time (always `pending` on the ask itself — a decision or "spot taken"
+     * reply is a separate, plain message). `lessonInstanceId` above names the
+     * class it is for.
+     */
+    joinRequest?: {
+      id: number;
+      status: ClassJoinRequest["status"];
     };
     [key: string]: unknown;
   };
@@ -1112,7 +1146,9 @@ export interface NotificationRestrictions {
   maxInactiveTime: { enabled: boolean; value: number };
   minTimeBeforeClass: { enabled: boolean; value: number };
   maxInvitesPerStudentPerDay: { enabled: boolean; value: number };
-  quietHours: { enabled: boolean };
+  /** PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local. A
+   * server from before PAD-451 omits start/end; read them through quietWindowOf (@levelup/config). */
+  quietHours: { enabled: boolean; start?: string; end?: string };
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
@@ -1675,6 +1711,13 @@ export interface DashboardEvaluationsBlock {
 export type EvaluationReminder = "never" | "monthly" | "every_n_classes";
 
 /** `GET/PUT /app/evaluation_settings`. `everyN` is present only for `every_n_classes`. */
+/** evaluations.scale rule 1 (PAD-423): the coach's evaluation scale, 1 to `scaleMax`. 5 by default. */
+export type EvaluationScaleMax = 5 | 10 | 20 | 100;
+
+export interface EvaluationScale {
+  scaleMax: EvaluationScaleMax;
+}
+
 export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;
