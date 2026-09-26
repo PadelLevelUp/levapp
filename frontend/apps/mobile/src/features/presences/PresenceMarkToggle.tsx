@@ -59,7 +59,8 @@ export function PresenceMarkToggle({
               // name sits above them, so labels never clip.
               "flex-1 items-center rounded-md border px-2 py-1.5",
               // Semantic colour, not the brand accent: these encode an outcome (PAD-441,
-              // attendance.validation rule 26), with a full-strength border as the non-colour cue.
+              // attendance.validation rule 26). The non-colour cue is the bold label below, with
+              // `accessibilityState.selected`; the border only takes the colour.
               tone === "neutral" && "border-border bg-background",
               tone === "positive" && "border-success bg-success/15",
               tone === "warning" && "border-warning bg-warning/15",
