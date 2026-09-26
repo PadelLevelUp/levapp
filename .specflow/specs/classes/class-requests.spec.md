@@ -91,7 +91,10 @@ held on the coach's calendar while the request is open.
    - A service function's `now` is therefore a club wall-clock value. The request's `decided_at`
      is an event timestamp and is stored in UTC (`wall_to_utc_naive(now)`).
 9. `GET /app/class-requests` lists the caller's own requests (a student's, or every request
-   addressed to the coach), newest first, with `playerName` / `coachName`.
+   addressed to the coach), newest first, with `playerName` / `coachName`. The lists that show
+   them (the coach's "Pedidos de Aula", the student's Availability requests) also show academy
+   join requests from `GET /app/class-join-requests` (`classes.join-requests` rule 17, PAD-460).
+   This endpoint itself is unchanged.
 10. **The student counter-proposes (PAD-281).** `POST /app/class-requests/<id>/counter-proposal
     {date, startTime, endTime}` while the request is `countered`: the slot is validated exactly
     like a new request (rule 2 length, rule 7 past / free, the request's own hold excluded), the

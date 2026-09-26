@@ -39,6 +39,9 @@ export const queryKeys = {
   // PAD-104: class requests (both roles), the student's coaches, a coach's free blocks.
   classRequests: ["class-requests"] as const,
   classRequestCoaches: ["class-request-coaches"] as const,
+  // classes.join-requests rule 17 (PAD-460): the caller's academy join requests, shown
+  // beside `classRequests` in the same lists.
+  classJoinRequests: ["class-join-requests"] as const,
   classRequestFreeBlocks: (coachId: string, date: string, excludeRequestId?: number) =>
     ["class-request-free-blocks", coachId, date, excludeRequestId ?? null] as const,
   exercises: ["exercises"] as const,

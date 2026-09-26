@@ -27,7 +27,8 @@ Students/players looking at a class from the outside, and the coach who decides 
    invited.
 2. Browsing the calendar, the student notices a class with an open spot they're eligible for and
    asks to join.
-3. The coach is notified of the request and accepts or rejects it.
+3. The coach is notified of the request and accepts or rejects it — from the class, or from their
+   "Pedidos de Aula" list, where academy requests now sit beside private ones (PAD-460).
 4. If accepted, the student is enrolled in that occurrence just as if the coach had added them
    directly.
 5. If someone else fills the spot first — through an invitation, the waiting list, or another
@@ -41,6 +42,11 @@ Students/players looking at a class from the outside, and the coach who decides 
 
 ## Business Rules
 
+- A request to join an academy class shows up where every other class request does: in the
+  coach's "Pedidos de Aula" (to accept or decline) and in the student's own requests in
+  Availability (to see where it stands, or withdraw it), marked as an academy class with its
+  name, date and time. Academy requests are accepted or declined, never met with "another time"
+  (PAD-460, part of PAD-427).
 - A student's view of a class never includes another student's participation, attendance, or
   invitation history.
 - Only a student who is eligible and can see the open spot may request it; the system re-checks

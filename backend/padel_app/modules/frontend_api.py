@@ -2058,6 +2058,15 @@ def decide_class_request(request_id, action):
 # ── PAD-131: classes.join-requests (rule 15) ─────────────────────────────────
 
 
+@bp.get("/class-join-requests")
+@jwt_required()
+def list_class_join_requests():
+    """classes.join-requests rule 17 (PAD-460): the request lists' academy rows."""
+    from padel_app.services.class_join_request_service import list_join_requests_for
+
+    return jsonify(list_join_requests_for(current_user()))
+
+
 @bp.post("/class-join-requests")
 @jwt_required()
 def create_class_join_request():

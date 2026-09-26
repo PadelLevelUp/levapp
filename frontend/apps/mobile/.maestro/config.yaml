@@ -207,6 +207,10 @@ executionOrder:
     # invitations" (PAD-429): the type default read back by API, then switched On for that
     # class and read back as the override. Teardown removes the class.
     - 110-private-class-auto-invites
+    # 111 (PAD-460): an academy join request made by API shows in the coach's Settings →
+    # Pedidos de Aula with the Academy badge; the coach accepts it there and the API reads back
+    # accepted. Teardown removes the class and restores openSpotsVisible.
+    - 111-coach-accepts-academy-request-from-list
     # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
     # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
     - 117-month-grid-seven-columns
