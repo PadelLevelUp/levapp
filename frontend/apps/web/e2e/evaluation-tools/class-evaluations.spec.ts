@@ -218,10 +218,18 @@ test("US-376d: a participant whose latest record is from an earlier day — the 
   await expect(row.getByTestId(`class-eval-summary-${playerId}`)).toHaveAttribute("data-rated", "1");
   await expect(earlier).toBeVisible();
   await expect(form.getByTestId(`evaluation-stars-${techniqueId}`)).toHaveAttribute("data-score", "4");
-  // Closing the row releases the hold: reopened, today's record alone.
-  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
-  await row.getByTestId(`class-eval-row-toggle-${playerId}`).click();
-  await expect(row.getByTestId(`class-eval-earlier-${playerId}`)).toHaveCount(0);
+  // Closing the row releases the hold: reopened, today's record alone — once the panel holds the
+  // read that carries it (class-panel rule 5, "which the next read returns"). PAD-455 (B-187):
+  // under load the row can reopen before that read has landed; it then captures the earlier-day
+  // record and, by the same F1 hold, keeps it while open. No network wait says when the panel's
+  // data is fresh (a read in flight at the tap, or one React Query cancels, answers too), so the
+  // close/reopen is retried until the reopened row shows today's record alone.
+  const toggle = row.getByTestId(`class-eval-row-toggle-${playerId}`);
+  await expect(async () => {
+    await toggle.click(); // close: releases the hold
+    await toggle.click(); // reopen: captures what the panel holds now
+    await expect(row.getByTestId(`class-eval-earlier-${playerId}`)).toHaveCount(0, { timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
 
   const history = await (await request.get(`${API_APP}/player/${playerId}/evaluations`, { headers: bearer(coachTok) })).json();
   const inClass = (history.records as { id: number; className: string | null; editable: boolean }[]).filter((r) => r.className === title);

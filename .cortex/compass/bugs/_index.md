@@ -147,5 +147,6 @@ whether a failure mode has been seen before.
 - [B-183](B-183-nginx-logs-the-activation-secret.md) — nginx logged the activation link's secret (?t=, ?token=) and its Referer (incomplete-rule, high, resolved)
 - [B-184](B-184-a-late-settings-profile-read-undoes-the-chosen-language.md) — Web Settings: a late profile read undid the language the coach had just chosen, and Save wrote the old one (incomplete-rule, medium, resolved)
 - [B-185](B-185-a-late-auth-me-read-undoes-an-ios-settings-save.md) — iOS Settings: an older auth-me read landing after a save put the old value back in the picker (incomplete-rule, low, resolved)
+- [B-187](B-187-class-evaluations-us-376d-reopens-before-todays-read.md) — E2E US-376d reopened the class-evaluation row before today's record was read, so the held earlier-day card stayed (test-defect, low, resolved)
 - [B-201](B-201-ios-month-grid-sunday-wraps.md) — iOS Mês grid: Sunday reported wrapping onto the next row, shifting every later date a weekday (not reproduced on simulator) (test-defect, high, triaged)
 - [B-204](B-204-needs-you-later-button-overflows-card.md) — Coach dashboard: "Mais tarde" overflowed its needs-you card with the sidebar open (missing-criterion, medium, resolved)
