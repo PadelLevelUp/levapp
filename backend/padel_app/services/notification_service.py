@@ -169,6 +169,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     if "priorityCriteria" in data:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
+        _validate_quiet_hours(data["restrictions"])
         config.restrictions = data["restrictions"]
     if "notificationGroups" in data:
         config.notification_groups = data["notificationGroups"]
@@ -1415,7 +1416,7 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
 
     when = _now
     if not _check_restrictions(instance, coach.id, restrictions, now=when):
-        when = _next_quiet_hours_end(when)
+        when = _next_quiet_hours_end(when, restrictions)
         if when is None or not _check_restrictions(instance, coach.id, restrictions, now=when):
             return None
 
@@ -1424,20 +1425,61 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     return when
 
 
-def _next_quiet_hours_end(now):
-    """The next instant quiet hours allow, i.e. 07:00 on the club's clock.
+_QUIET_BOUND = re.compile(r"^([01]\d|2[0-3]):(00|30)$")
 
-    Quiet hours are a club-local window (22:00–07:00, notifications.config rule
-    6a), so the answer is computed on the club's clock and handed back as the
-    UTC instant everything else compares.
+
+def _validate_quiet_hours(restrictions) -> None:
+    """PAD-451 (rule 6a): bounds, when given, are "HH:00"/"HH:30" and differ; else 400, nothing stored."""
+    quiet = restrictions.get("quietHours") if isinstance(restrictions, dict) else None
+    if not isinstance(quiet, dict):
+        return
+    start, end = quiet.get("start"), quiet.get("end")
+    if start is None and end is None:
+        return  # an app from before PAD-451: the stored bounds stay
+    from flask import abort
+
+    for bound in (start, end):
+        if bound is not None and not (isinstance(bound, str) and _QUIET_BOUND.match(bound)):
+            abort(400, "quietHours start and end must be HH:00 or HH:30")
+    default = DEFAULT_RESTRICTIONS["quietHours"]
+    if (start or default["start"]) == (end or default["end"]):
+        abort(400, "quietHours start and end must differ")
+
+
+def _quiet_window(restrictions) -> tuple[int, int]:
+    """The coach's quiet window as (start, end) minutes of the club-local day (rule 6a)."""
+    quiet = (restrictions or {}).get("quietHours") or {}
+    default = DEFAULT_RESTRICTIONS["quietHours"]
+
+    def minutes(value, fallback):
+        if not (isinstance(value, str) and _QUIET_BOUND.match(value)):
+            value = fallback
+        h, m = value.split(":")
+        return int(h) * 60 + int(m)
+
+    return minutes(quiet.get("start"), default["start"]), minutes(quiet.get("end"), default["end"])
+
+
+def _in_quiet_window(local, restrictions) -> bool:
+    """`[start, end)` on the club's clock; a window with start > end crosses midnight."""
+    start, end = _quiet_window(restrictions)
+    m = local.hour * 60 + local.minute
+    return start <= m < end if start < end else (m >= start or m < end)
+
+
+def _next_quiet_hours_end(now, restrictions=None):
+    """The next instant quiet hours allow: the window's end on the club's clock (rule 6a).
+
+    Computed on the club's clock and handed back as the UTC instant everything else compares.
+    Outside the window it is ``now``.
     """
     local = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
-    if local.hour < 7:
-        end = local.replace(hour=7, minute=0, second=0, microsecond=0)
-    elif local.hour >= 22:
-        end = (local + timedelta(days=1)).replace(hour=7, minute=0, second=0, microsecond=0)
-    else:
+    if not _in_quiet_window(local, restrictions):
         return now
+    _, end_min = _quiet_window(restrictions)
+    end = local.replace(hour=end_min // 60, minute=end_min % 60, second=0, microsecond=0)
+    if end <= local:
+        end = end + timedelta(days=1)
     return end.astimezone(timezone.utc).replace(tzinfo=None)
 
 
@@ -1472,8 +1514,8 @@ def _check_restrictions(
         # replaces existed only to avoid closing the scheduler <-> service
         # import cycle; sourcing the constant from a leaf module removes the
         # cycle rather than working around it.
-        local_hour = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ).hour
-        if local_hour >= 22 or local_hour < 7:
+        # PAD-451: the coach's own window (default 22:00–07:00), which may cross midnight.
+        if _in_quiet_window(now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ), restrictions):
             return False
 
     min_time = restrictions.get("minTimeBeforeClass", {})
