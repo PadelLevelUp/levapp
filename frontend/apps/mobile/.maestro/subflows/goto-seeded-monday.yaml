@@ -13,6 +13,11 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
+# B-217: the calendar remembers its view mode across launches, and a flow that left it on Mês or
+# Semana (32, 35, 117, 31, …) left no `calendar-next-week` in the day strip for the steps below.
+# Select the day view here instead of relying on run order. Every role sees the view control.
+- tapOn:
+    id: "calendar-view-day"
 - runScript: ../scripts/seeded-monday.js
 - repeat:
     times: 3

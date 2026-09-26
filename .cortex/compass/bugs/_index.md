@@ -154,3 +154,4 @@ whether a failure mode has been seen before.
 - [B-187](B-187-class-evaluations-us-376d-reopens-before-todays-read.md) — E2E US-376d reopened the class-evaluation row before today's record was read, so the held earlier-day card stayed (test-defect, low, resolved)
 - [B-201](B-201-ios-month-grid-sunday-wraps.md) — iOS Mês grid: Sunday reported wrapping onto the next row, shifting every later date a weekday (not reproduced on simulator) (test-defect, high, triaged)
 - [B-204](B-204-needs-you-later-button-overflows-card.md) — Coach dashboard: "Mais tarde" overflowed its needs-you card with the sidebar open (missing-criterion, medium, resolved)
+- [B-217](B-217-seeded-monday-subflow-depends-on-the-remembered-view.md) — Maestro goto-seeded-monday depended on the calendar's remembered view mode (test-defect, medium, resolved)
