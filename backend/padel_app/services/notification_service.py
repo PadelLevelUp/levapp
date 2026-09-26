@@ -1590,14 +1590,20 @@ def _format_template(template: str, **variables) -> str:
                 flags=re.IGNORECASE,
             )
         template = template.replace("{" + key + "}", val)
-    # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()".
-    template = re.sub(r"\(\s*\)", "", template)
+    # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
+    template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a
     # double space or a space before punctuation; collapse those so the rendered
     # message stays grammatical.
     template = re.sub(r"\s{2,}", " ", template)
     template = re.sub(r"\s+([,.!?;:])", r"\1", template)
-    return template.strip()
+    template = template.strip()
+    # A message that opened with the empty phrase ("No {court}, às …") is left
+    # starting on punctuation: drop it and capitalise what now leads.
+    trimmed = re.sub(r"^[,.;:!?\-–—\s]+", "", template)
+    if trimmed != template:
+        template = trimmed[:1].upper() + trimmed[1:]
+    return template
 
 
 # Portuguese weekday names, indexed by ``datetime.weekday()`` (Monday == 0).

@@ -142,6 +142,9 @@ class TestEmptyCourtLeavesNoBrokenText:
         ("class at {time} at {court}.", "class at 19:00."),
         ("Aula {type} ({court})", "Aula academia"),
         ("Aula {type} ( {court} ), às {time}", "Aula academia, às 19:00"),
+        ("Aula {type} [{court}]", "Aula academia"),
+        ("No {court}, às {time}.", "Às 19:00."),
+        ("{court}: aula às {time}", "Aula às 19:00"),
     ])
     def test_empty_court_goes_with_its_connector(self, template, expected):
         from padel_app.services.notification_service import _format_template
