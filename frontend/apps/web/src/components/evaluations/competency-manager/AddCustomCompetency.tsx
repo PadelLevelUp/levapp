@@ -5,16 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+interface AddCustomCompetencyProps {
+  /** PAD-431 (rule 15): add a sub-category of this category; absent, a new category. */
+  parentId?: number;
+  /** The section the field belongs to, for its test ids (`competency-add-sub-<section>-…`). */
+  sectionId?: string;
+}
+
 /**
- * "Competência personalizada" (evaluations.competencies rule 6). The server trims and
- * decides: 409 `duplicate_name` and 400 `name_invalid` are shown on the field, and what
+ * A new category, or a sub-category of one (evaluations.competencies rules 6, 15). The server
+ * trims and decides: 409 `duplicate_name` and 400 `name_invalid` are shown on the field, and what
  * the coach typed stays there to be corrected.
  */
-export function AddCustomCompetency() {
+export function AddCustomCompetency({ parentId, sectionId }: AddCustomCompetencyProps = {}) {
   const { t } = useTranslation();
   const create = useCreateCustomCompetency();
   const [name, setName] = useState("");
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const sub = parentId !== undefined;
+  const testId = sub ? `competency-add-sub-${sectionId}` : "competency-add";
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -22,7 +31,7 @@ export function AddCustomCompetency() {
     if (!trimmed || create.isPending) return;
     setErrorKey(null);
     try {
-      await create.mutateAsync(trimmed);
+      await create.mutateAsync(sub ? { name: trimmed, parentId } : trimmed);
       setName("");
     } catch (error) {
       const code = evaluationApiErrorCode(error);
@@ -31,25 +40,27 @@ export function AddCustomCompetency() {
   };
 
   return (
-    <form onSubmit={(event) => void submit(event)} className="space-y-2" data-testid="competency-add">
-      <Label htmlFor="competency-add-name">{t("evaluations.manager.customTitle")}</Label>
+    <form onSubmit={(event) => void submit(event)} className={sub ? "space-y-1 pl-6" : "space-y-2"} data-testid={testId}>
+      <Label htmlFor={`${testId}-name`} className={sub ? "text-xs text-muted-foreground" : undefined}>
+        {t(sub ? "evaluations.manager.subTitle" : "evaluations.manager.customTitle")}
+      </Label>
       <div className="flex items-center gap-2">
         <Input
-          id="competency-add-name"
-          data-testid="competency-add-name"
+          id={`${testId}-name`}
+          data-testid={`${testId}-name`}
           value={name}
           maxLength={100}
-          placeholder={t("evaluations.manager.namePlaceholder")}
+          placeholder={t(sub ? "evaluations.manager.subNamePlaceholder" : "evaluations.manager.namePlaceholder")}
           aria-invalid={errorKey ? true : undefined}
-          aria-describedby={errorKey ? "competency-add-error" : undefined}
+          aria-describedby={errorKey ? `${testId}-error` : undefined}
           onChange={(e) => { setName(e.target.value); setErrorKey(null); }}
         />
-        <Button type="submit" data-testid="competency-add-submit" disabled={create.isPending}>
+        <Button type="submit" size={sub ? "sm" : "default"} data-testid={`${testId}-submit`} disabled={create.isPending}>
           {t("evaluations.manager.add")}
         </Button>
       </div>
       {errorKey ? (
-        <p id="competency-add-error" data-testid="competency-add-error" role="alert" className="text-xs text-destructive">
+        <p id={`${testId}-error`} data-testid={`${testId}-error`} role="alert" className="text-xs text-destructive">
           {t(`evaluations.manager.${errorKey}`)}
         </p>
       ) : null}

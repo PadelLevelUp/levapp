@@ -119,6 +119,7 @@ def serialize_competency(category, score_count=None) -> dict:
         "isActive": bool(category.is_active),
         "sortOrder": category.sort_order,
         "scoreCount": score_count,
+        "parentId": category.parent_id,  # PAD-431 rule 15: null for a category
     }
 
 
@@ -133,8 +134,9 @@ def _ordered(categories):
 
 
 def ensure_starting_set(coach) -> None:
-    """Rule 4 (AV-021, Q17): a coach who holds NO category at all gets the three
-    `general` competencies, active, the first time a v2 endpoint reads their set.
+    """Rule 4 (AV-021, Q17; PAD-431 D3): a coach who holds NO category at all gets the whole
+    default tree — the three `general` categories and, under Técnica and Tática, their 14
+    sub-categories — active, the first time a v2 endpoint reads their set.
     Never from a legacy endpoint or the migration. For such a coach this read is
     the first creator of a non-legacy row — the rollback boundary of PAD-363.
     Idempotent under a race: the unique (coach_id, catalogue_key) index lets one
@@ -143,13 +145,22 @@ def ensure_starting_set(coach) -> None:
         return
     try:
         with db.session.begin_nested():
+            scale = coach_scale(coach)  # PAD-423 (evaluations.scale rule 2): non-legacy, so the coach's scale
+            parents = {}
             for order, key in enumerate(STARTING_KEYS):
                 entry = BY_KEY[key]
-                db.session.add(EvaluationCategory(
-                    # PAD-423 (evaluations.scale rule 2): non-legacy, so on the coach's scale.
-                    coach_id=coach.id, name=entry["pt"], scale_min=1, scale_max=coach_scale(coach),
+                parents[key] = EvaluationCategory(
+                    coach_id=coach.id, name=entry["pt"], scale_min=1, scale_max=scale,
                     catalogue_key=key, competency_group=entry["group"], is_active=True, sort_order=order,
-                ))
+                )
+                db.session.add(parents[key])
+            db.session.flush()
+            for group in ("technique", "tactics"):  # the group word is the default parent's key (rule 1)
+                for order, (key, _group, pt, _en) in enumerate(e for e in CATALOGUE if e[1] == group):
+                    db.session.add(EvaluationCategory(
+                        coach_id=coach.id, name=pt, scale_min=1, scale_max=scale, catalogue_key=key,
+                        competency_group=group, is_active=True, sort_order=order, parent_id=parents[group].id,
+                    ))
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
@@ -197,6 +208,44 @@ def _name_taken(coach, name, *, except_id=None) -> bool:
     )
 
 
+SUB_LEVEL_GROUPS = ("technique", "tactics")
+
+
+def _parent(coach, value) -> EvaluationCategory:
+    """Rule 15: a parent is one of the coach's own non-legacy categories — never a sub-category,
+    never a legacy row (R-047). Another coach's → 403; anything else → 400."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ApiError(400, "parent_invalid")
+    parent = db.session.get(EvaluationCategory, value)
+    if parent is None:
+        raise ApiError(400, "parent_invalid")
+    if parent.coach_id != coach.id:
+        raise ApiError(403, "not_your_competency")
+    if parent.parent_id is not None or parent.competency_group is None:
+        raise ApiError(400, "parent_invalid")
+    return parent
+
+
+def _default_parent(coach, group):
+    """Rule 15 "Creating": a sub-level catalogue entry sent without `parentId` goes under the
+    coach's category keyed by its group word, created active when missing. When the coach holds a
+    row of that category's name already (a legacy "Técnica"), there is none: the entry is created
+    as a category, as the PAD-431 migration leaves such rows."""
+    parent = EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=group).first()
+    if parent is not None:
+        return parent
+    entry = BY_KEY[group]
+    if any(_name_taken(coach, label) for label in (entry["pt"], entry["en"])):
+        return None
+    parent = EvaluationCategory(
+        coach_id=coach.id, name=entry["pt"], scale_min=1, scale_max=coach_scale(coach),
+        catalogue_key=group, competency_group=entry["group"], is_active=True, sort_order=None,
+    )
+    db.session.add(parent)
+    db.session.flush()
+    return parent
+
+
 def create_competency(coach, body):
     """`{catalogueKey}` switches a built-in on; `{name}` adds a custom one. Both
     are created on the coach's scale (PAD-423; 1-5 unless they chose another) and active. With `ensure_starting_set` this is what can create a
@@ -208,11 +257,15 @@ def create_competency(coach, body):
     as the shipped legacy upsert is; one after the other the second is a 409."""
     if not isinstance(body, dict):
         raise ApiError(400, "body_invalid")
+    parent_value = body.get("parentId", MISSING)
+    parent = None if parent_value in (MISSING, None) else _parent(coach, parent_value)
     key = body.get("catalogueKey", MISSING)
     if key is not MISSING:
         if not isinstance(key, str) or key not in BY_KEY:
             raise ApiError(400, "catalogue_key_unknown")
         entry = BY_KEY[key]
+        if entry["group"] not in SUB_LEVEL_GROUPS and parent is not None:
+            raise ApiError(400, "parent_invalid")  # a general entry is always a category
         existing = EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first()
         if existing is not None:  # switching on is idempotent (rule 6)
             existing.is_active = True
@@ -226,6 +279,8 @@ def create_competency(coach, body):
                 return winner, False
             raise ApiError(409, "duplicate_name")
         name, group = entry["pt"], entry["group"]
+        if group in SUB_LEVEL_GROUPS and parent is None:
+            parent = _default_parent(coach, group)
     else:
         name, group, key = _clean_name(body.get("name")), "custom", None
         if _name_taken(coach, name):
@@ -235,6 +290,7 @@ def create_competency(coach, body):
         # PAD-423 (evaluations.scale rule 2): non-legacy, so on the coach's scale.
         coach_id=coach.id, name=name, scale_min=1, scale_max=coach_scale(coach),
         catalogue_key=key, competency_group=group, is_active=True, sort_order=None,
+        parent_id=parent.id if parent is not None else None,
     )
     try:
         db.session.add(category)
@@ -260,12 +316,15 @@ def update_competency(coach, category_id, body) -> EvaluationCategory:
 
     changes = {}
     if "name" in body:
-        if category.catalogue_key:
-            raise ApiError(409, "catalogue_competency")  # translated by key; switched off, never renamed
         name = _clean_name(body["name"])
         if _name_taken(coach, name, except_id=category.id):
             raise ApiError(409, "duplicate_name")
         changes["name"] = name
+        if category.catalogue_key:
+            # PAD-431 (rule 8): a renamed default is the coach's own — no longer translated by key,
+            # and its entry is offered again. Never NULL: it must not turn legacy (R-047).
+            changes["catalogue_key"] = None
+            changes["competency_group"] = "custom"
     if "isActive" in body:
         if not isinstance(body["isActive"], bool):
             raise ApiError(400, "is_active_invalid")
@@ -285,9 +344,8 @@ def update_competency(coach, category_id, body) -> EvaluationCategory:
 def delete_competency(coach, category_id) -> dict:
     from padel_app.services.coach_service import delete_evaluation_category_service
 
+    # PAD-431 (rule 9): any row, a default included; a category takes its sub-categories with it.
     category = own_competency(coach, category_id)
-    if category.catalogue_key:
-        raise ApiError(409, "catalogue_competency")  # a built-in is switched off, never deleted
     return delete_evaluation_category_service(category, actor_user_id=coach.user_id)
 
 

@@ -90,9 +90,9 @@ test("US-373d: a catalogue switch applies when made, over the page the coach was
   const row = page.getByTestId("competency-row-key-smash");
   await expect(row).toHaveAttribute("data-kind", "catalogue");
   await expect(row).toHaveAttribute("data-active", "false");
-  // A built-in competency is switched, never renamed or deleted (rule 2).
-  await expect(page.getByTestId("competency-rename-key-smash")).toHaveCount(0);
-  await expect(page.getByTestId("competency-delete-key-smash")).toHaveCount(0);
+  // PAD-431 (rules 8, 9): a default can be renamed and deleted too, besides switched.
+  await expect(page.getByTestId("competency-rename-key-smash")).toHaveCount(1);
+  await expect(page.getByTestId("competency-delete-key-smash")).toHaveCount(1);
 
   const patched = page.waitForResponse(
     (r) => r.request().method() === "PATCH" && r.url().endsWith(`/evaluation_competency/${smashId}`),

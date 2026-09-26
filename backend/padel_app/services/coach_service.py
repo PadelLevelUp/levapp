@@ -419,12 +419,21 @@ def delete_coach_level_service(coach, level_id):
     return level
 
 
+def _sub_categories(category):
+    from padel_app.models import EvaluationCategory
+
+    return EvaluationCategory.query.filter_by(parent_id=category.id).order_by(EvaluationCategory.id).all()
+
+
 def evaluation_category_impact(category):
     """evaluations.categories rule 7 (PAD-274): what deleting a category removes —
     every score recorded in it, and how many of the coach's players have one."""
     from padel_app.models import EvaluationEntry
 
-    scores = EvaluationEntry.query.filter_by(category_id=category.id)
+    # PAD-431 (evaluations.competencies rule 9): a category's sub-categories go with it, so their
+    # scores count. A legacy category never has one (R-047), so the frozen delete is unchanged.
+    ids = [category.id] + [c.id for c in _sub_categories(category)]
+    scores = EvaluationEntry.query.filter(EvaluationEntry.category_id.in_(ids))
     return {
         "name": category.name,
         "scores": scores.count(),
@@ -441,16 +450,22 @@ def delete_evaluation_category_service(category, actor_user_id=None):
     from padel_app.services.evaluation_record_service import prune_empty_records
 
     impact = evaluation_category_impact(category)
+    subs = _sub_categories(category)  # PAD-431: they go with it, and are named in the audit row
     # PAD-363: the scores go with the category; a record they leave empty goes too.
     touched = [
         row[0] for row in
-        _Entry.query.with_entities(_Entry.coach_player_id).filter_by(category_id=category.id).distinct()
+        _Entry.query.with_entities(_Entry.coach_player_id)
+        .filter(_Entry.category_id.in_([category.id] + [c.id for c in subs])).distinct()
     ]
+    details = {"coach_id": category.coach_id, "scores": impact["scores"], "players": impact["players"]}
+    if subs:
+        details["subCategories"] = [c.name for c in subs]
     record_deletion(
         actor_user_id=actor_user_id, entity="evaluation_category", entity_id=category.id,
-        action="deleted", label=category.name,
-        details={"coach_id": category.coach_id, "scores": impact["scores"], "players": impact["players"]},
+        action="deleted", label=category.name, details=details,
     )
+    for sub in subs:
+        db.session.delete(sub)  # one transaction: `category.delete()` commits them together
     category.delete()
     prune_empty_records(touched)
     return impact

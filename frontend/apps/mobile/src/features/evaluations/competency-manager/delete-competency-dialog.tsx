@@ -20,6 +20,8 @@ import { Text } from "@/components/ui/text";
 interface DeleteCompetencyDialogProps {
   /** The custom or legacy competency to delete; `null` closes the dialog. */
   competency: EvaluationCompetency | null;
+  /** PAD-431 (rule 9): the sub-categories deleted with a category, named so nothing goes unseen. */
+  subNames?: string[];
   onClose: () => void;
 }
 
@@ -29,7 +31,7 @@ interface DeleteCompetencyDialogProps {
  * the server writes the audit row. It cannot be confirmed if the impact could not be read.
  * An AlertDialog on a pushed screen — never inside a native Modal.
  */
-export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetencyDialogProps) {
+export function DeleteCompetencyDialog({ competency, subNames = [], onClose }: DeleteCompetencyDialogProps) {
   const { t } = useTranslation();
   const impact = useEvaluationCompetencyImpact(competency?.id ?? null, competency !== null);
   const remove = useDeleteEvaluationCompetency();
@@ -73,6 +75,11 @@ export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetency
                   : t("evaluations.manager.deleteImpactNone")
                 : ""}
           </AlertDialogDescription>
+          {subNames.length > 0 ? (
+            <Text testID="competency-delete-subs" className="text-sm text-muted-foreground">
+              {t("evaluations.manager.deleteSubCategories", { names: subNames.join(", ") })}
+            </Text>
+          ) : null}
         </AlertDialogHeader>
         <View className="gap-1">
           <Text className="text-sm font-medium">{t("evaluations.manager.deleteTypeName")}</Text>
