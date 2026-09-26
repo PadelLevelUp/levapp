@@ -92,8 +92,19 @@ Today:
 
 Planned:
 
-- Catalogue competencies are switched on and off, never deleted; switching one off keeps its
-  history. The coach's own can be renamed and deleted with today's warning.
+- What a coach scores is organised in **categories**, and a category can hold **sub-categories**
+  (PAD-431). A new coach starts with Consistência; Tática (posição defensiva, posição atacante,
+  transição, tomada de decisão, jogo em dupla); and Técnica (direita, esquerda, volley, bandeja,
+  víbora, smash, saída de vidro, duplo vidro, serviço). A coach who already had categories keeps
+  them and nothing new is switched on; the defaults they lack are offered to add.
+- A coach can add, rename, switch off and delete any category or sub-category, the defaults
+  included. Renaming keeps every score. Deleting removes the scores too, after the coach has seen
+  how many and typed the name; deleting a category removes its sub-categories with it.
+- Where a category has sub-categories, the coach scores the sub-categories; a category without
+  any (Consistência) is scored directly. A score a category already holds is kept as history and
+  is never mixed into its sub-categories' figures.
+- The evaluation settings sit together under "Avaliações": the categories, how often to evaluate,
+  and the scale.
 - Every competency is rated on five whole stars, including the categories a coach already had.
   The owner decided on 2026-09-22 to convert every existing 1–10 score to stars now, with one
   fixed rule: half the score, rounded up (1–2 → 1, 3–4 → 2, 5–6 → 3, 7–8 → 4, 9–10 → 5). The

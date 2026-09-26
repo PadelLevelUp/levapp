@@ -1,6 +1,6 @@
 ---
 id: evaluations.competencies
-status: implemented
+status: implementing
 depends_on: [evaluations.categories, evaluations.legacy-client-contract]
 implements: ../../specs-business/evaluations/coach-evaluates-a-player.business.md
 governed_by: []
@@ -14,7 +14,9 @@ provenance:
 ### Intent
 What a coach scores players on: a built-in catalogue they switch on and off, their own custom
 competencies, and the categories they already had. One set per coach (AV-026), used by every
-evaluation surface, managed in "Gerir competências". The UI and the new endpoints say
+evaluation surface, managed in "Definir categorias de avaliação" (PAD-431; "Gerir competências"
+before). Since PAD-431 the set is a **two-level tree**: categories, some holding sub-categories
+(rule 15). The UI says **category / sub-category**; the new endpoints and the code say
 **competency**; the table, the foreign key and the wire key `categoryId` stay **category**.
 
 ### Entities
@@ -28,6 +30,7 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
   | `competency_group` | varchar(16) NULL | `general` \| `technique` \| `tactics` \| `custom`; **NULL = legacy** — what `evaluations.legacy-client-contract` filters on |
   | `is_active` | boolean NOT NULL DEFAULT true | offered on entry forms |
   | `sort_order` | int NULL | position inside its group; NULL sorts last, then by `name` |
+  | `parent_id` | int NULL, FK `evaluation_categories.id` ON DELETE CASCADE | **(PAD-431)** the category a sub-category belongs to; NULL for a category (rule 15) |
 
   Unique `(coach_id, catalogue_key)` where `catalogue_key` is not null. The migration (one, with
   `evaluations.records`'s table; idempotent, every DDL guarded) backfills nothing: every existing row is
@@ -44,8 +47,11 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    - `tactics`: `defensive_position` (Posição defensiva), `attacking_position` (Posição atacante),
      `transition` (Transição), `decision_making` (Tomada de decisão), `doubles_play` (Jogo em dupla)
 
-   Group names and competency keys are separate namespaces: the group `technique` and the key
-   `technique` are never compared. A catalogue competency is a **row created only when a coach
+   **(PAD-431, reverses "never compared")** The catalogue is the coach's default tree: the three
+   `general` entries are **categories**, and each entry of the `technique` / `tactics` group is a
+   **sub-category** whose default parent is the category keyed by the same word (`technique` →
+   the `technique` row, `tactics` → the `tactics` row). `consistency` has no default
+   sub-categories. That word is the only link between a group and a key. A catalogue competency is a **row created only when a coach
    switches it on** (`POST`, rule 6); an unused entry is no row at all and exists for no client.
    The row's `name` holds the Portuguese label, so the per-coach name uniqueness covers it.
 2. **Three kinds of row.** *Legacy* (`competency_group` NULL): every category that existed before
@@ -57,10 +63,12 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    PAD-403 here). A legacy category keeps its own `scale_min`/`scale_max` and every score it holds,
    is rendered as a number with a stepper ("7/10"), never as stars, and charts on its own scale.
    No row is rescaled by any migration. **(pending owner decision Q1)**
-4. **(AV-021, build default Q17) What a coach starts with.** A coach who holds any category keeps
-   them all, active, and gets no catalogue row — nothing changes until they opt in. A coach who
-   holds **no row at all** gets the three `general` competencies created active the first time a
-   new endpoint reads their set (get-or-create, idempotent; never by a legacy endpoint, never by
+4. **(AV-021, build default Q17; PAD-431 D3) What a coach starts with.** A coach who holds any
+   category keeps them all, active, and gets no new catalogue row — nothing is switched on for
+   them; the defaults they lack are offered as "add" (rule 15). A coach who holds **no row at
+   all** gets **the whole default tree** created active — the three `general` categories and, under
+   Técnica and Tática, their 14 sub-categories (17 rows) — the first time a new endpoint reads
+   their set (get-or-create, idempotent; never by a legacy endpoint, never by
    the migration). Consequence for rollback: for such a coach this read — a GET — is the
    first thing that creates a non-legacy row, so the "old code is safe on the new schema until the
    first non-legacy row exists" boundary (PAD-363) is crossed by the first new-client read, not
@@ -105,15 +113,23 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
    nothing else: its ratings stay in their records, show on every history card that holds them,
    and keep their evolution pill. No record, card or shared snapshot is rewritten. The editor
    says so: "As alterações aplicam-se imediatamente às próximas avaliações."
-8. **(build default Q18) Renaming is by id.** `PATCH … {name}` updates the row in place and keeps
-   every rating, which resolves **B-125** for new clients (the legacy upsert keeps forking, as
-   pinned). Same validation as rule 6. A catalogue competency accepts only `isActive` and
-   `sortOrder`; `name` on it → 409. `sortOrder` is an integer ≥ 0, or `null` to un-order the competency (it then sorts last in its group, by name); `null` is a value here, not an absence (rule 10).
+8. **(build default Q18; PAD-431 D4, reverses "a catalogue competency cannot be renamed")
+   Renaming is by id.** `PATCH … {name}` updates the row in place and keeps every rating, which
+   resolves **B-125** for new clients (the legacy upsert keeps forking, as pinned). Same validation
+   as rule 6. **Any** row can be renamed, a catalogue one included: renaming a catalogue row makes
+   it the coach's own — `catalogue_key` is cleared and `competency_group` becomes `custom` (never
+   NULL: it must not turn legacy, R-047) — and it keeps its id, its ratings, its `parent_id` and
+   its sub-categories. Its entry reappears in `catalogue` and can be added again (rule 6), as a
+   separate row. `sortOrder` is an integer ≥ 0, or `null` to un-order the competency (it then sorts last in its group, by name); `null` is a value here, not an absence (rule 10).
 9. **(build default Q18) Deleting.** `GET /api/app/evaluation_competency/<id>/impact` →
-   `{name, scores, players}`; `DELETE /api/app/evaluation_competency/<id>` deletes a **custom or
-   legacy** competency and every score on it, with today's safeguards: the client asks for the
-   typed name, and one `deletion_audit` row is written in the same transaction (PAD-274). A
-   catalogue competency can only be switched off → 409. These are new paths because the legacy
+   `{name, scores, players}`; `DELETE /api/app/evaluation_competency/<id>` deletes **any**
+   competency — catalogue, custom or legacy (PAD-431 D4 reverses "a catalogue competency can only
+   be switched off") — and every score on it, with today's safeguards: the client asks for the
+   typed name, and one `deletion_audit` row is written in the same transaction (PAD-274).
+   **Deleting a category deletes its sub-categories and every score on them too**; the impact
+   counts them (`scores` and `players` over the category and all its sub-categories) and the
+   audit row lists the sub-categories deleted. A deleted catalogue entry reappears in
+   `catalogue` and can be added again, with no ratings. These are new paths because the legacy
    delete must refuse what old builds cannot see (`evaluations.legacy-client-contract` rule 6).
    Another coach's id → 403 on all three verbs.
 10. **The endpoints parse JSON directly and distinguish absent / null / falsy.** They must not
@@ -121,7 +137,8 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
     `JsonRequestAdapter`, `model.update_with_dict`), which reads a falsy value as "not sent"
     (B-136). `isActive: false` switches off; `sortOrder: 0` is stored as 0; an absent key changes
     nothing; a body that is not a JSON object → 400.
-11. **(AV-015, build default Q19) Where the editor lives.** One screen, "Gerir competências",
+11. **(AV-015, build default Q19; renamed by PAD-431) Where the editor lives.** One screen,
+    **"Definir categorias de avaliação"** (every "Gerir competências" label is renamed),
     reached from the class panel (twice: the eyebrow action and the "+ Gerir competências"
     button), from the player's evaluations drawer, and from Settings → Preferences, where it
     replaces today's category editor. Coach-only. Every entry goes through one function
@@ -140,6 +157,39 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
     handle the empty set (`evaluations.class-panel` rule 6, `evaluations.history` rule 5).
 14. **(build default Q23) Layout.** A modal on desktop web, a sheet at phone width, a pushed
     screen on iOS (not a native `Modal` sheet). Web and iOS ship in the same ticket.
+15. **(PAD-431) Categories and sub-categories.** A row with `parent_id` NULL is a **category**; a
+    row with a `parent_id` is a **sub-category** of that category.
+    - **Two levels, never more.** A parent must be one of the coach's own **non-legacy
+      categories** (`parent_id` NULL, `competency_group` not NULL); anything else → 400 (another
+      coach's → 403). A legacy row is never a parent or a sub-category (R-047), and a
+      sub-category never has sub-categories. Moving a sub-category to another category is not
+      offered.
+    - **Creating.** `POST /evaluation_competency` accepts `parentId` with `{name}` or with a
+      sub-level `{catalogueKey}` (a `technique` / `tactics` group entry). A sub-level catalogue
+      entry sent without `parentId` goes under the coach's category keyed by its group word
+      (rule 1), which is created active if the coach lacks it. A `general` entry never takes a
+      `parentId` → 400.
+    - **Reading.** Every item of `competencies` gains `parentId` (null for a category). The order
+      of rule 5 holds; a client builds the tree from `parentId`.
+    - **Offered defaults.** The manager offers each catalogue sub-category the coach lacks under
+      the coach's category that holds its group word's key; while the coach holds no such
+      category (renamed or deleted), those entries are offered with that default category, which
+      adding brings back first.
+    - **Switching.** A sub-category is offered on an entry form only while it **and** its
+      category are active. Switching a category off leaves its sub-categories' own flags as they
+      are.
+16. **(PAD-431 D1, D6) What is scored.** A category with at least one active sub-category is
+    **not offered** for scoring: its sub-categories are. A category with none (Consistência, or a
+    category whose sub-categories are all off) is scored directly. A score a category already
+    holds stays where it is — on its history cards and in its own evolution — as a **history
+    score**. A score that arrives for such a category anyway (an older client whose form still
+    lists it flat) is **stored the same way, never dropped**: it is a history score, not refused
+    and not discarded, and `PUT /evaluation_record` answers as for any score.
+17. **(PAD-431) Figures never mix levels.** Every figure that combines ratings (the monthly and
+    rolling means of `evaluations.evolution`, the shared lines of `evaluations.sharing`) is per
+    competency, as today; nothing derives a category's figure from its sub-categories, and any
+    future figure that combines competencies counts **scored leaves only** — a history score on a
+    category with sub-categories is never added in.
 
 ### Touches
 - `settings.role-scope` — its coach-only Preferences list names "evaluation categories"; the
@@ -155,12 +205,8 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
   `scaleMax` 10, `isActive: true`, `scoreCount` 12
 - **And** `catalogue` holds all 17 entries and no `evaluation_categories` row was created
 
-#### A coach with nothing starts with the three general competencies (rule 4)
-- **Given** coach Bruno with no `evaluation_categories` row
-- **When** he calls `GET /api/app/evaluation_competencies` twice
-- **Then** `competencies` holds exactly `technique`, `tactics`, `consistency` (group `general`,
-  1–5, active), `catalogue` holds the other 14, and he holds 3 rows, not 6
-- **And** `GET /api/app/evaluation_categories` (legacy) still answers `[]` for him
+#### A coach with nothing starts with the three general competencies (rule 4) — superseded
+- **Superseded by PAD-431:** see "A new coach starts with the whole default tree" below.
 
 #### A catalogue twin is hidden (rule 4)
 - **Given** coach Carla holds a legacy category named "bandeja" (0–10)
@@ -191,10 +237,47 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
 - **When** Ana sends `PATCH /api/app/evaluation_competency/13` with `{"name": "Serviço cruzado"}`
 - **Then** row 13 is renamed, she holds no second row, and `scoreCount` is still 5
 
-#### A catalogue competency cannot be renamed or deleted (rules 8, 9)
-- **Given** Ana's catalogue competency Bandeja (id 12)
-- **When** she sends `PATCH …/12` with `{"name": "Bandeja alta"}`, then `DELETE …/12`
-- **Then** both answer 409 and row 12 is unchanged
+#### Renaming a default makes it the coach's own (rule 8, PAD-431)
+- **Given** Ana's catalogue sub-category Bandeja (id 12, under Técnica id 3) with 4 scores
+- **When** she sends `PATCH …/12` with `{"name": "Bandeja alta"}`
+- **Then** row 12 is named "Bandeja alta" with `key: null`, `group: "custom"`, `parentId: 3` and
+  `scoreCount` 4, and `catalogue` offers `bandeja` again
+
+#### Deleting a category takes its sub-categories with it (rule 9, PAD-431)
+- **Given** Ana's category Tática (id 4) with sub-categories Transição (6 scores) and Jogo em dupla
+  (2 scores), over 3 players
+- **When** she calls `GET …/4/impact`, then `DELETE …/4`
+- **Then** the impact is `{"name": "Tática", "scores": 8, "players": 3}`, the three rows and 8 scores
+  are gone, one `deletion_audit` row names Tática and its two sub-categories, and `catalogue` offers
+  `tactics` and its five entries again
+
+#### A new coach starts with the whole default tree (rules 4, 15)
+- **Given** coach Bruno with no `evaluation_categories` row
+- **When** he calls `GET /api/app/evaluation_competencies` twice
+- **Then** he holds 17 rows, not 34: Consistência with no sub-category, Tática with its 5 and Técnica
+  with its 9, each sub-category's `parentId` its category's id, all active, and `catalogue` is empty
+- **And** `GET /api/app/evaluation_categories` (legacy) still answers `[]` for him
+
+#### Two levels only; legacy stays out of the tree (rule 15)
+- **Given** Ana's sub-category Víbora (id 20), her legacy "Forehand" (id 9) and Bruno's category id 50
+- **When** she posts `{"name": "X", "parentId": 20}`, `{"name": "Y", "parentId": 9}` and
+  `{"name": "Z", "parentId": 50}`
+- **Then** they answer 400, 400 and 403, and nothing is created
+
+#### A category with active sub-categories is not offered; a stray score for it is kept (rule 16)
+- **Given** Técnica (id 3) with the active sub-category Víbora, and Consistência with none
+- **When** Ana opens "Nova avaliação" for Rui
+- **Then** the form offers Víbora and Consistência and no Técnica input
+- **When** an older client sends `PUT /evaluation_record` with a Técnica score of 4
+- **Then** the save succeeds, the score is stored on Técnica and shows on that record's card as a
+  history score, and no figure for Víbora or any other competency changes
+
+#### Existing technique and tactics rows are placed under their category (migration, PAD-431)
+- **Given** coach Carla holds the catalogue rows Víbora and Smash (group `technique`), no Técnica row,
+  and the custom "Saque cruzado"
+- **When** the PAD-431 migration runs
+- **Then** a Técnica row exists for her, active, and Víbora's and Smash's `parent_id` is its id;
+  "Saque cruzado" and every legacy row keep `parent_id` NULL; no name, scale or score changed
 
 #### Delete shows its impact and is audited (rule 9)
 - **Given** "Saque cruzado" (id 13) with 5 scores across 2 players
@@ -234,8 +317,14 @@ evaluation surface, managed in "Gerir competências". The UI and the new endpoin
   (2) reordering (`sortOrder`) has no UI — the API accepts it, the manager never sends it;
   (3) rename is an inline edit on the row (pencil → field → save or Enter), for custom and
   legacy rows only.
-- OPEN: AV-020 makes "Técnica" and "Tática" both a group and a competency inside "Geral". They
-  are specified as ordinary competencies that share a label with a group; whether the UI needs
-  to disambiguate the label is left to the building slice.
+- RESOLVED by PAD-431 (D150, 2026-09-26): AV-020's "Técnica"/"Tática" as both a group and a
+  competency is now a parent link — the group word names the default category (rule 1, rule 15).
+- **PAD-431 migration (D2).** Adds `parent_id` (guarded DDL, idempotent) and, per coach, sets each
+  `technique` / `tactics` group row's `parent_id` to the coach's row keyed `technique` /
+  `tactics`, creating that row (on the coach's scale, active iff one of its sub-categories is
+  active) when the coach lacks it. If a coach already holds a row with that category's name
+  (a legacy "Técnica", say), no row is created and those sub-level rows stay top-level. `general`,
+  `custom` and legacy rows keep `parent_id` NULL. No name, scale, flag or score is changed.
+  Downgrade drops the column; rows the migration created stay (they are ordinary catalogue rows).
 - OPEN: storing the Portuguese label in `name` (rule 1) is a storage convenience; shells must
   display the i18n label by `key` and never the stored name for a catalogue row.
