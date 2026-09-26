@@ -173,3 +173,51 @@ describe("ValidateClassesDialog undecided players in the class list (PAD-443)", 
     expect(screen.queryByTestId("validate-list-undecided-icon-1-21")).toBeNull();
   });
 });
+
+// PAD-442 (attendance.validation rule 25): a class the coach completes stays where it was, with
+// its Validate button enabled in place; the group comes from the server's state, not local marks.
+// Criterion: "Deciding the last player unblocks the class in place (PAD-442)".
+describe("ValidateClassesDialog keeps a completed class in place (PAD-442)", () => {
+  function renderQueue() {
+    const silent = klass(1, "First");
+    silent.players = [
+      { ...silent.players[0], playerId: 31, presenceId: 31, name: "Rui", response: "none" },
+    ];
+    const ready = klass(2, "Second");
+    render(
+      <Dialog
+        pending={[silent, ready]}
+        validated={[]}
+        pendingCount={2}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={async () => {}}
+        onUnvalidate={async () => {}}
+        busyClassIds={[]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+  }
+
+  const cardOf = (rowTestId: string) =>
+    screen.getByTestId(rowTestId).closest('[data-testid="presences-class-card"]') as HTMLElement;
+
+  it("keeps the class under needs-input with Validate enabled once its last player is marked", () => {
+    renderQueue();
+    const needsInput = screen.getByTestId("presences-group-needsInput");
+    expect(within(needsInput).getByTestId("validate-list-row-1-31")).toBeInTheDocument();
+    expect(within(cardOf("validate-list-row-1-31")).getByTestId("presences-validate-class")).toBeDisabled();
+
+    fireEvent.click(within(screen.getByTestId("validate-list-row-1-31")).getByTestId("presence-mark-present"));
+
+    expect(within(screen.getByTestId("presences-group-needsInput")).getByTestId("validate-list-row-1-31")).toBeInTheDocument();
+    expect(within(screen.getByTestId("presences-group-ready")).queryByTestId("validate-list-row-1-31")).toBeNull();
+    expect(within(cardOf("validate-list-row-1-31")).getByTestId("presences-validate-class")).toBeEnabled();
+  });
+
+  it("still lists a class whose players all answered under ready", () => {
+    renderQueue();
+    expect(within(screen.getByTestId("presences-group-ready")).getByTestId("validate-list-row-2-20")).toBeInTheDocument();
+  });
+});

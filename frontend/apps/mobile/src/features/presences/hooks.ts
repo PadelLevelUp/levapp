@@ -4,6 +4,11 @@ import * as presencesApi from "@levelup/api/src/resources/presences";
 import { useTranslation } from "react-i18next";
 import type { AbsenceJustification, PresenceStatus } from "@levelup/types";
 
+import {
+  invalidateAfterPresenceWrite,
+  PRESENCE_STATS_KEY,
+  PRESENCE_TREND_KEY,
+} from "./presence-invalidation";
 import type { RosterOption } from "./validate-state";
 
 /**
@@ -16,8 +21,8 @@ import type { RosterOption } from "./validate-state";
  */
 
 export const presenceKeys = {
-  stats: ["presence-stats"] as const,
-  trend: ["presence-trend"] as const,
+  stats: PRESENCE_STATS_KEY,
+  trend: PRESENCE_TREND_KEY,
   pending: (from: string, to: string) =>
     ["presence-pending", from, to] as const,
   pendingCount: (from: string, to: string) =>
@@ -91,12 +96,7 @@ export function useCoachRoster(): RosterOption[] {
 /** Everything the tab shows is derived from presences, so any write refetches all three. */
 function useInvalidatePresences() {
   const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: presenceKeys.stats }),
-      queryClient.invalidateQueries({ queryKey: presenceKeys.trend }),
-      queryClient.invalidateQueries({ queryKey: ["presence-pending"] }),
-    ]);
+  return () => invalidateAfterPresenceWrite(queryClient);
 }
 
 export interface ValidatePayload {

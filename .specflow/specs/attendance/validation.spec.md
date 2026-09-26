@@ -229,11 +229,21 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       regains focus.
 24. **(PAD-443) Players who still need a decision stand out.** In the validate view, a player
     whose `effectiveMark` is `null` (rule 5's undecided) shows an alert icon before the name, a soft
-    amber left border on the row, and an accessible label saying they need a decision. The class
+    yellow left border on the row, and an accessible label saying they need a decision. The class
     header shows "N jogadores por decidir", the same count as `undecidedCount`. The highlight
     disappears the moment a mark is set. The alert styling never paints the state buttons, and its
     hue is distinct from the selected "Justificada" (PAD-441), so "needs a decision" and "justified"
     never read alike.
+25. **(PAD-442) A class stays where the coach found it until the page is reloaded.** Which group a
+    class sits in ("needs your input" or "ready to confirm") comes from the server's state only
+    (`validationGroup(players)` in `@levelup/config`, i.e. `undecidedCount` with no local marks),
+    never from the marks the coach has made in this visit. Marking the last undecided player keeps
+    the class in "needs your input", in the same position, and its Validate button becomes available
+    right there (the button follows the local marks, rule 5). Validating it removes it from the list
+    as usual. Local marks are not saved, so on the next load the class is grouped by what the server
+    holds; a class whose players all answered themselves still appears under "ready to confirm".
+    Refreshing the queue after another write (rule 22) does not move it either, because the server's
+    state for it has not changed.
 
 ### Acceptance Criteria
 
@@ -266,10 +276,17 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** it appears under "needs your input" and its Validate action is disabled
 - **And** the unanswered player is listed first
 
-#### Deciding the last player unblocks the class
+#### Deciding the last player unblocks the class in place (PAD-442)
 - **Given** that class
 - **When** the coach marks the silent player present
-- **Then** the class moves to "ready to confirm" and Validate becomes available
+- **Then** the class stays under "needs your input", in the same position, and its Validate button becomes available there
+- **And** after validating it, it leaves the list
+
+#### A completed class is regrouped only on the next load (PAD-442)
+- **Given** a class the coach completed by marking its silent player, without validating it
+- **When** the queue is refreshed by another class's validation
+- **Then** the completed class is still under "needs your input"
+- **And** a class whose players all answered themselves is under "ready to confirm" on every load
 
 #### Validating persists attendance and finalizes the rows
 - **Given** a ready class
@@ -383,7 +400,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 #### An undecided player stands out until marked (rule 24, PAD-443)
 - **Given** a class in the validate view where Rui never answered and has no stored status
 - **When** the coach opens it
-- **Then** Rui's row shows the alert icon and the amber left border, and the header reads
+- **Then** Rui's row shows the alert icon and the yellow left border, and the header reads
   "1 jogador por decidir"
 - **And** when the coach marks Rui "Presente", the icon and border disappear and the header no
   longer shows a count
