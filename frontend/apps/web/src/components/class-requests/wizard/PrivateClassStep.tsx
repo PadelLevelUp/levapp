@@ -13,7 +13,9 @@ import { Loader2, X } from "lucide-react";
 import {
   CLASS_REQUEST_DURATIONS,
   FIRST_FREE_DAY_HORIZON_DAYS,
+  MAX_REQUEST_CLASSES,
   clubTodayISO,
+  endDateAfterClasses,
   firstFreeDay,
   occurrenceDates,
   slotStarts,
@@ -45,10 +47,26 @@ function addDaysIso(iso: string, n: number): string {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
+/** `2026-10-15` -> "15/10/2026" (or the language's own order), mirroring AcademyClassStep's `dayLabel`. */
+function formatShortDate(iso: string, language: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(language, {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 type Recurring = "single" | "weekly";
+// classes.class-requests rule 14a (PAD-428): "on a date" keeps the pre-PAD-428
+// default end (28 days out); "after N classes" turns a class count into that
+// same `endDate` field through @levelup/config's shared arithmetic.
+type EndMode = "date" | "count";
+const DEFAULT_END_COUNT = 4;
 
 export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const today = clubTodayISO();
@@ -65,6 +83,11 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(addDaysIso(today, 28));
+  const [endMode, setEndMode] = useState<EndMode>("date");
+  const [endCount, setEndCount] = useState(DEFAULT_END_COUNT);
+  // The field's own text: it may be empty while the student retypes it ("4" -> "" -> "3"),
+  // which the numeric count cannot be. Blur puts back the last valid count.
+  const [endCountText, setEndCountText] = useState(String(DEFAULT_END_COUNT));
 
   // ── Slot ──
   const [duration, setDuration] = useState<number>(60);
@@ -96,8 +119,12 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coachId, inviteesKey]);
 
-  const recurrence = recurring === "weekly" ? { weekdays: [...weekdays].sort(), startDate, endDate } : null;
-  const recurrenceValid = !recurrence || (weekdays.length > 0 && startDate <= endDate && occurrenceDates(recurrence).length > 0);
+  // "After N classes" (rule 14a) turns the count into the same `endDate` the
+  // wire always sent; "on a date" keeps the raw picker value unchanged.
+  const computedEndDate = endMode === "count" ? endDateAfterClasses(startDate, weekdays, endCount) : null;
+  const effectiveEndDate = endMode === "count" ? computedEndDate ?? "" : endDate;
+  const recurrence = recurring === "weekly" ? { weekdays: [...weekdays].sort(), startDate, endDate: effectiveEndDate } : null;
+  const recurrenceValid = !recurrence || (weekdays.length > 0 && startDate <= effectiveEndDate && occurrenceDates(recurrence).length > 0);
 
   // Rules 11 + 13: for a single class open on the first day that still has free time.
   useEffect(() => {
@@ -130,7 +157,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
       return;
     }
     const from = recurrence ? startDate : date;
-    const to = recurrence ? endDate : date;
+    const to = recurrence ? effectiveEndDate : date;
     if (!from || !to) {
       setLoadingSlots(false);
       return;
@@ -145,14 +172,14 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachId, inviteesKey, allInviteesOk, recurring, date, startDate, endDate, weekdays.join(","), recurrenceValid]);
+  }, [coachId, inviteesKey, allInviteesOk, recurring, date, startDate, effectiveEndDate, weekdays.join(","), recurrenceValid]);
 
   const starts = useMemo(() => {
     if (!availability) return [];
     if (recurrence) return slotStarts(weeklyIntersection(availability.freeWindows, recurrence).windows, duration);
     return slotStarts(availability.freeWindows[date] ?? [], duration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availability, duration, date, recurring, weekdays.join(","), startDate, endDate]);
+  }, [availability, duration, date, recurring, weekdays.join(","), startDate, effectiveEndDate]);
 
   const send = async () => {
     if (!slot) return;
@@ -300,15 +327,84 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="wizard-start-date" className="text-xs">{t("classRequestWizard.startDate")}</Label>
-                <Input id="wizard-start-date" type="date" min={today} value={startDate} data-testid="wizard-start-date" onChange={(e) => setStartDate(e.target.value)} />
+            <div className="space-y-1">
+              <Label htmlFor="wizard-start-date" className="text-xs">{t("classRequestWizard.startDate")}</Label>
+              <Input id="wizard-start-date" type="date" min={today} value={startDate} data-testid="wizard-start-date" onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+
+            {/* Rule 14a (PAD-428): the two ways a weekly request can end, like a calendar app. */}
+            <div className="space-y-2" role="radiogroup" aria-label={t("classRequestWizard.endDate")}>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={endMode === "date"}
+                  data-testid="request-end-mode-date"
+                  onClick={() => setEndMode("date")}
+                  className={cn(
+                    "h-4 w-4 shrink-0 rounded-full border-2",
+                    endMode === "date" ? "border-primary bg-primary" : "border-muted-foreground bg-background"
+                  )}
+                />
+                <Label htmlFor="wizard-end-date" className="text-xs shrink-0">{t("classRequestWizard.endMode.date")}</Label>
+                <Input
+                  id="wizard-end-date"
+                  type="date"
+                  min={startDate}
+                  value={endDate}
+                  disabled={endMode !== "date"}
+                  data-testid="wizard-end-date"
+                  onFocus={() => setEndMode("date")}
+                  onChange={(e) => {
+                    setEndMode("date");
+                    setEndDate(e.target.value);
+                  }}
+                />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="wizard-end-date" className="text-xs">{t("classRequestWizard.endDate")}</Label>
-                <Input id="wizard-end-date" type="date" min={startDate} value={endDate} data-testid="wizard-end-date" onChange={(e) => setEndDate(e.target.value)} />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={endMode === "count"}
+                  data-testid="request-end-mode-count"
+                  onClick={() => setEndMode("count")}
+                  className={cn(
+                    "h-4 w-4 shrink-0 rounded-full border-2",
+                    endMode === "count" ? "border-primary bg-primary" : "border-muted-foreground bg-background"
+                  )}
+                />
+                <Label htmlFor="wizard-end-count" className="text-xs shrink-0">{t("classRequestWizard.endMode.count")}</Label>
+                <Input
+                  id="wizard-end-count"
+                  type="number"
+                  min={1}
+                  max={MAX_REQUEST_CLASSES}
+                  step={1}
+                  value={endCountText}
+                  disabled={endMode !== "count"}
+                  data-testid="request-end-count"
+                  className="w-20"
+                  onFocus={() => setEndMode("count")}
+                  onChange={(e) => {
+                    setEndMode("count");
+                    setEndCountText(e.target.value);
+                    const n = Math.round(Number(e.target.value));
+                    if (e.target.value.trim() !== "" && Number.isFinite(n)) {
+                      setEndCount(Math.min(MAX_REQUEST_CLASSES, Math.max(1, n)));
+                    }
+                  }}
+                  onBlur={() => setEndCountText(String(endCount))}
+                />
+                <span className="text-xs text-muted-foreground">{t("classRequestWizard.classesUnit")}</span>
               </div>
+              {endMode === "count" && (
+                <p className="text-xs text-muted-foreground" data-testid="request-end-count-last-date">
+                  {computedEndDate
+                    ? t("classRequestWizard.lastClass", { date: formatShortDate(computedEndDate, i18n.language) })
+                    : t("classRequestWizard.recurrenceInvalid")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">{t("classRequestWizard.countHint")}</p>
             </div>
             {!recurrenceValid && (
               <p className="text-xs text-destructive" data-testid="wizard-recurrence-error">

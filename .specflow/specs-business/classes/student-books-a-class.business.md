@@ -26,8 +26,9 @@ Students who want a class outside the coach's published schedule, and the coach 
 2. The student says how many people are coming, one to four. For more than one, they name the
    others by username; only players who already train with that coach can be named, and the
    wizard says so.
-3. The student chooses a single class, or a weekly one on chosen weekdays between a start and an
-   end date.
+3. The student chooses a single class, or a weekly one on chosen weekdays from a start date,
+   ending the way a calendar app offers: on a chosen date, or after a number of classes (counted
+   as classes, not weeks, up to 52) (PAD-428).
 4. The student picks a duration and sees the times that are actually free: the coach's working
    time minus the coach's classes and blocks, minus the times the student and the named players
    are already busy or have marked themselves unavailable. For a weekly class only times free on
