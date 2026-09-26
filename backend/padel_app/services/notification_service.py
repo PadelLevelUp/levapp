@@ -1574,7 +1574,13 @@ _EMPTY_PLACEHOLDER_CONNECTORS = ("de", "da", "do", "of")
 _EMPTY_COURT_CONNECTORS = _EMPTY_PLACEHOLDER_CONNECTORS + ("em", "no", "na", "in", "on", "at")
 
 
+_LEADING_PUNCTUATION = re.compile(r"^[,.;:!?\-–—\s]+")
+
+
 def _format_template(template: str, **variables) -> str:
+    # The coach may open a template on punctuation ("- Lembrete: …"); only a
+    # leading run the substitution *exposed* is stripped below (B's #455 review).
+    opens_on_punctuation = bool(_LEADING_PUNCTUATION.match(template.strip()))
     for key, val in variables.items():
         val = str(val)
         if val == "":
@@ -1600,8 +1606,8 @@ def _format_template(template: str, **variables) -> str:
     template = template.strip()
     # A message that opened with the empty phrase ("No {court}, às …") is left
     # starting on punctuation: drop it and capitalise what now leads.
-    trimmed = re.sub(r"^[,.;:!?\-–—\s]+", "", template)
-    if trimmed != template:
+    trimmed = _LEADING_PUNCTUATION.sub("", template)
+    if trimmed != template and not opens_on_punctuation:
         template = trimmed[:1].upper() + trimmed[1:]
     return template
 

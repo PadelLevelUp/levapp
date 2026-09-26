@@ -151,6 +151,19 @@ class TestEmptyCourtLeavesNoBrokenText:
 
         assert _format_template(template, type="academia", time="19:00", court="") == expected
 
+    @pytest.mark.parametrize("court", ["Campo 2", ""])
+    @pytest.mark.parametrize("template, expected", [
+        ("- Lembrete: aula às {time}.", "- Lembrete: aula às 19:00."),
+        ("— {name}, aula às {time}.", "— Rui, aula às 19:00."),
+        ("...e a aula às {time}", "...e a aula às 19:00"),
+        ("!! Atenção: aula às {time}", "!! Atenção: aula às 19:00"),
+    ])
+    def test_a_template_that_opens_on_punctuation_keeps_it(self, template, expected, court):
+        """B's review of #455: only what the empty placeholder exposed is stripped."""
+        from padel_app.services.notification_service import _format_template
+
+        assert _format_template(template, name="Rui", time="19:00", court=court) == expected
+
     def test_a_named_court_keeps_its_connector(self):
         from padel_app.services.notification_service import _format_template
 
