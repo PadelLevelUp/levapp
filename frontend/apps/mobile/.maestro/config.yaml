@@ -216,6 +216,9 @@ executionOrder:
     - 117-month-grid-seven-columns
     # 118 (PAD-439): the add-to-classes picker cannot step back from the current week; next week offers classes.
     - 118-add-to-classes-no-past
+    # 121 (PAD-428): the student's weekly request ends "after 3 classes"; the API reads back an
+    # endDate equal to the 3rd occurrence, recomputed in the flow. Teardown withdraws it.
+    - 121-class-request-ends-after-n-classes
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
