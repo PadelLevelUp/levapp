@@ -31,7 +31,16 @@ import {
 import { cn } from '@/lib/utils';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
-import { CLASS_COLOR_SWATCHES, findOverlappingEvent } from "@levelup/config";
+import {
+  CLASS_COLOR_SWATCHES,
+  MAX_REQUEST_CLASSES,
+  countPassesSeasonEnd,
+  findOverlappingEvent,
+  recurrenceEndPayload,
+  type RecurrenceEndMode,
+} from "@levelup/config";
+import { seasonsApi } from "@levelup/api";
+import { useQuery } from "@tanstack/react-query";
 import { OverlapConfirmDialog } from './OverlapConfirmDialog';
 import { UnavailableStudentDialog } from './UnavailableStudentDialog';
 import { checkAvailabilityConflicts, type BlockedStudent } from '@/api/notificationEngine';
@@ -149,7 +158,10 @@ export function AddClassSheet({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [endDate, setEndDate] = useState<string>('');
-  const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = useState(false);
+  // classes.create rule 9 (PAD-463): a series ends on a date, after N classes, or at the season end.
+  const [endMode, setEndMode] = useState<RecurrenceEndMode>('date');
+  const [endCountText, setEndCountText] = useState<string>('');
+  const recursUntilSeasonEnd = endMode === 'season';
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   // PAD-99: confirm before scheduling over an existing class.
@@ -208,6 +220,14 @@ export function AddClassSheet({
     }
   }, [startTime]);
 
+  // classes.create rule 9 (PAD-463): the payload for the chosen end, and the last class of a count.
+  const endCount = endCountText.trim() === '' ? null : Number(endCountText);
+  const endChoice = recurrenceEndPayload({ mode: endMode, startDate: date, calendarDays: selectedDays, endDate, count: endCount });
+  const countLastDate = endMode === 'count' && 'endDate' in endChoice ? endChoice.endDate : null;
+  // A count is never capped by the season; the form only says when it runs past it.
+  const { data: season } = useQuery({ queryKey: ['season'], queryFn: seasonsApi.getSeason, enabled: open });
+  const countPastSeason = countLastDate ? countPassesSeasonEnd(date, countLastDate, season) : null;
+
   const handleSave = async () => {
     const newErrors: Record<string, boolean> = {};
     // PAD-390: a class needs a name — the server refuses an empty one (400 ["title"]);
@@ -215,7 +235,7 @@ export function AddClassSheet({
     if (!name.trim()) newErrors.name = true;
     if (!date) newErrors.date = true;
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
-    if (isRecurring && !recursUntilSeasonEnd && !endDate) newErrors.endDate = true;
+    if (isRecurring && 'field' in endChoice) newErrors[endChoice.field] = true;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -224,6 +244,7 @@ export function AddClassSheet({
         newErrors.date && t('calendar.addClass.fieldDate'),
         newErrors.days && t('calendar.addClass.fieldDays'),
         newErrors.endDate && t('calendar.addClass.fieldEndDate'),
+        newErrors.count && t('calendar.addClass.fieldEndCount'),
       ].filter(Boolean).join(', ');
       toast({ variant: 'destructive', title: t('calendar.addClass.missingFieldsTitle'), description: t('calendar.addClass.missingFieldsDescription', { fields: missing }) });
       return;
@@ -289,8 +310,9 @@ export function AddClassSheet({
     setOverlapConfirmOpen(false);
     setUnavailableStudents([]);
 
+    // classes.create rule 9: the chosen end, validated above (handleSave).
     const computedEndDate = isRecurring
-      ? endDate || addMonthsToIsoDate(date, 1)
+      ? ('endDate' in endChoice ? endChoice.endDate : null) ?? (endMode === 'season' ? null : addMonthsToIsoDate(date, 1))
       : null;
 
     const data = {
@@ -346,7 +368,8 @@ export function AddClassSheet({
     setSelectedPlayers([]);
     setSelectedDays([]);
     setEndDate('');
-    setRecursUntilSeasonEnd(false);
+    setEndMode('date');
+    setEndCountText('');
     setSelectedCourt('');
     setNotificationsEnabled(true);
     setErrors({});
@@ -509,6 +532,8 @@ export function AddClassSheet({
                     {daysOfWeek.map(({ value, label }) => (
                       <button
                         key={value}
+                        data-testid={`add-class-day-${value}`}
+                        aria-pressed={selectedDays.includes(value)}
                         onClick={() => { toggleDay(value); setErrors(e => ({ ...e, days: false })); }}
                         className={cn(
                           'w-8 h-8 rounded-full text-xs font-medium transition-colors',
@@ -522,17 +547,62 @@ export function AddClassSheet({
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.recursUntilSeasonEnd")}</span>
-                  <Switch
-                    aria-label={t("calendar.addClass.recursUntilSeasonEnd")}
-                    checked={recursUntilSeasonEnd}
-                    onCheckedChange={(checked) => {
-                      setRecursUntilSeasonEnd(checked);
-                      setRejection(null);
-                    }}
-                  />
+                {/* classes.create rule 9 (PAD-463): three ways a series ends, one chosen. */}
+                <div className="space-y-2" role="radiogroup" aria-label={t("calendar.addClass.endDate")} data-testid="add-class-end-mode">
+                  {(['date', 'count', 'season'] as const).map((mode) => (
+                    <div key={mode} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={endMode === mode}
+                        aria-label={t(`calendar.addClass.endMode.${mode}`)}
+                        data-testid={`add-class-end-mode-${mode}`}
+                        onClick={() => { setEndMode(mode); setRejection(null); setErrors(er => ({ ...er, endDate: false, count: false })); }}
+                        className={cn(
+                          "h-4 w-4 shrink-0 rounded-full border-2",
+                          endMode === mode ? "border-primary bg-primary" : "border-muted-foreground bg-background"
+                        )}
+                      />
+                      <span className="text-xs font-medium text-muted-foreground shrink-0">{t(`calendar.addClass.endMode.${mode}`)}</span>
+                      {mode === 'date' && (
+                        <Input
+                          type="date"
+                          value={endDate}
+                          disabled={endMode !== 'date'}
+                          data-testid="add-class-end-date"
+                          className={cn("h-8 text-sm", errors.endDate && "ring-2 ring-destructive")}
+                          onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
+                        />
+                      )}
+                      {mode === 'count' && (
+                        <>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={MAX_REQUEST_CLASSES}
+                            step={1}
+                            value={endCountText}
+                            disabled={endMode !== 'count'}
+                            data-testid="add-class-end-count"
+                            className={cn("h-8 w-20 text-sm", errors.count && "ring-2 ring-destructive")}
+                            onChange={(e) => { setEndCountText(e.target.value); setErrors(er => ({ ...er, count: false })); }}
+                          />
+                          <span className="text-xs text-muted-foreground">{t("calendar.addClass.classesUnit")}</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
                 </div>
+                {countLastDate && (
+                  <p className="text-xs text-muted-foreground" data-testid="add-class-end-count-last" data-date={countLastDate}>
+                    {t("calendar.addClass.lastClass", { date: countLastDate })}
+                  </p>
+                )}
+                {countPastSeason && (
+                  <p className="text-xs text-muted-foreground" data-testid="add-class-end-count-past-season" data-season-end={countPastSeason}>
+                    {t("calendar.addClass.countPastSeason", { last: countLastDate, end: countPastSeason })}
+                  </p>
+                )}
                 {rejection === NO_SEASON_COVERS_DATE && (
                   <p
                     role="alert"
@@ -541,20 +611,10 @@ export function AddClassSheet({
                     {t("calendar.addClass.noSeasonCoversDate")}
                   </p>
                 )}
-                {recursUntilSeasonEnd ? (
+                {recursUntilSeasonEnd && (
                   <p className="text-xs text-muted-foreground">
                     {t("calendar.addClass.recursUntilSeasonEndHint")}
                   </p>
-                ) : (
-                  <div className={cn("space-y-1", errors.endDate && "ring-2 ring-destructive rounded-lg p-1")}>
-                    <span className="text-xs font-medium text-muted-foreground">{t("calendar.addClass.endDate")}</span>
-                    <Input
-                      type="date"
-                      value={endDate}
-                      className="h-8 text-sm"
-                      onChange={(e) => { setEndDate(e.target.value); setErrors(er => ({ ...er, endDate: false })); }}
-                    />
-                  </div>
                 )}
               </div>
             )}

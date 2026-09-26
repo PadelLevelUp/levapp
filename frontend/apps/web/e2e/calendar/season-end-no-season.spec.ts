@@ -48,9 +48,8 @@ test("PAD-90: recurring until season end with no covering season is rejected inl
 
   await page.getByRole("switch", { name: ui("calendar.addClass.recurring") }).click();
 
-  const seasonEndSwitch = page.getByRole("switch", {
-    name: ui("calendar.addClass.recursUntilSeasonEnd"),
-  });
+  // PAD-463 (classes.create rule 9): "until the season ends" is one of three end choices.
+  const seasonEndSwitch = page.getByTestId("add-class-end-mode-season");
   await expect(seasonEndSwitch).toBeVisible({ timeout: 5000 });
   await seasonEndSwitch.click();
   await expect(seasonEndSwitch).toHaveAttribute("aria-checked", "true");
@@ -68,17 +67,14 @@ test("PAD-90: recurring until season end with no covering season is rejected inl
   );
 
   // Picking an explicit end date instead clears the blocker and the class saves.
-  await seasonEndSwitch.click();
+  await page.getByTestId("add-class-end-mode-date").click();
   await expect(seasonEndSwitch).toHaveAttribute("aria-checked", "false");
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   const end = new Date();
   end.setFullYear(end.getFullYear() + 2);
   end.setMonth(end.getMonth() + 1);
-  await page
-    .locator('input[type="date"]')
-    .last()
-    .fill(end.toISOString().slice(0, 10));
+  await page.getByTestId("add-class-end-date").fill(end.toISOString().slice(0, 10));
 
   await page.getByRole("button", { name: ui("calendar.addClass.createClass") }).click();
 
