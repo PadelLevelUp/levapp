@@ -161,6 +161,10 @@ held on the coach's calendar while the request is open.
       backend, rules 14–17 and older builds are untouched.
     - Changing the weekdays or the start date recomputes the end while "after N" is chosen.
     - The coach's own class creation keeps its current fields; the same pattern there is PAD-463.
+    - "After N" is only how the student PICKS `endDate`; the request stores a date, not a count.
+      So when a proposal re-anchors a weekly series (rule 16: `startDate` moves, `endDate` stays),
+      a series the student asked to end "after N classes" ends on the same date, with fewer than
+      N classes if it moved later (Session-B's #454 review).
 15. **Requests for the past are refused per occurrence** (rule 7): a weekly request whose
     first occurrence has started is refused at submission; a later occurrence that is no longer
     free answers `409 slot_taken` naming the date. At accept time rule 17 applies.
