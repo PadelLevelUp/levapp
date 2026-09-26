@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
 import {
   getMe,
@@ -348,6 +348,20 @@ export default function SettingsPage() {
     }
     setPendingTab({ id, openMobile });
   };
+
+  // PAD-447 (B-199): the avatar menu navigates to `/settings` or `/settings?tab=<id>` while this page
+  // may already be mounted. The initial state reads `?tab=` only once, so follow every later
+  // navigation here too — through `requestTab`, so an unsaved edit still asks first (rule 3).
+  const location = useLocation();
+  const seenLocationKey = useRef(location.key);
+  useEffect(() => {
+    if (seenLocationKey.current === location.key) return;
+    seenLocationKey.current = location.key;
+    const wanted = new URLSearchParams(location.search).get("tab");
+    const next = wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
+    if (next !== activeTab) requestTab(next, !!wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   // Rule 5: the browser's own leave-page prompt while any section is unsaved.
   useEffect(() => {

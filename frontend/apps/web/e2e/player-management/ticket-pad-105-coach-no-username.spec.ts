@@ -137,6 +137,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     await registerPage.locator("#email").fill(`${chosen}@example.com`);
     await registerPage.locator("#password").fill("Pad105Chosen!");
     await registerPage.locator("#repeatPassword").fill("Pad105Chosen!");
+    // PAD-457 (auth.activate rule 13): activation asks for an adult birth date.
+    await registerPage.locator("#birthDate").fill("1990-01-01");
     await registerPage.locator('button[type="submit"]').click();
 
     // Activation lands them on the login page; the username they chose works.

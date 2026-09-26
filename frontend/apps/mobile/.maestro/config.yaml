@@ -203,6 +203,10 @@ executionOrder:
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
     - 105-settings-restrictions
+    # 110 creates a private class by API, opens it as the coach and asserts "Automatic
+    # invitations" (PAD-429): the type default read back by API, then switched On for that
+    # class and read back as the override. Teardown removes the class.
+    - 110-private-class-auto-invites
     # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
     # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
     - 117-month-grid-seven-columns

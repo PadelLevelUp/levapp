@@ -22,10 +22,19 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 4. First reminder timing (`reminder_type`, `reminder_value`, `reminder_time`; on the wire `reminderTiming.firstReminder`): `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
 5. Invitation window (`invitation_start_type`, `invitation_start_value`, `invitation_start_time`; on the wire `reminderTiming.invitationStart`): when to start sending invitations after a vacancy. One home only — the duplicate `invitation_start_timing` column and its precedence dance are gone (PAD-279)
 6. Restrictions (typed columns, composed on the wire as the `restrictions` object): maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c)
-6a. **(PAD-136)** `quietHours` is a **club-local wall clock** window of **22:00–07:00**, evaluated against
-   the club timezone (`Europe/Lisbon`), consistent with `calendar` rule 6. The bounds are
-   currently fixed constants — `quietHours` carries only `{enabled}` and no start/end — so
-   "22:00–07:00" is the behaviour, not a default the coach can override. Because instants are
+6a. **(PAD-136, PAD-451)** `quietHours` is a **club-local wall clock** window, evaluated against
+   the club timezone (`Europe/Lisbon`), consistent with `calendar` rule 6. **(PAD-451)** The coach
+   sets it: `quietHours` is `{enabled, start, end}`, each bound `"HH:00"` or `"HH:30"` (30-minute
+   steps), default **22:00–07:00**, stored in `quiet_hours_start` / `quiet_hours_end` (nullable;
+   NULL reads as the default). The window is `[start, end)` and may cross midnight
+   (`start > end`, e.g. 23:00–08:00) or not (e.g. 13:00–15:00). `start == end` or a bound off the
+   30-minute grid is refused: `POST /api/app/notify/config` answers 400 and stores nothing.
+   **Compat:** a `quietHours` object without `start`/`end` (an app build from before PAD-451, e.g.
+   iOS 1.2.0 build 26) changes only `enabled` and keeps the stored bounds, so an old client's save
+   never resets a coach's custom hours. The window ends at `end` — the time rule 6d's held vacancies
+   and the late-joiner ask wait for. What it holds: automatic invitations (rule 6d) and the ask
+   armed for a student who joins late (`next_ask_time`); scheduled class reminders fire at the
+   coach's configured reminder time regardless. Because instants are
    stored as naive UTC, the check MUST convert to club-local before comparing the hour;
    comparing a UTC hour makes the window drift to 23:00–08:00 local through Portuguese summer
    time (WEST = UTC+1) while reading correctly in winter (WET = UTC+0). Only restrictions with
@@ -62,7 +71,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    `trigger_invitations` still creates the class's open vacancies (it sends nothing): the one-shot
    invitation-start trigger firing at night used to leave a never-filled spot with no vacancy at
    all, so nobody was ever invited. Those vacancies are invited by the first tick after the window
-   ends (07:00 club-local by default).
+   ends (the window's `end`, 07:00 club-local by default).
 7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
 7a. `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
    of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
@@ -216,6 +225,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** they press + once, leave Settings and open it again
 - **Then** `maxSimultaneous` reads 4, read back from `GET /api/app/notify/config`
 
+#### An excluded player is never invited (PAD-449)
+- **Given** a coach with `restrictions.excludedPlayers` `{enabled: true, playerIds: ["<Excluded Student's player id>"]}`, two students on the roster and one open spot whose invitation group admits both
+- **When** the engine evaluates the candidates and sends the first batch
+- **Then** the excluded student's verdict is `excluded_by_coach` and only the other student is invited
+
 #### Quiet hours hold the sweep (B-200)
 - **Given** quiet hours on, and an open vacancy with no invitation yet for a class at 09:00 Lisbon
 - **When** the sweep runs at 23:30 Lisbon, and again at 07:30
@@ -226,4 +240,31 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Given** quiet hours on, and a never-filled spot whose invitation-start trigger fires at 23:30 Lisbon
 - **When** the trigger runs, and the sweep runs at 07:30
 - **Then** the trigger sends nothing, and the 07:30 sweep invites for that spot
+
+#### The coach sets the quiet window, and it can cross midnight (PAD-451)
+- **Given** a coach who saves `quietHours` `{enabled: true, start: "23:00", end: "08:00"}`
+- **When** the engine checks at 07:30 and at 08:00 Lisbon, and at 22:59 and 23:00
+- **Then** 07:30 and 23:00 are inside the window (refused), 08:00 and 22:59 are outside (allowed)
+- **And** GET `/api/app/notify/config` returns `quietHours: {enabled: true, start: "23:00", end: "08:00"}`, and a held vacancy is sent at the first tick after 08:00
+
+#### A window that does not cross midnight (PAD-451)
+- **Given** `quietHours` `{enabled: true, start: "13:00", end: "15:00"}`
+- **When** the engine checks at 12:59, 13:00, 14:30 and 15:00 Lisbon
+- **Then** only 13:00 and 14:30 are refused
+
+#### Invalid bounds are refused (PAD-451)
+- **Given** a coach with quiet hours 22:00–07:00 stored
+- **When** POST `/api/app/notify/config` with `quietHours` start "22:00" end "22:00", or start "22:15", or end "25:00"
+- **Then** each answers 400 and GET still returns 22:00–07:00
+
+#### An older app's save keeps the coach's hours (PAD-451)
+- **Given** a coach with quiet hours 23:00–08:00 stored
+- **When** a client from before PAD-451 posts `restrictions` with `quietHours: {enabled: false}` (no start/end)
+- **Then** quiet hours are off and GET returns start "23:00", end "08:00"
+
+#### Both clients edit the window (PAD-451)
+- **Given** a coach on web Settings → Notifications → Restrictions, and on iOS the same section, with quiet hours on
+- **When** they pick 23:00 as start and 08:00 as end (30-minute choices)
+- **Then** the description reads "Sem notificações entre as 23:00 e as 08:00" (en "No notifications between 23:00 and 08:00") and the saved config carries those bounds
+- **And** with quiet hours off the time pickers are hidden, as a disabled stepper hides its value
 

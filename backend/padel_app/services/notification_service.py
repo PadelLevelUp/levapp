@@ -169,6 +169,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     if "priorityCriteria" in data:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
+        _validate_quiet_hours(data["restrictions"])
         config.restrictions = data["restrictions"]
     if "notificationGroups" in data:
         config.notification_groups = data["notificationGroups"]
@@ -310,10 +311,41 @@ def effective_eligibility_with_source(class_obj, coach_id: int, config: Notifica
     return config.get_eligibility_rules(), "coach"
 
 
-def _tier_flag(obj):
-    """A tier's stored visibility: ``None`` = inherit, else the boolean."""
-    value = getattr(obj, "open_spots_visible", None)
+def _tier_flag(obj, column: str = "open_spots_visible"):
+    """A tier's stored tri-state: ``None`` = inherit, else the boolean."""
+    value = getattr(obj, column, None)
     return value if isinstance(value, bool) else None
+
+
+def _instance_and_lesson(class_obj):
+    """``(instance_or_None, lesson_or_None)`` for a LessonInstance or a Lesson."""
+    if getattr(class_obj, "model_name", None) == "LessonInstance" or hasattr(class_obj, "lesson_id"):
+        return class_obj, getattr(class_obj, "lesson", None)
+    return None, class_obj
+
+
+def effective_auto_invites_with_source(class_obj):
+    """``(on, source)`` — PAD-429, notifications.toggle-class rule 5.
+
+    Instance → lesson → the lesson's type: a ``private`` lesson defaults to off, any other to on.
+    Resolved at read time and never written, so existing private lessons get the default and an
+    explicit lesson/instance value is kept (coordinator, 2026-09-25, option a). No coach tier:
+    the engine-wide switch is ``auto_notify_enabled``.
+    """
+    instance, lesson = _instance_and_lesson(class_obj)
+    if instance is not None:
+        own = _tier_flag(instance, "auto_invites")
+        if own is not None:
+            return own, "instance"
+    if lesson is not None:
+        series = _tier_flag(lesson, "auto_invites")
+        if series is not None:
+            return series, "lesson"
+    return getattr(lesson, "type", None) != "private", "type"
+
+
+def effective_auto_invites(class_obj) -> bool:
+    return effective_auto_invites_with_source(class_obj)[0]
 
 
 def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: NotificationConfig | None = None):
@@ -334,6 +366,10 @@ def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: N
         series = _tier_flag(lesson)
         if series is not None:
             return series, "lesson"
+        # PAD-429 (rule 3a): a private class is hidden unless the class itself says otherwise,
+        # whatever the coach standard. Read-time, never written.
+        if getattr(lesson, "type", None) == "private":
+            return False, "type"
     if config is None:
         config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
     if config is None:
@@ -1380,7 +1416,7 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
 
     when = _now
     if not _check_restrictions(instance, coach.id, restrictions, now=when):
-        when = _next_quiet_hours_end(when)
+        when = _next_quiet_hours_end(when, restrictions)
         if when is None or not _check_restrictions(instance, coach.id, restrictions, now=when):
             return None
 
@@ -1389,20 +1425,61 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     return when
 
 
-def _next_quiet_hours_end(now):
-    """The next instant quiet hours allow, i.e. 07:00 on the club's clock.
+_QUIET_BOUND = re.compile(r"^([01]\d|2[0-3]):(00|30)$")
 
-    Quiet hours are a club-local window (22:00–07:00, notifications.config rule
-    6a), so the answer is computed on the club's clock and handed back as the
-    UTC instant everything else compares.
+
+def _validate_quiet_hours(restrictions) -> None:
+    """PAD-451 (rule 6a): bounds, when given, are "HH:00"/"HH:30" and differ; else 400, nothing stored."""
+    quiet = restrictions.get("quietHours") if isinstance(restrictions, dict) else None
+    if not isinstance(quiet, dict):
+        return
+    start, end = quiet.get("start"), quiet.get("end")
+    if start is None and end is None:
+        return  # an app from before PAD-451: the stored bounds stay
+    from flask import abort
+
+    for bound in (start, end):
+        if bound is not None and not (isinstance(bound, str) and _QUIET_BOUND.match(bound)):
+            abort(400, "quietHours start and end must be HH:00 or HH:30")
+    default = DEFAULT_RESTRICTIONS["quietHours"]
+    if (start or default["start"]) == (end or default["end"]):
+        abort(400, "quietHours start and end must differ")
+
+
+def _quiet_window(restrictions) -> tuple[int, int]:
+    """The coach's quiet window as (start, end) minutes of the club-local day (rule 6a)."""
+    quiet = (restrictions or {}).get("quietHours") or {}
+    default = DEFAULT_RESTRICTIONS["quietHours"]
+
+    def minutes(value, fallback):
+        if not (isinstance(value, str) and _QUIET_BOUND.match(value)):
+            value = fallback
+        h, m = value.split(":")
+        return int(h) * 60 + int(m)
+
+    return minutes(quiet.get("start"), default["start"]), minutes(quiet.get("end"), default["end"])
+
+
+def _in_quiet_window(local, restrictions) -> bool:
+    """`[start, end)` on the club's clock; a window with start > end crosses midnight."""
+    start, end = _quiet_window(restrictions)
+    m = local.hour * 60 + local.minute
+    return start <= m < end if start < end else (m >= start or m < end)
+
+
+def _next_quiet_hours_end(now, restrictions=None):
+    """The next instant quiet hours allow: the window's end on the club's clock (rule 6a).
+
+    Computed on the club's clock and handed back as the UTC instant everything else compares.
+    Outside the window it is ``now``.
     """
     local = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ)
-    if local.hour < 7:
-        end = local.replace(hour=7, minute=0, second=0, microsecond=0)
-    elif local.hour >= 22:
-        end = (local + timedelta(days=1)).replace(hour=7, minute=0, second=0, microsecond=0)
-    else:
+    if not _in_quiet_window(local, restrictions):
         return now
+    _, end_min = _quiet_window(restrictions)
+    end = local.replace(hour=end_min // 60, minute=end_min % 60, second=0, microsecond=0)
+    if end <= local:
+        end = end + timedelta(days=1)
     return end.astimezone(timezone.utc).replace(tzinfo=None)
 
 
@@ -1437,8 +1514,8 @@ def _check_restrictions(
         # replaces existed only to avoid closing the scheduler <-> service
         # import cycle; sourcing the constant from a leaf module removes the
         # cycle rather than working around it.
-        local_hour = now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ).hour
-        if local_hour >= 22 or local_hour < 7:
+        # PAD-451: the coach's own window (default 22:00–07:00), which may cross midnight.
+        if _in_quiet_window(now.replace(tzinfo=timezone.utc).astimezone(CLUB_TZ), restrictions):
             return False
 
     min_time = restrictions.get("minTimeBeforeClass", {})
@@ -3769,6 +3846,10 @@ def _send_next_on_decline(
     config: NotificationConfig,
 ) -> None:
     """After a decline, immediately invite the next single eligible player."""
+    # PAD-429 (toggle-class rule 6, Session-B's #445 review): the decline's follow-up invite is
+    # an automatic one too — none when automatic invitations are off for the class.
+    if not effective_auto_invites(instance):
+        return
     _send_invitation_batch(vacancy, instance, config, coach_id, max_sim_override=1)
 
 
@@ -3826,6 +3907,10 @@ def trigger_invitations(
     if not config.auto_notify_enabled:
         return []
     if not instance.notifications_enabled:
+        return []
+    # PAD-429 (toggle-class rule 6): automatic invitations off for this class (a private class
+    # by default) — no vacancy, no approval prompt, nothing sent. Manual sends are unaffected.
+    if not effective_auto_invites(instance):
         return []
     # PAD-68: never open/refresh vacancies for a class that already happened.
     if _instance_is_over(instance, now):
@@ -4032,6 +4117,10 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
             continue
         # Approved "at the invitation window": hold until the window opens.
         if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
+            continue
+        # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the
+        # vacancy (a coach who turns it off mid-fill stops the rounds; turning it back on resumes).
+        if not effective_auto_invites(instance):
             continue
 
         config = get_or_create_config(vacancy.coach_id)
