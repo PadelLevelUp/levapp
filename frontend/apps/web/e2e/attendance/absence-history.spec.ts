@@ -188,6 +188,9 @@ test.describe("PAD-141: student absence history", () => {
       page.locator('[data-justification="unjustified"]')
     ).toHaveCount(1);
     await expect(page.locator('[data-justification="justified"]')).toHaveCount(2);
+    // PAD-441 (attendance.absences rule 14): justified reads amber, unjustified red.
+    await expect(page.locator('[data-justification="justified"][data-tone="warning"]')).toHaveCount(2);
+    await expect(page.locator('[data-justification="unjustified"][data-tone="negative"]')).toHaveCount(1);
   });
 
   test("PAD-141: the chart draws bars with real height, not empty groups", async ({

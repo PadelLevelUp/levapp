@@ -1,9 +1,20 @@
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
-import type { PresenceMark } from "@levelup/config";
+import { presenceMarkTone, type PresenceMark, type StateTone } from "@levelup/config";
 
 const OPTIONS: PresenceMark[] = ["present", "justified", "unjustified"];
+
+/**
+ * PAD-441 (attendance.validation rule 26): a selected option's colour comes from its tone, with a
+ * full-strength border as the non-colour cue. Design tokens, not raw palette colours: the
+ * `*-strong` shades exist because the solid colour is unreadable on its own tint.
+ */
+const SELECTED_CLASSES: Record<Exclude<StateTone, "neutral">, string> = {
+  positive: "border-success bg-success/15 text-success-strong",
+  warning: "border-warning bg-warning/15 text-warning-strong",
+  negative: "border-destructive bg-destructive/10 text-destructive",
+};
 
 /**
  * PAD-140 — the three-way present/justified/unjustified control.
@@ -41,6 +52,7 @@ export function PresenceMarkToggle({
     >
       {OPTIONS.map((option) => {
         const active = value === option;
+        const tone = active ? presenceMarkTone(option) : "neutral";
         return (
           <button
             key={option}
@@ -48,26 +60,17 @@ export function PresenceMarkToggle({
             disabled={disabled}
             aria-pressed={active}
             data-testid={`presence-mark-${option}`}
+            data-tone={tone}
             onClick={() => onChange(option)}
             className={cn(
               "rounded-md border font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
               "disabled:cursor-not-allowed disabled:opacity-50",
               size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
-              !active && "border-border bg-background text-muted-foreground hover:bg-muted",
-              // Semantic colour, not the brand accent: these encode an outcome.
-              // Design tokens, not raw palette colours: `success-strong` exists
-              // precisely because the solid success green is unreadable on its
-              // own 15% tint.
-              active &&
-                option === "present" &&
-                "border-success/40 bg-success/15 text-success-strong",
-              active &&
-                option === "justified" &&
-                "border-border bg-muted text-foreground",
-              active &&
-                option === "unjustified" &&
-                "border-destructive/40 bg-destructive/10 text-destructive"
+              tone === "neutral"
+                ? "border-border bg-background text-muted-foreground hover:bg-muted"
+                : // Semantic colour, not the brand accent: these encode an outcome.
+                  SELECTED_CLASSES[tone]
             )}
           >
             {t(

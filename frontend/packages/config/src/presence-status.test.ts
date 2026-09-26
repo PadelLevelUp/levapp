@@ -7,6 +7,7 @@ import {
   prefillMark,
   toMark,
   undecidedCount,
+  presenceMarkTone,
   validationGroup,
 } from "./presence-status";
 
@@ -116,5 +117,13 @@ describe("validationGroup (PAD-442)", () => {
 
   it("a stored status decides the player", () => {
     expect(validationGroup([player({ playerId: 1, response: "none", status: "present" })])).toBe("ready");
+  });
+});
+
+describe("presenceMarkTone (PAD-441)", () => {
+  it("gives each mark its own tone: present green, justified amber, unjustified red", () => {
+    expect(presenceMarkTone("present")).toBe("positive");
+    expect(presenceMarkTone("justified")).toBe("warning");
+    expect(presenceMarkTone("unjustified")).toBe("negative");
   });
 });
