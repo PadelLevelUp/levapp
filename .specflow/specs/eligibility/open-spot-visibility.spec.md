@@ -94,6 +94,12 @@ separate browse screen. A coach controls whether their open spots are advertised
 
 ### Acceptance Criteria
 
+#### An edit that changes only the open-spot toggle is saved, on every edit path (rule 10, B-219)
+- **Given** a class, and a coach whose client sends only the fields that changed
+- **When** the coach edits it with `updates` holding only `openSpotsVisible: false`, whether a single
+  occurrence (materialised or not yet) or this and the following ones, from an occurrence or from the series
+- **Then** re-reading the class from the database shows `open_spots_visible` false on the edited tier
+
 #### An eligible student sees an open spot in a visible class
 - **Given** a coach with the visibility toggle on and eligibility `[{level, same_as_class}]`
 - **And** a future class at the student's level with 5 of 6 spots filled

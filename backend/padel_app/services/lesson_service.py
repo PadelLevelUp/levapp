@@ -1351,6 +1351,9 @@ def edit_class_service(data):
                 instance.save()
             if visibility_touched:
                 instance.open_spots_visible = open_spots_visible
+                # B-219: its own save — a visibility-only edit is otherwise never committed
+                # (PAD-429 moved the save that used to sit here into the auto-invites block).
+                instance.save()
             if auto_invites_touched:
                 instance.auto_invites = auto_invites
                 instance.save()
@@ -1399,6 +1402,9 @@ def edit_class_service(data):
                 lesson_to_edit.save()
             if visibility_touched:
                 lesson_to_edit.open_spots_visible = open_spots_visible
+                # B-219: its own save — a visibility-only edit is otherwise never committed
+                # (PAD-429 moved the save that used to sit here into the auto-invites block).
+                lesson_to_edit.save()
             if auto_invites_touched:
                 lesson_to_edit.auto_invites = auto_invites
                 lesson_to_edit.save()
@@ -1449,6 +1455,9 @@ def edit_class_service(data):
                 instance.save()
             if visibility_touched:
                 instance.open_spots_visible = open_spots_visible
+                # B-219: its own save — a visibility-only edit is otherwise never committed
+                # (PAD-429 moved the save that used to sit here into the auto-invites block).
+                instance.save()
             if auto_invites_touched:
                 instance.auto_invites = auto_invites
                 instance.save()
@@ -1464,6 +1473,9 @@ def edit_class_service(data):
             instance.save()
         if visibility_touched:
             instance.open_spots_visible = open_spots_visible
+            # B-219: its own save — a visibility-only edit is otherwise never committed
+            # (PAD-429 moved the save that used to sit here into the auto-invites block).
+            instance.save()
         if auto_invites_touched:
             instance.auto_invites = auto_invites
             instance.save()
@@ -1496,6 +1508,9 @@ def edit_class_service(data):
             lesson_to_edit.save()
         if visibility_touched:
             lesson_to_edit.open_spots_visible = open_spots_visible
+            # B-219: its own save — a visibility-only edit is otherwise never committed
+            # (PAD-429 moved the save that used to sit here into the auto-invites block).
+            lesson_to_edit.save()
         if auto_invites_touched:
             lesson_to_edit.auto_invites = auto_invites
             lesson_to_edit.save()
