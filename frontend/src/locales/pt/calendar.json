@@ -77,7 +77,17 @@
       "fieldEndDate": "Data de fim",
       "court": "Campo",
       "noCourt": "Sem campo",
-      "fieldName": "Nome"
+      "fieldName": "Nome",
+      "endMode": {
+        "date": "Termina no dia",
+        "count": "Termina ao fim de",
+        "season": "Termina no fim da época"
+      },
+      "classesUnit": "aulas",
+      "lastClass": "Última aula: {{date}}",
+      "countPastSeason": "A última aula ({{last}}) é depois do fim da época ({{end}}).",
+      "fieldEndCount": "Número de aulas",
+      "endCountInvalid": "Escolha entre 1 e 52 aulas."
     },
     "overlap": {
       "title": "Horário sobreposto",
