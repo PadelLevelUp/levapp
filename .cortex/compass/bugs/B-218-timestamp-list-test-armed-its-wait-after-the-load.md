@@ -3,11 +3,12 @@ id: B-218
 title: "E2E PAD-33 list test armed waitForResponse after beforeEach had already loaded the list (race)"
 type: test-defect
 severity: low
-status: triaged
+status: resolved
 affects:
   - frontend/apps/web/e2e/messaging/message-timestamp-timezone.spec.ts
 proposed_fix: "Arm the wait and trigger a fresh list read together (Promise.all with page.reload())."
 opened: 2026-09-26T11:27:47Z
+resolved: 2026-09-26T14:00:21Z
 ---
 
 # B-218: the PAD-33 list test armed its wait after the load (PAD-456)
@@ -22,4 +23,11 @@ opened: 2026-09-26T11:27:47Z
 - The 2×2 (old/new × trigger present/absent) and the spec ×3 once the machine is quiet (wave 8).
 
 ### Resolution
-(pending the runs)
+- Test: \`message-timestamp-timezone.spec.ts\` arms \`waitForResponse\` inside \`Promise.all\` with \`page.reload()\`.
+- The 2×2 (isolated stack; the trigger waits for the list row to render before arming):
+  - old code + trigger: **failed**;
+  - new code + trigger: passed;
+  - old code, no trigger: passed 3/3 (a quiet machine hides the race);
+  - new code, no trigger: passed 3/3.
+- The messaging E2E folder: 32/32 on the fix.
+- Resolved: 2026-09-26T14:00:21Z
