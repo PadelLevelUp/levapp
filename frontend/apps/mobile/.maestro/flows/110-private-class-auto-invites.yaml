@@ -1,0 +1,126 @@
+# PAD-429 — notifications.toggle-class rules 5–7 on iOS: a private class shows "Automatic
+# invitations" with the class-type default, and the coach switches it on for that class.
+#
+# Mirrors: backend/padel_app/tests/test_pad429_private_class_defaults.py (the resolution and
+# the wire) and the web ClassEligibilityBlock.autoInvites.test.tsx (the control).
+#
+# Setup and teardown through the API (R-040: the flow creates what it needs and removes it):
+# - as e2e-coach: add "E2E Private Auto Invites" (private, two days out, 18:00–19:00, 2 spots,
+#   no players);
+# - at the end: remove the class.
+#
+# Assertions are by id; the saved value is read back from POST /api/app/class_instance, never
+# from rendered copy. Flow number 110 is from Session C's wave-8 range (110–112).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'E2E Private Auto Invites'}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'private', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 2, playerIds: [], isRecurring: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+- evalScript: "${output.findEvent = function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); return evs.filter(function (e) { return e.type === 'class' && e.title === output.title; })[0]; }}"
+- evalScript: "${output.readClass = function () { var e = output.findEvent(); return json(http.post(output.api + '/api/app/class_instance?model=' + e.model + '&id=' + e.originalId + '&date=' + output.day, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).body); }}"
+# Before: no override, off by the private-class default.
+- evalScript: "${output.before = output.readClass()}"
+- assertTrue: "${output.before.autoInvites === null && output.before.effectiveAutoInvites === false && output.before.autoInvitesSource === 'type'}"
+
+# ── The coach opens the class (flow 67's walk) ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "${output.title}"
+    timeout: 15000
+- tapOn: "${output.title}"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-auto-invites-control"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "class-auto-invites-source"
+
+# ── Switch it on for this class ──
+- scrollUntilVisible:
+    element:
+      id: "class-edit"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "class-edit"
+- scrollUntilVisible:
+    element:
+      id: "class-auto-invites-mode-on"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-auto-invites-mode-on"
+- scrollUntilVisible:
+    element:
+      id: "class-edit-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit-save"
+- runFlow:
+    when:
+      visible:
+        id: "class-scope-single"
+    commands:
+      - tapOn:
+          id: "class-scope-single"
+- extendedWaitUntil:
+    visible:
+      id: "class-edit"
+    timeout: 20000
+# After: the override is stored and wins.
+- evalScript: "${output.after = output.readClass()}"
+- assertTrue: "${output.after.autoInvites === true && output.after.effectiveAutoInvites === true}"
+
+# ── Leave, then clean up ──
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.removed = (function () { var e = output.findEvent(); if (!e) return 0; http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); return 1; })()}"
+- assertTrue: "${output.removed >= 1}"

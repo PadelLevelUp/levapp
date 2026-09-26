@@ -74,10 +74,22 @@ create one, or ask to join an existing one — happens right after approval (`cl
     client shows the **Verify your email** screen before any of the destinations in rule 11.
 15. **Per-IP throttle (PAD-228).** `POST /api/auth/register` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_REGISTER` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. The limit exists so the route cannot be used to mass-create accounts or flood the admin approval queue.
 16. **Birth date and country (PAD-198).** The body also carries `birthDate` (`YYYY-MM-DD`) and
-    `country` (ISO alpha-2), both required, and `guardianEmail` when the person is under their
-    country's age of digital consent (`auth.parental-consent` rules 1–2). They are stored on the User.
-17. **A minor's sign-up** answers 201 without an `accessToken` and holds the account for a guardian's
-    consent (`auth.parental-consent` rule 3); rules 11 and 14 apply only once consent is given.
+    `country` (ISO alpha-2), both required, and stored on the User. A `guardianEmail` is ignored
+    (PAD-457: the guardian flow is gone; rule 18 decides who may sign up).
+17. **Retired (PAD-457).** A minor's sign-up used to wait for a guardian's consent
+    (`auth.parental-consent`, now deprecated). Rule 18 refuses everyone under 18 first, and the
+    guardian flow is removed. The number is kept because code and tests cite rule 18.
+18. **Only adults sign up (PAD-445, owner decision 2026-09-24).** Age is full years on the request's
+    UTC date (`parental_consent_service.age_on`): someone whose 18th birthday is today is 18, and a
+    29 February birth turns 18 on 1 March in a non-leap year. Under 18 answers 400
+    `{field: "birthDate", code: "UNDERAGE", error: "Data de nascimento inválida. Esta app só aceita
+    maiores de 18 anos. / Invalid date of birth. This app only accepts people aged 18 or over."}`
+    and writes nothing: no User, no Player/Coach, no GuardianConsent, no mail. The check runs right
+    after the birth date is validated, whatever the country, and before the guardian fields are read.
+    The error text is bilingual because an older app build shows the server's text verbatim; web and
+    iOS map `UNDERAGE` to their own localized copy (`auth.signup.errors.underage`) and also refuse
+    under 18 on the client before sending. Every self sign-up — web, iOS, the coach QR code and invite
+    links — goes through this endpoint.
 
 ### Acceptance Criteria
 
@@ -147,6 +159,34 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **When** IP `203.0.113.7` POSTs `/api/auth/register` three times with valid, distinct bodies
 - **Then** two accounts are created and the third response is 429 `RATE_LIMITED` with `retryAfterSeconds` and `Retry-After`, and no third user exists
 - **And** the same body from `203.0.113.8` creates the account
+
+#### Someone a day short of 18 cannot sign up (PAD-445)
+- **Given** today is 2026-09-25 (UTC) and no user `teen`
+- **When** POST `/api/auth/register` with a valid student body for `teen` and `birthDate` `2008-09-26`, `country` `PT`
+- **Then** the response is 400 with `field: "birthDate"`, `code: "UNDERAGE"` and the rule-18 message
+- **And** no User `teen`, no Player, no GuardianConsent row exists and no mail was sent
+
+#### Someone who turns 18 today signs up (PAD-445)
+- **Given** today is 2026-09-25 (UTC)
+- **When** POST `/api/auth/register` with a valid student body and `birthDate` `2008-09-25`, `country` `PT`
+- **Then** the response is 201 with an `accessToken` and the User exists with `guardian_consent_status` NULL
+
+#### A 29 February birth is 18 on 1 March (PAD-445)
+- **Given** a `birthDate` of `2008-02-29`
+- **When** POST `/api/auth/register` on 2026-02-28 (UTC), and again on 2026-03-01
+- **Then** the first is 400 `UNDERAGE` and the second is 201
+
+#### The age bar does not depend on the country (PAD-445)
+- **Given** a 16-year-old whose country is `DE` (digital-consent age 16) with a `guardianEmail`
+- **When** POST `/api/auth/register`
+- **Then** the response is 400 `UNDERAGE`, not a pending guardian consent
+
+#### Both clients refuse under 18 on the birth-date field (PAD-445)
+- **Given** the web sign-up form, and the iOS sign-up screen, filled with a birth date 17 years and 364 days ago
+- **When** the person submits
+- **Then** no request is sent and the birth-date field shows "Data de nascimento inválida. Esta app só aceita maiores de 18 anos." (en: "Invalid date of birth. This app only accepts people aged 18 or over.")
+- **And** a server `UNDERAGE` answer (a client whose own check was bypassed) shows the same message on the same field
+- **And** no guardian-email field is ever shown
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2

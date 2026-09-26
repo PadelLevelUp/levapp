@@ -56,6 +56,13 @@ serves a whole class and a leaked one can be retired. This is the student-initia
    calendar (a connected student with no classes this week was shown "Not connected to a coach
    yet?", TestFlight 2026-09-07). It explains "scan your coach's QR with your camera, or paste the link here" and
    accepts a pasted `/join/coach/<token>` URL. Web and iOS.
+8a. **The signed-in user is refreshed the moment a coach is linked (PAD-444, B-197).** Rule 8 reads
+   "has no coach" from the client's copy of `GET /api/auth/me`, which is loaded at sign-in and
+   sign-up. So when the student gets linked in the same session — a join accepted (rule 5) or a
+   coach's claim accepted (`players.claim`) — the client re-reads `/me` (`refreshUser`) right after
+   the server confirms, on web and iOS, before any screen that reads `coaches` is shown. Otherwise the
+   brand-new student's first dashboard still says "No coach yet?", which is exactly the QR onboarding
+   path. A failed refresh leaves the join itself standing; the next sign-in corrects the copy.
 9. Join page (`/join/coach/:token`): signed in as a student → preview (rule 4) with "Join
    {coachName} at {clubName}" → accept (rule 5) → success state linking to the calendar. Not
    signed in → the token is remembered, the visitor is sent to `/auth` (with "Create account"
@@ -123,6 +130,17 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 - **When** `ana` opens the dashboard on web and on iOS
 - **Then** no "Not connected to a coach yet?" prompt is shown
 - **And** a student with `coaches: []` does see it
+
+#### A student who just joined is not prompted to connect (PAD-444)
+- **Given** a new student `ana` who signed up from coach Maria's QR link and is still in the same session
+- **When** she accepts the join (rule 5) and then opens the dashboard in-app, without signing in again or reloading
+- **Then** no "No coach yet?" prompt is shown, on web and on iOS
+- **And** the client asked `GET /api/auth/me` again after the join was accepted
+
+#### A student who accepts a coach's claim is not prompted to connect (PAD-444)
+- **Given** a signed-in student with `coaches: []` and a coach's pending claim request
+- **When** she accepts it on the dashboard banner
+- **Then** the client re-reads `GET /api/auth/me` and the "No coach yet?" prompt goes away without a reload, on web and on iOS
 
 #### Coach sees the QR on both platforms
 - **Given** an authenticated coach on the Players tab with no live code

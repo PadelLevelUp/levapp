@@ -81,8 +81,17 @@ export default function TabsLayout() {
         }
         // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
         // Availability section render off the request's live row.
-        if (evt.type === "class_request_changed") {
+        // classes.join-requests rule 17 (PAD-460): the two lists are merged in
+        // one section now, so a private OR an academy event refreshes both —
+        // "both lists refresh on join_request_created, join_requests_superseded
+        // and on a decision, the same way they refresh on class_request_changed".
+        if (
+          evt.type === "class_request_changed" ||
+          evt.type === "join_request_created" ||
+          evt.type === "join_requests_superseded"
+        ) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests });
         }
       },
       [queryClient]
