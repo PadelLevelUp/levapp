@@ -157,3 +157,4 @@ whether a failure mode has been seen before.
 - [B-204](B-204-needs-you-later-button-overflows-card.md) — Coach dashboard: "Mais tarde" overflowed its needs-you card with the sidebar open (missing-criterion, medium, resolved)
 - [B-216](B-216-moving-a-class-onto-or-off-a-sunday-corrupts-its-weekdays.md) — Moving a recurring class onto or off a Sunday corrupted its daysOfWeek (ISO 7 vs calendar 0) (incomplete-rule, high, resolved)
 - [B-219](B-219-a-visibility-only-class-edit-was-never-saved.md) — A class edit that changed only openSpotsVisible was never saved (missing-criterion, high, resolved)
+- [B-220](B-220-verify-screen-countdown-read-as-code-validity.md) — The verify screen's 60 s resend countdown was read as the code's validity; the screen now states 15 minutes (incomplete-rule, medium, resolved)

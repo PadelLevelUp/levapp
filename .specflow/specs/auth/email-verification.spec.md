@@ -98,6 +98,14 @@ own email in Settings.
      either prompts (Chrome) or is unsupported (Firefox), so the exception to R-024 is
      deliberate. Nothing in the mail itself can copy — mail clients run no script — so the
      mail keeps the code as one selectable token (letter-spacing, never inserted spaces).
+   - 8c. **The screen says how long the code lives (PAD-458, B-220).** The neutral hint under
+     the cells states rule 3's validity ("O código é válido durante 15 minutos" / "The code is
+     valid for 15 minutes"), the same number the email gives (rule 7). The resend countdown is
+     phrased as when a new code can be asked for ("Novo código disponível em 54s" / "New code
+     available in 54s"), never as the code's lifetime: the 60-second cooldown (rule 4) is the
+     only other number on the screen, and it was being read as the deadline. The recovery
+     screen shares the countdown copy (`auth.password-recovery`). The copy is pinned to
+     `CODE_TTL` by `test_pad458_code_validity_copy.py`.
 9. **Settings.** The profile section (web and iOS) shows the email's state next to the field:
    *Verified* (success tone) or *Not verified* with a **Verify** action that opens the same code
    screen (as a route on web, a modal on iOS). Saving a new email address shows the code screen
@@ -231,6 +239,12 @@ own email in Settings.
 - **Given** a visitor who just created an account on web or iOS
 - **When** the verify screen appears
 - **Then** no `POST /api/auth/email-verification/send` leaves the client, and **Send a new code** is disabled and counting down
+
+#### The screen states the code's validity, and the countdown is not it
+- **Given** the verify screen just after signup, in Portuguese
+- **Then** the hint under the cells reads "O código é válido durante 15 minutos", matching the email
+- **And** the disabled **Send a new code** button reads "Novo código disponível em 60s" counting down, never "(60s)" next to the send label
+- **And** in English the same lines read "The code is valid for 15 minutes" and "New code available in 60s"
 
 #### A too-soon resend is not an error
 - **Given** the verify screen with **Send a new code** enabled
