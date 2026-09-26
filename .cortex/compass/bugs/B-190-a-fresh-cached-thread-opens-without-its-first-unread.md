@@ -10,8 +10,8 @@ affects:
   - frontend/apps/mobile/src/features/messages/open-sequence.ts
 proposed_fix: "A plain open always refetches on mount (threadQueryOverrides); a push-tap open keeps the cache, as flow 103 needs."
 opened: 2026-09-26T09:27:01Z
----
 resolved: 2026-09-26T09:34:03Z
+---
 
 # B-190: a fresh cached thread opened without its first unread (PAD-415, #447)
 

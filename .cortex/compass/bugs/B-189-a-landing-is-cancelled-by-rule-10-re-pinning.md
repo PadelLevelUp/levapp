@@ -10,8 +10,8 @@ affects:
   - frontend/apps/mobile/src/features/messages/follow-state.ts
 proposed_fix: "A programmatic landing suspends rule 10's following (follow-state.ts) until the reader drags, sends or jumps to the latest; while suspended neither a scroll frame at the bottom nor content growth (a new message included) re-pins."
 opened: 2026-09-26T09:27:01Z
----
 resolved: 2026-09-26T09:34:03Z
+---
 
 # B-189: the iOS landing was cancelled by rule 10's re-pin (PAD-415, #447)
 
