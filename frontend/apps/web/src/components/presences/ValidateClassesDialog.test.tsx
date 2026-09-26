@@ -138,3 +138,38 @@ describe("ValidateClassesDialog undecided players (PAD-443)", () => {
     expect(screen.queryByTestId("validate-undecided-summary")).toBeNull();
   });
 });
+
+// PAD-443 (rule 24): the class list's inline rows carry the same flag as the class detail.
+describe("ValidateClassesDialog undecided players in the class list (PAD-443)", () => {
+  function openListWithSilentPlayer() {
+    const silent = klass(1, "First");
+    silent.players = [
+      { ...silent.players[0], playerId: 21, presenceId: 21, name: "Rui", response: "none" },
+      { ...silent.players[0], playerId: 22, presenceId: 22, name: "Ana", response: "confirmed" },
+    ];
+    render(
+      <Dialog
+        pending={[silent]}
+        validated={[]}
+        pendingCount={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={async () => {}}
+        onUnvalidate={async () => {}}
+        busyClassIds={[]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+  }
+
+  it("flags only the undecided player's inline row, until marked", () => {
+    openListWithSilentPlayer();
+    expect(screen.getByTestId("validate-list-row-21")).toHaveAttribute("data-undecided", "true");
+    expect(screen.getByTestId("validate-list-undecided-icon-21")).toBeInTheDocument();
+    expect(screen.getByTestId("validate-list-row-22")).toHaveAttribute("data-undecided", "false");
+    fireEvent.click(within(screen.getByTestId("validate-list-row-21")).getByTestId("presence-mark-present"));
+    expect(screen.getByTestId("validate-list-row-21")).toHaveAttribute("data-undecided", "false");
+    expect(screen.queryByTestId("validate-list-undecided-icon-21")).toBeNull();
+  });
+});
