@@ -50,7 +50,10 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    navigation to it, not only the first: the menu's "My connections" (`?tab=connections`) and
    "Settings" (no `tab`, so Preferences) each land on their own section even when Settings is
    already open, through the same unsaved-edit question as the in-page nav (`settings.unsaved-edits`
-   rule 3).
+   rule 3). Every navigation reads the section from the URL through one parser (an unknown or
+   missing `tab` is Preferences), and "Keep editing" on a URL-driven switch puts the URL back on
+   the section still shown (PAD-459). Web-only: on iOS "My connections" is its own screen, not a
+   tab query.
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
@@ -179,4 +182,5 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Given** a coach on Settings → Calendar with Sunday switched off and not saved
 - **When** they choose "My connections" from the avatar menu
 - **Then** the unsaved-changes question appears, and "Keep editing" leaves Calendar shown with Sunday still off
+- **And** the URL goes back to `/settings?tab=calendar`, so the address and the visible section agree (PAD-459)
 
