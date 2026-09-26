@@ -1,6 +1,31 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
+import { loginAsCoach, STUDENT_USERNAME, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { clickPlayerCard } from "../helpers/players";
+import { API_APP, API_AUTH } from "../helpers/api";
+import { evaluationRecordIds, removeEvaluationRecordsSince } from "../helpers/cleanup";
+
+// PAD-452 (B-180): the rating below files today's record on E2E Student. Left behind, it makes the
+// student "evaluated" for every later spec (evaluation-reminder's due marker needs "never"), so the
+// test deletes the record(s) it created.
+let coachAuth: Record<string, string> = {};
+let studentPlayerId = "";
+let recordsBefore: Set<number> = new Set();
+test.beforeEach(async ({ request }) => {
+  const login = await request.post(`${API_AUTH}/login`, { data: { username: COACH_USERNAME, password: COACH_PASSWORD } });
+  expect(login.ok()).toBeTruthy();
+  const body = await login.json();
+  coachAuth = { Authorization: `Bearer ${body.accessToken ?? body.access_token}` };
+  const players = await (await request.get(`${API_APP}/coach_players`, { headers: coachAuth })).json();
+  const list: { playerId: number | string; name: string }[] = Array.isArray(players) ? players : players.items;
+  const found = list.find((p) => p.name === "E2E Student");
+  expect(found, "E2E Student is on the coach's roster").toBeTruthy();
+  studentPlayerId = String(found!.playerId);
+  recordsBefore = await evaluationRecordIds(request, coachAuth, studentPlayerId);
+});
+
+test.afterEach(async ({ request }) => {
+  if (studentPlayerId) await removeEvaluationRecordsSince(request, coachAuth, studentPlayerId, recordsBefore);
+});
 
 // PAD-56, carried into the record form (PAD-374): an evaluation the coach gives must actually
 // persist — the old sheet once showed a false-success toast while nothing saved. "Nova avaliação"
