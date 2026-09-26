@@ -640,12 +640,12 @@ function ClassCard({
       <ul className="mt-3 space-y-1.5">
         {sortPlayers(klass.players, edits).map((player) => {
           // PAD-443 (rule 24): the same "needs a decision" flag as the class detail, on the list's
-          // inline rows (own ids, so the two views never collide).
+          // inline rows (own ids, keyed by class AND player: a student in two queued classes appears twice).
           const undecided = effectiveMark(player, edits[player.playerId]) === null;
           return (
           <li
             key={player.playerId}
-            data-testid={`validate-list-row-${player.playerId}`}
+            data-testid={`validate-list-row-${klass.lessonInstanceId}-${player.playerId}`}
             data-undecided={undecided ? "true" : "false"}
             className={cn("flex items-center justify-between gap-3", undecided && "border-l-4 border-l-yellow-500 pl-2")}
           >
@@ -653,7 +653,7 @@ function ClassCard({
               {undecided && (
                 <AlertTriangle
                   className="h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-400"
-                  data-testid={`validate-list-undecided-icon-${player.playerId}`}
+                  data-testid={`validate-list-undecided-icon-${klass.lessonInstanceId}-${player.playerId}`}
                   aria-label={t("presences.validate.needsDecision")}
                   role="img"
                 />

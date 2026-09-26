@@ -709,7 +709,7 @@ function ClassCard({
             // who share a first name.
             <View
               key={player.playerId}
-              testID={`validate-list-row-${player.playerId}`}
+              testID={`validate-list-row-${klass.lessonInstanceId}-${player.playerId}`}
               className={cn(
                 "gap-1.5",
                 effectiveMark(player, edits[player.playerId]) === null && "border-l-4 border-l-yellow-500 pl-2"
@@ -717,7 +717,7 @@ function ClassCard({
             >
               <View className="flex-row items-center gap-1.5">
                 {effectiveMark(player, edits[player.playerId]) === null && (
-                  <UndecidedFlag playerId={player.playerId} testIDPrefix="validate-list-undecided-icon" />
+                  <UndecidedFlag playerId={player.playerId} testIDPrefix={`validate-list-undecided-icon-${klass.lessonInstanceId}`} />
                 )}
                 <Text className="flex-1 text-sm" numberOfLines={1}>
                   {player.name}

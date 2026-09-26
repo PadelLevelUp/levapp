@@ -165,11 +165,11 @@ describe("ValidateClassesDialog undecided players in the class list (PAD-443)", 
 
   it("flags only the undecided player's inline row, until marked", () => {
     openListWithSilentPlayer();
-    expect(screen.getByTestId("validate-list-row-21")).toHaveAttribute("data-undecided", "true");
-    expect(screen.getByTestId("validate-list-undecided-icon-21")).toBeInTheDocument();
-    expect(screen.getByTestId("validate-list-row-22")).toHaveAttribute("data-undecided", "false");
-    fireEvent.click(within(screen.getByTestId("validate-list-row-21")).getByTestId("presence-mark-present"));
-    expect(screen.getByTestId("validate-list-row-21")).toHaveAttribute("data-undecided", "false");
-    expect(screen.queryByTestId("validate-list-undecided-icon-21")).toBeNull();
+    expect(screen.getByTestId("validate-list-row-1-21")).toHaveAttribute("data-undecided", "true");
+    expect(screen.getByTestId("validate-list-undecided-icon-1-21")).toBeInTheDocument();
+    expect(screen.getByTestId("validate-list-row-1-22")).toHaveAttribute("data-undecided", "false");
+    fireEvent.click(within(screen.getByTestId("validate-list-row-1-21")).getByTestId("presence-mark-present"));
+    expect(screen.getByTestId("validate-list-row-1-21")).toHaveAttribute("data-undecided", "false");
+    expect(screen.queryByTestId("validate-list-undecided-icon-1-21")).toBeNull();
   });
 });
