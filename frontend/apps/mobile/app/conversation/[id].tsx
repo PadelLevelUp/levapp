@@ -7,6 +7,7 @@ import {
   queryKeys,
   shouldShowJumpToBottom,
   nextTargetStep,
+  openingTarget,
   canRetryThreadLoad,
   threadLoadErrorKey,
   useConversationThread,
@@ -62,6 +63,13 @@ import {
 } from "@/features/messages/anchor-state";
 import { isAtBottomOf } from "@/features/messages/scroll-position";
 import { composerBottomPadding } from "@/features/messages/composer-padding";
+import { isFirstUnreadMessage } from "@/features/messages/unread-divider";
+import {
+  shouldFreezeFirstUnread,
+  threadQueryOverrides,
+  shouldMarkRead,
+} from "@/features/messages/open-sequence";
+import { followReducer, initialFollowState, type FollowEvent } from "@/features/messages/follow-state";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
@@ -130,7 +138,11 @@ export default function ConversationScreen() {
     hasMore,
     isLoadingOlder,
     loadOlder,
-  } = useConversationThread(conversationId);
+    isFetchedAfterMount,
+    isFetching,
+  // B-190: a plain open always makes its own GET, so the first unread is this open's value even
+  // when an SSE write just made the cached entry fresh; a push-tap open keeps the cache (flow 103).
+  } = useConversationThread(conversationId, threadQueryOverrides(targetMessageParam ?? null));
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -178,13 +190,48 @@ export default function ConversationScreen() {
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!conversation || markedRef.current === conversationId) return;
+    const open = {
+      conversationId,
+      hasConversation: !!conversation,
+      isFetchedAfterMount,
+      isFetching,
+    };
+    if (!shouldMarkRead(open, markedRef.current)) return;
     markedRef.current = conversationId;
     messagesApi
       .markConversationRead(conversationId)
       .then(() => invalidateMessagesLists(queryClient))
       .catch(() => undefined);
-  }, [conversation, conversationId, queryClient]);
+  }, [conversation, conversationId, isFetchedAfterMount, isFetching, queryClient]);
+
+  // PAD-415 (messaging.conversation-detail rule 9a): the first value this
+  // component observes for `conversation.firstUnreadMessageId` from THIS
+  // open's own GET (`isFetchedAfterMount`, never a cached copy),
+  // frozen for the visit — `markConversationRead` above clears it server-side,
+  // so a later refetch (or a cache hit on returning to an already-read
+  // thread) would read back null. Adjusting a ref during render off changed
+  // props is the same pattern React's own docs use for "remember something
+  // from a previous render"; it never triggers a render of its own.
+  const firstUnreadRef = React.useRef<{
+    conversationId: string;
+    value: string | number | null;
+  } | null>(null);
+  if (
+    conversation &&
+    shouldFreezeFirstUnread(
+      { conversationId, hasConversation: true, isFetchedAfterMount, isFetching },
+      firstUnreadRef.current?.conversationId ?? null
+    )
+  ) {
+    firstUnreadRef.current = {
+      conversationId,
+      value: conversation.firstUnreadMessageId ?? null,
+    };
+  }
+  const firstUnreadMessageId =
+    firstUnreadRef.current?.conversationId === conversationId
+      ? firstUnreadRef.current.value
+      : null;
 
   // ── Block state: who has the current user blocked? ──
   const participantId = conversation?.participantId
@@ -516,6 +563,15 @@ export default function ConversationScreen() {
   //      only then is it revealed (rule 9).
   const listRef = React.useRef<FlatList<Message>>(null);
   const atBottomRef = React.useRef(true);
+  // B-189: rule 10's following, with a programmatic landing protected from it (follow-state.ts).
+  // `atBottomRef` mirrors the reducer's `atBottom` for the readers that only need the boolean.
+  const followRef = React.useRef(initialFollowState());
+  const dispatchFollow = React.useCallback((event: FollowEvent) => {
+    const next = followReducer(followRef.current, event);
+    followRef.current = next.state;
+    atBottomRef.current = next.state.atBottom;
+    return next;
+  }, []);
   const [hasNewBelow, setHasNewBelow] = React.useState(false);
   const hasNewBelowRef = React.useRef(false);
   const [showJumpToBottom, setShowJumpToBottom] = React.useState(false);
@@ -569,7 +625,7 @@ export default function ConversationScreen() {
   const scrollToBottom = React.useCallback(
     (animated = false) => {
       listRef.current?.scrollToEnd({ animated });
-      atBottomRef.current = true;
+      dispatchFollow({ type: "toLatest" }); // sending or jumping to the latest ends a landing
       scrollMetricsRef.current = {
         ...scrollMetricsRef.current,
         distanceFromBottom: 0,
@@ -577,7 +633,7 @@ export default function ConversationScreen() {
       setNewBelow(false);
       setShowJumpToBottom(false);
     },
-    [setNewBelow]
+    [dispatchFollow, setNewBelow]
   );
 
   const handleScroll = React.useCallback(
@@ -592,8 +648,8 @@ export default function ConversationScreen() {
         viewportHeight: metrics.layoutMeasurement.height,
       };
 
-      const atBottom = isAtBottomOf(metrics);
-      atBottomRef.current = atBottom;
+      // While a landing is in charge, a frame at the bottom is the list settling (B-189).
+      const { atBottom } = dispatchFollow({ type: "scroll", atBottom: isAtBottomOf(metrics) }).state;
       if (atBottom) setNewBelow(false);
       syncJumpToBottom();
 
@@ -601,7 +657,7 @@ export default function ConversationScreen() {
       // effect. Ignored once anchored.
       dispatchAnchor({ type: "scroll", distanceFromBottom });
     },
-    [dispatchAnchor, setNewBelow, syncJumpToBottom]
+    [dispatchAnchor, dispatchFollow, setNewBelow, syncJumpToBottom]
   );
 
   const handleContentSizeChange = React.useCallback(
@@ -614,12 +670,12 @@ export default function ConversationScreen() {
       }
       // Rule 10: content grew and the reader was at the bottom — stay pinned.
       // Away from the bottom this is where the snap used to happen, and now it
-      // deliberately does nothing.
-      if (atBottomRef.current) {
+      // deliberately does nothing — nor while a landing is in charge (B-189).
+      if (dispatchFollow({ type: "contentGrew" }).effect === "scrollToEnd") {
         listRef.current?.scrollToEnd({ animated: false });
       }
     },
-    [anchored, dispatchAnchor]
+    [anchored, dispatchAnchor, dispatchFollow]
   );
 
   // Rule 11: reaching the top asks for the page before the oldest loaded
@@ -639,12 +695,12 @@ export default function ConversationScreen() {
   // A different thread must be anchored from scratch, hidden again in between.
   React.useEffect(() => {
     dispatchAnchor({ type: "reset" });
-    atBottomRef.current = true;
+    dispatchFollow({ type: "reset" });
     hasNewBelowRef.current = false;
     scrollMetricsRef.current = { distanceFromBottom: 0, viewportHeight: 0 };
     setHasNewBelow(false);
     setShowJumpToBottom(false);
-  }, [conversationId, dispatchAnchor]);
+  }, [conversationId, dispatchAnchor, dispatchFollow]);
 
   // The first page has arrived — the list can start laying out. Later pages
   // change this count too; the reducer ignores them.
@@ -673,7 +729,7 @@ export default function ConversationScreen() {
 
   // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
   const scrollToMessage = React.useCallback(
-    (messageId: string | number) => {
+    (messageId: string | number, highlight: boolean = true) => {
       if (!conversation) return;
       const index = conversation.messages.findIndex(
         (m) => String(m.id) === String(messageId)
@@ -684,28 +740,45 @@ export default function ConversationScreen() {
         animated: true,
         viewPosition: 0.5,
       });
-      setHighlightedId(messageId);
-      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-      highlightTimerRef.current = setTimeout(
-        () => setHighlightedId(null),
-        900
-      );
+      // PAD-415: the first-unread target anchors the thread but does not
+      // flash the highlight — that reads as "quoted reply", not "this is
+      // where you left off". Only an explicit target (a push, a deep link)
+      // highlights, as before.
+      if (highlight) {
+        setHighlightedId(messageId);
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = setTimeout(
+          () => setHighlightedId(null),
+          900
+        );
+      }
     },
     [conversation]
   );
 
-  // ── PAD-408: land on the message a push named (rule 12) ──
+  // ── PAD-408 / PAD-415: land on the message a push named, or — absent one —
+  // on the thread's first unread message (rule 12 / rule 9a) ──
   // The thread anchors at the newest message as always (rule 9's gate is not
   // touched); once revealed, older pages are loaded until the target is
-  // present — at most MESSAGE_TARGET_MAX_OLDER_PAGES — and it is scrolled to and
-  // highlighted with the same primitive a quoted reply uses. Not found within
-  // the bound: the thread simply stays on the newest message.
-  const targetRef = React.useRef<string | null>(targetMessageParam ?? null);
+  // present — at most MESSAGE_TARGET_MAX_OLDER_PAGES. An EXPLICIT target is
+  // scrolled to and highlighted with the same primitive a quoted reply uses;
+  // the first-unread target only anchors (see `scrollToMessage`). Not found
+  // within the bound: the thread simply stays on the newest message.
+  const targetRef = React.useRef<string | null>(null);
   const targetOlderPagesRef = React.useRef(0);
+  const targetIsExplicitRef = React.useRef(false);
+  // Recompute whenever the explicit param, the conversation, or the frozen
+  // first-unread changes. The first-unread value is only known once the open
+  // response has loaded — one render after `conversationId` switches — so
+  // this cannot be keyed on `conversationId` alone the way a plain reset is.
   React.useEffect(() => {
-    targetRef.current = targetMessageParam ?? null;
+    targetRef.current = openingTarget({
+      explicit: targetMessageParam,
+      firstUnread: firstUnreadMessageId,
+    });
+    targetIsExplicitRef.current = Boolean(targetMessageParam);
     targetOlderPagesRef.current = 0;
-  }, [conversationId, targetMessageParam]);
+  }, [conversationId, targetMessageParam, firstUnreadMessageId]);
 
   React.useEffect(() => {
     const target = targetRef.current;
@@ -726,16 +799,18 @@ export default function ConversationScreen() {
     }
     targetRef.current = null;
     if (step.kind !== "scroll") return;
-    // The reader is no longer at the bottom: content growth must not re-pin.
-    atBottomRef.current = false;
+    // B-189: the landing suspends rule 10's following until the reader acts — a scroll frame
+    // at the bottom while the list settles, or a new message, must not re-pin to the newest.
+    dispatchFollow({ type: "landing" });
     // The loaded row's own id, not the route's string: the bubble's highlight
     // compares ids strictly (`highlightedId === item.id`).
     const landedId = conversation.messages[step.index].id;
+    const highlight = targetIsExplicitRef.current;
     // One frame first — the list reads stale metrics in the commit that
     // delivered the rows (ios-flatlist-fabric-traps); a miss on an unmeasured
     // row is retried by onScrollToIndexFailed.
-    requestAnimationFrame(() => scrollToMessage(landedId));
-  }, [anchored, conversation, hasMore, isLoadingOlder, loadOlder, scrollToMessage]);
+    requestAnimationFrame(() => scrollToMessage(landedId, highlight));
+  }, [anchored, conversation, dispatchFollow, hasMore, isLoadingOlder, loadOlder, scrollToMessage]);
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
   // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
@@ -1210,6 +1285,7 @@ export default function ConversationScreen() {
               })
             }
             onScroll={handleScroll}
+            onScrollBeginDrag={() => dispatchFollow({ type: "drag" })}
             scrollEventThrottle={16}
             // PAD-208 rule 11 — the native scroll view holds the visible cell
             // in place when a page is inserted above it. `minIndexForVisible: 1`
@@ -1261,7 +1337,28 @@ export default function ConversationScreen() {
                       (m) => String(m.id) === String(item.replyTo)
                     )
                   : undefined;
+              // PAD-415 (rule 9a): the divider sits directly above the frozen
+              // first-unread message, for this visit only — gone on re-open
+              // once everything is read (`firstUnreadMessageId` is `null`
+              // then).
+              const isFirstUnread = isFirstUnreadMessage(
+                item.id,
+                firstUnreadMessageId
+              );
               return (
+                <>
+                  {isFirstUnread ? (
+                    <View
+                      testID="unread-divider"
+                      className="flex-row items-center gap-2 py-2"
+                    >
+                      <View className="h-px flex-1 bg-border" />
+                      <Text className="text-xs text-muted-foreground">
+                        {t("messages.unreadDivider")}
+                      </Text>
+                      <View className="h-px flex-1 bg-border" />
+                    </View>
+                  ) : null}
                 <MessageBubble
                   message={item}
                   own={own}
@@ -1306,6 +1403,7 @@ export default function ConversationScreen() {
                   respondingJoinRequest={respondingJoinRequestId === item.id}
                   onAnswerJoinRequest={(accept) => void handleAnswerJoinRequest(item, accept)}
                 />
+                </>
               );
             }}
             ListEmptyComponent={

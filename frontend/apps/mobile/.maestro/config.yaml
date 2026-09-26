@@ -196,6 +196,10 @@ executionOrder:
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.
     - 103-thread-lands-on-target-message
+    # 114 reads conversation 1 as the coach, posts 40 messages as the student, asserts the
+    # "9+" row pill (PAD-414), the open at the first unread under the divider and a re-open
+    # at the newest with no divider (PAD-415); it deletes the 40 in onFlowComplete.
+    - 114-thread-opens-at-first-unread
     # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
     # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
     - 113-join-first-dashboard
