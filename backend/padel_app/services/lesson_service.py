@@ -248,8 +248,12 @@ def update_recurrence_weekday(lesson, old_date, new_date):
     rule = json.loads(lesson.recurrence_rule)
     days = set(rule.get("daysOfWeek", []))
 
-    old_wd = old_date.weekday() + 1
-    new_wd = new_date.weekday() + 1
+    # PAD-464 (B-216): `daysOfWeek` is the calendar's convention, 0 = Sunday … 6 = Saturday
+    # (calendar_tools.WEEKDAY_MAP, date-fns getDay) — not ISO. `weekday() + 1` alone wrote Sunday as
+    # 7, which WEEKDAY_MAP drops (moving onto a Sunday lost it) and never matched a stored 0 (moving
+    # off a Sunday kept it). Monday..Saturday are 1..6 either way.
+    old_wd = (old_date.weekday() + 1) % 7
+    new_wd = (new_date.weekday() + 1) % 7
 
     if old_wd in days:
         days.remove(old_wd)
