@@ -228,6 +228,10 @@ test("US-376d: a participant whose latest record is from an earlier day — the 
   await expect(async () => {
     await toggle.click(); // close: releases the hold
     await toggle.click(); // reopen: captures what the panel holds now
+    // The row must really be open again: a closed row has no card either, so the count alone
+    // would pass on a row that never reopened (B's review of #458).
+    await expect(toggle).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+    await expect(row.getByTestId("evaluation-form")).toBeVisible({ timeout: 1_000 });
     await expect(row.getByTestId(`class-eval-earlier-${playerId}`)).toHaveCount(0, { timeout: 1_000 });
   }).toPass({ timeout: 20_000 });
 
