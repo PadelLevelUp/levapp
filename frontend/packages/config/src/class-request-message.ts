@@ -65,8 +65,12 @@ export function classRequestBubbleState(
 ): ClassRequestBubbleState {
   if (!meta) return { kind: "none", status: undefined };
   // A proposal travels one way: the coach's `proposed` waits for the student
-  // (`countered`), the student's `counter_proposal` waits for the coach (`pending`).
-  const awaiting = meta.kind === "proposed" ? "countered" : meta.kind === "counter_proposal" ? "pending" : null;
+  // (`countered`); the student's `counter_proposal` AND the student's very
+  // first `requested` (rule 10a, PAD-461) both wait for the coach (`pending`) —
+  // the coach's chat bubble answers a brand new request exactly like a
+  // counter-proposal, so the two kinds share this derivation.
+  const awaiting =
+    meta.kind === "proposed" ? "countered" : meta.kind === "counter_proposal" || meta.kind === "requested" ? "pending" : null;
   if (awaiting === null) return { kind: "none", status: meta.status };
   if (live === undefined) return { kind: "none", status: meta.status };
   if (live === null) return { kind: "outcome", status: meta.status };

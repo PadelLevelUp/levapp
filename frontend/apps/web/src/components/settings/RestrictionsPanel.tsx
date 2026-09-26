@@ -7,7 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { NotificationRestrictions } from "@/types";
 import { searchPlayers } from "@/api/notificationEngine";
-import { canStepRestriction, stepRestriction, type SteppedRestrictionKey } from "@levelup/config";
+import {
+  canStepRestriction,
+  isValidQuietWindow,
+  QUIET_HOURS_STEP_SECONDS,
+  quietWindowOf,
+  stepRestriction,
+  type QuietWindow,
+  type SteppedRestrictionKey,
+} from "@levelup/config";
 
 interface RestrictionRowProps {
   label: string;
@@ -259,6 +267,85 @@ function ExcludedPlayersRow({
   );
 }
 
+/**
+ * PAD-451 (notifications.config rule 6a): quiet hours with the coach's own window. The pickers
+ * step by 30 minutes; a window the server would refuse (empty, off the grid) is not reported, so
+ * it is never saved, and the row says why.
+ */
+function QuietHoursRow({
+  quiet,
+  disabled,
+  onToggle,
+  onWindow,
+}: {
+  quiet: NotificationRestrictions["quietHours"];
+  disabled?: boolean;
+  onToggle: () => void;
+  onWindow: (window: QuietWindow) => void;
+}) {
+  const { t } = useTranslation();
+  const window = quietWindowOf(quiet);
+  const [invalid, setInvalid] = useState(false);
+  const edit = (patch: Partial<QuietWindow>) => {
+    const next = { ...window, ...patch };
+    if (!isValidQuietWindow(next.start, next.end)) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    onWindow(next);
+  };
+  return (
+    <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid="restriction-row-quiet-hours">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">{t("settings.restrictions.quietHours")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("settings.restrictions.quietHoursDescription", { start: window.start, end: window.end })}
+          </p>
+        </div>
+        <Switch checked={quiet.enabled} onCheckedChange={onToggle} />
+      </div>
+      {quiet.enabled && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground" htmlFor="quiet-hours-start">
+              {t("settings.restrictions.quietHoursStart")}
+            </label>
+            <Input
+              id="quiet-hours-start"
+              type="time"
+              step={QUIET_HOURS_STEP_SECONDS}
+              value={window.start}
+              onChange={(e) => edit({ start: e.target.value })}
+              className="h-8 w-28 text-sm"
+              data-testid="restriction-quietHours-start"
+            />
+            <label className="text-xs text-muted-foreground" htmlFor="quiet-hours-end">
+              {t("settings.restrictions.quietHoursEnd")}
+            </label>
+            <Input
+              id="quiet-hours-end"
+              type="time"
+              step={QUIET_HOURS_STEP_SECONDS}
+              value={window.end}
+              onChange={(e) => edit({ end: e.target.value })}
+              className="h-8 w-28 text-sm"
+              data-testid="restriction-quietHours-end"
+            />
+          </div>
+          {invalid && (
+            <p className="text-xs text-destructive" data-testid="restriction-quietHours-error">
+              {t("settings.restrictions.quietHoursInvalid")}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">{t("settings.restrictions.quietHoursHint")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface RestrictionsPanelProps {
   restrictions: NotificationRestrictions;
   /** PAD-433 / B-168: `config.excludedPlayerNames` from GET /notify/config. */
@@ -356,13 +443,11 @@ export function RestrictionsPanel({ restrictions, excludedPlayerNames = {}, onCh
         onDecrement={() => update("maxInvitesPerStudentPerDay", { value: stepRestriction("maxInvitesPerStudentPerDay", restrictions.maxInvitesPerStudentPerDay.value, -1) })}
       />
 
-      <RestrictionRow
-        label={t("settings.restrictions.quietHours")}
-        description={t("settings.restrictions.quietHoursDescription")}
-        enabled={restrictions.quietHours.enabled}
-        showValue={false}
+      <QuietHoursRow
+        quiet={restrictions.quietHours}
         disabled={disabled}
         onToggle={() => update("quietHours", { enabled: !restrictions.quietHours.enabled })}
+        onWindow={(w) => update("quietHours", w)}
       />
 
       <ExcludedPlayersRow

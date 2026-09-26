@@ -29,7 +29,7 @@ type Status = "loading" | "invalid" | "preview" | "joining" | "joined";
  */
 export function JoinCoachScreen({ token }: { token: string | null }) {
   const { t } = useTranslation();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
   const [status, setStatus] = React.useState<Status>(token ? "loading" : "invalid");
   const [preview, setPreview] = React.useState<joinTokensApi.JoinTokenPreview | null>(null);
   const [result, setResult] = React.useState<joinTokensApi.AcceptJoinTokenResponse | null>(null);
@@ -67,6 +67,9 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
     setError(null);
     try {
       const res = await joinTokensApi.acceptJoinToken(token);
+      // players.join-token rule 8a (PAD-444): the student is linked now, so re-read /me before the
+      // dashboard can show "No coach yet?" from the copy loaded at sign-up. Never fails the join.
+      await refreshUser().catch(() => null);
       setResult(res);
       setStatus("joined");
     } catch (err) {

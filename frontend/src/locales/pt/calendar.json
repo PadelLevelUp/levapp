@@ -158,7 +158,7 @@
       "saving": "A guardar…",
       "confirm": "Confirmar",
       "edit": "Editar",
-      "notify": "Notificar",
+      "notify": "Convidar",
       "remind": "Lembrar",
       "sending": "A enviar…",
       "deleteClass": "Eliminar aula",
@@ -400,12 +400,27 @@
       "source": {
         "coach": "Definição padrão",
         "lesson": "Definida para esta série",
-        "instance": "Definida para esta aula"
+        "instance": "Definida para esta aula",
+        "type": "Padrão das aulas privadas"
       },
       "mode": {
         "inherit": "Padrão",
         "on": "Visível",
         "off": "Escondida"
+      }
+    },
+    "autoInvites": {
+      "title": "Convites automáticos",
+      "hint": "Se o motor convida alunos para as vagas desta aula por si. Os lembretes são sempre enviados.",
+      "source": {
+        "type": "Padrão do tipo de aula",
+        "lesson": "Definido para esta série",
+        "instance": "Definido para esta aula"
+      },
+      "mode": {
+        "inherit": "Padrão",
+        "on": "Ligados",
+        "off": "Desligados"
       }
     },
     "joinRequest": {

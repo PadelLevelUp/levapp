@@ -1,0 +1,98 @@
+# PAD-460 — classes.join-requests rule 17 on iOS: an academy join request shows in the coach's
+# "Pedidos de Aula" (Settings → Pedidos de Aula) beside private requests, with the "Academy"
+# badge, and the coach accepts it from the list.
+#
+# Mirrors: backend/padel_app/tests/test_pad460_join_request_lists.py (the list endpoint) and the
+# web ClassRequestsSection.joinRequests.test.tsx (the merged list and its actions).
+#
+# Setup and teardown through the API, like flow 67 (R-040: the flow creates what it needs and
+# removes it):
+# - as e2e-coach: remember openSpotsVisible, turn it on, add "E2E List Join Class" (academy,
+#   two days out, 18:00–19:00, 4 spots, no players);
+# - as e2e-student: read the class from /academy-classes, then ask to join it;
+# - at the end: remove the class and restore openSpotsVisible.
+#
+# Assertions are by id, plus the class title this flow created (data, not app copy). The
+# outcome is read back from GET /api/app/class-join-requests. Flow number 111 is from
+# Session C's wave-8 range (110–112).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'E2E List Join Class'}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.wasVisible = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).openSpotsVisible === true}"
+- evalScript: "${output.toggled = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: true }) }).ok}"
+- assertTrue: "${output.toggled == true}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 4, playerIds: [], isRecurring: false, notificationsEnabled: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.cls = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0]}"
+- assertTrue: "${output.cls != null}"
+- evalScript: "${output.req = json(http.post(output.api + '/api/app/class-join-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ model: output.cls.model, originalId: output.cls.originalId, date: output.cls.date }) }).body)}"
+- assertTrue: "${output.req.status === 'pending'}"
+
+# ── The coach opens Settings → Pedidos de Aula ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-classRequests"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-classRequests"
+- scrollUntilVisible:
+    element:
+      text: "${output.title}"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "class-join-list-row-pending"
+- assertVisible:
+    id: "class-join-list-kind"
+
+# ── Accept it (newest first, so this request's row is the first pending academy row) ──
+- tapOn:
+    id: "class-join-list-accept"
+- runFlow:
+    when:
+      visible:
+        id: "eligibility-confirm"
+    commands:
+      - tapOn:
+          id: "eligibility-confirm-proceed"
+# A decided request moves to the collapsed "earlier requests" section (first run, 2026-09-26:
+# the accept worked but the accepted row was hidden there). Wait for the pending row to go,
+# then open the history by id.
+- extendedWaitUntil:
+    notVisible:
+      id: "class-join-list-row-pending"
+    timeout: 20000
+- tapOn:
+    id: "class-requests-history-toggle"
+- scrollUntilVisible:
+    element:
+      id: "class-join-list-row-accepted"
+    direction: DOWN
+    timeout: 20000
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/class-join-requests', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (r) { return r.id === output.req.id; })[0]}"
+- assertTrue: "${output.after.status === 'accepted' && output.after.kind === 'academy' && output.after.classTitle === output.title}"
+
+# ── Leave, then clean up ──
+# Back to the tab shell by deep link: settings-back only returns to Settings' own section list,
+# where the logout subflow's header-account is not on screen (second run, 2026-09-26).
+- openLink: "levelup://players"
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"
+- evalScript: "${output.restored = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }).ok}"
+- assertTrue: "${output.restored == true}"

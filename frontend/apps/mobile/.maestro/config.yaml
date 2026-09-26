@@ -73,7 +73,8 @@ executionOrder:
     # 28 changes the seeded coach's password and puts it back within itself,
     # 29 registers and rejects its own coach, so its position is not load bearing.
     - 29-coach-rejection
-    # 33 creates its own minor and guardian, so its position is not load bearing.
+    # 33 fills the sign-up form as a minor and is refused (PAD-445); it creates nothing, so
+    # its position is not load bearing.
     # (29 is PAD-233's; 31-32 belong to the calendar work — numbers kept by the coordinator.)
     - 33-parental-consent
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
@@ -195,10 +196,37 @@ executionOrder:
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.
     - 103-thread-lands-on-target-message
+    # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
+    # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
+    - 113-join-first-dashboard
     # 105 opens Settings → Notifications → Restrictions (PAD-433): the saved values and the
     # excluded student by name, one + on max simultaneous survives leaving and reopening
     # Settings. Setup turns the engine on; teardown restores the coach's config.
     - 105-settings-restrictions
+    # 110 creates a private class by API, opens it as the coach and asserts "Automatic
+    # invitations" (PAD-429): the type default read back by API, then switched On for that
+    # class and read back as the override. Teardown removes the class.
+    - 110-private-class-auto-invites
+    # 111 (PAD-460): an academy join request made by API shows in the coach's Settings →
+    # Pedidos de Aula with the Academy badge; the coach accepts it there and the API reads back
+    # accepted. Teardown removes the class and restores openSpotsVisible.
+    - 111-coach-accepts-academy-request-from-list
+    # 112 (PAD-461): an academy join request made by API is answered from its chat bubble —
+    # the coach opens the conversation by deep link (found by API, never by row name), accepts,
+    # and the API reads back accepted. Teardown removes the class and restores openSpotsVisible.
+    - 112-coach-accepts-academy-request-in-chat
+    # 117 (PAD-437): the Mês grid keeps Sunday on its week's row (Sun right of Sat), as a
+    # student. Its onFlowComplete puts the calendar back in week view: goto-seeded-monday needs it.
+    - 117-month-grid-seven-columns
+    # 118 (PAD-439): the add-to-classes picker cannot step back from the current week; next week offers classes.
+    - 118-add-to-classes-no-past
+    # 119/120 (PAD-423): the coach's evaluation scale — 1-10 gives a slider (one tap, one rating);
+    # a scale change rewrites no score (4/5 stars beside 7/10 on one history card).
+    - 119-evaluation-scale-slider
+    - 120-evaluation-scale-history
+    # 121 (PAD-428): the student's weekly request ends "after 3 classes"; the API reads back an
+    # endDate equal to the 3rd occurrence, recomputed in the flow. Teardown withdraws it.
+    - 121-class-request-ends-after-n-classes
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

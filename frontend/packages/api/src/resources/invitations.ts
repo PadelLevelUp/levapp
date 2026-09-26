@@ -30,6 +30,8 @@ export interface AcceptCoachInvitationPayload {
   name: string;
   username: string;
   password: string;
+  /** PAD-457 (clubs.coach-invitation rule 8): `YYYY-MM-DD`, required; under 18 is refused. */
+  birthDate?: string;
 }
 
 export interface AcceptCoachInvitationResponse {
