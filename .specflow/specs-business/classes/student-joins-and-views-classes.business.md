@@ -27,8 +27,9 @@ Students/players looking at a class from the outside, and the coach who decides 
    invited.
 2. Browsing the calendar, the student notices a class with an open spot they're eligible for and
    asks to join.
-3. The coach is notified of the request and accepts or rejects it — from the class, or from their
-   "Pedidos de Aula" list, where academy requests now sit beside private ones (PAD-460).
+3. The coach is notified of the request and accepts or rejects it — from the class, from their
+   "Pedidos de Aula" list, where academy requests now sit beside private ones (PAD-460), or
+   straight from the request message in their chat with the student (PAD-461).
 4. If accepted, the student is enrolled in that occurrence just as if the coach had added them
    directly.
 5. If someone else fills the spot first — through an invitation, the waiting list, or another

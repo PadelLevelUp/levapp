@@ -41,7 +41,8 @@ Students who want a class outside the coach's published schedule, and the coach 
 8. A proposed time goes back to the student, who accepts it, declines it, or proposes another
    time — and the coach answers again, as many rounds as it takes.
 9. Both sides are told in chat at every step, and the message that asks a question can be
-   answered right there.
+   answered right there. That includes the student's very first request: the coach can accept,
+   decline or propose another time straight from it (PAD-461).
 
 ## Business Rules
 
