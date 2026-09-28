@@ -1,7 +1,7 @@
 {
  "schemaVersion": "3.0",
- "generated": "2026-09-03T14:50:35Z",
- "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "generated": "2026-09-27T03:30:50Z",
+ "built_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30",
  "vocabulary": [
   {
    "tag": "accessibility",
@@ -2246,13 +2246,6 @@
   "file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx": [
    "dashboard"
   ],
-  "file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx": [
-   "dashboard",
-   "notification-engine"
-  ],
-  "file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx": [
-   "dashboard"
-  ],
   "file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx": [
    "dashboard",
    "mobile-viewport"
@@ -2287,9 +2280,6 @@
    "app-shell",
    "mobile-viewport",
    "shadcn-ui"
-  ],
-  "file:frontend/apps/web/src/components/messages/ActionButtons.tsx": [
-   "messaging"
   ],
   "file:frontend/apps/web/src/components/messages/ChatHeader.tsx": [
    "messaging",
@@ -2452,9 +2442,6 @@
    "editable-ordered-list",
    "notification-engine",
    "settings"
-  ],
-  "file:frontend/apps/web/src/components/students/StudentDetailSheet.tsx": [
-   "shadcn-ui"
   ],
   "file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx": [
    "training-exercises"
@@ -2762,6 +2749,9 @@
   "file:frontend/apps/web/src/i18n.ts": [
    "i18n"
   ],
+  "file:frontend/apps/web/src/index.css": [
+   "design-tokens"
+  ],
   "file:frontend/apps/web/src/integrations/supabase/client.ts": [
    "dead-code"
   ],
@@ -2790,9 +2780,6 @@
   ],
   "file:frontend/apps/web/src/pages/MessagesPage.tsx": [
    "sse"
-  ],
-  "file:frontend/apps/web/src/pages/StudentsPage.tsx": [
-   "mock-data"
   ],
   "file:frontend/apps/web/src/pages/TrainingExercisesPage.tsx": [
    "react-query",
