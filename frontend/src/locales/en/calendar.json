@@ -61,7 +61,6 @@
       "recurring": "Recurring",
       "daysOfWeek": "Days of the week",
       "endDate": "End date",
-      "recursUntilSeasonEnd": "Recurs until season end",
       "recursUntilSeasonEndHint": "Ends at your season's end date.",
       "noSeasonCoversDate": "Your season does not cover this date. Define your season in Settings → Calendar, or turn this off and pick an end date.",
       "autoNotifications": "Auto notifications",

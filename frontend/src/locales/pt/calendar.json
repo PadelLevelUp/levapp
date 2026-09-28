@@ -61,7 +61,6 @@
       "recurring": "Recorrente",
       "daysOfWeek": "Dias da semana",
       "endDate": "Data de fim",
-      "recursUntilSeasonEnd": "Recorre até ao fim da época",
       "recursUntilSeasonEndHint": "Termina na data de fim da tua época.",
       "noSeasonCoversDate": "A tua época não abrange esta data. Define a época em Definições → Calendário, ou desliga esta opção e escolhe uma data de fim.",
       "autoNotifications": "Notificações automáticas",
