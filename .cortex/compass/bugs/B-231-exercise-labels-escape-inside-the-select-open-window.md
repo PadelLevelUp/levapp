@@ -3,12 +3,13 @@ id: B-231
 title: "E2E PAD-53 exercise-labels-i18n pressed Escape inside the Select's first ~50 ms, which also closed the New Exercise sheet on a fast machine"
 type: test-defect
 severity: low
-status: triaged
+status: resolved
 affects:
   - training.exercises
   - frontend/apps/web/e2e/exercise-management/exercise-labels-i18n.spec.ts
 proposed_fix: "Close each form Select by choosing its current option (not an immediate Escape), then assert the sheet heading is still visible before Create."
 opened: 2026-09-29T13:32:34Z
+resolved: 2026-09-29T13:57:38Z
 ---
 
 # B-231: exercise-labels-i18n loses the New Exercise sheet to an early Escape
@@ -58,4 +59,12 @@ Seven other E2E specs press Escape once each. All passed in the same gate on thi
 
 ### Resolution
 
-(pending)
+- Spec changes: none (`training.exercises` is correct).
+- Tests modified: `exercise-labels-i18n.spec.ts`. Each form Select is now closed by clicking its current
+  option ("Attack", "Beginner") with `listbox` count 0 asserted, and the "New Exercise" heading is asserted
+  before Create. The filter Escapes stay, since they're outside any sheet.
+- Code changes: none.
+- Evidence, new Mac, alone, reseeded each run:
+  - Unchanged spec at `15c63e9e7`: 1 failed (the spec:60 timeout).
+  - Fixed spec at `7c6ea0165`: 1 passed ×3 (16.7 s, 12.1 s, 12.5 s).
+- Resolved: 2026-09-29T13:57:38Z (PAD-468).
