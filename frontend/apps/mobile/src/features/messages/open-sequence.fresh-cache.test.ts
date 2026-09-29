@@ -29,9 +29,12 @@ async function openThread(overrides: ReturnType<typeof threadQueryOverrides>) {
     },
     ...overrides,
   });
+  // useBaseQuery's first render: defaulted options with `_optimisticResults: "optimistic"`.
+  const firstRender = client.defaultQueryOptions(observer.options);
+  firstRender._optimisticResults = "optimistic";
   // The screen advances its phase on every render: the first one (useBaseQuery passes
   // `_optimisticResults: "optimistic"`, so it reports the mount fetch as already running), then each notify.
-  let phase: OpenFetch | null = advanceOpenFetch(null, "1", observer.getOptimisticResult({ ...observer.options, _optimisticResults: "optimistic" }).isFetching);
+  let phase: OpenFetch | null = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching);
   const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching)));
   await flush();
   const result = observer.getCurrentResult();
