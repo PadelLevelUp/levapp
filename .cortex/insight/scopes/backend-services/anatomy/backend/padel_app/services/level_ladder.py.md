@@ -1,12 +1,12 @@
 ---
 path: backend/padel_app/services/level_ladder.py
-extracted_at: 2026-09-03T13:58:46Z
+extracted_at: 2026-09-07T03:58:26Z
 extraction_level: 2
-size_lines: 102
-size_tokens: 965
+size_lines: 101
+size_tokens: 968
 centrality: low
-built_at_commit: "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
-source_sha256: "2b5deb0b550ea2b035bff867d27e456773fea0b61c1c1a58eb53f70ffcfaa53e"
+built_at_commit: "7de36cb3b33c39f0b9c3c482154bc27621660c30"
+source_sha256: "b0009a00ff4f7b72fa0abb1fba16c7074a6693e89bd2fe2655bd3ec844c69692"
 ---
 
 ## Purpose

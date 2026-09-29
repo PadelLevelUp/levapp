@@ -1,12 +1,12 @@
 ---
 path: backend/padel_app/services/coach_service.py
-extracted_at: 2026-09-03T13:58:46Z
+extracted_at: 2026-09-07T03:58:26Z
 extraction_level: 2
 size_lines: 268
-size_tokens: 2230
+size_tokens: 2240
 centrality: medium
-built_at_commit: "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
-source_sha256: "8136ffd3e3012273d22dba2517203de8fb3b086c5fe4ebcd737f00dc085e9d84"
+built_at_commit: "7de36cb3b33c39f0b9c3c482154bc27621660c30"
+source_sha256: "370bdd178d873cbdf31e87d726867ef8b2acb6227a726a63dabadfb55191218d"
 ---
 
 ## Purpose

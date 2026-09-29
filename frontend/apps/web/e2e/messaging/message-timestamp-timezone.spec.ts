@@ -48,10 +48,17 @@ test("PAD-33: conversation message timestamps carry an explicit UTC offset", asy
 
 // The conversation list preview timestamp (lastMessageAt) must also be UTC-aware
 test("PAD-33: conversation list lastMessageAt carries an explicit UTC offset", async ({ page }) => {
-  const resp = await page.waitForResponse(
-    (r) => /\/api\/app\/conversations(\?|$)/.test(r.url()) && r.status() === 200,
-    { timeout: 10_000 }
-  );
+  // PAD-456 (B-218): beforeEach already opened Messages, so the list read it triggered can have
+  // answered before a wait armed here — the test then timed out waiting for a response that had
+  // already come. Arm the wait and trigger a fresh list read together (the page's own read, so the
+  // assertion stays on what the browser receives).
+  const [resp] = await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversations(\?|$)/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    ),
+    page.reload(),
+  ]);
 
   const body = await resp.json();
   const conversations = body.conversations ?? body ?? [];
