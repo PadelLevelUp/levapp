@@ -24,6 +24,7 @@ opened: 2026-09-29T11:31:24Z
 - Old code with a mid-flight write: red. isFetching true, freeze true, mark-read true.
 - Old code with no write: green.
 - New code, both cells: green (`open-sequence.mid-flight.test.ts`).
+- Load-bearing precondition, read in `packages/hooks/src/useConversationThread.ts`: the thread is a plain `useQuery` with `enabled: !!conversationId` (always true: the screen passes `String(params.id)`), the raw `isFetching`, and the per-open overrides spread into it. So a plain open's first render reports its mount fetch (`in-flight`). A gate that made that first render idle would decide `none` and silently lose the first unread; flow 114 is the end-to-end check.
 
 ### Change plan
 - `advanceOpenFetch`: the phase of this open's fetch is `in-flight`, `settled` or `none`. It is decided at the first render and settles only on the in-flight to idle edge of `isFetching`.
