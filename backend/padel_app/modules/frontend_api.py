@@ -1042,7 +1042,7 @@ def lesson_instance_presences(instance_id):
         if player is None:
             abort(403, "Not authorized to view this class")
         presence_query = presence_query.filter_by(player_id=player.id)
-    presences = presence_query.all()
+    presences = presence_query.all()  # serialize_presences puts them in roster order (rule 12)
     return jsonify(serialize_presences(presences))
 
 
