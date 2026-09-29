@@ -118,7 +118,11 @@ test.describe("PAD-195: in-app feed with browser push denied", () => {
       // screen": the list and the thread share what the banner leaves. The overflow needs a list
       // taller than its pane (B-198 went unreproduced with the seed's two conversations), so the
       // first page is padded, once, with copies of a seeded conversation. The thread under test is
-      // the seeded one with E2E Student; nothing is written to the database.
+      // the seeded one with E2E Student. Opening it would mark it read (a POST), so that call is
+      // answered here and the test writes nothing to the database (R-040).
+      await page.route(/\/api\/app\/conversation\/\d+\/read$/, (route) =>
+        route.fulfill({ status: 200, json: {} })
+      );
       let padded = false;
       await page.route(/\/api\/app\/conversations\?/, async (route) => {
         const res = await route.fetch();

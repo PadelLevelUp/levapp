@@ -38,7 +38,7 @@ resolved: 2026-09-29T14:03:49Z
 
 **Engine-independent.** A static CSS model of the page chain gives identical numbers in Chromium and WebKit (Playwright 1.62.1) at 1280×720: 2 conversations → fits; 60 conversations → +33 px row / +17 px send, whatever the thread length; `flex-1 min-h-0` → fits in all four cases. So "Safari untested" was never the gap.
 
-**The first guard's blind spot.** It compared the send button with the *viewport*. `<main>` clips, and on a phone it keeps bottom padding for the tab bar, so a clipped button can still be "inside the viewport". The guard now measures against `<main>`'s content box, pads the first conversations page once to 30 rows (`page.route`), and asserts that the list really overflows its pane before measuring. It writes nothing to the database (R-040): the thread is the seeded one.
+**The first guard's blind spot.** It compared the send button with the *viewport*. `<main>` clips, and on a phone it keeps bottom padding for the tab bar, so a clipped button can still be "inside the viewport". The guard now measures against `<main>`'s content box, pads the first conversations page once to 30 rows (`page.route`), and asserts that the list really overflows its pane before measuring. It writes nothing to the database (R-040): the thread is the seeded one, and the mark-read POST that opening it would send is answered by the test (`page.route`).
 
 **2×2 (Chromium, isolated E2E stack):**
 - old code, long list: phone passes (the list and thread are separate views on a phone); 1280×600 and 1280×720 fail with **17 px**.
