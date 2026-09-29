@@ -18,6 +18,7 @@ import { getAbsenceHistory } from "@/api/absences";
 import { getSeason } from "@/api/seasons";
 import type { SeasonOccurrence } from "@/types";
 import type { AbsenceHistory, AbsenceSession, AttendanceSession } from "@/types";
+import { presenceMarkTone } from "@levelup/config";
 
 /**
  * PAD-141 — "Faltas", the absence-history page (spec `attendance.absences`).
@@ -114,9 +115,11 @@ export default function AbsencesPage() {
       <span
         data-testid="absences-justification"
         data-justification={justification}
+        // PAD-441 (attendance.absences rule 14): the attendance colours, amber and red.
+        data-tone={presenceMarkTone(justified ? "justified" : "unjustified")}
         className={
           justified
-            ? "shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+            ? "shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning-strong"
             : "shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-xs text-destructive"
         }
       >

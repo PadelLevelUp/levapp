@@ -1,3 +1,4 @@
+import type { StateTone } from "./attendance-state";
 import type {
   AbsenceJustification,
   PendingValidationPlayer,
@@ -89,4 +90,19 @@ export function validationGroup(
   players: PendingValidationPlayer[]
 ): "needsInput" | "ready" {
   return undecidedCount(players, {}) > 0 ? "needsInput" : "ready";
+}
+
+/**
+ * attendance.validation rule 26 / attendance.absences rule 14 (PAD-441): the tone of a chosen
+ * mark, the one mapping both shells colour a selected option and a justification badge with.
+ */
+export function presenceMarkTone(mark: PresenceMark): StateTone {
+  switch (mark) {
+    case "present":
+      return "positive";
+    case "justified":
+      return "warning";
+    case "unjustified":
+      return "negative";
+  }
 }

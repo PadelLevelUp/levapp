@@ -213,6 +213,9 @@ executionOrder:
     # "Definir categorias de avaliação" — held under Técnica by the server. The setup deletes
     # every "Maestro …" row before and after, and leaves "vibora" switched off.
     - 109-evaluation-categories
+    # 115 (PAD-463): a series created on iOS to end "after 5 classes" (Sun + Wed, two years out)
+    # holds exactly those 5 dates on the server. Setup and teardown remove the series.
+    - 115-series-ends-after-n-classes
     # 110 creates a private class by API, opens it as the coach and asserts "Automatic
     # invitations" (PAD-429): the type default read back by API, then switched On for that
     # class and read back as the override. Teardown removes the class.

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import type { PresenceMark } from "@levelup/config";
+import { presenceMarkTone, type PresenceMark } from "@levelup/config";
 
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,7 @@ export function PresenceMarkToggle({
     >
       {OPTIONS.map((option) => {
         const active = value === option;
+        const tone = active ? presenceMarkTone(option) : "neutral";
         return (
           <Pressable
             key={option}
@@ -57,25 +58,25 @@ export function PresenceMarkToggle({
               // flex-1: the three options split the row evenly now that the
               // name sits above them, so labels never clip.
               "flex-1 items-center rounded-md border px-2 py-1.5",
-              !active && "border-border bg-background",
-              // Semantic colour, not the brand accent: these encode an outcome.
-              active && option === "present" && "border-success/40 bg-success/15",
-              active && option === "justified" && "border-border bg-muted",
-              active &&
-                option === "unjustified" &&
-                "border-destructive bg-destructive/10",
+              // Semantic colour, not the brand accent: these encode an outcome (PAD-441,
+              // attendance.validation rule 26). The non-colour cue is the bold label below, with
+              // `accessibilityState.selected`; the border only takes the colour.
+              tone === "neutral" && "border-border bg-background",
+              tone === "positive" && "border-success bg-success/15",
+              tone === "warning" && "border-warning bg-warning/15",
+              tone === "negative" && "border-destructive bg-destructive/10",
               disabled && "opacity-50"
             )}
           >
             <Text
               className={cn(
                 "text-xs",
-                !active && "text-muted-foreground",
-                // `success-strong` exists because the solid success green is
-                // unreadable on its own tint.
-                active && option === "present" && "font-sans-bold text-success-strong",
-                active && option === "justified" && "font-sans-bold text-foreground",
-                active && option === "unjustified" && "font-sans-bold text-destructive"
+                tone === "neutral" && "text-muted-foreground",
+                // The `*-strong` shades exist because the solid colour is unreadable on
+                // its own tint.
+                tone === "positive" && "font-sans-bold text-success-strong",
+                tone === "warning" && "font-sans-bold text-warning-strong",
+                tone === "negative" && "font-sans-bold text-destructive"
               )}
             >
               {t(`presences.mark.short.${option}`)}

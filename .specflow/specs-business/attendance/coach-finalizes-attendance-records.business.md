@@ -58,6 +58,8 @@ Coaches finalizing attendance for classes that have already happened.
 - A class the coach is filling in never jumps away mid-task: once its last player is decided it
   stays where it was, with its Validate button right there; it is regrouped only when the page
   is next opened.
+- Every attendance answer looks different at a glance, wherever it appears: present is green,
+  justified is amber, unjustified is red, and nothing chosen stays grey — never by colour alone.
 
 ## Success Metrics
 

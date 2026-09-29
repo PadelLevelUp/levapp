@@ -98,7 +98,8 @@ season each September.
     current-or-upcoming occurrence in the coach's language, **Save** and **Remove season** (with a
     confirm). The empty state says there is no season yet and what defining one enables. A rule-2
     rejection is shown inline under the fields.
-13. **Class creation (web and iOS).** The "recurs until season end" toggle keeps its hint, and iOS
+13. **Class creation (web and iOS).** "Recurs until season end" is one of the three ways a series
+    ends (`classes.create` rule 9, PAD-463: a date, N classes, or the season). It keeps its hint, and iOS
     keeps warning before the round trip by asking the definition whether an occurrence contains the
     chosen date (rule 4's shared function). Web renders the backend's `no_season_covers_date`
     rejection in place as before. The message now says "Define your season in Settings → Calendar".

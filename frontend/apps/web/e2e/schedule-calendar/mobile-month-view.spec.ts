@@ -146,7 +146,7 @@ test.describe("PAD-248: phone calendar Mês view", () => {
     ).toHaveCount(3);
   });
 
-  test("US-248-3: tapping a day selects it and shows its single-day grid and sheet", async ({
+  test("US-248-3: tapping a day selects it and shows it in the sheet, not in a second grid", async ({
     page,
   }) => {
     await loginAsCoach(page);
@@ -157,15 +157,8 @@ test.describe("PAD-248: phone calendar Mês view", () => {
     await d10.click();
     await expect(d10).toHaveAttribute("aria-pressed", "true");
 
-    const grid = page.getByTestId("calendar-time-grid");
-    await expect(grid.locator("[data-testid^='calendar-grid-column-']")).toHaveCount(1);
-    await expect(page.getByTestId(`calendar-grid-column-${D10}`)).toBeVisible();
-    // Rule 17: the range comes from the selected day's events (10:00–13:00 → 09–14).
-    await expect(grid).toHaveAttribute("data-hour-start", "9");
-    await expect(grid).toHaveAttribute("data-hour-end", "14");
-    await expect(
-      grid.locator("[data-testid='calendar-grid-block'][data-event-id='class-3001']")
-    ).toBeVisible();
+    // PAD-436 (rule 17): the day shows once, in the sheet; no single-day time grid under the month.
+    await expect(page.getByTestId("calendar-time-grid")).toHaveCount(0);
 
     const sheet = page.getByTestId("calendar-day-sheet");
     await expect(sheet.getByRole("heading", { level: 3 })).toContainText(
@@ -317,8 +310,10 @@ test.describe("PAD-248: phone calendar Mês view", () => {
 
     const gridBox = (await monthGrid.boundingBox())!;
     const resting = (await sheet.boundingBox())!;
-    // At rest the sheet sits over the day grid, below the month grid.
-    expect(resting.y).toBeGreaterThanOrEqual(gridBox.y + gridBox.height - 1);
+    // PAD-436 (rule 17): at rest the sheet starts right under the month grid and fills the rest;
+    // no day grid under it.
+    expect(Math.abs(resting.y - (gridBox.y + gridBox.height))).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId("calendar-time-grid")).toHaveCount(0);
 
     // Dragged up past the maximum it stops one hour row (44px) below the top of
     // the month grid and is taller than half of the 844px viewport.

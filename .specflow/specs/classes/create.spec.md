@@ -35,8 +35,40 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    a KeyError — a 500. The check parses exactly as the write does: an integer string ("6") is the
    number; "6.0" is refused, never a 500. The same check guards
    `POST /edit_class` (`classes.edit` rule 7).
+9. **How a recurring series ends: a date, a number of classes, or the season (PAD-463, D151).**
+   Class creation on web (add-class sheet) and iOS (new class) offers one choice of three, the
+   first selected by default:
+   - **"Termina no dia [data]"**: the end date, as before.
+   - **"Termina ao fim de [N] aulas"** (N from 1 to 52, `MAX_REQUEST_CLASSES`): the client turns
+     the count into the end date the wire already carries, with PAD-428's shared
+     `endDateAfterClasses` (`@levelup/config`). It counts classes, not weeks, from the start date
+     inclusive, on the chosen weekdays, and the series gets **exactly N** classes. The series
+     expands only through `calendar_tools.expand_occurrences`: a plain weekly rule up to an
+     inclusive end, with no season, holiday or clash skip. The calendar's `daysOfWeek` is
+     0 = Sunday … 6 = Saturday, so Sunday is mapped to the helper's ISO 7. The backend and older
+     builds are untouched.
+   - **"Termina no fim da época"**: `recursUntilSeasonEnd`, exactly as `calendar.seasons` rules
+     9 and 13 describe.
+
+   A count is the coach's own number: **it is never capped by the season.** When the coach has a
+   season and the Nth class falls after the end of the occurrence containing the start date, the
+   form says so, with that last date. This is a note, not a block. A series ended by a count is
+   not flagged `recurs_until_season_end`, so a later season edit does not re-cap it (the same as
+   an explicit end date).
 
 ### Acceptance Criteria
+
+#### A series that ends after N classes has exactly N (rule 9, PAD-463)
+- **Given** a coach creating a class recurring on Sunday and Wednesday from Sunday 2026-10-04
+- **When** they choose "Termina ao fim de 5 aulas" and save
+- **Then** the class is sent with `endDate` 2026-10-18 (Sun 4, Wed 7, Sun 11, Wed 14, Sun 18) and
+  the series has exactly 5 occurrences, the last on 2026-10-18
+
+#### A count past the season end is noted, not capped (rule 9)
+- **Given** a coach whose season ends on 2027-07-31, creating a class recurring on Mondays from 2027-07-05
+- **When** they choose "Termina ao fim de 6 aulas"
+- **Then** the form notes that the last class, 2027-08-09, falls after the season's end, and saving
+  still creates 6 classes
 
 #### Create one-off class
 - **Given** an authenticated coach in club 1

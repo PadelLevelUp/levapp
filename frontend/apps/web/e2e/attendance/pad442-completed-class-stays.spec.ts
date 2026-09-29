@@ -27,6 +27,8 @@ test("PAD-442: a completed class stays under needs-input with Validate enabled",
   await expect(needsInput.getByTestId(rowId)).toBeVisible();
   await expect(page.getByTestId("presences-group-ready").getByTestId(rowId)).toHaveCount(0);
   await expect(card.getByTestId("presences-validate-class")).toBeEnabled();
+  // PAD-441 (rule 26): the chosen mark carries its own tone (present → positive).
+  await expect(page.getByTestId(rowId).getByTestId("presence-mark-present")).toHaveAttribute("data-tone", "positive");
 
   // The next load regroups by the server's state: the mark was never saved, so it is back to
   // needing a decision.

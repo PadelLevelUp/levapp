@@ -33,7 +33,7 @@ export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
   { file: "pw:player-management/ticket-pad-105-coach-no-username.spec.ts", max: 6, reason: "6 en role names, e.g. 'add player', 'create player'" },
   { file: "pw:schedule-calendar/class-deletion.spec.ts", max: 6, reason: "6 en role names, e.g. 'add class', 'create class'" },
   { file: "pw:settings/coach-levels-ordering-hint.spec.ts", max: 6, reason: "6 en role names, e.g. 'add level', 'coach levels'" },
-  { file: "pw:settings/season-definition.spec.ts", max: 6, reason: "6 en role names, e.g. 'calendar', 'create class'" },
+  { file: "pw:settings/season-definition.spec.ts", max: 5, reason: "5 en role names, e.g. 'calendar', 'create class'" },
   { file: "pw:settings/student-settings-scope.spec.ts", max: 4, reason: "4 en role names, e.g. 'coach levels', '^season$' (PAD-373 took the two 'evaluation categories' matchers to a test id)" },
   { file: "pw:settings/temp-id-delete-after-save.spec.ts", max: 6, reason: "6 en role names, e.g. 'add level', 'add strength'" },
   { file: "pw:player-management/create-player-level-dropdown.spec.ts", max: 5, reason: "5 en role names, e.g. 'Beginner', 'Intermediate'" },
