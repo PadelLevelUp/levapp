@@ -161,3 +161,5 @@ whether a failure mode has been seen before.
 - [B-219](B-219-a-visibility-only-class-edit-was-never-saved.md) — A class edit that changed only openSpotsVisible was never saved (missing-criterion, high, resolved)
 - [B-231](B-231-exercise-labels-escape-inside-the-select-open-window.md) — E2E PAD-53 exercise-labels-i18n: an Escape inside the Select's first ~50 ms also closed the New Exercise sheet on a fast machine (test-defect, low, resolved)
 - [B-221](B-221-dropdown-trigger-press-swallowed-during-close-animation.md) — A web dropdown trigger press during the close animation was swallowed; the primitive now leaves its own trigger's press to the trigger (missing-criterion, low, resolved)
+- [B-192](B-192-add-to-classes-picker-dropped-the-weeks-sunday.md) — The "Add to classes" picker never listed a class on the week's Sunday: a date-only `to` was read as Sunday 00:00; the route now reads it as the end of that day (missing-criterion, high, resolved)
+- [B-193](B-193-add-to-classes-week-e2e-assumed-three-classes-next-week.md) — E2E add-to-classes-week assumed three seeded classes next week, true on six weekdays of seven (PAD-466) (test-defect, low, resolved)
