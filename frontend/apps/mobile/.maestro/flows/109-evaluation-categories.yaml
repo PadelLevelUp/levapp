@@ -1,0 +1,89 @@
+# PAD-431 — evaluations.competencies rule 15 and settings.role-scope rule 3, on iOS.
+# Mirrors apps/web/e2e/evaluation-tools/pad431-categories.spec.ts. Flow number 109 is from
+# Session-B's range.
+#
+# What it proves, by test id and by the server's own answers — never rendered copy:
+# - Settings → Preferences shows the evaluation settings under one heading
+#   ("settings-evaluations"), and the categories entry opens "Definir categorias de avaliação"
+# - Técnica heads its own section, with its sub-categories under it
+# - a sub-category typed in Técnica's field is created UNDER Técnica (the server's parentId)
+#   and appears in Técnica's section
+# Cleans up through the API: the setup deletes every "Maestro …" row of the coach's own (the
+# sub-category included) and leaves "vibora" switched off, before and after.
+appId: com.padellevelup.app
+---
+# Leaves "vibora" a row (switched off), so the coach holds Técnica (rule 15: a default
+# sub-category brings its category back).
+- runScript: ../scripts/competency-manager-setup.js
+- evalScript: "${output.techniqueId = String(json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.key === 'technique' })[0].id)}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+
+# ── 1. One "Avaliações" group holds the evaluation settings ──
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluations-title"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "settings-evaluations"
+- scrollUntilVisible:
+    element:
+      id: "settings-competencies-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-competencies-open"
+- extendedWaitUntil:
+    visible:
+      id: "competency-manager"
+    timeout: 15000
+
+# ── 2. Técnica heads its section; a sub-category is added under it ──
+- scrollUntilVisible:
+    element:
+      id: "competency-row-key-technique"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- assertVisible:
+    id: "competency-section-key-technique"
+- scrollUntilVisible:
+    element:
+      id: "competency-add-sub-key-technique-name"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-add-sub-key-technique-name"
+- inputText: "Maestro Sub"
+# Enter submits the field (onSubmitEditing) and dismisses the keyboard in one step.
+- pressKey: Enter
+- runScript:
+    file: ../scripts/competency-id-by-name.js
+    env:
+      NAME: "Maestro Sub"
+- evalScript: "${output.sub = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return String(c.id) === output.competencyId })[0]}"
+- assertTrue: "${output.sub && String(output.sub.parentId) === output.techniqueId}"
+- scrollUntilVisible:
+    element:
+      id: "competency-row-id-${output.competencyId}"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- assertVisible:
+    id: "competency-row-id-${output.competencyId}"
+
+- tapOn:
+    id: "competency-manager-done"
+
+# ── Cleanup: the sub-category goes, "vibora" stays switched off ──
+- runScript: ../scripts/competency-manager-setup.js

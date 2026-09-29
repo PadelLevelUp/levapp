@@ -1,12 +1,12 @@
 ---
 path: backend/padel_app/tools/input_tools.py
-extracted_at: 2026-09-03T15:00:00Z
+extracted_at: 2026-09-07T03:58:58Z
 extraction_level: 3
-size_lines: 269
-size_tokens: 2257
+size_lines: 275
+size_tokens: 2313
 centrality: high
-built_at_commit: "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
-source_sha256: "c1c5f78b87943e9c09400205dd9e96d53c1b552c68f8e667c68fbded970f126d"
+built_at_commit: "7de36cb3b33c39f0b9c3c482154bc27621660c30"
+source_sha256: "1b263cbaef2e27c1646d43e4eeb81323ce44270b125523ecdb1eedfaaf9be1c3"
 ---
 
 ## Purpose
@@ -18,7 +18,7 @@ Declarative form/field schema layer used by nearly every model in `padel_app/mod
 - `Field` (lines 9-193) — critical. Constructor validates `label`/`name`/`type` are present and `type` is one of `valid_types` (15 field kinds); `set_special_fields` maps 8 of those types to bespoke setters, everything else falls through `set_value`'s generic `request.form[name]` read.
 - `Field.set_boolean_value` (lines 148-168) — critical. Accepts real Python `bool` (from `JsonRequestAdapter`) as well as HTML form truthy strings (`TRUTHY_STRINGS`). The comment documents PAD-69: the prior version compared against the literal string `"true"`, so a real `True` from a JSON payload was silently written as `False` — this wiped `Presence.confirmed` on attendance updates and re-triggered reminder notifications for already-confirmed players.
 - `Field.set_password_value` (lines 170-183) — critical. Refuses to hash an empty/blank value; `JsonRequestAdapter` fills missing keys with `''` by default, so without this guard every edit-form submission touching a Password field would silently overwrite the user's password hash with `hash('')`, locking them out (and letting anyone submit an empty password to match the corrupted hash).
-- `Field.set_picture_value` / `set_multiple_picture_value` (lines 84-120) — supporting. Uploads via `image_tools`, creates an `Image` row, stores the image id(s) as the field's value.
+- `Field.set_picture_value` / `set_multiple_picture_value` (lines 84-125) — supporting. Uploads via `image_tools`, creates an `Image` row, stores the image id(s) as the field's value. Both build the object key as `images/{model}/{timestamp}_{secrets.token_urlsafe(16)}_{base}`: the random segment is load-bearing (B-015), because a `{timestamp}_{filename}` key is guessable and the bucket used to be anonymously enumerable. Neither passes `is_public` any more — they rely on `Image.is_public` now defaulting to False, so an upload made through this path is private and served only through a signed URL.
 - `Field.set_date_value` (lines 131-143) — supporting. Delegates to `tools.str_to_date`/`tools.str_to_datetime` by field type.
 - `Form.set_values(request)` (lines 265-268) — critical. Iterates every field, calls `field.set_value(request)`, and returns `{field.name: field.value}` — this is the dict every model's create/edit route consumes.
 

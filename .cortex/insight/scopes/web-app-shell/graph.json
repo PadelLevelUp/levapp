@@ -119,11 +119,6 @@
       "label": "i18n.ts"
     },
     {
-      "id": "file:frontend/apps/web/src/lib/calendarOverlap.ts",
-      "kind": "file",
-      "label": "calendarOverlap.ts"
-    },
-    {
       "id": "file:frontend/apps/web/src/lib/conversationTime.test.ts",
       "kind": "file",
       "label": "conversationTime.test.ts"
@@ -247,11 +242,6 @@
       "id": "file:frontend/apps/web/src/pages/SettingsPage.tsx",
       "kind": "file",
       "label": "SettingsPage.tsx"
-    },
-    {
-      "id": "file:frontend/apps/web/src/pages/StudentsPage.tsx",
-      "kind": "file",
-      "label": "StudentsPage.tsx"
     },
     {
       "id": "file:frontend/apps/web/src/pages/SupportPage.tsx",

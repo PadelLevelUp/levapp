@@ -196,7 +196,10 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
 
     # PAD-259: an instance's roster is its presences (classes.instance-enrollment
     # rule 6); a Lesson template's is the series roster.
-    roster_rows = obj.presences if is_instance else obj.players_relations
+    # Rule 12 (D163): one roster order, set here, whatever order the rows load in.
+    from padel_app.services.roster_order import in_roster_order
+
+    roster_rows = in_roster_order(obj.presences if is_instance else obj.players_relations)
     participants = [
         serialize_player(rel.player)
         for rel in roster_rows

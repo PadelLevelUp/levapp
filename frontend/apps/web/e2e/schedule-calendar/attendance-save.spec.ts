@@ -21,14 +21,48 @@ import { findClassOnCalendar } from "../helpers/calendar-navigation";
  */
 
 /**
- * Open the class with `title`, mark the (single seeded) participant Present,
- * save, and assert the save succeeded (no "Failed to save attendance").
+ * PAD-465 (B-232): other specs can put more students on these shared classes
+ * (reminder-flow US-REM-03 leaves e2e-student-2 on "E2E Academy Class"), so
+ * every read and click here is scoped to the seeded student's own row, found by
+ * its exact name ("E2E Student Two" also contains "E2E Student").
  */
-async function markPresentAndSave(page: Page, title: string): Promise<void> {
+const SEEDED_STUDENT = "E2E Student";
+
+function seededRow(page: Page) {
+  return page
+    .getByTestId("attendance-row")
+    .filter({ has: page.getByText(SEEDED_STUDENT, { exact: true }) });
+}
+
+/** Every OTHER row's state, sorted, so a save that touched the wrong row shows. */
+async function otherRowStates(page: Page): Promise<string[]> {
+  await expect(seededRow(page)).toHaveCount(1, { timeout: 5000 });
+  const others = page
+    .getByTestId("attendance-row")
+    .filter({ hasNot: page.getByText(SEEDED_STUDENT, { exact: true }) });
+  const states: string[] = [];
+  for (let i = 0; i < (await others.count()); i++) {
+    states.push(
+      (await others.nth(i).getByTestId("attendance-state").getAttribute("data-state")) ?? ""
+    );
+  }
+  return states.sort();
+}
+
+/**
+ * Open the class with `title`, mark the seeded student Present, save, and
+ * assert the save succeeded (no "Failed to save attendance"). Returns the other
+ * rows' states from before the save.
+ */
+async function markPresentAndSave(
+  page: Page,
+  title: string
+): Promise<string[]> {
   const found = await findClassOnCalendar(page, title);
   expect(found, `Expected to find "${title}" on the calendar`).toBe(true);
 
   await page.getByText(title).first().click();
+  const othersBefore = await otherRowStates(page);
 
   // Enter attendance-marking mode. The button reads "Mark attendance" the first
   // time and "Edit attendance" once presences exist.
@@ -38,8 +72,8 @@ async function markPresentAndSave(page: Page, title: string): Promise<void> {
   await expect(markBtn).toBeVisible({ timeout: 5000 });
   await markBtn.click();
 
-  // Mark the participant Present (single seeded student → single toggle).
-  await page.getByRole("button", { name: /^present$/i }).first().click();
+  // Mark the seeded student Present, on their own row.
+  await seededRow(page).getByRole("button", { name: /^present$/i }).click();
 
   // Confirm/save — wait for the actual confirm call to resolve 200 (the fix).
   const [resp] = await Promise.all([
@@ -59,6 +93,7 @@ async function markPresentAndSave(page: Page, title: string): Promise<void> {
   const saveToast = page.getByTestId("toast");
   await expect(saveToast).toBeVisible({ timeout: 5000 });
   await expect(saveToast).toHaveAttribute("data-variant", "default");
+  return othersBefore;
 }
 
 /**
@@ -75,7 +110,11 @@ async function markPresentAndSave(page: Page, title: string): Promise<void> {
  * row is unanswered, so `planned`, which is what makes this assertion still
  * distinguish a saved row from an unsaved one.
  */
-async function assertPresentPersists(page: Page, title: string): Promise<void> {
+async function assertPresentPersists(
+  page: Page,
+  title: string,
+  othersBefore: string[]
+): Promise<void> {
   await page.reload();
   await openCalendar(page);
 
@@ -85,12 +124,14 @@ async function assertPresentPersists(page: Page, title: string): Promise<void> {
   );
   await page.getByText(title).first().click();
 
-  const state = page.getByTestId("attendance-state").first();
+  const state = seededRow(page).getByTestId("attendance-state");
   await expect(
     state,
     `the saved attendance state should persist for "${title}" after reload`
   ).toBeVisible({ timeout: 5000 });
   await expect(state).toHaveAttribute("data-state", "attended");
+  // Nobody else's row changed: the save was the seeded student's alone.
+  expect(await otherRowStates(page)).toEqual(othersBefore);
 }
 
 test.describe("PAD-64: attendance can be saved for single and recurring classes", () => {
@@ -105,14 +146,14 @@ test.describe("PAD-64: attendance can be saved for single and recurring classes"
   test("US-20: save attendance for a materialized single class instance", async ({
     page,
   }) => {
-    await markPresentAndSave(page, "E2E Academy Class");
-    await assertPresentPersists(page, "E2E Academy Class");
+    const others = await markPresentAndSave(page, "E2E Academy Class");
+    await assertPresentPersists(page, "E2E Academy Class", others);
   });
 
   test("PAD-64: save attendance for a recurring class occurrence (was 404)", async ({
     page,
   }) => {
-    await markPresentAndSave(page, "E2E Recurring Class");
-    await assertPresentPersists(page, "E2E Recurring Class");
+    const others = await markPresentAndSave(page, "E2E Recurring Class");
+    await assertPresentPersists(page, "E2E Recurring Class", others);
   });
 });

@@ -65,7 +65,7 @@ import type {
   EvaluationCompetency,
   EvaluationCompetencyPatch,
 } from "@levelup/types";
-import { managerSections } from "@levelup/config";
+import { categorySections, managerSections } from "@levelup/config";
 import { managerRowId } from "./competency-row";
 import { renderNative } from "@/test/render-native";
 
@@ -123,7 +123,9 @@ vi.mock("@levelup/hooks", async () => {
       listRefetch = q.refetch; // captured at render time — a test-only escape hatch
       return q;
     },
-    useCreateCustomCompetency: () => useFakeMutation((name: string) => api.createCustomCompetency(name)),
+    useCreateCustomCompetency: () =>
+      useFakeMutation((input: string | { name: string; parentId: number }) =>
+        typeof input === "string" ? api.createCustomCompetency(input) : api.createCustomCompetency(input.name, input.parentId)),
     useUpdateEvaluationCompetency: () =>
       useFakeMutation((args: { id: number; patch: EvaluationCompetencyPatch }) =>
         api.updateEvaluationCompetency(args.id, args.patch)),
@@ -175,6 +177,7 @@ vi.mock("@/components/ui/alert-dialog", async () => {
 import { AddCustomCompetency } from "./add-custom-competency";
 import { CompetencyRow } from "./competency-row";
 import { DeleteCompetencyDialog } from "./delete-competency-dialog";
+import { CategorySectionView } from "./category-section";
 import { useEvaluationCompetencies } from "@levelup/hooks";
 import { View } from "react-native";
 
@@ -297,5 +300,77 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
 
     expect(n.byTestId("competency-delete-name").props.value).toBe("Mae");
     expect(api.deleteEvaluationCompetency).not.toHaveBeenCalled();
+  });
+});
+
+// PAD-431 (evaluations.competencies rules 8, 9, 15): "Definir categorias de avaliação" on iOS,
+// the same sections and test ids as web.
+describe("categories and sub-categories on iOS (PAD-431)", () => {
+  const TECHNIQUE = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+  const BANDEJA = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique", parentId: 1 });
+  const TREE: EvaluationCompetencies = {
+    competencies: [TECHNIQUE, BANDEJA],
+    catalogue: [{ key: "volley", group: "technique" }, { key: "tactics", group: "general" }, { key: "transition", group: "tactics" }],
+  };
+
+  function TreeHarness() {
+    const competencies = useEvaluationCompetencies(true);
+    const [deleting, setDeleting] = useState<EvaluationCompetency | null>(null);
+    const sections = competencies.data ? categorySections(competencies.data) : [];
+    const subNames = deleting
+      ? (competencies.data?.competencies ?? []).filter((c) => c.parentId === deleting.id).map((c) => c.name)
+      : [];
+    return createElement(
+      View,
+      null,
+      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: setDeleting })),
+      createElement(DeleteCompetencyDialog, { competency: deleting, subNames, onClose: () => setDeleting(null) }),
+    );
+  }
+
+  const inside = (n: Awaited<ReturnType<typeof renderNative>>, section: string, id: string) =>
+    n.byTestId(section).findAll((node) => node.props.testID === id).length > 0;
+
+  beforeEach(() => api.getEvaluationCompetencies.mockResolvedValue(TREE));
+
+  it("each category heads its section, with its sub-categories and the defaults it lacks under it", async () => {
+    const n = await renderNative(createElement(TreeHarness));
+    await n.flush();
+
+    expect(inside(n, "competency-section-key-technique", "competency-row-key-technique")).toBe(true);
+    expect(inside(n, "competency-section-key-technique", "competency-row-key-bandeja")).toBe(true);
+    expect(inside(n, "competency-section-key-technique", "competency-row-key-volley")).toBe(true);
+    expect(inside(n, "competency-section-key-tactics", "competency-row-key-transition")).toBe(true);
+  });
+
+  it("a default can be renamed and deleted (rules 8, 9)", async () => {
+    const n = await renderNative(createElement(TreeHarness));
+    await n.flush();
+
+    expect(n.queryByTestId("competency-rename-key-bandeja")).not.toBeNull();
+    expect(n.queryByTestId("competency-delete-key-bandeja")).not.toBeNull();
+  });
+
+  it("adds a sub-category under a held category by parentId; an offered default has no field", async () => {
+    api.createCustomCompetency.mockResolvedValue(competency({ id: 30, name: "Recuperação", group: "custom", parentId: 1 }));
+    const n = await renderNative(createElement(TreeHarness));
+    await n.flush();
+
+    await n.changeText("competency-add-sub-key-technique-name", " Recuperação ");
+    await n.press("competency-add-sub-key-technique-submit");
+    await n.flush();
+
+    expect(api.createCustomCompetency).toHaveBeenCalledWith("Recuperação", 1);
+    expect(n.queryByTestId("competency-add-sub-key-tactics-name")).toBeNull();
+  });
+
+  it("deleting a category names the sub-categories that go with it", async () => {
+    const n = await renderNative(createElement(TreeHarness));
+    await n.flush();
+
+    await n.press("competency-delete-key-technique");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-delete-subs")).not.toBeNull();
   });
 });

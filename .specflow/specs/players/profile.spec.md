@@ -45,7 +45,10 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    class instances, backed by `GET /api/app/lesson_instances?from=&to=`. Every non-cancelled
    instance in the selected week is listed; instances already at capacity are shown but not
    selectable. The picker is **not** filtered by the player's level — a coach may add any player
-   to any class
+   to any class. **The week runs through its Sunday (B-192).** Every picker — web, iOS and the
+   App Store builds already installed — sends date-only bounds, `to=<Sunday>`; the route reads a
+   date-only `to` as the end of that day (a full timestamp keeps its exact meaning), so a class on
+   the week's Sunday is listed like any other day's
 5a. **The picker never offers a class that has started (PAD-439; owner, 2026-09-24).** Classes
    whose start is at or before "now" on the club's clock are left out, today's included (a 12:00
    class at 23:00). Shared by web and iOS: `upcomingPickerClasses` in `@levelup/config`.
@@ -87,8 +90,16 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **Then** that class is not listed (the week shows its empty state), and "previous week" is disabled
 - **And** stepping to next week lists its classes, and from there "previous week" is enabled again
 
+#### The picker offers the week's Sunday classes (B-192)
+- **Given** a coach with a one-off class on Sunday 4 Oct 2026 at 10:00 and a weekly Sunday series
+- **When** the picker asks for the week `from=2026-09-28&to=2026-10-04`
+- **Then** both Sunday classes are listed, and a class on Monday 5 Oct at 00:00 is not
+- **And** `to=2026-10-04T08:00:00` still ends at 08:00 (`test_b192_week_picker_includes_sunday.py`)
+
 #### A long week scrolls inside the picker (PAD-439, B-202)
-- **Given** a 1280×520 browser window and a week whose classes overflow the picker
+- **Given** a 1280×460 browser window and a week whose classes overflow the picker's list
+  (asserted, on every weekday: the seed's next week always holds the Monday academy class and the
+  Tuesday recurring class — B-193)
 - **When** the coach scrolls the class list with the mouse wheel
 - **Then** the last class comes into view above the Cancel/Add footer, where it can be selected
 

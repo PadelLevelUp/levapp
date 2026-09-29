@@ -1,7 +1,7 @@
 {
  "schemaVersion": "3.0",
- "generated": "2026-09-03T14:44:42Z",
- "built_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226",
+ "generated": "2026-09-27T03:30:50Z",
+ "built_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30",
  "nodes": [
   {
    "id": "concept:app-wide-i18n",
@@ -999,11 +999,6 @@
    "label": "UnavailableStudentDialog.tsx"
   },
   {
-   "id": "file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx",
-   "kind": "file",
-   "label": "PendingConfirmationsBlock.tsx"
-  },
-  {
    "id": "file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx",
    "kind": "file",
    "label": "NeedsYouQueue.tsx"
@@ -1137,6 +1132,11 @@
    "id": "file:frontend/apps/web/src/i18n.ts",
    "kind": "file",
    "label": "i18n.ts"
+  },
+  {
+   "id": "file:frontend/apps/web/src/index.css",
+   "kind": "file",
+   "label": "index.css"
   },
   {
    "id": "file:frontend/apps/web/src/lib/conversationTime.ts",
@@ -1282,7 +1282,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:i18n-and-localization - locale-correct UI copy and locale-correct notification copy, the two halves of the app's PT/EN coverage.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:attendance-presence-mark->concept:effective-seat-count",
@@ -1291,7 +1291,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:attendance-and-presence - the presence-mark model and the seat-count property it feeds into capacity/history views.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:auth-session->concept:coach-scoped-authorization",
@@ -1300,7 +1300,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:auth-and-session - who you are and what you may access, the two halves of every authenticated request.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:block-driven-dashboard->concept:coach-only-settings-gating",
@@ -1309,7 +1309,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:coach-dashboard - the coach-facing dashboard surface and the role gate that decides who reaches coach-only surfaces at all.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:design-tokens->concept:web-mobile-parity",
@@ -1318,7 +1318,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:web-mobile-design-system - the shared token source and the platform-by-platform porting discipline built on top of it.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:invitation-engine->concept:eligibility-bar",
@@ -1327,7 +1327,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:invitation-and-eligibility-engine - the ranking/delivery engine and the hard admission gate it runs after.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:player-username-ownership->concept:coach-scoped-authorization",
@@ -1336,7 +1336,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:player-lifecycle-and-access - who owns a credential and who is authorized to act on a player's data.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:reminder-lifecycle->concept:notification-template-fallback",
@@ -1345,7 +1345,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:reminder-and-scheduling - the reminder state machine and the template-rendering guarantee every reminder it sends relies on.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:co-clustered:concept:season-bounded-recurrence->concept:lazy-instance-materialisation",
@@ -1354,7 +1354,7 @@
    "edge_type": "co-clustered",
    "confidence": "inferred",
    "evidence": "both members of cluster:season-and-recurrence - the season boundary a recurring class must respect and the on-demand materialization of its occurrences.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/helpers/dashboard/coach_home.py->concept:block-driven-dashboard",
@@ -1363,7 +1363,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/helpers/dashboard/coach_home.py is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/helpers/dashboard/pending.py->concept:block-driven-dashboard",
@@ -1372,7 +1372,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/helpers/dashboard/pending.py is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/coaches.py->concept:coach-scoped-authorization",
@@ -1381,7 +1381,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/coaches.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/lesson_instances.py->concept:effective-seat-count",
@@ -1390,7 +1390,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/lesson_instances.py is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/notification_config.py->concept:invitation-engine",
@@ -1399,7 +1399,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/notification_config.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/notification_event.py->concept:invitation-engine",
@@ -1408,7 +1408,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/notification_event.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/presences.py->concept:attendance-presence-mark",
@@ -1417,7 +1417,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/presences.py is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/replacement_approval_prompt.py->concept:invitation-engine",
@@ -1426,7 +1426,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/replacement_approval_prompt.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/standing_waiting_list_entry.py->concept:invitation-engine",
@@ -1435,7 +1435,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/standing_waiting_list_entry.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/vacancy.py->concept:invitation-engine",
@@ -1444,7 +1444,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/vacancy.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/models/waiting_list_entry.py->concept:invitation-engine",
@@ -1453,7 +1453,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/models/waiting_list_entry.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/modules/editor_api.py->concept:legacy-admin-editor",
@@ -1462,7 +1462,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/modules/editor_api.py is one of the implementers of the legacy-admin-editor concept per its concepts/legacy-admin-editor.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/modules/frontend_api.py->concept:coach-scoped-authorization",
@@ -1471,7 +1471,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/modules/frontend_api.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/modules/frontend_api.py->concept:sse-streaming",
@@ -1480,7 +1480,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/modules/frontend_api.py is one of the implementers of the sse-streaming concept per its concepts/sse-streaming.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/modules/notification_engine_api.py->concept:coach-scoped-authorization",
@@ -1489,7 +1489,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/modules/notification_engine_api.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/modules/notification_engine_api.py->concept:invitation-engine",
@@ -1498,7 +1498,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/modules/notification_engine_api.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/scheduler.py->concept:club-local-day-boundary",
@@ -1507,7 +1507,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/scheduler.py is one of the implementers of the club-local-day-boundary concept per its concepts/club-local-day-boundary.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/scheduler.py->concept:invitation-engine",
@@ -1516,7 +1516,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/scheduler.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/scheduler.py->concept:reminder-lifecycle",
@@ -1525,7 +1525,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/scheduler.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/serializers/lesson.py->concept:coach-scoped-authorization",
@@ -1534,7 +1534,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/serializers/lesson.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/coach_service.py->concept:level-ladder-adjacency",
@@ -1543,7 +1543,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/coach_service.py is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/import_service.py->concept:lazy-instance-materialisation",
@@ -1552,7 +1552,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/import_service.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/lesson_service.py->concept:effective-seat-count",
@@ -1561,7 +1561,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/lesson_service.py is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/lesson_service.py->concept:lazy-instance-materialisation",
@@ -1570,7 +1570,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/lesson_service.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/level_ladder.py->concept:level-ladder-adjacency",
@@ -1579,7 +1579,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/level_ladder.py is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:club-local-day-boundary",
@@ -1588,7 +1588,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the club-local-day-boundary concept per its concepts/club-local-day-boundary.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:effective-seat-count",
@@ -1597,7 +1597,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:eligibility-bar",
@@ -1606,7 +1606,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the eligibility-bar concept per its concepts/eligibility-bar.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:invitation-engine",
@@ -1615,7 +1615,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:lazy-instance-materialisation",
@@ -1624,7 +1624,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:level-ladder-adjacency",
@@ -1633,7 +1633,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:notification-template-fallback",
@@ -1642,7 +1642,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the notification-template-fallback concept per its concepts/notification-template-fallback.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/notification_service.py->concept:reminder-lifecycle",
@@ -1651,7 +1651,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/notification_service.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/player_service.py->concept:player-username-ownership",
@@ -1660,7 +1660,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/player_service.py is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/presence_overview_service.py->concept:attendance-presence-mark",
@@ -1669,7 +1669,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/presence_overview_service.py is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/replacement_approval_service.py->concept:eligibility-bar",
@@ -1678,7 +1678,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/replacement_approval_service.py is one of the implementers of the eligibility-bar concept per its concepts/eligibility-bar.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/replacement_approval_service.py->concept:invitation-engine",
@@ -1687,7 +1687,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/replacement_approval_service.py is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/replacement_approval_service.py->concept:semi-automatic-approval",
@@ -1696,7 +1696,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/replacement_approval_service.py is one of the implementers of the semi-automatic-approval concept per its concepts/semi-automatic-approval.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/season_service.py->concept:season-bounded-recurrence",
@@ -1705,7 +1705,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/season_service.py is one of the implementers of the season-bounded-recurrence concept per its concepts/season-bounded-recurrence.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/student_availability_service.py->concept:club-local-day-boundary",
@@ -1714,7 +1714,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/student_availability_service.py is one of the implementers of the club-local-day-boundary concept per its concepts/club-local-day-boundary.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/student_availability_service.py->concept:student-notification-blocking",
@@ -1723,7 +1723,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/student_availability_service.py is one of the implementers of the student-notification-blocking concept per its concepts/student-notification-blocking.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/student_notification_preferences.py->concept:student-notification-blocking",
@@ -1732,7 +1732,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/student_notification_preferences.py is one of the implementers of the student-notification-blocking concept per its concepts/student-notification-blocking.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/services/training_service.py->concept:lazy-instance-materialisation",
@@ -1741,7 +1741,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/services/training_service.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_boolean_coercion.py->concept:reminder-lifecycle",
@@ -1750,7 +1750,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_boolean_coercion.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_calendar_participant_count.py->concept:effective-seat-count",
@@ -1759,7 +1759,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_calendar_participant_count.py is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_check_field_available.py->concept:coach-scoped-authorization",
@@ -1768,7 +1768,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_check_field_available.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_class_guest_list_dedupe.py->concept:effective-seat-count",
@@ -1777,7 +1777,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_class_guest_list_dedupe.py is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_dashboard_coach_home.py->concept:block-driven-dashboard",
@@ -1786,7 +1786,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_dashboard_coach_home.py is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_dashboard_pending_confirmations.py->concept:block-driven-dashboard",
@@ -1795,7 +1795,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_dashboard_pending_confirmations.py is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_dashboard_pending_confirmations.py->concept:club-local-day-boundary",
@@ -1804,7 +1804,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_dashboard_pending_confirmations.py is one of the implementers of the club-local-day-boundary concept per its concepts/club-local-day-boundary.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_dates.py->concept:club-local-day-boundary",
@@ -1813,7 +1813,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_dates.py is one of the implementers of the club-local-day-boundary concept per its concepts/club-local-day-boundary.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_default_coach_levels.py->concept:level-ladder-adjacency",
@@ -1822,7 +1822,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_default_coach_levels.py is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_delete_nonnumeric_id_guard.py->concept:coach-scoped-authorization",
@@ -1831,7 +1831,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_delete_nonnumeric_id_guard.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_effective_level_resolution.py->concept:level-ladder-adjacency",
@@ -1840,7 +1840,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_effective_level_resolution.py is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_frontend_api_authz.py->concept:coach-scoped-authorization",
@@ -1849,7 +1849,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_frontend_api_authz.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_generic_crud_auth.py->concept:coach-scoped-authorization",
@@ -1858,7 +1858,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_generic_crud_auth.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_level_ladder_ordering.py->concept:level-ladder-adjacency",
@@ -1867,7 +1867,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_level_ladder_ordering.py is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_notification_blank_template_fallback.py->concept:notification-template-fallback",
@@ -1876,7 +1876,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_notification_blank_template_fallback.py is one of the implementers of the notification-template-fallback concept per its concepts/notification-template-fallback.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_notification_config.py->concept:notification-template-fallback",
@@ -1885,7 +1885,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_notification_config.py is one of the implementers of the notification-template-fallback concept per its concepts/notification-template-fallback.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_notification_reminder_flow.py->concept:reminder-lifecycle",
@@ -1894,7 +1894,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_notification_reminder_flow.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_notification_schedule.py->concept:reminder-lifecycle",
@@ -1903,7 +1903,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_notification_schedule.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_pad105_coach_never_sets_username.py->concept:player-username-ownership",
@@ -1912,7 +1912,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_pad105_coach_never_sets_username.py is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_pad117_savepoint_containment.py->concept:lazy-instance-materialisation",
@@ -1921,7 +1921,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_pad117_savepoint_containment.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_pad128_eligibility.py->concept:eligibility-bar",
@@ -1930,7 +1930,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_pad128_eligibility.py is one of the implementers of the eligibility-bar concept per its concepts/eligibility-bar.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_pad133_eligibility_reasons.py->concept:eligibility-bar",
@@ -1939,7 +1939,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_pad133_eligibility_reasons.py is one of the implementers of the eligibility-bar concept per its concepts/eligibility-bar.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_pad85_duplicate_materialization.py->concept:lazy-instance-materialisation",
@@ -1948,7 +1948,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_pad85_duplicate_materialization.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_recurring_delete_exclusion.py->concept:lazy-instance-materialisation",
@@ -1957,7 +1957,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_recurring_delete_exclusion.py is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_recurs_until_season_end.py->concept:season-bounded-recurrence",
@@ -1966,7 +1966,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_recurs_until_season_end.py is one of the implementers of the season-bounded-recurrence concept per its concepts/season-bounded-recurrence.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_reminder_jobs_on_future_edit.py->concept:reminder-lifecycle",
@@ -1975,7 +1975,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_reminder_jobs_on_future_edit.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_scheduler_job_lifecycle.py->concept:reminder-lifecycle",
@@ -1984,7 +1984,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_scheduler_job_lifecycle.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_season_service.py->concept:season-bounded-recurrence",
@@ -1993,7 +1993,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_season_service.py is one of the implementers of the season-bounded-recurrence concept per its concepts/season-bounded-recurrence.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_semi_auto_approval.py->concept:semi-automatic-approval",
@@ -2002,7 +2002,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_semi_auto_approval.py is one of the implementers of the semi-automatic-approval concept per its concepts/semi-automatic-approval.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_settings_role_authz.py->concept:coach-scoped-authorization",
@@ -2011,7 +2011,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_settings_role_authz.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_student_availability_blockers.py->concept:student-notification-blocking",
@@ -2020,7 +2020,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_student_availability_blockers.py is one of the implementers of the student-notification-blocking concept per its concepts/student-notification-blocking.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_student_notification_block_preferences.py->concept:student-notification-blocking",
@@ -2029,7 +2029,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_student_notification_block_preferences.py is one of the implementers of the student-notification-blocking concept per its concepts/student-notification-blocking.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tests/test_training_players_role_authz.py->concept:coach-scoped-authorization",
@@ -2038,7 +2038,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tests/test_training_players_role_authz.py is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tools/input_tools.py->concept:legacy-admin-editor",
@@ -2047,7 +2047,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tools/input_tools.py is one of the implementers of the legacy-admin-editor concept per its concepts/legacy-admin-editor.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/tools/username_tools.py->concept:player-username-ownership",
@@ -2056,7 +2056,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/tools/username_tools.py is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/utils/dates.py->concept:club-local-day-boundary",
@@ -2065,7 +2065,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/utils/dates.py is one of the implementers of the club-local-day-boundary concept per its concepts/club-local-day-boundary.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:backend/padel_app/utils/notification_preview.py->concept:reminder-lifecycle",
@@ -2074,7 +2074,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "backend/padel_app/utils/notification_preview.py is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/auth/AuthContext.tsx->concept:auth-session",
@@ -2083,7 +2083,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/auth/AuthContext.tsx is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx->concept:web-mobile-parity",
@@ -2092,7 +2092,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/avatar.tsx->concept:web-mobile-parity",
@@ -2101,7 +2101,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/components/ui/avatar.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/badge.tsx->concept:web-mobile-parity",
@@ -2110,7 +2110,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/components/ui/badge.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/button.tsx->concept:web-mobile-parity",
@@ -2119,7 +2119,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/components/ui/button.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/components/ui/card.tsx->concept:web-mobile-parity",
@@ -2128,7 +2128,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/components/ui/card.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx->concept:calendar-visual-state",
@@ -2137,7 +2137,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/calendar/EventCard.tsx->concept:calendar-visual-state",
@@ -2146,7 +2146,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/calendar/EventCard.tsx is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/dashboard/CoachDashboard.tsx->concept:block-driven-dashboard",
@@ -2155,7 +2155,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/dashboard/CoachDashboard.tsx is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx->concept:block-driven-dashboard",
@@ -2164,7 +2164,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx->concept:web-mobile-parity",
@@ -2173,7 +2173,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx->concept:web-mobile-parity",
@@ -2182,7 +2182,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/players/add-evaluation-form.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx->concept:web-mobile-parity",
@@ -2191,7 +2191,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx->concept:web-mobile-parity",
@@ -2200,7 +2200,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx->concept:attendance-presence-mark",
@@ -2209,7 +2209,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/presences/PresencesScreen.tsx->concept:attendance-presence-mark",
@@ -2218,7 +2218,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/presences/PresencesScreen.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/settings/settings-sections.ts->concept:coach-only-settings-gating",
@@ -2227,7 +2227,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/settings/settings-sections.ts is one of the implementers of the coach-only-settings-gating concept per its concepts/coach-only-settings-gating.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx->concept:web-mobile-parity",
@@ -2236,7 +2236,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/training/court-diagram-editor.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/features/training/groups-tab.tsx->concept:web-mobile-parity",
@@ -2245,7 +2245,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/features/training/groups-tab.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/hooks/useAppStateFocus.ts->concept:sse-streaming",
@@ -2254,7 +2254,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/hooks/useAppStateFocus.ts is one of the implementers of the sse-streaming concept per its concepts/sse-streaming.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/lib/api.ts->concept:auth-session",
@@ -2263,7 +2263,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/lib/api.ts is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/lib/i18n.ts->concept:app-wide-i18n",
@@ -2272,7 +2272,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/lib/i18n.ts is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts->concept:auth-session",
@@ -2281,7 +2281,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/lib/push/expoPushRegistrar.ts is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/lib/push/index.ts->concept:auth-session",
@@ -2290,7 +2290,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/lib/push/index.ts is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/src/lib/sse.ts->concept:sse-streaming",
@@ -2299,7 +2299,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/src/lib/sse.ts is one of the implementers of the sse-streaming concept per its concepts/sse-streaming.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/mobile/tailwind.config.js->concept:design-tokens",
@@ -2308,7 +2308,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/mobile/tailwind.config.js is one of the implementers of the design-tokens concept per its concepts/design-tokens.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts->concept:student-notification-blocking",
@@ -2317,7 +2317,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/availability/unavailable-student-notifications.spec.ts is one of the implementers of the student-notification-blocking concept per its concepts/student-notification-blocking.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts->concept:season-bounded-recurrence",
@@ -2326,7 +2326,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/calendar/season-end-no-season.spec.ts is one of the implementers of the season-bounded-recurrence concept per its concepts/season-bounded-recurrence.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts->concept:block-driven-dashboard",
@@ -2335,7 +2335,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/dashboard/coach-dashboard.spec.ts is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts->concept:block-driven-dashboard",
@@ -2344,7 +2344,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/dashboard/dashboard-i18n.spec.ts is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts->concept:block-driven-dashboard",
@@ -2353,7 +2353,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts->concept:reminder-lifecycle",
@@ -2362,7 +2362,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/auto-reminder.spec.ts is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts->concept:notification-template-fallback",
@@ -2371,7 +2371,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/blank-template-fallback.spec.ts is one of the implementers of the notification-template-fallback concept per its concepts/notification-template-fallback.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/cancel-attendance-class-view.spec.ts->concept:reminder-lifecycle",
@@ -2380,7 +2380,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/cancel-attendance-class-view.spec.ts is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/cancel-attendance.spec.ts->concept:reminder-lifecycle",
@@ -2389,7 +2389,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/cancel-attendance.spec.ts is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/manual-notify-selection.spec.ts->concept:invitation-engine",
@@ -2398,7 +2398,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/manual-notify-selection.spec.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts->concept:reminder-lifecycle",
@@ -2407,7 +2407,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/proactive-decline.spec.ts is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts->concept:invitation-engine",
@@ -2416,7 +2416,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts->concept:reminder-lifecycle",
@@ -2425,7 +2425,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/reminder-flow.spec.ts is one of the implementers of the reminder-lifecycle concept per its concepts/reminder-lifecycle.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts->concept:semi-automatic-approval",
@@ -2434,7 +2434,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/semi-auto-approval.spec.ts is one of the implementers of the semi-automatic-approval concept per its concepts/semi-automatic-approval.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/notification-engine/standing-waitlist-expired.spec.ts->concept:invitation-engine",
@@ -2443,7 +2443,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/notification-engine/standing-waitlist-expired.spec.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/player-management/duplicate-username-warning.spec.ts->concept:player-username-ownership",
@@ -2452,7 +2452,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/player-management/duplicate-username-warning.spec.ts is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/player-management/player-invite-completion.spec.ts->concept:player-username-ownership",
@@ -2461,7 +2461,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/player-management/player-invite-completion.spec.ts is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/player-management/ticket-pad-105-coach-no-username.spec.ts->concept:player-username-ownership",
@@ -2470,7 +2470,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/player-management/ticket-pad-105-coach-no-username.spec.ts is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts->concept:lazy-instance-materialisation",
@@ -2479,7 +2479,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/schedule-calendar/attendance-save.spec.ts is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/class-deletion.spec.ts->concept:lazy-instance-materialisation",
@@ -2488,7 +2488,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/schedule-calendar/class-deletion.spec.ts is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/class-detail-privacy.spec.ts->concept:coach-scoped-authorization",
@@ -2497,7 +2497,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/schedule-calendar/class-detail-privacy.spec.ts is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/guest-list-dedupe.spec.ts->concept:invitation-engine",
@@ -2506,7 +2506,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/schedule-calendar/guest-list-dedupe.spec.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/i18n-date-locale.spec.ts->concept:app-wide-i18n",
@@ -2515,7 +2515,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/schedule-calendar/i18n-date-locale.spec.ts is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts->concept:lazy-instance-materialisation",
@@ -2524,7 +2524,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/schedule-calendar/recurring-occurrence-delete.spec.ts is one of the implementers of the lazy-instance-materialisation concept per its concepts/lazy-instance-materialisation.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/security/frontend-api-auth.spec.ts->concept:coach-scoped-authorization",
@@ -2533,7 +2533,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/security/frontend-api-auth.spec.ts is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/security/training-players-role-authz.spec.ts->concept:coach-scoped-authorization",
@@ -2542,7 +2542,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/security/training-players-role-authz.spec.ts is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/settings/coach-levels-ordering-hint.spec.ts->concept:level-ladder-adjacency",
@@ -2551,7 +2551,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/settings/coach-levels-ordering-hint.spec.ts is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/settings/season-upsert-safety.spec.ts->concept:season-bounded-recurrence",
@@ -2560,7 +2560,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/settings/season-upsert-safety.spec.ts is one of the implementers of the season-bounded-recurrence concept per its concepts/season-bounded-recurrence.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/settings/student-settings-scope.spec.ts->concept:coach-scoped-authorization",
@@ -2569,7 +2569,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/settings/student-settings-scope.spec.ts is one of the implementers of the coach-scoped-authorization concept per its concepts/coach-scoped-authorization.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/e2e/settings/ticket-pad-109-standing-waitlist-search.spec.ts->concept:invitation-engine",
@@ -2578,7 +2578,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/e2e/settings/ticket-pad-109-standing-waitlist-search.spec.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/api/editor.ts->concept:legacy-admin-editor",
@@ -2587,7 +2587,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/api/editor.ts is one of the implementers of the legacy-admin-editor concept per its concepts/legacy-admin-editor.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/api/seasons.ts->concept:season-bounded-recurrence",
@@ -2596,7 +2596,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/api/seasons.ts is one of the implementers of the season-bounded-recurrence concept per its concepts/season-bounded-recurrence.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/auth/AuthContext.tsx->concept:app-wide-i18n",
@@ -2605,7 +2605,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/auth/AuthContext.tsx is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/auth/AuthContext.tsx->concept:auth-session",
@@ -2614,7 +2614,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/auth/AuthContext.tsx is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/brand/launch-loader.tsx->concept:web-mobile-parity",
@@ -2623,7 +2623,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/brand/launch-loader.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/calendar/AddClassSheet.tsx->concept:calendar-visual-state",
@@ -2632,7 +2632,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/calendar/AddClassSheet.tsx is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx->concept:calendar-visual-state",
@@ -2641,7 +2641,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/calendar/CalendarEventCard.tsx is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/calendar/CalendarLegend.tsx->concept:calendar-visual-state",
@@ -2650,7 +2650,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/calendar/CalendarLegend.tsx is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx->concept:calendar-visual-state",
@@ -2659,7 +2659,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/calendar/ClassFillBar.tsx is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx->concept:invitation-engine",
@@ -2668,7 +2668,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/calendar/ManualNotificationModal.tsx is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx->concept:student-notification-blocking",
@@ -2677,16 +2677,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/calendar/UnavailableStudentDialog.tsx is one of the implementers of the student-notification-blocking concept per its concepts/student-notification-blocking.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
-  },
-  {
-   "id": "edge:implements-concept:file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx->concept:block-driven-dashboard",
-   "source": "file:frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx",
-   "target": "concept:block-driven-dashboard",
-   "edge_type": "implements-concept",
-   "confidence": "inferred",
-   "evidence": "frontend/apps/web/src/components/dashboard/blocks/PendingConfirmationsBlock.tsx is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx->concept:block-driven-dashboard",
@@ -2695,7 +2686,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx is one of the implementers of the block-driven-dashboard concept per its concepts/block-driven-dashboard.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/notifications/ReplacementApprovalCard.tsx->concept:semi-automatic-approval",
@@ -2704,7 +2695,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/notifications/ReplacementApprovalCard.tsx is one of the implementers of the semi-automatic-approval concept per its concepts/semi-automatic-approval.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/players/AddPlayerSheet.tsx->concept:player-username-ownership",
@@ -2713,7 +2704,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/players/AddPlayerSheet.tsx is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx->concept:web-mobile-parity",
@@ -2722,7 +2713,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx->concept:web-mobile-parity",
@@ -2731,7 +2722,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx->concept:web-mobile-parity",
@@ -2740,7 +2731,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx->concept:web-mobile-parity",
@@ -2749,7 +2740,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/presences/PresenceCharts.tsx->concept:attendance-presence-mark",
@@ -2758,7 +2749,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/presences/PresenceCharts.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx->concept:attendance-presence-mark",
@@ -2767,7 +2758,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/presences/PresencePlayersTable.tsx->concept:attendance-presence-mark",
@@ -2776,7 +2767,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/presences/PresencePlayersTable.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/presences/ValidateClassesDialog.tsx->concept:attendance-presence-mark",
@@ -2785,7 +2776,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/presences/ValidateClassesDialog.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/settings/CoachLevelsSection.tsx->concept:level-ladder-adjacency",
@@ -2794,7 +2785,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/settings/CoachLevelsSection.tsx is one of the implementers of the level-ladder-adjacency concept per its concepts/level-ladder-adjacency.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/settings/EligibilitySection.tsx->concept:eligibility-bar",
@@ -2803,7 +2794,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/settings/EligibilitySection.tsx is one of the implementers of the eligibility-bar concept per its concepts/eligibility-bar.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx->concept:eligibility-bar",
@@ -2812,7 +2803,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/settings/InvitationGroupsSection.tsx is one of the implementers of the eligibility-bar concept per its concepts/eligibility-bar.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx->concept:invitation-engine",
@@ -2821,7 +2812,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/settings/NotificationsEngineSection.tsx is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx->concept:invitation-engine",
@@ -2830,7 +2821,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx->concept:web-mobile-parity",
@@ -2839,7 +2830,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/training/CourtDiagramEditor.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/avatar.tsx->concept:web-mobile-parity",
@@ -2848,7 +2839,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/avatar.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/badge.tsx->concept:levapp-visual-design-conventions",
@@ -2857,7 +2848,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/badge.tsx is one of the implementers of the levapp-visual-design-conventions concept per its concepts/levapp-visual-design-conventions.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/badge.tsx->concept:web-mobile-parity",
@@ -2866,7 +2857,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/badge.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/button.tsx->concept:levapp-visual-design-conventions",
@@ -2875,7 +2866,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/button.tsx is one of the implementers of the levapp-visual-design-conventions concept per its concepts/levapp-visual-design-conventions.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/button.tsx->concept:web-mobile-parity",
@@ -2884,7 +2875,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/button.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/card.tsx->concept:levapp-visual-design-conventions",
@@ -2893,7 +2884,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/card.tsx is one of the implementers of the levapp-visual-design-conventions concept per its concepts/levapp-visual-design-conventions.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/card.tsx->concept:web-mobile-parity",
@@ -2902,7 +2893,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/card.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/occupancy-bar.tsx->concept:levapp-visual-design-conventions",
@@ -2911,7 +2902,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/occupancy-bar.tsx is one of the implementers of the levapp-visual-design-conventions concept per its concepts/levapp-visual-design-conventions.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/sonner.tsx->concept:parallel-toast-systems",
@@ -2920,7 +2911,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/sonner.tsx is one of the implementers of the parallel-toast-systems concept per its concepts/parallel-toast-systems.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/toast.tsx->concept:levapp-visual-design-conventions",
@@ -2929,7 +2920,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/toast.tsx is one of the implementers of the levapp-visual-design-conventions concept per its concepts/levapp-visual-design-conventions.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/toast.tsx->concept:parallel-toast-systems",
@@ -2938,7 +2929,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/toast.tsx is one of the implementers of the parallel-toast-systems concept per its concepts/parallel-toast-systems.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/toaster.tsx->concept:parallel-toast-systems",
@@ -2947,7 +2938,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/toaster.tsx is one of the implementers of the parallel-toast-systems concept per its concepts/parallel-toast-systems.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/components/ui/use-toast.ts->concept:parallel-toast-systems",
@@ -2956,7 +2947,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/components/ui/use-toast.ts is one of the implementers of the parallel-toast-systems concept per its concepts/parallel-toast-systems.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/i18n.ts->concept:app-wide-i18n",
@@ -2965,7 +2956,16 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/i18n.ts is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
+  },
+  {
+   "id": "edge:implements-concept:file:frontend/apps/web/src/index.css->concept:design-tokens",
+   "source": "file:frontend/apps/web/src/index.css",
+   "target": "concept:design-tokens",
+   "edge_type": "implements-concept",
+   "confidence": "inferred",
+   "evidence": "frontend/apps/web/src/index.css is one of the implementers of the design-tokens concept per its concepts/design-tokens.md definition.",
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/lib/conversationTime.ts->concept:app-wide-i18n",
@@ -2974,7 +2974,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/lib/conversationTime.ts is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/lib/dateLocale.ts->concept:app-wide-i18n",
@@ -2983,7 +2983,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/lib/dateLocale.ts is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/AbsencesPage.tsx->concept:attendance-presence-mark",
@@ -2992,7 +2992,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/AbsencesPage.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/AttendancePage.tsx->concept:attendance-presence-mark",
@@ -3001,7 +3001,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/AttendancePage.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/CalendarPage.tsx->concept:effective-seat-count",
@@ -3010,7 +3010,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/CalendarPage.tsx is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/PresencesPage.tsx->concept:attendance-presence-mark",
@@ -3019,7 +3019,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/PresencesPage.tsx is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/RegisterPage.tsx->concept:player-username-ownership",
@@ -3028,7 +3028,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/RegisterPage.tsx is one of the implementers of the player-username-ownership concept per its concepts/player-username-ownership.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/SettingsPage.tsx->concept:app-wide-i18n",
@@ -3037,7 +3037,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/SettingsPage.tsx is one of the implementers of the app-wide-i18n concept per its concepts/app-wide-i18n.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/SettingsPage.tsx->concept:coach-only-settings-gating",
@@ -3046,7 +3046,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/SettingsPage.tsx is one of the implementers of the coach-only-settings-gating concept per its concepts/coach-only-settings-gating.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx->concept:web-mobile-parity",
@@ -3055,7 +3055,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/src/pages/TrainingGroupsPage.tsx is one of the implementers of the web-mobile-parity concept per its concepts/web-mobile-parity.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/apps/web/tailwind.config.ts->concept:design-tokens",
@@ -3064,7 +3064,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/apps/web/tailwind.config.ts is one of the implementers of the design-tokens concept per its concepts/design-tokens.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/client.ts->concept:auth-session",
@@ -3073,7 +3073,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/client.ts is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/resources/attendance.ts->concept:attendance-presence-mark",
@@ -3082,7 +3082,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/resources/attendance.ts is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/resources/auth.ts->concept:auth-session",
@@ -3091,7 +3091,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/resources/auth.ts is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/resources/notificationEngine.ts->concept:invitation-engine",
@@ -3100,7 +3100,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/resources/notificationEngine.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/resources/players.ts->concept:dual-roster-cache",
@@ -3109,7 +3109,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/resources/players.ts is one of the implementers of the dual-roster-cache concept per its concepts/dual-roster-cache.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/resources/presences.ts->concept:attendance-presence-mark",
@@ -3118,7 +3118,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/resources/presences.ts is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/sse.ts->concept:sse-streaming",
@@ -3127,7 +3127,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/sse.ts is one of the implementers of the sse-streaming concept per its concepts/sse-streaming.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/api/src/storage.ts->concept:auth-session",
@@ -3136,7 +3136,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/api/src/storage.ts is one of the implementers of the auth-session concept per its concepts/auth-session.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/calendar-status.test.ts->concept:calendar-visual-state",
@@ -3145,7 +3145,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/calendar-status.test.ts is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/calendar-status.ts->concept:calendar-visual-state",
@@ -3154,7 +3154,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/calendar-status.ts is one of the implementers of the calendar-visual-state concept per its concepts/calendar-visual-state.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/capacity.ts->concept:effective-seat-count",
@@ -3163,7 +3163,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/capacity.ts is one of the implementers of the effective-seat-count concept per its concepts/effective-seat-count.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/presence-status.test.ts->concept:attendance-presence-mark",
@@ -3172,7 +3172,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/presence-status.test.ts is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/presence-status.ts->concept:attendance-presence-mark",
@@ -3181,7 +3181,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/presence-status.ts is one of the implementers of the attendance-presence-mark concept per its concepts/attendance-presence-mark.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/tokens.test.ts->concept:design-tokens",
@@ -3190,7 +3190,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/tokens.test.ts is one of the implementers of the design-tokens concept per its concepts/design-tokens.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/config/src/tokens.ts->concept:design-tokens",
@@ -3199,7 +3199,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/config/src/tokens.ts is one of the implementers of the design-tokens concept per its concepts/design-tokens.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/hooks/src/queryKeys.ts->concept:dual-roster-cache",
@@ -3208,7 +3208,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/hooks/src/queryKeys.ts is one of the implementers of the dual-roster-cache concept per its concepts/dual-roster-cache.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:implements-concept:file:frontend/packages/hooks/src/useAutoInviteEnabled.ts->concept:invitation-engine",
@@ -3217,7 +3217,7 @@
    "edge_type": "implements-concept",
    "confidence": "inferred",
    "evidence": "frontend/packages/hooks/src/useAutoInviteEnabled.ts is one of the implementers of the invitation-engine concept per its concepts/invitation-engine.md definition.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:imports:file:backend/padel_app/helpers/calendar_helpers.py->file:backend/padel_app/models/Association_CoachLesson.py",
@@ -3973,7 +3973,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "secureTokenStorage implements the TokenStorage interface consumed by @levelup/api's initApi (client.ts) - a genuine cross-scope contract, not an import (mobile provides the adapter, packages defines the shape).",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/mobile/src/lib/sse.ts->file:frontend/packages/api/src/sse.ts",
@@ -3982,7 +3982,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "both implement the platform split of the same app-events SSE mechanism: packages/api/src/sse.ts provides buildEventsUrl, which mobile's sse.ts consumes with a react-native-sse client plus AppState-driven reconnect, the native counterpart to web's DOM EventSource usage.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/playwright.config.ts->file:backend/app.py",
@@ -3991,7 +3991,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "playwright.config.ts's webServer array boots the Flask backend via `flask run` from a relative ../../../backend path, invoking the same create_app() entrypoint app.py wires for local dev - E2E infra coupling across scopes, not a source import.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/api/editor.ts->file:backend/padel_app/modules/editor_api.py",
@@ -4000,7 +4000,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "editor.ts's api.get/post/patch/delete calls against /editor/<model>... match editor_api.py's Blueprint(\"editor_api\", url_prefix=\"/api/editor\") - an HTTP contract pairing, not a source import.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/api/seasons.ts->file:backend/padel_app/services/season_service.py",
@@ -4009,7 +4009,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "seasons.ts's raw calls to /app/seasons, /app/add_seasons, /app/delete/season are the client half of season_service.py's server-side season CRUD, routed through frontend_api.py; no @levelup/api resource module mediates this pair, unlike every other domain.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/brand/launch-loader.tsx->element:frontend/apps/mobile/src/components/brand/LaunchAnimation.tsx#LaunchAnimation",
@@ -4018,7 +4018,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "launch-loader.tsx's own docstring states it is the web half of the launch animation that already ships on iOS; both descend from the same design export (LA-slash-split-icon.html) and are kept geometrically identical with no import relationship.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/calendar/CalendarEventCard.tsx->element:frontend/apps/mobile/src/features/calendar/EventCard.tsx#EventCard",
@@ -4027,7 +4027,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "mobile's EventCard is the cross-platform port of this file's role - the single card rendered for every class/event/block on the calendar - per the mobile-web parity work; no import relationship.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/calendar/ClassFillBar.tsx->element:frontend/apps/mobile/src/features/calendar/ClassFillBar.tsx#ClassFillBar",
@@ -4036,7 +4036,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "identically-named component in the mobile calendar feature implementing the same confirmed/awaiting/free capacity-split visualisation for a class; independently maintained cross-platform port, not a shared import.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.tsx->file:frontend/apps/mobile/src/features/dashboard/DashboardBlocks.tsx",
@@ -4045,7 +4045,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "mobile's dashboard feature (CoachDashboard.tsx, DashboardBlocks.tsx) is the mobile counterpart of web's dashboard/coach/* block set - same block-driven coach-dashboard concept ported to the mobile shell.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/AddToStandingWaitingListDialog.tsx->file:frontend/apps/mobile/src/features/players/waiting-list-dialog.tsx",
@@ -4054,7 +4054,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "mobile's doc comment states it is the mobile port of web's AddToStandingWaitingListDialog.tsx, with two named UI-control substitutions.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/AddEvaluationSheet.tsx->file:frontend/apps/mobile/src/features/players/add-evaluation-form.tsx",
@@ -4063,7 +4063,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "mobile-features-a has a same-purpose file (add-evaluation-form.tsx) matching web's evaluation-entry sheet one-for-one by feature name.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx->file:frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx",
@@ -4072,7 +4072,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "mobile's doc comment states it is the mobile port of web's AddToClassesDialog.tsx, with the save wired for real (the web fix in the same PR); both share the exact backend call (POST /app/edit_class via lesson_service.py).",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/players/detail/PlayerStrengthsWeaknesses.tsx->file:frontend/apps/mobile/src/features/players/StrengthsWeaknesses.tsx",
@@ -4081,7 +4081,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "mobile-features-a has a same-named file (StrengthsWeaknesses.tsx) in the players feature directory, the mobile counterpart of web's strengths/weaknesses editor card.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/presences/PresenceMarkToggle.tsx->file:frontend/apps/mobile/src/features/presences/PresenceMarkToggle.tsx",
@@ -4090,7 +4090,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "mobile's own anatomy entry calls it 'the iOS twin of web's PresenceMarkToggle' - both write the same status+justification pair through the shared @levelup/config mapping, differing only in rendering (segmented buttons vs. sibling Pressables for Maestro-assertable accessibilityState).",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx->file:frontend/apps/mobile/src/features/training/court-diagram-editor.tsx",
@@ -4099,7 +4099,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "mobile's doc comment states it is a mobile port of web's CourtDiagramEditor.tsx; geometry constants (COURT_W/COURT_H/SERVICE_LINE) are stated to MUST match exactly since diagrams are shared data across platforms.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/avatar.tsx->file:frontend/apps/mobile/src/components/ui/avatar.tsx",
@@ -4108,7 +4108,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "both define a 40x40 (h-10 w-10) rounded-full clipped Root/Image/Fallback triad wrapping the corresponding Radix (web) / @rn-primitives (mobile) avatar primitive.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/badge.tsx->file:frontend/apps/mobile/src/components/ui/badge.tsx",
@@ -4117,7 +4117,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "same cva variant naming for the same status-chip role, but a documented divergence: mobile uses rounded-full while web's source comment explicitly reserves full pills for filter controls, not status chips.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/button.tsx->file:frontend/apps/mobile/src/components/ui/button.tsx",
@@ -4126,7 +4126,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "both files define the identical cva variant set (default/destructive/outline/secondary/ghost/link) crossed with the identical size set, read directly in both sources - mobile's ui/* primitives are a react-native-reusables port of web's shadcn/ui-based components.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/card.tsx->file:frontend/apps/mobile/src/components/ui/card.tsx",
@@ -4135,7 +4135,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "same compound-component shape (Card/CardHeader/CardTitle/CardDescription/CardContent/CardFooter), but a documented divergence: mobile applies shadow-sm while web's source comment explicitly forbids shadows on cards.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/occupancy-bar.tsx->file:frontend/apps/web/src/components/ui/button.tsx",
@@ -4144,7 +4144,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "occupancy-bar.tsx's comment and button.tsx's comment both independently restate the same LevApp rule set (motion/hover/status-color conventions) without importing or referencing each other.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/components/ui/sonner.tsx->file:frontend/apps/web/src/components/ui/toast.tsx",
@@ -4153,7 +4153,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "both implement the same toast-notification concern via two entirely separate libraries (sonner vs @radix-ui/react-toast); neither imports the other.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/pages/AttendancePage.tsx->file:frontend/apps/web/src/pages/AbsencesPage.tsx",
@@ -4162,7 +4162,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "inferred",
    "evidence": "structurally near-identical pages (same dual-entry-point pattern, same range-control/chart/history-list composition, same 'route param is not authorization' framing) deliberately not unified into one component with a variant prop, so the two features' copy, data source and test ids stay independent.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/pages/SettingsPage.tsx->file:frontend/apps/mobile/src/features/settings/settings-sections.ts",
@@ -4171,7 +4171,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "mobile's doc comment states it mirrors web's SettingsTab union in SettingsPage.tsx - same section id set and same coach-only gating rationale, learned from a web incident.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/apps/web/src/pages/TrainingGroupsPage.tsx->file:frontend/apps/mobile/src/features/training/groups-tab.tsx",
@@ -4180,7 +4180,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "mobile's doc comment on its filtered useMemo states it mirrors web's TrainingGroupsPage matching rule (group name OR any member exercise's name), and lifts edit/delete to the parent the same way.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   },
   {
    "id": "edge:semantically-similar-to:file:frontend/packages/config/src/tokens.ts->file:frontend/apps/web/tailwind.config.ts",
@@ -4189,7 +4189,7 @@
    "edge_type": "semantically-similar-to",
    "confidence": "stated",
    "evidence": "tokens.ts's nativewindTheme()/header comments state its color-block shape must mirror apps/web/tailwind.config.ts's theme.extend.colors; no import relationship, hand-kept in sync.",
-   "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
+   "confirmed_at_commit": "7de36cb3b33c39f0b9c3c482154bc27621660c30"
   }
  ]
 }

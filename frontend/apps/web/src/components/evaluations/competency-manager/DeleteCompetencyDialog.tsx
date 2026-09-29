@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 interface DeleteCompetencyDialogProps {
   /** The custom or legacy competency to delete; `null` closes the dialog. */
   competency: EvaluationCompetency | null;
+  /** PAD-431 (rule 9): the sub-categories deleted with a category, named so nothing goes unseen. */
+  subNames?: string[];
   onClose: () => void;
 }
 
@@ -27,7 +29,7 @@ interface DeleteCompetencyDialogProps {
  * types the name, and the server writes the audit row. All through the NEW endpoints —
  * the legacy delete is frozen for the App Store builds.
  */
-export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetencyDialogProps) {
+export function DeleteCompetencyDialog({ competency, subNames = [], onClose }: DeleteCompetencyDialogProps) {
   const { t } = useTranslation();
   const impact = useEvaluationCompetencyImpact(competency?.id ?? null, competency !== null);
   const remove = useDeleteEvaluationCompetency();
@@ -70,6 +72,11 @@ export function DeleteCompetencyDialog({ competency, onClose }: DeleteCompetency
                   {impact.data.scores > 0
                     ? t("evaluations.manager.deleteImpact", { scores: impact.data.scores, players: impact.data.players })
                     : t("evaluations.manager.deleteImpactNone")}
+                </p>
+              ) : null}
+              {subNames.length > 0 ? (
+                <p data-testid="competency-delete-subs">
+                  {t("evaluations.manager.deleteSubCategories", { names: subNames.join(", ") })}
                 </p>
               ) : null}
             </div>

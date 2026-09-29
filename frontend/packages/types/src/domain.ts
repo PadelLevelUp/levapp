@@ -188,6 +188,9 @@ export interface EvaluationCompetency {
   isActive: boolean;
   sortOrder: number | null;
   scoreCount: number;
+  /** PAD-431 (evaluations.competencies rule 15): the category a sub-category belongs to; `null` for a
+   *  category. Absent only from a server older than PAD-431 (the deploy window): read it as `null`. */
+  parentId?: number | null;
 }
 
 /** A built-in competency the coach has not switched on. No row exists for it yet. */
