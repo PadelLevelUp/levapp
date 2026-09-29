@@ -712,11 +712,13 @@ def class_evaluations(coach, ref) -> dict:
     instance, pending = _resolve_class(coach, ref)
     from padel_app.services.roster_order import in_roster_order
 
-    # The roster's one order (classes.instance-enrollment rule 12, D163), as the class detail shows it.
-    rows = in_roster_order(instance.presences if instance is not None else pending[0].players_relations)
+    rows = instance.presences if instance is not None else pending[0].players_relations
     # One statement loads every participant's player and user into the session, so the
     # `.player` / `.user` reads below hit the identity map, not one query per row (rule 3).
     loaded = _players_with_users({row.player_id for row in rows})  # noqa: F841 — held for the identity map
+    # The roster's one order (classes.instance-enrollment rule 12, D163), sorted only now,
+    # after the load above: the sort key reads each row's player and user.
+    rows = in_roster_order(rows)
     if instance is not None:
         roster = [(p.player, p.status == "absent") for p in rows]
     else:
