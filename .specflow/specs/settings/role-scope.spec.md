@@ -108,7 +108,7 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Given** an authenticated coach on `/settings`
 - **When** the page renders
 - **Then** Profile, Preferences, Calendar, Notifications, Tutorials, Import, Club and Account are all offered
-- **And** the Preferences panel still shows skill levels and the entry that opens "Gerir competências"
+- **And** the Preferences panel still shows skill levels and the entry that opens "Definir categorias de avaliação"
 
 #### A coach's evaluation settings sit under one heading (PAD-431)
 - **Given** an authenticated coach on Settings → Preferences (web or iOS)
