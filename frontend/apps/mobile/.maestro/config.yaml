@@ -240,6 +240,9 @@ executionOrder:
     # 121 (PAD-428): the student's weekly request ends "after 3 classes"; the API reads back an
     # endDate equal to the 3rd occurrence, recomputed in the flow. Teardown withdraws it.
     - 121-class-request-ends-after-n-classes
+    # 116 (PAD-438): the student's four KPI tiles keep their layout when the coach adds a class
+    # and a refresh lays out new rows above "Your record" (B-223). Teardown removes the class.
+    - 116-student-record-keeps-its-layout
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

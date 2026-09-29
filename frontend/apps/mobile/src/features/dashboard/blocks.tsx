@@ -859,8 +859,11 @@ export function KpiTiles({ block }: { block: DashboardKpiGridBlock }) {
                     ? t("dashboard.kpi.toConfirm")
                     : "";
             const value = `${item.prefix ?? ""}${item.value}`;
+            // B-223 (PAD-438): `grow`, never `flex-1`. A `flex-1` card (flexBasis 0%) inside this
+            // column cell collapsed to an empty 30 px box on iOS when rows appeared above the
+            // record after the first layout; `grow` keeps equal heights in the row without it.
             const card = (
-              <View className="flex-1 gap-1.5 rounded-2xl border border-border bg-card p-4">
+              <View className="grow gap-1.5 rounded-2xl border border-border bg-card p-4">
                 <Text className="text-[13px] font-sans-semibold text-muted-foreground">{label}</Text>
                 <Text className="font-display text-2xl text-foreground">{value}</Text>
                 <Text className="text-[11px] text-muted-foreground">{sub}</Text>
