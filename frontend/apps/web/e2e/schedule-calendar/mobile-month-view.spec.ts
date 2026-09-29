@@ -96,6 +96,9 @@ async function openMonth(page: Page) {
   await page.goto("/calendar");
   await page.getByTestId("calendar-view-month").click();
   await expect(page.getByTestId("calendar-month-grid")).toBeVisible();
+  // B-194: the sheet mounts only after the grid is measured, and the Mês tree is
+  // replaced once ~16 ms after its first paint, so wait for the sheet too.
+  await expect(page.getByTestId("calendar-day-sheet")).toBeVisible();
 }
 
 test.describe("PAD-248: phone calendar Mês view", () => {
@@ -308,11 +311,17 @@ test.describe("PAD-248: phone calendar Mês view", () => {
       await page.mouse.up();
     };
 
-    const gridBox = (await monthGrid.boundingBox())!;
-    const resting = (await sheet.boundingBox())!;
     // PAD-436 (rule 17): at rest the sheet starts right under the month grid and fills the rest;
-    // no day grid under it.
-    expect(Math.abs(resting.y - (gridBox.y + gridBox.height))).toBeLessThanOrEqual(1);
+    // no day grid under it. Polled (B-194): a boundingBox() that lands on the grid while the Mês
+    // tree is being replaced returns null, so read both boxes until they are real and agree.
+    await expect
+      .poll(async () => {
+        const grid = await monthGrid.boundingBox();
+        const rest = await sheet.boundingBox();
+        return grid && rest ? Math.abs(rest.y - (grid.y + grid.height)) : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(1);
+    const gridBox = (await monthGrid.boundingBox())!;
     await expect(page.getByTestId("calendar-time-grid")).toHaveCount(0);
 
     // Dragged up past the maximum it stops one hour row (44px) below the top of
