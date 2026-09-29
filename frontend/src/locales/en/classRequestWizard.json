@@ -50,6 +50,13 @@
     },
     "startDate": "Start date",
     "endDate": "End date",
+    "endMode": {
+      "date": "Ends on",
+      "count": "Ends after"
+    },
+    "classesUnit": "classes",
+    "countHint": "Counts classes, not weeks.",
+    "lastClass": "Last class: {{date}}",
     "recurrenceInvalid": "Choose at least one weekday, and an end date on or after the start date.",
     "defaultHoursNote": "Working hours not set: {{start}}–{{end}}.",
     "noWeeklySlots": "No time is free on every one of those days.",

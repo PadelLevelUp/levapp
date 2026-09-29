@@ -19,10 +19,8 @@ import { needsEmailVerification, postLoginPath } from "@/auth/postLoginPath";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
-import { COUNTRIES, consentAgeFor, countryName, needsGuardian } from "@levelup/config";
+import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GuardianPendingCard } from "@/components/auth/GuardianPendingCard";
-import type { GuardianPendingInfo } from "@/api/auth";
 
 type Role = RegisterPayload["role"];
 
@@ -48,42 +46,35 @@ const signUpSchema = z
     email: z.string().trim().email("emailInvalid"),
     password: z.string().min(8, "passwordMin"),
     repeatPassword: z.string(),
-    // auth.parental-consent rule 2 (PAD-198).
     birthDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "birthDateRequired")
       .refine((d) => !Number.isNaN(Date.parse(d)) && new Date(`${d}T00:00:00`) <= new Date(), "birthDateInvalid"),
     country: z.string().length(2, "countryRequired"),
-    guardianEmail: z.string().trim(),
-    forceGuardian: z.boolean(),
   })
   .refine((d) => d.password === d.repeatPassword, {
     message: "passwordsMismatch",
     path: ["repeatPassword"],
   })
   .superRefine((d, ctx) => {
-    if (!d.forceGuardian && !needsGuardian(d.birthDate, d.country)) return;
-    const g = d.guardianEmail.toLowerCase();
-    if (!g) ctx.addIssue({ code: "custom", message: "guardianEmailRequired", path: ["guardianEmail"] });
-    else if (!z.string().email().safeParse(g).success)
-      ctx.addIssue({ code: "custom", message: "guardianEmailInvalid", path: ["guardianEmail"] });
-    else if (g === d.email.trim().toLowerCase())
-      ctx.addIssue({ code: "custom", message: "guardianEmailIsOwn", path: ["guardianEmail"] });
+    // auth.register rule 18 (PAD-445): adults only.
+    if (isUnderSignupAge(d.birthDate)) {
+      ctx.addIssue({ code: "custom", message: "birthDateUnderage", path: ["birthDate"] });
+      return;
+    }
   });
 
 type FieldErrors = Partial<
-  Record<"name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "country" | "guardianEmail", string>
+  Record<"name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "country", string>
 >;
 
-/** auth.parental-consent rule 2: the server's codes, in the form's own words. */
+/** auth.register rule 18: the server's codes, in the form's own words. */
 const CODE_KEYS: Record<string, string> = {
   BIRTH_DATE_REQUIRED: "birthDateRequired",
   INVALID_BIRTH_DATE: "birthDateInvalid",
   COUNTRY_REQUIRED: "countryRequired",
   INVALID_COUNTRY: "countryRequired",
-  GUARDIAN_EMAIL_REQUIRED: "guardianEmailRequired",
-  INVALID_GUARDIAN_EMAIL: "guardianEmailInvalid",
-  GUARDIAN_EMAIL_IS_OWN: "guardianEmailIsOwn",
+  UNDERAGE: "birthDateUnderage",
 };
 
 const SignUpPage = () => {
@@ -101,15 +92,9 @@ const SignUpPage = () => {
     repeatPassword: "",
     birthDate: "",
     country: "PT",
-    guardianEmail: "",
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  // The server is the authority on consent ages (an operator may change one
-  // without a release): a GUARDIAN_EMAIL_REQUIRED reveals the field anyway.
-  const [forceGuardian, setForceGuardian] = useState(false);
-  const [pending, setPending] = useState<GuardianPendingInfo | null>(null);
-  const showGuardian = forceGuardian || needsGuardian(form.birthDate, form.country);
 
   const setField = (field: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -117,7 +102,7 @@ const SignUpPage = () => {
   };
 
   const validate = () => {
-    const result = signUpSchema.safeParse({ ...form, forceGuardian });
+    const result = signUpSchema.safeParse(form);
     if (result.success) {
       setErrors({});
       return true;
@@ -145,16 +130,7 @@ const SignUpPage = () => {
         password: form.password,
         birthDate: form.birthDate,
         country: form.country,
-        ...(showGuardian ? { guardianEmail: form.guardianEmail.trim() } : {}),
       });
-      // auth.parental-consent rule 3: a minor gets no session; the guardian decides.
-      if (res.guardianConsent === "pending" || !res.accessToken) {
-        setPending({
-          guardianEmail: res.guardianEmail ?? null,
-          resendAvailableInSeconds: res.resendAvailableInSeconds ?? 60,
-        });
-        return;
-      }
       // Same persistence as AuthPage: `login(token)` writes localStorage and
       // hydrates the session from /auth/me before we route on it.
       await login(res.accessToken);
@@ -186,7 +162,6 @@ const SignUpPage = () => {
         .response;
       const codeKey = data?.data?.code ? CODE_KEYS[data.data.code] : undefined;
       if (data?.status === 400 && codeKey && data.data?.field) {
-        if (data.data.code === "GUARDIAN_EMAIL_REQUIRED") setForceGuardian(true);
         setErrors((prev) => ({ ...prev, [data.data!.field as keyof FieldErrors]: t(`auth.signup.${codeKey}`) }));
         return;
       }
@@ -252,14 +227,6 @@ const SignUpPage = () => {
         </CardHeader>
 
         <CardContent>
-          {pending ? (
-            <GuardianPendingCard
-              username={form.username.trim()}
-              password={form.password}
-              info={pending}
-              onBack={() => navigate("/auth", { replace: true })}
-            />
-          ) : (
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
               <Label>{t("auth.signup.role")}</Label>
@@ -311,7 +278,6 @@ const SignUpPage = () => {
               </div>
             ))}
 
-            {/* auth.parental-consent rule 10 (PAD-198). */}
             <div className="space-y-2">
               <Label htmlFor="signup-birthDate">{t("auth.signup.birthDate")}</Label>
               <Input
@@ -349,42 +315,17 @@ const SignUpPage = () => {
               )}
             </div>
 
-            {showGuardian && (
-              <div className="space-y-2" data-testid="signup-guardian">
-                <Label htmlFor="signup-guardianEmail">{t("auth.signup.guardianEmail")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("auth.signup.guardianEmailHint", { age: consentAgeFor(form.country) })}
-                </p>
-                <Input
-                  id="signup-guardianEmail"
-                  type="email"
-                  autoComplete="off"
-                  value={form.guardianEmail}
-                  onChange={(e) => setField("guardianEmail", e.target.value)}
-                />
-                {errors.guardianEmail && (
-                  <p className="text-sm text-destructive" data-testid="signup-guardianEmail-error">
-                    {errors.guardianEmail}
-                  </p>
-                )}
-              </div>
-            )}
-
             <Button type="submit" className="w-full" disabled={submitting} data-testid="signup-submit">
               {submitting ? t("auth.signup.creating") : t("auth.signup.create")}
             </Button>
           </form>
-          )}
 
-          {/* The waiting card carries its own "Voltar a entrar" (PAD-198). */}
-          {!pending && (
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              {t("auth.signup.haveAccount")}{" "}
-              <Link to="/auth" className="underline hover:text-foreground">
-                {t("auth.signup.signIn")}
-              </Link>
-            </p>
-          )}
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {t("auth.signup.haveAccount")}{" "}
+            <Link to="/auth" className="underline hover:text-foreground">
+              {t("auth.signup.signIn")}
+            </Link>
+          </p>
         </CardContent>
       </Card>
 

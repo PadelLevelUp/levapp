@@ -148,7 +148,7 @@ def test_accept_sets_credentials_and_activates_user(client, app):
 
     resp = client.post(
         f"/api/app/player-invitations/{token}/accept",
-        json={"username": "accept_player", "password": "Secret123!"},
+        json={"birthDate": "1990-01-01", "username": "accept_player", "password": "Secret123!"},
     )
     assert resp.status_code == 200
     assert resp.get_json()["accessToken"]
@@ -176,7 +176,7 @@ def test_accept_with_duplicate_username_409(client, app):
 
     resp = client.post(
         f"/api/app/player-invitations/{token}/accept",
-        json={"username": "taken_username", "password": "pw123456"},
+        json={"birthDate": "1990-01-01", "username": "taken_username", "password": "pw123456"},
     )
     assert resp.status_code == 409
 

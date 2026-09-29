@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 import {
   acceptClaimRequest,
   listMyClaimRequests,
@@ -30,6 +31,7 @@ export function ClaimRequestsList({
 }) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { refreshUser } = useAuth();
   const [requests, setRequests] = useState<PlayerClaimRequest[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -50,6 +52,8 @@ export function ClaimRequestsList({
     try {
       if (accept) {
         await acceptClaimRequest(req.id);
+        // players.join-token rule 8a (PAD-444): the claim linked a coach, so re-read /me.
+        void refreshUser().catch(() => null);
         toast({ title: t("players.claim.accepted") });
       } else {
         await rejectClaimRequest(req.id);

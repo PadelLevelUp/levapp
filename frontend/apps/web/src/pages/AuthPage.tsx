@@ -20,16 +20,12 @@ import { postLoginLanding } from "@/auth/postLoginPath";
 import { getMe } from "@/api/auth";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { reapplyCoachApproval } from "@/api/auth";
-import { GuardianPendingCard } from "@/components/auth/GuardianPendingCard";
-import type { GuardianPendingInfo } from "@/api/auth";
 
 const AuthPage = () => {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  // auth.login rule 10 / auth.parental-consent rule 10 (PAD-198).
-  const [guardianPending, setGuardianPending] = useState<GuardianPendingInfo | null>(null);
   const [errors, setErrors] = useState<{
     username?: string;
     password?: string;
@@ -129,17 +125,9 @@ const AuthPage = () => {
       const res = (err as {
         response?: {
           status?: number;
-          data?: { error?: string; reason?: string | null; retryAfterSeconds?: number } & Partial<GuardianPendingInfo>;
+          data?: { error?: string; reason?: string | null; retryAfterSeconds?: number };
         };
       }).response;
-      // auth.login rule 10 / auth.parental-consent rule 10 (PAD-198): a minor waiting for consent.
-      if (res?.status === 403 && res.data?.error === "GUARDIAN_CONSENT_PENDING") {
-        setGuardianPending({
-          guardianEmail: res.data.guardianEmail ?? null,
-          resendAvailableInSeconds: res.data.resendAvailableInSeconds ?? 0,
-        });
-        return;
-      }
       if (res?.status === 403 && res.data?.error === "COACH_REJECTED") {
         setRejected({ reason: res.data.reason ?? null });
         return;
@@ -184,14 +172,6 @@ const AuthPage = () => {
         </CardHeader>
 
         <CardContent>
-          {guardianPending ? (
-            <GuardianPendingCard
-              username={username}
-              password={password}
-              info={guardianPending}
-              onBack={() => setGuardianPending(null)}
-            />
-          ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">{t("auth.login.username")}</Label>
@@ -252,7 +232,6 @@ const AuthPage = () => {
               {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}
             </Button>
           </form>
-          )}
 
           {/* auth.login rule 6 / auth.password-recovery rule 7 — the recovery entry point. */}
           <p className="mt-3 text-center text-sm">

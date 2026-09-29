@@ -35,6 +35,10 @@ export function NotificationGroupsSection({
 
   return (
     <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+      {/* PAD-448 (notifications.groups rule 5): the manual dialog's groups, not the engine's. */}
+      <p className="text-xs text-muted-foreground mb-3" data-testid="notify-groups-hint">
+        {t("settings.engine.notifyGroupsHint")}
+      </p>
       {groups.map((group) => (
         <div
           key={group.id}

@@ -69,8 +69,8 @@
         "open": "Abrir"
       },
       "validation": {
-        "title_one": "{{count}} aula por validar",
-        "title_other": "{{count}} aulas por validar",
+        "title_one": "Tens {{count}} aula por validar",
+        "title_other": "Tens {{count}} aulas por validar",
         "thisWeek": "Esta semana",
         "lastWeek": "Semana passada",
         "review": "Rever"

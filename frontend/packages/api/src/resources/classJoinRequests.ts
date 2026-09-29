@@ -1,4 +1,4 @@
-import type { ClassJoinRequest, EligibilityCheckEntry } from "@levelup/types";
+import type { ClassJoinRequest, ClassJoinRequestListRow, EligibilityCheckEntry } from "@levelup/types";
 import { getApi } from "../client";
 
 /**
@@ -18,6 +18,16 @@ export async function createClassJoinRequest(event: {
     // PAD-358: optional note to the coach; omitted when blank.
     ...(note && note.trim() ? { note: note.trim() } : {}),
   });
+  return res.data;
+}
+
+/**
+ * classes.join-requests rule 17 (PAD-460): the caller's academy join requests,
+ * newest first, every status — a coach gets every request addressed to them, a
+ * student gets their own.
+ */
+export async function listClassJoinRequests(): Promise<ClassJoinRequestListRow[]> {
+  const res = await getApi().get("/app/class-join-requests");
   return res.data;
 }
 

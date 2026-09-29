@@ -217,7 +217,7 @@ def test_invited_coach_is_approved_at_creation(client, app):
 
     res = client.post(
         "/api/app/coach-invitations/tok-approve-me/accept",
-        json={"name": "New Coach", "username": "newcoach", "password": "pw123456"},
+        json={"name": "New Coach", "username": "newcoach", "password": "pw123456", "birthDate": "1990-01-01"},
     )
     assert res.status_code in (200, 201), res.get_json()
     with app.app_context():

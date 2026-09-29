@@ -38,8 +38,21 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
      which INHERITS the series level (rule 4), not "all levels". An empty `name` is refused as above;
      the title override is dropped only by resending the series title (rule 4), and it is touched
      only by an edit that sent `name`.
+8. **Moving an occurrence moves its weekday in the series (PAD-464, B-216).** When an edit moves a
+   recurring class from `event_date` to another date, the series' `daysOfWeek` swaps the old
+   weekday for the new one, in the calendar's convention: **0 = Sunday … 6 = Saturday**
+   (`calendar_tools.WEEKDAY_MAP`, date-fns `getDay`), never ISO. Sunday is the day the two
+   conventions disagree on, so moving onto a Sunday adds 0 and moving off a Sunday removes 0.
 
 ### Acceptance Criteria
+
+#### Moving onto or off a Sunday keeps the series' weekdays right (rule 8, PAD-464)
+- **Given** a class recurring Monday and Wednesday (`daysOfWeek` `[1, 3]`)
+- **When** the coach moves its Monday occurrence to Sunday
+- **Then** `daysOfWeek` is `[0, 3]` and the series recurs on Sundays and Wednesdays
+- **Given** a class recurring on Sundays (`[0]`)
+- **When** the coach moves its Sunday occurrence to Tuesday
+- **Then** `daysOfWeek` is `[2]` and the series no longer recurs on Sundays
 
 #### Edit single instance
 - **Given** a recurring class with an instance on April 20

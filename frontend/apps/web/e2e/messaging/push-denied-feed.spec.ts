@@ -24,7 +24,7 @@ import {
   STUDENT_USERNAME,
   STUDENT_PASSWORD,
 } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { openMessages, conversationRow } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 const COACH_NAME = "E2E Coach";
@@ -74,7 +74,7 @@ test.describe("PAD-195: in-app feed with browser push denied", () => {
     await openMessages(page);
 
     // The conversation list is not gated by the permission.
-    await expect(page.getByText("E2E Student").first()).toBeVisible({ timeout: 10_000 });
+    await expect(conversationRow(page, "E2E Student")).toBeVisible({ timeout: 10_000 });
 
     // The banner names browser alerts only and says in-app messages still work.
     const banner = page.getByTestId("push-blocked-banner");

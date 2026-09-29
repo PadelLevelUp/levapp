@@ -104,3 +104,30 @@ describe("MessageTemplatesSection — reports unsaved by rule 2 (PAD-394)", () =
     expect(unsavedIds()).toBe("messageTemplates");
   });
 });
+
+describe("MessageTemplatesSection — placeholder hints (PAD-430, message-templates rule 3)", () => {
+  const CLASS_KEYS = ["invite", "reminder", "reminder_followup", "waiting_list_placed"] as const;
+  const EXPECTED = ["{name}", "{level}", "{weekday}", "{time}", "{type}", "{date}", "{court}"];
+
+  it.each(CLASS_KEYS)("offers all seven placeholders on %s", (key) => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <Wrapper />
+      </SettingsUnsavedTestHarness>
+    );
+    const row = screen.getByTestId(`template-row-${key}`);
+    for (const token of EXPECTED) {
+      expect(within(row).getByText(token)).toBeTruthy();
+    }
+  });
+
+  it("inserts {court} into the textarea when its hint is clicked", () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <Wrapper />
+      </SettingsUnsavedTestHarness>
+    );
+    fireEvent.click(within(screen.getByTestId("template-row-reminder")).getByText("{court}"));
+    expect(reminderTextarea().value).toContain("{court}");
+  });
+});

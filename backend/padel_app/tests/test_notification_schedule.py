@@ -519,6 +519,13 @@ class TestProcessInvitationBatches:
             # reason; DB-backed coverage in test_pad271_vacancy_reconcile.py.
             "padel_app.services.notification_service.reconcile_vacancies",
             return_value=[],
+        ), patch(
+            # B-200 (notifications.config rule 6d): the tick now asks _check_restrictions before
+            # sending, and its maxTotal count is a real query. These tests are about the timer;
+            # the restrictions on this path have DB-backed coverage in
+            # test_pad451_quiet_hours_hold_the_sweep.py.
+            "padel_app.services.notification_service._check_restrictions",
+            return_value=True,
         ):
             yield
 

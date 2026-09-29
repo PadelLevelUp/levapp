@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
+import { writeAuthMe } from "@/features/settings/write-auth-me";
 
 type ProfileForm = {
   name: string;
@@ -112,7 +113,7 @@ export function ProfileSection() {
     setStatus(null);
     try {
       const updated = await authApi.updateMe(payload);
-      queryClient.setQueryData(["auth-me"], updated);
+      await writeAuthMe(queryClient, updated);
       // Re-hydrate from the response so the form shows exactly what was
       // stored (trimmed name, uppercased abbreviation, …).
       const confirmed: ProfileForm = {

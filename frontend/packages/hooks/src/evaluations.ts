@@ -10,6 +10,7 @@ import type {
   EvaluationEvolution,
   EvaluationRecord,
   EvaluationRecordInput,
+  EvaluationScale,
   EvaluationSettings,
   EvaluationShareInput,
   PlayerEvaluations,
@@ -17,6 +18,7 @@ import type {
 } from "@levelup/types";
 import * as evaluationRecordsApi from "@levelup/api/src/resources/evaluationRecords";
 import * as evaluationSettingsApi from "@levelup/api/src/resources/evaluationSettings";
+import * as evaluationScaleApi from "@levelup/api/src/resources/evaluationScale";
 import * as evaluationSharingApi from "@levelup/api/src/resources/evaluationSharing";
 import { queryKeys } from "./queryKeys";
 
@@ -152,7 +154,14 @@ export function useMyEvaluations(enabled = true) {
  */
 function useCompetencyCache() {
   const queryClient = useQueryClient();
-  const relist = () => queryClient.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies });
+  // PAD-422: the class panel builds its form rows from the class read's own `competencies`
+  // (`classRowCompetencies`), so a change made from the panel's manager must mark every class
+  // read stale too, or the open form only shows it after a reload.
+  const relist = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() }),
+    ]);
   const put = (competency: EvaluationCompetency) =>
     queryClient.setQueryData<EvaluationCompetencies>(queryKeys.evaluationCompetencies, (data) => {
       if (!data) return data;
@@ -266,6 +275,36 @@ export function useSaveEvaluationSettings() {
         void queryClient.invalidateQueries({ queryKey: [prefix] });
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() });
+    },
+  });
+}
+
+// ── PAD-423 (evaluations.scale): the coach's scale ──
+
+export function useEvaluationScale(enabled = true) {
+  return useQuery<EvaluationScale>({
+    queryKey: queryKeys.evaluationScale,
+    queryFn: () => evaluationScaleApi.getEvaluationScale(),
+    enabled,
+  });
+}
+
+/**
+ * Saves on change. The server rescales the coach's competencies and figures are its own
+ * (R-048), so everything that shows a competency's scale or a figure is refetched: the
+ * competencies, every class panel, and every player's history and evolution.
+ */
+export function useSaveEvaluationScale() {
+  const queryClient = useQueryClient();
+  return useMutation<EvaluationScale, unknown, EvaluationScale>({
+    mutationFn: (body) => evaluationScaleApi.putEvaluationScale(body),
+    onSuccess: (saved) => queryClient.setQueryData(queryKeys.evaluationScale, saved),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.evaluationScale });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classEvaluations() });
+      void queryClient.invalidateQueries({ queryKey: ["player-evaluations"] });
+      void queryClient.invalidateQueries({ queryKey: ["player-evolution"] });
     },
   });
 }

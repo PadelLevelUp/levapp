@@ -186,3 +186,20 @@ def get_evaluation_settings():
 def put_evaluation_settings():
     coach = require_coach()
     return jsonify(service.put_evaluation_settings(coach, _body()))
+
+
+# ── the coach's evaluation scale (PAD-423, evaluations.scale rules 1–2) ──────
+
+
+@bp.get("/evaluation_scale")
+@jwt_required()
+def get_evaluation_scale():
+    """The coach's scale; a coach without a config row reads 5, and no row is made."""
+    return jsonify(service.get_evaluation_scale(require_coach()))
+
+
+@bp.put("/evaluation_scale")
+@jwt_required()
+def put_evaluation_scale():
+    coach = require_coach()
+    return jsonify(service.put_evaluation_scale(coach, _body()))

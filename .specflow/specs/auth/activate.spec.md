@@ -41,7 +41,7 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
    wrong token is 404 and writes nothing.
 6. With the right token, the POST is 410 unless the account is `inactive`, and writes nothing.
 7. **Activation writes exactly five fields:** `name`, `username`, `email`, `phone`, `password`, and
-   sets `status = active`. Everything else in the body is ignored — `status`, `language`, the
+   sets `status = active` — plus `birth_date` from rule 13 (PAD-457). Everything else in the body is ignored — `status`, `language`, the
    privilege flags (PAD-93) and any other column. The guard lives in `activate_user_service`, so
    it holds for any route that calls in.
 8. Frontend route: `/register/:userId` on web and iOS. Both read `t` from the link and pass it to
@@ -69,6 +69,16 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     screens already send every field, `""` when emptied (their own validation stops an empty name,
     username, e-mail or password before the request), so the one visible change is that an emptied
     phone box now removes the coach-typed phone instead of silently keeping it.
+13. **Adults only, at activation too (PAD-457; owner, 2026-09-25).** A coach-created player gives no
+    birth date anywhere before this form, so activation asks for it: `birthDate` (`YYYY-MM-DD`) is
+    required in the POST. It is judged exactly as sign-up judges it (`auth.register` rule 18, same
+    `age_on`, same UTC date): absent → 400 `{field: "birthDate", code: "BIRTH_DATE_REQUIRED"}` with the
+    bilingual "update the app" text (an app build from before PAD-457 shows the server's text
+    verbatim); not a real past date → 400 `INVALID_BIRTH_DATE`; under 18 → 400 `UNDERAGE` with the
+    message "Data de nascimento inválida. Esta app só aceita maiores de 18 anos." (bilingual as in
+    register). Every refusal writes nothing and the account stays `inactive`. An accepted date is
+    stored on `users.birth_date`. Web and iOS add the birth-date field to the activation form (iOS
+    typed DD/MM/AAAA like sign-up) and refuse under 18 on the field before sending.
 12. **No proxy logs the secret (B-183, PAD-435).** The secret rides in URLs: the link's `?t=`
     and rule 4's `?token=`. Every nginx in front of the app (the VM's host nginx, `infra/nginx/`,
     and the web image's `frontend/apps/web/nginx.conf`) logs such a request with its query cut to
@@ -170,3 +180,24 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Given** another account holds the username `taken-one`
 - **When** the student activates with `"username": "taken-one"`
 - **Then** the answer is 409 "Username already taken" and the account is still `inactive`
+
+#### Activation refuses someone under 18 and leaves the account inactive (PAD-457)
+- **Given** coach-created user 5 `inactive`, with its secret, and today 2026-09-25 (UTC)
+- **When** POST `/api/app/activate/user/5` with the token, a password, username `bruno` and `birthDate` `2008-09-26`
+- **Then** the response is 400 with `field: "birthDate"`, `code: "UNDERAGE"`, and user 5 is still `inactive` with no password set
+
+#### Activation of someone who turns 18 today stores the date (PAD-457)
+- **Given** the same user and day
+- **When** POST with `birthDate` `2008-09-25`
+- **Then** the account is `active` and `users.birth_date` is 2008-09-25
+
+#### An activation without a birth date is refused (PAD-457)
+- **Given** the same user
+- **When** POST without `birthDate` (an older app)
+- **Then** 400 `BIRTH_DATE_REQUIRED` with the "update the app" text; nothing is written
+
+#### Both activation screens ask for the birth date (PAD-457)
+- **Given** the activation link opened on web and on iOS
+- **When** the player fills the form with a birth date 17 years and 364 days ago and submits
+- **Then** no request is sent and the birth-date field shows the under-18 message; with an adult date the account is activated
+

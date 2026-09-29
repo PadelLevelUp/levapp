@@ -13,6 +13,28 @@ export function isStarScale(scale: Pick<EvaluationCompetency, "scaleMin" | "scal
   return scale.scaleMin === 1 && scale.scaleMax === 5;
 }
 
+/** Which input rates a competency (evaluations.scale rule 7, PAD-423): the five stars on 1-5; a
+ *  slider on the coach's 1-10, 1-20 or 1-100 (catalogue and custom competencies); the dormant
+ *  stepper only for a LEGACY category (`group` null) that is somehow not 1-5 (see `isStarScale`). */
+export type RatingInputKind = "stars" | "slider" | "stepper";
+
+export function ratingInputKind(competency: Pick<EvaluationCompetency, "scaleMin" | "scaleMax" | "group">): RatingInputKind {
+  if (isStarScale(competency)) return "stars";
+  return competency.group === null ? "stepper" : "slider";
+}
+
+/** D149 (evaluations.scale rule 3): a form row the record already rates keeps THAT rating's own
+ *  scale, so an earlier 4/5 is drawn (stars) and re-saved on 1-5, never read as 4 on the coach's
+ *  new 1-10. A competency the record does not rate yet is returned as is (its current scale). */
+export function rowOnItsOwnScale<C extends Pick<EvaluationCompetency, "id" | "scaleMin" | "scaleMax">>(
+  competency: C,
+  record: Pick<EvaluationRecord, "ratings"> | null
+): C {
+  const rating = record?.ratings.find((r) => r.categoryId === competency.id);
+  if (!rating || (rating.scaleMin === competency.scaleMin && rating.scaleMax === competency.scaleMax)) return competency;
+  return { ...competency, scaleMin: rating.scaleMin, scaleMax: rating.scaleMax };
+}
+
 /** A competency in the form: stars when its scale is 1-5 (see `isStarScale`). */
 export function isStarCompetency(competency: Pick<EvaluationCompetency, "scaleMin" | "scaleMax">): boolean {
   return isStarScale(competency);

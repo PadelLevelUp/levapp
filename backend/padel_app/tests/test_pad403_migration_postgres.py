@@ -146,8 +146,12 @@ def test_the_conversion_walks_up_and_down_exactly_and_never_touches_a_share(app)
             _release()
 
             # Figures follow the new values (rule 6, R-048: computed on read, nothing cached).
+            # Service code reads the HEAD schema (PAD-423 added evaluation_entries.scale_min/max),
+            # so walk to head before calling it; the downgrade below unwinds the whole chain.
             from padel_app.services.evaluation_api_service import evolution
 
+            upgrade(directory=MIGRATIONS_DIR)
+            _release()
             forehand = evolution(db.session.get(Coach, coach_id), player_id, ids["forehand"])
             assert [point["mean"] for point in forehand["series"]] == [4.0, 5.0, 5.0]
             assert (forehand["scaleMin"], forehand["scaleMax"]) == (1, 5)

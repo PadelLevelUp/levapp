@@ -116,6 +116,14 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     password = data.get("password")
     if not name or not username or not password:
         abort(400, "name, username and password are required")
+    # clubs.coach-invitation rule 8 (PAD-457): a new coach account is adults-only too, the
+    # check sign-up shares. Raises RegistrationError (400 on birthDate) before anything is written.
+    from padel_app.services.registration_service import _UPDATE_APP, validate_adult_birth_date
+    from padel_app.utils.dates import utcnow_naive
+
+    birth_date = validate_adult_birth_date(
+        data.get("birthDate"), utcnow_naive().date(), update_app_message=_UPDATE_APP["birthDate"]
+    )
 
     if User.query.filter_by(username=username).first() is not None:
         abort(409, "Username already taken")
@@ -126,6 +134,7 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
         email=data.get("email") or invitation.email,
         password=generate_password_hash(password),
         status="active",
+        birth_date=birth_date,
     )
     db.session.add(user)
     db.session.flush()

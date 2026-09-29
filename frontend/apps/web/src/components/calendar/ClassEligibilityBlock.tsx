@@ -17,6 +17,8 @@ import { EligibilitySection } from "@/components/settings/EligibilitySection";
 type Tier = "instance" | "lesson" | "coach";
 type VisibilityMode = "inherit" | "on" | "off";
 
+type AutoInvitesTier = "instance" | "lesson" | "type";
+
 export function ClassEligibilityBlock({
   current,
   effective,
@@ -27,6 +29,10 @@ export function ClassEligibilityBlock({
   effectiveOpenSpots,
   openSpotsSource,
   onOpenSpotsChange,
+  autoInvites,
+  effectiveAutoInvites,
+  autoInvitesSource,
+  onAutoInvitesChange,
 }: {
   current: GroupRule[] | null;
   effective: GroupRule[] | null;
@@ -36,14 +42,21 @@ export function ClassEligibilityBlock({
   /** PAD-130: the open-spot toggle at this tier (`null` = inherit). */
   openSpots?: boolean | null;
   effectiveOpenSpots?: boolean;
-  openSpotsSource?: Tier;
+  openSpotsSource?: Tier | "type";
   onOpenSpotsChange?: (value: boolean | null) => void;
+  /** PAD-429 (notifications.toggle-class rule 5): the auto-invites tri-state at this tier (`null` = inherit). No coach tier. */
+  autoInvites?: boolean | null;
+  effectiveAutoInvites?: boolean;
+  autoInvitesSource?: AutoInvitesTier;
+  onAutoInvitesChange?: (value: boolean | null) => void;
 }) {
   const { t } = useTranslation();
   const mode = tierMode(current);
   const modes: EligibilityTierMode[] = ["standard", "everyone", "custom"];
   const visibilityMode: VisibilityMode = openSpots == null ? "inherit" : openSpots ? "on" : "off";
   const visibilityModes: VisibilityMode[] = ["inherit", "on", "off"];
+  const autoInvitesMode: VisibilityMode = autoInvites == null ? "inherit" : autoInvites ? "on" : "off";
+  const autoInvitesModes: VisibilityMode[] = ["inherit", "on", "off"];
 
   return (
     <div className="rounded-lg border bg-muted/30 p-3 space-y-2" data-testid="class-eligibility">
@@ -129,6 +142,45 @@ export function ClassEligibilityBlock({
                     <RadioGroupItem value={m} id={`class-open-spots-${m}`} data-testid={`class-open-spots-mode-${m}`} />
                     <Label htmlFor={`class-open-spots-${m}`} className="text-xs">
                       {t(`calendar.openSpot.mode.${m}`)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* PAD-429 (notifications.toggle-class rules 5, 7): the automatic-invitations
+          tri-state — instance → lesson → the lesson's type. No coach tier. */}
+      {onAutoInvitesChange && (
+        <div className="border-t pt-2 space-y-2" data-testid="class-auto-invites-control">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium">{t("calendar.autoInvites.title")}</span>
+            <Badge
+              variant="outline"
+              data-testid="class-auto-invites-source"
+              data-source={autoInvitesSource ?? "type"}
+            >
+              {t(`calendar.autoInvites.source.${autoInvitesSource ?? "type"}`)} ·{" "}
+              {t(effectiveAutoInvites ? "calendar.autoInvites.mode.on" : "calendar.autoInvites.mode.off")}
+            </Badge>
+          </div>
+          {editing && (
+            <>
+              <p className="text-xs text-muted-foreground">{t("calendar.autoInvites.hint")}</p>
+              <RadioGroup
+                value={autoInvitesMode}
+                onValueChange={(next) =>
+                  onAutoInvitesChange(next === "inherit" ? null : next === "on")
+                }
+                className="flex flex-wrap gap-3"
+              >
+                {autoInvitesModes.map((m) => (
+                  <div key={m} className="flex items-center gap-1.5">
+                    <RadioGroupItem value={m} id={`class-auto-invites-${m}`} data-testid={`class-auto-invites-mode-${m}`} />
+                    <Label htmlFor={`class-auto-invites-${m}`} className="text-xs">
+                      {t(`calendar.autoInvites.mode.${m}`)}
                     </Label>
                   </div>
                 ))}

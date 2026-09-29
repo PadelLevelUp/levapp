@@ -33,7 +33,7 @@ type Status = "loading" | "invalid" | "preview" | "joining" | "joined";
 const JoinCoachPage = () => {
   const { t } = useTranslation();
   const { token = "" } = useParams<{ token: string }>();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,6 +76,9 @@ const JoinCoachPage = () => {
     setError(null);
     try {
       const res = await acceptJoinToken(token);
+      // players.join-token rule 8a (PAD-444): the student is linked now, so re-read /me before the
+      // dashboard can show "No coach yet?" from the copy loaded at sign-up. Never fails the join.
+      await refreshUser().catch(() => null);
       setResult(res);
       setStatus("joined");
     } catch (err) {

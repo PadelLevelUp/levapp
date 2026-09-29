@@ -248,8 +248,12 @@ def update_recurrence_weekday(lesson, old_date, new_date):
     rule = json.loads(lesson.recurrence_rule)
     days = set(rule.get("daysOfWeek", []))
 
-    old_wd = old_date.weekday() + 1
-    new_wd = new_date.weekday() + 1
+    # PAD-464 (B-216): `daysOfWeek` is the calendar's convention, 0 = Sunday … 6 = Saturday
+    # (calendar_tools.WEEKDAY_MAP, date-fns getDay) — not ISO. `weekday() + 1` alone wrote Sunday as
+    # 7, which WEEKDAY_MAP drops (moving onto a Sunday lost it) and never matched a stored 0 (moving
+    # off a Sunday kept it). Monday..Saturday are 1..6 either way.
+    old_wd = (old_date.weekday() + 1) % 7
+    new_wd = (new_date.weekday() + 1) % 7
 
     if old_wd in days:
         days.remove(old_wd)
@@ -1050,6 +1054,11 @@ def add_class_service(data, coach, club, *, notify_students=True):
         lesson.notifications_enabled = data["notificationsEnabled"]
         lesson.save()
 
+    # PAD-429 (toggle-class rule 7): absent/null = the lesson type's default.
+    if data.get("autoInvites") is not None:
+        lesson.auto_invites = bool(data["autoInvites"])
+        lesson.save()
+
     # Schedule reminder jobs for all upcoming occurrences within the 60-day horizon
     if lesson.coaches_relations:
         from padel_app.scheduler import schedule_lesson_reminder_jobs
@@ -1279,6 +1288,12 @@ def edit_class_service(data):
     open_spots_visible = updates.get("openSpotsVisible")
     if open_spots_visible is not None:
         open_spots_visible = bool(open_spots_visible)
+    # PAD-429 (toggle-class rule 7): the same tri-state wire as openSpotsVisible — absent =
+    # untouched, null = inherit (the lesson type's default), boolean = override.
+    auto_invites_touched = "autoInvites" in updates
+    auto_invites = updates.get("autoInvites")
+    if auto_invites is not None:
+        auto_invites = bool(auto_invites)
 
     event_date = datetime.strptime(event["date"], "%Y-%m-%d").date()
     date_str = updates.get("date")
@@ -1336,6 +1351,11 @@ def edit_class_service(data):
                 instance.save()
             if visibility_touched:
                 instance.open_spots_visible = open_spots_visible
+                # B-219: its own save — a visibility-only edit is otherwise never committed
+                # (PAD-429 moved the save that used to sit here into the auto-invites block).
+                instance.save()
+            if auto_invites_touched:
+                instance.auto_invites = auto_invites
                 instance.save()
             return {"id": instance.id}, 200
 
@@ -1382,6 +1402,11 @@ def edit_class_service(data):
                 lesson_to_edit.save()
             if visibility_touched:
                 lesson_to_edit.open_spots_visible = open_spots_visible
+                # B-219: its own save — a visibility-only edit is otherwise never committed
+                # (PAD-429 moved the save that used to sit here into the auto-invites block).
+                lesson_to_edit.save()
+            if auto_invites_touched:
+                lesson_to_edit.auto_invites = auto_invites
                 lesson_to_edit.save()
             # A "this and future" edit off a materialized occurrence splits the
             # series into a *new* Lesson (duplicate_lesson_helper). Without this
@@ -1430,6 +1455,11 @@ def edit_class_service(data):
                 instance.save()
             if visibility_touched:
                 instance.open_spots_visible = open_spots_visible
+                # B-219: its own save — a visibility-only edit is otherwise never committed
+                # (PAD-429 moved the save that used to sit here into the auto-invites block).
+                instance.save()
+            if auto_invites_touched:
+                instance.auto_invites = auto_invites
                 instance.save()
             return {"id": instance.id}, 200
         payload["original_lesson_occurence_date"] = event_date.strftime("%Y-%m-%d")
@@ -1443,6 +1473,11 @@ def edit_class_service(data):
             instance.save()
         if visibility_touched:
             instance.open_spots_visible = open_spots_visible
+            # B-219: its own save — a visibility-only edit is otherwise never committed
+            # (PAD-429 moved the save that used to sit here into the auto-invites block).
+            instance.save()
+        if auto_invites_touched:
+            instance.auto_invites = auto_invites
             instance.save()
         # Schedule reminder/invite jobs for this newly materialized instance
         from padel_app.scheduler import _maybe_schedule_instance
@@ -1473,6 +1508,11 @@ def edit_class_service(data):
             lesson_to_edit.save()
         if visibility_touched:
             lesson_to_edit.open_spots_visible = open_spots_visible
+            # B-219: its own save — a visibility-only edit is otherwise never committed
+            # (PAD-429 moved the save that used to sit here into the auto-invites block).
+            lesson_to_edit.save()
+        if auto_invites_touched:
+            lesson_to_edit.auto_invites = auto_invites
             lesson_to_edit.save()
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { canStepBackPickerWeek, lightTheme, upcomingPickerClasses } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -94,7 +94,9 @@ export function AddToClassesDialog({
   const to = format(weekEnd, "yyyy-MM-dd");
 
   const { data, isPending } = useClassInstancesForWeek(from, to, open);
-  const classes = data ?? [];
+  // players.profile rule 5a (PAD-439): a class that has started is never offered.
+  const classes = React.useMemo(() => upcomingPickerClasses(data ?? []), [data]);
+  const canStepBack = canStepBackPickerWeek(weekStart);
 
   React.useEffect(() => {
     if (!open) return;
@@ -261,7 +263,11 @@ export function AddToClassesDialog({
             testID="add-to-classes-week-prev"
             accessibilityLabel={t("calendar.toolbar.previousWeek")}
             role="button"
+            // Rule 5b (PAD-439): the picker never goes back past the current week.
+            disabled={!canStepBack}
+            accessibilityState={{ disabled: !canStepBack }}
             onPress={() => setWeekStart((w) => subWeeks(w, 1))}
+            style={{ opacity: canStepBack ? 1 : 0.35 }}
             className="h-9 w-9 items-center justify-center rounded-md active:bg-accent"
           >
             <Ionicons

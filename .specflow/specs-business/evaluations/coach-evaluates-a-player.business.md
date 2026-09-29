@@ -14,6 +14,7 @@ implemented_by:
   - ../../specs/evaluations/evolution.spec.md
   - ../../specs/evaluations/reminders.spec.md
   - ../../specs/evaluations/legacy-conversion.spec.md
+  - ../../specs/evaluations/scale.spec.md
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md
   - derives_from: archive/documents/sistema-de-avaliacoes-explained-2026-09-21/extracted/summary.md
@@ -113,6 +114,10 @@ Planned:
   place to edit them on web is proven to exist.
 - Does the at-a-glance list of latest scores leave the player's page? *(Pending owner decision
   Q7; default: yes, as in the canvas.)*
+
+- **The coach chooses the scale (PAD-423).** A coach evaluates on 1–5 (stars), 1–10, 1–20 or 1–100
+  (a slider), and can change it later. Every past evaluation keeps the scale it was given on
+  ("4/5" stays "4/5"); progress over time is shown on the coach's current scale.
 
 ## Success Metrics
 

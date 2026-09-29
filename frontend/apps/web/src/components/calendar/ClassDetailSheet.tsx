@@ -605,6 +605,9 @@ export function ClassDetailSheet({
     "eligibilityRules",
     // PAD-130: the open-spot toggle at this tier (null / true / false).
     "openSpotsVisible",
+    // PAD-429 (notifications.toggle-class rule 7): the auto-invites tri-state
+    // at this tier (null / true / false).
+    "autoInvites",
   ] as const;
 
   /** The save itself, once any eligibility warning has been answered. */
@@ -1130,6 +1133,12 @@ export function ClassDetailSheet({
               openSpotsSource={active.openSpotsSource ?? "coach"}
               onOpenSpotsChange={(openSpotsVisible) =>
                 setDraft((d) => (d ? { ...d, openSpotsVisible } : d))
+              }
+              autoInvites={active.autoInvites ?? null}
+              effectiveAutoInvites={active.effectiveAutoInvites ?? false}
+              autoInvitesSource={active.autoInvitesSource ?? "type"}
+              onAutoInvitesChange={(autoInvites) =>
+                setDraft((d) => (d ? { ...d, autoInvites } : d))
               }
             />
           )}

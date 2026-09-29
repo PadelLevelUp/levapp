@@ -13,6 +13,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
+import { conversationRow } from "../helpers/navigation";
 
 const STUDENT_NAME = "E2E Student";
 
@@ -59,9 +60,16 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
     // Rule 6: the proposal is answerable in chat.
     await loginAsStudent(page);
     await page.goto("/messages");
-    await page.getByText("E2E Coach").first().click();
-    const actions = page.locator(`[data-testid="class-request-proposal-actions"][data-request-id="${requestId}"]`);
+    await conversationRow(page, "E2E Coach").click();
+    // B-188: since rule 10a the student's own request message carries the same slot (its state,
+    // no actions) — so the proposal is picked by kind, and the request bubble is checked on its own.
+    const proposalsFor = (id: number) =>
+      page.locator(`[data-testid="class-request-proposal-actions"][data-request-id="${id}"][data-kind="proposal"]`);
+    const requestBubble = page.locator(`[data-testid="class-request-proposal-actions"][data-request-id="${requestId}"][data-kind="request"]`);
+    const actions = proposalsFor(requestId);
     await expect(actions).toHaveAttribute("data-state", "actions", { timeout: 15_000 });
+    // Rule 10a: the coach answered with a proposal, so the student's request shows where it ended up.
+    await expect(requestBubble).toHaveAttribute("data-state", "superseded");
     await expect(actions.getByTestId("class-request-bubble-accept")).toBeVisible();
     await expect(actions.getByTestId("class-request-bubble-decline")).toBeVisible();
 
@@ -95,9 +103,10 @@ test("PAD-281: the student answers the coach's proposal from chat, proposes anot
     });
     expect(again.status(), await again.text()).toBe(200);
     await page.goto("/messages");
-    await page.getByText("E2E Coach").first().click();
-    const bubbles = page.locator(`[data-testid="class-request-proposal-actions"][data-request-id="${requestId}"]`);
+    await conversationRow(page, "E2E Coach").click();
+    const bubbles = proposalsFor(requestId);
     await expect(bubbles).toHaveCount(3, { timeout: 15_000 });
+    await expect(requestBubble).toHaveCount(1);
     await expect(bubbles.nth(0)).toHaveAttribute("data-state", "superseded");
     await expect(bubbles.nth(1)).toHaveAttribute("data-state", "superseded");
     await expect(bubbles.last()).toHaveAttribute("data-state", "actions");

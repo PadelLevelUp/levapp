@@ -1040,7 +1040,9 @@ def _user_row(app, user_id):
                 "phone": row.phone, "has_password": row.password is not None}
 
 
-ACTIVATION_BODY = {"name": "Invited Player", "username": "invited", "password": "S3cret-pass!"}
+# PAD-457 (auth.activate rule 13): activation now also asks for an adult birth date.
+ACTIVATION_BODY = {"name": "Invited Player", "username": "invited", "password": "S3cret-pass!",
+                   "birthDate": "1990-01-01"}
 
 
 def test_activation_an_emptied_prefilled_phone_or_email_is_cleared(app, client):

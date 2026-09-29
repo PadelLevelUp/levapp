@@ -2,7 +2,7 @@
  * PAD-74 — Checkbox does not respond to clicks in the manual notification
  * student selector.
  *
- * The coach opens a class, clicks "Notify", searches for a student and clicks
+ * The coach opens a class, clicks "Convidar"/"Invite" (PAD-426), searches for a student and clicks
  * the checkbox next to the name. Nothing happens: the row carried its own
  * onClick AND the checkbox carried its own onCheckedChange, so a click on the
  * checkbox toggled the selection twice (select + deselect) and netted out to
@@ -17,6 +17,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
+import { ui } from "../helpers/i18n";
 
 const CLASS_TITLE = "E2E Academy Class";
 
@@ -27,7 +28,7 @@ async function openNotifyModal(page: Page) {
 
   await page.getByText(CLASS_TITLE).first().click();
 
-  const notifyBtn = page.getByRole("button", { name: /^notify$/i }).first();
+  const notifyBtn = page.getByRole("button", { name: ui("calendar.detail.notify") }).first();
   await notifyBtn.waitFor({ state: "visible", timeout: 10_000 });
   await notifyBtn.click();
 

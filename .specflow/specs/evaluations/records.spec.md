@@ -100,8 +100,10 @@ what every writer — new, legacy and import — goes through.
    latest score on an earlier day **is written** — "still a 4" is a rating; the equal-to-latest
    skip belongs to the legacy handler only (rule 12).
 9. **The range rule lives here and only here.** A rating must be an integer within the
-   competency's `[scale_min, scale_max]`, else **400** and nothing in the request is written
-   (the write is atomic). This resolves **B-126** for new writes; `/add_evaluation_entry` stays
+   competency's **current** `[scale_min, scale_max]`, else **400** and nothing in the request is
+   written (the write is atomic). **(PAD-423)** Each written entry also stores that scale as its
+   own `scale_min`/`scale_max` (`evaluations.scale` rule 3), and each rating read back carries
+   the entry's own scale, not the competency's current one (`evaluations.scale` rule 6). This resolves **B-126** for new writes; `/add_evaluation_entry` stays
    unchecked while 1.0/1.1.0 live.
 10. **(AV-006 overruled, build default Q8) A rating can be cleared.** `ratings: {<id>: null}`
     (the shells: tapping the lit star) deletes that record's entry for the competency; `note:

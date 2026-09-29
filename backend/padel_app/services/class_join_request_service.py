@@ -54,6 +54,36 @@ def pending_requests_for_instance(instance_id: int) -> list:
     )
 
 
+def serialize_join_request_list_row(row: ClassJoinRequest) -> dict:
+    """Rule 17 (PAD-460): a list row is rule 15's shape plus the class it is for. `date` and the
+    times are the class's own wall clock (R-023: club-local, never converted)."""
+    inst = row.lesson_instance
+    start = inst.start_datetime if inst else None
+    end = inst.end_datetime if inst else None
+    return {
+        **serialize_join_request(row),
+        "kind": "academy",
+        "classTitle": inst.title if inst else None,
+        "date": start.date().isoformat() if start else None,
+        "startTime": start.strftime("%H:%M") if start else None,
+        "endTime": end.strftime("%H:%M") if end else None,
+    }
+
+
+def list_join_requests_for(user) -> list:
+    """Rule 17 (PAD-460): the caller's join requests, newest first, every status — a coach's
+    every request addressed to them, a student's own. Anyone else is refused."""
+    q = ClassJoinRequest.query
+    if getattr(user, "coach", None) is not None:
+        q = q.filter_by(coach_id=user.coach.id)
+    elif getattr(user, "player", None) is not None:
+        q = q.filter_by(player_id=user.player.id)
+    else:
+        abort(403, "Only a coach or a student has class requests")
+    rows = q.order_by(ClassJoinRequest.created_at.desc(), ClassJoinRequest.id.desc()).all()
+    return [serialize_join_request_list_row(r) for r in rows]
+
+
 def latest_request_for_player(instance_id: int, player_id: int):
     """Rule 15: the student's ``myJoinRequest`` — their latest for this class."""
     return (

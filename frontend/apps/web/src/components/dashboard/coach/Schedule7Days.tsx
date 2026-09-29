@@ -163,7 +163,9 @@ export function Schedule7Days({
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(row.href);
+                        // PAD-425: straight into the class's invite flow, like "Convidar x
+                        // jogadores" in Precisa de ti; the row itself opens the plain class.
+                        navigate(row.inviteHref ?? row.href);
                       }}
                     >
                       {t("dashboard.schedule.invite")}

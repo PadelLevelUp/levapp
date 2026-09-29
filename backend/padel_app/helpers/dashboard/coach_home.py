@@ -180,6 +180,11 @@ def _combine(day: Optional[str], clock: Optional[str], fallback: datetime) -> da
         return fallback
 
 
+def invite_href(event: Dict[str, Any]) -> str:
+    """The class with its Notificar/Convidar picker already open (PAD-285, PAD-425)."""
+    return class_href(event) + "&notify=1"
+
+
 def class_href(event: Dict[str, Any]) -> str:
     """Deep link that opens this one occurrence in the calendar.
 
@@ -345,7 +350,7 @@ def _empty_seat_items(
                 # PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class
                 # with Notificar already open; the hero and the schedule keep
                 # the plain calendar link.
-                "href": class_href(event) + "&notify=1",
+                "href": invite_href(event),
             }
         )
     return out
@@ -430,11 +435,14 @@ def validation_href(week_offset: int) -> str:
     return "/presences?validate=1" if week_offset == 0 else f"/presences?validate=1&week={week_offset}"
 
 
-def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]]:
+def validation_badge(*, coach_id: int, now: datetime) -> Dict[str, Any]:
     """Classes still to validate, for the tab's week (dashboard.blocks rule 3).
 
     One helper — ``count_pending_validation`` — so this is the number the
-    Presences trigger shows once the card opens it (B-045).
+    Presences trigger shows once the card opens it (B-045). PAD-443
+    (attendance.validation rule 23): the dashboard card, the web sidebar badge and
+    the iOS tab badge all show it, so it is the only derivation; ``count`` is 0 when
+    both weeks are clean.
     """
     for offset in VALIDATION_WEEK_OFFSETS:
         start, end = week_bounds(now, offset)
@@ -442,14 +450,16 @@ def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]
             coach_id=coach_id, range_start=start, range_end=end, now=now
         )
         if count:
-            return {
-                "kind": "validation",
-                "id": "validation",
-                "count": int(count),
-                "weekOffset": offset,
-                "href": validation_href(offset),
-            }
-    return None
+            return {"count": int(count), "weekOffset": offset, "href": validation_href(offset)}
+    return {"count": 0, "weekOffset": 0, "href": validation_href(0)}
+
+
+def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]]:
+    """The needs-you queue's validation item: the badge, omitted when it is 0."""
+    badge = validation_badge(coach_id=coach_id, now=now)
+    if not badge["count"]:
+        return None
+    return {"kind": "validation", "id": "validation", **badge}
 
 
 # ── 3. next 7 days ─────────────────────────────────────────────────────────
@@ -461,11 +471,17 @@ def build_schedule_block(
     """The week ahead. Shows the first few rows and links out for the rest."""
     now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
-    return schedule_block(window)
+    return schedule_block(window, invite=True)
 
 
-def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-    """The ``schedule_7d`` block for ``events`` already cut to the 7-day window."""
+def schedule_block(events: Sequence[Dict[str, Any]], *, invite: bool = False) -> Dict[str, Any]:
+    """The ``schedule_7d`` block for ``events`` already cut to the 7-day window.
+
+    ``invite`` (the coach's schedule, PAD-425): each row also carries ``inviteHref``, the class
+    with Notificar/Convidar already open, the same link as the empty-seats queue item. The row
+    itself keeps the plain class link (dashboard.blocks rule 10). The student's schedule passes
+    nothing: a student has no invite flow.
+    """
     items = []
     for event in events[:SCHEDULE_ROWS]:
         start = _event_start(event)
@@ -482,6 +498,7 @@ def schedule_block(events: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                 "filled": filled,
                 "capacity": capacity,
                 "href": class_href(event),
+                **({"inviteHref": invite_href(event)} if invite else {}),
             }
         )
 

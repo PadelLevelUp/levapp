@@ -1,11 +1,5 @@
 /**
- * auth.parental-consent (PAD-198) — the countries offered at sign-up.
- *
- * `consentAge` mirrors the backend's seed of `digital_consent_ages` so the form
- * can show the guardian-email field before submitting. The server stays the
- * authority: an operator may change an age in the database without a release,
- * and a 400 `GUARDIAN_EMAIL_REQUIRED` then reveals the field anyway.
- * `ZZ` ("another country") has no row server-side and uses the default, 16.
+ * The countries offered at sign-up (auth.register rule 18).
  */
 export type Country = { code: string; pt: string; en: string; consentAge: number };
 
@@ -37,10 +31,6 @@ export function countryName(code: string, language: string): string {
   return language.startsWith("en") ? c.en : c.pt;
 }
 
-export function consentAgeFor(code: string): number {
-  return COUNTRIES.find((x) => x.code === code)?.consentAge ?? DEFAULT_CONSENT_AGE;
-}
-
 /** Full years on `today` for an ISO `YYYY-MM-DD` birth date; null when unparsable. */
 export function ageOn(birthDate: string, today: Date = new Date()): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
@@ -50,8 +40,15 @@ export function ageOn(birthDate: string, today: Date = new Date()): number | nul
   return ty - y - (tm < mo || (tm === mo && td < d) ? 1 : 0);
 }
 
-/** Whether the form should ask for a guardian's email (the server decides for real). */
-export function needsGuardian(birthDate: string, country: string, today: Date = new Date()): boolean {
+/** auth.register rule 18 (PAD-445): LevApp accepts adults only, whatever the country. */
+export const MINIMUM_SIGNUP_AGE = 18;
+
+/**
+ * Whether sign-up must refuse this birth date. The client's instant feedback on the device's
+ * date; the server judges on the UTC date and stays the authority. A malformed or empty date is
+ * left to the date checks (false here).
+ */
+export function isUnderSignupAge(birthDate: string, today: Date = new Date()): boolean {
   const age = ageOn(birthDate, today);
-  return age !== null && age >= 0 && age < consentAgeFor(country);
+  return age !== null && age < MINIMUM_SIGNUP_AGE;
 }

@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import type { EvaluationCompetency, EvaluationRecord, EvaluationRecordInput, PutEvaluationRecordResult } from "@levelup/types";
-import { competencyLabel, formCompetencies, isStarCompetency, nextStarScore, stableFormRows, stepScore } from "@levelup/config";
+import { competencyLabel, formCompetencies, nextStarScore, ratingInputKind, rowOnItsOwnScale, stableFormRows, stepScore } from "@levelup/config";
 import { useEvaluationFormSession } from "@levelup/hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "./StarRating";
 import { ScoreStepper } from "./ScoreStepper";
+import { ScoreSlider } from "./ScoreSlider";
 import { useFlushOnPageHide } from "./useFlushOnPageHide";
 
 type SaveInput = Omit<EvaluationRecordInput, "playerId">;
@@ -81,17 +82,26 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         </Button>
       </div>
 
-      {rows.map((competency) => {
+      {rows.map((row) => {
+        // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
+        const competency = rowOnItsOwnScale(row, record);
         const key = String(competency.id);
         const score = scores[key] ?? null;
         const name = competencyLabel(t, competency);
+        const input = ratingInputKind(competency); // evaluations.scale rule 7
         return (
           <div key={key} className="flex flex-wrap items-center justify-between gap-2" data-testid={`evaluation-row-${key}`}>
             <span className="text-sm font-medium">{name}</span>
-            {isStarCompetency(competency) ? (
+            {input === "stars" ? (
               <StarRating
                 id={competency.id} name={name} score={score} max={competency.scaleMax}
                 onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
+              />
+            ) : input === "slider" ? (
+              <ScoreSlider
+                id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
+                onCommit={(value) => session.rate(key, value)}
+                onClear={() => session.rate(key, null)}
               />
             ) : (
               <ScoreStepper

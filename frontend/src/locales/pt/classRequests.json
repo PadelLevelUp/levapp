@@ -37,15 +37,20 @@
       "countered": "Novo horário proposto",
       "accepted": "Marcada",
       "declined": "Recusado",
-      "withdrawn": "Retirado"
+      "withdrawn": "Retirado",
+      "rejected": "Recusado",
+      "superseded": "Vaga ocupada"
     },
     "coachStatus": {
       "pending": "À tua espera",
       "countered": "À espera do aluno",
       "accepted": "Marcada",
       "declined": "Recusado",
-      "withdrawn": "Retirado pelo aluno"
+      "withdrawn": "Retirado pelo aluno",
+      "rejected": "Recusado",
+      "superseded": "Vaga ocupada"
     },
+    "academyBadge": "Aula de academia",
     "with": "com {{name}}",
     "from": "de {{name}}",
     "empty": "Ainda não há pedidos de aula.",

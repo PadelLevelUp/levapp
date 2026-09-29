@@ -89,15 +89,21 @@ export function GridWithSheet({
   return (
     <View className="flex-1 overflow-hidden" onLayout={onLayout}>
       {hasAbove ? <View onLayout={onAboveLayout}>{above}</View> : null}
-      <TimeGrid
-        weekDays={days}
-        selectedDay={selectedDay}
-        onSelectDay={onSelectDay}
-        eventsByDay={eventsByDay}
-        hourRange={hourRange}
-        nextEventId={nextEventId}
-        onEventPress={onEventPress}
-      />
+      {/* PAD-436 (rule 17): under a block above (Mês) there is no time grid: the sheet shows the
+          selected day, and a second single-day grid here showed it twice. */}
+      {hasAbove ? (
+        <View className="flex-1" testID="calendar-month-sheet-space" />
+      ) : (
+        <TimeGrid
+          weekDays={days}
+          selectedDay={selectedDay}
+          onSelectDay={onSelectDay}
+          eventsByDay={eventsByDay}
+          hourRange={hourRange}
+          nextEventId={nextEventId}
+          onEventPress={onEventPress}
+        />
+      )}
       {sheetTop !== null ? (
         <DaySheet
           top={sheetTop}

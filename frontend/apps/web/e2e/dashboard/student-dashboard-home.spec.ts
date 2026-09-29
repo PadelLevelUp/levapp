@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsStudent } from "../helpers/auth";
 import { openDashboard } from "../helpers/navigation";
+import { GREETING_KEYS, uiIn } from "../helpers/i18n";
 
 /**
  * PAD-202 — the student dashboard speaks the coach home's design language.
@@ -64,9 +65,9 @@ test.describe("PAD-202: student dashboard home", () => {
     await expect(home).toBeVisible({ timeout: 10_000 });
 
     // The greeting is the page's orientation; there is no "Dashboard" heading.
-    await expect(
-      page.getByRole("heading", { name: /^(Morning|Afternoon|Evening),/ })
-    ).toBeVisible();
+    // Read from the en locale (the seeded student renders English), so a copy change like
+    // PAD-419's "Morning, …" → "Good morning, …" follows the file instead of breaking the spec.
+    await expect(page.getByRole("heading", { name: uiIn(GREETING_KEYS, "en") })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^(Dashboard|Painel)$/ })).toHaveCount(0);
 
     // The same sections the coach home exposes, under the student root.

@@ -29,6 +29,7 @@ import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
+import { writeAuthMe } from "@/features/settings/write-auth-me";
 
 /**
  * PAD-169 — the student's own notification block preferences on iOS.
@@ -143,7 +144,7 @@ export function StudentNotificationBlocksSection() {
         blockAllNotifications: blockAll,
         notificationBlockReason: reason.trim(),
       });
-      queryClient.setQueryData(["auth-me"], updated);
+      await writeAuthMe(queryClient, updated);
       // Re-hydrate from the response so the pane shows exactly what was
       // stored (the server trims the reason).
       const confirmed: NotifBlocksForm = {

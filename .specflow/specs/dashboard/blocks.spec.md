@@ -59,6 +59,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      same outcomes the bubble reports (spot filled → the "just filled" notice; expired → the
      "already started" notice) and refetch the dashboard so the card leaves because the payload
      says so.
+     **(PAD-424, B-204)** The card's "Convidar x jogadores" / "Mais tarde" pair wraps onto a
+     second line when the card is too narrow (desktop with the sidebar open); no button ever
+     leaves the card.
      **(B-030) "Later" on an `empty_seats` card is a real action, not decoration.**
      `POST /api/app/dashboard/needs-you/<itemId>/snooze` (coach only, else 403; `itemId` must be a
      queue item id — `lessoninstance-<pk>` or `lesson-<pk>-<date>` — else 400) records a per-coach
@@ -204,8 +207,20 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      `?conversationId=` shape by redirecting to the route.
    - `empty_seats` ("Convidar") → `class_href` **plus `&notify=1`**: the class detail with the
      Notificar picker already open (web `ClassDetailSheet` `openNotify`; iOS `/class/[id]`
-     `notify` param), for a coach only. The hero and the schedule keep the plain link.
+     `notify` param), for a coach only. The hero and a schedule row keep the plain link.
+     **(PAD-425)** The coach's schedule row also carries `inviteHref`, the same `&notify=1`
+     link, and its **Convidar** button (rows with free seats) opens it; tapping the row itself
+     still opens the plain class. The student's schedule carries no `inviteHref`. Web only by
+     nature (R-024): the iOS schedule rows have no Convidar button (a row opens the class), so
+     there is nothing to port; iOS's "Precisa de ti" card already uses the same link.
+     **(PAD-426)** The class-detail button that opens this picker is labelled **Convidar**
+     (en "Invite"), no longer "Notificar": it is how a coach invites players.
    - the student's asks and KPIs keep `dashboard.navigation` rules 6–8 / 11.
+
+11. **(PAD-443) The validation card is tiered.** The coach's `validation` item renders with
+    `attendance.validation` rule 23's tier (`validationTier(count)`: yellow for 1–5, red above 5)
+    and reads "Tens N aulas por validar" (singular "Tens 1 aula por validar"), linking as rule 10.
+    Its number is the one the Presences badge shows.
 
 ### Acceptance Criteria
 
@@ -235,6 +250,12 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** the seeded `e2e-coach` on the dashboard with an under-capacity class in the next 7 days
 - **When** they press **Later** on that card
 - **Then** the card is gone after the dashboard refetches and the "needs you" count drops by one
+
+#### The validation card carries its tier (rule 11, PAD-443)
+- **Given** a coach with 7 classes to validate this week
+- **When** the dashboard renders
+- **Then** the validation card reads "Tens 7 aulas por validar" in the red tier, and the Presences
+  badge reads 7
 
 #### Validation card counts classes for the tab's week (PAD-190 / PAD-201)
 - **Given** a coach with two classes ended last week that still have an unvalidated presence,
@@ -270,6 +291,16 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **When** they press **Convidar** on its card
 - **Then** the calendar opens that class with the "Notificar alunos" picker already up; the
   same card's hero link and schedule row open the class without it
+
+#### The schedule's "Convidar" opens the class on the invite picker (PAD-425)
+- **Given** the seeded `e2e-coach` on a 1440px-wide dashboard with an under-capacity class in the next 7 days
+- **When** they press **Convidar** on that class's "Próximos 7 dias" row
+- **Then** the calendar opens it with `notify=1` and the "Notificar alunos" picker up, as the needs-you card does
+
+#### "Mais tarde" never leaves its card (PAD-424)
+- **Given** the seeded `e2e-coach` with an `empty_seats` card, the sidebar open
+- **When** the dashboard is 1024, 1152, 1280, 1366 or 1440px wide
+- **Then** the "Mais tarde" button lies inside the card's box at every width
 
 #### Player dashboard
 - **Given** an authenticated player enrolled in 2 classes this week

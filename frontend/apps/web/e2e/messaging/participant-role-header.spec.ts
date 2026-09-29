@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsStudent } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { openMessages, conversationRow } from "../helpers/navigation";
 
 // PAD-31: The chat header subtitle must reflect the other participant's actual
 // role (e.g. "Coach") instead of a hardcoded "Player" label.
@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 
 test("PAD-31: coach participant shows 'Coach' role in chat header, not 'Player'", async ({ page }) => {
   // Open the seeded conversation with the coach.
-  await page.getByText("E2E Coach").first().click();
+  await conversationRow(page, "E2E Coach").click();
   await page.waitForResponse(
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
     { timeout: 10_000 }

@@ -24,6 +24,7 @@
     "@levelup/types": "*",
     "@levelup/validation": "*",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-community/slider": "5.0.1",
     "@rn-primitives/alert-dialog": "^1.5.2",
     "@rn-primitives/avatar": "^1.5.2",
     "@rn-primitives/checkbox": "^1.5.2",

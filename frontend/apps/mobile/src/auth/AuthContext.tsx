@@ -20,14 +20,8 @@ import { signOut } from "./sign-out";
 
 export type AuthUser = authApi.MeResponse;
 
-/**
- * auth.parental-consent rule 3 (PAD-198): an adult's sign-up signs in and
- * yields the user; a minor's yields where the guardian's mail went and no
- * session is stored.
- */
-export type RegisterResult =
-  | { user: AuthUser; guardianPending?: undefined }
-  | { user?: undefined; guardianPending: authApi.GuardianPendingInfo };
+/** auth.register: an adult's sign-up signs in and yields the user. */
+export type RegisterResult = { user: AuthUser };
 
 type AuthContextType = {
   user: AuthUser | null;
@@ -38,8 +32,7 @@ type AuthContextType = {
   /**
    * auth.register: creates the account, then signs in exactly as `login`
    * does. Resolves with the hydrated user so the caller can route on
-   * `coachApproval` / `clubs` without a second `/auth/me` — or, for a minor
-   * waiting for a guardian (PAD-198), with `guardianPending` and no session.
+   * `coachApproval` / `clubs` without a second `/auth/me`.
    */
   register: (payload: authApi.RegisterPayload) => Promise<RegisterResult>;
   /** Re-reads /auth/me (e.g. after an approval) and updates the session. */
@@ -128,14 +121,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(
     async (payload: authApi.RegisterPayload) => {
       const res = await authApi.register(payload);
-      if (!res.accessToken) {
-        return {
-          guardianPending: {
-            guardianEmail: res.guardianEmail ?? null,
-            resendAvailableInSeconds: res.resendAvailableInSeconds ?? 60,
-          },
-        };
-      }
       await secureTokenStorage.setToken(res.accessToken);
       try {
         const me = await authApi.getMe();

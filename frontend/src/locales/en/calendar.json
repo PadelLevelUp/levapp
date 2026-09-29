@@ -158,7 +158,7 @@
       "saving": "Saving…",
       "confirm": "Confirm",
       "edit": "Edit",
-      "notify": "Notify",
+      "notify": "Invite",
       "remind": "Remind",
       "sending": "Sending…",
       "deleteClass": "Delete class",
@@ -400,12 +400,27 @@
       "source": {
         "coach": "Standard setting",
         "lesson": "Set for this series",
-        "instance": "Set for this class"
+        "instance": "Set for this class",
+        "type": "Private class default"
       },
       "mode": {
         "inherit": "Standard",
         "on": "Visible",
         "off": "Hidden"
+      }
+    },
+    "autoInvites": {
+      "title": "Automatic invitations",
+      "hint": "Whether the engine invites students to fill this class's open spots on its own. Reminders are always sent.",
+      "source": {
+        "type": "Default for this class type",
+        "lesson": "Set for this series",
+        "instance": "Set for this class"
+      },
+      "mode": {
+        "inherit": "Default",
+        "on": "On",
+        "off": "Off"
       }
     },
     "joinRequest": {

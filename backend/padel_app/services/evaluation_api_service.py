@@ -88,6 +88,23 @@ def _scale(category):
             NEW_SCALE[1] if category.scale_max is None else category.scale_max)
 
 
+def _own_scale(entry):
+    """evaluations.scale rule 6: the scale a score was given on (its snapshot, PAD-423). An entry
+    with no snapshot reads its competency's scale; one with neither reads 1-5 (rule 3)."""
+    if entry.scale_max is not None:
+        return (1 if entry.scale_min is None else entry.scale_min, entry.scale_max)
+    return _scale(entry.category) if entry.category is not None else NEW_SCALE
+
+
+def on_scale(score, given, current):
+    """evaluations.scale rule 5: `score`, given on `given` (min, max), placed on `current` by
+    proportion, v' = cmin + (v - smin)(cmax - cmin)/(smax - smin). 4 on 1-5 is 7.75 on 1-10."""
+    (smin, smax), (cmin, cmax) = given, current
+    if (smin, smax) == (cmin, cmax) or smax == smin:
+        return score
+    return cmin + (score - smin) * (cmax - cmin) / (smax - smin)
+
+
 def serialize_competency(category, score_count=None) -> dict:
     if score_count is None:
         score_count = EvaluationEntry.query.filter_by(category_id=category.id).count()
@@ -129,7 +146,8 @@ def ensure_starting_set(coach) -> None:
             for order, key in enumerate(STARTING_KEYS):
                 entry = BY_KEY[key]
                 db.session.add(EvaluationCategory(
-                    coach_id=coach.id, name=entry["pt"], scale_min=NEW_SCALE[0], scale_max=NEW_SCALE[1],
+                    # PAD-423 (evaluations.scale rule 2): non-legacy, so on the coach's scale.
+                    coach_id=coach.id, name=entry["pt"], scale_min=1, scale_max=coach_scale(coach),
                     catalogue_key=key, competency_group=entry["group"], is_active=True, sort_order=order,
                 ))
         db.session.commit()
@@ -181,7 +199,7 @@ def _name_taken(coach, name, *, except_id=None) -> bool:
 
 def create_competency(coach, body):
     """`{catalogueKey}` switches a built-in on; `{name}` adds a custom one. Both
-    are 1-5 and active. With `ensure_starting_set` this is what can create a
+    are created on the coach's scale (PAD-423; 1-5 unless they chose another) and active. With `ensure_starting_set` this is what can create a
     NON-LEGACY row — the rollback boundary named in PAD-363. Switching on a
     built-in that is already a row is idempotent. Returns `(competency, created)`.
 
@@ -214,7 +232,8 @@ def create_competency(coach, body):
             raise ApiError(409, "duplicate_name")
 
     category = EvaluationCategory(
-        coach_id=coach.id, name=name, scale_min=NEW_SCALE[0], scale_max=NEW_SCALE[1],
+        # PAD-423 (evaluations.scale rule 2): non-legacy, so on the coach's scale.
+        coach_id=coach.id, name=name, scale_min=1, scale_max=coach_scale(coach),
         catalogue_key=key, competency_group=group, is_active=True, sort_order=None,
     )
     try:
@@ -280,7 +299,7 @@ def _number(score):
 
 
 def _rating(entry) -> dict:
-    low, high = _scale(entry.category)
+    low, high = _own_scale(entry)  # evaluations.scale rule 6: a single score on its own scale
     return {
         "categoryId": entry.category_id, "name": entry.category.name, "key": entry.category.catalogue_key,
         "score": _number(entry.score), "scaleMin": low, "scaleMax": high,
@@ -411,8 +430,10 @@ def _materialise(pending) -> LessonInstance:
     return get_or_materialize_instance(lesson, occurrence)
 
 
-def _validated_ratings(coach, raw) -> dict:
-    """{category: int | None} — every key checked before anything is written."""
+def _validated_ratings(coach, raw, *, check_range=True) -> dict:
+    """{category: int | None} — every key checked before anything is written. `put_record`
+    defers the range check (`check_range=False`) until it knows the record: a rating the record
+    already holds is checked against ITS OWN scale (D149), see `_check_ranges`."""
     if not isinstance(raw, dict):
         raise ApiError(400, "ratings_invalid")
     ratings = {}
@@ -421,12 +442,24 @@ def _validated_ratings(coach, raw) -> dict:
         if value is not None:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not float(value).is_integer():
                 raise ApiError(400, "score_not_an_integer")
-            low, high = _scale(category)
-            if not low <= int(value) <= high:
-                raise ApiError(400, "score_out_of_range")  # B-126: the range rule, enforced at last
             value = int(value)
+            if check_range:
+                _check_ranges({category: value}, {})
         ratings[category] = value
     return ratings
+
+
+def _check_ranges(ratings, held_entries) -> None:
+    """B-126's range rule. A score is checked against the scale it will be stored on: the held
+    entry's own snapshot when the record already rates that competency (D149, evaluations.scale
+    rule 3: editing keeps the entry's scale), else the competency's current scale."""
+    for category, value in ratings.items():
+        if value is None:
+            continue
+        entry = held_entries.get(category.id)
+        low, high = _own_scale(entry) if entry is not None else _scale(category)
+        if not low <= value <= high:
+            raise ApiError(400, "score_out_of_range")
 
 
 def put_record(coach, body):
@@ -436,7 +469,7 @@ def put_record(coach, body):
     if not isinstance(body, dict) or "playerId" not in body:
         raise ApiError(400, "player_id_required")
     link = coach_player_for(coach, body["playerId"])
-    ratings = _validated_ratings(coach, body["ratings"]) if "ratings" in body else {}
+    ratings = _validated_ratings(coach, body["ratings"], check_range=False) if "ratings" in body else {}
     note = body.get("note", MISSING)
     if note is not MISSING and note is not None:
         if not isinstance(note, str) or len(note) > NOTE_MAX:
@@ -468,7 +501,9 @@ def put_record(coach, body):
         existing = EvaluationRecord.query.filter_by(coach_player_id=link.id, evaluated_on=on)
         existing = (existing.filter(EvaluationRecord.lesson_instance_id.is_(None)) if instance_id is None
                     else existing.filter_by(lesson_instance_id=instance_id)).first()
-    held = {e.category_id for e in existing.entries} if existing is not None else set()
+    held_entries = {e.category_id: e for e in existing.entries} if existing is not None else {}
+    held = set(held_entries)
+    _check_ranges(ratings, held_entries)
     for category, value in ratings.items():
         if value is not None and not category.is_active and category.id not in held:
             raise ApiError(409, "competency_inactive")  # an existing rating may still change (Q26)
@@ -540,8 +575,20 @@ def monthly_means(coach_player_id, category_id, *, since: date | None = None, un
     `_months_back(record.evaluated_on, 6|12) … record.evaluated_on` (sharing.spec.md
     decision 3) — so a rating entirely before the window's cutoff falls out of its
     month's mean, not just out of an already-computed monthly figure."""
+    by_month = defaultdict(list)
+    for day, score in _scores_on_current_scale(coach_player_id, category_id, since=since, until=until):
+        by_month[day.strftime("%Y-%m")].append(score)
+    return {m: sum(scores) / len(scores) for m, scores in by_month.items()}
+
+
+def _scores_on_current_scale(coach_player_id, category_id, *, since=None, until=None) -> list:
+    """`(record day, score)` for every record-held rating of `category_id` (Q29), each score
+    placed on the competency's CURRENT scale (evaluations.scale rule 5): every figure that
+    combines scores is built from these, never from the raw column."""
+    current = _scale(db.session.get(EvaluationCategory, category_id))
     query = (
-        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
+        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score,
+                         EvaluationEntry.scale_min, EvaluationEntry.scale_max)
         .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
         .filter(EvaluationRecord.coach_player_id == coach_player_id, EvaluationEntry.category_id == category_id)
     )
@@ -549,10 +596,10 @@ def monthly_means(coach_player_id, category_id, *, since: date | None = None, un
         query = query.filter(EvaluationRecord.evaluated_on >= since)
     if until is not None:
         query = query.filter(EvaluationRecord.evaluated_on <= until)
-    by_month = defaultdict(list)
-    for day, score in query:
-        by_month[day.strftime("%Y-%m")].append(score)
-    return {m: sum(scores) / len(scores) for m, scores in by_month.items()}
+    return [
+        (day, on_scale(score, current if smax is None else (1 if smin is None else smin, smax), current))
+        for day, score, smin, smax in query
+    ]
 
 
 def evolution(coach, player_id, category_id) -> dict:
@@ -568,12 +615,7 @@ def evolution(coach, player_id, category_id) -> dict:
 
     # Only the ratings that sit in a record count (Q29), each on its record's day —
     # `rolling` needs the individual days (not the monthly means `raw` holds).
-    rows = [
-        (day, score) for day, score in
-        db.session.query(EvaluationRecord.evaluated_on, EvaluationEntry.score)
-        .join(EvaluationEntry, EvaluationEntry.record_id == EvaluationRecord.id)
-        .filter(EvaluationRecord.coach_player_id == link.id, EvaluationEntry.category_id == category.id)
-    ]
+    rows = _scores_on_current_scale(link.id, category.id)
 
     def rolling(n):
         scores = [score for day, score in rows if _months_back(on, n) <= day <= on]
@@ -696,6 +738,44 @@ def _settings_payload(kind, value) -> dict:
     if kind == "every_n_classes":
         payload["everyN"] = value
     return payload
+
+
+# ── the coach's evaluation scale (PAD-423, evaluations.scale rules 1–2) ─────
+
+SCALES = (5, 10, 20, 100)
+
+
+def coach_scale(coach) -> int:
+    """The coach's scale maximum (the minimum is always 1): the config row's, else 5.
+    NEVER creates the row. Separate from NEW_SCALE, which the frozen legacy save and the import
+    keep at (1, 5) (R-047, legacy-client-contract rules 9-10)."""
+    from padel_app.models import NotificationConfig
+
+    row = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    value = getattr(row, "evaluation_scale_max", None) if row is not None else None
+    return value if value in SCALES else 5
+
+
+def get_evaluation_scale(coach) -> dict:
+    return {"scaleMax": coach_scale(coach)}
+
+
+def put_evaluation_scale(coach, body) -> dict:
+    """Rule 1: one of the four, else 400 and nothing written. Rule 2: the coach's NON-legacy
+    competencies (catalogue and custom) take it in the same transaction; legacy keeps 1-5."""
+    from padel_app.models import EvaluationCategory
+    from padel_app.services.notification_service import get_or_create_config
+
+    value = body.get("scaleMax", MISSING)
+    if isinstance(value, bool) or value not in SCALES:
+        raise ApiError(400, "invalid_scale")
+    with unit_of_work():
+        get_or_create_config(coach.id).evaluation_scale_max = value
+        EvaluationCategory.query.filter(
+            EvaluationCategory.coach_id == coach.id,
+            EvaluationCategory.competency_group.isnot(None),
+        ).update({"scale_min": 1, "scale_max": value}, synchronize_session=False)
+    return {"scaleMax": value}
 
 
 def get_evaluation_settings(coach) -> dict:

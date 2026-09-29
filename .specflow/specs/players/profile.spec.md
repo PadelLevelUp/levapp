@@ -46,6 +46,15 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    instance in the selected week is listed; instances already at capacity are shown but not
    selectable. The picker is **not** filtered by the player's level — a coach may add any player
    to any class
+5a. **The picker never offers a class that has started (PAD-439; owner, 2026-09-24).** Classes
+   whose start is at or before "now" on the club's clock are left out, today's included (a 12:00
+   class at 23:00). Shared by web and iOS: `upcomingPickerClasses` in `@levelup/config`.
+5b. **The picker cannot step back before the current week (PAD-439).** "Previous week" is
+   disabled on the club's current week (`canStepBackPickerWeek`), on web and iOS.
+5c. **The class list scrolls on its own (PAD-439, B-202).** Title and week navigation stay at the
+   top and Cancel/Add at the bottom; a long week scrolls in between by wheel or trackpad, on a
+   short laptop screen too. Web uses a native `overflow-y: auto` list: Radix ScrollArea inside the
+   Dialog did not receive wheel scrolling. iOS already uses a ScrollView.
 6. Client calls to `/api/app/lesson_instances` must use the HTTP verb the route exposes (`GET`).
    A verb mismatch fails the request and renders as an empty picker with no error surfaced
 7. `GET /api/app/player_profile/{playerId}` is **coach-only**: it resolves the acting coach with
@@ -71,6 +80,17 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **When** the coach opens the player's profile and triggers "Add to classes"
 - **Then** the dialog lists that class for its weekday
 - **And** selecting it and confirming enrols the player in that class instance
+
+#### The picker offers no class that has started, and cannot step back (PAD-439)
+- **Given** a coach whose current week holds a class today at 00:00
+- **When** they open "Add to classes" for a player
+- **Then** that class is not listed (the week shows its empty state), and "previous week" is disabled
+- **And** stepping to next week lists its classes, and from there "previous week" is enabled again
+
+#### A long week scrolls inside the picker (PAD-439, B-202)
+- **Given** a 1280×520 browser window and a week whose classes overflow the picker
+- **When** the coach scrolls the class list with the mouse wheel
+- **Then** the last class comes into view above the Cancel/Add footer, where it can be selected
 
 #### The profile opens beside the roster on a wide screen (PAD-410)
 - **Given** a coach on a 1280px-wide browser with players "João Silva" and "Pedro Costa"

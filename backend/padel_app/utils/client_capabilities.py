@@ -24,6 +24,12 @@ OPEN_SPOTS = "open-spots"
 # Retire once no App Store build older than the first declaring one is in use.
 EVALUATIONS = "evaluations"
 
+# PAD-429 (eligibility.open-spot-visibility rule 12): the class payload's `openSpotsSource` may be
+# `type` (a private class hidden by default, rule 3a). A build that predates it looks the source
+# label up by key and would show a missing key, so it is sent `coach` instead; the resolved value
+# is the same. Retire once no App Store build older than the first declaring one is in use.
+CLASS_TYPE_DEFAULTS = "class-type-defaults"
+
 
 def declared_capabilities() -> frozenset:
     """The tokens the current request declares, lower-cased; empty outside a request."""

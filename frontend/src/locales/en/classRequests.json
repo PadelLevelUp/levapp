@@ -37,15 +37,20 @@
       "countered": "New time proposed",
       "accepted": "Booked",
       "declined": "Declined",
-      "withdrawn": "Withdrawn"
+      "withdrawn": "Withdrawn",
+      "rejected": "Declined",
+      "superseded": "Spot taken"
     },
     "coachStatus": {
       "pending": "Waiting for you",
       "countered": "Waiting for the student",
       "accepted": "Booked",
       "declined": "Declined",
-      "withdrawn": "Withdrawn by the student"
+      "withdrawn": "Withdrawn by the student",
+      "rejected": "Declined",
+      "superseded": "Spot taken"
     },
+    "academyBadge": "Academy",
     "with": "with {{name}}",
     "from": "from {{name}}",
     "empty": "No class requests yet.",

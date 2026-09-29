@@ -76,6 +76,17 @@ def validate_registration(data):
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+#: auth.register rule 18 (PAD-445, owner decision 2026-09-24): LevApp accepts adults only,
+#: whatever the country's age of digital consent.
+MINIMUM_SIGNUP_AGE = 18
+
+#: Bilingual because an older app build shows the server's text verbatim; web and iOS map
+#: the `UNDERAGE` code to their own localized copy.
+_UNDERAGE_MESSAGE = (
+    "Data de nascimento inválida. Esta app só aceita maiores de 18 anos. "
+    "/ Invalid date of birth. This app only accepts people aged 18 or over."
+)
+
 #: auth.parental-consent rule 2: an absent field means an app build from
 #: before PAD-198, which shows this text verbatim — so it says what to do.
 _UPDATE_APP = {
@@ -90,23 +101,26 @@ _UPDATE_APP = {
 }
 
 
-def _absent(value):
-    return value is None or (isinstance(value, str) and not value.strip())
+#: auth.activate rule 13 (PAD-457): the activation form's own "update the app" text.
+UPDATE_APP_TO_ACTIVATE = (
+    "Atualiza a app para ativares a conta: a data de nascimento passou a ser obrigatória. "
+    "/ Update the app to activate your account: date of birth is now required."
+)
 
 
-def validate_consent_fields(data, email, today=None):
-    """auth.parental-consent rule 2. Returns (birth_date, country,
-    guardian_email_or_None, is_minor) or raises RegistrationError with a code."""
+def age_on(birth, today):
+    """Full years on `today` (a 29 February birth turns a year older on 1 March in a non-leap year)."""
+    return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+
+
+def validate_adult_birth_date(raw, today, *, update_app_message):
+    """auth.register rule 18 / auth.activate rule 13: the one birth-date check both paths share.
+    Returns the date, or raises RegistrationError with BIRTH_DATE_REQUIRED / INVALID_BIRTH_DATE /
+    UNDERAGE on `birthDate`."""
     from datetime import date
 
-    from padel_app.services.parental_consent_service import is_minor
-
-    data = data or {}
-    today = today or utcnow_naive().date()
-
-    raw = data.get("birthDate")
     if _absent(raw):
-        raise RegistrationError(_UPDATE_APP["birthDate"], 400, "birthDate", code="BIRTH_DATE_REQUIRED")
+        raise RegistrationError(update_app_message, 400, "birthDate", code="BIRTH_DATE_REQUIRED")
     birth = None
     if isinstance(raw, str) and _DATE_RE.match(raw.strip()):
         try:
@@ -118,6 +132,23 @@ def validate_consent_fields(data, email, today=None):
             "birthDate must be a real date (YYYY-MM-DD), not in the future", 400, "birthDate",
             code="INVALID_BIRTH_DATE",
         )
+    if age_on(birth, today) < MINIMUM_SIGNUP_AGE:
+        raise RegistrationError(_UNDERAGE_MESSAGE, 400, "birthDate", code="UNDERAGE")
+    return birth
+
+
+def _absent(value):
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def validate_consent_fields(data, email, today=None):
+    """auth.register rule 18: birth date and country, both required at sign-up.
+    Returns (birth_date, country) or raises RegistrationError with a code."""
+    data = data or {}
+    today = today or utcnow_naive().date()
+
+    # auth.register rule 18: before the country, so an under-18 is refused whatever else is sent.
+    birth = validate_adult_birth_date(data.get("birthDate"), today, update_app_message=_UPDATE_APP["birthDate"])
 
     raw_country = data.get("country")
     if _absent(raw_country):
@@ -126,25 +157,7 @@ def validate_consent_fields(data, email, today=None):
     if not re.fullmatch(r"[A-Z]{2}", country):
         raise RegistrationError("country must be a two-letter code", 400, "country", code="INVALID_COUNTRY")
 
-    minor = is_minor(birth, country, today)
-    guardian = None
-    if minor:
-        guardian = _clean(data.get("guardianEmail")).lower()
-        if not guardian:
-            raise RegistrationError(
-                "a parent or guardian's email is required", 400, "guardianEmail",
-                code="GUARDIAN_EMAIL_REQUIRED",
-            )
-        if not EMAIL_RE.match(guardian):
-            raise RegistrationError(
-                "the guardian's email is not valid", 400, "guardianEmail", code="INVALID_GUARDIAN_EMAIL",
-            )
-        if guardian == (email or "").lower():
-            raise RegistrationError(
-                "the guardian's email must be different from yours", 400, "guardianEmail",
-                code="GUARDIAN_EMAIL_IS_OWN",
-            )
-    return birth, country, guardian, minor
+    return birth, country
 
 
 def _assert_unique(username, email):
@@ -163,16 +176,13 @@ def register_user_service(data, now=None):
     Coach accounts start `pending` unless the coach-approval gate is off
     (`app_settings.coach_approval_required`, else `COACH_APPROVAL_REQUIRED`).
     Any `club` key in the body is ignored: the club is chosen after approval.
-    `now` is the request's one instant (B-130): a minor's consent link is
-    stamped with it, so the caller can compute the resend countdown from the
-    same value instead of a second clock read.
+    `now` is the request's one instant (B-130): the age check is judged on
+    it, so the caller can reuse the same value instead of a second clock read.
     """
-    # B-130: one instant for the whole request — the age is judged on the same
-    # date the consent link is stamped with (a child who comes of age at midnight
-    # during a slow request is a minor on both, or an adult on both).
+    # B-130: one instant for the whole request.
     now = now or utcnow_naive()
     role, name, username, email, password = validate_registration(data)
-    birth_date, country, guardian_email, minor = validate_consent_fields(data, email, today=now.date())
+    birth_date, country = validate_consent_fields(data, email, today=now.date())
     _assert_unique(username, email)
 
     # auth.coach-approval rule 9 (PAD-238/PAD-279): the app_settings row wins,
@@ -191,11 +201,6 @@ def register_user_service(data, now=None):
             birth_date=birth_date,
             country=country,
         )
-        if minor:
-            # auth.parental-consent rule 3: the account exists but nobody can
-            # use it until a guardian consents; the email code waits too.
-            user.guardian_consent_status = "pending"
-            user.email_verification_required = True
         db.session.add(user)
         db.session.flush()
 
@@ -217,14 +222,6 @@ def register_user_service(data, now=None):
     except Exception:
         db.session.rollback()
         raise
-
-    if minor:
-        # auth.parental-consent rule 3: mail the guardian instead; the first
-        # verification code and a coach's admin notification wait for consent.
-        from padel_app.services.parental_consent_service import start_consent
-
-        start_consent(user, guardian_email, now=now)
-        return user
 
     # auth.register rule 14 / auth.email-verification rule 6: the first code
     # goes out inside the signup request, best-effort. Runs before the admin

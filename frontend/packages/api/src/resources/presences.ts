@@ -4,6 +4,7 @@ import type {
   AttendanceGranularity,
   ClassInstance,
   PendingValidation,
+  PendingValidationBadge,
   PendingValidationCount,
   Presence,
   PresenceStats,
@@ -111,6 +112,15 @@ export async function getPendingValidationCount(
   const res = await getApi().get("/app/class_instances/pending_validation/count", {
     params,
   });
+  return res.data;
+}
+
+/**
+ * The Presences badge (PAD-443, `attendance.validation` rule 23): the dashboard validation item's
+ * own number, so the badge, the card and the tab trigger agree.
+ */
+export async function getPendingValidationBadge(): Promise<PendingValidationBadge> {
+  const res = await getApi().get("/app/class_instances/pending_validation/badge");
   return res.data;
 }
 

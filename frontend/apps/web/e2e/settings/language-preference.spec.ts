@@ -1,6 +1,8 @@
 import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
+import { API_AUTH } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-39: Multi-language support (PT/EN) with coach-selectable language.
@@ -97,4 +99,60 @@ test("PAD-40: language preference drives the whole app UI and persists", async (
   await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible({
     timeout: 5000,
   });
+});
+
+// B-184 (PAD-453): the Settings page reads the profile on mount. When that read landed after the
+// coach had already chosen a language, it put the stored language back, and Save wrote the old
+// one (200, "Settings saved", app still in the old language). Hold that read until the choice is
+// made, then let it land: the choice must survive and be what Save sends.
+test("B-184: a late profile load does not overwrite the language just chosen", async ({ page }) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let reads = 0;
+  let held = 0;
+  // After navigation, the 1st GET /auth/me is the session restore (nothing renders until it
+  // lands); the 2nd is the Settings page's own mount read, the one that lost to the coach.
+  await page.route(/\/auth\/me$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    reads += 1;
+    if (reads !== 2) return route.continue();
+    held += 1;
+    const response = await route.fetch();
+    await gate;
+    return route.fulfill({ response });
+  });
+
+  const sent: Array<{ language?: string }> = [];
+  page.on("request", (r) => {
+    if (/\/auth\/me$/.test(r.url()) && r.method() === "PATCH") sent.push(r.postDataJSON());
+  });
+
+  try {
+    await openSettings(page);
+    await page.getByRole("button", { name: ui("settings.nav.preferences") }).first().click();
+    await page.getByRole("combobox", { name: ui("settings.language") }).click();
+    await page.getByRole("option", { name: ui("settings.portuguese") }).click();
+
+    // Now let the stale read land, and give React a beat to apply it.
+    const landed = page.waitForResponse((r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "GET");
+    release();
+    await landed;
+    await page.waitForTimeout(500);
+    expect(held, "the Settings mount read was held until after the choice").toBe(1);
+
+    const saved = page.waitForResponse(
+      (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200
+    );
+    await page.getByRole("button", { name: ui("settings.saveChanges") }).click();
+    await saved;
+    expect(sent.map((b) => b.language)).toEqual(["pt"]);
+  } finally {
+    await page.unroute(/\/auth\/me$/);
+    // Restore the seeded English for later specs, whatever happened above.
+    const token = await page.evaluate(() => localStorage.getItem("accessToken"));
+    await page.request.patch(`${API_AUTH}/me`, {
+      data: { language: "en" },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
 });

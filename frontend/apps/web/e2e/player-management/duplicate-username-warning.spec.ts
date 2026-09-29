@@ -78,6 +78,8 @@ test.describe("PAD-7: unique field validation", () => {
     await invitePage.locator("#username").fill("e2e-student"); // taken
     await invitePage.locator("#password").fill("DupUser123!");
     await invitePage.locator("#repeatPassword").fill("DupUser123!");
+    // PAD-457: an adult birth date, so the refusal under test is the username's.
+    await invitePage.locator("#birthDate").fill("1990-01-01");
     await invitePage.locator('button[type="submit"]').click();
 
     // Pre-auth pages render in the default locale (pt), so accept either language.

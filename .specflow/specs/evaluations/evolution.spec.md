@@ -67,9 +67,10 @@ evaluations drawer (`evaluations.history` rule 3). No chart, average or delta ex
    (decimal arithmetic, not binary float rounding); the delta is the difference of the two
    *rounded* monthly means. The shells render every figure with exactly one decimal ("3.0",
    "+1.5"). The canvas mixes "3" and "4.0" on one screen.
-10. **Each competency charts on its own scale.** **(pending owner decision Q1)** The y-axis runs
-    from `scaleMin` to `scaleMax` — 1–5 for a stars competency, 1–10 for a legacy
-    category — and nothing is rescaled.
+10. **Each competency charts on its current scale.** The y-axis runs from the competency's current
+    `scaleMin` to `scaleMax`; a score given on an earlier scale is placed on it by proportion, on
+    the server (`evaluations.scale` rule 5, R-048). A legacy category charts on its own scale.
+    No stored score is rescaled.
 11. **(AV-074) The chart states its values.** Dots on the points, month labels in the active
     locale ("Jan"…), the scale's bounds on the y-axis, and the value of a point on hover (web) or
     tap (iOS). The year is added to the month labels once the series spans two calendar years.

@@ -52,6 +52,14 @@ Coaches finalizing attendance for classes that have already happened.
 - Undoing a validation reopens the record for editing — it never erases what was already
   recorded.
 - A coach only ever sees their own classes and players here — never another coach's roster.
+- Classes waiting to be validated are hard to miss: the coach sees how many, in the same number,
+  on the dashboard and on the Presences tab, highlighted more strongly as they pile up; and inside
+  a class, the players still needing a decision stand out until the coach decides.
+- A class the coach is filling in never jumps away mid-task: once its last player is decided it
+  stays where it was, with its Validate button right there; it is regrouped only when the page
+  is next opened.
+- Every attendance answer looks different at a glance, wherever it appears: present is green,
+  justified is amber, unjustified is red, and nothing chosen stays grey — never by colour alone.
 
 ## Success Metrics
 

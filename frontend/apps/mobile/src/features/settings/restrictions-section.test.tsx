@@ -16,7 +16,19 @@ const searchPlayers = vi.fn();
 vi.mock("@levelup/api", () => ({
   notificationEngineApi: { searchPlayers: (...a: unknown[]) => searchPlayers(...a) },
 }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+// Interpolated values are appended so a test can see what a label was given (PAD-451).
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => (opts ? `${key}|${Object.values(opts).join("|")}` : key),
+  }),
+}));
+vi.mock("@/components/ui/time-picker-input", async () => {
+  const { TextInput } = await import("react-native");
+  return {
+    TimePickerInput: (p: { testID: string; value: string; onChange: (v: string) => void }) =>
+      createElement(TextInput, { testID: p.testID, value: p.value, onChangeText: p.onChange }),
+  };
+});
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("@/components/ui/input", async () => {
   const { TextInput } = await import("react-native");
@@ -179,3 +191,37 @@ describe("the engine switched off disables the section, as on web (PAD-433)", ()
     expect(n.byTestId("restriction-cancellationDeadlineHours-dec").props.disabled).toBe(true);
   });
 });
+
+describe("the coach's quiet window on iOS (PAD-451, notifications.config rule 6a)", () => {
+  it("shows the saved window and names it in the description", async () => {
+    const { n } = await mount({ quietHours: { enabled: true, start: "23:00", end: "08:00" } });
+    expect(n.byTestId("restriction-quietHours-start").props.value).toBe("23:00");
+    expect(n.byTestId("restriction-quietHours-end").props.value).toBe("08:00");
+    expect(text(n.byTestId("restriction-row-quietHours"))).toContain("settings.restrictions.quietHoursDescription|23:00|08:00");
+  });
+
+  it("reads missing bounds as 22:00–07:00", async () => {
+    const { n } = await mount({ quietHours: { enabled: true } });
+    expect(n.byTestId("restriction-quietHours-start").props.value).toBe("22:00");
+    expect(n.byTestId("restriction-quietHours-end").props.value).toBe("07:00");
+  });
+
+  it("reports a valid edit with both bounds", async () => {
+    const { n, onChange } = await mount({ quietHours: { enabled: true, start: "23:00", end: "08:00" } });
+    await n.changeText("restriction-quietHours-end", "08:30");
+    expect(onChange).toHaveBeenCalledWith({ ...BASE, quietHours: { enabled: true, start: "23:00", end: "08:30" } });
+  });
+
+  it("does not report an empty window, and says why", async () => {
+    const { n, onChange } = await mount({ quietHours: { enabled: true, start: "23:00", end: "08:00" } });
+    await n.changeText("restriction-quietHours-end", "23:00");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(n.queryByTestId("restriction-quietHours-error")).not.toBeNull();
+  });
+
+  it("hides the pickers while quiet hours are off", async () => {
+    const { n } = await mount({ quietHours: { enabled: false, start: "23:00", end: "08:00" } });
+    expect(n.queryByTestId("restriction-quietHours-start")).toBeNull();
+  });
+});
+

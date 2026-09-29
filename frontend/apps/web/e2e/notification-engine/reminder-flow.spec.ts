@@ -20,6 +20,7 @@ import { openCalendar, openSettings, openMessages } from "../helpers/navigation"
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 import { cleanupReminderTestClasses } from "../helpers/reminder-test-class";
+import { ui } from "../helpers/i18n";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -47,7 +48,7 @@ async function openClassDetail(page: Page) {
  * enrolled but IS a coach player.
  */
 async function sendNotificationFromModal(page: Page): Promise<boolean> {
-  await page.getByRole("button", { name: /^notify$/i }).first().click();
+  await page.getByRole("button", { name: ui("calendar.detail.notify") }).first().click();
   const dialog = page.locator('[role="dialog"]').filter({ hasText: /student|group|notify/i }).first();
   await expect(dialog).toBeVisible({ timeout: 5000 });
 

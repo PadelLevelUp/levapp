@@ -1,0 +1,51 @@
+# PAD-442 — attendance.validation rule 25, on iOS.
+#
+# A class the coach completes under "needs your input" stays there, with its Validate button
+# enabled in place, instead of jumping to "ready to confirm".
+#
+# The seed's "E2E Validation Class" (previous week) leaves one enrolled student silent; the other
+# copy of that class is ready, so both groups show. Marking is a local edit (nothing is
+# validated), so the flow stores nothing. Mirrors e2e/attendance/pad442-completed-class-stays.spec.ts.
+# Flow number 108 is from Session-B's range.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+
+- openLink: "levelup://presences?validate=1&week=-1"
+# Cards open collapsed; the needs-input group comes first, and the card's centre is its expand control.
+- extendedWaitUntil:
+    visible:
+      id: "presences-class-card"
+    timeout: 20000
+- tapOn:
+    id: "presences-class-card"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "validate-list-undecided-icon-.*"
+    timeout: 20000
+- assertVisible:
+    id: "presences-validate-class"
+    enabled: false
+
+- tapOn:
+    id: "presence-mark-present"
+    below:
+      id: "validate-list-undecided-icon-.*"
+- extendedWaitUntil:
+    notVisible:
+      id: "validate-list-undecided-icon-.*"
+    timeout: 10000
+
+# Still under needs-input, above the ready group, and Validate is now enabled in place.
+- assertVisible:
+    id: "presences-group-needsInput"
+- assertVisible:
+    id: "validate-list-row-.*"
+    below:
+      id: "presences-group-needsInput"
+    above:
+      id: "presences-group-ready"
+- assertVisible:
+    id: "presences-validate-class"
+    enabled: true

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { ui, uiText } from "../../e2e/helpers/i18n";
+import { GREETING_KEYS, ui, uiIn, uiText } from "../../e2e/helpers/i18n";
 
 describe("e2e i18n helper (R-013)", () => {
   it("reads a key the way the app's t() does: <file>.<path>", () => {
@@ -25,6 +25,17 @@ describe("e2e i18n helper (R-013)", () => {
     expect(ui("calendar.detail.deleteConfirmTitle").test("Delete this class?")).toBe(true);
     const until = ui("calendar.detail.untilDate", { exact: false });
     expect(until.test(uiText("calendar.detail.untilDate", "en").replace("{{date}}", "3 Oct"))).toBe(true);
+  });
+
+  it("uiIn matches one language only, so a Portuguese page can assert no English is left", () => {
+    const english = uiIn(GREETING_KEYS, "en");
+    expect(english.test("Good morning, Ana")).toBe(true);
+    expect(english.test("Good evening, Ana")).toBe(true);
+    expect(english.test("Bom dia, Ana")).toBe(false);
+    expect(uiIn(GREETING_KEYS, "pt").test("Boa noite, Ana")).toBe(true);
+    // The typed pattern it replaced no longer matched the real copy, so a `toHaveCount(0)` on it
+    // passed with an English greeting on the page (PAD-419 made "Morning, …" "Good morning, …").
+    expect(/^(Morning|Afternoon|Evening),/.test("Good morning, Ana")).toBe(false);
   });
 
   it("throws on a missing key instead of matching nothing", () => {

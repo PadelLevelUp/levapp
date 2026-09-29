@@ -22,7 +22,9 @@ from padel_app.services.evaluation_api_service import (
     _months_back,
     _number,
     _one_decimal,
+    _own_scale,
     _scale,
+    on_scale,
     monthly_means,
 )
 from padel_app.utils.dates import utcnow_naive
@@ -82,7 +84,8 @@ def _delta(a, b) -> float:
 def _previous_score(record, category_id):
     """The score of `category_id` in the latest EARLIER record of this
     coach-player (`evaluated_on < record.evaluated_on`, then id) — record-held
-    ratings only (Q29, the join requires `record_id`). `None` when there is none."""
+    ratings only (Q29, the join requires `record_id`), placed on the competency's
+    current scale (evaluations.scale rule 5). `None` when there is none."""
     row = (
         EvaluationEntry.query.join(EvaluationRecord, EvaluationEntry.record_id == EvaluationRecord.id)
         .filter(
@@ -93,7 +96,7 @@ def _previous_score(record, category_id):
         .order_by(EvaluationRecord.evaluated_on.desc(), EvaluationRecord.id.desc())
         .first()
     )
-    return row.score if row is not None else None
+    return None if row is None else on_scale(row.score, _own_scale(row), _scale(row.category))
 
 
 def _evolution_delta(record, entry, evolution_type):
@@ -104,7 +107,7 @@ def _evolution_delta(record, entry, evolution_type):
     than two months."""
     if evolution_type == "last":
         previous = _previous_score(record, entry.category_id)
-        return None if previous is None else _delta(entry.score, previous)
+        return None if previous is None else _delta(on_scale(entry.score, _own_scale(entry), _scale(entry.category)), previous)
     if evolution_type in ("6m", "1y"):
         months_back = 6 if evolution_type == "6m" else 12
         since = _months_back(record.evaluated_on, months_back)
@@ -134,7 +137,7 @@ def build_card(record, category_ids, evolution_type, include_note, *, on=None) -
     evolution_lines = []
     for entry in chosen:
         category = entry.category
-        low, high = _scale(category)
+        low, high = _own_scale(entry)  # evaluations.scale rule 6: the score on its own scale
         ratings.append({
             "name": category.name, "key": category.catalogue_key,
             "score": _number(entry.score), "scaleMin": low, "scaleMax": high,

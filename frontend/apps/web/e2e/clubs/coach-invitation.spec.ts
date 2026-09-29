@@ -85,6 +85,8 @@ test.describe("clubs.coach-invitation", () => {
     if (await repeat.isVisible({ timeout: 1000 }).catch(() => false)) {
       await repeat.fill(NEW_COACH_PASSWORD);
     }
+    // PAD-457 (clubs.coach-invitation rule 8): a new coach account asks for an adult birth date.
+    await invitePage.locator("#birthDate").fill("1990-01-01");
 
     await invitePage
       .getByRole("button", {

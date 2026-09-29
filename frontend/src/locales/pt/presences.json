@@ -61,8 +61,8 @@
       "statusFor": "Presença de {{name}}",
       "validatedThisWeek": "Validadas esta semana",
       "readyBanner": "Todos responderam — pronta a confirmar.",
-      "awaiting_one": "Falta decidir {{count}} jogador",
-      "awaiting_other": "Faltam decidir {{count}} jogadores",
+      "awaiting_one": "{{count}} jogador por decidir",
+      "awaiting_other": "{{count}} jogadores por decidir",
       "skipped_one": "{{count}} aula ignorada — tem jogadores sem resposta e precisa de ser revista individualmente.",
       "skipped_other": "{{count}} aulas ignoradas — têm jogadores sem resposta e precisam de ser revistas uma a uma.",
       "empty": "Não há nada para validar esta semana. Bom trabalho.",
@@ -70,7 +70,8 @@
         "needsInput": "Precisa da sua decisão ({{count}})",
         "ready": "Prontas a confirmar ({{count}})"
       },
-      "triggerEmpty": "Nada por validar"
+      "triggerEmpty": "Nada por validar",
+      "needsDecision": "Precisa de decisão"
     },
     "column": {
       "name": "Jogador",

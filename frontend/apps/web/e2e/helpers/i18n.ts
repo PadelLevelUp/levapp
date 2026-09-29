@@ -73,7 +73,22 @@ const withSlots = (s: string): string => escape(s).replace(/\\\{\\\{[^}]+\\\}\\\
  * elements whose accessible name has more than the copy (an icon's label, a count).
  */
 export function ui(key: string, opts: { exact?: boolean } = {}): RegExp {
-  const parts = [...new Set(LANGS.map((lang) => withSlots(uiText(key, lang))))];
+  return uiIn(key, [...LANGS], opts);
+}
+
+/**
+ * The rendered copy of any of `keys` in ONE language, for a check that must tell the languages
+ * apart: a Portuguese page asserting that no English heading is left is `toHaveCount(0)` on
+ * `uiIn(keys, "en")`. Read from the locale file, it follows a copy change; a typed regex went
+ * vacuous when PAD-419 changed "Morning, …" to "Good morning, …" and kept passing.
+ */
+export function uiIn(keys: string | string[], lang: Lang | Lang[], opts: { exact?: boolean } = {}): RegExp {
+  const langs = Array.isArray(lang) ? lang : [lang];
+  const keyList = Array.isArray(keys) ? keys : [keys];
+  const parts = [...new Set(keyList.flatMap((key) => langs.map((l) => withSlots(uiText(key, l)))))];
   const body = parts.length === 1 ? parts[0] : `(?:${parts.join("|")})`;
   return new RegExp(opts.exact === false ? body : `^${body}$`, "i");
 }
+
+/** The dashboard greeting's keys (both dashboards render `dashboard.greeting.<time of day>`). */
+export const GREETING_KEYS = ["dashboard.greeting.morning", "dashboard.greeting.afternoon", "dashboard.greeting.evening"];

@@ -14,11 +14,12 @@ describe("absenceBadge", () => {
     expect(absenceBadge(undefined)).toBeNull();
   });
 
-  it("maps a justified absence to the secondary (muted) badge", () => {
+  // PAD-441 (attendance.absences rule 14): justified is amber, not a muted grey.
+  it("maps a justified absence to the warning (amber) badge", () => {
     expect(absenceBadge("justified")).toEqual({
       justification: "justified",
       labelKey: "absences.justified",
-      variant: "secondary",
+      variant: "warning",
     });
   });
 

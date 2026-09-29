@@ -67,7 +67,8 @@ leaving it. Today the only entry point is the player's page.
    until the row is closed (`useHeldWhile`, keyed on the open row), and the reopened row shows
    today's record alone.
 6. **(AV-014, AV-071) The expanded row** has one line per listed competency (rule 5) — five stars
-   for a 1–5 competency, a number with a stepper for a legacy scale (`evaluations.competencies`
+   for a 1–5 competency, a slider for 1–10/20/100 (`evaluations.scale` rule 7), a number with a
+   stepper for a legacy scale (`evaluations.competencies`
    rule 3) — then "Nota privada (opcional)". Each input saves as it is made; tapping the lit star
    clears it (`evaluations.records` rules 7, 10). When the list is **empty** (no active
    competency and none rated today) the expanded row is an empty state with a way into "Gerir

@@ -91,7 +91,10 @@ held on the coach's calendar while the request is open.
    - A service function's `now` is therefore a club wall-clock value. The request's `decided_at`
      is an event timestamp and is stored in UTC (`wall_to_utc_naive(now)`).
 9. `GET /app/class-requests` lists the caller's own requests (a student's, or every request
-   addressed to the coach), newest first, with `playerName` / `coachName`.
+   addressed to the coach), newest first, with `playerName` / `coachName`. The lists that show
+   them (the coach's "Pedidos de Aula", the student's Availability requests) also show academy
+   join requests from `GET /app/class-join-requests` (`classes.join-requests` rule 17, PAD-460).
+   This endpoint itself is unchanged.
 10. **The student counter-proposes (PAD-281).** `POST /app/class-requests/<id>/counter-proposal
     {date, startTime, endTime}` while the request is `countered`: the slot is validated exactly
     like a new request (rule 2 length, rule 7 past / free, the request's own hold excluded), the
@@ -103,6 +106,14 @@ held on the coach's calendar while the request is open.
     student (Propose opens the inbox on that request). Any other status answers `409 not_countered`; another
     student's request answers `403`. `GET /app/class-requests/free-blocks?…&excludeRequestId=<id>`
     leaves the caller's own hold out of the busy time so the picker can offer it.
+10a. **The coach answers a new request from its chat bubble too (PAD-461, part 2 of PAD-427).**
+    The coach's view of the student's FIRST message (kind `requested`) offers Accept / Decline /
+    Propose another time while the request's live status (`GET /app/class-requests`) is still
+    `pending` at that message's slot, exactly like rule 10's counter-proposal bubble:
+    - Propose opens the inbox on that request.
+    - A late answer degrades to the same refusal, never an error page. Once the status or the
+      slot has moved on, the bubble shows the outcome.
+    - The student's own `requested` bubble shows that it's waiting, with no actions.
 11. **The booking form opens on the first day with a free block (PAD-302; rule number
     self-assigned, unconfirmed).** Once the student has picked a coach, the form's date
     defaults to the earliest day — today if any block remains, else the next day in the coming
@@ -146,6 +157,24 @@ held on the coach's calendar while the request is open.
     is told by the accept message as today; **each invitee is told they were added** through
     PAD-330's enrolment notice (`notifications.reminders` rule 18 keeps them asked). Invitees
     never accept or decline anything.
+14a. **The student chooses how a weekly request ends (PAD-428).** The wizard (web and iOS) asks for
+    the start date, then one of two endings, as a calendar app does: **"Termina no dia [data]"** (on a
+    date) or **"Termina ao fim de [N] aulas"** (after N classes, 1–52).
+    - N counts CLASSES, not weeks: on Tuesdays and Thursdays, 4 classes is two weeks. The label says
+      "aulas" / "classes".
+    - "After N" is turned into `endDate` on the client, as the date of the Nth occurrence on the
+      chosen weekdays counting from `startDate` (inclusive). One shared function in
+      `@levelup/config` serves both shells.
+    - The request on the wire is unchanged (`recurrence {weekdays, startDate, endDate}`), so the
+      backend, rules 14–17 and older builds are untouched.
+    - Changing the weekdays or the start date recomputes the end while "after N" is chosen.
+    - The count field can be empty while the student retypes it ("4" → "" → "3" gives 3, not 13).
+      An empty or invalid entry leaves the last valid count in force, and leaving the field puts it back.
+    - The coach's own class creation keeps its current fields; the same pattern there is PAD-463.
+    - "After N" is only how the student PICKS `endDate`; the request stores a date, not a count.
+      So when a proposal re-anchors a weekly series (rule 16: `startDate` moves, `endDate` stays),
+      a series the student asked to end "after N classes" ends on the same date, with fewer than
+      N classes if it moved later (Session-B's #454 review).
 15. **Requests for the past are refused per occurrence** (rule 7): a weekly request whose
     first occurrence has started is refused at submission; a later occurrence that is no longer
     free answers `409 slot_taken` naming the date. At accept time rule 17 applies.
@@ -275,6 +304,13 @@ held on the coach's calendar while the request is open.
 - **When** the student accepts from the bubble
 - **Then** the request is `accepted` and the bubble shows "Class booked"
 
+#### The coach answers a new request from the chat (PAD-461)
+- **Given** Bruno asked coach Ana for 18:00–19:00 on 2026-10-06 and the request is `pending`
+- **When** Ana opens her conversation with Bruno
+- **Then** Bruno's request message offers Accept, Decline and Propose another time
+- **When** Ana accepts from the bubble
+- **Then** the request is `accepted` at 18:00–19:00, the bubble shows the outcome, and Bruno's own copy of the message never offered actions
+
 #### Decline and withdraw release the hold
 - **Given** a pending request
 - **When** the coach declines (or the student withdraws)
@@ -317,6 +353,17 @@ held on the coach's calendar while the request is open.
 - **Given** Ana is free 08:00–22:00 on a day, Bruno has nothing, and Carla has a class 10:00–11:00 and an unavailability block 18:00–20:00
 - **When** Bruno asks for availability with `participants: ["carla"]`
 - **Then** the free windows for that day are 08:00–10:00, 11:00–18:00 and 20:00–22:00
+
+#### "After N classes" counts classes, not weeks (PAD-428)
+- **Given** a weekly request on Tuesdays and Thursdays starting Tuesday 2026-10-06
+- **When** the student chooses "Termina ao fim de 4 aulas"
+- **Then** the request is sent with `endDate` 2026-10-15 (Tue 6, Thu 8, Tue 13, Thu 15)
+- **And** with a single weekday (Tuesday) and 4 classes, `endDate` is 2026-10-27
+
+#### "Ends on a date" sends that date (PAD-428)
+- **Given** the same weekly request
+- **When** the student chooses "Termina no dia" 2026-11-30
+- **Then** the request is sent with `endDate` 2026-11-30, exactly as before PAD-428
 
 #### A weekly request becomes one series on accept (PAD-357)
 - **Given** Bruno's weekly request Tue+Thu 18:00–19:00 from 2026-10-06 to 2026-10-29 with Carla

@@ -114,24 +114,35 @@ def _eligibility_provenance(obj, coach_id):
         # association only (no Association_CoachLesson on the parent).
         rels = getattr(obj, "coaches_relations", None) or []
         coach_id = rels[0].coach_id if rels else None
+    from padel_app.services.notification_service import effective_auto_invites_with_source
+
+    # PAD-429 (toggle-class rules 5, 7): no coach tier, so it resolves with or without a coach.
+    auto_on, auto_source = effective_auto_invites_with_source(obj)
+    auto = {"effectiveAutoInvites": auto_on, "autoInvitesSource": auto_source}
     if coach_id is None:
         return {
             "effectiveEligibilityRules": None, "eligibilitySource": "coach",
             "effectiveOpenSpotsVisible": False, "openSpotsSource": "coach",
+            **auto,
         }
     from padel_app.services.notification_service import (
         effective_eligibility_with_source,
         effective_open_spots_visible_with_source,
     )
+    from padel_app.utils.client_capabilities import CLASS_TYPE_DEFAULTS, client_declares
 
     rules, source = effective_eligibility_with_source(obj, coach_id)
     visible, visible_source = effective_open_spots_visible_with_source(obj, coach_id)
+    # PAD-429 (rule 12): a build that predates rule 3a can't label a `type` source.
+    if visible_source == "type" and not client_declares(CLASS_TYPE_DEFAULTS):
+        visible_source = "coach"
     return {
         "effectiveEligibilityRules": rules,
         "eligibilitySource": source,
         # PAD-130 rule 10
         "effectiveOpenSpotsVisible": visible,
         "openSpotsSource": visible_source,
+        **auto,
     }
 
 
@@ -207,6 +218,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         # what actually resolved, and where it came from.
         "eligibilityRules": obj.eligibility_rules if isinstance(getattr(obj, "eligibility_rules", None), list) else None,
         "openSpotsVisible": obj.open_spots_visible if isinstance(getattr(obj, "open_spots_visible", None), bool) else None,
+        # PAD-429 (toggle-class rule 7): this tier's own automatic-invitations value.
+        "autoInvites": obj.auto_invites if isinstance(getattr(obj, "auto_invites", None), bool) else None,
         **_eligibility_provenance(obj, coach_id),
         # clubs.courts rule 7 (PAD-194): the detail shows club and court.
         "clubName": lesson.club.name if lesson.club else None,

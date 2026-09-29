@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
-import { effectiveMark, type PresenceMark } from "@levelup/config";
+import { effectiveMark, validationGroup, type PresenceMark } from "@levelup/config";
 import type { PendingValidationClass } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
@@ -216,8 +216,10 @@ export function ValidateClassesSheet({
     return `${name} · ${fmt.format(monday)} – ${fmt.format(sunday)}`;
   }, [weekOffset, i18n.language, t]);
 
-  const needsInput = pendingClasses.filter((c) => remainingFor(c) > 0);
-  const ready = pendingClasses.filter((c) => remainingFor(c) === 0);
+  // Rule 25 (PAD-442): grouped by the server's state, so a class the coach completes stays put
+  // with its Validate button available in place; it regroups on the next load.
+  const needsInput = pendingClasses.filter((c) => validationGroup(c.players) === "needsInput");
+  const ready = pendingClasses.filter((c) => validationGroup(c.players) === "ready");
 
   return (
     <Dialog
@@ -311,7 +313,7 @@ export function ValidateClassesSheet({
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    disabled={!ready.length}
+                    disabled={!readyClassIds(pendingClasses, edits).length}
                     onPress={() => {
                       setSelected(readyClassIds(pendingClasses, edits));
                       setNotice(null);
@@ -397,7 +399,10 @@ export function ValidateClassesSheet({
                     .filter((g) => g.items.length > 0)
                     .map((group) => (
                       <View key={group.key} className="gap-2">
-                        <Text className="text-xs uppercase text-muted-foreground">
+                        <Text
+                          testID={`presences-group-${group.key}`}
+                          className="text-xs uppercase text-muted-foreground"
+                        >
                           {t(`presences.validate.group.${group.key}`, {
                             count: group.items.length,
                           })}
@@ -593,6 +598,32 @@ function WalkInPicker({
   );
 }
 
+/**
+ * PAD-443 (attendance.validation rule 24): the alert before an undecided player's name — a player
+ * with no mark yet (`effectiveMark` null, rule 5). Yellow, never the warning amber "Justificada"
+ * uses (PAD-441), and it names itself for VoiceOver so the colour is never the only signal.
+ */
+function UndecidedFlag({
+  playerId,
+  testIDPrefix = "validate-undecided-icon",
+}: {
+  playerId: number;
+  /** The class list and the class detail each use their own ids, so the two never collide. */
+  testIDPrefix?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Ionicons
+      name="warning"
+      size={14}
+      color="#CA8A04" // yellow-600
+      testID={`${testIDPrefix}-${playerId}`}
+      accessibilityRole="image"
+      accessibilityLabel={t("presences.validate.needsDecision")}
+    />
+  );
+}
+
 function ClassCard({
   klass,
   remaining,
@@ -681,8 +712,18 @@ function ClassCard({
             // buttons leave ~90pt for the name on a 390pt screen, which
             // truncated real names to "Bernar…" — unusable with two players
             // who share a first name.
-            <View key={player.playerId} className="gap-1.5">
+            <View
+              key={player.playerId}
+              testID={`validate-list-row-${klass.lessonInstanceId}-${player.playerId}`}
+              className={cn(
+                "gap-1.5",
+                effectiveMark(player, edits[player.playerId]) === null && "border-l-4 border-l-yellow-500 pl-2"
+              )}
+            >
               <View className="flex-row items-center gap-1.5">
+                {effectiveMark(player, edits[player.playerId]) === null && (
+                  <UndecidedFlag playerId={player.playerId} testIDPrefix={`validate-list-undecided-icon-${klass.lessonInstanceId}`} />
+                )}
                 <Text className="flex-1 text-sm" numberOfLines={1}>
                   {player.name}
                 </Text>
@@ -799,19 +840,25 @@ function ClassDetail({
         </View>
       </DialogHeader>
 
-      <Text
+      <View
         testID="presences-detail-banner"
         className={cn(
-          "mb-3 rounded-lg px-3 py-2 text-sm",
-          remaining > 0
-            ? "bg-warning/10 text-warning-strong"
-            : "bg-success/10 text-success-strong"
+          "mb-3 flex-row items-center gap-2 rounded-lg px-3 py-2",
+          remaining > 0 ? "bg-yellow-50" : "bg-success/10"
         )}
       >
-        {remaining > 0
-          ? t("presences.validate.awaiting", { count: remaining })
-          : t("presences.validate.readyBanner")}
-      </Text>
+        {/* PAD-443 (rule 24): "N jogadores por decidir", with the alert icon, in the yellow
+            "needs a decision" hue — never the warning amber "Justificada" uses (PAD-441). */}
+        {remaining > 0 && <Ionicons name="warning" size={16} color="#854D0E" accessibilityElementsHidden />}
+        <Text
+          testID={remaining > 0 ? "validate-undecided-summary" : undefined}
+          className={cn("flex-1 text-sm", remaining > 0 ? "text-yellow-900" : "text-success-strong")}
+        >
+          {remaining > 0
+            ? t("presences.validate.awaiting", { count: remaining })
+            : t("presences.validate.readyBanner")}
+        </Text>
+      </View>
 
       <ScrollView
         style={{ maxHeight }}
@@ -820,14 +867,23 @@ function ClassDetail({
         keyboardShouldPersistTaps="handled"
       >
         <View className="gap-2">
-          {sortPlayers(klass.players, edits).map((player) => (
+          {sortPlayers(klass.players, edits).map((player) => {
+            const undecided = effectiveMark(player, edits[player.playerId]) === null;
+            return (
             <View
               key={player.playerId}
-              className="gap-1.5 rounded-lg border border-border px-3 py-2"
+              testID={`validate-player-row-${player.playerId}`}
+              className={cn(
+                "gap-1.5 rounded-lg border border-border px-3 py-2",
+                undecided && "border-l-4 border-l-yellow-500"
+              )}
             >
-              <Text className="text-sm font-sans-bold" numberOfLines={1}>
-                {player.name}
-              </Text>
+              <View className="flex-row items-center gap-1.5">
+                {undecided && <UndecidedFlag playerId={player.playerId} />}
+                <Text className="flex-1 text-sm font-sans-bold" numberOfLines={1}>
+                  {player.name}
+                </Text>
+              </View>
               <Text className="text-xs text-muted-foreground">
                 {/* The student's own answer, not the coach's decision — a
                     validated row reports "no answer" server-side rather than
@@ -842,7 +898,8 @@ function ClassDetail({
                 onChange={(mark) => onMark(player.playerId, mark)}
               />
             </View>
-          ))}
+            );
+          })}
 
           <WalkInPicker
             roster={roster}

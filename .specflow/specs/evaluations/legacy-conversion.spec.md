@@ -10,6 +10,10 @@ provenance:
 
 # evaluations.legacy-conversion
 
+> **Partly reversed by `evaluations.scale` (PAD-423, D147, 2026-09-25).** The 1–10 conversion
+> below stands, but "1–5 stars everywhere" no longer does: a coach may now choose 1–10, 1–20 or
+> 1–100 for their catalogue and custom competencies. Legacy categories are untouched.
+
 > **Owner decision, 2026-09-22 (Q1, the non-default).** Every legacy 1–10 evaluation score
 > becomes 1–5 stars in ONE data migration, with one fixed mapping, and the 1–10 scale is
 > dropped. Not coach-triggered, not per category. Ticket PAD-403. What the App Store builds see

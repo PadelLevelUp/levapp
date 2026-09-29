@@ -24,6 +24,8 @@ Planned — all `draft`, from the canvas (archive `sistema-de-avaliacoes-2026-09
   legacy-only **by endpoint**, whatever headers a client sends. **Read this before touching any
   evaluation endpoint.**
 - `evaluations.legacy-conversion` — implementing (PAD-403): every legacy 1–10 score becomes
+- `evaluations.scale` — draft (PAD-423): the coach chooses 1–5 (stars) or 1–10/20/100 (a slider);
+  each score keeps the scale it was given on, and figures use the current scale by proportion.
   1–5 stars in one reversible data migration (`max(1, ceil(score/2))`, originals kept). After
   it, no category is off 1–5 on any write path, and the frozen save converts or refuses an
   off-scale body before writing (contract rule 10).

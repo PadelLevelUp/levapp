@@ -67,6 +67,13 @@ test("US-212: a new student opens the coach's link, signs up, and lands on the r
   await expect(student.getByTestId("join-coach-preview")).toBeVisible({ timeout: 10_000 });
   await student.getByTestId("join-coach-confirm").click();
   await expect(student.getByTestId("join-coach-success")).toBeVisible({ timeout: 10_000 });
+
+  // PAD-444: the dashboard, reached in-app (no reload, so the signed-in user is whatever the
+  // join left behind), already knows the student has a coach: no "No coach yet?" prompt.
+  await student.getByTestId("join-coach-go-calendar").click();
+  await student.locator('a[href="/dashboard"]').first().click();
+  await expect(student.getByTestId("student-dashboard")).toBeVisible({ timeout: 10_000 });
+  await expect(student.getByTestId("student-connect-prompt")).toHaveCount(0);
   await context.close();
 
   // The coach's roster lists the new student (rule 11: no level yet).

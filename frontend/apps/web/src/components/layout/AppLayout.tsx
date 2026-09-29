@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@levelup/hooks";
+import { queryKeys, usePendingValidationBadge } from "@levelup/hooks";
 import {
   Calendar,
   CalendarOff,
@@ -32,6 +32,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
+import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
 import { CompetencyManagerHost } from "@/components/evaluations/competency-manager/CompetencyManagerHost";
 
@@ -157,6 +158,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     return item.roles.some(role => user?.roles.includes(role));
   });
 
+  // PAD-443 (attendance.validation rule 23): the dashboard's "classes to validate" number on the
+  // Presences item, tiered. Coach-only, like the item itself.
+  const isCoach = user?.roles.includes("coach") ?? false;
+  const pendingValidation = usePendingValidationBadge(isCoach).data?.count ?? 0;
+
   // PAD-183: Settings is dropped from the mobile bottom nav only — at 390px
   // wide, seven (coach) or five (student) tabs with Portuguese labels overflow
   // the bar (measured scrollWidth 428 vs clientWidth 390). Settings is
@@ -199,8 +205,17 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       }
       // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
       // Availability section render off the request's live row.
-      if (data.type === "class_request_changed") {
+      // classes.join-requests rule 17 (PAD-460): the two lists are merged in
+      // one section now, so a private OR an academy event refreshes both —
+      // "both lists refresh on join_request_created, join_requests_superseded
+      // and on a decision, the same way they refresh on class_request_changed".
+      if (
+        data.type === "class_request_changed" ||
+        data.type === "join_request_created" ||
+        data.type === "join_requests_superseded"
+      ) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests });
       }
     });
   }, [refreshUnreadCount, token, queryClient]);
@@ -290,6 +305,9 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                       {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                     </span>
                   )}
+                  {item.path === "/presences" && (
+                    <PresencesBadge count={pendingValidation} className="absolute -top-1.5 -right-1.5" />
+                  )}
                 </div>
                 {!sidebarCollapsed && (
                   <span className="text-sm font-medium">{t(item.labelKey)}</span>
@@ -369,6 +387,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
                   >
                     {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
+                )}
+                {item.path === "/presences" && (
+                  <PresencesBadge
+                    count={pendingValidation}
+                    testId="bottom-nav-presences-badge"
+                    className="absolute -top-1 -right-0.5 min-w-[16px] h-[16px] text-[9px] px-0.5"
+                  />
                 )}
               </div>
               <span className={cn("text-[10px]", isActive ? "font-semibold" : "font-medium")}>

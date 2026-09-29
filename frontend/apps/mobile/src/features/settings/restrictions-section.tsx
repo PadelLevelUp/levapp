@@ -1,8 +1,11 @@
 import { notificationEngineApi } from "@levelup/api";
 import {
   canStepRestriction,
+  isValidQuietWindow,
   lightTheme,
+  quietWindowOf,
   stepRestriction,
+  type QuietWindow,
   type SteppedRestrictionKey,
 } from "@levelup/config";
 import type { NotificationRestrictions } from "@levelup/types";
@@ -12,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +93,84 @@ function Stepper({
       </Text>
       {button(1)}
       <Text className="ml-1 text-xs text-muted-foreground">{unit}</Text>
+    </View>
+  );
+}
+
+/**
+ * PAD-451 (notifications.config rule 6a): quiet hours with the coach's own window, on the same
+ * 30-minute grid as web. A window the server would refuse is not reported, and the row says why.
+ */
+function QuietHours({
+  quiet,
+  disabled,
+  onToggle,
+  onWindow,
+}: {
+  quiet: NotificationRestrictions["quietHours"];
+  disabled?: boolean;
+  onToggle: () => void;
+  onWindow: (window: QuietWindow) => void;
+}) {
+  const { t } = useTranslation();
+  const window = quietWindowOf(quiet);
+  const [invalid, setInvalid] = React.useState(false);
+  const edit = (patch: Partial<QuietWindow>) => {
+    const next = { ...window, ...patch };
+    if (!isValidQuietWindow(next.start, next.end)) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    onWindow(next);
+  };
+  return (
+    <View testID="restriction-row-quietHours" className="gap-2">
+      <View className="flex-row items-center justify-between gap-3">
+        <RowText
+          label={t("settings.restrictions.quietHours")}
+          description={t("settings.restrictions.quietHoursDescription", { start: window.start, end: window.end })}
+        />
+        <Switch
+          testID="restriction-quietHours-toggle"
+          accessibilityLabel={t("settings.restrictions.quietHours")}
+          checked={quiet.enabled}
+          disabled={disabled}
+          onCheckedChange={onToggle}
+        />
+      </View>
+      {quiet.enabled ? (
+        <View className="gap-1.5">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-xs text-muted-foreground">{t("settings.restrictions.quietHoursStart")}</Text>
+            <View className="w-24">
+              <TimePickerInput
+                testID="restriction-quietHours-start"
+                value={window.start}
+                onChange={(start) => edit({ start })}
+                minuteInterval={30}
+                disabled={disabled}
+              />
+            </View>
+            <Text className="text-xs text-muted-foreground">{t("settings.restrictions.quietHoursEnd")}</Text>
+            <View className="w-24">
+              <TimePickerInput
+                testID="restriction-quietHours-end"
+                value={window.end}
+                onChange={(end) => edit({ end })}
+                minuteInterval={30}
+                disabled={disabled}
+              />
+            </View>
+          </View>
+          {invalid ? (
+            <Text testID="restriction-quietHours-error" className="text-xs text-destructive">
+              {t("settings.restrictions.quietHoursInvalid")}
+            </Text>
+          ) : null}
+          <Text className="text-xs text-muted-foreground">{t("settings.restrictions.quietHoursHint")}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -283,7 +365,12 @@ export function RestrictionsSection({
         t(`${r}.maxInvitesPerStudentDescription`),
         { boundKey: "maxInvitesPerStudentPerDay", unit: t(`${r}.perDay`) }
       )}
-      {toggleRow("quietHours", t(`${r}.quietHours`), t(`${r}.quietHoursDescription`))}
+      <QuietHours
+        quiet={restrictions.quietHours}
+        disabled={disabled}
+        onToggle={() => update("quietHours", { enabled: !restrictions.quietHours.enabled })}
+        onWindow={(w) => update("quietHours", w)}
+      />
       <ExcludedPlayers
         enabled={restrictions.excludedPlayers.enabled}
         playerIds={restrictions.excludedPlayers.playerIds}

@@ -11,9 +11,11 @@ import {
 } from "@/features/auth/AccountSetupScreen";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 import {
+  ACTIVATION_BIRTH_CODES,
   registerSchema,
   validateAccountForm,
 } from "@/features/auth/account-setup";
+import { formatBirthInput, toIso } from "@/features/auth/signup-form";
 
 type Status = "loading" | "ok" | "already-registered" | "invalid";
 
@@ -62,6 +64,8 @@ export function RegisterScreen({
     phone: "",
     password: "",
     repeatPassword: "",
+    // PAD-457 (auth.activate rule 13): DD/MM/AAAA, typed with the number pad as on sign-up.
+    birthDate: "",
   });
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>(
     {}
@@ -107,7 +111,8 @@ export function RegisterScreen({
   }, []);
 
   const onChangeField = React.useCallback((id: string, value: string) => {
-    setValues((prev) => ({ ...prev, [id]: value }));
+    const next = id === "birthDate" ? formatBirthInput(value) : value;
+    setValues((prev) => ({ ...prev, [id]: next }));
     setErrors((prev) => ({ ...prev, [id]: undefined }));
   }, []);
 
@@ -136,6 +141,7 @@ export function RegisterScreen({
           email: values.email,
           phone: values.phone,
           password: values.password,
+          birthDate: toIso(values.birthDate) ?? "",
         },
       });
       toast.success(
@@ -143,7 +149,14 @@ export function RegisterScreen({
         t("auth.register.activatedDescription")
       );
       router.replace("/login");
-    } catch {
+    } catch (err) {
+      // auth.activate rule 13: a birth-date refusal belongs on the field, in the form's words.
+      const data = (err as { response?: { status?: number; data?: { field?: string; code?: string } } }).response;
+      const key = data?.data?.code ? ACTIVATION_BIRTH_CODES[data.data.code] : undefined;
+      if (data?.status === 400 && data.data?.field === "birthDate" && key) {
+        setErrors({ birthDate: t(`auth.register.${key}`) });
+        return;
+      }
       toast.error(
         t("auth.register.failedTitle"),
         t("auth.register.failedDescription")
@@ -212,6 +225,12 @@ export function RegisterScreen({
       label: t("auth.register.repeatPassword"),
       secure: true,
       autoComplete: "new-password",
+    },
+    {
+      id: "birthDate",
+      label: t("auth.register.birthDate"),
+      keyboardType: "number-pad",
+      placeholder: "DD/MM/AAAA",
     },
   ];
 

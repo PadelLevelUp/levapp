@@ -39,8 +39,10 @@ export type AccountFormField = {
   id: string;
   label: string;
   secure?: boolean;
-  keyboardType?: "default" | "email-address" | "phone-pad";
+  keyboardType?: "default" | "email-address" | "phone-pad" | "number-pad";
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
+  /** PAD-457: e.g. "DD/MM/AAAA" for the activation form's birth date. */
+  placeholder?: string;
 };
 
 export function PreAuthShell({
@@ -178,6 +180,7 @@ export function AccountSetupForm({
                 onChangeText={(next) => onChangeField(field.id, next)}
                 secureTextEntry={field.secure}
                 keyboardType={field.keyboardType ?? "default"}
+                placeholder={field.placeholder}
                 autoComplete={field.autoComplete}
                 autoCapitalize="none"
                 autoCorrect={false}

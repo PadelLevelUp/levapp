@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { canStepBackPickerWeek, upcomingPickerClasses } from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
 
@@ -61,7 +61,8 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         const from = format(weekStart, "yyyy-MM-dd");
         const to = format(weekEnd, "yyyy-MM-dd");
         const data = await getClassInstances(from, to);
-        if (!cancelled) setClasses(data);
+        // players.profile rule 5a (PAD-439): a class that has started is never offered.
+        if (!cancelled) setClasses(upcomingPickerClasses(data));
       } catch {
         // PAD-80: a failed fetch used to fall through silently and render the
         // "no classes this week" empty state, which reads as "you have no
@@ -177,7 +178,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   return (
     <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col" data-testid="add-to-classes-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-primary" />
@@ -194,6 +195,9 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
             variant="outline"
             size="icon"
             aria-label={t("calendar.toolbar.previousWeek")}
+            data-testid="add-to-classes-prev-week"
+            // Rule 5b (PAD-439): the picker never goes back past the current week.
+            disabled={!canStepBackPickerWeek(weekStart)}
             onClick={() => setWeekStart((w) => subWeeks(w, 1))}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -205,6 +209,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
             variant="outline"
             size="icon"
             aria-label={t("calendar.toolbar.nextWeek")}
+            data-testid="add-to-classes-next-week"
             onClick={() => setWeekStart((w) => addWeeks(w, 1))}
           >
             <ChevronRight className="h-4 w-4" />
@@ -212,7 +217,12 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         </div>
 
         {/* Class list */}
-        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+        {/* PAD-439: a native scroller, not Radix ScrollArea. Inside the Dialog's scroll lock the
+            wheel/trackpad did not reach ScrollArea's viewport, so a long week could not be scrolled
+            (programmatic scrolling still worked, which is how it passed unnoticed).
+            overscroll-contain: reaching the end of the list does not chain the scroll to the
+            page behind the dialog. */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain -mx-6 px-6" data-testid="add-to-classes-list">
           {loading ? (
             <div className="space-y-3 py-2">
               {[1, 2, 3].map((i) => (
@@ -220,7 +230,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
               ))}
             </div>
           ) : classes.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
+            <p className="text-sm text-muted-foreground text-center py-8" data-testid="add-to-classes-empty">
               {t("players.noClassesThisWeek")}
             </p>
           ) : (
@@ -246,6 +256,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                           <button
                             key={cls.id}
                             type="button"
+                            data-testid={`add-to-classes-class-${cls.id}`}
                             disabled={isFull}
                             onClick={() => toggleClass(cls.id)}
                             className={cn(
@@ -293,9 +304,9 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="pt-2">
+        <DialogFooter className="pt-2" data-testid="add-to-classes-footer">
           <Button variant="outline" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
           <Button onClick={handleSave} disabled={selectedIds.size === 0 || saving}>
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

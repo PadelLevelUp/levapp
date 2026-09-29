@@ -69,8 +69,8 @@
         "open": "Open"
       },
       "validation": {
-        "title_one": "{{count}} class to validate",
-        "title_other": "{{count}} classes to validate",
+        "title_one": "You have {{count}} class to validate",
+        "title_other": "You have {{count}} classes to validate",
         "thisWeek": "This week",
         "lastWeek": "Last week",
         "review": "Review"

@@ -48,6 +48,9 @@ class Lesson(db.Model, model.Model):
     # PAD-130 (eligibility.open-spot-visibility rule 3): series tier of the
     # "advertise empty spots" toggle. NULL = inherit, True/False = override.
     open_spots_visible = Column(Boolean, nullable=True)
+    # PAD-429 (notifications.toggle-class rule 5): series tier of automatic invitations.
+    # NULL = inherit the lesson type's default (private off, academy on), True/False = override.
+    auto_invites = Column(Boolean, nullable=True)
 
     # Many-to-many: Lesson <-> Coach
     coaches_relations = relationship(
