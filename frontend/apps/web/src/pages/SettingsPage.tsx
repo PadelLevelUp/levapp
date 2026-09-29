@@ -58,9 +58,7 @@ import {
 import { CoachLevelsSection } from "@/components/settings/CoachLevelsSection";
 import { SeasonsSection } from "@/components/settings/SeasonsSection";
 import { WorkingHoursSection } from "@/components/settings/WorkingHoursSection";
-import { CompetenciesSettingsEntry } from "@/components/evaluations/competency-manager/CompetenciesSettingsEntry";
-import { EvaluationReminderSetting } from "@/components/evaluations/EvaluationReminderSetting";
-import { EvaluationScaleSetting } from "@/components/evaluations/EvaluationScaleSetting";
+import { EvaluationSettingsGroup } from "@/components/evaluations/EvaluationSettingsGroup";
 import { DataImportSection } from "@/components/settings/DataImportSection";
 import { ImportHistorySection } from "@/components/settings/ImportHistorySection";
 import { NotificationsEngineSection } from "@/components/settings/NotificationsEngineSection";
@@ -730,15 +728,8 @@ export default function SettingsPage() {
 
                       <Separator />
 
-                      <CompetenciesSettingsEntry />
-
-                      <Separator />
-
-                      <EvaluationReminderSetting />
-
-                      <Separator />
-
-                      <EvaluationScaleSetting />
+                      {/* PAD-431: the evaluation settings under one "Avaliações" heading. */}
+                      <EvaluationSettingsGroup />
                     </>
                   )}
                 </CardContent>

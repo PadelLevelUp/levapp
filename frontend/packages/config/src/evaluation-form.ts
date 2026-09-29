@@ -58,6 +58,36 @@ export function formCompetencies(
   return competencies.filter((competency) => offered(competency) || rated.has(competency.id));
 }
 
+/** A heading on the entry form (PAD-431, evaluations.competencies rule 15): a category with the
+ *  sub-categories offered under it, or `category: null` for rows scored directly (a category with
+ *  no active sub-category, a legacy one). */
+export interface FormGroup {
+  category: EvaluationCompetency | null;
+  rows: EvaluationCompetency[];
+}
+
+export function formGroups(rows: EvaluationCompetency[], all: EvaluationCompetency[]): FormGroup[] {
+  const position = new Map(all.map((c, index) => [c.id, index]));
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const groups = new Map<string, FormGroup & { anchor: number }>();
+  rows.forEach((row, listedAt) => {
+    const parent = row.parentId != null ? byId.get(row.parentId) ?? null : null;
+    const key = parent ? `p${parent.id}` : `r${row.id}`;
+    const anchor = position.get(parent ? parent.id : row.id) ?? all.length + listedAt;
+    const group = groups.get(key) ?? { category: parent, rows: [], anchor };
+    group.rows.push(row);
+    groups.set(key, group);
+  });
+  // Each group where its category sits; direct rows next to each other share one heading-less group.
+  const merged: FormGroup[] = [];
+  for (const { category, rows: grouped } of [...groups.values()].sort((a, b) => a.anchor - b.anchor)) {
+    const last = merged[merged.length - 1];
+    if (category === null && last && last.category === null) last.rows.push(...grouped);
+    else merged.push({ category, rows: [...grouped] });
+  }
+  return merged;
+}
+
 /** Today's class-less record, if there is one. The server's `editable` says which day is today. */
 export function todaysClasslessRecord(records: EvaluationRecord[]): EvaluationRecord | null {
   return records.find((record) => record.editable && record.classInstanceId === null) ?? null;

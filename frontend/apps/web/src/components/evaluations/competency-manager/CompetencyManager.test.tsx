@@ -47,11 +47,13 @@ function competency(over: Partial<EvaluationCompetency>): EvaluationCompetency {
 
 const FOREHAND = competency({ id: 7, name: "Forehand", group: null, scaleMin: 1, scaleMax: 10, scoreCount: 12 });
 const SAQUE = competency({ id: 13, name: "Saque cruzado", group: "custom", scoreCount: 5 });
-const BANDEJA = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique" });
+// PAD-431: a sub-category sits under its category (evaluations.competencies rule 15).
+const TECHNIQUE = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+const BANDEJA = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique", parentId: 1 });
 
 const ANA: EvaluationCompetencies = {
-  competencies: [BANDEJA, FOREHAND, SAQUE],
-  catalogue: [{ key: "volley", group: "technique" }, { key: "transition", group: "tactics" }],
+  competencies: [TECHNIQUE, BANDEJA, FOREHAND, SAQUE],
+  catalogue: [{ key: "volley", group: "technique" }, { key: "tactics", group: "general" }, { key: "transition", group: "tactics" }],
 };
 
 function deferred<T>() {
@@ -86,8 +88,9 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
     const catalogue = await row("key-bandeja");
     expect(catalogue).toHaveAttribute("data-kind", "catalogue");
     expect(within(catalogue).getByTestId("competency-toggle-key-bandeja")).toBeChecked();
-    expect(within(catalogue).queryByTestId("competency-rename-key-bandeja")).toBeNull();
-    expect(within(catalogue).queryByTestId("competency-delete-key-bandeja")).toBeNull();
+    // PAD-431 (rules 8, 9): a default can be renamed and deleted too.
+    expect(within(catalogue).getByTestId("competency-rename-key-bandeja")).toBeInTheDocument();
+    expect(within(catalogue).getByTestId("competency-delete-key-bandeja")).toBeInTheDocument();
 
     const legacy = await row("id-7");
     expect(legacy).toHaveAttribute("data-kind", "legacy");
@@ -109,18 +112,19 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
     open();
 
     await row("id-7");
-    expect(screen.getAllByTestId(/^competency-group-(legacy|general|technique|tactics|custom)$/).map((el) => el.getAttribute("data-testid"))).toEqual(
-      ["competency-group-legacy", "competency-group-technique", "competency-group-tactics", "competency-group-custom"]);
+    // PAD-431: their own first, then the defaults (Técnica held, Tática offered), then their own categories.
+    expect(screen.getAllByTestId(/^competency-section-/).map((el) => el.getAttribute("data-testid"))).toEqual(
+      ["competency-section-legacy", "competency-section-key-technique", "competency-section-key-tactics", "competency-section-id-13"]);
     expect(screen.getByTestId("competency-group-legacy")).toHaveTextContent("evaluations.manager.legacyTitle");
     expect(screen.getByTestId("competency-group-legacy-caption")).toHaveTextContent("evaluations.manager.legacyCaption");
   });
 
-  it("names the groups in order and hides an empty one", async () => {
-    open({ competencies: [BANDEJA], catalogue: [{ key: "transition", group: "tactics" }] });
+  it("lists only the sections that have something, and no legacy caption without legacy rows", async () => {
+    open({ competencies: [TECHNIQUE, BANDEJA], catalogue: [{ key: "transition", group: "tactics" }] });
 
     await row("key-bandeja");
-    expect(screen.getAllByTestId(/^competency-group-(legacy|general|technique|tactics|custom)$/).map((el) => el.getAttribute("data-testid"))).toEqual(
-      ["competency-group-technique", "competency-group-tactics"]);
+    expect(screen.getAllByTestId(/^competency-section-/).map((el) => el.getAttribute("data-testid"))).toEqual(
+      ["competency-section-key-technique", "competency-section-key-tactics"]);
     expect(screen.queryByTestId("competency-group-legacy-caption")).toBeNull();
   });
 
@@ -135,6 +139,56 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
 
     await row("id-7");
     expect(screen.queryByTestId("competency-none-active")).toBeNull();
+  });
+});
+
+// PAD-431 (evaluations.competencies rules 8, 9, 15): "Definir categorias de avaliação".
+describe("categories and sub-categories (PAD-431)", () => {
+  it("each category heads its section, its sub-categories under it with the defaults it lacks", async () => {
+    open();
+
+    const technique = await screen.findByTestId("competency-section-key-technique");
+    expect(within(technique).getByTestId("competency-row-key-technique")).toHaveAttribute("data-level", "category");
+    expect(within(technique).getByTestId("competency-row-key-bandeja")).toHaveAttribute("data-level", "sub");
+    expect(within(technique).getByTestId("competency-row-key-volley")).toHaveAttribute("data-kind", "available");
+    const tactics = screen.getByTestId("competency-section-key-tactics");
+    expect(within(tactics).getByTestId("competency-row-key-tactics")).toHaveAttribute("data-kind", "available");
+    expect(within(tactics).getByTestId("competency-row-key-transition")).toHaveAttribute("data-level", "sub");
+  });
+
+  it("adds a sub-category under a held category, by parentId", async () => {
+    api.createCustomCompetency.mockResolvedValue(competency({ id: 30, name: "Recuperação", group: "custom", parentId: 1 }));
+    open();
+
+    const technique = await screen.findByTestId("competency-section-key-technique");
+    fireEvent.change(within(technique).getByTestId("competency-add-sub-key-technique-name"), { target: { value: " Recuperação " } });
+    fireEvent.click(within(technique).getByTestId("competency-add-sub-key-technique-submit"));
+
+    await waitFor(() => expect(api.createCustomCompetency).toHaveBeenCalledWith("Recuperação", 1));
+    // an offered default has no row yet, so nothing can be added under it
+    expect(within(screen.getByTestId("competency-section-key-tactics")).queryByTestId("competency-add-sub-key-tactics-name")).toBeNull();
+  });
+
+  it("a new category is added below every section, without a parent", async () => {
+    api.createCustomCompetency.mockResolvedValue(competency({ id: 31, name: "Grit", group: "custom", parentId: null }));
+    open();
+
+    fireEvent.change(await screen.findByTestId("competency-add-name"), { target: { value: "Grit" } });
+    fireEvent.click(screen.getByTestId("competency-add-submit"));
+
+    await waitFor(() => expect(api.createCustomCompetency).toHaveBeenCalledWith("Grit"));
+  });
+
+  it("deleting a category names the sub-categories that go with it", async () => {
+    api.getEvaluationCompetencyImpact.mockResolvedValue({ name: "Técnica", scores: 3, players: 2 });
+    open();
+
+    fireEvent.click(await screen.findByTestId("competency-delete-key-technique"));
+
+    // a default is named by its key (competencyLabel)
+    expect(await screen.findByTestId("competency-delete-subs")).toHaveTextContent(
+      /evaluations\.manager\.deleteSubCategories.*evaluations\.catalogue\.bandeja/,
+    );
   });
 });
 
@@ -225,7 +279,7 @@ describe("nothing moves under the finger (Q31's layout half — Session-B's revi
     await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledTimes(2));
     // the re-list after both would answer with both off; the first answer must not wait for it
     api.getEvaluationCompetencies.mockResolvedValue({
-      ...ANA, competencies: [{ ...BANDEJA, isActive: false }, FOREHAND, { ...SAQUE, isActive: false }],
+      ...ANA, competencies: [TECHNIQUE, { ...BANDEJA, isActive: false }, FOREHAND, { ...SAQUE, isActive: false }],
     });
     await act(async () => { first.resolve({ ...SAQUE, isActive: false }); });
     await waitFor(() => expect(saque).not.toBeDisabled());

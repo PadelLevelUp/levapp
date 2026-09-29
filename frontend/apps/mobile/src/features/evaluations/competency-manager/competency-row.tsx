@@ -24,6 +24,8 @@ export function managerRowId(row: ManagerRow): string {
 interface CompetencyRowProps {
   row: ManagerRow;
   onDelete: (competency: EvaluationCompetency) => void;
+  /** PAD-431: a category heads its section; a sub-category is indented under it. */
+  level?: "category" | "sub";
 }
 
 /**
@@ -33,7 +35,7 @@ interface CompetencyRowProps {
  * it, since two taps in one frame see the same state), and a failure puts the switch back
  * and says so on this row.
  */
-export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
+export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyRowProps) {
   const { t } = useTranslation();
   const switchOn = useSwitchOnCatalogueCompetency();
   const update = useUpdateEvaluationCompetency();
@@ -52,7 +54,8 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
   const scale = competency ? legacyScaleLabel(competency) : null;
   const busy = wanted !== null || update.isPending || switchOn.isPending;
   const checked = wanted ?? competency?.isActive ?? false;
-  const editable = kind === "custom" || kind === "legacy";
+  // PAD-431 (rules 8, 9): every row the coach holds can be renamed and deleted, a default included.
+  const editable = kind !== "available";
 
   const fail = (error: unknown) => {
     const code = evaluationApiErrorCode(error);
@@ -90,7 +93,7 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
   };
 
   return (
-    <View testID={`competency-row-${rowId}`} className="gap-1 border-b border-border py-3">
+    <View testID={`competency-row-${rowId}`} className={level === "sub" ? "gap-1 border-b border-border py-2 pl-5" : "gap-1 border-b border-border py-3"}>
       {renaming && competency ? (
         <View className="gap-2">
           <Input
@@ -114,7 +117,7 @@ export function CompetencyRow({ row, onDelete }: CompetencyRowProps) {
       ) : (
         <View className="flex-row items-center gap-2">
           <View className="flex-1">
-            <Text className="text-base font-medium" numberOfLines={2}>{label}</Text>
+            <Text className={level === "sub" ? "text-base" : "text-base font-semibold"} numberOfLines={2}>{label}</Text>
             {scale ? (
               <Text testID={`competency-scale-${rowId}`} className="text-xs text-muted-foreground">
                 {t("evaluations.manager.legacyScale", { scale })}
