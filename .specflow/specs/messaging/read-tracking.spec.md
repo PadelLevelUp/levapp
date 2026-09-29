@@ -49,3 +49,9 @@ Track which messages each participant has read, providing unread counts.
 - **Then** the nav unread badge disappears without the page being reloaded
 - **And** it is still absent after the thread has settled
 
+#### Opening a conversation clears every count that shows it (PAD-416)
+- **Given** a signed-in user with an unread message in one conversation, whose row shows the unread pill, whose nav/tab badge shows the unread total, and whose app icon badge (the installed PWA on web, the home-screen icon on iOS) shows that total
+- **When** they open that conversation
+- **Then**, without a reload, the row loses its pill and unread styling, the nav/tab badge drops by that conversation's count, and the app icon badge is written with the new total (cleared at 0)
+- *iOS:* the icon badge is written by `useAppBadgeSync` on every successful unread-count fetch (push-notifications, PAD-147), and opening a thread invalidates that count
+
