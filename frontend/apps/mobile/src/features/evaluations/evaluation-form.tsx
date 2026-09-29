@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   competencyLabel,
   formCompetencies,
+  formGroups,
   lightTheme,
   nextStarScore,
   ratingInputKind,
@@ -26,6 +27,7 @@ import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 
+import { EvaluationFormGroupView } from "./evaluation-form-group";
 import { ScoreSlider } from "./score-slider";
 import { ScoreStepper } from "./score-stepper";
 import { StarRating } from "./star-rating";
@@ -91,6 +93,38 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
     );
   }
 
+  const renderRow = (row: EvaluationCompetency) => {
+    // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
+    const competency = rowOnItsOwnScale(row, record);
+    const key = String(competency.id);
+    const score = scores[key] ?? null;
+    const name = competencyLabel(t, competency);
+    const input = ratingInputKind(competency); // evaluations.scale rule 7
+    return (
+      <View key={key} className="gap-1" testID={`evaluation-row-${key}`}>
+        <Text className="text-sm font-medium">{name}</Text>
+        {input === "stars" ? (
+          <StarRating
+            id={competency.id} name={name} score={score} max={competency.scaleMax}
+            onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
+          />
+        ) : input === "slider" ? (
+          <ScoreSlider
+            id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
+            onCommit={(value) => session.rate(key, value)}
+            onClear={() => session.rate(key, null)}
+          />
+        ) : (
+          <ScoreStepper
+            id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
+            onStep={(delta) => session.step(key, stepScore(score, delta, competency.scaleMin, competency.scaleMax))}
+            onClear={() => session.rate(key, null)}
+          />
+        )}
+      </View>
+    );
+  };
+
   return (
     <View className="gap-4 rounded-lg border border-border bg-card p-4" testID="evaluation-form">
       <View className="flex-row items-center justify-between">
@@ -101,37 +135,10 @@ export function EvaluationForm({ competencies, record, onSave, onClose, onManage
         </Button>
       </View>
 
-      {rows.map((row) => {
-        // D149: a rating the record already holds keeps its own scale (4/5 stays stars on 1-5).
-        const competency = rowOnItsOwnScale(row, record);
-        const key = String(competency.id);
-        const score = scores[key] ?? null;
-        const name = competencyLabel(t, competency);
-        const input = ratingInputKind(competency); // evaluations.scale rule 7
-        return (
-          <View key={key} className="gap-1" testID={`evaluation-row-${key}`}>
-            <Text className="text-sm font-medium">{name}</Text>
-            {input === "stars" ? (
-              <StarRating
-                id={competency.id} name={name} score={score} max={competency.scaleMax}
-                onRate={(tapped) => session.rate(key, nextStarScore(score, tapped))}
-              />
-            ) : input === "slider" ? (
-              <ScoreSlider
-                id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
-                onCommit={(value) => session.rate(key, value)}
-                onClear={() => session.rate(key, null)}
-              />
-            ) : (
-              <ScoreStepper
-                id={competency.id} name={name} score={score} scaleMin={competency.scaleMin} scaleMax={competency.scaleMax}
-                onStep={(delta) => session.step(key, stepScore(score, delta, competency.scaleMin, competency.scaleMax))}
-                onClear={() => session.rate(key, null)}
-              />
-            )}
-          </View>
-        );
-      })}
+      {/* PAD-431 (rule 15, D7): sub-categories under their category's heading. */}
+      {formGroups(rows, competencies).map((group) => (
+        <EvaluationFormGroupView key={group.category ? `g${group.category.id}` : `r${group.rows[0]?.id}`} group={group} renderRow={renderRow} />
+      ))}
 
       <View className="gap-1.5">
         <Label nativeID="evaluation-note-label">{t("players.evaluationHistory.note")}</Label>
