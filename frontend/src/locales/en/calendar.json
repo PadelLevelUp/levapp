@@ -62,7 +62,7 @@
       "daysOfWeek": "Days of the week",
       "endDate": "End date",
       "recursUntilSeasonEndHint": "Ends at your season's end date.",
-      "noSeasonCoversDate": "Your season does not cover this date. Define your season in Settings → Calendar, or turn this off and pick an end date.",
+      "noSeasonCoversDate": "Your season does not cover this date. Define your season in Settings → Calendar, or choose another way to end the series (a date or a number of classes).",
       "autoNotifications": "Auto notifications",
       "autoNotificationsDescription": "Students will be auto-invited",
       "color": "Color",

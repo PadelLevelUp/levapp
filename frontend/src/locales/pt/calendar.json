@@ -62,7 +62,7 @@
       "daysOfWeek": "Dias da semana",
       "endDate": "Data de fim",
       "recursUntilSeasonEndHint": "Termina na data de fim da tua época.",
-      "noSeasonCoversDate": "A tua época não abrange esta data. Define a época em Definições → Calendário, ou desliga esta opção e escolhe uma data de fim.",
+      "noSeasonCoversDate": "A tua época não abrange esta data. Define a época em Definições → Calendário, ou escolhe outra forma de terminar (data ou número de aulas).",
       "autoNotifications": "Notificações automáticas",
       "autoNotificationsDescription": "Os alunos serão convidados automaticamente",
       "color": "Cor",
