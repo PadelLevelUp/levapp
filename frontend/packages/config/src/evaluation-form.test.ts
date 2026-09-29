@@ -3,6 +3,7 @@ import type { EvaluationCompetency, EvaluationRecord } from "@levelup/types";
 import {
   createDebouncedWriter,
   formCompetencies,
+  formGroups,
   isStarCompetency,
   nextStarScore,
   stepScore,
@@ -204,5 +205,31 @@ describe("formCompetencies over categories and sub-categories (PAD-431)", () => 
   it("keeps whatever the record being edited already rates — a history score included", () => {
     const today = record({ ratings: [{ categoryId: 10, name: "Técnica", key: "technique", score: 4, scaleMin: 1, scaleMax: 5 }] });
     expect(formCompetencies([technique, vibora, consistency], today).map((c) => c.id)).toEqual([10, 11, 20]);
+  });
+});
+
+// PAD-431 (evaluations.competencies rule 15, D7): the entry form groups sub-categories under
+// their category, each group where its category sits in the server's order.
+describe("formGroups (PAD-431)", () => {
+  const technique = competency({ id: 10, key: "technique", group: "general", parentId: null });
+  const tactics = competency({ id: 11, key: "tactics", group: "general", parentId: null });
+  const consistency = competency({ id: 12, key: "consistency", group: "general", parentId: null });
+  const vibora = competency({ id: 20, key: "vibora", group: "technique", parentId: 10 });
+  const smash = competency({ id: 21, key: "smash", group: "technique", parentId: 10 });
+  const transition = competency({ id: 30, key: "transition", group: "tactics", parentId: 11 });
+  const legacy = competency({ id: 40, key: null, name: "Forehand", group: null, parentId: null });
+  const all = [technique, tactics, consistency, vibora, smash, transition, legacy];
+
+  const shape = (groups: ReturnType<typeof formGroups>) => groups.map((g) => [g.category?.id ?? null, g.rows.map((r) => r.id)]);
+
+  it("puts each sub-category under its category, in the categories' order; direct rows stand alone", () => {
+    const rows = formCompetencies(all, null); // vibora, smash, transition, consistency, legacy — server order
+    expect(shape(formGroups(rows, all))).toEqual([[10, [20, 21]], [11, [30]], [null, [12, 40]]]);
+  });
+
+  it("a category scored directly, because its sub-categories are off, is a plain row", () => {
+    const offs = all.map((c) => (c.parentId === 11 ? { ...c, isActive: false } : c));
+    const rows = formCompetencies(offs, null);
+    expect(shape(formGroups(rows, offs))).toEqual([[10, [20, 21]], [null, [11, 12, 40]]]);
   });
 });

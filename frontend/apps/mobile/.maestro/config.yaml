@@ -209,6 +209,10 @@ executionOrder:
     # 108 (PAD-442): marking the silent student keeps the class under "needs your input" with
     # Validate enabled in place, instead of jumping to "ready to confirm". Stores nothing.
     - 108-completed-class-stays
+    # 109 (PAD-431): the Avaliações settings group, then a sub-category added under Técnica in
+    # "Definir categorias de avaliação" — held under Técnica by the server. The setup deletes
+    # every "Maestro …" row before and after, and leaves "vibora" switched off.
+    - 109-evaluation-categories
     # 115 (PAD-463): a series created on iOS to end "after 5 classes" (Sun + Wed, two years out)
     # holds exactly those 5 dates on the server. Setup and teardown remove the series.
     - 115-series-ends-after-n-classes
