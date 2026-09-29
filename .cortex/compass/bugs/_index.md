@@ -159,3 +159,4 @@ whether a failure mode has been seen before.
 - [B-216](B-216-moving-a-class-onto-or-off-a-sunday-corrupts-its-weekdays.md) — Moving a recurring class onto or off a Sunday corrupted its daysOfWeek (ISO 7 vs calendar 0) (incomplete-rule, high, resolved)
 - [B-218](B-218-timestamp-list-test-armed-its-wait-after-the-load.md) — E2E PAD-33 list test armed waitForResponse after beforeEach had already loaded the list (test-defect, low, resolved)
 - [B-219](B-219-a-visibility-only-class-edit-was-never-saved.md) — A class edit that changed only openSpotsVisible was never saved (missing-criterion, high, resolved)
+- [B-221](B-221-dropdown-trigger-press-swallowed-during-close-animation.md) — A web dropdown trigger press during the close animation was swallowed; the primitive now leaves its own trigger's press to the trigger (missing-criterion, low, resolved)
