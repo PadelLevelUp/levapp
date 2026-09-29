@@ -74,6 +74,12 @@ through the history without the thread ever moving under the reader.
     - **(B-190, PAD-415)** On iOS a plain open always makes its own GET, even when the cached
       thread is still fresh from live updates, so rule 9a's `firstUnreadMessageId` is this open's
       value; an open with an explicit target keeps the cache.
+    - **(B-222, PAD-415)** "This open's value" means the answer of the fetch this open saw
+      start, taken when that fetch settles. A live update written into the cached thread while
+      the GET is in flight (a new message, an older page merged in) is not that answer: until
+      the GET settles, the first unread is not taken and the thread is not marked read. An open
+      with no GET coming (an explicit target over a still-fresh cache) is marked read at once and
+      shows no divider.
 11. Reaching the **top of the loaded messages** fetches the previous page (`before` =
     `oldestMessageId`) and prepends it with the viewport **anchored to the message that was at the
     top** — the reader's position over the text does not jump. A small loading indicator shows
@@ -116,6 +122,11 @@ through the history without the thread ever moving under the reader.
 - **Given** the coach had the thread cached and a new message arrived through live updates seconds ago
 - **When** they open it with no push target
 - **Then** the open makes its own GET and lands on the first unread under the divider
+
+#### A live update during the open's GET does not stand in for its answer (B-222)
+- **Given** the coach had the thread cached from a visit whose first unread was message 111, and opens it with no push target
+- **When** a new message arrives through live updates while the open's GET is still in flight
+- **Then** no first unread is taken and the thread is not marked read until the GET answers; the thread then lands on the GET's first unread (244) under the divider and is marked read
 
 #### A reminder for a deleted class offers no answer (PAD-325)
 - **Given** a student's thread holds a reminder whose class occurrence was deleted, and a reminder for a live class

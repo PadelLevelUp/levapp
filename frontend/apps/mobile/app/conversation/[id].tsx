@@ -66,6 +66,8 @@ import { composerBottomPadding } from "@/features/messages/composer-padding";
 import { isFirstUnreadMessage } from "@/features/messages/unread-divider";
 import {
   shouldFreezeFirstUnread,
+  advanceOpenFetch,
+  type OpenFetch,
   threadQueryOverrides,
   shouldMarkRead,
 } from "@/features/messages/open-sequence";
@@ -138,7 +140,6 @@ export default function ConversationScreen() {
     hasMore,
     isLoadingOlder,
     loadOlder,
-    isFetchedAfterMount,
     isFetching,
   // B-190: a plain open always makes its own GET, so the first unread is this open's value even
   // when an SSE write just made the cached entry fresh; a push-tap open keeps the cache (flow 103).
@@ -187,26 +188,29 @@ export default function ConversationScreen() {
     []
   );
 
+  // B-222: this open's fetch phase — in flight, settled, or none coming (a still-fresh cache).
+  // Advanced during render from `isFetching` alone: a live `setQueryData` (the SSE handlers,
+  // `loadOlder`) bumps query-core's data count mid-flight, so `isFetchedAfterMount` cannot
+  // tell this open's answer from a cached copy. Same ref-during-render pattern as below.
+  const openFetchRef = React.useRef<OpenFetch | null>(null);
+  openFetchRef.current = advanceOpenFetch(openFetchRef.current, conversationId, isFetching);
+  const openPhase = openFetchRef.current.phase;
+
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    const open = {
-      conversationId,
-      hasConversation: !!conversation,
-      isFetchedAfterMount,
-      isFetching,
-    };
+    const open = { conversationId, hasConversation: !!conversation, phase: openPhase };
     if (!shouldMarkRead(open, markedRef.current)) return;
     markedRef.current = conversationId;
     messagesApi
       .markConversationRead(conversationId)
       .then(() => invalidateMessagesLists(queryClient))
       .catch(() => undefined);
-  }, [conversation, conversationId, isFetchedAfterMount, isFetching, queryClient]);
+  }, [conversation, conversationId, openPhase, queryClient]);
 
   // PAD-415 (messaging.conversation-detail rule 9a): the first value this
   // component observes for `conversation.firstUnreadMessageId` from THIS
-  // open's own GET (`isFetchedAfterMount`, never a cached copy),
+  // open's own GET once it has settled (B-222; never a cached copy),
   // frozen for the visit — `markConversationRead` above clears it server-side,
   // so a later refetch (or a cache hit on returning to an already-read
   // thread) would read back null. Adjusting a ref during render off changed
@@ -219,7 +223,7 @@ export default function ConversationScreen() {
   if (
     conversation &&
     shouldFreezeFirstUnread(
-      { conversationId, hasConversation: true, isFetchedAfterMount, isFetching },
+      { conversationId, hasConversation: true, phase: openPhase },
       firstUnreadRef.current?.conversationId ?? null
     )
   ) {
