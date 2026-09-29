@@ -15,7 +15,7 @@ resolved: 2026-09-26T11:23:37Z
 
 **Source:** Session-B while running flows 03 and 115 for PAD-463 (2026-09-26).
 
-**What happens:** flow 03 failed twice in `goto-seeded-monday` with "Tap on id: calendar-next-week... FAILED" when it ran after flow 32 (Mês). The calendar keeps its view mode across launches, and in Mês or Semana the day strip's `calendar-next-week` isn't there. Fourteen flows use the subflow: 03, 04, 05, 14, 15, 16, 21, 31, 52, 53, 93, 94, 96 and 117.
+**What happens:** flow 03 failed twice in `goto-seeded-monday` with "Tap on id: calendar-next-week... FAILED" when it ran after flow 32 (Mês). The calendar keeps its view mode across launches, and in Mês the day strip's `calendar-next-week` isn't there (Semana renders it, WeekNav.tsx:58). Fourteen flows use the subflow: 03, 04, 05, 14, 15, 16, 21, 31, 52, 53, 93, 94, 96 and 117.
 
 **Root cause (observed):** a scratch flow showed `calendar-next-week` missing, then visible again after tapping `calendar-view-day`; flow 03 then passed. The subflow assumed the day view, which holds only when `config.yaml`'s order runs it before any view-switching flow. Type 7, the test.
 
