@@ -155,6 +155,7 @@ whether a failure mode has been seen before.
 - [B-188](B-188-counter-proposal-e2e-matched-the-request-bubble.md) — E2E PAD-281 counter-proposal: its bubble locator also matched the student's request bubble added by rule 10a (test-defect, medium, resolved)
 - [B-201](B-201-ios-month-grid-sunday-wraps.md) — iOS Mês grid: Sunday reported wrapping onto the next row, shifting every later date a weekday (not reproduced on simulator) (test-defect, high, triaged)
 - [B-204](B-204-needs-you-later-button-overflows-card.md) — Coach dashboard: "Mais tarde" overflowed its needs-you card with the sidebar open (missing-criterion, medium, resolved)
+- [B-207](B-207-expo-device-cpu-arch-traps-on-simulator.md) — iOS debug client traps at launch on the release Mac's simulator: expo-device 8.0.10 force-unwraps NXGetLocalArchInfo(); local patch clears it; unverified on device (missing-criterion, medium, triaged)
 - [B-217](B-217-seeded-monday-subflow-depends-on-the-remembered-view.md) — Maestro goto-seeded-monday depended on the calendar's remembered view mode (test-defect, medium, resolved)
 - [B-216](B-216-moving-a-class-onto-or-off-a-sunday-corrupts-its-weekdays.md) — Moving a recurring class onto or off a Sunday corrupted its daysOfWeek (ISO 7 vs calendar 0) (incomplete-rule, high, resolved)
 - [B-218](B-218-timestamp-list-test-armed-its-wait-after-the-load.md) — E2E PAD-33 list test armed waitForResponse after beforeEach had already loaded the list (test-defect, low, resolved)
