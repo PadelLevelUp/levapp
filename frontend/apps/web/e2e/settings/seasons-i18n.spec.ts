@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings, openCalendar } from "../helpers/navigation";
+import { ui } from "../helpers/i18n";
 
 /**
  * PAD-51: i18n coverage for the Seasons management UI (Settings > Calendar)
@@ -70,21 +71,20 @@ test("PAD-51: Seasons section and class-recurrence controls render fully localiz
   const dayButtons = page.locator("button", { hasText: /^[A-Z]$/ });
   await expect(dayButtons.first()).toBeVisible({ timeout: 5000 });
 
-  // Manual end-date field shows before enabling "recurs until season end".
-  await expect(page.getByText(/^end date$/i)).toBeVisible();
+  // PAD-463: the series end is a three-way choice, each option localized (classes.create rule 9).
+  for (const mode of ["date", "count", "season"] as const) {
+    await expect(page.getByTestId(`add-class-end-mode-${mode}`)).toHaveAccessibleName(
+      ui(`calendar.addClass.endMode.${mode}`)
+    );
+  }
+  const seasonEnd = page.getByTestId("add-class-end-mode-season");
+  await seasonEnd.click();
+  await expect(seasonEnd).toHaveAttribute("aria-checked", "true");
 
-  const seasonEndSwitch = page.getByRole("switch", {
-    name: /recurs until season end/i,
-  });
-  await expect(seasonEndSwitch).toBeVisible();
-  await seasonEndSwitch.click();
-  await expect(seasonEndSwitch).toHaveAttribute("aria-checked", "true");
-
-  // Manual end-date field is replaced by the localized season-end helper text.
+  // Choosing the season end shows the localized season-end helper text.
   await expect(
     page.getByText(/ends at your season'?s end date/i)
   ).toBeVisible();
-  await expect(page.getByText(/^end date$/i)).not.toBeVisible();
 
   // No leftover raw i18n keys or Portuguese-only strings should surface.
   await expect(page.getByText(/calendar\.addClass\./)).toHaveCount(0);
