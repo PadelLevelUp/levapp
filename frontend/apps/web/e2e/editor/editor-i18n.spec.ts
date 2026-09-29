@@ -45,10 +45,12 @@ test("PAD-55: root path resolves to the app (no dead Index scaffold)", async ({
   await page.goto("/");
   // The old scaffold rendered this exact copy — it must be gone everywhere.
   await expect(page.getByText(/welcome to your blank app/i)).toHaveCount(0);
-  // "/" resolves to a real authenticated page, not a 404/blank scaffold.
-  await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible({
-    timeout: 5000,
-  });
+  // "/" resolves to a real authenticated page, not a 404/blank scaffold. The app
+  // sidebar's link, not any "Calendar": the dashboard's schedule block has its own
+  // (B-235), and once it renders a bare role query matches two.
+  await expect(
+    page.getByRole("navigation").getByRole("link", { name: "Calendar" }),
+  ).toBeVisible({ timeout: 5000 });
 });
 
 test("PAD-55: Editor tool + a shadcn primitive a11y label render localized in EN and PT", async ({
