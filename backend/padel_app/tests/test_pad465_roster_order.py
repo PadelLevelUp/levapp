@@ -40,6 +40,7 @@ def roster(app):
         Association_CoachLessonInstance,
     )
     from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.presences import Presence
@@ -64,6 +65,7 @@ def roster(app):
             db.session.add(p)
             db.session.flush()
             players[name] = p.id
+            db.session.add(Association_CoachPlayer(coach_id=coach.id, player_id=p.id))
 
         start = datetime.utcnow().replace(microsecond=0) + timedelta(days=1)
         lesson = Lesson(
@@ -153,6 +155,25 @@ def test_occurrence_roster_is_in_name_order_before_and_after_a_save(client, app,
 
     assert _detail_order(client, app, roster, "lessoninstance", roster["instance_id"]) == EXPECTED
     assert _presences_order(client, app, roster) == EXPECTED
+
+
+def test_every_other_presences_payload_is_in_name_order(client, app, roster):
+    """Rule 12 says EVERY read: the detail's `presences`, GET /lesson_instance/<id>, and the
+    class evaluations panel (which builds its own participants from the presences)."""
+    names = _names_by_id(roster)
+    headers = _auth(app, roster["coach_user_id"])
+    iid = roster["instance_id"]
+
+    detail = client.post(f"/api/app/class_instance?model=lessoninstance&id={iid}", headers=headers)
+    assert [names[p["playerId"]] for p in detail.get_json()["presences"]] == EXPECTED
+
+    single = client.get(f"/api/app/lesson_instance/{iid}", headers=headers)
+    assert single.status_code == 200, single.get_data(as_text=True)
+    assert [names[p["playerId"]] for p in single.get_json()["presences"]] == EXPECTED
+
+    panel = client.post(f"/api/app/class_instance/evaluations?model=lessoninstance&id={iid}", headers=headers)
+    assert panel.status_code == 200, panel.get_data(as_text=True)
+    assert [names[p["playerId"]] for p in panel.get_json()["participants"]] == EXPECTED
 
 
 def test_series_roster_is_in_name_order(client, app, roster):

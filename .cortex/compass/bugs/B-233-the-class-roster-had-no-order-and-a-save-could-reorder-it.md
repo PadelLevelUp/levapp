@@ -7,7 +7,8 @@ status: resolved
 affects:
   - classes.instance-enrollment
   - backend/padel_app/serializers/lesson.py
-  - backend/padel_app/modules/frontend_api.py
+  - backend/padel_app/serializers/presence.py
+  - backend/padel_app/services/evaluation_api_service.py
 proposed_fix: "Rule 12 (D163): order every roster read by account name, ignoring case and accents, then player id, on the server."
 opened: 2026-09-29T14:31:37Z
 resolved: 2026-09-29T14:31:37Z
@@ -59,6 +60,12 @@ account name (`users.name`), ignoring case and accents, then player id, set on t
   - The series detail is checked.
   - A same-name tie is checked to break by player id.
   - Red 3/3 on the old code (creation order Zé, ana, Álvaro, Bruno), green 3/3 after the change.
-- Code changes: `services/roster_order.py` (`roster_sort_key`, `in_roster_order`), used in
-  `serializers/lesson.py` for occurrence and series rosters, and in `GET /lesson_instance/<id>/presences`.
+- Code changes: `services/roster_order.py` (`roster_sort_key`, `in_roster_order`).
+  - It's used by `serializers/lesson.py` for occurrence and series participants.
+  - It's used by `serialize_presences`, whose callers each pass one occurrence. That orders every presences
+    payload: the class detail's `presences`, `GET /lesson_instance/<id>`, `GET /lesson_instance/<id>/presences`,
+    unvalidate and confirm.
+  - It's used by `class_evaluations`, the evaluations panel. Its absent-last sort is stable over the roster
+    order, and its comment now says so, following Session-C's review of #478.
+- Added red case: `test_every_other_presences_payload_is_in_name_order`, red on creation order and green after.
 - Resolved: 2026-09-29T14:31:37Z (PAD-465).
