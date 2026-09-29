@@ -4,9 +4,11 @@
  * An Escape pressed in the first ~50 ms of a Radix Select opening reaches the layer
  * underneath; inside a Dialog or Sheet it closes the dialog too (B-231 measured it).
  * Two specs lost their dialog that way on a fast machine. Close a Select with
- * `closeSelectByChoosing` (e2e/helpers/select.ts) instead. This guard flags a
- * `keyboard.press("Escape")` whose preceding 12 lines, within the same test, open or
- * read a Select (an option, a listbox, a combobox, or a `*-select` test id).
+ * `closeSelectByChoosing` (e2e/helpers/select.ts) instead. This guard flags an Escape
+ * press (`page.keyboard` or a locator's) whose preceding 12 lines, within the same test,
+ * open or read a Select or a menu (an option, listbox, combobox, menu or menuitem role,
+ * or a `*-select` test id). Blind spot: a Select opened by `getByLabel` or through a
+ * helper leaves none of those words nearby, so the guard cannot see it.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -14,9 +16,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const LOOKBACK = 12;
-const ESCAPE = /keyboard\.press\(\s*["']Escape["']\s*\)/;
+const ESCAPE = /\.press\(\s*["']Escape["']\s*\)/; // page.keyboard or a locator's press
 const SELECT_OPEN =
-  /getByRole\(\s*["'](option|listbox|combobox)["']|role=["']?(option|listbox|combobox)|getByTestId\(\s*["'][\w-]*select["']/;
+  /getByRole\(\s*["'](option|listbox|combobox|menu|menuitem)["']|role=["']?(option|listbox|combobox|menu|menuitem)|getByTestId\(\s*["'][\w-]*select["']/;
 const TEST_START = /^\s*(test|it)(\.\w+)?\(/;
 
 export function findEscapeAfterSelect(source: string): number[] {
