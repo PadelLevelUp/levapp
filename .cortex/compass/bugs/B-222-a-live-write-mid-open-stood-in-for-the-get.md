@@ -3,7 +3,8 @@ id: B-222
 title: "iOS thread: a live write during the open's GET froze the previous visit's first unread and marked read early"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-09-29T15:23:49Z
 affects:
   - messaging.conversation-detail
   - frontend/apps/mobile/app/conversation/[id].tsx
@@ -35,5 +36,5 @@ opened: 2026-09-29T11:31:24Z
 - Spec: `messaging.conversation-detail` rule 10 note (B-222) and the criterion "A live update during the open's GET does not stand in for its answer".
 - Tests: `open-sequence.mid-flight.test.ts` covers the trigger and a control, a push-target open over a fresh cache (no GET, marks at once, a page merge never freezes), and one over a stale cache (freezes from its GET, like web). `open-sequence.test.ts` and `.fresh-cache.test.ts` move to the phase API.
 - Code: `open-sequence.ts` `advanceOpenFetch`; `app/conversation/[id].tsx` advances the phase during render and gates both effects on it.
-- Not run yet: Maestro flows 103 and 114 on the simulator.
-- Resolves once flows 103 and 114 pass on the simulator.
+- Maestro on the iOS 26.5 simulator (debug client from staging 64b605ab, JS from this branch at f7ab6187 via Metro, `advanceOpenFetch` confirmed in the bundle): flow 114 3/3 and flow 103 2/2. Run from a scratch copy of `.maestro` that answers two first-run iOS system sheets on the fresh simulator ("Save Password?" and 'Open in "LevApp"?'); no flow assertion changed.
+- Resolved: 2026-09-29T15:23:49Z

@@ -56,6 +56,14 @@ describe("competencies", () => {
     ]);
   });
 
+  it("a sub-category is created under its category by parentId (PAD-431, rule 15)", async () => {
+    const seen = install({});
+    await api.createCustomCompetency("Recuperação", 5);
+    expect(seen.map((c) => [c.method, c.url, body(c)])).toEqual([
+      ["post", "/app/evaluation_competency", { name: "Recuperação", parentId: 5 }],
+    ]);
+  });
+
   it("impact and delete address the competency by id", async () => {
     const seen = install({ name: "Grit", scores: 0, players: 0 });
     await api.getEvaluationCompetencyImpact(7);

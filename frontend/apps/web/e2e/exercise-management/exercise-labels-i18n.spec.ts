@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openExercises } from "../helpers/navigation";
+import { closeSelectByChoosing } from "../helpers/select";
 
 // PAD-53: EXERCISE_TYPE_OPTIONS / DIFFICULTY_OPTIONS labels are now rendered via
 // i18n keys (training.exerciseType.<code> / training.difficulty.<code>) instead of
@@ -21,13 +22,13 @@ test("PAD-53: exercise type/difficulty filters and form show localized labels, n
   await typeFilterTrigger.click();
   await expect(page.getByRole("option", { name: "Attack" })).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("option", { name: "Custom" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await closeSelectByChoosing(page, /all types/i);
 
   const difficultyFilterTrigger = page.getByRole("combobox").filter({ hasText: /all difficulties/i });
   await difficultyFilterTrigger.click();
   await expect(page.getByRole("option", { name: "Beginner" })).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("option", { name: "Expert" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await closeSelectByChoosing(page, /all difficulties/i);
 
   // No raw i18n key should ever leak onto the page.
   await expect(page.getByText(/training\.exerciseType\.|training\.difficulty\./)).toHaveCount(0);
@@ -43,18 +44,21 @@ test("PAD-53: exercise type/difficulty filters and form show localized labels, n
   await typeSelect.click();
   await expect(page.getByRole("option", { name: "Attack" })).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("option", { name: "Warm-up" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  // B-231: close by choosing the current option, not Escape (helpers/select.ts).
+  await closeSelectByChoosing(page, "Attack");
 
   const difficultySelect = page.getByRole("combobox").filter({ hasText: "Beginner" });
   await difficultySelect.click();
   await expect(page.getByRole("option", { name: "Beginner" })).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("option", { name: "Intermediate" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await closeSelectByChoosing(page, "Beginner");
 
   await expect(page.getByText(/training\.exerciseType\.|training\.difficulty\./)).toHaveCount(0);
 
   // --- Create an exercise with default values (type "attack", difficulty 1) and
   // verify the resulting card badge shows the localized label, not the raw key. ---
+  // The form must still be open: a lost sheet fails here, not at Create.
+  await expect(page.getByRole("heading", { name: /new exercise/i })).toBeVisible();
   const uniqueName = `PAD-53 i18n check ${Date.now()}`;
   await page.getByPlaceholder(/e\.g\. cross-court/i).fill(uniqueName);
   await page.getByRole("button", { name: /create exercise/i }).click();

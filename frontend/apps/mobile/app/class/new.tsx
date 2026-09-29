@@ -1,6 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
-import { CLASS_COLOR_SWATCHES, clubTodayISO, findOverlappingEvent, lightTheme, seasonOccurrenceContaining } from "@levelup/config";
+import {
+  CLASS_COLOR_SWATCHES,
+  clubTodayISO,
+  countPassesSeasonEnd,
+  findOverlappingEvent,
+  lightTheme,
+  recurrenceEndPayload,
+  seasonOccurrenceContaining,
+  type RecurrenceEndMode,
+} from "@levelup/config";
 import { useCalendarEvents, useCoachLevels } from "@levelup/hooks";
 import { classFormSchema } from "@levelup/validation";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +40,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { RecurrenceEndChoice } from "@/features/calendar/recurrence-end-choice";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
@@ -60,7 +70,7 @@ const TYPE_OPTIONS = [
 const NO_SEASON_COVERS_DATE = "no_season_covers_date";
 
 type FieldErrors = Partial<
-  Record<"name" | "date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate", string>
+  Record<"name" | "date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate" | "count", string>
 >;
 
 export default function NewClassScreen() {
@@ -106,7 +116,10 @@ export default function NewClassScreen() {
   // PAD-170 C7: "recurs until season end" replaces the manual end date with the
   // covering season's end date, snapshotted server-side (`calendar.seasons`
   // rule 8).
-  const [recursUntilSeasonEnd, setRecursUntilSeasonEnd] = React.useState(false);
+  // classes.create rule 9 (PAD-463): a series ends on a date, after N classes, or at the season end.
+  const [endMode, setEndMode] = React.useState<RecurrenceEndMode>("date");
+  const [endCountText, setEndCountText] = React.useState("");
+  const recursUntilSeasonEnd = endMode === "season";
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
@@ -136,6 +149,18 @@ export default function NewClassScreen() {
   // the backend stays the authority (`calendar.seasons` rule 9 fails closed
   // either way). `season === null` is "no definition": warn too.
   const coveringOccurrence = seasonOccurrenceContaining(date, season);
+
+  // classes.create rule 9: the chosen end as a payload (shared with web), the last class of a
+  // count, and the note when that last class falls after the season's end (never a cap).
+  const endChoice = recurrenceEndPayload({
+    mode: endMode,
+    startDate: date,
+    calendarDays: selectedDays,
+    endDate,
+    count: endCountText.trim() === "" ? null : Number(endCountText),
+  });
+  const countLastDate = endMode === "count" && endChoice.ok ? endChoice.endDate : null;
+  const countPastSeason = countLastDate ? countPassesSeasonEnd(date, countLastDate, season) : null;
   const showNoSeasonWarning =
     isRecurring &&
     recursUntilSeasonEnd &&
@@ -171,8 +196,11 @@ export default function NewClassScreen() {
     const max = Number(maxPlayers);
     if (!Number.isInteger(max) || max < 1)
       next.maxPlayers = t("classDetail.new.minimumOnePlayer");
-    if (isRecurring && endDate && !DATE_RE.test(endDate)) {
+    if (isRecurring && endMode === "date" && endDate && !DATE_RE.test(endDate)) {
       next.endDate = t("ui.validation.useDateFormat");
+    }
+    if (isRecurring && endMode === "count" && !endChoice.ok) {
+      next.count = t("calendar.addClass.endCountInvalid");
     }
 
     // Shared schema: date required; recurring needs days + end date.
@@ -180,7 +208,8 @@ export default function NewClassScreen() {
       date: DATE_RE.test(date) ? date : "",
       isRecurring,
       daysOfWeek: selectedDays,
-      endDate: endDate || null,
+      // The resolved end: a typed date, or the Nth class's date for a count.
+      endDate: (endChoice.ok ? endChoice.endDate : null) ?? (endMode === "date" ? endDate || null : null),
     });
     if (!result.success) {
       for (const issue of result.error.errors) {
@@ -192,7 +221,7 @@ export default function NewClassScreen() {
         // own, resolved server-side — so the shared schema's end-date
         // requirement does not apply while the toggle is on. Web makes the same
         // exception (`isRecurring && !recursUntilSeasonEnd && !endDate`).
-        if (field === "endDate" && !next.endDate && !recursUntilSeasonEnd)
+        if (field === "endDate" && !next.endDate && endMode === "date")
           next.endDate = t("classDetail.new.endDateRequired");
       }
     }
@@ -226,7 +255,8 @@ export default function NewClassScreen() {
     setOverlapOpen(false);
 
     const computedEndDate = isRecurring
-      ? endDate || format(addMonths(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd")
+      ? (endChoice.ok ? endChoice.endDate : null) ??
+        (endMode === "season" ? null : format(addMonths(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd"))
       : null;
 
     const data = {
@@ -547,21 +577,28 @@ export default function NewClassScreen() {
                     nothing on screen saying seasons existed. The toggle, its
                     hint and the no-season warning are web's `AddClassSheet`
                     copy verbatim (`calendar.addClass.*`). */}
-                <View className="flex-row items-center justify-between">
-                  <Text className="flex-1 text-xs text-muted-foreground">
-                    {t("calendar.addClass.recursUntilSeasonEnd")}
-                  </Text>
-                  <Switch
-                    testID="class-season-end-switch"
-                    accessibilityLabel={t("calendar.addClass.recursUntilSeasonEnd")}
-                    checked={recursUntilSeasonEnd}
-                    onCheckedChange={(checked) => {
-                      setRecursUntilSeasonEnd(checked);
-                      setRejection(null);
-                      setErrors((prev) => ({ ...prev, endDate: undefined }));
-                    }}
-                  />
-                </View>
+                <RecurrenceEndChoice
+                  mode={endMode}
+                  onModeChange={(mode) => {
+                    setEndMode(mode);
+                    setRejection(null);
+                    setErrors((prev) => ({ ...prev, endDate: undefined, count: undefined }));
+                  }}
+                  endDate={endDate}
+                  onEndDateChange={(value) => {
+                    setEndDate(value);
+                    setErrors((prev) => ({ ...prev, endDate: undefined }));
+                  }}
+                  endDateError={errors.endDate}
+                  countText={endCountText}
+                  onCountTextChange={(value) => {
+                    setEndCountText(value.replace(/[^0-9]/g, ""));
+                    setErrors((prev) => ({ ...prev, count: undefined }));
+                  }}
+                  countError={errors.count}
+                  lastDate={countLastDate}
+                  pastSeasonEnd={countPastSeason}
+                />
 
                 {showNoSeasonWarning ? (
                   <Text
@@ -572,23 +609,6 @@ export default function NewClassScreen() {
                     {t("calendar.addClass.noSeasonCoversDate")}
                   </Text>
                 ) : null}
-
-                {recursUntilSeasonEnd ? (
-                  <Text className="text-xs text-muted-foreground">
-                    {t("calendar.addClass.recursUntilSeasonEndHint")}
-                  </Text>
-                ) : (
-                  <DatePickerInput
-                    testID="class-end-date"
-                    label={t("calendar.addClass.endDate")}
-                    value={endDate}
-                    error={errors.endDate}
-                    onChange={(value) => {
-                      setEndDate(value);
-                      setErrors((prev) => ({ ...prev, endDate: undefined }));
-                    }}
-                  />
-                )}
               </>
             ) : null}
           </View>
