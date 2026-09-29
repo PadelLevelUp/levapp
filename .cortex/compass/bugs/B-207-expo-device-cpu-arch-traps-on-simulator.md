@@ -32,7 +32,7 @@ guard let info = NXGetLocalArchInfo(), let archRaw = info.pointee.name else { re
 With it (and the Podfile patch below), the Maestro launch smoke passes: `launchApp clearState`, then `login-username` is visible. No new crash report.
 
 **Scope, and what is NOT known:**
-- **Unverified on device.** Builds 24–26 carried the same expo-device: `frontend/package-lock.json` resolves 8.0.10 at their SHAs `8cd96e557`, `58691238` and `ac5b4f844`, as at `64b605ab`. The owner used those builds on a physical iPhone (reported by the coordinator). That points at a simulator-on-this-host issue, but it has not been shown either way. Build 27's TestFlight install on the owner's phone is the device check.
+- **Unverified on device.** Builds 24–26 carried the same expo-device: `frontend/package-lock.json` resolves 8.0.10 at their SHAs `8cd96e557`, `58691238` and `ac5b4f844`, as at `64b605ab`. The owner used those builds on a physical iPhone (per the 09-28 handoffs, transcript; not re-verified). That points at a simulator-on-this-host issue, but it has not been shown either way. Build 27's TestFlight install on the owner's phone is the device check.
 - Unknown whether a Release build or an Xcode 26.6 build traps the same way on this Mac's simulators. The reading is that it is host/runtime behaviour, not the SDK, so it probably would.
 - `npm ci` restores the unpatched file, so every fresh install needs the patch re-applied until the fix lands.
 
