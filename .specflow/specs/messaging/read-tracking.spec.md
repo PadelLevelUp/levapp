@@ -53,5 +53,5 @@ Track which messages each participant has read, providing unread counts.
 - **Given** a signed-in user with an unread message in one conversation, whose row shows the unread pill, whose nav/tab badge shows the unread total, and whose app icon badge (the installed PWA on web, the home-screen icon on iOS) shows that total
 - **When** they open that conversation
 - **Then**, without a reload, the row loses its pill and unread styling, the nav/tab badge drops by that conversation's count, and the app icon badge is written with the new total (cleared at 0)
-- *iOS:* the icon badge is written by `useAppBadgeSync` on every successful unread-count fetch (push-notifications, PAD-147), and opening a thread invalidates that count
+- **And** on iOS the same holds: opening the thread invalidates the unread count, and `useAppBadgeSync` writes the refetched total to the icon badge (push-notifications, PAD-147)
 

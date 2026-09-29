@@ -12,7 +12,7 @@
  * headless Chromium is not an installed PWA.
  *
  * R-040: the one message this spec sends is deleted in `finally` through the
- * superadmin editor (helpers/cleanup.ts), by the id snapshot taken before it.
+ * superadmin editor, by the id the send returned.
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import {
@@ -23,8 +23,8 @@ import {
   STUDENT_PASSWORD,
 } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
-import { API_APP, API_AUTH } from "../helpers/api";
-import { deleteNewEditorRows, editorIds, type Auth } from "../helpers/cleanup";
+import { API_APP, API_AUTH, API_ROOT } from "../helpers/api";
+import type { Auth } from "../helpers/cleanup";
 
 /** The seeded coach's display name (e2e/scripts/seed.py). */
 const COACH_NAME = "E2E Coach";
@@ -53,7 +53,7 @@ test("PAD-416: opening an unread conversation clears its row, the nav badge and 
   expect(withCoach, `student has a conversation named "${COACH_NAME}"`).toBeTruthy();
   const conversationId = String(withCoach.id);
 
-  const messagesBefore = await editorIds(request, coach, "message");
+  let messageId: number | undefined;
   try {
     // Start from a read thread so this conversation contributes exactly the one
     // message sent below, whatever earlier specs left.
@@ -64,6 +64,15 @@ test("PAD-416: opening an unread conversation clears its row, the nav badge and 
       data: { conversationId, text: `PAD-416 unread ${Date.now()}` },
     });
     expect(sent.status(), "the student's message is stored").toBeLessThan(300);
+    messageId = (await sent.json()).id;
+    expect(messageId, "the send returns the new message's id").toBeGreaterThan(0);
+
+    // The expected total comes from the server, not from the badge's text (which caps at 99+).
+    const count = await request.get(`${API_APP}/messages/unread_count`, { headers: coach });
+    expect(count.status()).toBe(200);
+    const totalBefore = Number((await count.json()).unreadCount);
+    expect(totalBefore, "this conversation's message is counted").toBeGreaterThanOrEqual(1);
+    expect(totalBefore, "the badge shows the number itself below 100").toBeLessThan(100);
 
     await page.addInitScript(() => {
       const calls: Array<{ fn: "set" | "clear"; count?: number }> = [];
@@ -93,9 +102,7 @@ test("PAD-416: opening an unread conversation clears its row, the nav badge and 
     await expect(row).toHaveAttribute("data-unread", "true", { timeout: 20_000 });
     await expect(row.getByTestId("unread-pill")).toHaveText("1");
     const nav = page.getByTestId("nav-unread-badge");
-    await expect(nav).toBeVisible({ timeout: 10_000 });
-    const totalBefore = Number(await nav.innerText());
-    expect(totalBefore, "the nav badge counts this conversation's unread").toBeGreaterThanOrEqual(1);
+    await expect(nav).toHaveText(String(totalBefore), { timeout: 10_000 });
     await expect.poll(lastBadge).toEqual({ fn: "set", count: totalBefore });
 
     await page.evaluate(() => {
@@ -118,6 +125,9 @@ test("PAD-416: opening an unread conversation clears its row, the nav badge and 
       "the counts cleared without a reload"
     ).toBe(true);
   } finally {
-    await deleteNewEditorRows(request, coach, "message", messagesBefore);
+    if (messageId !== undefined) {
+      const del = await request.delete(`${API_ROOT}/editor/message/${messageId}`, { headers: coach });
+      expect.soft(del.ok(), `delete message ${messageId}: ${del.status()}`).toBeTruthy();
+    }
   }
 });
