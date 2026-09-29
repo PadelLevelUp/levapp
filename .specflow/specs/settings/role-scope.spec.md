@@ -54,14 +54,23 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    missing `tab` is Preferences), and "Keep editing" on a URL-driven switch puts the URL back on
    the section still shown (PAD-459). Web-only: on iOS "My connections" is its own screen, not a
    tab query.
+   **(PAD-462, B-221)** A press on the avatar menu's trigger always toggles the menu, even while
+   the previous menu is still playing its close animation (about 180 ms after choosing an item).
+   Before, that press opened the menu and the closing menu's outside-press handler shut it
+   again, so the click was swallowed. The fix lives in the shared web `DropdownMenuContent`, so
+   every web dropdown gets it: a press on the menu's own trigger is left to the trigger.
+   Web-only: the defect is the DOM primitive's (Radix keeps closing content mounted with a
+   document listener), and iOS has no such dropdown; its initials open Settings directly.
 3. Coach-only Settings sections are: **Calendar** (seasons), **Notifications** (notification engine),
    **Tutorials** (interactive walkthroughs, see `settings.tutorials`), **Import** (data import +
    history), **Club** (club details + coach invitations), and — inside Preferences — **skill
-   levels** and the entry to **"Gerir competências"** (PAD-373; it replaced the evaluation
-   categories editor, holds no list of its own, and opens the one competency manager of
-   `evaluations.competencies` rule 11) and, next to it, **"Frequência de avaliações"** (PAD-404,
+   levels** and, under one **"Avaliações"** heading (PAD-431), in this order: the entry to
+   **"Definir categorias de avaliação"** ("Gerir competências" before; PAD-373 — it replaced the
+   evaluation categories editor, holds no list of its own, and opens the one competency manager of
+   `evaluations.competencies` rule 11), **"Frequência de avaliações"** (PAD-404,
    `evaluations.reminders` rule 1; its endpoint `GET|PUT /api/app/evaluation_settings` is
-   coach-only under rules 6–7). A coach also sees the shared **My connections** and
+   coach-only under rules 6–7) and **"Escala de avaliações"** (PAD-423, `evaluations.scale`). The
+   heading, like its three entries, is coach-only. A coach also sees the shared **My connections** and
    **Account** sections of rule 2.
 4. The section list is defined **once per shell** and drives both that shell's nav and the pane
    it renders, so the two can never disagree about what a role may see. Each entry states its
@@ -91,8 +100,8 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **When** the page renders
 - **Then** the section list offers only Profile, Preferences, Notifications preferences and Account
 - **And** no Calendar/Seasons, notification-engine, Import or Club section is offered
-- **And** the Preferences panel shows language and theme but no skill-levels and no entry to
-  the competency manager
+- **And** the Preferences panel shows language and theme but no skill-levels, no "Avaliações"
+  heading and no entry to the competency manager
 - **And** a student who opens a link carrying the manager's flag (`?competencies=open` on web,
   `/competencies` on iOS) sees no manager
 
@@ -106,7 +115,13 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Given** an authenticated coach on `/settings`
 - **When** the page renders
 - **Then** Profile, Preferences, Calendar, Notifications, Tutorials, Import, Club and Account are all offered
-- **And** the Preferences panel still shows skill levels and the entry that opens "Gerir competências"
+- **And** the Preferences panel still shows skill levels and the entry that opens "Definir categorias de avaliação"
+
+#### A coach's evaluation settings sit under one heading (PAD-431)
+- **Given** an authenticated coach on Settings → Preferences (web or iOS)
+- **When** the panel renders
+- **Then** one "Avaliações" heading holds, in order, "Definir categorias de avaliação",
+  "Frequência de avaliações" and "Escala de avaliações", and no label reads "Gerir competências"
 
 #### Coach-only reads reject a student with 403
 - **Given** an authenticated student
@@ -177,6 +192,12 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **When** they choose "My connections" from the same menu
 - **Then** the URL is `/settings?tab=connections` and My connections is shown
 - **And** choosing "Settings" again from the menu goes back to Preferences
+
+#### The avatar menu reopens on a press made during its close animation (PAD-462)
+- **Given** a coach on web who just chose "My connections" from the avatar menu, and the menu is still playing its close animation
+- **When** they press the avatar trigger again
+- **Then** the menu opens (`aria-expanded="true"`), and the press is not swallowed
+- **And** a press on the trigger of an open menu still closes it
 
 #### The menu still asks before dropping an unsaved edit (PAD-447)
 - **Given** a coach on Settings → Calendar with Sunday switched off and not saved

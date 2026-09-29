@@ -37,6 +37,12 @@ It also makes the target visible inside the app.
    <version> <build>` refuses a missing or unknown target. It exports `EXPO_PUBLIC_API_URL`
    from the table for that target, which overrides anything already set in the shell or in a
    `.env` file. It never passes through a value it was not given.
+3a. **The release is archived with an Xcode the app can launch under.** Before it touches
+   anything, the script runs `scripts/check-xcode.sh`. That refuses Xcode 27 and later, and any
+   version it cannot read (exit 3). A build linked against the iOS 27 SDK crashes at launch,
+   because the app has not adopted the UIScene lifecycle (PAD-467). The refusal names the way
+   out: `DEVELOPER_DIR` pointing at an Xcode 26.x. `LEVAPP_ALLOW_XCODE_27=1` lets a build
+   through with a warning, for PAD-467's own work. This rule is retired when PAD-467 lands.
 
 #### The finished bundle is checked
 4. **Before export, the archived bundle must match its target.** `scripts/verify-release-bundle.mjs`
@@ -76,8 +82,8 @@ It also makes the target visible inside the app.
 
 #### Verification
 9. Unit (vitest, apps/mobile): the table/source/EAS agreement (rules 1–2), the release script's
-   target handling (rule 3, read statically), the bundle checker (rules 4–5), and the target
-   helpers (rule 7).
+   target handling (rule 3, read statically), the Xcode check (rule 3a, run against a stub
+   `xcodebuild`), the bundle checker (rules 4–5), and the target helpers (rule 7).
 10. Maestro flow `54-settings-build-info` (renumbered from 53 at batch integration; PAD-335 holds 53):
     Settings shows `settings-build-info`, and on the debug build (local backend) it also shows
     `settings-build-info-test-server`.
@@ -108,6 +114,13 @@ It also makes the target visible inside the app.
 - Given `scripts/ios-release.sh`
 - When it is read
 - Then it takes the target from its first argument, exits for anything not in the table, exports `EXPO_PUBLIC_API_URL` from the table, and runs the bundle checker before export
+
+#### An Xcode 27 release is refused before anything changes
+- Given `xcodebuild -version` reports `Xcode 27.0`
+- When `scripts/ios-release.sh production 1.2.0 <build>` runs
+- Then it exits 3 before editing `app.json` or prebuilding, naming PAD-467 and `DEVELOPER_DIR`
+- And with `Xcode 26.6` the check passes, and with `LEVAPP_ALLOW_XCODE_27=1` Xcode 27 passes with a warning
+- And an unreadable version is refused
 
 #### A tester sees the server in Settings
 - Given the debug build signed in as `e2e-coach`

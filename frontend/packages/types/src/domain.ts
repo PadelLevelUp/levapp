@@ -188,6 +188,9 @@ export interface EvaluationCompetency {
   isActive: boolean;
   sortOrder: number | null;
   scoreCount: number;
+  /** PAD-431 (evaluations.competencies rule 15): the category a sub-category belongs to; `null` for a
+   *  category. Absent only from a server older than PAD-431 (the deploy window): read it as `null`. */
+  parentId?: number | null;
 }
 
 /** A built-in competency the coach has not switched on. No row exists for it yet. */
@@ -804,6 +807,18 @@ export interface Conversation {
    * fetch the page before it. Null for an empty thread.
    */
   oldestMessageId?: string | number | null;
+  /**
+   * PAD-415 (messaging.conversation-detail rule 9a): the caller's earliest
+   * unread message in the thread — sent by someone else, not soft-deleted,
+   * `sent_at > coalesce(last_read_at, epoch)` — as it stood BEFORE this open,
+   * since the client marks the thread read after loading it. `null` when
+   * nothing is unread. Absent on older payloads and on list-row summaries;
+   * treat as `null`. The client freezes the value from the open response —
+   * marking read afterwards makes a refetch answer `null` again — so it
+   * anchors the thread and drives the "Unread messages" divider for this
+   * visit only.
+   */
+  firstUnreadMessageId?: string | number | null;
 }
 
 export type DashboardIcon =

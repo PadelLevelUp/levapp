@@ -28,9 +28,10 @@ export async function switchOnCatalogueCompetency(catalogueKey: string): Promise
   return res.data;
 }
 
-/** 409 when the coach already holds the name. */
-export async function createCustomCompetency(name: string): Promise<EvaluationCompetency> {
-  const res = await getApi().post("/app/evaluation_competency", { name });
+/** 409 when the coach already holds the name. With `parentId`, a sub-category of that category
+ *  (PAD-431, evaluations.competencies rule 15). */
+export async function createCustomCompetency(name: string, parentId?: number): Promise<EvaluationCompetency> {
+  const res = await getApi().post("/app/evaluation_competency", parentId === undefined ? { name } : { name, parentId });
   return res.data;
 }
 

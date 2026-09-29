@@ -3,6 +3,7 @@ from werkzeug.exceptions import HTTPException
 from datetime import datetime, timezone
 from dateutil import parser
 import json
+import re
 import queue
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 
@@ -1015,6 +1016,14 @@ def get_lesson_instances():
     if not start or not end:
         abort(400, "from and to are required")
 
+    # B-192 (players.profile rule 5): every "Add to classes" picker — web, iOS and the
+    # App Store builds already installed — sends the week as date-only bounds,
+    # `to=<Sunday>`, meaning "through Sunday". Parsed as-is that is Sunday 00:00, which
+    # left out every class on the week's Sunday. A date-only `to` is the end of that
+    # day, as the calendar's clients send it (`…T23:59:59`); a full timestamp is kept.
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", end):
+        end = f"{end}T23:59:59.999999"
+
     range_start = parser.isoparse(start).astimezone(timezone.utc)
     range_end = parser.isoparse(end).astimezone(timezone.utc)
 
@@ -1033,7 +1042,7 @@ def lesson_instance_presences(instance_id):
         if player is None:
             abort(403, "Not authorized to view this class")
         presence_query = presence_query.filter_by(player_id=player.id)
-    presences = presence_query.all()
+    presences = presence_query.all()  # serialize_presences puts them in roster order (rule 12)
     return jsonify(serialize_presences(presences))
 
 

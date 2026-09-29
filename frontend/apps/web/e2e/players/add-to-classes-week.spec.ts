@@ -52,19 +52,27 @@ async function openPicker(page: Page) {
 }
 
 test("PAD-439: a long week scrolls inside the picker; the last class clears the footer", async ({ page }) => {
-  // Short enough that next week's seeded classes (seed.py: the Monday academy class, the
-  // recurring ones, the full upcoming class) overflow the dialog on any browser. Real data, not a
-  // mock: WebKit does not route this cross-port request, and Safari is where the owner saw it.
-  await page.setViewportSize({ width: 1280, height: 520 });
+  // Real data, not a mock: WebKit does not route this cross-port request, and Safari is where the
+  // owner saw it. B-193: on EVERY weekday next week holds the seed's Monday academy class and its
+  // Tuesday recurring class (seed_dates.py); the "Next 7 days" class is there on six weekdays but
+  // on a Monday it falls on this week's Sunday. So the test waits for those two, in a window short
+  // enough that two rows overflow the list (measured: 69 px at 460), and asserts the overflow —
+  // a list that fits would pass the footer check below without scrolling anything.
+  await page.setViewportSize({ width: 1280, height: 460 });
   await openPicker(page);
   await page.getByTestId("add-to-classes-next-week").click();
   const rows = page.locator('[data-testid^="add-to-classes-class-"]');
-  await expect(rows.nth(2)).toBeAttached({ timeout: 10_000 });
+  await expect(rows.nth(1)).toBeAttached({ timeout: 10_000 });
   const last = rows.last();
+  const listEl = page.getByTestId("add-to-classes-list");
+  await expect
+    .poll(() => listEl.evaluate((el) => el.scrollHeight - el.clientHeight), {
+      message: "the week's classes overflow the list",
+    })
+    .toBeGreaterThan(0);
 
   // Scroll the way a person does: wheel over the list. (scrollIntoViewIfNeeded scrolls
   // programmatically and would bypass the dialog's scroll lock, which is what a wheel meets.)
-  const listEl = page.getByTestId("add-to-classes-list");
   await listEl.hover();
   for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 400);
   await page.waitForTimeout(300);

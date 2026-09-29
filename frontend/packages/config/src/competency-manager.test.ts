@@ -4,7 +4,16 @@ import type { EvaluationCatalogueEntry, EvaluationCompetencies, EvaluationCompet
 import { readFileSync } from "fs";
 import { join } from "path";
 
-import { activeCount, CATALOGUE_ORDER, competencyKind, legacyScaleLabel, managerSections, type ManagerRow } from "./competency-manager";
+import {
+  activeCount,
+  CATALOGUE_ORDER,
+  categorySections,
+  competencyKind,
+  legacyScaleLabel,
+  managerSections,
+  type CategorySection,
+  type ManagerRow,
+} from "./competency-manager";
 
 // evaluations.competencies rules 2 and 5 (PAD-373): what "Gerir competências" lists,
 // in which order, and which of the three kinds each row is. Q31 (Session-B, 2026-09-21):
@@ -158,5 +167,88 @@ describe("CATALOGUE_ORDER", () => {
     expect(serverKeys).toHaveLength(17);
     expect([...CATALOGUE_ORDER]).toEqual(serverKeys);
     expect(CATALOGUE.map((entry) => entry.key)).toEqual(serverKeys);
+  });
+});
+
+// PAD-431 (evaluations.competencies rule 15): the manager as a tree.
+describe("categorySections (PAD-431)", () => {
+  const shape = (sections: CategorySection[]) =>
+    sections.map((s) => [s.id, s.head ? (s.head.kind === "available" ? `+${s.head.entry.key}` : s.head.competency.id) : null, s.subs.map((r) => (r.kind === "available" ? `+${r.entry.key}` : r.competency.id)), s.parentId]);
+
+  const tree = () => {
+    let id = 100;
+    const cats = ["technique", "tactics", "consistency"].map((key) => competency({ id: ++id, key, name: key, group: "general", parentId: null }));
+    const subs = CATALOGUE.slice(3).map((entry) =>
+      competency({ id: ++id, key: entry.key, name: entry.key, group: entry.group, parentId: cats[entry.group === "technique" ? 0 : 1].id }));
+    return { cats, subs };
+  };
+
+  it("a new coach sees the whole default tree, each category with its sub-categories in the catalogue's order", () => {
+    const { cats, subs } = tree();
+    const sections = categorySections({ competencies: [...cats, ...subs], catalogue: [] });
+    expect(sections.map((s) => [s.id, s.subs.length, s.parentId])).toEqual([
+      ["key-technique", 9, 101], ["key-tactics", 5, 102], ["key-consistency", 0, 103],
+    ]);
+    expect(sections[0].subs.map(keyOf)).toEqual(CATALOGUE.slice(3, 12).map((e) => e.key));
+  });
+
+  it("an existing coach with legacy categories only: their own first, then every default offered", () => {
+    const sections = categorySections({ competencies: [FOREHAND_LEGACY], catalogue: CATALOGUE });
+    expect(shape(sections)).toEqual([
+      ["legacy", null, [7], null],
+      ["key-technique", "+technique", CATALOGUE.slice(3, 12).map((e) => `+${e.key}`), null],
+      ["key-tactics", "+tactics", CATALOGUE.slice(12).map((e) => `+${e.key}`), null],
+      ["key-consistency", "+consistency", [], null],
+    ]);
+  });
+
+  it("interleaves held and offered sub-categories in the catalogue's order; the coach's own sub-categories follow", () => {
+    const technique = competency({ id: 1, key: "technique", group: "general", parentId: null });
+    const smash = competency({ id: 2, key: "smash", group: "technique", parentId: 1 });
+    const mine = competency({ id: 3, key: null, name: "Recuperação", group: "custom", parentId: 1 });
+    const offered = CATALOGUE.filter((e) => e.group === "technique" && e.key !== "smash");
+    const sections = categorySections({ competencies: [technique, smash, mine], catalogue: offered });
+    expect(sections[0].subs.map((r) => (r.kind === "available" ? r.entry.key : r.competency.id))).toEqual([
+      "forehand", "backhand", "volley", "bandeja", "vibora", 2, "glass_exit", "double_glass", "serve", 3,
+    ]);
+  });
+
+  it("a coach's own category is a section with its sub-categories, after the defaults", () => {
+    const grit = competency({ id: 5, key: null, name: "Grit", group: "custom", parentId: null });
+    const recovery = competency({ id: 6, key: null, name: "Recuperação", group: "custom", parentId: 5 });
+    const sections = categorySections({ competencies: [grit, recovery], catalogue: [] });
+    expect(shape(sections)).toEqual([["id-5", 5, [6], 5]]);
+  });
+
+  it("a renamed default keeps its sub-categories; the default comes back offered with what the coach lacks", () => {
+    const mine = competency({ id: 1, key: null, name: "Técnica base", group: "custom", parentId: null });
+    const vibora = competency({ id: 2, key: "vibora", group: "technique", parentId: 1 });
+    const offered = CATALOGUE.filter((e) => e.key === "technique" || (e.group === "technique" && e.key !== "vibora"));
+    const sections = categorySections({ competencies: [mine, vibora], catalogue: offered });
+    expect(sections.map((s) => [s.id, s.subs.length, s.parentId])).toEqual([["key-technique", 8, null], ["id-1", 1, 1]]);
+  });
+
+  it("a default the coach cannot be offered (they hold its name) still lists its sub-categories, under its name", () => {
+    const legacyTecnica = competency({ id: 9, key: null, name: "Técnica", group: null });
+    const bandejaTop = competency({ id: 10, key: "bandeja", group: "technique", parentId: null });
+    const offered = CATALOGUE.filter((e) => e.group === "technique" && e.key !== "bandeja");
+    const sections = categorySections({ competencies: [legacyTecnica, bandejaTop], catalogue: offered });
+    const technique = sections.find((s) => s.id === "key-technique")!;
+    expect([technique.head, technique.headKey, technique.parentId, technique.subs.length]).toEqual([null, "technique", null, 8]);
+    // the sub-level row the server left top-level is a category of its own, which cannot hold sub-categories
+    expect(shape(sections).find((s) => s[0] === "key-bandeja")).toEqual(["key-bandeja", 10, [], null]);
+  });
+
+  it("a row whose category is missing from the list is shown on its own, never lost", () => {
+    const stray = competency({ id: 8, key: null, name: "Stray", group: "custom", parentId: 99 });
+    // …and, being a sub-category, it cannot hold sub-categories (two levels only)
+    expect(shape(categorySections({ competencies: [stray], catalogue: [] }))).toEqual([["id-8", 8, [], null]]);
+  });
+
+  it("nothing moves when a switch is flipped", () => {
+    const { cats, subs } = tree();
+    const before = categorySections({ competencies: [...cats, ...subs], catalogue: [] });
+    const flipped = [...cats.map((c, i) => (i === 0 ? { ...c, isActive: false } : c)), ...subs.map((c, i) => (i === 3 ? { ...c, isActive: false } : c))];
+    expect(shape(categorySections({ competencies: flipped, catalogue: [] }))).toEqual(shape(before));
   });
 });

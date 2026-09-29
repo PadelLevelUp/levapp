@@ -1,0 +1,43 @@
+# PAD-438 / B-223 — dashboard.blocks rule 3a and the criterion "The student's record keeps its
+# layout when rows appear above it". A block above "Your record" that grows AFTER the dashboard
+# was first laid out (a class the coach just added, a claim banner, a new ask) collapsed the four
+# KPI tiles on iOS to empty rectangles under the next heading; the collapsed tiles also dropped out
+# of the view hierarchy, which is what this flow asserts on. Setup and teardown in
+# scripts/record-layout-*.js (R-040).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/record-layout-setup.js
+onFlowComplete:
+  - runScript: ../scripts/record-layout-teardown.js
+---
+- assertTrue: "${output.pid > 0}"
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student
+      PASSWORD: E2eStudent123!
+# The dashboard is laid out once, with the tiles below the fold.
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 20000
+- waitForAnimationToEnd
+# The coach adds a class; pull to refresh lays out its rows above the record.
+- runScript: ../scripts/record-layout-insert.js
+- assertTrue: "${output.inserted == 200}"
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 600
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "dashboard-kpi-attended"
+    centerElement: true
+    timeout: 15000
+- assertVisible:
+    id: "dashboard-kpi-missed"
+- assertVisible:
+    id: "dashboard-kpi-upcoming-lessons"
+- assertVisible:
+    id: "dashboard-kpi-invites"

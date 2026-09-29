@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { activeCount, lightTheme, managerSections } from "@levelup/config";
+import { activeCount, categorySections, competencyLabel, lightTheme } from "@levelup/config";
 import { useEvaluationCompetencies } from "@levelup/hooks";
 import type { EvaluationCompetency } from "@levelup/types";
 import { useRouter } from "expo-router";
@@ -16,11 +16,11 @@ import { Text } from "@/components/ui/text";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 import { AddCustomCompetency } from "./add-custom-competency";
-import { CompetencyRow, managerRowId } from "./competency-row";
+import { CategorySectionView } from "./category-section";
 import { DeleteCompetencyDialog } from "./delete-competency-dialog";
 
 /**
- * "Gerir competências" on iOS (PAD-373; evaluations.competencies rules 5-9, 11-14): a
+ * "Definir categorias de avaliação" on iOS (PAD-373, PAD-431; evaluations.competencies rules 5-9, 11-15): a
  * PUSHED screen, not a native Modal sheet (rule 14), reached through
  * `openCompetencyManager(router)` from Settings and from the evaluation surfaces. The same
  * sections, rows and test ids as web's `CompetencyManager`.
@@ -45,7 +45,10 @@ export function CompetencyManagerScreen() {
 
   if (!isCoach) return null;
 
-  const sections = competencies.data ? managerSections(competencies.data) : [];
+  const sections = competencies.data ? categorySections(competencies.data) : [];
+  const subNames = deleting && competencies.data
+    ? competencies.data.competencies.filter((c) => c.parentId === deleting.id).map((c) => competencyLabel(t, c))
+    : [];
 
   return (
     <Screen edges={["top", "bottom"]} testID="competency-manager">
@@ -80,22 +83,7 @@ export function CompetencyManagerScreen() {
           ) : (
             <>
               {sections.map((section) => (
-                <View key={section.group} className="gap-1">
-                  <Text testID={`competency-group-${section.group}`} role="heading" aria-level={2}
-                    className="text-xs font-semibold uppercase text-muted-foreground">
-                    {section.group === "legacy"
-                      ? t("evaluations.manager.legacyTitle")
-                      : t(`evaluations.groups.${section.group}`)}
-                  </Text>
-                  {section.group === "legacy" ? (
-                    <Text testID="competency-group-legacy-caption" className="text-xs text-muted-foreground">
-                      {t("evaluations.manager.legacyCaption")}
-                    </Text>
-                  ) : null}
-                  {section.rows.map((row) => (
-                    <CompetencyRow key={managerRowId(row)} row={row} onDelete={setDeleting} />
-                  ))}
-                </View>
+                <CategorySectionView key={section.id} section={section} onDelete={setDeleting} />
               ))}
               {/* Below the rows, never above them (Session-B, #361): appearing above would move
                   every switch under the finger the moment the last one is turned off. */}
@@ -114,7 +102,7 @@ export function CompetencyManagerScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <DeleteCompetencyDialog competency={deleting} onClose={() => setDeleting(null)} />
+      <DeleteCompetencyDialog competency={deleting} subNames={subNames} onClose={() => setDeleting(null)} />
     </Screen>
   );
 }

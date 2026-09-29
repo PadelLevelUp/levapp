@@ -76,10 +76,15 @@ def _late_cancellation_for(presences) -> dict:
 
 
 def serialize_presences(presences: Iterable) -> List[dict]:
-    """Serialise a batch with the real reminder/invitation signal attached."""
-    from padel_app.services.presence_signal_service import reminder_sent_at_by_presence
+    """Serialise a batch with the real reminder/invitation signal attached.
 
-    rows = list(presences)
+    Every caller passes one occurrence's presences, so they come out in the roster's
+    one order (classes.instance-enrollment rule 12, D163).
+    """
+    from padel_app.services.presence_signal_service import reminder_sent_at_by_presence
+    from padel_app.services.roster_order import in_roster_order
+
+    rows = in_roster_order(presences)
     sent_at = reminder_sent_at_by_presence(rows)
     late = _late_cancellation_for(rows)
     return [serialize_presence(p, reminder_sent_at=sent_at.get(p.id), late_cancellation=late.get(p.id, False)) for p in rows]

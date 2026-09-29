@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatConversationTimestamp } from '@/lib/conversationTime';
+import { unreadBadgeLabel } from '@levelup/config';
 import type { Conversation } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -98,7 +99,14 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
               <button
                 key={conversation.id}
                 onClick={() => onSelect(conversation.id)}
-                data-testid={conversation.isAssistant ? "conversation-assistant" : undefined}
+                data-testid={
+                  conversation.isAssistant
+                    ? "conversation-assistant"
+                    : `conversation-row-${conversation.id}`
+                }
+                // messaging.conversations rule 16 (PAD-414): every row exposes
+                // its unread state for tests, the assistant row included.
+                data-unread={conversation.unreadCount > 0 ? "true" : "false"}
                 className={cn(
                   "w-full flex items-start gap-3 p-3 transition-colors text-left",
                   // bg-secondary alone measured 1.03:1 against the list panel
@@ -121,8 +129,13 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={cn(
-                        "font-medium text-sm truncate",
-                        conversation.unreadCount > 0 && "text-foreground"
+                        "text-sm truncate",
+                        // PAD-414 (messaging.conversations rule 16): unread is
+                        // bold, read is regular weight — the row's state must
+                        // be unmistakable at a glance, not just a pill.
+                        conversation.unreadCount > 0
+                          ? "font-semibold text-foreground"
+                          : "font-normal text-foreground"
                       )}
                     >
                       {displayName(conversation)}
@@ -132,12 +145,22 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="text-sm text-muted-foreground leading-snug overflow-hidden break-words [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                    <p
+                      className={cn(
+                        "text-sm leading-snug overflow-hidden break-words [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
+                        conversation.unreadCount > 0
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
                       {conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (
-                      <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
-                        {conversation.unreadCount}
+                      <span
+                        data-testid="unread-pill"
+                        className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium"
+                      >
+                        {unreadBadgeLabel(conversation.unreadCount)}
                       </span>
                     )}
                   </div>

@@ -150,6 +150,12 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      shows whenever the list is at least 480px wide, so a phone keeps its layout. Web-only: iOS
      already stacks the title over the time (ticket PAD-336 measured it rendering in full at 375px).
      At a 1280px desktop the list is about 530px wide, and the one-row layout left the title 66px.
+   - **(PAD-438, B-223) A tile keeps its layout when the page above it changes.** The student's
+     "Your record" tiles share each row equally and a tile's card fills its cell, but the card
+     never takes its height from a zero basis: on iOS, rows that appeared above the record after
+     its first layout (a class the coach just added, a claim banner, a new ask) collapsed every card
+     to an empty strip under the next heading. iOS only: web lays the grid out in the browser,
+     where the same classes never collapsed.
    - Copy ships in pt-PT (default, informal "tu") and en; dates are formatted client-side from
      ISO values in the active locale (`@levelup/config`), never from server-formatted strings.
 3b. **(PAD-202)** The client tells the two homes apart by the payload `id`
@@ -346,6 +352,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **When** they GET `/api/app/dashboard`
 - **Then** `next_class.data.isToday` is `true`, `minutesUntil` is 45 and `players` lists the
   signed-up classmates (capped at 2)
+
+#### The student's record keeps its layout when rows appear above it (PAD-438, B-223)
+- **Given** an iOS student whose dashboard is on screen, laid out with "Your record" below the fold
+- **When** the coach adds a class with them and the student pulls to refresh, so new rows appear
+  above the record (or a claim banner mounts above it after the first layout)
+- **Then** all four tiles (Attended, Missed, Upcoming lessons, Invites) still show their label,
+  number and context at full height, and "Evaluations" starts below them
+  (`kpi-tiles.layout.test.tsx`, Maestro flow 116)
 
 #### Student with nothing scheduled has no hero (PAD-202)
 - **Given** an authenticated student with no upcoming class in the next 90 days
