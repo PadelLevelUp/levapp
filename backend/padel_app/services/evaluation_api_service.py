@@ -710,10 +710,15 @@ def class_evaluations(coach, ref) -> dict:
     """A READ: who is in the class, and each one's most recent record in it. Never materialises."""
     ensure_starting_set(coach)
     instance, pending = _resolve_class(coach, ref)
+    from padel_app.services.roster_order import in_roster_order
+
     rows = instance.presences if instance is not None else pending[0].players_relations
     # One statement loads every participant's player and user into the session, so the
     # `.player` / `.user` reads below hit the identity map, not one query per row (rule 3).
     loaded = _players_with_users({row.player_id for row in rows})  # noqa: F841 — held for the identity map
+    # The roster's one order (classes.instance-enrollment rule 12, D163), sorted only now,
+    # after the load above: the sort key reads each row's player and user.
+    rows = in_roster_order(rows)
     if instance is not None:
         roster = [(p.player, p.status == "absent") for p in rows]
     else:
@@ -752,7 +757,7 @@ def class_evaluations(coach, ref) -> dict:
             "due": due.get(link.id, False),  # evaluations.reminders rule 3 (PAD-404)
             "record": serialize_record(record, on=on) if record is not None else None,
         })
-    participants.sort(key=lambda p: p["absent"])  # Q14: absent last; the rest keep the class detail's order (stable)
+    participants.sort(key=lambda p: p["absent"])  # Q14: absent last; the rest keep the roster order above (stable)
 
     active = _ordered(EvaluationCategory.query.filter_by(coach_id=coach.id, is_active=True).all())
     counts = _score_counts(active)
