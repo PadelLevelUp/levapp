@@ -90,7 +90,14 @@ three separate fields on it. Decision record:
 
    **The silence on an accepted class request is deliberate, not a gap.** A student who asks for a class through `classes.class-requests` already receives the acceptance; telling them a coach added them would be a second message for one event, about something they initiated — the app narrating a person's own action back at them as news. `add_class_service` therefore takes `notify_students=False` on that path only. Anyone later reading it as a missing notification should read this sentence instead.
 
+12. **One roster order, set on the server (D163; PAD-465, B-233).** Every read that lists a class's participants lists them in the same order: by the player's name as the roster shows it (the account name, `users.name`), ignoring case and accents, then by player id. That covers the class-detail participants list for an occurrence (its presences) and for a series (its roster), and `GET /lesson_instance/<id>/presences`. The server sets the order and the clients render it as given. Nothing a person does to a row (saving attendance, an answer, a cancellation) moves it.
+
 ### Acceptance Criteria
+
+#### The roster keeps one order across a save (D163)
+- **Given** an occurrence whose presences were created in the order "Zé", "ana", "Álvaro", "Bruno"
+- **When** the coach reads the class detail and the presences list, before and after saving attendance for "Bruno"
+- **Then** both reads list "Álvaro", "ana", "Bruno", "Zé", before and after the save
 
 #### A coach placing a student tells them (PAD-330)
 - **Given** a coach who creates a class with a student on it, adds one to the series, adds one to a single occurrence, or puts back a student who had cancelled

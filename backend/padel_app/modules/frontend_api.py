@@ -27,6 +27,7 @@ from padel_app.serializers.conversation import (
 )
 from padel_app.serializers.coach_level import serialize_coach_level
 from padel_app.model import NotNullableFieldError
+from padel_app.services.roster_order import in_roster_order
 from padel_app.services.season_service import (
     InvalidSeasonError,
     delete_definition,
@@ -1033,7 +1034,8 @@ def lesson_instance_presences(instance_id):
         if player is None:
             abort(403, "Not authorized to view this class")
         presence_query = presence_query.filter_by(player_id=player.id)
-    presences = presence_query.all()
+    # classes.instance-enrollment rule 12 (D163): the roster's one order.
+    presences = in_roster_order(presence_query.all())
     return jsonify(serialize_presences(presences))
 
 
