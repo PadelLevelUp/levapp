@@ -134,9 +134,8 @@ test("US-71: reminders timing mode selector has both options", async ({ page }) 
 
   await expect(page.getByRole("option", { name: /hours before class/i })).toBeVisible({ timeout: 3000 });
   await expect(page.getByRole("option", { name: /days before at specific time/i })).toBeVisible();
-
-  // Close
-  await page.keyboard.press("Escape");
+  // No close: the test ends here, and an Escape in the Select's first ~50 ms
+  // reaches the layer underneath (B-231/B-234).
 });
 
 test("US-71: switching to days-before mode shows days stepper and time input", async ({ page }) => {
@@ -242,8 +241,7 @@ test("US-72: level attribute shows level-specific operations", async ({ page }) 
   await expect(page.getByRole("option", { name: /one level below/i })).toBeVisible();
   await expect(page.getByRole("option", { name: /all levels above/i })).toBeVisible();
   await expect(page.getByRole("option", { name: /all levels below/i })).toBeVisible();
-
-  await page.keyboard.press("Escape");
+  // No close: the test ends here (B-234; choosing an option could save a setting).
 });
 
 test("US-72: add group button appears and adds a new group card", async ({ page }) => {

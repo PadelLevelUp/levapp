@@ -538,7 +538,11 @@ export default function MessagesPage() {
           </div>
         )}
 
-        <div className="flex h-full">
+        {/* PAD-417 (B-198): the panes take what the banner leaves. `h-full` asked for
+            100% of the column on top of the banner, and a conversation list taller than
+            the pane holds the row at that size (its automatic minimum), so the composer
+            ended past <main>'s clip. `flex-1 min-h-0` lets the row shrink. */}
+        <div className="flex flex-1 min-h-0">
           {/* Conversation list */}
           <div
             className={

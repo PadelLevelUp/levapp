@@ -57,6 +57,9 @@ window, and the old one didn't.
 
 Seven other E2E specs press Escape once each. All passed in the same gate on this machine.
 
+**Superseded by B-234:** `create-player-level-dropdown` (PAD-29) was exposed after all, in longer runs. B-234 swept the
+suite, added a shared helper and a guard, and fixed the remaining sites.
+
 ### Resolution
 
 - Spec changes: none (`training.exercises` is correct).
