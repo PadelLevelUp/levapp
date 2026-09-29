@@ -59,6 +59,17 @@ describe("findEscapeAfterSelect", () => {
     expect(findEscapeAfterSelect(src)).toEqual([3]);
   });
 
+  it("flags a locator's Escape press after a combobox opens, not only page.keyboard", () => {
+    const src = [
+      'test("x", async ({ page }) => {',
+      '  const box = page.getByRole("combobox");',
+      '  await box.click();',
+      '  await box.press("Escape");',
+      "});",
+    ].join("\n");
+    expect(findEscapeAfterSelect(src)).toEqual([4]);
+  });
+
   it("ignores an Escape that closes a dialog with no Select before it", () => {
     const src = [
       'test("x", async ({ page }) => {',
