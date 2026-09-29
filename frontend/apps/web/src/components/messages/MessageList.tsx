@@ -2,7 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { AT_BOTTOM_THRESHOLD_PX, nextTargetStep } from '@levelup/hooks';
+import { AT_BOTTOM_THRESHOLD_PX, nextTargetStep, openingTarget } from '@levelup/hooks';
 import type { Message } from '@/types';
 import { MessageBubble } from './MessageBubble';
 
@@ -35,6 +35,13 @@ interface Props {
   targetMessageId?: string | null;
   /** PAD-408 — told when the target has been landed on or given up. */
   onTargetConsumed?: () => void;
+  /**
+   * PAD-415 (messaging.conversation-detail rule 9a) — the conversation's
+   * first unread message, frozen by the caller at open (before the mark-read
+   * call clears it server-side). Drives the "Unread messages" divider and,
+   * absent an explicit `targetMessageId`, where the thread opens.
+   */
+  firstUnreadMessageId?: string | number | null;
 }
 
 export function MessageList({
@@ -50,6 +57,7 @@ export function MessageList({
   onLoadOlder,
   targetMessageId = null,
   onTargetConsumed,
+  firstUnreadMessageId = null,
 }: Props) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,13 +94,19 @@ export function MessageList({
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
-  const scrollToMessage = useCallback((msgId: string) => {
+  const scrollToMessage = useCallback((msgId: string, highlight = true) => {
     const el = containerRef.current?.querySelector(`[data-msg-id="${msgId}"]`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setHighlightedMessageId(msgId);
-      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-      highlightTimerRef.current = setTimeout(() => setHighlightedMessageId(null), 900);
+      // PAD-415: landing on the first unread message anchors there but does
+      // not flash the highlight — that reads as "quoted reply", not "this is
+      // where you left off". Only an explicit target (a push, a deep link)
+      // highlights, as before.
+      if (highlight) {
+        setHighlightedMessageId(msgId);
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = setTimeout(() => setHighlightedMessageId(null), 900);
+      }
     }
   }, []);
 
@@ -192,19 +206,27 @@ export function MessageList({
   }, []);
 
   /**
-   * PAD-408 (messaging.push-notifications rule 12) — land on the message a push
-   * named. The thread anchors at the newest message first (rule 9, untouched);
-   * then older pages are asked for until the target is loaded — at most
-   * MESSAGE_TARGET_MAX_OLDER_PAGES, each prepend compensated by rule 11 so the
-   * view stays still — and it is centred and highlighted like a quoted reply.
-   * Not found within the bound: the thread stays on the newest message.
+   * PAD-408 (messaging.push-notifications rule 12) / PAD-415
+   * (messaging.conversation-detail rule 9a) — land on the message a push
+   * named, or — absent one — on the thread's first unread message. The
+   * thread anchors at the newest message first (rule 9, untouched); then
+   * older pages are asked for until the target is loaded — at most
+   * MESSAGE_TARGET_MAX_OLDER_PAGES, each prepend compensated by rule 11 so
+   * the view stays still — and an EXPLICIT target is centred and highlighted
+   * like a quoted reply. The first-unread target only anchors: no highlight
+   * flash (see `scrollToMessage`). Not found within the bound: the thread
+   * stays on the newest message.
    */
-  const targetRef = useRef<string | null>(targetMessageId);
+  const effectiveTarget = openingTarget({ explicit: targetMessageId, firstUnread: firstUnreadMessageId });
+  const targetRef = useRef<string | null>(effectiveTarget);
   const targetOlderPagesRef = useRef(0);
-  // A second push for the thread already open changes the target in place.
+  const targetIsExplicitRef = useRef<boolean>(Boolean(targetMessageId));
+  // A second push for the thread already open changes the target in place —
+  // and always wins over a first-unread target already in progress.
   useEffect(() => {
     if (!targetMessageId) return;
-    targetRef.current = targetMessageId;
+    targetRef.current = String(targetMessageId);
+    targetIsExplicitRef.current = true;
     targetOlderPagesRef.current = 0;
   }, [targetMessageId]);
   useEffect(() => {
@@ -224,7 +246,7 @@ export function MessageList({
     targetRef.current = null;
     if (step.kind === 'scroll') {
       nearBottomRef.current = false;
-      scrollToMessage(target);
+      scrollToMessage(target, targetIsExplicitRef.current);
     }
     onTargetConsumed?.();
   }, [messages, hasMore, loadingOlder, onLoadOlder, onTargetConsumed, scrollToMessage]);
@@ -319,28 +341,47 @@ export function MessageList({
               const replyMsg = msg.replyTo != null
                 ? messages.find(m => String(m.id) === String(msg.replyTo))
                 : undefined;
+              // PAD-415 (rule 9a): the divider sits directly above the frozen
+              // first-unread message, for this visit only — gone on re-open
+              // once everything is read (the caller passes `null` then).
+              const isFirstUnread =
+                firstUnreadMessageId != null &&
+                String(msg.id) === String(firstUnreadMessageId);
 
               return (
-                <div
-                  key={msg.id}
-                  data-msg-id={String(msg.id)}
-                  data-highlighted={highlightedMessageId === String(msg.id) ? 'true' : undefined}
-                  className="rounded-lg"
-                >
-                  <MessageBubble
-                    message={msg}
-                    isMine={isMine}
-                    userId={userId}
-                    participantName={participantName}
-                    isHighlighted={highlightedMessageId === String(msg.id)}
-                    showTail={showTail}
-                    replyToMessage={replyMsg}
-                    onReply={onReply}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onReaction={onReaction}
-                    onScrollToMessage={scrollToMessage}
-                  />
+                <div key={msg.id}>
+                  {isFirstUnread && (
+                    <div
+                      data-testid="unread-divider"
+                      className="flex items-center gap-2 my-3"
+                    >
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs text-muted-foreground px-2">
+                        {t('messages.unreadDivider')}
+                      </span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                  )}
+                  <div
+                    data-msg-id={String(msg.id)}
+                    data-highlighted={highlightedMessageId === String(msg.id) ? 'true' : undefined}
+                    className="rounded-lg"
+                  >
+                    <MessageBubble
+                      message={msg}
+                      isMine={isMine}
+                      userId={userId}
+                      participantName={participantName}
+                      isHighlighted={highlightedMessageId === String(msg.id)}
+                      showTail={showTail}
+                      replyToMessage={replyMsg}
+                      onReply={onReply}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onReaction={onReaction}
+                      onScrollToMessage={scrollToMessage}
+                    />
+                  </div>
                 </div>
               );
             })}

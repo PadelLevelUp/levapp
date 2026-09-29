@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { MESSAGE_TARGET_MAX_OLDER_PAGES, nextTargetStep } from "./messageTarget";
+import { MESSAGE_TARGET_MAX_OLDER_PAGES, nextTargetStep, openingTarget } from "./messageTarget";
 
 const ids = (...n: number[]) => n.map((id) => ({ id }));
 
@@ -45,5 +45,31 @@ describe("nextTargetStep", () => {
         hasOlder: true,
       })
     ).toEqual({ kind: "give-up" });
+  });
+});
+
+/**
+ * PAD-415 — messaging.conversation-detail rule 9a: an explicit `?message=`
+ * target (a push tap, a deep link) wins over the thread's first unread
+ * message; with neither, there is no target and the thread opens at the
+ * newest message as before.
+ */
+describe("openingTarget", () => {
+  it("uses the explicit target when one is given", () => {
+    expect(openingTarget({ explicit: 58, firstUnread: 46 })).toBe("58");
+  });
+
+  it("falls back to the first unread message when there is no explicit target", () => {
+    expect(openingTarget({ explicit: null, firstUnread: 46 })).toBe("46");
+    expect(openingTarget({ explicit: undefined, firstUnread: "46" })).toBe("46");
+  });
+
+  it("treats an empty-string explicit target as absent", () => {
+    expect(openingTarget({ explicit: "", firstUnread: 46 })).toBe("46");
+  });
+
+  it("is null when neither is present — the newest message, as before", () => {
+    expect(openingTarget({ explicit: null, firstUnread: null })).toBeNull();
+    expect(openingTarget({ explicit: undefined, firstUnread: undefined })).toBeNull();
   });
 });

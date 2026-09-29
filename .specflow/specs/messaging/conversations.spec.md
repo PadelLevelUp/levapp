@@ -93,6 +93,12 @@ Manage conversations between users (1:1 or group chats).
     that coach's own players. Any other user-bearing list payload added later uses the same
     public shape unless its spec says why not.
 
+16. **An unread row is unmistakable (PAD-414).** A listed conversation with `unreadCount > 0` shows the
+    other participant's name and the last-message preview in **bold**, plus the count pill; the pill
+    reads the number up to 9 and **"9+"** above it (`unreadBadgeLabel` in `@levelup/config`, shared).
+    A read row is regular weight with no pill. Web and iOS alike; each row exposes its state for tests
+    (web `data-unread` on `conversation-row-<id>`, iOS `conversation-unread-<id>`).
+
 ### Acceptance Criteria
 
 #### Create or find conversation
@@ -198,3 +204,9 @@ Manage conversations between users (1:1 or group chats).
 - **When** two system messages to that student are sent at the same moment (Postgres)
 - **Then** exactly one conversation exists, with both of them as participants
 - **And** both messages are in it
+
+#### Unread rows are bold and the count caps at 9+ (PAD-414)
+- **Given** Maria's list holds a conversation with 3 unread, one with 12 unread and one read
+- **When** she opens Messages on web and on iOS
+- **Then** the first two rows show a bold name and preview with pills "3" and "9+", and the read row is regular weight with no pill
+

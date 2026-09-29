@@ -27,6 +27,8 @@ interface ChatThreadProps {
   /** PAD-408 — a message to land on, from the push's `?message=`. */
   targetMessageId?: string | null;
   onTargetConsumed?: () => void;
+  /** PAD-415 — the conversation's first unread message, frozen by the caller at open. */
+  firstUnreadMessageId?: string | number | null;
 }
 
 export function ChatThread({
@@ -43,6 +45,7 @@ export function ChatThread({
   onLoadOlder,
   targetMessageId,
   onTargetConsumed,
+  firstUnreadMessageId,
 }: ChatThreadProps) {
   const { t } = useTranslation();
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -191,6 +194,7 @@ export function ChatThread({
         onLoadOlder={onLoadOlder}
         targetMessageId={targetMessageId}
         onTargetConsumed={onTargetConsumed}
+        firstUnreadMessageId={firstUnreadMessageId}
       />
 
       {/* Assistant conversations are a one-way channel — no composer */}

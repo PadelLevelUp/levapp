@@ -1,3 +1,4 @@
+import { unreadBadgeLabel } from "@levelup/config";
 import type { Conversation } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -5,6 +6,7 @@ import { Pressable, View } from "react-native";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Text } from "@/components/ui/text";
+import { cn } from "@/lib/utils";
 import { useDateLocale } from "@/lib/date-locale";
 import { formatConversationTime, initialsOf, roleLabelKey } from "../utils";
 
@@ -57,7 +59,13 @@ export function ConversationItem({
         <View className="flex-row items-center gap-2">
           <Text
             numberOfLines={1}
-            className="flex-1 text-base font-semibold text-foreground"
+            // PAD-414 (messaging.conversations rule 16): unread is bold, read
+            // is regular weight — the row's state must be unmistakable at a
+            // glance, not just the pill.
+            className={cn(
+              "flex-1 text-base text-foreground",
+              unreadCount > 0 ? "font-semibold" : "font-normal"
+            )}
           >
             {participantName}
           </Text>
@@ -81,13 +89,16 @@ export function ConversationItem({
           ) : null}
           <Text
             numberOfLines={1}
-            className="flex-1 text-sm text-muted-foreground"
+            className={cn(
+              "flex-1 text-sm",
+              unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
+            )}
           >
             {lastMessage ?? t("messages.noMessagesYet")}
           </Text>
           {unreadCount > 0 ? (
             <Badge testID={`conversation-unread-${conversation.id}`}>
-              <Text>{unreadCount}</Text>
+              <Text>{unreadBadgeLabel(unreadCount)}</Text>
             </Badge>
           ) : null}
         </View>
