@@ -225,8 +225,10 @@ Send browser push notifications when a new message arrives and the recipient isn
 
 #### The alerts-blocked banner leaves the thread and composer on screen (PAD-417)
 - **Given** a signed-in coach on the web whose browser notification permission is `denied`, so the banner shows above the Messages page
+- **And** their conversation list is taller than its pane
 - **When** they open a conversation at 390×844, 1280×600 or 1280×720
-- **Then** the page's remaining height is shared by the list and the thread, and the composer's send button ends inside the viewport
+- **Then** the page's remaining height is shared by the list and the thread, and the composer's send button ends inside the page's visible content area (not only inside the viewport: the page clips its overflow and keeps room for the phone tab bar)
+- *Web only:* the banner is about browser alerts; the iOS app has no such banner (B-198).
 
 #### The app icon badge always equals the server unread count (PAD-147)
 - **Given** the iOS icon badge shows 1 because a push arrived while the app was closed

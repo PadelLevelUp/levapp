@@ -1,14 +1,15 @@
 ---
 id: B-198
-title: "Web: the browser-alerts-blocked banner pushes the thread and composer below the viewport (unreproduced)"
+title: "Web: with a long conversation list, the browser-alerts-blocked banner pushes the composer past the page clip"
 type: missing-criterion
 severity: medium
-status: open
+status: resolved
 affects:
   - messaging.push-notifications
   - frontend/apps/web/src/pages/MessagesPage.tsx
-proposed_fix: "Unreproduced. The guard criterion and E2E are in; a fix waits for the owner's browser, window size and screenshot."
+proposed_fix: "MessagesPage content row `flex h-full` -> `flex flex-1 min-h-0` (PAD-417)."
 opened: 2026-09-25T13:54:42Z
+resolved: 2026-09-29T14:03:49Z
 ---
 
 # B-198: the "alerts blocked" banner pushes the composer off-screen (web)
@@ -30,3 +31,19 @@ opened: 2026-09-25T13:54:42Z
 - **Criterion** in `messaging.push-notifications`: "The alerts-blocked banner leaves the thread and composer on screen (PAD-417)".
 - **E2E** `push-denied-feed.spec.ts` "PAD-417 (phone | short laptop | laptop)". Green on today's code. A mutant that makes the content row viewport-tall (`h-[100vh] shrink-0`) turns it red, so the guard can fail.
 - **Asked of the owner** (via the coordinator): browser, window size and a screenshot.
+
+## Reproduced and fixed (Session-D, 2026-09-29, staging 8ead1d1b)
+
+**Root cause.** The trigger is a **conversation list taller than its pane**, not the browser. The content row is a flex item of the `flex-col h-full` column with `height: 100%`. Its automatic minimum height (`min-height: auto`) comes from its content. With a long list, that minimum is the full column height, so the row can't shrink by the banner's height: it overflows `<main>` by the banner (33 px at 1280 wide), and `<main>`'s `overflow-hidden` clips the composer's bottom (the send button ends 17 px past the clip). The seed's coach has two conversations, which is why the 09-25 attempts stayed inside.
+
+**Engine-independent.** A static CSS model of the page chain gives identical numbers in Chromium and WebKit (Playwright 1.62.1) at 1280×720: 2 conversations → fits; 60 conversations → +33 px row / +17 px send, whatever the thread length; `flex-1 min-h-0` → fits in all four cases. So "Safari untested" was never the gap.
+
+**The first guard's blind spot.** It compared the send button with the *viewport*. `<main>` clips, and on a phone it keeps bottom padding for the tab bar, so a clipped button can still be "inside the viewport". The guard now measures against `<main>`'s content box, and pads the first conversations page to 30 rows (`page.route`) so the list overflows the pane.
+
+**2×2 (Chromium, isolated E2E stack):**
+- old code, long list: phone passes (the list and thread are separate views on a phone); 1280×600 and 1280×720 fail with **17 px**.
+- old code, seed list: all three pass (09-25 runs, plus today's measurements on staging).
+- fixed code, long list: all three pass.
+- fixed code, seed list: the rest of `e2e/messaging/` (35 tests) passes.
+
+**Web-only:** the banner is about browser alerts, and the iOS app has no equivalent, so there is nothing to port.

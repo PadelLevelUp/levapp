@@ -107,23 +107,42 @@ test.describe("PAD-195: in-app feed with browser push denied", () => {
     { name: "phone", width: 390, height: 844 },
     { name: "short laptop", width: 1280, height: 600 },
     { name: "laptop", width: 1280, height: 720 },
-  ]) test(`PAD-417 (${vp.name}): with the banner showing, the open thread's composer stays inside the viewport`, async ({
+  ]) test(`PAD-417 (${vp.name}): with the banner showing and a long conversation list, the composer stays on screen`, async ({
     page,
     request,
   }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height });
     // messaging.push-notifications rule 8a: the banner takes its own height from the page; the
     // conversation list and the thread share what is left, so the composer is never pushed off.
+    // The overflow needs a list taller than the pane (B-198 went unreproduced with the seed's two
+    // conversations), so the first page is padded with copies of a seeded conversation. The
+    // thread under test is the real one.
+    await page.route(/\/api\/app\/conversations\?/, async (route) => {
+      const res = await route.fetch();
+      const json = await res.json();
+      const filler = json.conversations.find(
+        (c: unknown) => !JSON.stringify(c).includes('"E2E Student"')
+      );
+      expect(filler, "a seeded conversation to copy").toBeTruthy();
+      for (let i = 0; i < 30; i++) json.conversations.push({ ...filler, id: 900_000 + i });
+      await route.fulfill({ response: res, json });
+    });
     await studentMessagesCoach(request, `PAD-417 ${Date.now()}`);
     await loginAsCoach(page);
     await openMessages(page);
     await expect(page.getByTestId("push-blocked-banner")).toBeVisible({ timeout: 10_000 });
-    await page.getByText("E2E Student").first().click();
+    await conversationRow(page, "E2E Student").click();
     const send = page.getByTestId("composer-send");
     await expect(send).toBeVisible({ timeout: 10_000 });
-    const viewport = page.viewportSize();
-    const box = await send.boundingBox();
-    expect(viewport && box, "viewport and composer box").toBeTruthy();
-    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+    // Inside the viewport is not enough: <main> clips its overflow and, on a phone, keeps its
+    // bottom padding for the tab bar, so a button pushed past main's content box is hidden while
+    // still "in the viewport". Measure against that content box.
+    const pastContent = await send.evaluate((el) => {
+      const main = el.closest("main")!;
+      const contentBottom =
+        main.getBoundingClientRect().bottom - parseFloat(getComputedStyle(main).paddingBottom);
+      return Math.round(el.getBoundingClientRect().bottom - contentBottom);
+    });
+    expect(pastContent, "px the send button ends past main's content box").toBeLessThanOrEqual(0);
   });
 });
