@@ -156,11 +156,11 @@ describe("isSheetRaised", () => {
  * starts inside it. Criterion: "The Mês sheet rises past half of the screen".
  */
 describe("sheetTopBounds with a month grid above the day grid (gridTop)", () => {
-  it("rests over the day grid, not over the month grid", () => {
-    // 574pt container: 300pt of month grid, 274pt of day grid.
+  it("rests right under the month grid, filling everything below it (PAD-436)", () => {
+    // 574pt container: 300pt of month grid, the sheet takes the other 274pt at rest. There is no
+    // day grid under it any more (rule 17): the owner saw the selected day twice.
     const b = sheetTopBounds(574, { rowHeight: 44, collapsedHeight: 104, gridTop: 300 });
-    expect(b.initial).toBe(300 + Math.round(274 * 0.6));
-    expect(b.initial).toBeGreaterThanOrEqual(300);
+    expect(b.initial).toBe(300);
   });
 
   it("rises to one hour row below the top of the month grid, so it covers more than half a phone", () => {
