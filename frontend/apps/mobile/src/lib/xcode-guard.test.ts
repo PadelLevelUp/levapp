@@ -66,7 +66,9 @@ describe("scripts/check-xcode.sh (rule 3a)", () => {
 describe("scripts/ios-release.sh runs the check first (rule 3a)", () => {
   it("calls check-xcode.sh before it edits app.json or prebuilds", () => {
     const text = fs.readFileSync(RELEASE, "utf8");
-    const check = text.indexOf("check-xcode.sh");
+    // The invocation itself, anchored to its own line: the header comment also names the
+    // script, and matching that would let a deleted or moved call pass.
+    const check = text.search(/^bash "\$MOBILE\/scripts\/check-xcode\.sh"$/m);
     expect(check, "ios-release.sh never runs check-xcode.sh").toBeGreaterThan(-1);
     expect(check).toBeLessThan(text.indexOf("cp app.json"));
     expect(check).toBeLessThan(text.indexOf("npm run prebuild:ios"));
