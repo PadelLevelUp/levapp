@@ -43,18 +43,24 @@ test("PAD-53: exercise type/difficulty filters and form show localized labels, n
   await typeSelect.click();
   await expect(page.getByRole("option", { name: "Attack" })).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("option", { name: "Warm-up" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  // B-231: close by choosing the current option, not Escape. An Escape in the
+  // Select's first ~50 ms reaches the sheet's layer and closes the whole form.
+  await page.getByRole("option", { name: "Attack" }).click();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
 
   const difficultySelect = page.getByRole("combobox").filter({ hasText: "Beginner" });
   await difficultySelect.click();
   await expect(page.getByRole("option", { name: "Beginner" })).toBeVisible({ timeout: 5000 });
   await expect(page.getByRole("option", { name: "Intermediate" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await page.getByRole("option", { name: "Beginner" }).click();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
 
   await expect(page.getByText(/training\.exerciseType\.|training\.difficulty\./)).toHaveCount(0);
 
   // --- Create an exercise with default values (type "attack", difficulty 1) and
   // verify the resulting card badge shows the localized label, not the raw key. ---
+  // The form must still be open: a lost sheet fails here, not at Create.
+  await expect(page.getByRole("heading", { name: /new exercise/i })).toBeVisible();
   const uniqueName = `PAD-53 i18n check ${Date.now()}`;
   await page.getByPlaceholder(/e\.g\. cross-court/i).fill(uniqueName);
   await page.getByRole("button", { name: /create exercise/i }).click();
