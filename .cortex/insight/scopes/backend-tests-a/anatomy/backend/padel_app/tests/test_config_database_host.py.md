@@ -1,12 +1,12 @@
 ---
 path: backend/padel_app/tests/test_config_database_host.py
-extracted_at: 2026-09-03T00:00:00Z
+extracted_at: 2026-09-07T03:58:58Z
 extraction_level: 2
-size_lines: 204
-size_tokens: 1643
+size_lines: 248
+size_tokens: 2089
 centrality: medium
-built_at_commit: "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
-source_sha256: "4b9ed84b05dbed39ae4c1b509a746876702456bbc0c26ebbfaec560c7844c8a0"
+built_at_commit: "7de36cb3b33c39f0b9c3c482154bc27621660c30"
+source_sha256: "eb3ffb98e7654c5512ea2c574c2c2801be08c553e80660b84169de4bf220faf2"
 ---
 
 ## Purpose
@@ -34,6 +34,19 @@ always allows localhost/127.0.0.1, correctly classifies CLI invocations
 `pytest` = not), and has an explicit `ALLOW_PRODUCTION_MIGRATIONS=1`
 escape hatch. Never opens a real DB connection — only resolved strings are
 asserted.
+
+A second block (added for B-016) pins the tunnel distinction the host check
+alone cannot make. Postgres is no longer reachable from the internet, so the
+shared database is reached through an SSH forward — which makes a REMOTE
+database answer on `localhost` and would otherwise silently disarm the PAD-95
+guard above. These tests pin the reserved-port marker: `is_production_target`
+is true for `localhost`/`127.0.0.1` on port 5434 (int or str) and false on
+5432, 5433 and `None`; `assert_safe_migration_target` refuses a tunnelled
+target outside production and still allows a genuinely local database on 5432
+and 5433; and a known remote host stays a production target at any port. Note
+`test_get_config_class_selects_by_flask_env` now has to pass an explicit
+`environ={"FLASK_SECRET_KEY": ..., "JWT_SECRET_KEY": ...}` for the production
+case — B-003 made `ProdConfig` refuse to construct on dev signing fallbacks.
 
 ## Connections
 

@@ -38,7 +38,6 @@
     { "id": "file:frontend/apps/web/src/components/settings/StandingWaitingListSection.tsx", "kind": "file", "label": "StandingWaitingListSection.tsx" },
     { "id": "file:frontend/apps/web/src/components/settings/StudentNotificationBlocksSection.tsx", "kind": "file", "label": "StudentNotificationBlocksSection.tsx" },
     { "id": "file:frontend/apps/web/src/components/settings/TiebreakersSection.tsx", "kind": "file", "label": "TiebreakersSection.tsx" },
-    { "id": "file:frontend/apps/web/src/components/students/StudentDetailSheet.tsx", "kind": "file", "label": "StudentDetailSheet.tsx" },
     { "id": "file:frontend/apps/web/src/components/training/CourtDiagramEditor.tsx", "kind": "file", "label": "CourtDiagramEditor.tsx" },
     { "id": "file:frontend/apps/web/src/components/training/ExerciseCard.tsx", "kind": "file", "label": "ExerciseCard.tsx" },
     { "id": "file:frontend/apps/web/src/components/training/ExerciseFormSheet.tsx", "kind": "file", "label": "ExerciseFormSheet.tsx" },
