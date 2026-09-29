@@ -35,6 +35,8 @@ const block = {
 } as unknown as DashboardKpiGridBlock;
 
 const tokens = (node: { props: { className?: unknown } }) => String(node.props.className ?? "").split(/\s+/);
+/** `flex-1`, `flex-auto`, `flex-[…]`, `basis-*`: every class that sets flex-basis on a card. */
+const zeroBasisRisk = (token: string) => /^(flex-(\d|auto|initial|\[)|basis-)/.test(token);
 
 describe("the student's KPI tiles keep their layout (PAD-438, B-223)", () => {
   it("no card inside a tile takes flex-1 (flexBasis 0%): it grows from its content instead", async () => {
@@ -44,8 +46,10 @@ describe("the student's KPI tiles keep their layout (PAD-438, B-223)", () => {
       const cards = tile.findAll((node) => tokens(node).includes("rounded-2xl"));
       expect(cards.length, `the ${slug} tile renders its card`).toBeGreaterThan(0);
       for (const card of cards) {
-        expect(tokens(card), `the ${slug} card`).not.toContain("flex-1");
         expect(tokens(card), `the ${slug} card`).toContain("grow");
+        // Any class that sets a basis (or the flex shorthand, which sets one) would bring the zero
+        // basis back under another name — `grow basis-0` included (review note on #481).
+        expect(tokens(card).filter(zeroBasisRisk), `the ${slug} card`).toEqual([]);
       }
     }
   });
