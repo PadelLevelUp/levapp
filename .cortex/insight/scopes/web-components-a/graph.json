@@ -287,11 +287,6 @@
       "id": "file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx",
       "kind": "file",
       "label": "MessagesOverviewBlock.tsx"
-    },
-    {
-      "id": "file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx",
-      "kind": "file",
-      "label": "NotificationActivityBlock.tsx"
     }
   ],
   "edges": [
@@ -533,15 +528,6 @@
       "id": "edge:imports:file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx->file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx",
       "source": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
       "target": "file:frontend/apps/web/src/components/dashboard/blocks/MessagesOverviewBlock.tsx",
-      "edge_type": "imports",
-      "confidence": "structural",
-      "evidence": "L1 import edge",
-      "confirmed_at_commit": "55cbb68fa2a12a87cf20a7025f6e94b9681f8226"
-    },
-    {
-      "id": "edge:imports:file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx->file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx",
-      "source": "file:frontend/apps/web/src/components/dashboard/DashboardRenderer.tsx",
-      "target": "file:frontend/apps/web/src/components/dashboard/blocks/NotificationActivityBlock.tsx",
       "edge_type": "imports",
       "confidence": "structural",
       "evidence": "L1 import edge",
