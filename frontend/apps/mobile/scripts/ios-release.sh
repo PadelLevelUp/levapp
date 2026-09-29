@@ -16,7 +16,9 @@
 # RN prebuilt artifacts.
 #
 # Env overrides: RELEASE_OUT (default <repo>/build), RN_PREBUILT_PODS (a Pods
-# directory holding ReactNativeCore-artifacts and ReactNativeDependencies-artifacts).
+# directory holding ReactNativeCore-artifacts and ReactNativeDependencies-artifacts),
+# DEVELOPER_DIR (which Xcode; Xcode 27 is refused until PAD-467, see check-xcode.sh),
+# LEVAPP_ALLOW_XCODE_27=1 (build under Xcode 27 anyway; the app will crash at launch).
 set -euo pipefail
 
 TARGET="${1:-}"
@@ -36,6 +38,9 @@ API_URL="$(node -e 'const t = require("./release-targets.json"); const u = t[pro
   exit 2
 }
 export EXPO_PUBLIC_API_URL="$API_URL"
+
+# Rule 3a: an Xcode 27 archive crashes at launch (PAD-467). Before anything is touched.
+bash "$MOBILE/scripts/check-xcode.sh"
 echo "== $(date -u +%H:%MZ) target $TARGET -> $EXPO_PUBLIC_API_URL, version $VERSION build $BUILD"
 
 KEY=79ZZ536G63
