@@ -61,9 +61,8 @@
       "recurring": "Recurring",
       "daysOfWeek": "Days of the week",
       "endDate": "End date",
-      "recursUntilSeasonEnd": "Recurs until season end",
       "recursUntilSeasonEndHint": "Ends at your season's end date.",
-      "noSeasonCoversDate": "Your season does not cover this date. Define your season in Settings → Calendar, or turn this off and pick an end date.",
+      "noSeasonCoversDate": "Your season does not cover this date. Define your season in Settings → Calendar, or choose another way to end the series (a date or a number of classes).",
       "autoNotifications": "Auto notifications",
       "autoNotificationsDescription": "Students will be auto-invited",
       "color": "Color",
@@ -77,7 +76,17 @@
       "fieldEndDate": "End date",
       "court": "Court",
       "noCourt": "No court",
-      "fieldName": "Name"
+      "fieldName": "Name",
+      "endMode": {
+        "date": "Ends on",
+        "count": "Ends after",
+        "season": "Ends at the season end"
+      },
+      "classesUnit": "classes",
+      "lastClass": "Last class: {{date}}",
+      "countPastSeason": "The last class ({{last}}) is after the season ends ({{end}}).",
+      "fieldEndCount": "Number of classes",
+      "endCountInvalid": "Choose between 1 and 52 classes."
     },
     "overlap": {
       "title": "Overlapping event",

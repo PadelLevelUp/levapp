@@ -126,10 +126,11 @@ test.describe("PAD-82 one recurring season", () => {
     const today = now.toISOString().slice(0, 10);
     await page.locator('input[type="date"]').first().fill(today);
     await page.getByRole("switch", { name: /^recurring$/i }).click();
-    const seasonEndSwitch = page.getByRole("switch", { name: /recurs until season end/i });
-    await expect(seasonEndSwitch).toBeVisible({ timeout: 5000 });
-    await seasonEndSwitch.click();
-    await expect(seasonEndSwitch).toHaveAttribute("aria-checked", "true");
+    // PAD-463: "season end" is one option of the series-end radio group (classes.create rule 9).
+    const seasonEnd = page.getByTestId("add-class-end-mode-season");
+    await expect(seasonEnd).toBeVisible({ timeout: 5000 });
+    await seasonEnd.click();
+    await expect(seasonEnd).toHaveAttribute("aria-checked", "true");
     await expect(page.getByText(/ends at your season'?s end date/i)).toBeVisible();
 
     const [created] = await Promise.all([
