@@ -161,4 +161,5 @@ whether a failure mode has been seen before.
 - [B-219](B-219-a-visibility-only-class-edit-was-never-saved.md) — A class edit that changed only openSpotsVisible was never saved (missing-criterion, high, resolved)
 - [B-232](B-232-attendance-save-read-the-first-roster-row.md) — E2E attendance-save read the roster's first row, another spec's student once the order flipped across the save (test-defect, medium, resolved)
 - [B-233](B-233-the-class-roster-had-no-order-and-a-save-could-reorder-it.md) — The class roster had no defined order, so a save could swap participants under the coach's finger (incomplete-rule, low, resolved)
+- [B-231](B-231-exercise-labels-escape-inside-the-select-open-window.md) — E2E PAD-53 exercise-labels-i18n: an Escape inside the Select's first ~50 ms also closed the New Exercise sheet on a fast machine (test-defect, low, resolved)
 - [B-221](B-221-dropdown-trigger-press-swallowed-during-close-animation.md) — A web dropdown trigger press during the close animation was swallowed; the primitive now leaves its own trigger's press to the trigger (missing-criterion, low, resolved)
