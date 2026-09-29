@@ -160,6 +160,7 @@ whether a failure mode has been seen before.
 - [B-216](B-216-moving-a-class-onto-or-off-a-sunday-corrupts-its-weekdays.md) — Moving a recurring class onto or off a Sunday corrupted its daysOfWeek (ISO 7 vs calendar 0) (incomplete-rule, high, resolved)
 - [B-218](B-218-timestamp-list-test-armed-its-wait-after-the-load.md) — E2E PAD-33 list test armed waitForResponse after beforeEach had already loaded the list (test-defect, low, resolved)
 - [B-219](B-219-a-visibility-only-class-edit-was-never-saved.md) — A class edit that changed only openSpotsVisible was never saved (missing-criterion, high, resolved)
+- [B-198](B-198-blocked-alerts-banner-pushes-composer-off-screen.md) — web: with a conversation list taller than its pane, the browser-alerts-blocked banner pushed the composer past `<main>`'s clip (any engine); content row now `flex-1 min-h-0` (missing-criterion, medium, resolved)
 - [B-220](B-220-verify-screen-countdown-read-as-code-validity.md) — The verify screen's 60 s resend countdown was read as the code's validity; the screen now states 15 minutes (incomplete-rule, medium, resolved)
 - [B-231](B-231-exercise-labels-escape-inside-the-select-open-window.md) — E2E PAD-53 exercise-labels-i18n: an Escape inside the Select's first ~50 ms also closed the New Exercise sheet on a fast machine (test-defect, low, resolved)
 - [B-232](B-232-attendance-save-read-the-first-roster-row.md) — E2E attendance-save read the roster's first row, another spec's student once the order flipped across the save (test-defect, medium, resolved)
