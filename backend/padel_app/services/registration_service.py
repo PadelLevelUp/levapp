@@ -235,4 +235,11 @@ def register_user_service(data, now=None):
 
         notify_admin_of_pending_coach(coach)
 
+    if coach is not None:
+        # auth.coach-crm-sync (PAD-471): after the commit, off the request
+        # thread; a HubSpot failure never reaches the caller.
+        from padel_app.services.hubspot_sync import sync_coach_signup
+
+        sync_coach_signup(user, coach)
+
     return user
