@@ -44,7 +44,7 @@ async function openThread(overrides: ReturnType<typeof threadQueryOverrides>) {
 
 describe("a plain open of a thread an SSE write just made fresh (PAD-415)", () => {
   it("fetches during this open, so the first unread is frozen from this open's own GET", async () => {
-    const { fetches, result, phase } = await openThread(threadQueryOverrides(null));
+    const { fetches, result, phase } = await openThread(threadQueryOverrides(null, null));
 
     expect(fetches).toBe(1);
     expect(phase).toBe("settled");
@@ -53,6 +53,6 @@ describe("a plain open of a thread an SSE write just made fresh (PAD-415)", () =
   });
 
   it("a push-tap open (an explicit target) keeps the cached entry, as flow 103 needs", () => {
-    expect(threadQueryOverrides("555")).toBeUndefined();
+    expect(threadQueryOverrides("555", [555])).toBeUndefined();
   });
 });

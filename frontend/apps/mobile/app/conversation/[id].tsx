@@ -12,7 +12,7 @@ import {
   threadLoadErrorKey,
   useConversationThread,
 } from "@levelup/hooks";
-import type { EligibilityCheckEntry, Message } from "@levelup/types";
+import type { Conversation, EligibilityCheckEntry, Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -71,6 +71,7 @@ import {
   threadQueryOverrides,
   shouldMarkRead,
 } from "@/features/messages/open-sequence";
+import { retryScrollIndex, shouldStepTarget } from "@/features/messages/target-landing";
 import { followReducer, initialFollowState, type FollowEvent } from "@/features/messages/follow-state";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
@@ -131,6 +132,25 @@ export default function ConversationScreen() {
   const myId = Number(user?.id);
   const queryClient = useQueryClient();
 
+  // Decided ONCE per open (conversation + target), from the cache as this open found it: the
+  // GET it may force puts the target into the cache, which must not flip the answer mid-open.
+  const openKey = `${conversationId}|${targetMessageParam ?? ""}`;
+  const threadOverridesRef = React.useRef<{
+    key: string;
+    value: ReturnType<typeof threadQueryOverrides>;
+  } | null>(null);
+  if (threadOverridesRef.current?.key !== openKey) {
+    const cached = queryClient.getQueryData<Conversation>(queryKeys.conversation(conversationId));
+    threadOverridesRef.current = {
+      key: openKey,
+      value: threadQueryOverrides(
+        targetMessageParam ?? null,
+        cached ? cached.messages.map((m) => m.id) : null
+      ),
+    };
+  }
+  const threadOverrides = threadOverridesRef.current.value;
+
   const {
     data: conversation,
     isLoading,
@@ -142,8 +162,10 @@ export default function ConversationScreen() {
     loadOlder,
     isFetching,
   // B-190: a plain open always makes its own GET, so the first unread is this open's value even
-  // when an SSE write just made the cached entry fresh; a push-tap open keeps the cache (flow 103).
-  } = useConversationThread(conversationId, threadQueryOverrides(targetMessageParam ?? null));
+  // when an SSE write just made the cached entry fresh. B-236 (PAD-475): a push-tap open keeps
+  // the cache only when the cached thread covers its target (flow 103); a target the cache has
+  // not got, which is what a push normally names, makes its own GET too.
+  } = useConversationThread(conversationId, threadOverrides);
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -193,7 +215,7 @@ export default function ConversationScreen() {
   // `loadOlder`) bumps query-core's data count mid-flight, so `isFetchedAfterMount` cannot
   // tell this open's answer from a cached copy. Same ref-during-render pattern as below.
   const openFetchRef = React.useRef<OpenFetch | null>(null);
-  openFetchRef.current = advanceOpenFetch(openFetchRef.current, conversationId, isFetching);
+  openFetchRef.current = advanceOpenFetch(openFetchRef.current, conversationId, isFetching, isError);
   const openPhase = openFetchRef.current.phase;
 
   // Mark the conversation read once per open (clears badge + list count).
@@ -732,6 +754,11 @@ export default function ConversationScreen() {
   }, [anchored, loadedMessageCount, conversationId, dispatchAnchor]);
 
   // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
+  // B-238: the message the last scroll was for, and the list as it is NOW, so a retry never
+  // reuses the index it was given (a refetch may have replaced the list in between).
+  const scrollTargetIdRef = React.useRef<string | number | null>(null);
+  const messagesRef = React.useRef<Message[]>([]);
+  messagesRef.current = conversation?.messages ?? [];
   const scrollToMessage = React.useCallback(
     (messageId: string | number, highlight: boolean = true) => {
       if (!conversation) return;
@@ -739,6 +766,8 @@ export default function ConversationScreen() {
         (m) => String(m.id) === String(messageId)
       );
       if (index === -1) return;
+      // B-238: a retry of this scroll finds the row again by id (onScrollToIndexFailed).
+      scrollTargetIdRef.current = messageId;
       listRef.current?.scrollToIndex({
         index,
         animated: true,
@@ -787,6 +816,8 @@ export default function ConversationScreen() {
   React.useEffect(() => {
     const target = targetRef.current;
     if (!target || !anchored || !conversation || isLoadingOlder) return;
+    // B-237: not on the cached copy while this open's GET is still in flight.
+    if (!shouldStepTarget(openPhase)) return;
     const step = nextTargetStep({
       messages: conversation.messages,
       targetId: target,
@@ -814,7 +845,7 @@ export default function ConversationScreen() {
     // delivered the rows (ios-flatlist-fabric-traps); a miss on an unmeasured
     // row is retried by onScrollToIndexFailed.
     requestAnimationFrame(() => scrollToMessage(landedId, highlight));
-  }, [anchored, conversation, dispatchFollow, hasMore, isLoadingOlder, loadOlder, scrollToMessage]);
+  }, [anchored, conversation, dispatchFollow, hasMore, isLoadingOlder, loadOlder, openPhase, scrollToMessage]);
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
   // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
@@ -1141,6 +1172,7 @@ export default function ConversationScreen() {
       >
         <View className="h-14 flex-row items-center gap-2 px-2">
           <Pressable
+            testID="chat-back"
             accessibilityLabel={t("common.back")}
             role="button"
             hitSlop={10}
@@ -1321,12 +1353,16 @@ export default function ConversationScreen() {
                 </View>
               ) : null
             }
-            onScrollToIndexFailed={(info) => {
+            onScrollToIndexFailed={() => {
               // Item not measured yet (variable bubble heights) — retry
               // once layout settles, standard FlatList workaround.
+              // B-238: by message id, in the list as it is at retry time; `info.index`
+              // may be out of range once a refetch has replaced the list.
               setTimeout(() => {
+                const index = retryScrollIndex(messagesRef.current, scrollTargetIdRef.current);
+                if (index === null) return;
                 listRef.current?.scrollToIndex({
-                  index: info.index,
+                  index,
                   animated: true,
                   viewPosition: 0.5,
                 });

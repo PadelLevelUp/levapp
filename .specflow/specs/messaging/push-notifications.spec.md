@@ -178,6 +178,25 @@ Send browser push notifications when a new message arrives and the recipient isn
    landing, the newest message, with no error. A push without `messageId` (an older server,
    or the `path` shape) behaves exactly as before. Opening the thread from the conversation
    list is unchanged.
+12a. **A warm tap shows the message it announces, still unread (PAD-475, B-236, iOS).** An open
+   with a target keeps the cached thread only when it can prove it may, because the event stream
+   is suspended while the app is in the background: the target is in the cached thread, or the
+   target is older than the newest cached message (rule 12's walk). Ids decide "older":
+   `messages.id` comes from one database sequence, so a later message has the larger id. In
+   every other case, including ids that cannot be compared, the open makes its own `GET`,
+   whatever the cache's age. The thread is marked read only after that `GET` has settled, so a
+   message is never marked read before the screen has it, and the `GET`'s
+   `firstUnreadMessageId` puts the "Unread messages" divider above it
+   (`messaging.conversation-detail` rule 9a). If the open's `GET` fails, the thread is not
+   marked read and the screen shows its load error with Retry; the read mark follows when a
+   later `GET` settles. A tap on the conversation already on screen opens a new instance of
+   the thread (`router.push`), so it is an open like any other. A landing scroll that must be
+   retried follows `messaging.conversation-detail` rule 9b. Web has no counterpart: its event
+   stream is not suspended and it has no cached-thread open.
+12b. **The walk waits for the open's `GET` (PAD-475, B-237, iOS).** Rule 12's walk through older
+   pages does not start while this open's own `GET` is in flight: it neither loads older pages
+   for a message that is newer than the cached thread, nor gives the target up before the
+   `GET` has delivered it.
 13. **A tap that launches the app waits for the navigator (PAD-409, B-166).** On a cold
    start, `getLastNotificationResponseAsync()` resolves before the root layout has mounted
    its navigator. A navigation issued then is not merely lost: it loops the root layout
@@ -215,6 +234,38 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **When** they tap a message push `{type: "message", conversationId: 1, messageId: M}`
 - **Then** the app launches into `/conversation/1` (with M targeted), navigating exactly once and never before the root navigator is mounted
 - **And** a signed-out app launched by the same tap shows the login screen and does not navigate to the thread
+
+#### A warm tap shows the pushed message, unread (PAD-475)
+- **Given** a coach who read the thread with e2e-student seconds ago, left it, and put the app in the background
+- **When** the student sends "PAD-475 warm push probe" and the coach taps its push
+- **Then** the thread opens with that message on screen under the "Unread messages" divider, after one `GET` of the thread
+- **And** the thread is not marked read before that `GET` has settled
+
+#### Ids that cannot be compared make the open fetch (PAD-475)
+- **Given** a cached thread whose only message has the id `temp-1`, or no message at all
+- **When** it opens with target message 46
+- **Then** the open makes one `GET`
+
+#### A target the cached thread holds opens from the cache (PAD-475)
+- **Given** a fresh cached thread holding messages 16, 17 and 45
+- **When** it opens with target 17, or with target 3 (older than message 45)
+- **Then** the open makes no `GET`; target 3 is reached by rule 12's walk
+
+#### A tap on the conversation already on screen is a new open (PAD-475)
+- **Given** the coach left the app on the thread and the event stream was suspended
+- **When** they tap the push of a message newer than the cached thread
+- **Then** a new instance of the thread opens and makes exactly one `GET`
+
+#### A failed open leaves the thread unread (PAD-475)
+- **Given** a warm tap whose `GET` fails
+- **When** the open ends
+- **Then** the thread is not marked read and the screen shows its load error with Retry
+- **And** once a later `GET` settles, the thread is marked read
+
+#### The walk does not start on the cached copy (PAD-475)
+- **Given** a warm tap on a message newer than a cached thread that has older pages
+- **When** the open's `GET` is in flight
+- **Then** no older page is requested, and the target is not given up
 
 #### The feed works with browser push denied (PAD-195)
 - **Given** a signed-in coach whose browser notification permission is `denied`

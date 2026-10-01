@@ -175,3 +175,6 @@ whether a failure mode has been seen before.
 - [B-193](B-193-add-to-classes-week-e2e-assumed-three-classes-next-week.md) — E2E add-to-classes-week assumed three seeded classes next week, true on six weekdays of seven (PAD-466) (test-defect, low, resolved)
 - [B-194](B-194-mobile-month-view-measured-the-grid-while-the-mes-tree-was-replaced.md) — E2E mobile-month-view US-286-1 measured the month grid while the Mês tree was replaced; null box (test-defect, low, resolved)
 - [B-223](B-223-student-record-tiles-collapse-when-rows-appear-above.md) — iOS student dashboard: rows appearing above "Your record" after the first layout collapsed its four tiles to empty strips (missing-criterion, high, resolved)
+- [B-236](B-236-warm-push-tap-opens-a-fresh-cached-thread-without-the-message.md) — iOS: a warm push tap opened a fresh cached thread without the pushed message, and marked it read unseen (incomplete-rule, high, triaged)
+- [B-237](B-237-a-push-target-newer-than-the-cache-walks-older-pages.md) — iOS thread: a push target newer than the cache walked older pages and was consumed before the GET landed (incomplete-rule, low, triaged)
+- [B-238](B-238-a-failed-scroll-retry-reused-a-stale-index.md) — iOS thread: the failed-scroll retry reused a stale index and threw once a refetch had shrunk the list (missing-criterion, medium, triaged)
