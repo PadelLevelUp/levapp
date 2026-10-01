@@ -3,13 +3,14 @@ id: B-236
 title: "iOS: a warm push tap opened a fresh cached thread without the pushed message, and marked it read unseen"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - messaging.push-notifications
   - frontend/apps/mobile/src/features/messages/open-sequence.ts
   - frontend/apps/mobile/app/conversation/[id].tsx
 proposed_fix: "A push-target open makes its own GET when the cached thread lacks the target and the target is newer than the newest cached message; mark-read then waits for that GET."
 opened: 2026-10-01T18:48:32Z
+resolved: 2026-10-01T19:51:03Z
 ---
 
 # B-236: a warm push tap opened a fresh cached thread without the pushed message (PAD-475)
@@ -49,3 +50,21 @@ The absence of a GET in the two red cells is the observation that selects the ca
 
 ### Follow-up (not in this change)
 - A deep link or universal link onto the thread that is ALREADY focused is a NAVIGATE, not a PUSH: expo-router reuses the focused route with new params, the screen does not mount, and rule 12a's GET does not run. A push tap is not affected (`PushTapRouter` uses `router.push`, pinned in `open-sequence.warm-target.test.ts`). Condition to reproduce: thread 1 focused, fresh cache, `levelup://conversation/1?message=<newer id>`.
+
+### Resolution
+2×2 (R-034), simulator, 2026-10-01; old = staging 439ae2088, new = 978bf5c79:
+
+| | old code | new code |
+|---|---|---|
+| trigger present: warm, entry under 28 s, deep link (flow 122) | red, no GET | green: `GET ?limit=30` 1 s after the post, then the read POST; message under the divider |
+| trigger present: real `simctl push` + banner tap | red, no GET | green: GET, then read; message under the divider |
+| trigger absent: warm, 40 s | green | green |
+| trigger absent: cold start | green | green |
+
+Flows 103 and 114 green on the new code (not re-run on old code that day).
+
+- Spec: `messaging.push-notifications` rule 12a and five criteria; cross-reference on `messaging.conversation-detail`'s B-190 note.
+- Tests: flow 122; `open-sequence.warm-target.test.ts` (query-core). A failed open GET is unit-level only: no simulator or device cell covers it.
+- Code: `cacheCoversTarget` / `threadQueryOverrides(explicitTarget, cachedMessageIds)`; a `failed` phase in `advanceOpenFetch`, which `shouldMarkRead` excludes (plain opens too).
+- Not established: that this was the owner's sequence on build 27; nothing was run on a device.
+- Resolved: 2026-10-01T19:51:03Z

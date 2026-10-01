@@ -3,12 +3,13 @@ id: B-238
 title: "iOS thread: the failed-scroll retry reused a stale index and threw once a refetch had shrunk the list"
 type: missing-criterion
 severity: medium
-status: triaged
+status: resolved
 affects:
   - messaging.push-notifications
   - frontend/apps/mobile/app/conversation/[id].tsx
 proposed_fix: "The retry re-resolves the row by message id and is dropped when the row is gone."
 opened: 2026-10-01T18:48:32Z
+resolved: 2026-10-01T19:51:03Z
 ---
 
 # B-238: the failed-scroll retry reused a stale index (PAD-475)
@@ -31,3 +32,9 @@ opened: 2026-10-01T18:48:32Z
 
 ### Follow-up (not in this change)
 - Whether retry-by-id makes a forced refetch safe for flow 103's shape (PAD-415's history) is untested and is not relied on: rule 12a still keeps the cache for a target older than the newest cached message.
+
+### Resolution
+- Proof is at unit level: `target-landing.test.ts` (`retryScrollIndex`), watched red against a stub. The same 45-filler cell on the new code (978bf5c79) showed no error and landed on the message under the divider, but the trigger depends on a late SSE arrival and was not shown to have occurred in that run, so that cell is not a 2×2 cell.
+- Spec: `messaging.conversation-detail` rule 9b and a criterion.
+- Code: `onScrollToIndexFailed` re-resolves `scrollTargetIdRef` in `messagesRef` at retry time and drops the retry when the row is gone.
+- Resolved: 2026-10-01T19:51:03Z
