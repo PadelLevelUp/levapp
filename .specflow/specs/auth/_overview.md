@@ -11,6 +11,7 @@ The auth domain.
 - `auth.register` — implemented (rewritten 2026-09-06 as self-service signup for both roles; the old `POST /api/auth/register` never existed, B-023; built in PAD-210)
 - `auth.activate` — implemented
 - `auth.coach-approval` — implemented (LevApp admin approves self-registered coaches; gate is switchable; PAD-210)
+- `auth.coach-crm-sync` — implemented (a self-registered coach becomes a HubSpot contact; status follows the admin's decisions; coach data only; PAD-471)
 - `auth.email-verification` — draft (6-digit code mailed at self-signup and on a self-service email change; clients hold the person on the code screen; PAD-234)
 - `auth.password-recovery` — draft (email-based password and username recovery: one mail with the username and a single-use 6-digit code; replaces the dead legacy `/auth/forgot_password`; PAD-139)
 - `auth.parental-consent` — **retired (PAD-457)**: the guardian-consent flow for minors, removed from the code when LevApp became adults-only (`auth.register` rule 18, `auth.activate` rule 13). Kept as the record; its tables stay until a checked migration.
