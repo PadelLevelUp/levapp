@@ -21,7 +21,7 @@ def _load():
 ROWS = {
     1: '{"frequency": "weekly", "daysOfWeek": [0, 6, 7]}',  # prod's lesson 57: 7 next to a real 0
     2: '{"frequency": "weekly", "daysOfWeek": [3, 7]}',  # Monday moved onto Sunday
-    3: '{"frequency": "weekly", "daysOfWeek": [1, 3]}',  # untouched control
+    3: '{"daysOfWeek":[3,1],"frequency":"weekly"}',  # untouched control, compact and unsorted
     4: "FREQ=WEEKLY;BYDAY=SU",  # legacy non-JSON rule, untouched
     5: None,
 }

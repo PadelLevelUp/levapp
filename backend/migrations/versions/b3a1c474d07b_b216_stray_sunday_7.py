@@ -3,8 +3,8 @@
 Before PAD-464, moving a recurring class onto a Sunday wrote the ISO weekday 7 into `daysOfWeek`;
 the calendar's convention is 0 = Sunday … 6 = Saturday, and `WEEKDAY_MAP` drops 7. Only the bug
 ever wrote 7, so 7 → 0 is unambiguous. The days are de-duplicated and sorted, so `[0, 6, 7]`
-becomes `[0, 6]` (prod's lesson 57, read 2026-10-01 — the only row). Every other key of the rule
-is kept.
+becomes `[0, 6]`: prod's lesson 57, the only such row (counted 2026-09-30, read 2026-10-01).
+Every other key of the rule is kept.
 
 Only JSON rules holding a 7 are written, so a second run is a no-op. Downgrade does nothing: the 7
 was never a valid value to restore.
