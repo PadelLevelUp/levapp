@@ -138,8 +138,11 @@ def _jwt_secret(app):
 
 @pytest.fixture
 def hubspot(monkeypatch):
+    from padel_app.services import hubspot_sync
+
     fake = FakeHubSpot()
     monkeypatch.setattr(requests, "request", fake)
+    monkeypatch.setattr(hubspot_sync, "RETRY_PAUSE_S", 0)
     monkeypatch.setenv("HUBSPOT_PRIVATE_APP_TOKEN", TOKEN)
     monkeypatch.setenv("HUBSPOT_ACCOUNT_STATUS_PROPERTY", STATUS_PROP)
     monkeypatch.setenv("HUBSPOT_DEAL_STAGE_EM_TESTE", EM_TESTE)
@@ -326,6 +329,48 @@ def test_a_phone_widens_the_lookup(app, hubspot):
     ]
 
 
+def test_the_email_match_wins_over_a_phone_match(app, hubspot, monkeypatch):
+    """The OR'd search can return a contact that only shares the phone; the
+    one with the coach's email is the one updated."""
+    from padel_app.services.hubspot_sync import run_sync
+
+    hubspot.contacts["5"] = {"email": "outro@example.com", "phone": "+351912345678"}
+    hubspot.contacts["6"] = {"email": "ana@example.com", "firstname": "Ana"}
+    real_search = hubspot.__call__
+
+    def phone_first(method, url, **kwargs):
+        res = real_search(method, url, **kwargs)
+        if url.endswith("/contacts/search"):
+            # HubSpot does not rank the groups: hand back both, phone match first.
+            res = FakeResponse(200, {"total": 2, "results": [
+                {"id": "5", "properties": hubspot.contacts["5"]},
+                {"id": "6", "properties": hubspot.contacts["6"]},
+            ]})
+        return res
+
+    monkeypatch.setattr(requests, "request", phone_first)
+    run_sync(
+        {"firstname": "Ana", "email": "ana@example.com", "phone": "+351912345678", "status": "pendente"},
+        {"token": TOKEN, "status_property": STATUS_PROP, "em_teste_stage": ""},
+        move_deals=False,
+    )
+    patches = [c for c in hubspot.calls if c[0] == "PATCH"]
+    assert [c[1] for c in patches] == ["/crm/v3/objects/contacts/6"]
+    assert "pendente" not in hubspot.contacts["5"].values()
+
+
+def test_a_400_that_names_no_status_property_is_not_retried(client, hubspot, caplog):
+    hubspot.missing_properties = {"firstname"}
+    with caplog.at_level(logging.WARNING):
+        _register(client)
+
+    creates = [c for c in hubspot.writes() if c[0] == "POST"]
+    assert len(creates) == 1
+    assert hubspot.contacts == {}
+    warnings = [r.getMessage() for r in caplog.records if "hubspot" in r.getMessage().lower()]
+    assert warnings == ["hubspot sync failed at create: HTTP 400"]
+
+
 # --- Admin decisions ---------------------------------------------------------
 
 @pytest.mark.parametrize(
@@ -397,7 +442,9 @@ def test_missing_status_property_degrades_to_contact_without_status(client, hubs
     assert STATUS_PROP in creates[0][2]["properties"]
     assert STATUS_PROP not in creates[1][2]["properties"]
     assert len(hubspot.contacts) == 1
-    assert any(STATUS_PROP in r.getMessage() for r in caplog.records if r.levelno == logging.WARNING)
+    warnings = [r.getMessage() for r in caplog.records if "hubspot" in r.getMessage().lower()]
+    assert any(STATUS_PROP in w for w in warnings)
+    assert not any("ana@example.com" in w or "Ana" in w for w in warnings)
 
 
 # --- Never in the way --------------------------------------------------------
@@ -430,12 +477,12 @@ def test_hubspot_failing_never_blocks_signup_or_decisions(client, app, hubspot, 
     assert not any("ana@example.com" in w or "Ana" in w for w in warnings)
 
 
-def test_signup_answers_while_hubspot_is_still_busy(client, hubspot, monkeypatch):
+def test_signup_answers_while_hubspot_is_still_busy(client, app, hubspot, monkeypatch):
     """Off the request thread for real: HubSpot is held, sign-up still answers."""
     import threading
     import time
 
-    monkeypatch.setenv("HUBSPOT_SYNC_INLINE", "0")
+    monkeypatch.setitem(app.config, "HUBSPOT_SYNC_INLINE", False)
     release = threading.Event()
     answer = hubspot.__call__
 

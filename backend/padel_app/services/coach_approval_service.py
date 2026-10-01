@@ -9,7 +9,6 @@ from padel_app.utils.tokens import issue_access_token
 from werkzeug.security import check_password_hash
 
 from padel_app.models import Coach, User
-from padel_app.services.hubspot_sync import sync_coach_status
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
 
@@ -56,10 +55,17 @@ def _decide(coach_id, admin_user, target, reason=None, now=None):
     return coach
 
 
+def _sync_crm(coach):
+    """auth.coach-crm-sync (PAD-471): upsert the status off the request thread."""
+    from padel_app.services.hubspot_sync import sync_coach_status
+
+    sync_coach_status(coach)
+
+
 def approve_coach_service(coach_id, admin_user, now=None):
     coach = _decide(coach_id, admin_user, "approved", now=now)
     notify_coach_approved(coach)
-    sync_coach_status(coach)
+    _sync_crm(coach)
     return coach
 
 
@@ -71,7 +77,7 @@ def reject_coach_service(coach_id, admin_user, reason=None):
     if coach.user is not None and coach.user.status != "disabled":
         coach.user.status = "disabled"
         db.session.commit()
-    sync_coach_status(coach)
+    _sync_crm(coach)
     return coach
 
 
@@ -122,7 +128,7 @@ def reapply_coach_service(username, password):
     user.status = "active"
     db.session.commit()
     notify_admin_of_pending_coach(coach)
-    sync_coach_status(coach)
+    _sync_crm(coach)
     return login_body(user)
 
 

@@ -14,6 +14,7 @@ names the step and the HTTP status, never the coach's data. With no
 import logging
 import os
 import threading
+import time
 
 import requests
 from flask import current_app, has_app_context
@@ -54,9 +55,7 @@ def coach_payload(user, coach):
         "phone": (user.phone or "").strip(),
         "status": STATUS_VALUES.get(coach.approval_status, ""),
     }
-    payload = {k: v for k, v in payload.items() if v}
-    assert set(payload) <= set(ALLOWED_PAYLOAD_KEYS)
-    return payload
+    return {k: payload[k] for k in ALLOWED_PAYLOAD_KEYS if payload[k]}
 
 
 def _config():
@@ -91,16 +90,23 @@ def _trigger(user, coach, *, move_deals):
         logger.warning("hubspot sync not started: %s", type(exc).__name__)
 
 
+def _inline():
+    """`HUBSPOT_SYNC_INLINE` (app config; default: the TESTING flag), the same
+    switch push_sender has, so tests see the effect when the request returns."""
+    if not has_app_context():
+        return False
+    value = current_app.config.get("HUBSPOT_SYNC_INLINE")
+    if value is None:
+        return bool(current_app.config.get("TESTING"))
+    return bool(value)
+
+
 def _submit(payload, config, move_deals):
-    """A daemon thread, so the request answers at once. Tests (TESTING) run
-    inline so the effect is visible on return; `HUBSPOT_SYNC_INLINE` = 1 / 0
-    forces either way."""
-    forced = os.getenv("HUBSPOT_SYNC_INLINE")
-    if forced in ("0", "1"):
-        inline = forced == "1"
-    else:
-        inline = has_app_context() and bool(current_app.config.get("TESTING"))
-    if inline:
+    """One daemon thread per trigger, so the request answers at once. A bare
+    thread, not push_sender's queue, is the coordinator's call for this volume
+    (a few coach sign-ups a week): a sync lost to a restart is healed by the
+    next decision's upsert (rule 6)."""
+    if _inline():
         run_sync(payload, config, move_deals=move_deals)
         return
     threading.Thread(
@@ -122,32 +128,35 @@ def run_sync(payload, config, *, move_deals):
             _move_open_deals(contact_id, config)
     except HubSpotError as exc:
         logger.warning("hubspot sync failed at %s: HTTP %s", exc.step, exc.status)
-    except requests.RequestException as exc:
+    except Exception as exc:  # noqa: BLE001 — network errors included; never raise
         logger.warning("hubspot sync failed: %s", type(exc).__name__)
-    except Exception as exc:  # noqa: BLE001 — never let the thread die loudly
-        logger.warning("hubspot sync failed: %s", type(exc).__name__)
+
+
+RETRY_PAUSE_S = 1
+
+
+def _send(method, path, config, body):
+    return requests.request(
+        method,
+        f"{API}{path}",
+        headers={
+            "Authorization": f"Bearer {config['token']}",
+            "Content-Type": "application/json",
+        },
+        json=body,
+        timeout=TIMEOUT_S,
+    )
 
 
 def _call(method, path, config, step, body=None):
-    """One HubSpot call; a 429 or 5xx is retried once."""
-    for attempt in (1, 2):
-        res = requests.request(
-            method,
-            f"{API}{path}",
-            headers={
-                "Authorization": f"Bearer {config['token']}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-            timeout=TIMEOUT_S,
-        )
-        if res.status_code == 429 or res.status_code >= 500:
-            if attempt == 1:
-                continue
-        if not 200 <= res.status_code < 300:
-            raise HubSpotError(step, res.status_code, res.text or "")
-        return res.json() if res.text else {}
-    raise HubSpotError(step, res.status_code)  # pragma: no cover — loop always returns or raises
+    """One HubSpot call; a 429 or 5xx is retried once, after a short pause."""
+    res = _send(method, path, config, body)
+    if res.status_code == 429 or res.status_code >= 500:
+        time.sleep(RETRY_PAUSE_S)
+        res = _send(method, path, config, body)
+    if not 200 <= res.status_code < 300:
+        raise HubSpotError(step, res.status_code, res.text or "")
+    return res.json() if res.text else {}
 
 
 def _find_contact(payload, config):
@@ -157,8 +166,14 @@ def _find_contact(payload, config):
     properties = ["firstname", "lastname", "phone"]
     if config.get("status_property"):
         properties.append(config["status_property"])
-    body = {"filterGroups": groups, "properties": properties, "limit": 1}
+    properties.append("email")
+    body = {"filterGroups": groups, "properties": properties, "limit": 10}
     results = _call("POST", "/crm/v3/objects/contacts/search", config, "search", body).get("results") or []
+    # HubSpot does not rank the OR'd groups: the contact with the coach's email
+    # wins over one that only shares the phone.
+    for result in results:
+        if ((result.get("properties") or {}).get("email") or "").lower() == payload["email"]:
+            return result
     return results[0] if results else None
 
 

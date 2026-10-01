@@ -37,7 +37,8 @@ them (PAD-471). Only the coach's own data leaves LevApp.
    misconfiguration degrades to "contact without status", never "no contact".
 4. **Upsert, on every trigger. LevApp fills what the CRM lacks and owns only the status.**
    - Look the contact up by email, or by phone when the User has one (`OR`). A self-registered
-     coach gives no phone, so in practice the lookup is by email alone.
+     coach gives no phone, so in practice the lookup is by email alone. When the email and the
+     phone match different contacts, the one with the coach's email is the one used.
    - **No contact:** create one with the allow-listed fields plus `levapp_tipo_origem` = `Inbound`
      and `levapp_canal_origem` = `App LevApp`. On a transition this heals a contact the sign-up
      sync never made (it failed, the process restarted, or the token was installed later).
@@ -99,6 +100,11 @@ them (PAD-471). Only the coach's own data leaves LevApp.
 - **When** the admin approves them
 - **Then** a contact is created with the allow-listed fields, status `aprovado` and the two source
   fields
+
+#### The email match wins over a phone match
+- **Given** one contact with the coach's phone and another with the coach's email
+- **When** the coach is synced
+- **Then** the contact with the email is updated and the other is untouched
 
 #### A missing status property does not lose the contact
 - **Given** HubSpot answers 400 `PROPERTY_DOESNT_EXIST` for `levapp_estado_conta`
