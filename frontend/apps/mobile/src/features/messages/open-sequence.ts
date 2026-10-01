@@ -21,7 +21,8 @@ export type OpenFetch = { conversationId: string; phase: OpenFetchPhase };
 /**
  * Advance this open's fetch phase from the query's `isFetching` and `isError`. The first
  * observation of a conversation decides whether a fetch is coming (`in-flight`) or not (`none`,
- * a still-fresh cache; `failed` when that cache is already in error). An `in-flight` fetch ends `settled`, or `failed` when it ended in an
+ * a still-fresh cache; `failed` when that cache is already in error). An `in-flight` fetch ends
+ * `settled`, or `failed` when it ended in an
  * error (PAD-475, rule 12a: a GET that did not answer has shown the reader nothing new, so it
  * must not release the read mark). A `failed` open goes back `in-flight` when a later fetch
  * starts (Retry, a focus refetch); nothing moves a `settled` open back.
@@ -71,14 +72,17 @@ export function shouldFreezeFirstUnread(state: OpenState, frozenFor: string | nu
 
 /**
  * PAD-475 (messaging.push-notifications rule 12a, B-236): may a push-target open keep the
- * cached thread? Only on proof: the target is IN the cached thread, or it is OLDER than the
+ * cached thread? In two cases only: the target is IN the cached thread, or it is OLDER than the
  * newest cached message (rule 12's walk through older pages, flow 103). Ids decide "older":
  * `messages.id` comes from one database sequence, so a later message has the larger id.
  * Everything else must fetch, including ids that cannot be compared (a `temp-` id, an empty
  * thread, a non-numeric target): the event stream is suspended in the background and an
  * unmounted thread receives nothing, so a push normally names a message the cache has not got.
  */
-export function cacheCoversTarget(explicitTarget: string, cachedMessageIds: readonly (string | number)[]): boolean {
+export function cacheCoversTarget(
+  explicitTarget: string,
+  cachedMessageIds: readonly (string | number)[]
+): boolean {
   const cached = cachedMessageIds.map(String);
   if (cached.includes(explicitTarget)) return true;
   if (!isNumericId(explicitTarget)) return false;

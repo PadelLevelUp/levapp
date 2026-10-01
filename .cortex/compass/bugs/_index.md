@@ -179,3 +179,4 @@ whether a failure mode has been seen before.
 - [B-236](B-236-warm-push-tap-opens-a-fresh-cached-thread-without-the-message.md) — iOS: a warm push tap opened a fresh cached thread without the pushed message, and marked it read unseen (incomplete-rule, high, resolved)
 - [B-237](B-237-a-push-target-newer-than-the-cache-walks-older-pages.md) — iOS thread: a push target newer than the cache walked older pages and was consumed before the GET landed (incomplete-rule, low, resolved)
 - [B-238](B-238-a-failed-scroll-retry-reused-a-stale-index.md) — iOS thread: the failed-scroll retry reused a stale index and threw once a refetch had shrunk the list (missing-criterion, medium, resolved)
+- [B-248](B-248-a-hole-in-the-cached-thread-hides-a-push-target.md) — iOS thread: a push target missing from the middle of the cached thread is never fetched, and is marked read unseen (incomplete-rule, low, triaged)

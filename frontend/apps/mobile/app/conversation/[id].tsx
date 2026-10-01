@@ -6,13 +6,11 @@ import {
   applyIncomingMessage,
   queryKeys,
   shouldShowJumpToBottom,
-  nextTargetStep,
   openingTarget,
   canRetryThreadLoad,
   threadLoadErrorKey,
-  useConversationThread,
 } from "@levelup/hooks";
-import type { Conversation, EligibilityCheckEntry, Message } from "@levelup/types";
+import type { EligibilityCheckEntry, Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -64,14 +62,8 @@ import {
 import { isAtBottomOf } from "@/features/messages/scroll-position";
 import { composerBottomPadding } from "@/features/messages/composer-padding";
 import { isFirstUnreadMessage } from "@/features/messages/unread-divider";
-import {
-  shouldFreezeFirstUnread,
-  advanceOpenFetch,
-  type OpenFetch,
-  threadQueryOverrides,
-  shouldMarkRead,
-} from "@/features/messages/open-sequence";
-import { retryScrollIndex, shouldStepTarget } from "@/features/messages/target-landing";
+import { shouldFreezeFirstUnread, shouldMarkRead } from "@/features/messages/open-sequence";
+import { useThreadOpen } from "@/features/messages/use-thread-open";
 import { followReducer, initialFollowState, type FollowEvent } from "@/features/messages/follow-state";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
@@ -132,25 +124,10 @@ export default function ConversationScreen() {
   const myId = Number(user?.id);
   const queryClient = useQueryClient();
 
-  // Decided ONCE per open (conversation + target), from the cache as this open found it: the
-  // GET it may force puts the target into the cache, which must not flip the answer mid-open.
-  const openKey = `${conversationId}|${targetMessageParam ?? ""}`;
-  const threadOverridesRef = React.useRef<{
-    key: string;
-    value: ReturnType<typeof threadQueryOverrides>;
-  } | null>(null);
-  if (threadOverridesRef.current?.key !== openKey) {
-    const cached = queryClient.getQueryData<Conversation>(queryKeys.conversation(conversationId));
-    threadOverridesRef.current = {
-      key: openKey,
-      value: threadQueryOverrides(
-        targetMessageParam ?? null,
-        cached ? cached.messages.map((m) => m.id) : null
-      ),
-    };
-  }
-  const threadOverrides = threadOverridesRef.current.value;
-
+  // The open's four decisions (thread query override, fetch phase, target step, scroll retry)
+  // come from `useThreadOpen`, where they are tested mounted (PAD-475).
+  const threadOpen = useThreadOpen({ conversationId, target: targetMessageParam ?? null, queryClient });
+  const { openPhase } = threadOpen;
   const {
     data: conversation,
     isLoading,
@@ -160,12 +137,7 @@ export default function ConversationScreen() {
     hasMore,
     isLoadingOlder,
     loadOlder,
-    isFetching,
-  // B-190: a plain open always makes its own GET, so the first unread is this open's value even
-  // when an SSE write just made the cached entry fresh. B-236 (PAD-475): a push-tap open keeps
-  // the cache only when the cached thread covers its target (flow 103); a target the cache has
-  // not got, which is what a push normally names, makes its own GET too.
-  } = useConversationThread(conversationId, threadOverrides);
+  } = threadOpen.thread;
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -209,14 +181,6 @@ export default function ConversationScreen() {
     },
     []
   );
-
-  // B-222: this open's fetch phase — in flight, settled, or none coming (a still-fresh cache).
-  // Advanced during render from `isFetching` alone: a live `setQueryData` (the SSE handlers,
-  // `loadOlder`) bumps query-core's data count mid-flight, so `isFetchedAfterMount` cannot
-  // tell this open's answer from a cached copy. Same ref-during-render pattern as below.
-  const openFetchRef = React.useRef<OpenFetch | null>(null);
-  openFetchRef.current = advanceOpenFetch(openFetchRef.current, conversationId, isFetching, isError);
-  const openPhase = openFetchRef.current.phase;
 
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
@@ -754,13 +718,6 @@ export default function ConversationScreen() {
   }, [anchored, loadedMessageCount, conversationId, dispatchAnchor]);
 
   // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
-  // B-238: the message the last scroll was for, and the list as it is NOW, so a retry never
-  // reuses the index it was given (a refetch may have replaced the list in between). Invariant:
-  // `scrollToMessage` is the only caller of `scrollToIndex`, so the id is never another scroll's;
-  // a retry that fires after a newer scroll simply repeats the newer one.
-  const scrollTargetIdRef = React.useRef<string | number | null>(null);
-  const messagesRef = React.useRef<Message[]>([]);
-  messagesRef.current = conversation?.messages ?? [];
   const scrollToMessage = React.useCallback(
     (messageId: string | number, highlight: boolean = true) => {
       if (!conversation) return;
@@ -769,7 +726,7 @@ export default function ConversationScreen() {
       );
       if (index === -1) return;
       // B-238: a retry of this scroll finds the row again by id (onScrollToIndexFailed).
-      scrollTargetIdRef.current = messageId;
+      threadOpen.scrollStarted(messageId);
       listRef.current?.scrollToIndex({
         index,
         animated: true,
@@ -788,7 +745,7 @@ export default function ConversationScreen() {
         );
       }
     },
-    [conversation]
+    [conversation, threadOpen.scrollStarted]
   );
 
   // ── PAD-408 / PAD-415: land on the message a push named, or — absent one —
@@ -818,14 +775,10 @@ export default function ConversationScreen() {
   React.useEffect(() => {
     const target = targetRef.current;
     if (!target || !anchored || !conversation || isLoadingOlder) return;
-    // B-237: not on the cached copy while this open's GET is still in flight.
-    if (!shouldStepTarget(openPhase)) return;
-    const step = nextTargetStep({
-      messages: conversation.messages,
-      targetId: target,
-      olderPagesLoaded: targetOlderPagesRef.current,
-      hasOlder: hasMore,
-    });
+    // B-237: `targetStep` waits while this open's GET is in flight, so the walk never runs on
+    // the cached copy.
+    const step = threadOpen.targetStep(target, targetOlderPagesRef.current);
+    if (step.kind === "wait") return;
     if (step.kind === "load-older") {
       // A failed page is not fatal: `loadOlder` swallows the error and drops
       // `isLoadingOlder`, which re-runs this effect — each attempt counts
@@ -847,7 +800,7 @@ export default function ConversationScreen() {
     // delivered the rows (ios-flatlist-fabric-traps); a miss on an unmeasured
     // row is retried by onScrollToIndexFailed.
     requestAnimationFrame(() => scrollToMessage(landedId, highlight));
-  }, [anchored, conversation, dispatchFollow, hasMore, isLoadingOlder, loadOlder, openPhase, scrollToMessage]);
+  }, [anchored, conversation, dispatchFollow, isLoadingOlder, loadOlder, scrollToMessage, threadOpen.targetStep]);
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
   // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
@@ -1361,7 +1314,7 @@ export default function ConversationScreen() {
               // B-238: by message id, in the list as it is at retry time; `info.index`
               // may be out of range once a refetch has replaced the list.
               setTimeout(() => {
-                const index = retryScrollIndex(messagesRef.current, scrollTargetIdRef.current);
+                const index = threadOpen.retryIndex();
                 if (index === null) return;
                 listRef.current?.scrollToIndex({
                   index,

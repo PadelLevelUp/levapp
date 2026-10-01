@@ -179,9 +179,11 @@ Send browser push notifications when a new message arrives and the recipient isn
    or the `path` shape) behaves exactly as before. Opening the thread from the conversation
    list is unchanged.
 12a. **A warm tap shows the message it announces, still unread (PAD-475, B-236, iOS).** An open
-   with a target keeps the cached thread only when it can prove it may, because the event stream
-   is suspended while the app is in the background: the target is in the cached thread, or the
-   target is older than the newest cached message (rule 12's walk). Ids decide "older":
+   with a target keeps the cached thread in two cases only, because the event stream is
+   suspended while the app is in the background: the target is in the cached thread, or the
+   target is older than the newest cached message (rule 12's walk). The second case does not
+   establish that the target is in an older page: a message missing from the middle of the
+   cached thread is not detected (B-248, open). Ids decide "older":
    `messages.id` comes from one database sequence, so a later message has the larger id. In
    every other case, including ids that cannot be compared, the open makes its own `GET`,
    whatever the cache's age. The thread is marked read only after that `GET` has settled, so a
@@ -192,7 +194,9 @@ Send browser push notifications when a new message arrives and the recipient isn
    later `GET` settles. A tap on the conversation already on screen opens a new instance of
    the thread (`router.push`), so it is an open like any other. A landing scroll that must be
    retried follows `messaging.conversation-detail` rule 9b. Web has no counterpart: its event
-   stream is not suspended and it has no cached-thread open.
+   stream is not suspended and it has no cached-thread open. Tests: `use-thread-open.test.tsx`
+   mounts the screen's hook; the load error and the divider are tested as the open's phase and
+   `firstUnreadMessageId`, not as rendering, which only flow 122 sees.
 12b. **The walk waits for the open's `GET` (PAD-475, B-237, iOS).** Rule 12's walk through older
    pages does not start while this open's own `GET` is in flight: it neither loads older pages
    for a message that is newer than the cached thread, nor gives the target up before the
