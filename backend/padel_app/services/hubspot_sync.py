@@ -31,8 +31,9 @@ STATUS_VALUES = {"pending": "pendente", "approved": "aprovado", "rejected": "rej
 
 # Rule 2, binding: the only keys a payload may ever carry.
 ALLOWED_PAYLOAD_KEYS = ("firstname", "lastname", "email", "phone", "status")
-# The payload keys LevApp only fills when HubSpot has none (rule 4).
-FILL_ONLY = ("firstname", "lastname", "phone")
+# The payload keys LevApp only fills when HubSpot has none (rule 4). `email`
+# matters for the phone-only match: a contact a salesperson entered by phone.
+FILL_ONLY = ("firstname", "lastname", "email", "phone")
 
 
 class HubSpotError(Exception):
@@ -160,21 +161,28 @@ def _call(method, path, config, step, body=None):
 
 
 def _find_contact(payload, config):
+    """Rule 4: the contact with the coach's email; failing that, a contact that
+    shares the phone and has NO email (a lead entered by phone). A phone match
+    with a different email is someone else, so it is never returned."""
     groups = [{"filters": [{"propertyName": "email", "operator": "EQ", "value": payload["email"]}]}]
     if payload.get("phone"):
         groups.append({"filters": [{"propertyName": "phone", "operator": "EQ", "value": payload["phone"]}]})
-    properties = ["firstname", "lastname", "phone"]
+    properties = ["firstname", "lastname", "email", "phone"]
     if config.get("status_property"):
         properties.append(config["status_property"])
-    properties.append("email")
     body = {"filterGroups": groups, "properties": properties, "limit": 10}
     results = _call("POST", "/crm/v3/objects/contacts/search", config, "search", body).get("results") or []
-    # HubSpot does not rank the OR'd groups: the contact with the coach's email
-    # wins over one that only shares the phone.
+
+    def email_of(result):
+        return ((result.get("properties") or {}).get("email") or "").strip().lower()
+
     for result in results:
-        if ((result.get("properties") or {}).get("email") or "").lower() == payload["email"]:
+        if email_of(result) == payload["email"]:
             return result
-    return results[0] if results else None
+    for result in results:
+        if not email_of(result):
+            return result
+    return None
 
 
 def _upsert_contact(payload, config):

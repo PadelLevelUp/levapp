@@ -36,6 +36,7 @@ class FakeHubSpot:
 
     def __init__(self):
         self.calls = []  # (method, path, body)
+        self.timeouts = []
         self.contacts = {}  # id -> properties
         self.contact_deals = {}  # contact id -> [deal ids]
         self.deals = {}  # id -> properties
@@ -59,8 +60,8 @@ class FakeHubSpot:
     def __call__(self, method, url, headers=None, json=None, timeout=None, **_):
         path = url.replace("https://api.hubapi.com", "")
         self.calls.append((method, path, json))
+        self.timeouts.append(timeout)
         assert headers["Authorization"] == f"Bearer {TOKEN}"
-        assert timeout, "every HubSpot call needs a timeout"
         if self.raise_exc is not None:
             raise self.raise_exc
         if self.fail_with is not None:
@@ -77,7 +78,7 @@ class FakeHubSpot:
                 for cid, props in self.contacts.items()
                 if any(props.get(k) == v for k, v in wanted.items())
             ]
-            return FakeResponse(200, {"total": len(hits), "results": hits[:1]})
+            return FakeResponse(200, {"total": len(hits), "results": hits[: json.get("limit", 10)]})
 
         if method in ("POST", "PATCH") and path.startswith("/crm/v3/objects/contacts"):
             bad = self.missing_properties & set(json["properties"])
@@ -270,34 +271,49 @@ def test_without_a_stage_configured_no_deal_is_read(client, hubspot, monkeypatch
 
 # --- RGPD: the allow-list ----------------------------------------------------
 
+def _fill_every_column(obj):
+    """Give every column a value, so an attribute that leaks into the payload
+    shows up whatever the column is (birth_date, country, username, …)."""
+    import datetime as dt
+
+    from sqlalchemy import Boolean, Date, DateTime, Enum, Integer, Numeric, String, Text
+
+    for col in obj.__table__.columns:
+        if getattr(obj, col.key, None) not in (None, ""):
+            continue
+        t = col.type
+        if isinstance(t, Enum):
+            value = t.enums[0]
+        elif isinstance(t, (String, Text)):
+            value = f"x-{col.key}"
+        elif isinstance(t, DateTime):
+            value = dt.datetime(2000, 1, 2, 3, 4, 5)
+        elif isinstance(t, Date):
+            value = dt.date(2000, 1, 2)
+        elif isinstance(t, Boolean):
+            value = True
+        elif isinstance(t, (Integer, Numeric)):
+            value = 7
+        else:
+            value = "x"
+        setattr(obj, col.key, value)
+
+
 def test_payload_is_the_allow_list_and_nothing_else(app):
-    """The binding RGPD section, as a test: whatever a User or Coach grows, the
-    payload keys stay exactly these."""
-    from padel_app.models import Coach, Player, User
+    """The binding RGPD section, as a test: every User and Coach column holds a
+    value, and the payload keys are still exactly the allow-list."""
+    from padel_app.models import Coach, User
     from padel_app.services.hubspot_sync import coach_payload
 
     with app.app_context():
-        user = User(
-            name="Ana Maria Lima",
-            username="ana",
-            email="ana@example.com",
-            phone="+351912345678",
-            password="hash",
-            status="active",
-            country="PT",
-        )
-        db.session.add(user)
-        db.session.flush()
-        coach = Coach(user_id=user.id, approval_status="approved")
-        db.session.add(coach)
-        student = User(name="Aluno", username="aluno", password="pw", status="active")
-        db.session.add(student)
-        db.session.flush()
-        db.session.add(Player(user_id=student.id))
-        db.session.commit()
+        user = User(name="Ana Maria Lima", email="ana@example.com", phone="+351912345678")
+        coach = Coach(approval_status="approved")
+        _fill_every_column(user)
+        _fill_every_column(coach)
+        user.name, user.email, user.phone = "Ana Maria Lima", "ana@example.com", "+351912345678"
+        coach.approval_status = "approved"
 
-        payload = coach_payload(user, coach)
-        assert payload == {
+        assert coach_payload(user, coach) == {
             "firstname": "Ana",
             "lastname": "Maria Lima",
             "email": "ana@example.com",
@@ -329,34 +345,50 @@ def test_a_phone_widens_the_lookup(app, hubspot):
     ]
 
 
-def test_the_email_match_wins_over_a_phone_match(app, hubspot, monkeypatch):
-    """The OR'd search can return a contact that only shares the phone; the
-    one with the coach's email is the one updated."""
+def _sync(payload, **config):
     from padel_app.services.hubspot_sync import run_sync
 
-    hubspot.contacts["5"] = {"email": "outro@example.com", "phone": "+351912345678"}
+    cfg = {"token": TOKEN, "status_property": STATUS_PROP, "em_teste_stage": ""}
+    cfg.update(config)
+    run_sync(payload, cfg, move_deals=False)
+
+
+ANA = {"firstname": "Ana", "email": "ana@example.com", "phone": "+351912345678", "status": "pendente"}
+
+
+def test_the_email_match_wins_over_a_phone_match(app, hubspot):
+    """Rule 4: two contacts, one with the phone and another email, one with the
+    coach's email — the email one is written, the other is not touched."""
+    hubspot.contacts["5"] = {"email": "outro@example.com", "phone": "+351912345678", "firstname": "Rui"}
     hubspot.contacts["6"] = {"email": "ana@example.com", "firstname": "Ana"}
-    real_search = hubspot.__call__
+    _sync(ANA)
 
-    def phone_first(method, url, **kwargs):
-        res = real_search(method, url, **kwargs)
-        if url.endswith("/contacts/search"):
-            # HubSpot does not rank the groups: hand back both, phone match first.
-            res = FakeResponse(200, {"total": 2, "results": [
-                {"id": "5", "properties": hubspot.contacts["5"]},
-                {"id": "6", "properties": hubspot.contacts["6"]},
-            ]})
-        return res
+    writes = hubspot.writes()
+    assert [c[1] for c in writes] == ["/crm/v3/objects/contacts/6"]
+    assert hubspot.contacts["5"] == {"email": "outro@example.com", "phone": "+351912345678", "firstname": "Rui"}
 
-    monkeypatch.setattr(requests, "request", phone_first)
-    run_sync(
-        {"firstname": "Ana", "email": "ana@example.com", "phone": "+351912345678", "status": "pendente"},
-        {"token": TOKEN, "status_property": STATUS_PROP, "em_teste_stage": ""},
-        move_deals=False,
-    )
-    patches = [c for c in hubspot.calls if c[0] == "PATCH"]
-    assert [c[1] for c in patches] == ["/crm/v3/objects/contacts/6"]
-    assert "pendente" not in hubspot.contacts["5"].values()
+
+def test_a_phone_match_without_email_is_the_coach_and_gets_the_email(app, hubspot):
+    """Rule 4: a lead entered by phone (no email yet) is the coach's contact."""
+    hubspot.contacts["5"] = {"phone": "+351912345678", "firstname": "Ana", "levapp_tipo_origem": "Outbound"}
+    _sync(ANA)
+
+    writes = hubspot.writes()
+    assert [(c[0], c[1]) for c in writes] == [("PATCH", "/crm/v3/objects/contacts/5")]
+    assert writes[0][2]["properties"] == {"email": "ana@example.com", STATUS_PROP: "pendente"}
+    assert hubspot.contacts["5"]["levapp_tipo_origem"] == "Outbound"
+
+
+def test_a_phone_match_with_another_email_is_someone_else(app, hubspot):
+    """Rule 4: sharing a phone with a contact that has a different email does not
+    make it the coach's — a new contact is created and the other is untouched."""
+    hubspot.contacts["5"] = {"email": "outro@example.com", "phone": "+351912345678", "firstname": "Rui"}
+    _sync(ANA)
+
+    writes = hubspot.writes()
+    assert [(c[0], c[1]) for c in writes] == [("POST", "/crm/v3/objects/contacts")]
+    assert writes[0][2]["properties"]["email"] == "ana@example.com"
+    assert hubspot.contacts["5"] == {"email": "outro@example.com", "phone": "+351912345678", "firstname": "Rui"}
 
 
 def test_a_400_that_names_no_status_property_is_not_retried(client, hubspot, caplog):
@@ -540,3 +572,178 @@ def test_students_and_refused_signups_never_sync(client, hubspot):
     assert res.get_json().get("code") == "UNDERAGE"
 
     assert hubspot.calls == []
+
+
+# --- After the commit, at every trigger site ---------------------------------
+
+@pytest.fixture
+def commits(app):
+    """Counts session commits from now on. A trigger that fires before its
+    request's commit sees 0 (a second connection is no witness here: the test
+    database may share one connection, where flushed rows look committed)."""
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session
+
+    state = {"n": 0}
+
+    def on_commit(session):
+        state["n"] += 1
+
+    event.listen(Session, "after_commit", on_commit)
+    yield state
+    event.remove(Session, "after_commit", on_commit)
+
+
+def test_signup_syncs_only_after_its_commit(client, app, monkeypatch, commits):
+    from padel_app.services import hubspot_sync
+
+    seen = []
+    monkeypatch.setattr(
+        hubspot_sync,
+        "sync_coach_signup",
+        lambda user, coach: seen.append((commits["n"], coach.approval_status)),
+    )
+    _register(client)
+    assert len(seen) == 1
+    committed_before_sync, status = seen[0]
+    assert committed_before_sync >= 1, "the sign-up sync ran before the account was committed"
+    assert status == "pending"
+
+
+@pytest.mark.parametrize(
+    "decision, expected",
+    [("approve", "approved"), ("reject", "rejected")],
+)
+def test_a_decision_syncs_only_after_its_commit(client, app, monkeypatch, commits, decision, expected):
+    from padel_app.services import hubspot_sync
+
+    _register(client)
+    coach_id = _coach_id(app)
+    admin_id = _admin(app)
+    seen = []
+    monkeypatch.setattr(
+        hubspot_sync,
+        "sync_coach_status",
+        lambda coach: seen.append((commits["n"], coach.approval_status)),
+    )
+    commits["n"] = 0
+    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/{decision}", headers=_auth(app, admin_id), json={})
+    assert res.status_code == 200
+    assert len(seen) == 1
+    assert seen[0][0] >= 1, f"the {decision} sync ran before the decision was committed"
+    assert seen[0][1] == expected
+
+
+def test_reapply_syncs_only_after_its_commit(client, app, monkeypatch, commits):
+    from padel_app.services import hubspot_sync
+
+    _register(client)
+    coach_id = _coach_id(app)
+    client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", headers=_auth(app, _admin(app)), json={})
+    seen = []
+    monkeypatch.setattr(
+        hubspot_sync,
+        "sync_coach_status",
+        lambda coach: seen.append((commits["n"], coach.approval_status)),
+    )
+    commits["n"] = 0
+    res = client.post("/api/auth/coach-approval/reapply", json={"username": "ana", "password": "Segura123"})
+    assert res.status_code == 200
+    assert len(seen) == 1
+    assert seen[0][0] >= 1, "the re-apply sync ran before the re-application was committed"
+    assert seen[0][1] == "pending"
+
+
+# --- Rule 1: nothing else syncs ----------------------------------------------
+
+def test_only_signup_and_decisions_reach_the_sync():
+    """By construction: only the registration and approval services import it."""
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    importers = sorted(
+        str(p.relative_to(root))
+        for p in root.rglob("*.py")
+        if "tests" not in p.parts and p.name != "hubspot_sync.py" and "hubspot_sync" in p.read_text()
+    )
+    assert importers == ["services/coach_approval_service.py", "services/registration_service.py"]
+
+
+def test_an_invited_coach_does_not_sync(client, app, hubspot):
+    from datetime import datetime, timedelta
+
+    from padel_app.models import Association_CoachClub, Club, Coach, CoachInvitation, User
+
+    with app.app_context():
+        inviter = User(name="Inviter", username="inviter", password="pw", status="active")
+        db.session.add(inviter)
+        db.session.flush()
+        inviter_coach = Coach(user_id=inviter.id)
+        club = Club(name="Inviting Club")
+        db.session.add_all([inviter_coach, club])
+        db.session.flush()
+        db.session.add(Association_CoachClub(coach_id=inviter_coach.id, club_id=club.id))
+        db.session.add(
+            CoachInvitation(
+                club_id=club.id,
+                token="tok-pad471",
+                invited_by_coach_id=inviter_coach.id,
+                status="pending",
+                expires_at=datetime.utcnow() + timedelta(days=7),
+            )
+        )
+        db.session.commit()
+
+    res = client.post(
+        "/api/app/coach-invitations/tok-pad471/accept",
+        json={"name": "New Coach", "username": "newcoach", "password": "pw123456", "email": "new@example.com", "birthDate": "1990-01-01"},
+    )
+    assert res.status_code in (200, 201), res.get_json()
+    assert hubspot.calls == []
+
+
+def test_a_profile_edit_does_not_sync(client, app, hubspot):
+    body = _register(client)
+    hubspot.calls.clear()
+    res = client.patch(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {body['accessToken']}"},
+        json={"name": "Ana Lima Costa", "phone": "+351912345678"},
+    )
+    assert res.status_code == 200, res.get_json()
+    assert hubspot.calls == []
+
+
+# --- Rules 3, 4, 6 -------------------------------------------------------------
+
+def test_without_a_status_property_no_status_is_sent(client, hubspot, monkeypatch):
+    monkeypatch.delenv("HUBSPOT_ACCOUNT_STATUS_PROPERTY")
+    _register(client)
+    creates = [c for c in hubspot.writes() if c[0] == "POST"]
+    assert len(creates) == 1
+    assert STATUS_PROP not in creates[0][2]["properties"]
+    assert set(creates[0][2]["properties"]) == {
+        "firstname", "lastname", "email", "levapp_tipo_origem", "levapp_canal_origem",
+    }
+
+
+def test_a_rejected_coach_is_patched_never_deleted(client, app, hubspot):
+    _register(client)
+    client.post(f"/api/app/admin/coach-approvals/{_coach_id(app)}/reject", headers=_auth(app, _admin(app)), json={})
+    assert hubspot.contacts, "the contact is still there"
+    assert {c[0] for c in hubspot.calls} <= {"GET", "POST", "PATCH"}
+
+
+def test_a_429_is_retried_once(app, hubspot):
+    hubspot.fail_with = 429
+    _sync({"firstname": "Ana", "email": "ana@example.com", "status": "pendente"})
+    assert [c[1] for c in hubspot.calls] == ["/crm/v3/objects/contacts/search"] * 2
+
+
+def test_every_call_times_out_after_ten_seconds(client, hubspot):
+    hubspot.contacts["7"] = {"email": "ana@example.com"}
+    hubspot.contact_deals["7"] = ["11"]
+    hubspot.deals = {"11": {"dealstage": "identificado", "pipeline": "sales", "hs_is_closed": "false"}}
+    _register(client)
+    assert len(hubspot.timeouts) >= 5
+    assert set(hubspot.timeouts) == {10}

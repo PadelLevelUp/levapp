@@ -37,13 +37,17 @@ them (PAD-471). Only the coach's own data leaves LevApp.
    misconfiguration degrades to "contact without status", never "no contact".
 4. **Upsert, on every trigger. LevApp fills what the CRM lacks and owns only the status.**
    - Look the contact up by email, or by phone when the User has one (`OR`). A self-registered
-     coach gives no phone, so in practice the lookup is by email alone. When the email and the
-     phone match different contacts, the one with the coach's email is the one used.
+     coach gives no phone, so in practice the lookup is by email alone.
+   - **Which contact is the coach's** (coordinator decision, 2026-10-01): a contact with the
+     coach's email always wins. A contact matched by phone only is used *only when it has no
+     email* — a lead a salesperson entered by phone (PAD-470) — and the sync then sets its email.
+     A phone match that carries a different email is someone else: it is never written, and a new
+     contact is created. One person's name and status never land on another person's record.
    - **No contact:** create one with the allow-listed fields plus `levapp_tipo_origem` = `Inbound`
      and `levapp_canal_origem` = `App LevApp`. On a transition this heals a contact the sign-up
      sync never made (it failed, the process restarted, or the token was installed later).
-   - **A contact exists:** the status is always written; first name, last name and phone only
-     where HubSpot has none; the two source fields are never touched. A rejected coach's contact
+   - **A contact exists:** the status is always written; first name, last name, email and phone
+     only where HubSpot has none; the two source fields are never touched. A rejected coach's contact
      is updated, never deleted.
 5. **Deal move, on sign-up only.** After the upsert, every deal associated with the contact that
    is open (`hs_is_closed` false), sits in a pipeline that contains the configured "Em teste" stage
@@ -102,9 +106,19 @@ them (PAD-471). Only the coach's own data leaves LevApp.
   fields
 
 #### The email match wins over a phone match
-- **Given** one contact with the coach's phone and another with the coach's email
+- **Given** one contact with the coach's phone and another email, and one with the coach's email
 - **When** the coach is synced
 - **Then** the contact with the email is updated and the other is untouched
+
+#### A phone-only lead becomes the coach's contact
+- **Given** a contact with the coach's phone and no email
+- **When** the coach is synced
+- **Then** that contact is updated, its email set to the coach's, and its source fields kept
+
+#### A shared phone with another email is someone else
+- **Given** two people who share a phone: a contact with that phone and a different email
+- **When** the coach is synced
+- **Then** a new contact is created for the coach, and nothing is written to the other record
 
 #### A missing status property does not lose the contact
 - **Given** HubSpot answers 400 `PROPERTY_DOESNT_EXIST` for `levapp_estado_conta`
