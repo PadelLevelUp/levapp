@@ -48,6 +48,7 @@ import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { PlayerSelector } from "@/features/calendar/player-selector";
 import { togglePlayerId } from "@/features/calendar/player-selector-logic";
+import { unavailableBeforeSave } from "@/features/calendar/unavailable-check";
 import {
   UnavailableStudentDialog,
   type BlockedStudentLike,
@@ -274,26 +275,23 @@ export default function NewClassScreen() {
   /**
    * PAD-107 (calendar.student-blockers rule 9), mirroring web's AddClassSheet:
    * warn before booking a chosen student into a window they marked unavailable.
-   * It never blocks — and a failed lookup saves anyway, because the send-time
-   * block on the backend is the real guarantee.
+   * The rules (never blocks, asks once, a failed lookup saves) live in
+   * unavailableBeforeSave; web's date/time guard is kept here.
    */
   const checkUnavailableThenSave = async () => {
     setOverlapOpen(false);
-    if (!unavailableAcknowledged && selectedPlayers.length > 0) {
-      try {
-        const blocked = await notificationEngineApi.checkAvailabilityConflicts(
-          date,
-          startTime,
-          endTime,
-          selectedPlayers
-        );
-        if (blocked.length > 0) {
-          setUnavailableStudents(blocked);
-          return;
-        }
-      } catch {
-        // Fall through: the warning is a courtesy, the enrolment is the coach's.
-      }
+    const blocked =
+      date && startTime && endTime
+        ? await unavailableBeforeSave({
+            acknowledged: unavailableAcknowledged,
+            playerIds: selectedPlayers,
+            lookup: () =>
+              notificationEngineApi.checkAvailabilityConflicts(date, startTime, endTime, selectedPlayers),
+          })
+        : [];
+    if (blocked.length > 0) {
+      setUnavailableStudents(blocked);
+      return;
     }
     await proceedSave();
   };

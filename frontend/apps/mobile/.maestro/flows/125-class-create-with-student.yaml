@@ -7,10 +7,12 @@
 # E2E Student must be on it.
 #
 # Setup and teardown through the API (R-040): any class left with this title by an earlier run
-# is removed first, and the one created here is removed at the end. Rows are matched by id
+# is removed first, and onFlowComplete removes the one created here, even when a step fails. Rows are matched by id
 # (player-selector-row-<playerId>), never by rendered copy. Flow number 125 is from Session-B's
 # reserved block (125–127, coordinator 2026-10-01).
 appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad474-class-clear.js
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
@@ -19,8 +21,7 @@ appId: com.padellevelup.app
 - evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
 - evalScript: "${output.s1 = String(json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student'; })[0].playerId)}"
 - evalScript: "${output.findEvent = function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); return evs.filter(function (e) { return e.type === 'class' && e.title === output.title; })[0]; }}"
-- evalScript: "${output.removeAll = function () { var n = 0, e; while ((e = output.findEvent()) && n < 5) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } return n; }}"
-- evalScript: "${output.cleared = output.removeAll()}"
+- runScript: ../scripts/pad474-class-clear.js
 
 # ── The coach opens the day and adds a class (flow 110's walk) ──
 - runFlow: ../subflows/login-coach.yaml
@@ -145,7 +146,5 @@ appId: com.padellevelup.app
 - evalScript: "${output.cls = json(http.post(output.api + '/api/app/class_instance?model=' + output.ev.model + '&id=' + output.ev.originalId + '&date=' + output.day, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).body)}"
 - assertTrue: "${output.cls.participants.map(function (p) { return String(p.id); }).indexOf(output.s1) >= 0}"
 
-# ── Clean up ──
-- evalScript: "${output.removed = output.removeAll()}"
-- assertTrue: "${output.findEvent() == null}"
+# ── Done; onFlowComplete removes the class ──
 - runFlow: ../subflows/logout.yaml

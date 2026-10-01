@@ -5,6 +5,8 @@ import {
   buildClassEditChanges,
   diffInstance,
   diffParticipants,
+  presencesOfParticipants,
+  toggleDraftParticipant,
 } from "./edit-class-diff";
 
 describe("EDITABLE_CLASS_FIELDS", () => {
@@ -183,5 +185,50 @@ describe("diffParticipants compares ids as strings (classes.edit rule 9)", () =>
       addPlayers: ["9"],
       removePlayers: ["7"],
     });
+  });
+});
+
+describe("toggleDraftParticipant (classes.edit rule 9)", () => {
+  const roster = [
+    { playerId: "1", userId: "u1" },
+    { playerId: "2", userId: "u2" },
+  ];
+
+  it("ticking adds the student with their user id", () => {
+    expect(toggleDraftParticipant([{ id: "1", userId: "u1" }], "2", roster)).toEqual([
+      { id: "1", userId: "u1" },
+      { id: "2", userId: "u2" },
+    ]);
+  });
+
+  it("unticking removes them, matching a numeric id", () => {
+    expect(toggleDraftParticipant([{ id: 1 as unknown as string, userId: "u1" }], "1", roster)).toEqual([]);
+  });
+
+  it("untick then re-tick sends nothing", () => {
+    const original = [{ id: 1 as unknown as string, userId: "u1" }];
+    const once = toggleDraftParticipant(original, "1", roster);
+    const twice = toggleDraftParticipant(once, "1", roster);
+    expect(buildClassEditChanges({ participants: original }, { participants: twice })).toEqual({});
+  });
+
+  it("a student the roster does not know is not added", () => {
+    expect(toggleDraftParticipant([], "9", roster)).toEqual([]);
+  });
+});
+
+describe("presencesOfParticipants (the edit count, classes.edit rule 9)", () => {
+  // effectiveFilledSpots subtracts every declined presence; a student unticked in
+  // the draft must not be subtracted as well.
+  it("keeps only the presences of the counted participants", () => {
+    const presences = [
+      { playerId: 1, status: "absent" },
+      { playerId: 2, status: "present" },
+    ];
+    expect(presencesOfParticipants(presences, [{ id: "2" }])).toEqual([{ playerId: 2, status: "present" }]);
+  });
+
+  it("is empty for no presences", () => {
+    expect(presencesOfParticipants(undefined, [{ id: "1" }])).toEqual([]);
   });
 });

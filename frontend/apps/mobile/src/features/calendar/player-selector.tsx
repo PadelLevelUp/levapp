@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme, lightThemeHsl } from "@levelup/config";
+import { lightTheme } from "@levelup/config";
 import type { CoachLevel, CoachPlayer } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
+import { initialsOf } from "@/features/messages/utils";
+import { cn } from "@/lib/utils";
 
 import {
   filterPlayers,
@@ -22,19 +25,6 @@ interface PlayerSelectorProps {
   onToggle: (playerId: string) => void;
 }
 
-type Tab = "participants" | "all";
-
-/** A theme colour at an alpha, from its "H S% L%" triple. */
-const tint = (hsl: string, alpha: number) => `hsla(${hsl.split(" ").join(", ")}, ${alpha})`;
-
-const getInitials = (name: string) =>
-  name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
 /**
  * Mobile port of web's `components/calendar/PlayerSelector.tsx`
  * (classes.create rule 10, classes.edit rule 9, PAD-474): the coach's chosen
@@ -43,8 +33,9 @@ const getInitials = (name: string) =>
  * the tab label carries the count, as on web.
  *
  * Used on pushed screens (new class, class detail), never inside a native
- * Modal. The two tabs are equal-width columns, so the count changing never
- * moves them; selected states are drawn with inline `style`.
+ * Modal. A row is one Pressable with a drawn check (as add-to-classes-dialog
+ * does) because the `Checkbox` primitive is its own pressable and cannot sit
+ * inside one.
  */
 export function PlayerSelector({
   players,
@@ -54,7 +45,7 @@ export function PlayerSelector({
   onToggle,
 }: PlayerSelectorProps) {
   const { t } = useTranslation();
-  const [tab, setTab] = React.useState<Tab>("participants");
+  const [tab, setTab] = React.useState("participants");
   const [search, setSearch] = React.useState("");
   const [filterLevelId, setFilterLevelId] = React.useState<string | null>(null);
 
@@ -95,13 +86,11 @@ export function PlayerSelector({
         role="checkbox"
         accessibilityState={{ checked: isSelected }}
         onPress={() => onToggle(playerId)}
-        className="flex-row items-center gap-3 rounded-lg p-2"
-        style={{
-          backgroundColor: isSelected
-            ? tint(outOfLevel ? lightThemeHsl.warning : lightThemeHsl.primary, outOfLevel ? 0.15 : 0.1)
-            : undefined,
-          opacity: outOfLevel && !isSelected ? 0.75 : 1,
-        }}
+        className={cn(
+          "flex-row items-center gap-3 rounded-lg p-2",
+          isSelected && (outOfLevel ? "bg-warning/15" : "bg-primary/10"),
+          outOfLevel && !isSelected && "opacity-75"
+        )}
       >
         <Ionicons
           name={isSelected ? "checkbox" : "square-outline"}
@@ -109,7 +98,7 @@ export function PlayerSelector({
           color={isSelected ? lightTheme.primary : lightTheme.mutedForeground}
         />
         <View className="h-8 w-8 items-center justify-center rounded-full bg-muted">
-          <Text className="text-xs font-medium">{getInitials(player.name)}</Text>
+          <Text className="text-xs font-medium">{initialsOf(player.name)}</Text>
         </View>
         <View className="min-w-0 flex-1 flex-row items-center gap-2">
           <Text className="flex-shrink text-sm" numberOfLines={1}>
@@ -127,55 +116,33 @@ export function PlayerSelector({
     );
   };
 
-  const tabButton = (value: Tab, label: string) => {
-    const active = tab === value;
-    return (
-      <Pressable
-        testID={`player-selector-tab-${value}`}
-        accessibilityLabel={label}
-        role="tab"
-        accessibilityState={{ selected: active }}
-        onPress={() => setTab(value)}
-        className="flex-1 items-center rounded-md py-1.5"
-        style={{ backgroundColor: active ? lightTheme.card : "transparent" }}
-      >
-        <Text
-          className="text-sm font-medium"
-          numberOfLines={1}
-          style={{ color: active ? lightTheme.foreground : lightTheme.mutedForeground }}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    );
-  };
-
   return (
-    <View testID="player-selector" className="gap-2">
-      <View className="flex-row rounded-lg bg-muted p-1">
-        {tabButton(
-          "participants",
-          t("calendar.playerSelector.participants", { count: selectedPlayerIds.length })
-        )}
-        {tabButton("all", t("calendar.playerSelector.all"))}
-      </View>
+    <View testID="player-selector">
+      <Tabs value={tab} onValueChange={setTab} className="gap-2">
+        <TabsList>
+          <TabsTrigger value="participants" testID="player-selector-tab-participants">
+            <Text numberOfLines={1}>
+              {t("calendar.playerSelector.participants", { count: selectedPlayerIds.length })}
+            </Text>
+          </TabsTrigger>
+          <TabsTrigger value="all" testID="player-selector-tab-all">
+            <Text numberOfLines={1}>{t("calendar.playerSelector.all")}</Text>
+          </TabsTrigger>
+        </TabsList>
 
-      {tab === "participants" ? (
-        selected.length === 0 ? (
-          <Text className="py-4 text-center text-sm text-muted-foreground">
-            {t("calendar.playerSelector.noParticipantsSelected")}
-          </Text>
-        ) : (
-          <ScrollView
-            style={{ maxHeight: 260 }}
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-          >
-            <View className="gap-1">{selected.map(renderRow)}</View>
-          </ScrollView>
-        )
-      ) : (
-        <View className="gap-3">
+        <TabsContent value="participants">
+          {selected.length === 0 ? (
+            <Text className="py-4 text-center text-sm text-muted-foreground">
+              {t("calendar.playerSelector.noParticipantsSelected")}
+            </Text>
+          ) : (
+            <ScrollView className="max-h-64" nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              <View className="gap-1">{selected.map(renderRow)}</View>
+            </ScrollView>
+          )}
+        </TabsContent>
+
+        <TabsContent value="all" className="gap-3">
           <Input
             testID="player-selector-search"
             placeholder={t("calendar.playerSelector.searchPlaceholder")}
@@ -196,16 +163,13 @@ export function PlayerSelector({
                     role="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => setFilterLevelId(level.id)}
-                    className="rounded-full px-2.5 py-1"
-                    style={{ backgroundColor: active ? lightTheme.primary : lightTheme.muted }}
+                    className={cn("rounded-full px-2.5 py-1", active ? "bg-primary" : "bg-muted")}
                   >
                     <Text
-                      className="text-xs font-medium"
-                      style={{
-                        color: active
-                          ? lightTheme.primaryForeground
-                          : lightTheme.mutedForeground,
-                      }}
+                      className={cn(
+                        "text-xs font-medium",
+                        active ? "text-primary-foreground" : "text-muted-foreground"
+                      )}
                     >
                       {level.label}
                     </Text>
@@ -214,11 +178,7 @@ export function PlayerSelector({
               })}
             </View>
           ) : null}
-          <ScrollView
-            style={{ maxHeight: 260 }}
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-          >
+          <ScrollView className="max-h-64" nestedScrollEnabled keyboardShouldPersistTaps="handled">
             <View className="gap-1">
               {visible.length === 0 ? (
                 <Text className="py-3 text-center text-sm text-muted-foreground">
@@ -229,8 +189,8 @@ export function PlayerSelector({
               )}
             </View>
           </ScrollView>
-        </View>
-      )}
+        </TabsContent>
+      </Tabs>
     </View>
   );
 }

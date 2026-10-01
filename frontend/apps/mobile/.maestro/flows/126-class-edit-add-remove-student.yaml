@@ -7,11 +7,13 @@
 # the roster must be exactly the swap.
 #
 # Setup and teardown through the API (R-040): as e2e-coach, add "Maestro PAD-474 Edit" (one-off,
-# two days out, 19:00–20:00, 4 spots) with E2E Student on it, and remove it at the end. A one-off
+# two days out, 19:00–20:00, 4 spots) with E2E Student on it; onFlowComplete removes it, even when a step fails. A one-off
 # class asks no scope; the scope routing is proven by
 # backend/padel_app/tests/test_pad474_participant_edit_scope.py. Rows are matched by id. Flow
 # number 126 is from Session-B's reserved block (125–127, coordinator 2026-10-01).
 appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad474-class-clear.js
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
@@ -25,9 +27,8 @@ appId: com.padellevelup.app
 - evalScript: "${output.s2 = String(output.s2row.playerId)}"
 - evalScript: "${output.s2name = output.s2row.name}"
 - evalScript: "${output.findEvent = function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); return evs.filter(function (e) { return e.type === 'class' && e.title === output.title; })[0]; }}"
-- evalScript: "${output.removeAll = function () { var n = 0, e; while ((e = output.findEvent()) && n < 5) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } return n; }}"
 - evalScript: "${output.readIds = function () { var e = output.findEvent(); var c = json(http.post(output.api + '/api/app/class_instance?model=' + e.model + '&id=' + e.originalId + '&date=' + output.day, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).body); return c.participants.map(function (p) { return String(p.id); }).sort().join(','); }}"
-- evalScript: "${output.cleared = output.removeAll()}"
+- runScript: ../scripts/pad474-class-clear.js
 - evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '19:00', endTime: '20:00', maxPlayers: 4, playerIds: [output.s1], isRecurring: false }) }).ok}"
 - assertTrue: "${output.added == true}"
 - assertTrue: "${output.readIds() === output.s1}"
@@ -156,9 +157,7 @@ appId: com.padellevelup.app
     direction: DOWN
     timeout: 30000
 
-# ── Leave, then clean up ──
-- evalScript: "${output.removed = output.removeAll()}"
-- assertTrue: "${output.findEvent() == null}"
+# ── Leave; onFlowComplete removes the class ──
 - tapOn:
     id: "class-detail-back"
 - extendedWaitUntil:

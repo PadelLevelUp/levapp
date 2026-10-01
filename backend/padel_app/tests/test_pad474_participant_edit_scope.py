@@ -79,6 +79,7 @@ def _setup(app):
 def test_single_scope_add_enrols_the_occurrence_only(app):
     ana, bruno, lesson_id, instance_id, day = _setup(app)
     result, status = _edit(app, instance_id, day, "single", {"addPlayers": [bruno]})
+    # 200 is what edit_class_service returns today for scope "single", not a client contract.
     assert status == 200, result
     with app.app_context():
         assert bruno in _presences(instance_id)
@@ -89,6 +90,7 @@ def test_single_scope_add_enrols_the_occurrence_only(app):
 def test_future_scope_add_puts_the_player_on_the_series_roster(app):
     ana, bruno, lesson_id, instance_id, day = _setup(app)
     result, status = _edit(app, instance_id, day, "future", {"addPlayers": [bruno]})
+    # 201 is what edit_class_service returns today for scope "future", not a client contract.
     assert status == 201, result
     # First occurrence: event date == lesson start date, so no fork — the edit
     # lands on the original lesson. Asserted via the returned id.
@@ -103,7 +105,39 @@ def test_single_scope_remove_drops_the_occurrence_enrolment_only(app):
     with app.app_context():
         assert ana in _presences(instance_id)
     result, status = _edit(app, instance_id, day, "single", {"removePlayers": [ana]})
+    # 200 is what edit_class_service returns today for scope "single", not a client contract.
     assert status == 200, result
     with app.app_context():
         assert ana not in _presences(instance_id)
         assert ana in _roster(lesson_id)
+
+
+def test_future_scope_add_on_a_later_occurrence_lands_on_the_split_series(app):
+    ids = _seed_coach_and_student(app)
+    ana = ids["student_id"]
+    bruno = _extra_player(app, "Bruno")
+    lesson_id, day = _seed_weekly_series(app, ids["coach_id"], [ana])
+    second_day = day + timedelta(weeks=1)
+    instance_id = _materialise(app, lesson_id, second_day)
+    result, status = _edit(app, instance_id, second_day, "future", {"addPlayers": [bruno]})
+    # 201 is what edit_class_service returns today for scope "future" (same as the
+    # no-fork case), not a client contract.
+    assert status == 201, result
+    # Event date != lesson start date, so the series forks: the edit lands on the
+    # new lesson (duplicate_lesson_helper copies the roster), not the original.
+    assert result["id"] != lesson_id
+    with app.app_context():
+        assert bruno in _roster(result["id"])
+        assert ana in _roster(result["id"])
+        assert bruno not in _roster(lesson_id)
+
+
+def test_future_scope_remove_takes_the_player_off_the_series_roster(app):
+    ana, bruno, lesson_id, instance_id, day = _setup(app)
+    result, status = _edit(app, instance_id, day, "future", {"removePlayers": [ana]})
+    # 201 is what edit_class_service returns today for scope "future", not a client contract.
+    assert status == 201, result
+    # First occurrence: no fork, the edit lands on the original lesson.
+    assert result["id"] == lesson_id
+    with app.app_context():
+        assert ana not in _roster(result["id"])

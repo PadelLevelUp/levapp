@@ -88,7 +88,11 @@ import * as notificationEngineApi from "@levelup/api/src/resources/notificationE
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
-import { buildClassEditChanges } from "@/features/calendar/edit-class-diff";
+import {
+  buildClassEditChanges,
+  presencesOfParticipants,
+  toggleDraftParticipant as toggledParticipants,
+} from "@/features/calendar/edit-class-diff";
 import { PlayerSelector } from "@/features/calendar/player-selector";
 import { useCoachPlayers } from "@/features/players/hooks";
 import {
@@ -457,7 +461,7 @@ export default function ClassDetailScreen() {
   // their view — the guard keeps that behaviour unchanged.
   const filled = effectiveFilledSpots(
     countedParticipants.length,
-    isCoach ? instance?.presences : []
+    isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
 
@@ -493,18 +497,14 @@ export default function ClassDetailScreen() {
   // classes.edit rule 9 (PAD-474): ticking adds the student to the draft,
   // unticking removes them; the save sends the difference.
   const toggleDraftParticipant = (playerId: string) => {
-    setDraft((d) => {
-      if (!d) return d;
-      const current = d.participants ?? [];
-      const isIn = current.some((p) => String(p.id) === playerId);
-      const player = coachPlayers?.find((p) => String(p.playerId) === playerId);
-      return {
-        ...d,
-        participants: isIn
-          ? current.filter((p) => String(p.id) !== playerId)
-          : [...current, { id: playerId, userId: player?.userId ?? "" }],
-      };
-    });
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            participants: toggledParticipants(d.participants ?? [], playerId, coachPlayers ?? []),
+          }
+        : d
+    );
   };
 
   const cancelEdit = () => {

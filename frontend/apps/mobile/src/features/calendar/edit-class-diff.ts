@@ -64,7 +64,6 @@ export function diffParticipants(
   return { addPlayers, removePlayers };
 }
 
-
 /** The edit screen's change set: the field diff plus the participant diff
  * (classes.edit rule 9, PAD-474). Web's commitEdit builds both before deciding
  * there is nothing to save; diffing the fields alone dropped an edit that only
@@ -76,6 +75,7 @@ export function buildClassEditChanges<T extends { participants?: { id: string }[
   const changes = diffInstance(
     original,
     updated,
+    // The allow-list is typed against ClassInstance; T is any shape with participants.
     EDITABLE_CLASS_FIELDS as unknown as (keyof T)[]
   ) as Record<string, unknown>;
   const { addPlayers, removePlayers } = diffParticipants(
@@ -85,4 +85,30 @@ export function buildClassEditChanges<T extends { participants?: { id: string }[
   if (addPlayers.length > 0) changes.addPlayers = addPlayers;
   if (removePlayers.length > 0) changes.removePlayers = removePlayers;
   return changes;
+}
+
+
+/** Ticks or unticks a student in the edit draft (classes.edit rule 9). Ids
+ * compare as strings; a student the coach's roster does not know is not added. */
+export function toggleDraftParticipant<P extends { id: string; userId: string }>(
+  participants: P[],
+  playerId: string,
+  coachPlayers: { playerId: string; userId: string }[]
+): P[] {
+  const key = String(playerId);
+  if (participants.some((p) => String(p.id) === key)) {
+    return participants.filter((p) => String(p.id) !== key);
+  }
+  const player = coachPlayers.find((p) => String(p.playerId) === key);
+  return player ? [...participants, { id: key, userId: player.userId } as P] : participants;
+}
+
+/** The presences of the listed participants only. While editing, the count
+ * subtracts declines among the draft's students, never one the coach unticked. */
+export function presencesOfParticipants<R extends { playerId: string | number }>(
+  presences: R[] | null | undefined,
+  participants: { id: string }[]
+): R[] {
+  const ids = new Set(participants.map((p) => String(p.id)));
+  return (presences ?? []).filter((r) => ids.has(String(r.playerId)));
 }
