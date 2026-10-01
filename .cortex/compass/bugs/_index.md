@@ -175,3 +175,4 @@ whether a failure mode has been seen before.
 - [B-193](B-193-add-to-classes-week-e2e-assumed-three-classes-next-week.md) — E2E add-to-classes-week assumed three seeded classes next week, true on six weekdays of seven (PAD-466) (test-defect, low, resolved)
 - [B-194](B-194-mobile-month-view-measured-the-grid-while-the-mes-tree-was-replaced.md) — E2E mobile-month-view US-286-1 measured the month grid while the Mês tree was replaced; null box (test-defect, low, resolved)
 - [B-223](B-223-student-record-tiles-collapse-when-rows-appear-above.md) — iOS student dashboard: rows appearing above "Your record" after the first layout collapsed its four tiles to empty strips (missing-criterion, high, resolved)
+- [B-242](B-242-ios-custom-evaluation-frequency-lost-without-blur.md) — iOS "Personalizado" evaluation frequency dropped a typed number unless the field blurred; backgrounding or a link lost it (incomplete-rule, medium, triaged)

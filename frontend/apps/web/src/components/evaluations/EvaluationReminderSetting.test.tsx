@@ -4,7 +4,7 @@
  */
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvaluationSettings } from "@levelup/types";
 
@@ -21,12 +21,12 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("@levelup/api/src/resources/evaluationSettings", () => api);
 
-import { EvaluationReminderSetting } from "./EvaluationReminderSetting";
+import { CUSTOM_SAVE_DELAY_MS, EvaluationReminderSetting } from "./EvaluationReminderSetting";
 
 function open(data: EvaluationSettings) {
   api.getEvaluationSettings.mockResolvedValue(data);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <EvaluationReminderSetting />
     </QueryClientProvider>,
@@ -143,5 +143,50 @@ describe("the control never shows a choice the server does not hold", () => {
     );
     expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
     expect(screen.getByTestId("settings-evaluation-reminder-option-monthly")).not.toBeChecked();
+  });
+});
+
+describe("Personalizado saves a typed number however the coach leaves it (B-242)", () => {
+  const pastDelay = () => new Promise((r) => setTimeout(r, CUSTOM_SAVE_DELAY_MS + 50));
+
+  it("saves once, shortly after typing stops, without a blur", async () => {
+    api.putEvaluationSettings.mockResolvedValue({ reminder: "every_n_classes", everyN: 12 });
+    open({ reminder: "every_n_classes", everyN: 7 });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+
+    fireEvent.change(input, { target: { value: "1" } });
+    fireEvent.change(input, { target: { value: "12" } });
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+
+    await act(pastDelay);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 12 });
+
+    fireEvent.blur(input);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaving the screen sends a number still waiting for its delay", async () => {
+    api.putEvaluationSettings.mockResolvedValue({ reminder: "every_n_classes", everyN: 8 });
+    const view = open({ reminder: "every_n_classes", everyN: 7 });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+
+    fireEvent.change(input, { target: { value: "8" } });
+    view.unmount();
+
+    await waitFor(() =>
+      expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 }),
+    );
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("an invalid number is never sent by the delay", async () => {
+    open({ reminder: "every_n_classes", everyN: 7 });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+
+    fireEvent.change(input, { target: { value: "0" } });
+    await act(pastDelay);
+
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
   });
 });

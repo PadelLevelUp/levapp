@@ -247,6 +247,9 @@ executionOrder:
     # 116 (PAD-438): the student's four KPI tiles keep their layout when the coach adds a class
     # and a refresh lays out new rows above "Your record" (B-223). Teardown removes the class.
     - 116-student-record-keeps-its-layout
+    # 128 (B-242, PAD-473): a number typed into "Personalizado" survives backgrounding the app and
+    # following a link with the field focused. onFlowComplete restores "never".
+    - 128-evaluation-custom-frequency-survives-leaving
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
