@@ -1,0 +1,168 @@
+# PAD-474 — classes.edit rule 9 on iOS/Android: the coach adds and removes students while editing a class.
+#
+# Mirrors: web ClassDetailSheet's PlayerSelector in edit mode, and
+# src/features/calendar/edit-class-diff.test.ts ("a participants-only edit is a change, not 'no
+# changes'"). This edit touches ONLY the participants. Before PAD-474 that edit had no control on
+# iOS, and the save path would have dropped it as "no changes". The API reads the class back, and
+# the roster must be exactly the swap.
+#
+# Setup and teardown through the API (R-040): as e2e-coach, add "Maestro PAD-474 Edit" (one-off,
+# two days out, 19:00–20:00, 4 spots) with E2E Student on it, and remove it at the end. A one-off
+# class asks no scope; the scope routing is proven by
+# backend/padel_app/tests/test_pad474_participant_edit_scope.py. Rows are matched by id. Flow
+# number 126 is from Session-B's reserved block (125–127, coordinator 2026-10-01).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'Maestro PAD-474 Edit'}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+# Two of the coach's seeded students: E2E Student (s1) and another "E2E Student…" (s2).
+- evalScript: "${output.students = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return /^E2E Student/.test(p.name); })}"
+- evalScript: "${output.s1 = String(output.students.filter(function (p) { return p.name === 'E2E Student'; })[0].playerId)}"
+- evalScript: "${output.s2row = output.students.filter(function (p) { return String(p.playerId) !== output.s1; })[0]}"
+- evalScript: "${output.s2 = String(output.s2row.playerId)}"
+- evalScript: "${output.s2name = output.s2row.name}"
+- evalScript: "${output.findEvent = function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); return evs.filter(function (e) { return e.type === 'class' && e.title === output.title; })[0]; }}"
+- evalScript: "${output.removeAll = function () { var n = 0, e; while ((e = output.findEvent()) && n < 5) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } return n; }}"
+- evalScript: "${output.readIds = function () { var e = output.findEvent(); var c = json(http.post(output.api + '/api/app/class_instance?model=' + e.model + '&id=' + e.originalId + '&date=' + output.day, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).body); return c.participants.map(function (p) { return String(p.id); }).sort().join(','); }}"
+- evalScript: "${output.cleared = output.removeAll()}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '19:00', endTime: '20:00', maxPlayers: 4, playerIds: [output.s1], isRecurring: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+- assertTrue: "${output.readIds() === output.s1}"
+
+# ── The coach opens the class (flow 110's walk) ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "${output.title}"
+    timeout: 15000
+- tapOn: "${output.title}"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+
+# ── Edit: untick E2E Student on "Participantes", tick s2 on "Todos" ──
+- tapOn:
+    id: "class-edit"
+- scrollUntilVisible:
+    element:
+      id: "player-selector-tab-participants"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-tab-participants"
+- scrollUntilVisible:
+    element:
+      id: "player-selector-row-${output.s1}"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-row-${output.s1}"
+- assertNotVisible:
+    id: "player-selector-row-${output.s1}"
+- tapOn:
+    id: "player-selector-tab-all"
+# The list scrolls inside a 260 pt box; a search brings the row into it whatever the roster size.
+- scrollUntilVisible:
+    element:
+      id: "player-selector-search"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-search"
+- inputText: "${output.s2name}"
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "player-selector-row-${output.s2}"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-row-${output.s2}"
+- tapOn:
+    id: "player-selector-tab-participants"
+- assertVisible:
+    id: "player-selector-row-${output.s2}"
+
+# ── Save; answer the eligibility warning if the added student fails the bar ──
+- scrollUntilVisible:
+    element:
+      id: "class-edit-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit-save"
+- extendedWaitUntil:
+    visible:
+      id: "eligibility-confirm-proceed"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "eligibility-confirm-proceed"
+    commands:
+      - tapOn:
+          id: "eligibility-confirm-proceed"
+- extendedWaitUntil:
+    visible:
+      id: "class-edit"
+    timeout: 20000
+
+# ── The server has exactly the swap ──
+- assertTrue: "${output.readIds() === output.s2}"
+- scrollUntilVisible:
+    element:
+      id: "class-participant-${output.s2}"
+    direction: DOWN
+    timeout: 30000
+
+# ── Leave, then clean up ──
+- evalScript: "${output.removed = output.removeAll()}"
+- assertTrue: "${output.findEvent() == null}"
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml

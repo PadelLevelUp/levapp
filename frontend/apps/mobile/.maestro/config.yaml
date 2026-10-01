@@ -244,6 +244,10 @@ executionOrder:
     # 121 (PAD-428): the student's weekly request ends "after 3 classes"; the API reads back an
     # endDate equal to the 3rd occurrence, recomputed in the flow. Teardown withdraws it.
     - 121-class-request-ends-after-n-classes
+    # 125/126 (PAD-474) create and remove their own classes through the API ("Maestro PAD-474
+    # Create"/"Maestro PAD-474 Edit", two days out), so their position is not load bearing.
+    - 125-class-create-with-student
+    - 126-class-edit-add-remove-student
     # 116 (PAD-438): the student's four KPI tiles keep their layout when the coach adds a class
     # and a refresh lays out new rows above "Your record" (B-223). Teardown removes the class.
     - 116-student-record-keeps-its-layout

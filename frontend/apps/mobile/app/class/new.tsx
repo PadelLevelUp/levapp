@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import {
   CLASS_COLOR_SWATCHES,
   clubTodayISO,
@@ -45,6 +46,13 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { PlayerSelector } from "@/features/calendar/player-selector";
+import { togglePlayerId } from "@/features/calendar/player-selector-logic";
+import {
+  UnavailableStudentDialog,
+  type BlockedStudentLike,
+} from "@/features/calendar/unavailable-student-dialog";
+import { useCoachPlayers } from "@/features/players/hooks";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
@@ -123,6 +131,18 @@ export default function NewClassScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
+  // classes.create rule 10 (PAD-474): the students chosen for the class.
+  const { data: coachPlayers } = useCoachPlayers();
+  const [selectedPlayers, setSelectedPlayers] = React.useState<string[]>([]);
+  // PAD-107 (calendar.student-blockers rule 9), as web's AddClassSheet: chosen
+  // students who marked this slot unavailable, and whether the coach already
+  // confirmed booking them anyway.
+  const [unavailableStudents, setUnavailableStudents] = React.useState<BlockedStudentLike[]>([]);
+  const [unavailableAcknowledged, setUnavailableAcknowledged] = React.useState(false);
+  // A confirmation only covers the slot and roster it was given for.
+  React.useEffect(() => {
+    setUnavailableAcknowledged(false);
+  }, [date, startTime, endTime, selectedPlayers]);
   // Set when the backend rejected the create for a reason the coach can fix
   // here. The screen stays put and explains it beside the toggle instead of
   // navigating back over a class that was never created.
@@ -248,11 +268,39 @@ export default function NewClassScreen() {
       return;
     }
 
+    await checkUnavailableThenSave();
+  };
+
+  /**
+   * PAD-107 (calendar.student-blockers rule 9), mirroring web's AddClassSheet:
+   * warn before booking a chosen student into a window they marked unavailable.
+   * It never blocks — and a failed lookup saves anyway, because the send-time
+   * block on the backend is the real guarantee.
+   */
+  const checkUnavailableThenSave = async () => {
+    setOverlapOpen(false);
+    if (!unavailableAcknowledged && selectedPlayers.length > 0) {
+      try {
+        const blocked = await notificationEngineApi.checkAvailabilityConflicts(
+          date,
+          startTime,
+          endTime,
+          selectedPlayers
+        );
+        if (blocked.length > 0) {
+          setUnavailableStudents(blocked);
+          return;
+        }
+      } catch {
+        // Fall through: the warning is a courtesy, the enrolment is the coach's.
+      }
+    }
     await proceedSave();
   };
 
   const proceedSave = async () => {
     setOverlapOpen(false);
+    setUnavailableStudents([]);
 
     const computedEndDate = isRecurring
       ? (endChoice.ok ? endChoice.endDate : null) ??
@@ -271,7 +319,7 @@ export default function NewClassScreen() {
       color,
       levelId: levelOption?.value || null,
       courtId: courtOption?.value ? Number(courtOption.value) : null,
-      playerIds: [] as string[],
+      playerIds: selectedPlayers,
       notificationsEnabled: false,
       recurrenceRule: isRecurring
         ? { frequency: "weekly", daysOfWeek: selectedDays }
@@ -613,6 +661,20 @@ export default function NewClassScreen() {
             ) : null}
           </View>
 
+          {/* classes.create rule 10 (PAD-474): the class's students, as on web. */}
+          <View className="gap-2">
+            <Label>{t("calendar.addClass.participants")}</Label>
+            <PlayerSelector
+              players={coachPlayers ?? []}
+              levels={levels ?? []}
+              selectedPlayerIds={selectedPlayers}
+              classLevelId={levelOption?.value ?? null}
+              onToggle={(playerId) =>
+                setSelectedPlayers((prev) => togglePlayerId(prev, playerId))
+              }
+            />
+          </View>
+
           {formError ? (
             <Text className="text-center text-sm text-destructive">
               {formError}
@@ -640,7 +702,16 @@ export default function NewClassScreen() {
       <OverlapConfirmDialog
         open={overlapOpen}
         onCancel={() => setOverlapOpen(false)}
-        onConfirm={() => void proceedSave()}
+        onConfirm={() => void checkUnavailableThenSave()}
+      />
+      <UnavailableStudentDialog
+        open={unavailableStudents.length > 0}
+        students={unavailableStudents}
+        onCancel={() => setUnavailableStudents([])}
+        onConfirm={() => {
+          setUnavailableAcknowledged(true);
+          void proceedSave();
+        }}
       />
     </Screen>
   );

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   EDITABLE_CLASS_FIELDS,
+  buildClassEditChanges,
   diffInstance,
   diffParticipants,
 } from "./edit-class-diff";
@@ -127,6 +128,60 @@ describe("diffParticipants", () => {
     expect(diffParticipants([], [{ id: "7" }, { id: "7" }])).toEqual({
       addPlayers: ["7"],
       removePlayers: [],
+    });
+  });
+});
+
+// classes.edit rule 9 (PAD-474, B-239): the iOS edit screen's change set carries
+// the participant diff. Before PAD-474 the screen returned early on an empty
+// field diff, so an edit that only added or removed students was dropped.
+describe("buildClassEditChanges carries participants (classes.edit rule 9)", () => {
+  const base = {
+    name: "Terça 18h",
+    maxPlayers: 4,
+    participants: [{ id: "1" }],
+  };
+
+  it("a participants-only edit is a change, not 'no changes'", () => {
+    const changes = buildClassEditChanges(base, {
+      ...base,
+      participants: [{ id: "1" }, { id: "2" }],
+    });
+    expect(changes).toEqual({ addPlayers: ["2"] });
+  });
+
+  it("sends the added and removed ids and nothing else", () => {
+    const changes = buildClassEditChanges(base, { ...base, participants: [{ id: "2" }] });
+    expect(changes).toEqual({ addPlayers: ["2"], removePlayers: ["1"] });
+  });
+
+  it("keeps field changes beside the participant diff", () => {
+    const changes = buildClassEditChanges(base, {
+      ...base,
+      name: "Quarta 18h",
+      participants: [],
+    });
+    expect(changes).toEqual({ name: "Quarta 18h", removePlayers: ["1"] });
+  });
+
+  it("an untouched draft is still empty", () => {
+    expect(buildClassEditChanges(base, structuredClone(base))).toEqual({});
+  });
+});
+
+describe("diffParticipants compares ids as strings (classes.edit rule 9)", () => {
+  // The API serialises a participant id as a number; the picker hands back the
+  // coach-player's playerId as a string. Unticking and re-ticking a student must
+  // send nothing.
+  it("a numeric original and a string re-tick are the same student", () => {
+    const original = [{ id: 7 as unknown as string }];
+    expect(diffParticipants(original, [{ id: "7" }])).toEqual({ addPlayers: [], removePlayers: [] });
+  });
+
+  it("reports ids as strings", () => {
+    expect(diffParticipants([{ id: 7 as unknown as string }], [{ id: "9" }])).toEqual({
+      addPlayers: ["9"],
+      removePlayers: ["7"],
     });
   });
 });

@@ -88,10 +88,9 @@ import * as notificationEngineApi from "@levelup/api/src/resources/notificationE
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
-import {
-  diffInstance,
-  EDITABLE_CLASS_FIELDS,
-} from "@/features/calendar/edit-class-diff";
+import { buildClassEditChanges } from "@/features/calendar/edit-class-diff";
+import { PlayerSelector } from "@/features/calendar/player-selector";
+import { useCoachPlayers } from "@/features/players/hooks";
 import {
   useCancelAttendance,
   useConfirmClassTraining,
@@ -259,6 +258,8 @@ export default function ClassDetailScreen() {
   // ── Edit mode (coach only) ──
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<ClassInstance | null>(null);
+  // classes.edit rule 9 (PAD-474): the picker's students, fetched only while a coach edits.
+  const { data: coachPlayers } = useCoachPlayers({ enabled: isCoach && isEditing });
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
 
@@ -447,11 +448,15 @@ export default function ClassDetailScreen() {
   const canApplyScope = event.isRecurring === true;
 
   const participants = instance?.participants ?? [];
+  // classes.edit rule 9 (PAD-474): while editing, the count follows the draft's
+  // participants, as web's sheet reads `active`.
+  const countedParticipants =
+    isEditing && draft ? draft.participants ?? [] : participants;
   // PAD-71: same rule as the calendar event card's X/Y badge. Students only ever
   // receive their OWN presence row, so subtracting declines would under-count
   // their view — the guard keeps that behaviour unchanged.
   const filled = effectiveFilledSpots(
-    participants.length,
+    countedParticipants.length,
     isCoach ? instance?.presences : []
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
@@ -485,6 +490,23 @@ export default function ClassDetailScreen() {
     setIsEditing(true);
   };
 
+  // classes.edit rule 9 (PAD-474): ticking adds the student to the draft,
+  // unticking removes them; the save sends the difference.
+  const toggleDraftParticipant = (playerId: string) => {
+    setDraft((d) => {
+      if (!d) return d;
+      const current = d.participants ?? [];
+      const isIn = current.some((p) => String(p.id) === playerId);
+      const player = coachPlayers?.find((p) => String(p.playerId) === playerId);
+      return {
+        ...d,
+        participants: isIn
+          ? current.filter((p) => String(p.id) !== playerId)
+          : [...current, { id: playerId, userId: player?.userId ?? "" }],
+      };
+    });
+  };
+
   const cancelEdit = () => {
     setIsEditing(false);
     setDraft(null);
@@ -492,7 +514,8 @@ export default function ClassDetailScreen() {
 
   const saveEdit = () => {
     if (!draft || !instance) return;
-    const changes = diffInstance(instance, draft, EDITABLE_CLASS_FIELDS);
+    // classes.edit rule 9 (PAD-474): a participants-only edit is an edit.
+    const changes = buildClassEditChanges(instance, draft);
     if (Object.keys(changes).length === 0) {
       setIsEditing(false);
       setDraft(null);
@@ -555,7 +578,7 @@ export default function ClassDetailScreen() {
 
   const commitEdit = async (scope: "single" | "future") => {
     if (!draft || !instance || !event) return;
-    const changes = diffInstance(instance, draft, EDITABLE_CLASS_FIELDS) as Record<string, unknown>;
+    const changes = buildClassEditChanges(instance, draft);
     if (Object.keys(changes).length === 0) {
       setEditScopeOpen(false);
       setIsEditing(false);
@@ -1253,7 +1276,16 @@ export default function ClassDetailScreen() {
                 max: maxPlayers || "—",
               })}
             </Text>
-            {participants.length === 0 ? (
+            {isEditing && draft ? (
+              // classes.edit rule 9 (PAD-474): the same picker as web's sheet.
+              <PlayerSelector
+                players={coachPlayers ?? []}
+                levels={levels ?? []}
+                selectedPlayerIds={(draft.participants ?? []).map((p) => String(p.id))}
+                classLevelId={draft.levelId ?? null}
+                onToggle={toggleDraftParticipant}
+              />
+            ) : participants.length === 0 ? (
               <Text className="text-sm text-muted-foreground">
                 {t("calendar.detail.noParticipants")}
               </Text>

@@ -47,16 +47,42 @@ export function diffInstance<T extends object>(
 }
 
 /** Diffs two participant lists down to id sets for the addPlayers/removePlayers
- * edit-class payload keys. Ports web's ClassDetailSheet.tsx diffParticipants. */
+ * edit-class payload keys. Ports web's ClassDetailSheet.tsx diffParticipants.
+ * Ids compare as strings (PAD-474): the API serialises a participant id as a
+ * number and the picker hands back a string, so unticking and re-ticking a
+ * student must cancel out. */
 export function diffParticipants(
   original: { id: string }[],
   updated: { id: string }[]
 ): { addPlayers: string[]; removePlayers: string[] } {
-  const originalIds = new Set(original.map((p) => p.id));
-  const updatedIds = new Set(updated.map((p) => p.id));
+  const originalIds = new Set(original.map((p) => String(p.id)));
+  const updatedIds = new Set(updated.map((p) => String(p.id)));
 
   const addPlayers = [...updatedIds].filter((id) => !originalIds.has(id));
   const removePlayers = [...originalIds].filter((id) => !updatedIds.has(id));
 
   return { addPlayers, removePlayers };
+}
+
+
+/** The edit screen's change set: the field diff plus the participant diff
+ * (classes.edit rule 9, PAD-474). Web's commitEdit builds both before deciding
+ * there is nothing to save; diffing the fields alone dropped an edit that only
+ * added or removed students. */
+export function buildClassEditChanges<T extends { participants?: { id: string }[] }>(
+  original: T,
+  updated: T
+): Record<string, unknown> {
+  const changes = diffInstance(
+    original,
+    updated,
+    EDITABLE_CLASS_FIELDS as unknown as (keyof T)[]
+  ) as Record<string, unknown>;
+  const { addPlayers, removePlayers } = diffParticipants(
+    original.participants ?? [],
+    updated.participants ?? []
+  );
+  if (addPlayers.length > 0) changes.addPlayers = addPlayers;
+  if (removePlayers.length > 0) changes.removePlayers = removePlayers;
+  return changes;
 }
