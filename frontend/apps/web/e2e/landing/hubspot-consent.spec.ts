@@ -1,8 +1,11 @@
-import { test, expect, type Page, type Request } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
+  HUBSPOT_PORTAL_ID as PORTAL_ID,
+  HUBSPOT_TRACKING_SCRIPT_URL as TRACKING_SCRIPT,
+  isHubSpotCookie,
   isHubSpotFormsHost,
   isHubSpotHost,
-} from "../../src/lib/hubspotHosts";
+} from "../../src/lib/hubspotConfig";
 import { ui } from "../helpers/i18n";
 
 /**
@@ -19,12 +22,9 @@ import { ui } from "../helpers/i18n";
  * tracking `<script>` tag to the page.
  */
 
-const PORTAL_ID = "149443437";
-const TRACKING_SCRIPT = `https://js-eu1.hs-scripts.com/${PORTAL_ID}.js`;
 /** Set on the Playwright Vite server (playwright.config.ts). */
 const E2E_DEMO_FORM_ID = "e2e-demo-form-id";
 
-const TRACKING_COOKIES = ["hubspotutk", "__hstc", "__hssc", "__hssrc"];
 
 const TRACKING_STUB = `
   (function () {
@@ -53,8 +53,9 @@ const FORMS_STUB = `
   };
 `;
 
-function isHubSpot(request: Request) {
-  return isHubSpotHost(new URL(request.url()).hostname);
+/** How many times the stubbed tracker has run in this document (undefined = never). */
+function trackerRuns(page: Page): Promise<number | undefined> {
+  return page.evaluate(() => (window as { __hsTrackingLoaded?: number }).__hsTrackingLoaded);
 }
 
 /** Stub every HubSpot host and record each request that reaches one. */
@@ -97,17 +98,19 @@ async function settle(page: Page) {
 async function trackingCookies(page: Page) {
   const cookies = await page.context().cookies();
   return cookies.filter(
-    (c) => TRACKING_COOKIES.includes(c.name) || c.name.startsWith("__hs_"),
+    (c) => isHubSpotCookie(c.name),
   );
 }
 
 test.describe("landing page — HubSpot consent (PAD-469)", () => {
-  test("nothing reaches HubSpot before the visitor accepts cookies", async ({
+  test("US-469: nothing reaches HubSpot before the visitor accepts cookies", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
     const seen: string[] = [];
-    page.on("request", (r) => isHubSpot(r) && seen.push(r.url()));
+    page.on("request", (r) => {
+      if (isHubSpotHost(new URL(r.url()).hostname)) seen.push(r.url());
+    });
 
     await page.goto("/");
     await expect(
@@ -121,7 +124,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     expect(await trackingCookies(page)).toEqual([]);
   });
 
-  test("Aceitar and Recusar carry the same weight, one click each", async ({
+  test("US-469: Aceitar and Recusar carry the same weight, one click each", async ({
     page,
   }) => {
     await stubHubSpot(page);
@@ -140,7 +143,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     expect(await accept.evaluate(weight)).toBe(await decline.evaluate(weight));
   });
 
-  test("Recusar keeps HubSpot out, and the choice survives a reload", async ({
+  test("US-469: Recusar keeps HubSpot out, and the choice survives a reload", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
@@ -160,7 +163,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     expect(await trackingCookies(page)).toEqual([]);
   });
 
-  test("Aceitar loads the EU tracking script once per page load", async ({
+  test("US-469: Aceitar loads the EU tracking script once per page load", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
@@ -172,7 +175,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
       .poll(() => requests.filter((u) => u === TRACKING_SCRIPT).length)
       .toBe(1);
     await expect
-      .poll(() => page.evaluate(() => (window as any).__hsTrackingLoaded))
+      .poll(() => trackerRuns(page))
       .toBe(1);
 
     // A returning visitor who accepted gets tracking without the banner.
@@ -185,11 +188,11 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
       .poll(() => requests.filter((u) => u === TRACKING_SCRIPT).length)
       .toBe(2);
     await expect
-      .poll(() => page.evaluate(() => (window as any).__hsTrackingLoaded))
+      .poll(() => trackerRuns(page))
       .toBe(1);
   });
 
-  test("revoking consent removes the HubSpot cookies and stops tracking", async ({
+  test("US-469: revoking consent removes the HubSpot cookies and stops tracking", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
@@ -214,18 +217,18 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     expect(await trackingCookies(page)).toEqual([]);
     expect(requests.slice(before)).toEqual([]);
     expect(
-      await page.evaluate(() => (window as any).__hsTrackingLoaded),
+      await trackerRuns(page),
     ).toBeUndefined();
   });
 
-  test("leaving the page after consent loads a fresh document, without the tracker", async ({
+  test("US-469: leaving the page after consent loads a fresh document, without the tracker", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
     await page.goto("/");
     await page.getByTestId("cookie-accept").click();
     await expect
-      .poll(() => page.evaluate(() => (window as any).__hsTrackingLoaded))
+      .poll(() => trackerRuns(page))
       .toBe(1);
     const before = requests.length;
 
@@ -238,13 +241,31 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     await settle(page);
 
     expect(
-      await page.evaluate(() => (window as any).__hsTrackingLoaded),
+      await trackerRuns(page),
     ).toBeUndefined();
     await expect(page.locator('script[src*="hs-scripts.com"]')).toHaveCount(0);
     expect(requests.slice(before)).toEqual([]);
   });
 
-  test("a choice older than 12 months counts as no choice", async ({
+  test("US-469: declining again from the preferences closes the banner without a reload", async ({
+    page,
+  }) => {
+    const requests = await stubHubSpot(page);
+    await page.goto("/");
+    await page.getByTestId("cookie-decline").click();
+    await page.evaluate(() => ((window as { __sameDoc?: boolean }).__sameDoc = true));
+
+    await page.getByTestId("cookie-preferences").click();
+    await expect(page.getByTestId("cookie-banner")).toBeVisible();
+    await page.getByTestId("cookie-decline").click();
+    await expect(page.getByTestId("cookie-banner")).toHaveCount(0);
+
+    // Same document: nothing was running, so there was nothing to reload away.
+    expect(await page.evaluate(() => (window as { __sameDoc?: boolean }).__sameDoc)).toBe(true);
+    expect(requests).toEqual([]);
+  });
+
+  test("US-469: a choice older than 12 months counts as no choice", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
@@ -262,7 +283,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     expect(requests).toEqual([]);
   });
 
-  test("a choice younger than 12 months still holds", async ({ page }) => {
+  test("US-469: a choice younger than 12 months still holds", async ({ page }) => {
     const requests = await stubHubSpot(page);
     await page.clock.setFixedTime(new Date("2026-10-01T12:00:00Z"));
     await page.addInitScript(() => {
@@ -284,7 +305,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
 });
 
 test.describe("landing page — demo dialog (PAD-469)", () => {
-  test("the demo button opens HubSpot's form, without consent and without the tracker", async ({
+  test("US-469: the demo button opens HubSpot's form, without consent and without the tracker", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
@@ -318,7 +339,7 @@ test.describe("landing page — demo dialog (PAD-469)", () => {
     expect(await trackingCookies(page)).toEqual([]);
   });
 
-  test("reopening the dialog does not load the embed a second time", async ({
+  test("US-469: reopening the dialog does not load the embed a second time", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);

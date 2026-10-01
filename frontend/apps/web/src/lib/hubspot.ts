@@ -7,19 +7,12 @@
  *   - the FORMS embed (`hsforms.net`) loads only when the visitor opens the
  *     demo dialog — a service they asked for, so it does not wait for consent.
  *
- * The portal ID and region are public by design (they sit in every page that
- * embeds HubSpot), so they are tracked constants. The demo form ID is build
+ * The portal, region and URLs live in `hubspotConfig.ts`. The demo form ID is build
  * configuration: `VITE_HUBSPOT_DEMO_FORM_ID`, passed into the Docker build from
  * a GitHub repository variable. Unset, the demo buttons stay a `mailto:`.
  */
 
-export const HUBSPOT_PORTAL_ID = "149443437";
-/** The portal lives in HubSpot's EU data centre; every host below is the EU one. */
-export const HUBSPOT_REGION = "eu1";
-
-export const HUBSPOT_TRACKING_SCRIPT_URL = `https://js-eu1.hs-scripts.com/${HUBSPOT_PORTAL_ID}.js`;
-export const HUBSPOT_FORMS_EMBED_URL =
-  "https://js-eu1.hsforms.net/forms/embed/v2.js";
+import { HUBSPOT_FORMS_EMBED_URL, HUBSPOT_TRACKING_SCRIPT_URL } from "./hubspotConfig";
 
 /** The demo form's ID, or `null` when this build has none (the mailto fallback). */
 export function demoFormId(): string | null {

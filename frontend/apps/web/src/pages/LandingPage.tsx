@@ -45,7 +45,15 @@
  *     entry point to send someone to; a player holding a dead or missing
  *     invite needs a human, which is what /support is for.
  */
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useState,
+  type HTMLAttributes,
+  type Ref,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -120,26 +128,31 @@ interface DemoCta {
   open: (() => void) | null;
 }
 
-/** Rendered bare and inside `Button asChild`. */
-function DemoLink({
-  demo,
-  className,
-  children,
-}: {
-  demo: DemoCta;
-  className?: string;
-  children: ReactNode;
-}) {
-  return demo.open ? (
-    <button type="button" data-testid="landing-demo-cta" className={className} onClick={demo.open}>
+/**
+ * Rendered bare and inside `Button asChild`, so it forwards the ref and the
+ * props the Slot merges in.
+ */
+const DemoLink = forwardRef<
+  HTMLElement,
+  { demo: DemoCta; children: ReactNode } & HTMLAttributes<HTMLElement>
+>(({ demo, children, ...rest }, ref) =>
+  demo.open ? (
+    <button
+      ref={ref as Ref<HTMLButtonElement>}
+      {...rest}
+      type="button"
+      data-testid="landing-demo-cta"
+      onClick={demo.open}
+    >
       {children}
     </button>
   ) : (
-    <a href={demo.href} data-testid="landing-demo-cta" className={className}>
+    <a ref={ref as Ref<HTMLAnchorElement>} {...rest} href={demo.href} data-testid="landing-demo-cta">
       {children}
     </a>
-  );
-}
+  ),
+);
+DemoLink.displayName = "DemoLink";
 
 /* ---------------------------------- chrome --------------------------------- */
 

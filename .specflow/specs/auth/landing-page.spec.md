@@ -55,7 +55,7 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
    below the `md` breakpoint. The footer links to `/support`, `/privacy`, `/terms`.
 9. The page must never render the app shell (no sidebar, no app navigation).
 10. **Demo dialog.** HubSpot hosts fall into two sets, listed once in code
-    (`frontend/apps/web/src/lib/hubspotHosts.ts`, which the tests import): the *tracking* hosts
+    (`frontend/apps/web/src/lib/hubspotConfig.ts`, which the tests import): the *tracking* hosts
     (the tracking script and everything it loads) and the *forms* hosts (the forms embed and its
     API). The demo dialog shows one line above the form saying it is provided by HubSpot, with a
     link to the Privacy Policy. The first time it opens it loads the HubSpot forms embed from the

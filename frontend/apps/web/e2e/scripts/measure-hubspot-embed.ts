@@ -9,16 +9,19 @@
  *   HUBSPOT_DEMO_FORM_ID=<form guid> node e2e/scripts/measure-hubspot-embed.ts
  *
  * Expected (auth.landing-page rules 10–11): requests only to the forms hosts
- * in `src/lib/hubspotHosts.ts`, no first-party cookie, nothing in storage.
+ * in `src/lib/hubspotConfig.ts`, no first-party cookie, nothing in storage.
  * The script prints every request, cookie and storage key, then PASS or FAIL.
  * Measured 2026-10-01 with a placeholder ID: PASS — js-eu1.hsforms.net +
  * forms-eu1.hsforms.com only; one third-party cookie, Cloudflare's `__cf_bm`
  * on `.hsforms.net` (bot management, ~30 min).
  */
 import { chromium } from "@playwright/test";
-import { isHubSpotFormsHost } from "../../src/lib/hubspotHosts.ts";
-
-const PORTAL_ID = "149443437";
+import {
+  HUBSPOT_FORMS_EMBED_URL,
+  HUBSPOT_PORTAL_ID,
+  HUBSPOT_REGION,
+  isHubSpotFormsHost,
+} from "../../src/lib/hubspotConfig.ts";
 const FORM_ID =
   process.env.HUBSPOT_DEMO_FORM_ID ?? "00000000-0000-0000-0000-000000000000";
 // A made-up first-party origin, served locally, so first-party cookies are observable.
@@ -34,10 +37,10 @@ await page.route(`${ORIGIN}/**`, (route) =>
   route.fulfill({
     contentType: "text/html",
     body: `<!doctype html><html><body><div id="t"></div>
-<script src="https://js-eu1.hsforms.net/forms/embed/v2.js"></script>
+<script src="${HUBSPOT_FORMS_EMBED_URL}"></script>
 <script>
   window.addEventListener("load", function () {
-    hbspt.forms.create({ region: "eu1", portalId: "${PORTAL_ID}",
+    hbspt.forms.create({ region: "${HUBSPOT_REGION}", portalId: "${HUBSPOT_PORTAL_ID}",
       formId: "${FORM_ID}", target: "#t" });
   });
 </script></body></html>`,

@@ -8,11 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  HUBSPOT_PORTAL_ID,
-  HUBSPOT_REGION,
-  loadFormsEmbed,
-} from "@/lib/hubspot";
+import { loadFormsEmbed } from "@/lib/hubspot";
+import { HUBSPOT_PORTAL_ID, HUBSPOT_REGION } from "@/lib/hubspotConfig";
 
 const FORM_TARGET_ID = "hubspot-demo-form";
 

@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
  *
  * Sticky to the bottom of the viewport but placed in the page flow after the
  * footer, so it never covers the footer once the visitor scrolls to the end.
- * Aceitar and Recusar are the same button — same variant, size and weight —
- * so declining is exactly as easy as accepting.
+ * Recusar and Aceitar (in that order) are the same button — same variant,
+ * size and weight — so declining is exactly as easy as accepting.
  */
 export function CookieBanner({
   onAccept,
@@ -21,7 +21,6 @@ export function CookieBanner({
   return (
     <section
       data-testid="cookie-banner"
-      role="region"
       aria-label={t("landing.cookies.title")}
       className="sticky bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90"
     >

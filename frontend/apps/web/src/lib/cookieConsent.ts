@@ -5,6 +5,8 @@
  * decision 2026-10-01 — a conservative validity period, not a legal finding).
  */
 
+import { isHubSpotCookie } from "./hubspotConfig";
+
 export type ConsentChoice = "accepted" | "declined";
 
 export const CONSENT_STORAGE_KEY = "levapp.cookieConsent";
@@ -50,11 +52,6 @@ export function writeConsent(
   }
 }
 
-const HUBSPOT_COOKIE_NAMES = ["hubspotutk", "__hstc", "__hssc", "__hssrc"];
-
-function isHubSpotCookie(name: string): boolean {
-  return HUBSPOT_COOKIE_NAMES.includes(name) || name.startsWith("__hs_");
-}
 
 /** `levapp.app` and `staging.levapp.app` for `staging.levapp.app`; the host alone for `localhost`. */
 function cookieDomains(hostname: string): string[] {

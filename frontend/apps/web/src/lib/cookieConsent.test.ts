@@ -63,4 +63,31 @@ describe("cookie consent", () => {
 
     expect(document.cookie).toBe("theme=dark");
   });
+
+  it("expires them on the host and every parent domain", () => {
+    const writes: string[] = [];
+    const fake = {
+      location: { hostname: "staging.levapp.app" },
+      get cookie() {
+        return "hubspotutk=u; theme=dark";
+      },
+      set cookie(value: string) {
+        writes.push(value);
+      },
+    } as unknown as Document;
+
+    clearHubSpotCookies(fake);
+
+    expect(writes.every((w) => w.startsWith("hubspotutk=; expires=Thu, 01 Jan 1970"))).toBe(true);
+    const domains = writes.map((w) => /domain=([^;]+)/.exec(w)?.[1] ?? "(host-only)");
+    expect(domains.sort()).toEqual(
+      [
+        "(host-only)",
+        "staging.levapp.app",
+        ".staging.levapp.app",
+        "levapp.app",
+        ".levapp.app",
+      ].sort(),
+    );
+  });
 });
