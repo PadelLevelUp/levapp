@@ -43,7 +43,7 @@ import { classEvaluationsAction, errorStatusOf } from "@levelup/config";
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpots, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -1014,8 +1014,10 @@ export function ClassDetailSheet({
                   {(() => {
                     // PAD-71: shared with the calendar event card's X/Y badge
                     // (backend `LessonInstance.effective_filled_spots`).
-                    const effectiveFilled = effectiveFilledSpots(
-                      active.participants.length,
+                    // B-240: over the listed students only, so an edit's unticked
+                    // declined student is not subtracted (calendar.event-detail rule 5).
+                    const effectiveFilled = effectiveFilledSpotsOf(
+                      active.participants,
                       active.presences
                     );
                     const openSpots = active.maxPlayers - effectiveFilled;
@@ -1250,12 +1252,12 @@ export function ClassDetailSheet({
                 {t("calendar.detail.participantsCount", {
                   label: isValidating ? t("calendar.detail.attendance") : t("calendar.detail.participants"),
                   // PAD-313 (`calendar.event-detail` rule 5): ONE meaning for the
-                  // count on this sheet. The header reads `effectiveFilledSpots`
+                  // count on this sheet. The header reads `effectiveFilledSpotsOf`
                   // and this list read `participants.length`, so a cancelled
                   // student made the two contradict each other — "0/4, 4 open"
                   // above "Participants (1/4)". A not-coming student is listed,
                   // visibly not coming, and not counted as filling a spot.
-                  current: effectiveFilledSpots(active.participants.length, active.presences),
+                  current: effectiveFilledSpotsOf(active.participants, active.presences),
                   max: active.maxPlayers,
                 })}
               </h4>

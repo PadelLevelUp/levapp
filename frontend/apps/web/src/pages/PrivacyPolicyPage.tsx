@@ -13,6 +13,18 @@ import {
 const EFFECTIVE_DATE = "July 14, 2026";
 const PRIVACY_CONTACT_EMAIL = "privacy@levelup.app";
 
+/**
+ * PAD-469: the website's HubSpot tracking and demo form (auth.landing-page
+ * rules 10–13). One constant, so a wording change from the owner's legal
+ * review is a one-line edit. Pending owner approval before prod promotion.
+ */
+const WEBSITE_TRACKING_NOTICE =
+  "The app itself contains no advertising or analytics SDKs and uses no device advertising identifiers (IDFA). " +
+  "On our public website we use HubSpot (HubSpot, Inc., EU data centre) to measure visits and to receive demo requests. " +
+  "Tracking cookies are set only if you accept them in the cookie banner, and you can withdraw that consent at any time under \"Cookie preferences\" at the bottom of the home page; " +
+  "with your consent, HubSpot receives the pages you visit, your IP address, browser details, the referring page and its own visitor cookie. " +
+  "Opening the demo request form loads it from HubSpot, which may set a short-lived security cookie on its own domain; what you submit in that form is stored in HubSpot.";
+
 const PrivacyPolicyPage = () => {
   return (
     <div className="min-h-screen bg-background py-10 px-4">
@@ -58,10 +70,9 @@ const PrivacyPolicyPage = () => {
             </ul>
             <p>
               We do not use any third-party login (social sign-in) — accounts
-              are created with a username and password only. We do not
-              currently use advertising SDKs, analytics/tracking SDKs, or
-              device advertising identifiers (IDFA) of any kind.
+              are created with a username and password only.
             </p>
+            <p>{WEBSITE_TRACKING_NOTICE}</p>
 
             <h2>2. How we use your information</h2>
             <p>We use the information above solely to operate the Service:</p>

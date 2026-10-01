@@ -87,6 +87,9 @@ export default defineConfig({
       timeout: 30000,
       env: {
         VITE_BACKEND_PORT: BACKEND_PORT,
+        // PAD-469: a placeholder demo form ID, so the landing page renders the
+        // HubSpot demo dialog (every HubSpot host is stubbed in the specs).
+        VITE_HUBSPOT_DEMO_FORM_ID: "e2e-demo-form-id",
       },
     },
   ],
