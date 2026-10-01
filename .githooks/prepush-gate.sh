@@ -13,11 +13,11 @@
 #   always              one Alembic head, on the COMMIT's migrations (untracked parents don't count)
 #   *.json changed      each file parses
 #   frontend/ changed   tsc web (tsconfig.app.json) + tsc mobile + `npm test` (web, packages, mobile)
-#   backend/ changed    pytest (SQLite): the changed test files, the tests that import a changed
+#   backend/ or .cortex/compass/ changed  pytest (SQLite): the changed test files, the tests that import a changed
 #                       module, and every source-scanning guard (ratchets, heads, registries…);
 #                       --full, or a change to models/migrations, runs the whole suite
 #   .cortex/ .specflow/ `cortex validate` names none of the changed files
-# Markdown files never trigger the frontend/backend checks. Missing node_modules or backend/.venv
+# Markdown files never trigger the frontend/backend checks, except .cortex/compass/ (B-240). Missing node_modules or backend/.venv
 # is reported as such, not as a compiler error.
 # Not covered locally (CI only): Postgres + `flask db check`, the Android/Maestro lane.
 #
@@ -127,12 +127,16 @@ fi
 
 # 4. Backend — pytest on SQLite (backend-tests.yaml runs the whole suite on both databases).
 BACKEND_TOUCH='^backend/|^frontend/apps/web/e2e/scripts/|^frontend/apps/mobile/src/lib/push-routing'
+# B-240: the ledger-index and rule-number guards are backend tests over .cortex/compass/ — Markdown,
+# which changed() ignores — so a ledger-only push skipped them and an emptied bugs/_index.md reached
+# a PR. changed_any() sees Markdown.
+backend_due() { changed "$BACKEND_TOUCH" || changed_any '^\.cortex/compass/'; }
 if [ -n "$TREE_ONLY" ]; then
   :
-elif { changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; } && [ ! -x "$PY" ]; then
+elif { backend_due || [ $FULL -eq 1 ]; } && [ ! -x "$PY" ]; then
   red "backend changed but backend/.venv is missing: create it (or symlink the main checkout's) first."
   FAILED+=("backend dependencies")
-elif changed "$BACKEND_TOUCH" || [ $FULL -eq 1 ]; then
+elif backend_due || [ $FULL -eq 1 ]; then
   T=backend/padel_app/tests
   if [ $FULL -eq 1 ] || changed '^backend/padel_app/(models/|model\.py|sql_db\.py|__init__\.py)|^backend/migrations/'; then
     SELECT="padel_app/tests ../frontend/apps/web/e2e/scripts"
