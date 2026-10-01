@@ -1,6 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -10,15 +9,11 @@ import { describe, expect, it } from "vitest";
  * subtracted. The sheet mounts too much for a render test here; the arithmetic
  * is tested in @levelup/config capacity.test.ts.
  */
-const SHEET = path.join(path.dirname(fileURLToPath(import.meta.url)), "ClassDetailSheet.tsx");
-const src = fs.readFileSync(SHEET, "utf8");
+const src = readFileSync(join(__dirname, "ClassDetailSheet.tsx"), "utf8");
 
 describe("ClassDetailSheet counts (B-240)", () => {
-  it("both counts use effectiveFilledSpotsOf over the active participants", () => {
+  it("both counts use effectiveFilledSpotsOf over the active participants, and nothing else counts", () => {
     expect(src.match(/effectiveFilledSpotsOf\(\s*active\.participants,\s*active\.presences\s*\)/g)?.length ?? 0).toBe(2);
-  });
-
-  it("no count subtracts saved declines from a bare participants length", () => {
-    expect(src).not.toMatch(/effectiveFilledSpots\(\s*active\.participants\.length/);
+    expect(src.match(/effectiveFilledSpots\(/g)).toBeNull();
   });
 });

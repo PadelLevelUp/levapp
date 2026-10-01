@@ -11,11 +11,19 @@
  * Rule: enrolled players minus everyone whose presence status is `absent`
  * (declined the invite or cancelled), floored at 0. Players who have not
  * answered yet still occupy their spot and DO count.
+ *
+ * Use `effectiveFilledSpotsOf` when the participant list can diverge from the
+ * presences (an edit draft, B-240); `effectiveFilledSpots` when you only hold a count.
  */
 
 /** Minimal shape needed from a presence row. */
 export interface PresenceLike {
   status?: string | null;
+}
+
+/** A presence row that names its player, for matching against a participant list. */
+export interface PresenceWithPlayerLike extends PresenceLike {
+  playerId?: string | number | null;
 }
 
 /**
@@ -41,7 +49,7 @@ export function effectiveFilledSpots(
  */
 export function effectiveFilledSpotsOf(
   participants: readonly { id: string | number }[],
-  presences: readonly (PresenceLike & { playerId?: string | number | null })[] | null | undefined
+  presences: readonly PresenceWithPlayerLike[] | null | undefined
 ): number {
   const listed = new Set(participants.map((p) => String(p.id)));
   return effectiveFilledSpots(

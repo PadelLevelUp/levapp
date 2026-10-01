@@ -3,12 +3,13 @@ id: B-240
 title: "Web class detail, edit mode: the count subtracted a declined student the coach had unticked"
 type: missing-criterion
 severity: low
-status: triaged
+status: resolved
 affects:
   - calendar.event-detail
   - frontend/apps/web/src/components/calendar/ClassDetailSheet.tsx
 proposed_fix: "calendar.event-detail rule 5 states that edit mode counts the draft's students only; effectiveFilledSpotsOf (@levelup/config) subtracts declines among the listed participants only, used at both web count sites."
 opened: 2026-10-01T19:03:19Z
+resolved: 2026-10-01T19:03:19Z
 ---
 
 # B-240: the web edit count subtracted an unticked declined student
@@ -50,4 +51,5 @@ No drift.
 
 - Spec: `calendar.event-detail` rule 5 gains the edit-mode sentence and a criterion.
 - Tests: `packages/config/src/capacity.test.ts` (`effectiveFilledSpotsOf`, red first: 0 instead of 1, and 1 instead of 2) and `apps/web/src/components/calendar/ClassDetailSheet.count.test.ts` (both call sites, red first).
-- Code: `effectiveFilledSpotsOf` in `@levelup/config`, used at both `ClassDetailSheet` count sites.
+- Code: `effectiveFilledSpotsOf` in `@levelup/config`, used at both `ClassDetailSheet` count sites. PR #490.
+- Not affected: `CalendarPage.tsx:312` counts the saved instance, whose `participants` are built from its own `presences` (`serializers/lesson.py:197-203`), so the two cannot diverge there.

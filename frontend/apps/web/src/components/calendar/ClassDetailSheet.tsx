@@ -1252,7 +1252,7 @@ export function ClassDetailSheet({
                 {t("calendar.detail.participantsCount", {
                   label: isValidating ? t("calendar.detail.attendance") : t("calendar.detail.participants"),
                   // PAD-313 (`calendar.event-detail` rule 5): ONE meaning for the
-                  // count on this sheet. The header reads `effectiveFilledSpots`
+                  // count on this sheet. The header reads `effectiveFilledSpotsOf`
                   // and this list read `participants.length`, so a cancelled
                   // student made the two contradict each other — "0/4, 4 open"
                   // above "Participants (1/4)". A not-coming student is listed,
