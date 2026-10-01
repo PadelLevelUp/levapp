@@ -132,7 +132,7 @@ describe("a tap on the conversation already on screen is a new open", () => {
 });
 
 describe("the open's GET fails (rule 12a): nothing unseen is marked read", () => {
-  async function openWithFailingGet() {
+  async function openWithFailingGet(target: string | null = "3") {
     const c = client();
     c.setQueryData(KEY, cachedThread);
     let fail = true;
@@ -142,7 +142,7 @@ describe("the open's GET fails (rule 12a): nothing unseen is marked read", () =>
         if (fail) throw new Error("network");
         return serverThread;
       },
-      ...threadQueryOverrides("3", cachedThread.messages.map((m) => m.id)),
+      ...threadQueryOverrides(target, cachedThread.messages.map((m) => m.id)),
     });
     const firstRender = c.defaultQueryOptions(observer.options);
     firstRender._optimisticResults = "optimistic";
@@ -163,6 +163,14 @@ describe("the open's GET fails (rule 12a): nothing unseen is marked read", () =>
     const open = await openWithFailingGet();
 
     expect(open.observer.getCurrentResult().isError).toBe(true);
+    expect(open.phase()).toBe("failed");
+    expect(open.marksRead()).toBe(false);
+    open.unsubscribe();
+  });
+
+  it("holds for a plain open too: a failed GET over a cached thread does not mark it read", async () => {
+    const open = await openWithFailingGet(null);
+
     expect(open.phase()).toBe("failed");
     expect(open.marksRead()).toBe(false);
     open.unsubscribe();
