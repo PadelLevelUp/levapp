@@ -7,6 +7,7 @@ import {
   isHubSpotHost,
 } from "../../src/lib/hubspotConfig";
 import { ui } from "../helpers/i18n";
+import { loginAsCoach } from "../helpers/auth";
 
 /**
  * PAD-469 — HubSpot on the landing page (auth.landing-page rules 10–13).
@@ -17,9 +18,11 @@ import { ui } from "../helpers/i18n";
  * request; the forms stub records the `hbspt.forms.create` options and
  * renders a placeholder form into the target.
  *
- * The guard that matters is the first test: nothing may reach a HubSpot host
- * before the visitor presses Aceitar. It must go red if anyone adds a plain
- * tracking `<script>` tag to the page.
+ * The guard that matters is the first test: before the visitor presses
+ * Aceitar, nothing leaves the page's own origin except the web fonts. It
+ * watches every request, not a list of HubSpot hosts, so a HubSpot host nobody
+ * listed still turns it red. Resource hints (preconnect, dns-prefetch) never
+ * show up as requests; `landing-guards.test.ts` covers those statically.
  */
 
 /** Set on the Playwright Vite server (playwright.config.ts). */
@@ -52,6 +55,27 @@ const FORMS_STUB = `
     },
   };
 `;
+
+/** The only third-party hosts the landing page may reach without consent. */
+const ALLOWED_FOREIGN_HOSTS = new Set(["fonts.googleapis.com", "fonts.gstatic.com"]);
+
+/**
+ * Record every request to an origin other than the page's own and the font
+ * hosts — whatever the host. Read it with `foreign()` once the page is loaded.
+ */
+function watchForeign(page: Page) {
+  const urls: string[] = [];
+  page.on("request", (r) => {
+    if (/^https?:/.test(r.url())) urls.push(r.url());
+  });
+  return () => {
+    const own = new URL(page.url()).origin;
+    return urls.filter((u) => {
+      const url = new URL(u);
+      return url.origin !== own && !ALLOWED_FOREIGN_HOSTS.has(url.hostname);
+    });
+  };
+}
 
 /** How many times the stubbed tracker has run in this document (undefined = never). */
 function trackerRuns(page: Page): Promise<number | undefined> {
@@ -107,10 +131,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     page,
   }) => {
     const requests = await stubHubSpot(page);
-    const seen: string[] = [];
-    page.on("request", (r) => {
-      if (isHubSpotHost(new URL(r.url()).hostname)) seen.push(r.url());
-    });
+    const foreign = watchForeign(page);
 
     await page.goto("/");
     await expect(
@@ -119,8 +140,8 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     await expect(page.getByTestId("cookie-banner")).toBeVisible();
     await settle(page);
 
+    expect(foreign()).toEqual([]);
     expect(requests).toEqual([]);
-    expect(seen).toEqual([]);
     expect(await trackingCookies(page)).toEqual([]);
   });
 
@@ -139,14 +160,18 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
       decline.boundingBox(),
     ]);
     expect(a!.height).toBe(d!.height);
+    expect(a!.width).toBe(d!.width);
     const weight = (el: Element) => getComputedStyle(el).fontWeight;
     expect(await accept.evaluate(weight)).toBe(await decline.evaluate(weight));
+    // Same button: same variant, same classes.
+    expect(await accept.getAttribute("class")).toBe(await decline.getAttribute("class"));
   });
 
   test("US-469: Recusar keeps HubSpot out, and the choice survives a reload", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
+    const foreign = watchForeign(page);
     await page.goto("/");
     await page.getByTestId("cookie-decline").click();
     await expect(page.getByTestId("cookie-banner")).toHaveCount(0);
@@ -159,6 +184,7 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     await expect(page.getByTestId("cookie-banner")).toHaveCount(0);
     await settle(page);
 
+    expect(foreign()).toEqual([]);
     expect(requests).toEqual([]);
     expect(await trackingCookies(page)).toEqual([]);
   });
@@ -216,6 +242,12 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
 
     expect(await trackingCookies(page)).toEqual([]);
     expect(requests.slice(before)).toEqual([]);
+    // Rule 13's order: the choice is stored before the reload. Were it the
+    // other way round, the new document would still read "accepted" and load
+    // the tracker again — this assertion and the next are that failure.
+    expect(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("levapp.cookieConsent")!).choice),
+    ).toBe("declined");
     expect(
       await trackerRuns(page),
     ).toBeUndefined();
@@ -265,10 +297,12 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
     expect(requests).toEqual([]);
   });
 
-  test("US-469: a choice older than 12 months counts as no choice", async ({
+  test("US-469: a choice older than 12 months counts as no choice, and its cookies go", async ({
     page,
+    baseURL,
   }) => {
     const requests = await stubHubSpot(page);
+    const foreign = watchForeign(page);
     await page.clock.setFixedTime(new Date("2026-10-01T12:00:00Z"));
     await page.addInitScript(() => {
       localStorage.setItem(
@@ -276,10 +310,18 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
         JSON.stringify({ choice: "accepted", at: "2025-09-30T12:00:00Z" }),
       );
     });
+    // What the tracker left behind while consent was valid.
+    await page.context().addCookies([
+      { name: "hubspotutk", value: "old-utk", url: baseURL! },
+      { name: "__hstc", value: "old.hstc", url: baseURL! },
+    ]);
 
     await page.goto("/");
     await expect(page.getByTestId("cookie-banner")).toBeVisible();
     await settle(page);
+
+    expect(await trackingCookies(page)).toEqual([]);
+    expect(foreign()).toEqual([]);
     expect(requests).toEqual([]);
   });
 
@@ -304,7 +346,85 @@ test.describe("landing page — HubSpot consent (PAD-469)", () => {
   });
 });
 
+test.describe("landing page — every exit loads a new document (PAD-469, rule 5)", () => {
+  /**
+   * Walks every visible same-origin link on the page, per audience, plus the
+   * one inside the demo dialog — found from the DOM, not from a list, so a new
+   * exit is covered the day it is added. Each must land on a fresh document.
+   */
+  async function exitsOn(page: Page, path: string) {
+    await page.goto(path);
+    await expect(page.getByTestId("cookie-banner")).toBeVisible();
+    return page.locator('a[href^="/"]:visible').count();
+  }
+
+  for (const audience of ["coaches", "players", "others"]) {
+    test(`US-469: every link out of the ${audience} page is a new document`, async ({ page }) => {
+      await stubHubSpot(page);
+      const path = `/?audience=${audience}`;
+      const count = await exitsOn(page, path);
+      expect(count).toBeGreaterThan(3);
+
+      for (let i = 0; i < count; i++) {
+        await exitsOn(page, path);
+        const link = page.locator('a[href^="/"]:visible').nth(i);
+        const href = await link.getAttribute("href");
+        await page.evaluate(() => ((window as { __sameDoc?: boolean }).__sameDoc = true));
+        await link.click();
+        await page.waitForLoadState("load");
+        await expect
+          .poll(() => page.evaluate(() => (window as { __sameDoc?: boolean }).__sameDoc), {
+            message: `exit ${href} kept the landing document`,
+          })
+          .toBeUndefined();
+      }
+    });
+  }
+
+  test("US-469: the dialog's privacy link is a new document", async ({ page }) => {
+    await stubHubSpot(page);
+    await page.goto("/");
+    await page.getByTestId("landing-demo-cta").first().click();
+    const notice = page.getByTestId("demo-hubspot-notice");
+    await expect(notice).toBeVisible();
+    await page.evaluate(() => ((window as { __sameDoc?: boolean }).__sameDoc = true));
+    await notice.getByRole("link").click();
+    await page.waitForURL("**/privacy");
+    await expect
+      .poll(() => page.evaluate(() => (window as { __sameDoc?: boolean }).__sameDoc))
+      .toBeUndefined();
+  });
+});
+
+test.describe("landing page — banner scope (PAD-469, rule 11)", () => {
+  test("US-469: the signed-in app never shows the cookie banner", async ({ page }) => {
+    const requests = await stubHubSpot(page);
+    await loginAsCoach(page);
+    for (const path of ["/", "/calendar", "/settings"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByTestId("cookie-banner")).toHaveCount(0);
+    }
+    expect(requests).toEqual([]);
+  });
+});
+
 test.describe("landing page — demo dialog (PAD-469)", () => {
+  test("US-469: when the embed cannot load, the dialog offers the email instead", async ({
+    page,
+  }) => {
+    await page.context().route(
+      (url) => isHubSpotHost(url.hostname),
+      (route) => route.abort("failed"),
+    );
+    await page.goto("/");
+    await page.getByTestId("landing-demo-cta").first().click();
+    const dialog = page.getByTestId("demo-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('a[href^="mailto:"]')).toBeVisible();
+    await expect(dialog.getByTestId("hs-stub-form")).toHaveCount(0);
+  });
+
   test("US-469: the demo button opens HubSpot's form, without consent and without the tracker", async ({
     page,
   }) => {

@@ -44,7 +44,8 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
    - nav links and coach secondary → in-page anchors (`#vantagens`, `#como-funciona`, `#resultados`).
    - Every link that leaves the page (Entrar, Recebi um convite, the footer links, the privacy
      links in the banner and the dialog) loads a new document, so a tracking script loaded here
-     never runs on another page or inside the app.
+     never runs on another page or inside the app. By construction: every exit is an `ExitLink`,
+     and the landing files may not use react-router's `Link` directly.
 6. Every string goes through i18n (`landing` namespace, `pt` + `en`). Pre-auth pages render in the
    default locale (`pt`). Device screenshots are of the real product and stay Portuguese in both
    locales.
@@ -67,7 +68,9 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 11. **Cookie banner.** With no valid stored choice, the landing page shows a banner with
     "Aceitar" and "Recusar" — the same button style, size and weight, one click each. A choice
     older than 12 months counts as no choice, so the banner asks again (coordinator decision,
-    2026-10-01: a conservative validity period, not a legal finding). Before "Aceitar", and at any
+    2026-10-01: a conservative validity period, not a legal finding); the expired record is
+    dropped and the HubSpot cookies it allowed are expired, as in rule 13 (a), so a lapsed
+    visitor carries no `hubspotutk` into the demo form. Before "Aceitar", and at any
     time while the choice is `declined`, the page makes no request to any HubSpot host — except
     the forms hosts when the visitor opens the demo dialog (rule 10). Only the landing page shows
     the banner; the signed-in app never does (rule 1).
@@ -124,8 +127,9 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 #### Nothing reaches HubSpot before consent
 - **Given** a visitor with no stored cookie choice, every HubSpot host stubbed
 - **When** they open `/` and scroll the whole page
-- **Then** the cookie banner is visible, no request reaches any HubSpot host, and no HubSpot cookie
-  exists
+- **Then** the cookie banner is visible, no request leaves the page's origin except the web fonts
+  (every host is watched, so a HubSpot host missing from the list still fails), and no HubSpot
+  cookie exists
 
 #### Accepting and declining weigh the same
 - **Given** the cookie banner
@@ -148,6 +152,21 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Then** the page reloads, the HubSpot cookies are gone, the script does not run, and no further
   HubSpot request is made
 
+#### Every exit is a new document
+- **Given** the landing page, on each audience, and the open demo dialog
+- **When** the visitor follows any same-origin link on it (found from the page, not from a list)
+- **Then** the destination is a new document
+
+#### The signed-in app never shows the banner
+- **Given** a signed-in coach
+- **When** they open `/`, `/calendar`, `/settings`
+- **Then** no cookie banner renders and nothing reaches HubSpot
+
+#### The dialog falls back to email when the embed cannot load
+- **Given** the HubSpot hosts unreachable
+- **When** the visitor opens the demo dialog
+- **Then** it offers the `mailto:` link
+
 #### Leaving the page drops the tracker
 - **Given** a visitor who accepted and has the tracking script running
 - **When** they press "Entrar"
@@ -155,9 +174,10 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
   HubSpot request
 
 #### Consent expires after 12 months
-- **Given** the clock at 2026-10-01 and a stored `accepted` choice dated 2025-09-30
+- **Given** the clock at 2026-10-01, a stored `accepted` choice dated 2025-09-30, and the
+  `hubspotutk` / `__hstc` cookies it allowed
 - **When** the visitor opens `/`
-- **Then** the banner shows and no HubSpot request is made
+- **Then** the banner shows, the cookies are gone, and nothing leaves the page's origin
 - **Given** a stored `accepted` choice dated 2025-10-15 instead
 - **Then** no banner shows and the tracking script loads
 
@@ -182,12 +202,19 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - Tests: `frontend/apps/web/e2e/landing/landing-page.spec.ts`,
   `frontend/apps/web/e2e/landing/hubspot-consent.spec.ts` (PAD-469, every HubSpot host stubbed),
   `frontend/apps/web/src/lib/cookieConsent.test.ts`,
+  `frontend/apps/web/src/components/landing/landing-guards.test.ts` (static: no direct `Link` in
+  the landing files; no HubSpot host in `index.html`),
   `frontend/apps/web/src/pages/LandingPage.demo.test.tsx`.
 - PAD-469 (2026-10-01): the consent design is a first-party banner gating the HubSpot script,
   chosen by the coordinator over HubSpot's own banner, because HubSpot's banner is delivered *by*
   the tracking script, so a visitor's browser would contact HubSpot before consenting. Measured
-  the same day (`frontend/apps/web/e2e/scripts/measure-hubspot-embed.mjs`): the real forms embed
+  the same day (`frontend/apps/web/e2e/scripts/measure-hubspot-embed.ts`): the real forms embed
   (v2, eu1), before any submit, contacts only `js-eu1.hsforms.net` and `forms-eu1.hsforms.com`,
   sets no first-party cookie, and the CDN sets Cloudflare's `__cf_bm` on `.hsforms.net` (bot
   management, ~30 min). The measurement used a placeholder form ID; it must be re-run against the
   real ID before prod promotion.
+- Known blind spot, guarded separately: resource hints (`preconnect`, `dns-prefetch`) to a HubSpot
+  host never show up as requests, so the E2E zero-request guard cannot see them; the static
+  `index.html` check in `landing-guards.test.ts` covers them.
+- Rule 13's order is tested by outcome: after Recusar the reloaded document reads `declined` and
+  runs no tracker; a reload before the write would come back `accepted` and load it again.

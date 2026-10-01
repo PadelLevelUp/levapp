@@ -35,7 +35,7 @@
  *   - "Pedir demonstração" -> the HubSpot demo dialog when the build carries
  *     a demo form ID (PAD-469, `VITE_HUBSPOT_DEMO_FORM_ID`); otherwise mailto
  *     the support address, as before.
- *   - Every link that leaves the page loads a new document (`reloadDocument`),
+ *   - Every link that leaves the page is an `ExitLink` (a new document),
  *     so the HubSpot tracking script — loaded here only after the visitor
  *     accepts cookies — never keeps running on another page or in the app.
  *   - "Enviar ideia" (others) -> mailto the admin address.
@@ -54,7 +54,7 @@ import {
   type ComponentType,
   type ReactNode,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
@@ -75,11 +75,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CookieBanner } from "@/components/landing/CookieBanner";
+import { ExitLink } from "@/components/landing/ExitLink";
 import { DemoRequestDialog } from "@/components/landing/DemoRequestDialog";
 import { demoFormId, loadTrackingScript } from "@/lib/hubspot";
 import {
   clearHubSpotCookies,
-  readConsent,
+  loadConsent,
   writeConsent,
   type ConsentChoice,
 } from "@/lib/cookieConsent";
@@ -464,7 +465,7 @@ function Header({ demo }: { demo: DemoCta }) {
 
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" className="bg-card">
-            <Link reloadDocument to="/auth">{t("landing.nav.login")}</Link>
+            <ExitLink to="/auth">{t("landing.nav.login")}</ExitLink>
           </Button>
           <Button asChild className="hidden md:inline-flex">
             <DemoLink demo={demo}>{t("landing.nav.demo")}</DemoLink>
@@ -565,7 +566,7 @@ function Hero({
     audience === "coaches" ? (
       <DemoLink demo={demo}>{t(`${k}.primary`)}</DemoLink>
     ) : audience === "players" ? (
-      <Link reloadDocument to="/auth">{t(`${k}.primary`)}</Link>
+      <ExitLink to="/auth">{t(`${k}.primary`)}</ExitLink>
     ) : (
       <a href={ideaHref}>{t(`${k}.primary`)}</a>
     );
@@ -573,7 +574,7 @@ function Hero({
     audience === "coaches" ? (
       <a href={`#${SECTION_HOW}`}>{t(`${k}.secondary`)}</a>
     ) : audience === "players" ? (
-      <Link reloadDocument to="/support">{t(`${k}.secondary`)}</Link>
+      <ExitLink to="/support">{t(`${k}.secondary`)}</ExitLink>
     ) : (
       <a href={`#${SECTION_BENEFITS}`}>{t(`${k}.secondary`)}</a>
     );
@@ -940,7 +941,7 @@ function FinalCta({
     audience === "coaches" ? (
       <DemoLink demo={demo}>{t(`${k}.primary`)}</DemoLink>
     ) : audience === "players" ? (
-      <Link reloadDocument to="/auth">{t(`${k}.primary`)}</Link>
+      <ExitLink to="/auth">{t(`${k}.primary`)}</ExitLink>
     ) : (
       <a href={ideaHref}>{t(`${k}.primary`)}</a>
     );
@@ -987,15 +988,15 @@ function Footer({ onCookiePreferences }: { onCookiePreferences: () => void }) {
       <div className="mx-auto flex max-w-[1170px] flex-col gap-5 border-t border-border px-5 py-8 sm:flex-row sm:items-center sm:justify-between lg:px-6">
         <BrandLockup markSize={26} textClass="text-base" />
         <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          <Link reloadDocument to="/support" className="hover:text-foreground">
+          <ExitLink to="/support" className="hover:text-foreground">
             {t("landing.footer.contact")}
-          </Link>
-          <Link reloadDocument to="/privacy" className="hover:text-foreground">
+          </ExitLink>
+          <ExitLink to="/privacy" className="hover:text-foreground">
             {t("landing.footer.privacy")}
-          </Link>
-          <Link reloadDocument to="/terms" className="hover:text-foreground">
+          </ExitLink>
+          <ExitLink to="/terms" className="hover:text-foreground">
             {t("landing.footer.terms")}
-          </Link>
+          </ExitLink>
           <button
             type="button"
             data-testid="cookie-preferences"
@@ -1039,7 +1040,7 @@ const LandingPage = () => {
   const demo: DemoCta = { href: demoHref, open: formId ? () => setDemoOpen(true) : null };
 
   // Rules 11–13: nothing reaches HubSpot's tracking hosts until the visitor accepts.
-  const [consent, setConsent] = useState<ConsentChoice | null>(() => readConsent());
+  const [consent, setConsent] = useState<ConsentChoice | null>(() => loadConsent());
   const [bannerOpen, setBannerOpen] = useState(consent === null);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { ExitLink } from "./ExitLink";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,
@@ -65,9 +65,9 @@ export function DemoRequestDialog({
           <DialogTitle>{t("landing.demo.title")}</DialogTitle>
           <DialogDescription data-testid="demo-hubspot-notice">
             {t("landing.demo.providedBy")}{" "}
-            <Link reloadDocument to="/privacy" className="underline">
+            <ExitLink to="/privacy" className="underline">
               {t("landing.demo.privacyLink")}
-            </Link>
+            </ExitLink>
           </DialogDescription>
         </DialogHeader>
         {failed ? (

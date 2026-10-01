@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CONSENT_STORAGE_KEY,
   clearHubSpotCookies,
+  loadConsent,
   readConsent,
   writeConsent,
 } from "./cookieConsent";
@@ -39,6 +40,25 @@ describe("cookie consent", () => {
   it("keeps a choice younger than 12 months", () => {
     writeConsent("accepted", new Date("2025-10-01T12:00:01Z"));
     expect(readConsent(NOW)).toBe("accepted");
+  });
+
+  it("drops an expired choice and the HubSpot cookies it allowed", () => {
+    writeConsent("accepted", new Date("2025-09-30T12:00:00Z"));
+    document.cookie = "hubspotutk=u; path=/";
+    document.cookie = "__hstc=a; path=/";
+    document.cookie = "theme=dark; path=/";
+
+    expect(loadConsent(NOW)).toBeNull();
+    expect(document.cookie).toBe("theme=dark");
+    expect(localStorage.getItem(CONSENT_STORAGE_KEY)).toBeNull();
+  });
+
+  it("leaves a live choice and its cookies alone", () => {
+    writeConsent("accepted", new Date("2025-10-15T12:00:00Z"));
+    document.cookie = "hubspotutk=u; path=/";
+
+    expect(loadConsent(NOW)).toBe("accepted");
+    expect(document.cookie).toBe("hubspotutk=u");
   });
 
   it.each([

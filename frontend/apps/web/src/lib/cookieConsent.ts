@@ -17,27 +17,60 @@ interface StoredConsent {
   at: string;
 }
 
-/** The stored choice, or `null` when there is none, it is unreadable, or it has expired. */
-export function readConsent(now: Date = new Date()): ConsentChoice | null {
+interface ReadResult {
+  choice: ConsentChoice | null;
+  /** A record was stored but is too old, so it no longer counts (rule 11). */
+  expired: boolean;
+}
+
+function read(now: Date): ReadResult {
   let raw: string | null;
   try {
     raw = localStorage.getItem(CONSENT_STORAGE_KEY);
   } catch {
-    return null;
+    return { choice: null, expired: false };
   }
-  if (!raw) return null;
+  if (!raw) return { choice: null, expired: false };
   try {
     const stored = JSON.parse(raw) as Partial<StoredConsent>;
     if (stored.choice !== "accepted" && stored.choice !== "declined")
-      return null;
+      return { choice: null, expired: false };
     const at = new Date(stored.at ?? "");
-    if (Number.isNaN(at.getTime())) return null;
+    if (Number.isNaN(at.getTime())) return { choice: null, expired: false };
     const expires = new Date(at);
     expires.setMonth(expires.getMonth() + CONSENT_MAX_AGE_MONTHS);
-    return now < expires ? stored.choice : null;
+    return now < expires
+      ? { choice: stored.choice, expired: false }
+      : { choice: null, expired: true };
   } catch {
-    return null;
+    return { choice: null, expired: false };
   }
+}
+
+/** The stored choice, or `null` when there is none, it is unreadable, or it has expired. */
+export function readConsent(now: Date = new Date()): ConsentChoice | null {
+  return read(now).choice;
+}
+
+/**
+ * The choice the landing page acts on. An expired record is dropped and the
+ * HubSpot cookies it allowed are expired with it, so a visitor whose consent
+ * ran out carries no `hubspotutk` into the demo form (rule 11).
+ */
+export function loadConsent(
+  now: Date = new Date(),
+  doc: Document = document,
+): ConsentChoice | null {
+  const { choice, expired } = read(now);
+  if (expired) {
+    clearHubSpotCookies(doc);
+    try {
+      localStorage.removeItem(CONSENT_STORAGE_KEY);
+    } catch {
+      // Storage blocked: nothing stored to drop.
+    }
+  }
+  return choice;
 }
 
 export function writeConsent(

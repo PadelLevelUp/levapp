@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { ExitLink } from "./ExitLink";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
@@ -30,13 +30,12 @@ export function CookieBanner({
             {t("landing.cookies.title")}.{" "}
           </span>
           {t("landing.cookies.body")}{" "}
-          <Link
-            reloadDocument
+          <ExitLink
             to="/privacy"
             className="underline hover:text-foreground"
           >
             {t("landing.cookies.privacyLink")}
-          </Link>
+          </ExitLink>
         </p>
         <div className="grid grid-cols-2 gap-3 sm:flex">
           <Button
