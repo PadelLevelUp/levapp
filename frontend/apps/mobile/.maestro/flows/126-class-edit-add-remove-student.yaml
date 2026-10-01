@@ -78,6 +78,12 @@ onFlowComplete:
     timeout: 20000
 
 # ── Edit: untick E2E Student on "Participantes", tick s2 on "Todos" ──
+# Edit sits at the foot of the class screen (flow 110 scrolls to it too).
+- scrollUntilVisible:
+    element:
+      id: "class-edit"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: "class-edit"
 - scrollUntilVisible:

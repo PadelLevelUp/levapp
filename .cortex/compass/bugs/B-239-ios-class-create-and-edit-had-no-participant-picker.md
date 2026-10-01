@@ -3,7 +3,7 @@ id: B-239
 title: "iOS class create and edit had no way to choose students; the web has had PlayerSelector in both"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - classes.create
   - classes.edit
@@ -11,6 +11,7 @@ affects:
   - frontend/apps/mobile/app/class/[id].tsx
 proposed_fix: "classes.create rule 10 and classes.edit rule 9: the coach chooses participants on create and edit, on web and iOS; port PlayerSelector to iOS and feed playerIds / addPlayers / removePlayers."
 opened: 2026-10-01T18:12:54Z
+resolved: 2026-10-01T18:58:54Z
 ---
 
 # B-239: iOS class create and edit had no participant picker
@@ -37,7 +38,7 @@ both render `PlayerSelector`.
   spec and the spec was silent, so the gap is an incomplete rule (type 2), not a code bug against a
   criterion.
 
-**Not reproduced on the simulator at filing:** the absence is a missing control, read off the source. The
+**Not reproduced on the simulator at filing (resolved since: flows 125/126):** the absence is a missing control, read off the source. The
 evidence is the hardcoded empty list and the zero callers. Maestro flows 125/126 will show the control
 present.
 
@@ -68,4 +69,8 @@ drift.
 
 ### Resolution
 
-(Filled in when PAD-474 lands.)
+- Spec changes: `classes.create` rule 10, `classes.edit` rule 9 (with criteria); `calendar.student-blockers` status note corrected.
+- Tests added: mobile `edit-class-diff`, `player-selector-logic`, `unavailable-check`, `class-participants-wiring` (red-first); backend `test_pad474_participant_edit_scope.py` (characterization, four mutants red); Maestro 125 and 126.
+- Code: mobile `PlayerSelector` on the new-class screen and in class-detail edit mode; `buildClassEditChanges` carries the participant diff.
+- Verified: flows 125 and 126 green on the pinned iPhone 17 Pro against the branch bundle (2026-10-01, 18:50Z and 18:54Z). PR #487.
+- Resolved: 2026-10-01T18:58:54Z.
