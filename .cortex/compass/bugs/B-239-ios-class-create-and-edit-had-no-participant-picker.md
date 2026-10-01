@@ -74,3 +74,11 @@ drift.
 - Code: mobile `PlayerSelector` on the new-class screen and in class-detail edit mode; `buildClassEditChanges` carries the participant diff.
 - Verified: flows 125 and 126 green on the pinned iPhone 17 Pro against the branch bundle (2026-10-01, 18:50Z and 18:54Z). PR #487.
 - Resolved: 2026-10-01T18:58:54Z.
+- Known, not fixed: picker rows are not virtualised. Each coach has ~60 students today, so the plain list is fine.
+  Revisit if a roster reaches hundreds.
+- Independent review (#487): the save sequences moved into `class-save-flow.ts` (`createClassCreateFlow`,
+  `commitClassEdit`, `hasClassEditChanges`). The screens no longer decide whether or when to save; the
+  source-regex wiring test was deleted. Six mutants were run and all went red: create skips both warnings;
+  create skips the PAD-107 lookup; edit "nothing to save" judged on fields only; create calls eligibility;
+  edit skips eligibility; the picker caps at 4. While the roster loads, the picker shows a spinner, not
+  "no participants selected".

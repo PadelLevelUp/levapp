@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import { initialsOf } from "@/features/messages/utils";
@@ -22,6 +23,8 @@ interface PlayerSelectorProps {
   levels: CoachLevel[];
   selectedPlayerIds: string[];
   classLevelId?: string | null;
+  /** The coach's roster is still loading: say so instead of "no participants selected". */
+  loading?: boolean;
   onToggle: (playerId: string) => void;
 }
 
@@ -42,6 +45,7 @@ export function PlayerSelector({
   levels,
   selectedPlayerIds,
   classLevelId,
+  loading = false,
   onToggle,
 }: PlayerSelectorProps) {
   const { t } = useTranslation();
@@ -131,7 +135,11 @@ export function PlayerSelector({
         </TabsList>
 
         <TabsContent value="participants">
-          {selected.length === 0 ? (
+          {loading ? (
+            <View testID="player-selector-loading" className="items-center py-4">
+              <Spinner />
+            </View>
+          ) : selected.length === 0 ? (
             <Text className="py-4 text-center text-sm text-muted-foreground">
               {t("calendar.playerSelector.noParticipantsSelected")}
             </Text>

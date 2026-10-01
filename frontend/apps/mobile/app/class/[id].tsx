@@ -88,8 +88,8 @@ import * as notificationEngineApi from "@levelup/api/src/resources/notificationE
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
+import { commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
-  buildClassEditChanges,
   presencesOfParticipants,
   toggleDraftParticipant as toggledParticipants,
 } from "@/features/calendar/edit-class-diff";
@@ -263,7 +263,7 @@ export default function ClassDetailScreen() {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<ClassInstance | null>(null);
   // classes.edit rule 9 (PAD-474): the picker's students, fetched only while a coach edits.
-  const { data: coachPlayers } = useCoachPlayers({ enabled: isCoach && isEditing });
+  const { data: coachPlayers, isLoading: coachPlayersLoading } = useCoachPlayers({ enabled: isCoach && isEditing });
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
 
@@ -514,9 +514,9 @@ export default function ClassDetailScreen() {
 
   const saveEdit = () => {
     if (!draft || !instance) return;
-    // classes.edit rule 9 (PAD-474): a participants-only edit is an edit.
-    const changes = buildClassEditChanges(instance, draft);
-    if (Object.keys(changes).length === 0) {
+    // classes.edit rule 9 (PAD-474): a participants-only edit is an edit; the
+    // decision is the flow module's, never this screen's.
+    if (!hasClassEditChanges(instance, draft)) {
       setIsEditing(false);
       setDraft(null);
       return;
@@ -578,33 +578,28 @@ export default function ClassDetailScreen() {
 
   const commitEdit = async (scope: "single" | "future") => {
     if (!draft || !instance || !event) return;
-    const changes = buildClassEditChanges(instance, draft);
-    if (Object.keys(changes).length === 0) {
-      setEditScopeOpen(false);
-      setIsEditing(false);
-      setDraft(null);
-      return;
-    }
-    const added = Array.isArray(changes.addPlayers) ? (changes.addPlayers as Array<string | number>) : [];
-    if (added.length > 0) {
-      try {
-        const { ineligible: failing } = await notificationEngineApi.checkEligibility(
-          event.model,
-          String(event.originalId),
-          event.date,
-          added
-        );
-        if (failing.length > 0) {
+    // classes.edit rule 9 (PAD-474): what to save, whether to save, and the
+    // eligibility warning on added students (eligibility.enforcement 7d) are
+    // decided by commitClassEdit; this screen only answers it.
+    await commitClassEdit({
+      original: instance,
+      draft,
+      eligibility: (added) =>
+        notificationEngineApi.checkEligibility(event.model, String(event.originalId), event.date, added),
+      finalize: (changes) => finalizeEdit(changes, scope),
+      ui: {
+        nothingToSave: () => {
+          setEditScopeOpen(false);
+          setIsEditing(false);
+          setDraft(null);
+        },
+        askEligibility: (failing, changes) => {
           setEditScopeOpen(false);
           setIneligible(failing);
           setPendingEdit({ changes, scope });
-          return;
-        }
-      } catch {
-        // Rule 6: the warning is a courtesy, the enrolment is the coach's.
-      }
-    }
-    await finalizeEdit(changes, scope);
+        },
+      },
+    });
   };
 
   // ── Remind ──
@@ -1283,6 +1278,7 @@ export default function ClassDetailScreen() {
                 levels={levels ?? []}
                 selectedPlayerIds={(draft.participants ?? []).map((p) => String(p.id))}
                 classLevelId={draft.levelId ?? null}
+                loading={coachPlayersLoading}
                 onToggle={toggleDraftParticipant}
               />
             ) : participants.length === 0 ? (
