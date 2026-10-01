@@ -27,7 +27,9 @@ const KEY = ["conversation", "1"];
 /** Opens the thread over a cached previous visit (first unread 111) and returns the screen's view. */
 function openOverCache(explicitTarget: string | null, staleCache = false) {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: false } } });
-  client.setQueryData<Thread>(KEY, { id: "1", messages: [], firstUnreadMessageId: 111 }, {
+  // The cached page holds a message NEWER than the push target used below (555): the target is
+  // in an older page, flow 103's shape, so a push-target open keeps the cache (rule 12a).
+  client.setQueryData<Thread>(KEY, { id: "1", messages: [{ id: 600 }], firstUnreadMessageId: 111 }, {
     updatedAt: staleCache ? Date.now() - 60_000 : Date.now(),
   });
   let answer: (t: Thread) => void = () => {};
@@ -38,15 +40,15 @@ function openOverCache(explicitTarget: string | null, staleCache = false) {
       fetches += 1;
       return new Promise<Thread>((resolve) => (answer = resolve));
     },
-    ...threadQueryOverrides(explicitTarget),
+    ...threadQueryOverrides(explicitTarget, [600]),
   });
   // useBaseQuery's first render: defaulted options with `_optimisticResults: "optimistic"`.
   const firstRender = client.defaultQueryOptions(observer.options);
   firstRender._optimisticResults = "optimistic";
   // The screen advances its phase on every render: the first one (useBaseQuery passes
   // `_optimisticResults: "optimistic"`, so it reports the mount fetch as already running), then each notify.
-  let phase: OpenFetch = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching);
-  const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching)));
+  let phase: OpenFetch = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching, false);
+  const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching, r.isError)));
   const view = () => {
     const r = observer.getCurrentResult();
     const state = { conversationId: "1", hasConversation: !!r.data, phase: phase.phase };
@@ -97,7 +99,7 @@ describe("a live write while this open's GET is in flight (B-222)", () => {
   });
 });
 
-describe("a push-target open over a fresh cache (B-222, loadOlder's page merge)", () => {
+describe("a push-target open on an OLDER message over a fresh cache (B-222, loadOlder's page merge)", () => {
   it("makes no GET, marks read at once, and a later page merge never freezes the cached first unread", async () => {
     const open = openOverCache("555");
     await flush();

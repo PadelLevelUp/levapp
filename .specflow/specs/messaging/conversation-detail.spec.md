@@ -58,6 +58,11 @@ through the history without the thread ever moving under the reader.
    above it. An explicit `?message=` target (a push tap, a deep link) wins over the first unread.
    With nothing unread the thread opens at the newest message, as before. The field is additive:
    older app builds ignore it.
+9b. **A retried landing scroll finds its row by message id (PAD-475, B-238, iOS).** A scroll to a
+   message (a push target, the first unread, a quoted reply) whose row is not measured yet is
+   retried. The retry looks the message up again in the thread as it is at that moment and is
+   dropped when the message is no longer loaded; it never reuses the index it was first given,
+   because a refetch may have replaced the loaded pages in between.
 10. While the viewport is **away from the bottom** (beyond a small threshold — roughly one
     bubble's height), **no content change moves it**: not a new incoming message, an edit, a
     reaction, a background refetch, the keyboard opening, or an image finishing layout. A "new
@@ -73,7 +78,8 @@ through the history without the thread ever moving under the reader.
       `follow-state.ts`.)
     - **(B-190, PAD-415)** On iOS a plain open always makes its own GET, even when the cached
       thread is still fresh from live updates, so rule 9a's `firstUnreadMessageId` is this open's
-      value; an open with an explicit target keeps the cache.
+      value; an open with an explicit target keeps the cache. Since PAD-475 it keeps it only
+      when the cached thread covers the target (`messaging.push-notifications` rule 12a).
     - **(B-222, PAD-415)** "This open's value" means the answer of the fetch this open saw
       start, taken when that fetch settles. A live update written into the cached thread while
       the GET is in flight (a new message, an older page merged in) is not that answer: until
@@ -122,6 +128,12 @@ through the history without the thread ever moving under the reader.
 - **Given** the coach had the thread cached and a new message arrived through live updates seconds ago
 - **When** they open it with no push target
 - **Then** the open makes its own GET and lands on the first unread under the divider
+
+#### A retried scroll survives a thread that was replaced (B-238)
+- **Given** a cached thread of 51 messages and a landing scroll to its last message (index 50) that has to be retried
+- **When** a refetch replaces the thread with its first page of 30 before the retry runs
+- **Then** the retry scrolls to that message's row in the new list (index 29), with no out-of-range call
+- **And** if the message is no longer loaded, the retry is dropped
 
 #### A live update during the open's GET does not stand in for its answer (B-222)
 - **Given** the coach had the thread cached from a visit whose first unread was message 111, and opens it with no push target

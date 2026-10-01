@@ -34,8 +34,8 @@ async function openThread(overrides: ReturnType<typeof threadQueryOverrides>) {
   firstRender._optimisticResults = "optimistic";
   // The screen advances its phase on every render: the first one (useBaseQuery passes
   // `_optimisticResults: "optimistic"`, so it reports the mount fetch as already running), then each notify.
-  let phase: OpenFetch | null = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching);
-  const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching)));
+  let phase: OpenFetch | null = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching, false);
+  const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching, r.isError)));
   await flush();
   const result = observer.getCurrentResult();
   unsubscribe();
@@ -44,7 +44,7 @@ async function openThread(overrides: ReturnType<typeof threadQueryOverrides>) {
 
 describe("a plain open of a thread an SSE write just made fresh (PAD-415)", () => {
   it("fetches during this open, so the first unread is frozen from this open's own GET", async () => {
-    const { fetches, result, phase } = await openThread(threadQueryOverrides(null));
+    const { fetches, result, phase } = await openThread(threadQueryOverrides(null, null));
 
     expect(fetches).toBe(1);
     expect(phase).toBe("settled");
@@ -53,6 +53,6 @@ describe("a plain open of a thread an SSE write just made fresh (PAD-415)", () =
   });
 
   it("a push-tap open (an explicit target) keeps the cached entry, as flow 103 needs", () => {
-    expect(threadQueryOverrides("555")).toBeUndefined();
+    expect(threadQueryOverrides("555", [555])).toBeUndefined();
   });
 });

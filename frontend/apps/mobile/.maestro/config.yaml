@@ -200,6 +200,10 @@ executionOrder:
     # "9+" row pill (PAD-414), the open at the first unread under the divider and a re-open
     # at the newest with no divider (PAD-415); it deletes the 40 in onFlowComplete.
     - 114-thread-opens-at-first-unread
+    # 122 (PAD-475, B-236, push-notifications rule 12a): the coach reads conversation 1, backgrounds the app, the student
+    # posts one message, and the app returns on the push-tap route; the message must be on
+    # screen. Teardown deletes the message. iOS only (pressKey Home, app suspension).
+    - 122-warm-push-tap-shows-the-message
     # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
     # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
     - 113-join-first-dashboard
@@ -244,6 +248,10 @@ executionOrder:
     # 121 (PAD-428): the student's weekly request ends "after 3 classes"; the API reads back an
     # endDate equal to the 3rd occurrence, recomputed in the flow. Teardown withdraws it.
     - 121-class-request-ends-after-n-classes
+    # 125/126 (PAD-474) create and remove their own classes through the API ("Maestro PAD-474
+    # Create"/"Maestro PAD-474 Edit", two days out), so their position is not load bearing.
+    - 125-class-create-with-student
+    - 126-class-edit-add-remove-student
     # 116 (PAD-438): the student's four KPI tiles keep their layout when the coach adds a class
     # and a refresh lays out new rows above "Your record" (B-223). Teardown removes the class.
     - 116-student-record-keeps-its-layout
