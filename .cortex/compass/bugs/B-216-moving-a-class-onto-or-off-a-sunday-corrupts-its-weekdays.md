@@ -30,3 +30,6 @@ resolved: 2026-09-26T09:58:01Z
   - A `daysOfWeek` containing **7** is certainly a moved-onto-Sunday row, and it is repairable without ambiguity (7 → 0).
   - A leftover **0** from a move off a Sunday can't be told apart from a genuine Sunday class using the row alone.
 - Resolved: 2026-09-26T09:58:01Z
+
+### Data repair (2026-10-01)
+A read-only prod count on 2026-09-30 found **1 of 45** JSON recurrence rules still holding a 7: lesson 57, `daysOfWeek` `[0, 6, 7]`. Its recurrence end (2026-08-28) falls before its start (2026-08-30), so it has no instances and nothing was visible. Migration `b3a1c474d07b` turns 7 into 0, then de-duplicates and sorts, so that rule becomes `[0, 6]`. It writes only JSON rules that hold a 7, so a second run is a no-op. Downgrade is a no-op. Test: `test_b216_stray_sunday_7_migration.py`.
