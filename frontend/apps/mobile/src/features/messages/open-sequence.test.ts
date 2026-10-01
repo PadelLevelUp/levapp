@@ -22,23 +22,23 @@ const loading = { conversationId: "7", hasConversation: false, phase: "in-flight
 
 describe("advanceOpenFetch", () => {
   it("the first observation decides: fetching means a GET is coming, idle means none is", () => {
-    expect(advanceOpenFetch(null, "7", true).phase).toBe("in-flight");
-    expect(advanceOpenFetch(null, "7", false).phase).toBe("none");
+    expect(advanceOpenFetch(null, "7", true, false).phase).toBe("in-flight");
+    expect(advanceOpenFetch(null, "7", false, false).phase).toBe("none");
   });
   it("settles only on the in-flight → idle edge, and stays settled", () => {
-    const inFlight = advanceOpenFetch(null, "7", true);
-    expect(advanceOpenFetch(inFlight, "7", true).phase).toBe("in-flight");
-    const settled = advanceOpenFetch(inFlight, "7", false);
+    const inFlight = advanceOpenFetch(null, "7", true, false);
+    expect(advanceOpenFetch(inFlight, "7", true, false).phase).toBe("in-flight");
+    const settled = advanceOpenFetch(inFlight, "7", false, false);
     expect(settled.phase).toBe("settled");
-    expect(advanceOpenFetch(settled, "7", true).phase).toBe("settled");
+    expect(advanceOpenFetch(settled, "7", true, false).phase).toBe("settled");
   });
   it("a fresh cache never settles: a later fetch is not this open's answer", () => {
-    const none = advanceOpenFetch(null, "7", false);
-    expect(advanceOpenFetch(advanceOpenFetch(none, "7", true), "7", false).phase).toBe("none");
+    const none = advanceOpenFetch(null, "7", false, false);
+    expect(advanceOpenFetch(advanceOpenFetch(none, "7", true, false), "7", false, false).phase).toBe("none");
   });
   it("starts over for another conversation", () => {
-    const settled = advanceOpenFetch(advanceOpenFetch(null, "7", true), "7", false);
-    expect(advanceOpenFetch(settled, "8", true)).toEqual({ conversationId: "8", phase: "in-flight" });
+    const settled = advanceOpenFetch(advanceOpenFetch(null, "7", true, false), "7", false, false);
+    expect(advanceOpenFetch(settled, "8", true, false)).toEqual({ conversationId: "8", phase: "in-flight" });
   });
 });
 
