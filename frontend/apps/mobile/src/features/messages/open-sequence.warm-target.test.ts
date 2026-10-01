@@ -40,10 +40,10 @@ async function openOnTarget(c: QueryClient, target: string) {
   });
   const firstRender = c.defaultQueryOptions(observer.options);
   firstRender._optimisticResults = "optimistic";
-  let phase: OpenFetch | null = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching);
+  let phase: OpenFetch | null = advanceOpenFetch(null, "1", observer.getOptimisticResult(firstRender).isFetching, false);
   // What the mark-read effect would decide on the first commit, with the cached thread on screen.
   const marksReadOnMount = shouldMarkRead({ conversationId: "1", hasConversation: !!cached, phase: phase.phase }, null);
-  const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching)));
+  const unsubscribe = observer.subscribe((r) => (phase = advanceOpenFetch(phase, "1", r.isFetching, r.isError)));
   await flush();
   const data = observer.getCurrentResult().data as Thread;
   unsubscribe();
@@ -187,5 +187,22 @@ describe("the open's GET fails (rule 12a): nothing unseen is marked read", () =>
     expect(open.marksRead()).toBe(true);
     expect((open.observer.getCurrentResult().data as Thread).messages.map((m) => m.id)).toContain(3);
     open.unsubscribe();
+  });
+});
+
+describe("an open that finds the thread already in error (rule 12a)", () => {
+  it("is failed from the first observation: the screen shows the load error, so nothing is marked read", () => {
+    // A cached thread whose last refetch failed moments ago: data, status "error", not fetching.
+    const first = advanceOpenFetch(null, "1", false, true);
+
+    expect(first.phase).toBe("failed");
+    expect(shouldMarkRead({ conversationId: "1", hasConversation: true, phase: first.phase }, null)).toBe(false);
+  });
+
+  it("a fresh, healthy cache with no fetch coming is still 'none' and marks read at once", () => {
+    const first = advanceOpenFetch(null, "1", false, false);
+
+    expect(first.phase).toBe("none");
+    expect(shouldMarkRead({ conversationId: "1", hasConversation: true, phase: first.phase }, null)).toBe(true);
   });
 });

@@ -45,5 +45,7 @@ The absence of a GET in the two red cells is the observation that selects the ca
 - Code: `threadQueryOverrides(explicitTarget, cachedMessageIds)` forces the GET only when the target is absent from, and newer than, the cached thread. Flow 103's shape keeps the cache.
 - Regression: flows 103 and 114 on the simulator, 2×2.
 
+**Limit of the id-order premise:** a message whose id was allocated before, but committed after, a higher id (two interleaved inserts in one thread) can be absent from a cache that holds the higher id. Rule 12a then keeps the cache for it. The window is one transaction's length; not handled.
+
 ### Follow-up (not in this change)
 - A deep link or universal link onto the thread that is ALREADY focused is a NAVIGATE, not a PUSH: expo-router reuses the focused route with new params, the screen does not mount, and rule 12a's GET does not run. A push tap is not affected (`PushTapRouter` uses `router.push`, pinned in `open-sequence.warm-target.test.ts`). Condition to reproduce: thread 1 focused, fresh cache, `levelup://conversation/1?message=<newer id>`.

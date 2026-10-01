@@ -21,7 +21,7 @@ export type OpenFetch = { conversationId: string; phase: OpenFetchPhase };
 /**
  * Advance this open's fetch phase from the query's `isFetching` and `isError`. The first
  * observation of a conversation decides whether a fetch is coming (`in-flight`) or not (`none`,
- * a still-fresh cache). An `in-flight` fetch ends `settled`, or `failed` when it ended in an
+ * a still-fresh cache; `failed` when that cache is already in error). An `in-flight` fetch ends `settled`, or `failed` when it ended in an
  * error (PAD-475, rule 12a: a GET that did not answer has shown the reader nothing new, so it
  * must not release the read mark). A `failed` open goes back `in-flight` when a later fetch
  * starts (Retry, a focus refetch); nothing moves a `settled` open back.
@@ -30,9 +30,12 @@ export function advanceOpenFetch(
   prev: OpenFetch | null,
   conversationId: string,
   isFetching: boolean,
-  isError = false
+  isError: boolean
 ): OpenFetch {
   if (!prev || prev.conversationId !== conversationId) {
+    // An entry already in error with no fetch coming is `failed` from the start: the screen
+    // shows its load error, not the thread, so there is nothing rendered to mark read.
+    if (!isFetching && isError) return { conversationId, phase: "failed" };
     return { conversationId, phase: isFetching ? "in-flight" : "none" };
   }
   if (prev.phase === "in-flight" && !isFetching) {
@@ -76,11 +79,14 @@ export function shouldFreezeFirstUnread(state: OpenState, frozenFor: string | nu
  * unmounted thread receives nothing, so a push normally names a message the cache has not got.
  */
 export function cacheCoversTarget(explicitTarget: string, cachedMessageIds: readonly (string | number)[]): boolean {
-  if (cachedMessageIds.some((id) => String(id) === explicitTarget)) return true;
-  if (!/^\d+$/.test(explicitTarget)) return false;
+  const cached = cachedMessageIds.map(String);
+  if (cached.includes(explicitTarget)) return true;
+  if (!isNumericId(explicitTarget)) return false;
   const target = Number(explicitTarget);
-  return cachedMessageIds.some((id) => /^\d+$/.test(String(id)) && Number(id) > target);
+  return cached.some((id) => isNumericId(id) && Number(id) > target);
 }
+
+const isNumericId = (id: string): boolean => /^\d+$/.test(id);
 
 /**
  * B-190 (PAD-415): the thread query's per-open overrides. The thread's cache entry is the one the

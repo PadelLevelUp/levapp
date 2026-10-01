@@ -8,7 +8,8 @@ import type { OpenFetchPhase } from "./open-sequence";
 /**
  * B-237: the target walk does not step while this open's own GET is in flight. A push target
  * is normally NEWER than the cached thread: stepping on the cached copy would load OLDER
- * pages for it, or give the target up, before the GET has delivered the message.
+ * pages for it, or give the target up, before the GET has delivered the message. A `failed`
+ * open steps: nothing more is coming, and the screen shows its load error instead of the list.
  */
 export function shouldStepTarget(phase: OpenFetchPhase): boolean {
   return phase !== "in-flight";

@@ -1,4 +1,4 @@
-# PAD-475 / messaging.push-notifications rule 12 — a message push tapped while the app is
+# PAD-475 / messaging.push-notifications rule 12a — a message push tapped while the app is
 # in the BACKGROUND (not killed) opens the thread WITH the pushed message.
 # The coach reads conversation 1, so its cache entry is fresh, and goes back, so no thread
 # screen is mounted to receive the message live. The app goes to the background and the

@@ -755,7 +755,9 @@ export default function ConversationScreen() {
 
   // ── Scroll to + briefly highlight a message (tapping a quoted reply) ──
   // B-238: the message the last scroll was for, and the list as it is NOW, so a retry never
-  // reuses the index it was given (a refetch may have replaced the list in between).
+  // reuses the index it was given (a refetch may have replaced the list in between). Invariant:
+  // `scrollToMessage` is the only caller of `scrollToIndex`, so the id is never another scroll's;
+  // a retry that fires after a newer scroll simply repeats the newer one.
   const scrollTargetIdRef = React.useRef<string | number | null>(null);
   const messagesRef = React.useRef<Message[]>([]);
   messagesRef.current = conversation?.messages ?? [];
