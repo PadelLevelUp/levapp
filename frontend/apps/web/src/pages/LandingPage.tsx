@@ -7,7 +7,9 @@
  * that carve-out is for: a logged-out page for academy owners and players
  * choosing software, where the iOS equivalent is the App Store listing. The
  * loader this page hands off to is NOT web-only — iOS has had the same
- * animation on cold start since the launch-animation work.
+ * animation on cold start since the launch-animation work. The HubSpot
+ * tracking, cookie banner and demo dialog (PAD-469) are web-only for the same
+ * reason: the mobile app has no landing page and carries no tracking.
  *
  * Second iteration (2026-09-06). Ported from the Lovable project
  * "Padellevelup Playground" (`src/routes/index.tsx` there), which replaced the
@@ -30,9 +32,12 @@
  *     locales — that is the product, not copy.
  *
  * CTA destinations, same decisions as the first iteration:
- *   - "Pedir demonstração" -> mailto the support address. There is no
- *     demo-request endpoint, and inventing a form here would mean a backend
- *     change this page doesn't need.
+ *   - "Pedir demonstração" -> the HubSpot demo dialog when the build carries
+ *     a demo form ID (PAD-469, `VITE_HUBSPOT_DEMO_FORM_ID`); otherwise mailto
+ *     the support address, as before.
+ *   - Every link that leaves the page loads a new document (`reloadDocument`),
+ *     so the HubSpot tracking script — loaded here only after the visitor
+ *     accepts cookies — never keeps running on another page or in the app.
  *   - "Enviar ideia" (others) -> mailto the admin address.
  *   - "Ver como funciona" / the nav links -> in-page anchors.
  *   - "Recebi um convite" -> /support. Invitations are tokenised links
@@ -40,7 +45,7 @@
  *     entry point to send someone to; a player holding a dead or missing
  *     invite needs a human, which is what /support is for.
  */
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -61,6 +66,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CookieBanner } from "@/components/landing/CookieBanner";
+import { DemoRequestDialog } from "@/components/landing/DemoRequestDialog";
+import { demoFormId, loadTrackingScript } from "@/lib/hubspot";
+import {
+  clearHubSpotCookies,
+  readConsent,
+  writeConsent,
+  type ConsentChoice,
+} from "@/lib/cookieConsent";
 
 /** The brand navy, as a gradient. Matches the loader and the app's chrome. */
 const NAVY = "linear-gradient(150deg, #16294A 0%, #0B1524 100%)";
@@ -96,6 +110,36 @@ function readAudience(raw: string | null): Audience {
 
 const mailto = (address: string, subject: string) =>
   `mailto:${address}?subject=${encodeURIComponent(subject)}`;
+
+/**
+ * Where every "Pedir demonstração" goes: the HubSpot dialog when the build
+ * carries a demo form ID (`open` set), otherwise the mailto (PAD-469).
+ */
+interface DemoCta {
+  href: string;
+  open: (() => void) | null;
+}
+
+/** Rendered bare and inside `Button asChild`. */
+function DemoLink({
+  demo,
+  className,
+  children,
+}: {
+  demo: DemoCta;
+  className?: string;
+  children: ReactNode;
+}) {
+  return demo.open ? (
+    <button type="button" data-testid="landing-demo-cta" className={className} onClick={demo.open}>
+      {children}
+    </button>
+  ) : (
+    <a href={demo.href} data-testid="landing-demo-cta" className={className}>
+      {children}
+    </a>
+  );
+}
 
 /* ---------------------------------- chrome --------------------------------- */
 
@@ -376,7 +420,7 @@ function OthersMockup() {
 
 /* ---------------------------------- header --------------------------------- */
 
-function Header({ demoHref }: { demoHref: string }) {
+function Header({ demo }: { demo: DemoCta }) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -407,10 +451,10 @@ function Header({ demoHref }: { demoHref: string }) {
 
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" className="bg-card">
-            <Link to="/auth">{t("landing.nav.login")}</Link>
+            <Link reloadDocument to="/auth">{t("landing.nav.login")}</Link>
           </Button>
           <Button asChild className="hidden md:inline-flex">
-            <a href={demoHref}>{t("landing.nav.demo")}</a>
+            <DemoLink demo={demo}>{t("landing.nav.demo")}</DemoLink>
           </Button>
           <button
             type="button"
@@ -436,12 +480,12 @@ function Header({ demoHref }: { demoHref: string }) {
               {link.label}
             </a>
           ))}
-          <a
-            href={demoHref}
+          <DemoLink
+            demo={demo}
             className="flex h-12 items-center text-[15px] font-semibold text-primary"
           >
             {t("landing.nav.demo")}
-          </a>
+          </DemoLink>
         </nav>
       )}
     </header>
@@ -493,11 +537,11 @@ function AudienceTabs({
 
 function Hero({
   audience,
-  demoHref,
+  demo,
   ideaHref,
 }: {
   audience: Audience;
-  demoHref: string;
+  demo: DemoCta;
   ideaHref: string;
 }) {
   const { t } = useTranslation();
@@ -506,9 +550,9 @@ function Hero({
 
   const primary =
     audience === "coaches" ? (
-      <a href={demoHref}>{t(`${k}.primary`)}</a>
+      <DemoLink demo={demo}>{t(`${k}.primary`)}</DemoLink>
     ) : audience === "players" ? (
-      <Link to="/auth">{t(`${k}.primary`)}</Link>
+      <Link reloadDocument to="/auth">{t(`${k}.primary`)}</Link>
     ) : (
       <a href={ideaHref}>{t(`${k}.primary`)}</a>
     );
@@ -516,7 +560,7 @@ function Hero({
     audience === "coaches" ? (
       <a href={`#${SECTION_HOW}`}>{t(`${k}.secondary`)}</a>
     ) : audience === "players" ? (
-      <Link to="/support">{t(`${k}.secondary`)}</Link>
+      <Link reloadDocument to="/support">{t(`${k}.secondary`)}</Link>
     ) : (
       <a href={`#${SECTION_BENEFITS}`}>{t(`${k}.secondary`)}</a>
     );
@@ -661,10 +705,10 @@ function Benefits({ audience }: { audience: Exclude<Audience, "others"> }) {
 
 function HowItWorks({
   audience,
-  demoHref,
+  demo,
 }: {
   audience: Exclude<Audience, "others">;
-  demoHref: string;
+  demo: DemoCta;
 }) {
   const { t } = useTranslation();
   const k = `landing.how.${audience}`;
@@ -718,10 +762,10 @@ function HowItWorks({
 
             <div className="mt-8">
               <Button asChild variant="outline" className="bg-card">
-                <a href={demoHref}>
+                <DemoLink demo={demo}>
                   {t("landing.how.cta")}
                   <ArrowRight className="size-4" />
-                </a>
+                </DemoLink>
               </Button>
             </div>
           </div>
@@ -867,12 +911,12 @@ function OthersContent({
 
 function FinalCta({
   audience,
-  demoHref,
+  demo,
   ideaHref,
   onSwitch,
 }: {
   audience: Audience;
-  demoHref: string;
+  demo: DemoCta;
   ideaHref: string;
   onSwitch: () => void;
 }) {
@@ -881,9 +925,9 @@ function FinalCta({
 
   const primary =
     audience === "coaches" ? (
-      <a href={demoHref}>{t(`${k}.primary`)}</a>
+      <DemoLink demo={demo}>{t(`${k}.primary`)}</DemoLink>
     ) : audience === "players" ? (
-      <Link to="/auth">{t(`${k}.primary`)}</Link>
+      <Link reloadDocument to="/auth">{t(`${k}.primary`)}</Link>
     ) : (
       <a href={ideaHref}>{t(`${k}.primary`)}</a>
     );
@@ -923,22 +967,30 @@ function FinalCta({
   );
 }
 
-function Footer() {
+function Footer({ onCookiePreferences }: { onCookiePreferences: () => void }) {
   const { t } = useTranslation();
   return (
     <footer className="bg-background">
       <div className="mx-auto flex max-w-[1170px] flex-col gap-5 border-t border-border px-5 py-8 sm:flex-row sm:items-center sm:justify-between lg:px-6">
         <BrandLockup markSize={26} textClass="text-base" />
-        <nav className="flex gap-6 text-sm text-muted-foreground">
-          <Link to="/support" className="hover:text-foreground">
+        <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+          <Link reloadDocument to="/support" className="hover:text-foreground">
             {t("landing.footer.contact")}
           </Link>
-          <Link to="/privacy" className="hover:text-foreground">
+          <Link reloadDocument to="/privacy" className="hover:text-foreground">
             {t("landing.footer.privacy")}
           </Link>
-          <Link to="/terms" className="hover:text-foreground">
+          <Link reloadDocument to="/terms" className="hover:text-foreground">
             {t("landing.footer.terms")}
           </Link>
+          <button
+            type="button"
+            data-testid="cookie-preferences"
+            onClick={onCookiePreferences}
+            className="hover:text-foreground"
+          >
+            {t("landing.footer.cookies")}
+          </button>
         </nav>
       </div>
     </footer>
@@ -969,33 +1021,75 @@ const LandingPage = () => {
   const demoHref = mailto(SUPPORT_CONTACT_EMAIL, t("landing.mail.demoSubject"));
   const ideaHref = mailto(ADMIN_CONTACT_EMAIL, t("landing.mail.ideaSubject"));
 
+  const formId = demoFormId();
+  const [demoOpen, setDemoOpen] = useState(false);
+  const demo: DemoCta = { href: demoHref, open: formId ? () => setDemoOpen(true) : null };
+
+  // Rules 11–13: nothing reaches HubSpot's tracking hosts until the visitor accepts.
+  const [consent, setConsent] = useState<ConsentChoice | null>(() => readConsent());
+  const [bannerOpen, setBannerOpen] = useState(consent === null);
+
+  useEffect(() => {
+    if (consent === "accepted") loadTrackingScript();
+  }, [consent]);
+
+  const accept = () => {
+    writeConsent("accepted");
+    setConsent("accepted");
+    setBannerOpen(false);
+  };
+
+  const decline = () => {
+    const wasAccepted = consent === "accepted";
+    // Rule 13's order: cookies, then the stored choice, then the reload — a
+    // reload before the write would come back accepted and loop.
+    clearHubSpotCookies();
+    writeConsent("declined");
+    if (wasAccepted) {
+      // The tracking script is already running in this document; only a new one stops it.
+      window.location.reload();
+      return;
+    }
+    setConsent("declined");
+    setBannerOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-card">
-      <Header demoHref={demoHref} />
+      <Header demo={demo} />
       <main>
         <section className="bg-card">
           <div className="mx-auto max-w-[1170px] px-5 pt-8 lg:px-6 lg:pt-10">
             <AudienceTabs value={audience} onChange={setAudience} />
           </div>
-          <Hero audience={audience} demoHref={demoHref} ideaHref={ideaHref} />
+          <Hero audience={audience} demo={demo} ideaHref={ideaHref} />
         </section>
         {audience === "others" ? (
           <OthersContent ideaHref={ideaHref} onShowCoaches={() => setAudience("coaches")} />
         ) : (
           <>
             <Benefits audience={audience} />
-            <HowItWorks audience={audience} demoHref={demoHref} />
+            <HowItWorks audience={audience} demo={demo} />
             <Results audience={audience} />
           </>
         )}
         <FinalCta
           audience={audience}
-          demoHref={demoHref}
+          demo={demo}
           ideaHref={ideaHref}
           onSwitch={() => setAudience(NEXT_AUDIENCE[audience])}
         />
       </main>
-      <Footer />
+      <Footer onCookiePreferences={() => setBannerOpen(true)} />
+      {bannerOpen && <CookieBanner onAccept={accept} onDecline={decline} />}
+      {formId && (
+        <DemoRequestDialog
+          open={demoOpen}
+          onOpenChange={setDemoOpen}
+          formId={formId}
+          fallbackHref={demoHref}
+        />
+      )}
     </div>
   );
 };

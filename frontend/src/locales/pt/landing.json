@@ -239,7 +239,22 @@
     "footer": {
       "contact": "Contacto",
       "privacy": "Privacidade",
-      "terms": "Termos"
+      "terms": "Termos",
+      "cookies": "Preferências de cookies"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "body": "Se aceitares, usamos cookies da HubSpot para perceber como este site é visitado. Se recusares, não usamos nenhum. Podes mudar de ideias em \"Preferências de cookies\", no rodapé.",
+      "privacyLink": "Política de Privacidade",
+      "accept": "Aceitar",
+      "decline": "Recusar"
+    },
+    "demo": {
+      "title": "Pedir demonstração",
+      "providedBy": "Este formulário é fornecido pela HubSpot, onde guardamos os pedidos de demonstração. Ver a",
+      "privacyLink": "Política de Privacidade",
+      "failed": "Não foi possível carregar o formulário.",
+      "failedLink": "Envia-nos um email."
     },
     "loader": {
       "label": "A entrar…"
