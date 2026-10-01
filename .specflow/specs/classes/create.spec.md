@@ -56,7 +56,25 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    not flagged `recurs_until_season_end`, so a later season edit does not re-cap it (the same as
    an explicit end date).
 
+10. **The coach chooses the students when creating a class, on web and in the mobile app (iOS and
+    Android) (PAD-474, B-239).** Both create forms carry a participant picker (web: the add-class
+    sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
+    search, a filter by level, and a mark on any student outside the class's level. A chosen student
+    is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
+    tells them. The picker applies no cap at `maxPlayers`; it shows the count. When students are
+    chosen, the PAD-107 warning (`calendar.student-blockers` rule 9) runs before saving, after the
+    overlap warning; if that lookup fails, the class still saves. Create runs no eligibility check
+    (`eligibility.enforcement` rule 7d covers an edit that adds students).
+
 ### Acceptance Criteria
+
+#### The coach chooses students when creating a class (rule 10, PAD-474)
+- **Given** a coach on the mobile app with students Ana and Bruno
+- **When** they create a class and choose Ana
+- **Then** the class is sent with `playerIds` `[Ana]` and Ana is on its roster
+- **Given** Ana marked herself unavailable at that time
+- **When** the coach saves
+- **Then** the unavailable-student warning names Ana, and Confirm creates the class with her
 
 #### A series that ends after N classes has exactly N (rule 9, PAD-463)
 - **Given** a coach creating a class recurring on Sunday and Wednesday from Sunday 2026-10-04
