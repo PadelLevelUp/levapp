@@ -239,7 +239,22 @@
     "footer": {
       "contact": "Contact",
       "privacy": "Privacy",
-      "terms": "Terms"
+      "terms": "Terms",
+      "cookies": "Cookie preferences"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "body": "If you accept, we use HubSpot cookies to understand how this site is visited. If you decline, we use none. You can change your mind under \"Cookie preferences\" in the footer.",
+      "privacyLink": "Privacy Policy",
+      "accept": "Accept",
+      "decline": "Decline"
+    },
+    "demo": {
+      "title": "Request a demo",
+      "providedBy": "This form is provided by HubSpot, where we keep demo requests. See the",
+      "privacyLink": "Privacy Policy",
+      "failed": "The form could not be loaded.",
+      "failedLink": "Send us an email."
     },
     "loader": {
       "label": "Signing in…"
