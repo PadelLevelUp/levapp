@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { enUS, pt } from "date-fns/locale";
-import { resolveDateLocale, formatWeekRangeLabel } from "./dateLocale";
+import { resolveDateLocale, formatWeekRangeLabel, formatShortDate } from "./dateLocale";
 
 // PAD-181 (spec: calendar.view rule 12, settings.language rule 4).
 //
@@ -71,5 +71,16 @@ describe("formatWeekRangeLabel", () => {
     expect(formatWeekRangeLabel(crossMonthWeekStart, resolveDateLocale("pt"))).not.toBe(
       formatWeekRangeLabel(crossMonthWeekStart, resolveDateLocale("en"))
     );
+  });
+});
+
+describe("formatShortDate", () => {
+  it("reads a date-only ISO day in the locale's numeric order", () => {
+    expect(formatShortDate("2026-10-15", "pt-PT")).toBe("15/10/2026");
+    expect(formatShortDate("2026-10-15", "en-US")).toBe("10/15/2026");
+  });
+
+  it("keeps the day whatever the device zone (read in UTC)", () => {
+    expect(formatShortDate("2026-01-01", "pt-PT")).toBe("01/01/2026");
   });
 });
