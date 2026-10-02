@@ -132,8 +132,16 @@ export function sortGates(gates: InviteSimulationGate[]): InviteSimulationGate[]
   return [...gates].sort((a, b) => Number(b.blocked) - Number(a.blocked));
 }
 
+/** Every stage this build has words for; a stage a newer server adds falls back to a generic line
+ * rather than showing its raw i18n key (PAD-497: builds before it show the raw key). */
+const KNOWN_STAGES: ReadonlySet<string> = new Set<InviteExplain["stage"]>([
+  "departing_player", "already_enrolled", "declined_this_class", "already_invited", "eligibility",
+  "excluded_by_coach", "inactive_account", "unavailable", "auto_invites_off", "no_round_matched",
+  "offered_another_spot", "invited",
+]);
+
 export function describeStage(stage: InviteExplain["stage"]): I18nText {
-  return { key: `${NS}.stages.${stage}` };
+  return { key: `${NS}.stages.${KNOWN_STAGES.has(stage) ? stage : "unknown"}` };
 }
 
 /** A round's criteria in words; an empty rule set means "everyone eligible". */
