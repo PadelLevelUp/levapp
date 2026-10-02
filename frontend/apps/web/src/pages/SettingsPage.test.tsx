@@ -77,7 +77,31 @@ vi.mock("@/components/evaluations/competency-manager/CompetenciesSettingsEntry",
   CompetenciesSettingsEntry: () => <div data-testid="stub-competencies" />,
 }));
 
+// A light stand-in for the Radix Select (language, theme): opening the real one over this page's DOM
+// takes ~15 s in jsdom. It keeps the contract the page relies on — value in, onValueChange out.
+vi.mock("@/components/ui/select", async () => {
+  const React = await import("react");
+  type Ctx = { value?: string; onValueChange?: (v: string) => void };
+  const SelectCtx = React.createContext<Ctx>({});
+  return {
+    Select: ({ value, onValueChange, children }: Ctx & { children: React.ReactNode }) => (
+      <SelectCtx.Provider value={{ value, onValueChange }}>{children}</SelectCtx.Provider>
+    ),
+    SelectTrigger: ({ id, "aria-label": ariaLabel, children }: { id?: string; "aria-label"?: string; children: React.ReactNode }) => {
+      const ctx = React.useContext(SelectCtx);
+      return <div id={id} aria-label={ariaLabel} data-value={ctx.value}>{children}</div>;
+    },
+    SelectValue: () => <span>{React.useContext(SelectCtx).value}</span>,
+    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => {
+      const ctx = React.useContext(SelectCtx);
+      return <button type="button" data-testid={`select-option-${value}`} onClick={() => ctx.onValueChange?.(value)}>{children}</button>;
+    },
+  };
+});
+
 import SettingsPage, { parseTab } from "./SettingsPage";
+import i18n from "@/i18n";
 
 const ME = {
   name: "Coach",
@@ -90,6 +114,19 @@ const ME = {
 };
 
 beforeAll(() => {
+  // jsdom has no PointerEvent, so Radix Select (opened on a mouse pointerdown) never sees its
+  // pointerType; this gives fireEvent.pointerDown a real one (PAD-473's language tests).
+  if (!window.PointerEvent) {
+    class PointerEventPolyfill extends MouseEvent {
+      pointerType: string;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerType = init.pointerType ?? "mouse";
+      }
+    }
+    window.PointerEvent = PointerEventPolyfill as unknown as typeof PointerEvent;
+  }
+  window.HTMLElement.prototype.releasePointerCapture = () => {};
   window.HTMLElement.prototype.hasPointerCapture = () => false;
   window.HTMLElement.prototype.scrollIntoView = () => {};
 });
@@ -364,5 +401,64 @@ describe("SettingsPage — the tab follows the URL (PAD-459, settings.role-scope
     expect(screen.getByTestId("working-hours")).toBeInTheDocument();
     expect(sunday()).toHaveAttribute("data-state", "off");
     await waitFor(() => expect(screen.getByTestId("probe-search").textContent).toBe("?tab=calendar"));
+  });
+});
+
+describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", () => {
+  async function chooseLanguage(lang: "pt" | "en") {
+    fireEvent.click(await screen.findByTestId(`select-option-${lang}`));
+  }
+
+  it("B-244: choosing a language stores it at once, shows it, and signs it", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(getMe).toHaveBeenCalled());
+
+    await chooseLanguage("pt");
+
+    await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ language: "pt" }));
+    expect(i18n.changeLanguage).toHaveBeenCalledWith("pt");
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved"));
+  });
+
+  it("a failed language save says so and returns to the confirmed language", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(getMe).toHaveBeenCalled());
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+
+    await chooseLanguage("pt");
+
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
+    expect(screen.getByLabelText("settings.language")).toHaveAttribute("data-value", "en");
+  });
+
+  it("request alerts sign their save; a failure says so and switches back", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect(screen.getByTestId("settings-request-alerts-sign")).toHaveAttribute("data-state", "saved"));
+
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(toggle);
+    await waitFor(() => expect(screen.getByTestId("settings-request-alerts-sign")).toHaveAttribute("data-state", "failed"));
+    expect(toggle).toHaveAttribute("data-state", "unchecked");
+  });
+
+  it("the page-header Save shows on Perfil only (rule 4)", async () => {
+    goto("/settings?tab=profile");
+    renderSettings();
+    expect(await screen.findByRole("button", { name: "settings.saveChanges" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-nav-preferences"));
+    await screen.findByTestId("settings-request-alerts");
+    expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-nav-notifications"));
+    expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
   });
 });

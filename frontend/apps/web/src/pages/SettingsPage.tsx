@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
 import { SettingsUnsavedContext } from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
 import {
@@ -304,6 +305,14 @@ export default function SettingsPage() {
   // `undefined` until /me answers, so the switch never flashes the default
   // before the server value lands.
   const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
+  // settings.save-on-change (PAD-473): language and request alerts save on change, with the sign
+  // beside each. A failed save returns the control to the last value the server confirmed, and
+  // only the newest save of a control decides that (rule 3).
+  const sign = useSaveSign();
+  const confirmedLanguage = useRef<AppLanguage | null>(null);
+  const confirmedRequestAlerts = useRef<boolean | undefined>(undefined);
+  const languageSeq = useRef(0);
+  const requestAlertsSeq = useRef(0);
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -396,6 +405,8 @@ export default function SettingsPage() {
     getMe()
       .then((me) => {
         if (!active) return;
+        confirmedLanguage.current = (me.language ?? "pt") as AppLanguage;
+        confirmedRequestAlerts.current = me.requestAlerts !== false;
         if (!languageDirty.current) {
           const lang = (me.language ?? "pt") as AppLanguage;
           setLanguage(lang);
@@ -420,20 +431,37 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const handleRequestAlertsChange = async (checked: boolean) => {
-    const previous = requestAlerts;
+  const handleRequestAlertsChange = (checked: boolean) => {
+    const seq = ++requestAlertsSeq.current;
     setRequestAlerts(checked);
-    try {
-      await updateMe({ requestAlerts: checked });
-      toast({ title: t("settings.preferences.requestAlertsSaved") });
-    } catch {
-      setRequestAlerts(previous);
-      toast({
-        title: t("settings.toast.couldNotSaveTitle"),
-        description: t("settings.preferences.requestAlertsSaveFailed"),
-        variant: "destructive",
-      });
-    }
+    void sign.track("requestAlerts", updateMe({ requestAlerts: checked })).then(
+      () => {
+        confirmedRequestAlerts.current = checked;
+      },
+      () => {
+        if (seq === requestAlertsSeq.current) setRequestAlerts(confirmedRequestAlerts.current);
+      },
+    );
+  };
+
+  // B-244: the language is stored as soon as it is chosen, as on iOS; the page shows it at once, so
+  // its sign appears in the new language (settings.save-on-change rule 5).
+  const handleLanguageChange = (lang: AppLanguage) => {
+    const seq = ++languageSeq.current;
+    languageDirty.current = true;
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
+    void sign.track("language", updateMe({ language: lang })).then(
+      () => {
+        confirmedLanguage.current = lang;
+      },
+      () => {
+        const back = confirmedLanguage.current;
+        if (seq !== languageSeq.current || !back) return;
+        setLanguage(back);
+        i18n.changeLanguage(back);
+      },
+    );
   };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
@@ -508,15 +536,19 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* Nothing to save while the phone is showing the section list. */}
-          <Button
-            onClick={handleSave}
-            className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
-            disabled={isSaving}
-          >
-            <Save className="w-4 h-4" />
-            {t("settings.saveChanges")}
-          </Button>
+          {/* settings.save-on-change rule 4: only Perfil holds fields that wait for this button —
+              every other tab saves on change or has its own Save. Nothing to save while the
+              phone is showing the section list. */}
+          {activeTab === "profile" && (
+            <Button
+              onClick={handleSave}
+              className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
+              disabled={isSaving}
+            >
+              <Save className="w-4 h-4" />
+              {t("settings.saveChanges")}
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -657,16 +689,11 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="max-w-xs space-y-2">
-                    <Label htmlFor="language-select">{t("settings.language")}</Label>
-                    <Select
-                      value={language}
-                      onValueChange={(v) => {
-                        const lang = v as AppLanguage;
-                        languageDirty.current = true;
-                        setLanguage(lang);
-                        i18n.changeLanguage(lang);
-                      }}
-                    >
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="language-select">{t("settings.language")}</Label>
+                      <SaveSign status={sign.status("language")} testId="settings-language-sign" />
+                    </div>
+                    <Select value={language} onValueChange={(v) => handleLanguageChange(v as AppLanguage)}>
                       <SelectTrigger id="language-select" aria-label={t("settings.language")}>
                         <SelectValue placeholder={t("settings.language")} />
                       </SelectTrigger>
@@ -700,9 +727,12 @@ export default function SettingsPage() {
                       requests, an admin about approvals. */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <Label htmlFor="request-alerts-switch">
-                        {t("settings.preferences.requestAlerts")}
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="request-alerts-switch">
+                          {t("settings.preferences.requestAlerts")}
+                        </Label>
+                        <SaveSign status={sign.status("requestAlerts")} testId="settings-request-alerts-sign" />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {t("settings.preferences.requestAlertsDescription")}
                       </p>
@@ -713,7 +743,7 @@ export default function SettingsPage() {
                       aria-label={t("settings.preferences.requestAlerts")}
                       checked={requestAlerts ?? true}
                       disabled={requestAlerts === undefined}
-                      onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
+                      onCheckedChange={handleRequestAlertsChange}
                     />
                   </div>
 

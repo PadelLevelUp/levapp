@@ -130,8 +130,13 @@ test("B-184: a late profile load does not overwrite the language just chosen", a
   try {
     await openSettings(page);
     await page.getByRole("button", { name: ui("settings.nav.preferences") }).first().click();
+    // B-244 / settings.save-on-change (PAD-473): the choice itself is the save — no Save button.
+    const saved = page.waitForResponse(
+      (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200
+    );
     await page.getByRole("combobox", { name: ui("settings.language") }).click();
     await page.getByRole("option", { name: ui("settings.portuguese") }).click();
+    await saved;
 
     // Now let the stale read land, and give React a beat to apply it.
     const landed = page.waitForResponse((r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "GET");
@@ -140,11 +145,8 @@ test("B-184: a late profile load does not overwrite the language just chosen", a
     await page.waitForTimeout(500);
     expect(held, "the Settings mount read was held until after the choice").toBe(1);
 
-    const saved = page.waitForResponse(
-      (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200
-    );
-    await page.getByRole("button", { name: ui("settings.saveChanges") }).click();
-    await saved;
+    // The late read did not put English back on screen, and Portuguese is what was stored.
+    await expect(page.locator("#language-select")).toContainText(ui("settings.portuguese"));
     expect(sent.map((b) => b.language)).toEqual(["pt"]);
   } finally {
     await page.unroute(/\/auth\/me$/);

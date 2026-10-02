@@ -24,6 +24,7 @@ import { Text } from "@/components/ui/text";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { EvaluationSettingsGroup } from "@/features/evaluations/evaluation-settings-group";
 import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
+import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -58,12 +59,11 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const [language, setLanguage] = React.useState<Language>(
     user?.language ?? "pt"
   );
-  // Holds the KEY, not the resolved string. `changeLanguage` is async, so
-  // resolving here would freeze the message in the language being replaced —
-  // switching to pt reported success in English.
-  const [languageStatusKey, setLanguageStatusKey] = React.useState<
-    string | null
-  >(null);
+  // settings.save-on-change (PAD-473): language and request alerts sign their saves; a failed save
+  // returns the control to the last value the server confirmed, and only the newest save decides.
+  const sign = useSaveSign();
+  const languageSeq = React.useRef(0);
+  const requestAlertsSeq = React.useRef(0);
 
   // Same key the Settings screen uses, so this is served from cache rather
   // than refetched — and it stays reactive when the screen's copy resolves.
@@ -78,11 +78,8 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
   // Server value wins; an explicit `false` is the only "off".
   const requestAlerts = me?.requestAlerts !== false;
-  const [requestAlertsStatusKey, setRequestAlertsStatusKey] = React.useState<
-    string | null
-  >(null);
   const handleRequestAlertsChange = async (checked: boolean) => {
-    setRequestAlertsStatusKey(null);
+    const seq = ++requestAlertsSeq.current;
     const previous = me;
     // B-185 (C's #430 review): an in-flight read landing mid-save would flicker the toggle back.
     await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
@@ -90,27 +87,24 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
       cur ? { ...cur, requestAlerts: checked } : cur
     );
     try {
-      const updated = await authApi.updateMe({ requestAlerts: checked });
+      const updated = await sign.track("requestAlerts", authApi.updateMe({ requestAlerts: checked }));
       await writeAuthMe(queryClient, updated);
-      setRequestAlertsStatusKey("settings.preferences.requestAlertsSaved");
     } catch {
-      queryClient.setQueryData(["auth-me"], previous);
-      setRequestAlertsStatusKey("settings.preferences.requestAlertsSaveFailed");
+      // Back to what the server last confirmed — unless a newer change is already on its way.
+      if (seq === requestAlertsSeq.current) queryClient.setQueryData(["auth-me"], previous);
     }
   };
 
   const handleLanguageChange = async (value: Language) => {
-    const previous = language;
+    const seq = ++languageSeq.current;
     setLanguage(value);
-    setLanguageStatusKey(null);
     try {
-      const updated = await authApi.updateMe({ language: value });
+      const updated = await sign.track("language", authApi.updateMe({ language: value }));
       await writeAuthMe(queryClient, updated);
       void i18n.changeLanguage(value);
-      setLanguageStatusKey("settings.mobile.languageSaved");
     } catch {
-      setLanguage(previous);
-      setLanguageStatusKey("settings.mobile.languageSaveFailed");
+      // Back to the language the server holds (the cached profile), unless a newer choice is pending.
+      if (seq === languageSeq.current) setLanguage((me?.language as Language | undefined) ?? language);
     }
   };
 
@@ -154,20 +148,16 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               />
             </SelectContent>
           </Select>
-          {languageStatusKey ? (
-            <Text
-              testID="settings-language-status"
-              className="text-sm text-muted-foreground"
-            >
-              {t(languageStatusKey)}
-            </Text>
-          ) : null}
+          <SaveSign status={sign.status("language")} testID="settings-language-sign" textTestID="settings-language-status" />
 
           {/* PAD-232: for every role — a student is asked to link accounts, a
               coach hears about club join requests, an admin about approvals. */}
           <View className="mt-4 flex-row items-start justify-between gap-3">
             <View className="flex-1 gap-0.5">
-              <Label>{t("settings.preferences.requestAlerts")}</Label>
+              <View className="flex-row items-center gap-2">
+                <Label>{t("settings.preferences.requestAlerts")}</Label>
+                <SaveSign status={sign.status("requestAlerts")} testID="settings-request-alerts-sign" />
+              </View>
               <Text className="text-xs text-muted-foreground">
                 {t("settings.preferences.requestAlertsDescription")}
               </Text>
@@ -179,14 +169,6 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
             />
           </View>
-          {requestAlertsStatusKey ? (
-            <Text
-              testID="settings-request-alerts-status"
-              className="text-sm text-muted-foreground"
-            >
-              {t(requestAlertsStatusKey)}
-            </Text>
-          ) : null}
         </CardContent>
       </Card>
 

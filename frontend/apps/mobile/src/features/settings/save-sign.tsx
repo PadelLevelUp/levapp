@@ -71,13 +71,26 @@ export function useSaveSign() {
   return { status, track };
 }
 
-/** Always mounted with a fixed minimum height, so the row does not jump when the sign appears. */
-export function SaveSign({ status, testID, className }: { status: SaveSignStatus; testID: string; className?: string }) {
+/**
+ * Always mounted with a fixed minimum height, so the row does not jump when the sign appears.
+ * `textTestID` marks the text only while it shows (Maestro flows 12/95 assert the language one).
+ */
+export function SaveSign({
+  status,
+  testID,
+  textTestID,
+  className,
+}: {
+  status: SaveSignStatus;
+  testID: string;
+  textTestID?: string;
+  className?: string;
+}) {
   const { t } = useTranslation();
   return (
     <View testID={testID} accessibilityLiveRegion="polite" className={cn("min-h-4 flex-row items-center", className)}>
       {status === "idle" ? null : (
-        <Text className={cn("text-xs", status === "failed" ? "text-destructive" : "text-muted-foreground")}>
+        <Text testID={textTestID} className={cn("text-xs", status === "failed" ? "text-destructive" : "text-muted-foreground")}>
           {status === "saved" ? `✓ ${t(COPY.saved)}` : t(COPY.failed)}
         </Text>
       )}
