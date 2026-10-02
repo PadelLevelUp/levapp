@@ -436,28 +436,68 @@ def arm_ask_for_student(instance, player_id, *, now=None) -> bool:
     return True
 
 
+def run_reminder_pass(instance_id: int) -> dict:
+    """One ordinary scheduled reminder pass for a materialised class, and the follow-up it
+    owes: what a reminder job does when it fires. Returns the pass's result. The caller
+    holds an app context. PAD-478's "send now" runs this, so a confirmed past-due reminder
+    is the same pass, with the same guards, as one the scheduler fired."""
+    from padel_app.models import LessonInstance
+    from padel_app.services.notification_service import send_class_reminders
+
+    result = send_class_reminders(instance_id, scheduled=True)
+    instance = LessonInstance.query.get(instance_id)
+    if instance is not None:
+        _maybe_rearm_reminder(
+            instance,
+            func=_run_send_reminders,
+            args=[instance_id],
+            base_job_id=f"reminder_{instance_id}",
+            result=result,
+        )
+    return result
+
+
 def _run_send_reminders(instance_id: int) -> None:
     """Legacy runner for already-materialized LessonInstance reminders."""
     app = _app
     if app is None:
         return
     with app.app_context():
-        from padel_app.services.notification_service import send_class_reminders
         try:
-            from padel_app.models import LessonInstance
-            result = send_class_reminders(instance_id, scheduled=True)
-            instance = LessonInstance.query.get(instance_id)
-            if instance is not None:
-                _maybe_rearm_reminder(
-                    instance,
-                    func=_run_send_reminders,
-                    args=[instance_id],
-                    base_job_id=f"reminder_{instance_id}",
-                    result=result,
-                )
+            run_reminder_pass(instance_id)
             app.logger.info("Reminder sent for instance %s", instance_id)
         except Exception as exc:
             app.logger.error("send_class_reminders(%s) failed: %s", instance_id, exc)
+
+
+PAST_DUE_GRACE_SECONDS = 6 * 3600
+
+
+def past_due_job_id(instance_id: int) -> str:
+    return f"pastdue_{instance_id}"
+
+
+def arm_past_due_pass(instance_id: int, when: datetime) -> None:
+    """PAD-478 (notifications.config rule 10f): the coach said yes inside quiet hours, so the
+    pass is armed for their end. One job per class: a repeated yes replaces it. Its own id,
+    not the class's ``reminder_<id>``: that one is derived from the configuration, and a
+    startup or daily pass would remove a job sitting at a time the configuration does not
+    imply. ``schedule_instance_jobs`` removes this job when it arms the ordinary reminder again."""
+    if _scheduler is None:
+        return
+    from apscheduler.triggers.date import DateTrigger
+
+    _scheduler.add_job(
+        func=_run_send_reminders,
+        args=[instance_id],
+        trigger=DateTrigger(run_date=when, timezone="UTC"),
+        id=past_due_job_id(instance_id),
+        replace_existing=True,
+        # The coach said yes. If the scheduler is down when quiet hours end, the ordinary
+        # 5 minutes of grace would drop that silently; this one may run up to six hours
+        # late. The pass still refuses a class that has started.
+        misfire_grace_time=PAST_DUE_GRACE_SECONDS,
+    )
 
 
 def _run_trigger_invitations(instance_id: int, coach_id: int) -> None:
@@ -1015,6 +1055,13 @@ def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | N
                     "schedule_instance_jobs: reminder for instance %s is in the past (%s) — skipping",
                     instance_id, reminder_dt,
                 )
+            if outcome == "armed":
+                # PAD-478 (rule 10f): the ordinary reminder is ahead again, so a pass the
+                # coach had armed for the end of quiet hours would be a second, early one.
+                try:
+                    _scheduler.remove_job(past_due_job_id(instance_id))
+                except Exception:  # noqa: BLE001 — there was none
+                    pass
 
             # PAD-347 (notifications.reminders rule 20, B-097): once the instance
             # exists, its reminder job is the occurrence's ONLY reminder job. The

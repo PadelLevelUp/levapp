@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import type { InvitationMode, NotificationConfig } from "@/types";
-import { getNotificationConfig, updateNotificationConfig } from "@/api/notificationEngine";
+import { PAST_DUE_SEND_MAX, getNotificationConfig, sendPastDueReminders, updateNotificationConfig } from "@/api/notificationEngine";
+import type { PastDue, PastDueSendResult } from "@/api/notificationEngine";
+import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 import { RemindersSection } from "./RemindersSection";
+import { PastDueRemindersDialog } from "./PastDueRemindersDialog";
 import { InvitationGroupsSection, DEFAULT_INVITATION_GROUPS } from "./InvitationGroupsSection";
 import { EligibilitySection } from "./EligibilitySection";
 import { EligibilityImpactNote } from "./EligibilityImpactNote";
@@ -28,7 +31,7 @@ import { SaveLedger, createSerialSaver } from "@levelup/config";
 type SectionKey = "reminders" | "eligibility" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
 export function NotificationsEngineSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [config, setConfig] = useState<NotificationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
@@ -41,6 +44,16 @@ export function NotificationsEngineSection() {
   // last confirmed, decided only by that field's newest save.
   const sign = useSaveSign();
   const [rescheduleFailed, setRescheduleFailed] = useState(false);
+  // notifications.config rule 10f (PAD-478): what the newest timing save said is past due. The
+  // coach is asked once they have stopped editing, and only about classes not answered for in
+  // this visit. Nothing here is stored: a later visit that saves a timing asks again.
+  const { toast } = useToast();
+  const [pastDue, setPastDue] = useState<PastDue | null>(null);
+  const [pastDueUnknown, setPastDueUnknown] = useState(false);
+  const [pastDueSend, setPastDueSend] = useState<"idle" | "sending" | "failed">("idle");
+  const [remindersBusy, setRemindersBusy] = useState(false);
+  const timingSaves = useRef(0);
+  const answeredPastDue = useRef(new Set<string>());
   const ledger = useRef(new SaveLedger<NotificationConfig>());
   // settings.save-on-change rule 3: one engine save in flight at a time; patches waiting meanwhile are
   // merged and sent next, so the server ends in the order the saves were sent. The reminders sub-panel
@@ -69,6 +82,10 @@ export function NotificationsEngineSection() {
   const save = async (patch: Partial<NotificationConfig>, signKey: string) => {
     if (!config) return;
     const token = ledger.current.begin(patch);
+    // Only the newest timing save's answer may ask (rule 10f): an older one describes a
+    // configuration the coach has already moved on from.
+    const timingSave = "reminderTiming" in patch ? ++timingSaves.current : null;
+    if (timingSave !== null) setPastDue(null);
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
     const request = saveEngine(patch);
     const show = (values: Partial<NotificationConfig>) => {
@@ -80,12 +97,58 @@ export function NotificationsEngineSection() {
       // notifications.config rule 10c (PAD-478): saved, but the scheduled jobs were not re-armed.
       // The answer of a merged request speaks for every patch in it.
       if ("reminderTiming" in patch) setRescheduleFailed(saved.rescheduleFailed === true);
+      if (timingSave !== null && timingSave === timingSaves.current) {
+        setPastDueUnknown(saved.pastDueUnknown === true);
+        setPastDueSend("idle");
+        setPastDue(saved.pastDue ?? null);
+      }
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
     } catch {
       // Back to the confirmed value, for the fields whose newest save this was (B-243).
       show(ledger.current.fail(token));
+    }
+  };
+
+  const pastDueToAsk = (pastDue?.reminders ?? []).filter((c) => !answeredPastDue.current.has(c.key));
+  const answerPastDue = () => {
+    for (const c of pastDueToAsk) answeredPastDue.current.add(c.key);
+    setPastDue(null);
+    setPastDueSend("idle");
+  };
+  const sendPastDue = async () => {
+    const keys = pastDueToAsk.map((c) => c.key);
+    setPastDueSend("sending");
+    try {
+      // One request names at most PAST_DUE_SEND_MAX classes. A longer list goes in several, one
+      // after the other; if one fails the dialog stays open, and trying again is safe because
+      // the server checks every class again and sends nothing twice.
+      const result: PastDueSendResult = { sent: 0, scheduledFor: null, classes: [], skipped: 0 };
+      for (let from = 0; from < keys.length; from += PAST_DUE_SEND_MAX) {
+        const part = await sendPastDueReminders(keys.slice(from, from + PAST_DUE_SEND_MAX));
+        result.sent += part.sent;
+        result.skipped += part.skipped;
+        result.classes.push(...part.classes);
+        if (part.scheduledFor && (!result.scheduledFor || part.scheduledFor < result.scheduledFor)) {
+          result.scheduledFor = part.scheduledFor;
+        }
+      }
+      answerPastDue();
+      if (result.scheduledFor) {
+        const time = new Date(result.scheduledFor).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+        toast({ title: t(keys.length === 1 ? "settings.engine.pastDue.scheduledOne" : "settings.engine.pastDue.scheduledMany", { time }) });
+      } else if (result.sent > 0) {
+        const classes = result.classes.filter((c) => c.sent > 0).length || keys.length;
+        toast({
+          title: classes === 1 ? t("settings.engine.pastDue.sentOne") : t("settings.engine.pastDue.sentMany", { count: classes }),
+        });
+      } else {
+        // The server checks each class again: its reminder may have gone out in the meantime.
+        toast({ title: t("settings.engine.pastDue.nothingToSend") });
+      }
+    } catch {
+      setPastDueSend("failed");
     }
   };
 
@@ -111,6 +174,7 @@ export function NotificationsEngineSection() {
     const isDisabled = disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates";
     return (
       <CollapsibleTrigger
+        data-testid={`notification-engine-section-${sectionKey}`}
         className={`flex w-full items-center justify-between py-1 text-sm font-medium transition-colors ${
           isDisabled ? "opacity-40 pointer-events-none" : "hover:text-primary"
         }`}
@@ -130,6 +194,7 @@ export function NotificationsEngineSection() {
   }
 
   return (
+    <>
     <Card data-testid="notifications-engine-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2" data-testid="notification-engine-title">
@@ -217,6 +282,29 @@ export function NotificationsEngineSection() {
           onOpenChange={() => toggleSection("reminders")}
         >
           <SectionHeader sectionKey="reminders" icon={Bell} label={t("settings.engine.reminders")} />
+          {rescheduleFailed && (
+            // notifications.config rule 10c (PAD-478): the timing IS saved; the server could
+            // not re-arm the reminders of classes already scheduled. Not a failed save. Outside the
+            // collapsible content, like the note below: the answer can arrive after the section closed.
+            <p
+              role="status"
+              data-testid="notification-engine-reschedule-failed"
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.rescheduleFailed")}
+            </p>
+          )}
+          {pastDueUnknown && (
+            // Rule 10f: the timing IS saved; the server could not say whether a reminder is past due.
+            // Outside the collapsible content: the answer can arrive after the coach closed the section.
+            <p
+              role="status"
+              data-testid="notification-engine-past-due-unknown"
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.pastDueUnknown")}
+            </p>
+          )}
           <CollapsibleContent className="pt-1 pb-1">
             <div className="mb-3 flex items-start justify-between gap-2">
               <p className="text-xs text-muted-foreground">
@@ -224,17 +312,6 @@ export function NotificationsEngineSection() {
               </p>
               <SaveSign status={sign.status("reminders")} testId="notification-engine-reminders-sign" />
             </div>
-            {rescheduleFailed && (
-              // notifications.config rule 10c (PAD-478): the timing IS saved; the server could
-              // not re-arm the reminders of classes already scheduled. Not a failed save.
-              <p
-                role="status"
-                data-testid="notification-engine-reschedule-failed"
-                className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-              >
-                {t("settings.engine.rescheduleFailed")}
-              </p>
-            )}
             <RemindersSection
               reminderTiming={{
                 firstReminder: { type: "hours_before", value: 48 },
@@ -247,6 +324,7 @@ export function NotificationsEngineSection() {
               // Read from storage at the moment the section closes, not from the auth hook:
               // sign-out is what unmounts it, so a render-time value would still say "signed in".
               flushOnClose={() => localStorage.getItem("accessToken") !== null}
+              onBusyChange={setRemindersBusy}
               disabled={disabled}
             />
           </CollapsibleContent>
@@ -458,5 +536,16 @@ export function NotificationsEngineSection() {
         </Collapsible>
       </CardContent>
     </Card>
+    {pastDueToAsk.length > 0 && !remindersBusy && (
+      <PastDueRemindersDialog
+        classes={pastDueToAsk}
+        quietUntil={pastDue?.quietUntil ?? null}
+        sending={pastDueSend === "sending"}
+        failed={pastDueSend === "failed"}
+        onSend={() => void sendPastDue()}
+        onDecline={answerPastDue}
+      />
+    )}
+    </>
   );
 }
