@@ -105,3 +105,8 @@ includes the retry. `clubs.coach-invitation` rule 4 gains the same guarantee and
     (1 red); sign-up sends the code inside the unit (4 red); accept commits before the club link
     (1 red, after adding the club-link failure point).
 - **Unchanged and green:** adults-only, activation and D142 tests, and PAD-471's file (unedited).
+- **Review (specflow-request-review):** no load-bearing findings. Applied:
+  - `test_registration_is_atomic` is renamed `test_a_failure_before_the_levels_exist_leaves_no_account`,
+    with a docstring saying it covers the early case only;
+  - a test that the helper still commits outside a unit (a rollback after the call keeps the
+    levels). Mutant "the helper always flushes" turns it red.

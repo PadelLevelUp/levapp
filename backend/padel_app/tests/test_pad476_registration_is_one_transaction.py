@@ -5,7 +5,8 @@ request can then be retried.
 
 The failure is injected AFTER the real `create_default_levels_for_coach` has run, so the
 helper's own writes (and, before PAD-476, its own commit) are inside what is tested.
-`test_registration_is_atomic` replaced the helper with a stub that raised before doing
+`test_registration_is_atomic` (since renamed
+`test_a_failure_before_the_levels_exist_leaves_no_account`) replaced the helper with a stub that raised before doing
 anything, so the helper's commit never ran there (B-246).
 
 Run:
@@ -56,7 +57,6 @@ def test_a_failed_coach_signup_can_be_retried(client, app, monkeypatch):
     _fail_after_real_levels(monkeypatch)
     assert client.post("/api/auth/register", json=_coach()).status_code == 500
     monkeypatch.undo()
-    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
 
     retry = client.post("/api/auth/register", json=_coach())
 
@@ -169,7 +169,6 @@ def test_a_failed_invitation_accept_can_be_retried(client, app, monkeypatch):
     _fail_after_real_levels(monkeypatch)
     assert client.post(f"/api/app/coach-invitations/{token}/accept", json=_accept_body()).status_code == 500
     monkeypatch.undo()
-    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
 
     retry = client.post(f"/api/app/coach-invitations/{token}/accept", json=_accept_body())
 
@@ -178,7 +177,6 @@ def test_a_failed_invitation_accept_can_be_retried(client, app, monkeypatch):
         user = User.query.filter_by(username="new_coach").one()
         assert CoachLevel.query.filter_by(coach_id=user.coach.id).count() == 3
         assert _inv(token).one().status == "accepted"
-
 
 
 # --- The helper inside a unit of work ------------------------------------------------
@@ -205,4 +203,25 @@ def test_the_levels_helper_inside_a_unit_returns_its_levels_and_stays_idempotent
 
             assert len(first) == 3
             assert len(second) == 3
+        assert CoachLevel.query.filter_by(coach_id=coach.id).count() == 3
+
+
+def test_the_levels_helper_outside_a_unit_still_commits(app):
+    """Outside a unit of work the helper behaves as before PAD-476: its levels are durable.
+    A rollback right after the call must not take them away (create_coach_service relies on it)."""
+    from padel_app.models import Coach, CoachLevel, User
+    from padel_app.services.coach_service import create_default_levels_for_coach
+
+    with app.app_context():
+        user = User(name="Out", username="out", password="pw", status="active")
+        db.session.add(user)
+        db.session.flush()
+        coach = Coach(user_id=user.id)
+        db.session.add(coach)
+        db.session.commit()
+
+        levels = create_default_levels_for_coach(coach)
+        db.session.rollback()
+
+        assert len(levels) == 3
         assert CoachLevel.query.filter_by(coach_id=coach.id).count() == 3
