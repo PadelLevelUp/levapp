@@ -1061,8 +1061,9 @@ def add_class_service(data, coach, club, *, notify_students=True):
 
     # Schedule reminder jobs for all upcoming occurrences within the 60-day horizon
     if lesson.coaches_relations:
-        from padel_app.scheduler import schedule_lesson_reminder_jobs
-        schedule_lesson_reminder_jobs(lesson.id, lesson.coaches_relations[0].coach_id)
+        # PAD-478: the class is saved; a derivation that fails is logged, not raised.
+        from padel_app.scheduler import _maybe_schedule_lesson
+        _maybe_schedule_lesson(lesson.id, lesson.coaches_relations[0].coach_id)
 
     return lesson
 
@@ -1283,6 +1284,13 @@ def edit_class_service(data):
     # this tier, [] = everyone, a list = that bar. `scope` picks the tier.
     eligibility_touched = "eligibilityRules" in updates
     eligibility_rules = _normalize_eligibility_override(updates.get("eligibilityRules"))
+    if eligibility_touched:
+        # eligibility.rules rule 6 (PAD-481): an unknown level operation is
+        # refused before any write, as on the coach tier.
+        from padel_app.services.notification_service import unknown_eligibility_level_operations
+
+        if unknown_eligibility_level_operations(eligibility_rules):
+            return {"error": "invalid_fields", "fields": ["eligibilityRules"]}, 400
     # PAD-130: same tri-state contract for the open-spot toggle (None = inherit).
     visibility_touched = "openSpotsVisible" in updates
     open_spots_visible = updates.get("openSpotsVisible")
@@ -1516,7 +1524,9 @@ def edit_class_service(data):
             lesson_to_edit.save()
         # Schedule reminder jobs for the resulting lesson (may be same or new)
         if lesson_to_edit.coaches_relations:
-            schedule_lesson_reminder_jobs(lesson_to_edit.id, lesson_to_edit.coaches_relations[0].coach_id)
+            # PAD-478: the edit is saved; a derivation that fails is logged, not raised.
+            from padel_app.scheduler import _maybe_schedule_lesson
+            _maybe_schedule_lesson(lesson_to_edit.id, lesson_to_edit.coaches_relations[0].coach_id)
             try:
                 from padel_app.scheduler import prune_lesson_reminder_jobs
                 prune_lesson_reminder_jobs(lesson_to_edit.id)

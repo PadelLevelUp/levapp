@@ -26,6 +26,23 @@
       "custom": "Custom"
     },
     "manager": {
+      "moveTo": "Move to…",
+      "moveTopLevel": "No category",
+      "convert": "Convert to default category",
+      "convertTitle": "Convert “{{name}}” to {{label}}?",
+      "convertBecomes": "It becomes the default category {{label}}, with that name, and can hold sub-categories.",
+      "convertScores": "Every evaluation already given stays, each on the scale it was given on.",
+      "convertOldApp": "On an old version of the app you will no longer see this category or its evaluations.",
+      "convertIrreversible": "This can't be undone.",
+      "convertTarget": "Convert to:",
+      "convertMoveStrays": "Also move {{names}} to {{label}}",
+      "convertMoveStraysOff": "Also move {{names}} to {{label}} (they stay switched off)",
+      "convertConfirm": "Convert",
+      "convertDefaultHeld": "You already have the category {{label}}.",
+      "convertNameTaken": "You already have a category called {{label}}.",
+      "convertNotMoved_one": "“{{name}}” is now {{label}}, but {{names}} could not be moved: it stayed where it was and can still be moved with “Move to…”.",
+      "convertNotMoved_other": "“{{name}}” is now {{label}}, but {{names}} could not be moved: they stayed where they were and can still be moved with “Move to…”.",
+      "convertDone": "Close",
       "title": "Set up evaluation categories",
       "open": "Set up evaluation categories",
       "settingsTitle": "Evaluation categories",
@@ -75,7 +92,6 @@
       "hint": "How many classes between reminders",
       "caption": "The reminder only helps keep the history current — evaluating stays optional.",
       "invalidNumber": "Enter a whole number between 1 and 99.",
-      "saveFailed": "Could not save. Try again.",
       "dueLabel": "Evaluation due"
     },
     "scale": {
@@ -86,8 +102,7 @@
         "20": "1–20",
         "100": "1–100"
       },
-      "caption": "Past evaluations keep their own scale; new ones use the one you choose.",
-      "saveFailed": "Could not save. Try again."
+      "caption": "Past evaluations keep their own scale; new ones use the one you choose."
     },
     "settingsGroupTitle": "Evaluations"
   }

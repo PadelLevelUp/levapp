@@ -116,5 +116,10 @@ def parse_json(raw: str, label: str = "llm") -> dict:
             raise ValueError(f"Expected JSON object, got {type(result).__name__}")
         return result
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.error("[AI] %s bad JSON: %s\nRaw: %.500s", label, exc, raw)
+        # B-254: the length and the error's class, never the content. In the roster and evaluation
+        # import the raw output is players' names and coaching notes; reading it to debug is a
+        # deliberate, local act, not a default.
+        logger.error(
+            "[AI] %s bad JSON (%s, %d chars of output)", label, type(exc).__name__, len(raw or "")
+        )
         raise ValueError(f"LLM {label} returned invalid JSON: {exc}") from exc

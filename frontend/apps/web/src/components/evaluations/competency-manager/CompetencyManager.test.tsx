@@ -22,6 +22,7 @@ const api = vi.hoisted(() => ({
   updateEvaluationCompetency: vi.fn(),
   deleteEvaluationCompetency: vi.fn(),
   getEvaluationCompetencyImpact: vi.fn(),
+  convertEvaluationCompetency: vi.fn(),
 }));
 vi.mock("@levelup/api/src/resources/evaluationRecords", () => api);
 
@@ -120,7 +121,8 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
   });
 
   it("lists only the sections that have something, and no legacy caption without legacy rows", async () => {
-    open({ competencies: [TECHNIQUE, BANDEJA], catalogue: [{ key: "transition", group: "tactics" }] });
+    // The server offers a default the coach lacks with its sub-categories (B-255: without it, a legacy row holds its name).
+    open({ competencies: [TECHNIQUE, BANDEJA], catalogue: [{ key: "tactics", group: "general" }, { key: "transition", group: "tactics" }] });
 
     await row("key-bandeja");
     expect(screen.getAllByTestId(/^competency-section-/).map((el) => el.getAttribute("data-testid"))).toEqual(
@@ -437,5 +439,171 @@ describe("presentation (rule 14)", () => {
     expect(screen.getByTestId("competency-add-name")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("competency-manager-done"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("moving a row (rule 15 \"Moving\", PAD-480)", () => {
+  // A custom sub-category: the only kind that may go to the top level.
+  const LIFT = competency({ id: 14, name: "Saque liftado", group: "custom", parentId: 13 });
+  const WITH_LIFT: EvaluationCompetencies = { ...ANA, competencies: [...ANA.competencies, LIFT] };
+
+  it("a catalogue sub-category offers the other categories, never the top level; picking one sends parentId", async () => {
+    open();
+    api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
+
+    fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
+    const panel = screen.getByTestId("competency-move-panel-key-bandeja");
+    expect(within(panel).getByTestId("competency-move-to-key-bandeja-13")).toBeInTheDocument();
+    expect(within(panel).queryByTestId("competency-move-to-key-bandeja-top")).toBeNull(); // it would be a stray (B-255)
+    expect(within(panel).queryByTestId("competency-move-to-key-bandeja-7")).toBeNull(); // legacy: never a target
+    expect(within(panel).queryByTestId("competency-move-to-key-bandeja-1")).toBeNull(); // its current category
+
+    fireEvent.click(within(panel).getByTestId("competency-move-to-key-bandeja-13"));
+
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: 13 }));
+    await waitFor(() => expect(screen.queryByTestId("competency-move-panel-key-bandeja")).toBeNull());
+  });
+
+  it("a custom sub-category may go to the top level, which sends parentId null", async () => {
+    open(WITH_LIFT);
+    api.updateEvaluationCompetency.mockResolvedValue({ ...LIFT, parentId: null, sortOrder: null });
+
+    fireEvent.click(await screen.findByTestId("competency-move-id-14"));
+    fireEvent.click(screen.getByTestId("competency-move-to-id-14-top"));
+
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(14, { parentId: null }));
+  });
+
+  it("a legacy row and a default category offer no move", async () => {
+    open();
+    await row("id-7");
+    expect(screen.queryByTestId("competency-move-id-7")).toBeNull();
+    expect(screen.queryByTestId("competency-move-key-technique")).toBeNull();
+  });
+
+  it("a refused move says so on the row, and the row stays where it was", async () => {
+    open();
+    api.updateEvaluationCompetency.mockRejectedValue({ response: { status: 400, data: { error: "parent_invalid" } } });
+
+    fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
+    fireEvent.click(screen.getByTestId("competency-move-to-key-bandeja-13"));
+
+    expect(await screen.findByTestId("competency-error-key-bandeja")).toHaveTextContent("evaluations.manager.saveFailed");
+    expect(screen.getByTestId("competency-move-panel-key-bandeja")).toBeInTheDocument();
+  });
+});
+
+describe("converting a legacy category (rule 18, PAD-480)", () => {
+  // Coach 2 on prod: three legacy rows named like the defaults (trailing spaces as stored), and the two
+  // Técnica entries the migration left at the top level, switched off.
+  const TECNICA = competency({ id: 5, name: "Técnica ", group: null, scoreCount: 6 });
+  const TACTICA = competency({ id: 6, name: "Tactica ", group: null, scoreCount: 6 });
+  const VOLLEY = competency({ id: 10, name: "Volley", group: null });
+  const BANDEJA_OFF = competency({ id: 8, key: "bandeja", name: "Bandeja", group: "technique", parentId: null, isActive: false });
+  const SERVE_OFF = competency({ id: 9, key: "serve", name: "Serviço", group: "technique", parentId: null, isActive: false });
+  const COACH2: EvaluationCompetencies = {
+    competencies: [TECNICA, TACTICA, VOLLEY, BANDEJA_OFF, SERVE_OFF],
+    catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }],
+  };
+  const CONVERTED = { ...TECNICA, key: "technique", name: "Técnica", group: "general" as const };
+  // After a conversion whose move of Serviço failed: Bandeja under Técnica, Serviço still at the top level.
+  const AFTER: EvaluationCompetencies = {
+    competencies: [CONVERTED, TACTICA, VOLLEY, { ...BANDEJA_OFF, parentId: 5 }, SERVE_OFF],
+    catalogue: COACH2.catalogue,
+  };
+
+  afterEach(() => {
+    api.convertEvaluationCompetency.mockReset();
+    api.updateEvaluationCompetency.mockReset();
+  });
+
+  it("a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
+    open(COACH2);
+    expect(await screen.findByTestId("competency-convert-id-5")).toBeInTheDocument();
+    expect(screen.getByTestId("competency-convert-id-6")).toBeInTheDocument();
+    expect(screen.queryByTestId("competency-convert-id-10")).toBeNull();
+    expect(screen.queryByTestId("competency-section-key-tactics")).toBeNull();
+    expect(screen.getByTestId("competency-section-key-consistency")).toBeInTheDocument();
+  });
+
+  it("the dialog says what happens, then converts and moves the checked strays under it", async () => {
+    open(COACH2);
+    api.convertEvaluationCompetency.mockResolvedValue(CONVERTED);
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => ({ ...BANDEJA_OFF, id, parentId: 5 }));
+
+    fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
+    const dialog = await screen.findByTestId("competency-convert-dialog");
+    expect(within(dialog).getByTestId("competency-convert-old-app")).toHaveTextContent("evaluations.manager.convertOldApp");
+    expect(within(dialog).getByTestId("competency-convert-target-technique")).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).getByTestId("competency-convert-move")).toHaveAttribute("data-state", "checked");
+    expect(dialog).toHaveTextContent("evaluations.manager.convertMoveStraysOff");
+
+    fireEvent.click(within(dialog).getByTestId("competency-convert-confirm"));
+
+    await waitFor(() => expect(screen.queryByTestId("competency-convert-dialog")).toBeNull());
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique");
+    expect(api.updateEvaluationCompetency.mock.calls).toEqual([[8, { parentId: 5 }], [9, { parentId: 5 }]]);
+  });
+
+  it("a move that fails after the conversion is said, and the dialog stays until closed", async () => {
+    open(COACH2);
+    api.convertEvaluationCompetency.mockResolvedValue(CONVERTED);
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => {
+      if (id === 9) throw { response: { status: 400, data: { error: "parent_invalid" } } };
+      return { ...BANDEJA_OFF, parentId: 5 };
+    });
+
+    fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
+    api.getEvaluationCompetencies.mockResolvedValue(AFTER); // what the re-list reads
+    fireEvent.click(within(await screen.findByTestId("competency-convert-dialog")).getByTestId("competency-convert-confirm"));
+
+    const said = await screen.findByTestId("competency-convert-not-moved");
+    expect(said).toHaveTextContent("evaluations.manager.convertNotMoved");
+    expect(said).toHaveTextContent('"count":1');
+    expect(said).toHaveTextContent("Serviço");
+    fireEvent.click(screen.getByTestId("competency-convert-done"));
+    await waitFor(() => expect(screen.queryByTestId("competency-convert-dialog")).toBeNull());
+    // Serviço stayed at the top level and still offers "Mover para…".
+    expect(await screen.findByTestId("competency-move-key-serve")).toBeInTheDocument();
+  });
+
+  it("unchecked, the strays are not moved", async () => {
+    open(COACH2);
+    api.convertEvaluationCompetency.mockResolvedValue(CONVERTED);
+
+    fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
+    const dialog = await screen.findByTestId("competency-convert-dialog");
+    fireEvent.click(within(dialog).getByTestId("competency-convert-move"));
+    expect(within(dialog).getByTestId("competency-convert-move")).toHaveAttribute("data-state", "unchecked");
+    fireEvent.click(within(dialog).getByTestId("competency-convert-confirm"));
+
+    await waitFor(() => expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique"));
+    await waitFor(() => expect(screen.queryByTestId("competency-convert-dialog")).toBeNull());
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("another target can be picked", async () => {
+    open(COACH2);
+    api.convertEvaluationCompetency.mockResolvedValue({ ...TECNICA, key: "consistency", group: "general" });
+
+    fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
+    const dialog = await screen.findByTestId("competency-convert-dialog");
+    fireEvent.click(within(dialog).getByTestId("competency-convert-target-consistency"));
+    expect(within(dialog).queryByTestId("competency-convert-move")).toBeNull(); // Consistência has no strays
+    fireEvent.click(within(dialog).getByTestId("competency-convert-confirm"));
+
+    await waitFor(() => expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "consistency"));
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("a refused conversion says why and moves nothing", async () => {
+    open(COACH2);
+    api.convertEvaluationCompetency.mockRejectedValue({ response: { status: 409, data: { error: "default_held" } } });
+
+    fireEvent.click(await screen.findByTestId("competency-convert-id-6"));
+    fireEvent.click(within(await screen.findByTestId("competency-convert-dialog")).getByTestId("competency-convert-confirm"));
+
+    expect(await screen.findByTestId("competency-convert-failed")).toHaveTextContent("evaluations.manager.convertDefaultHeld");
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
   });
 });

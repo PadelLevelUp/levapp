@@ -8,6 +8,9 @@ import {
   activeCount,
   CATALOGUE_ORDER,
   categorySections,
+  moveTargets,
+  strandedSubs,
+  suggestConversion,
   competencyKind,
   legacyScaleLabel,
   managerSections,
@@ -228,16 +231,16 @@ describe("categorySections (PAD-431)", () => {
     expect(sections.map((s) => [s.id, s.subs.length, s.parentId])).toEqual([["key-technique", 8, null], ["id-1", 1, 1]]);
   });
 
-  it("a default the coach cannot be offered (they hold its name) still lists its sub-categories, under its name", () => {
-    const legacyTecnica = competency({ id: 9, key: null, name: "Técnica", group: null });
+  it("B-255: a default the coach cannot be offered (a legacy row holds its name) offers none of its sub-categories — they could not belong to it", () => {
+    const legacyTecnica = competency({ id: 9, key: null, name: " Técnica ", group: null });
     const bandejaTop = competency({ id: 10, key: "bandeja", group: "technique", parentId: null });
     const offered = CATALOGUE.filter((e) => e.group === "technique" && e.key !== "bandeja");
     const sections = categorySections({ competencies: [legacyTecnica, bandejaTop], catalogue: offered });
-    const technique = sections.find((s) => s.id === "key-technique")!;
-    expect([technique.head, technique.headKey, technique.parentId, technique.subs.length]).toEqual([null, "technique", null, 8]);
-    // the sub-level row the server left top-level is a category of its own, which cannot hold sub-categories
+    expect(sections.find((s) => s.id === "key-technique")).toBeUndefined();
+    // the sub-level row the server left top-level is still a category of its own
     expect(shape(sections).find((s) => s[0] === "key-bandeja")).toEqual(["key-bandeja", 10, [], null]);
   });
+
 
   it("a row whose category is missing from the list is shown on its own, never lost", () => {
     const stray = competency({ id: 8, key: null, name: "Stray", group: "custom", parentId: 99 });
@@ -250,5 +253,105 @@ describe("categorySections (PAD-431)", () => {
     const before = categorySections({ competencies: [...cats, ...subs], catalogue: [] });
     const flipped = [...cats.map((c, i) => (i === 0 ? { ...c, isActive: false } : c)), ...subs.map((c, i) => (i === 3 ? { ...c, isActive: false } : c))];
     expect(shape(categorySections({ competencies: flipped, catalogue: [] }))).toEqual(shape(before));
+  });
+});
+
+describe("moveTargets (rule 15 \"Moving\", PAD-480)", () => {
+  const technique = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+  // A default with no sub-categories (F4): still a default, so it never moves.
+  const consistency = competency({ id: 3, key: "consistency", name: "Consistência", group: "general", parentId: null });
+  const grit = competency({ id: 5, key: null, name: "Grit", group: "custom", parentId: null });
+  const rec = competency({ id: 6, key: null, name: "Recuperação", group: "custom", parentId: 5 });
+  const garra = competency({ id: 7, key: null, name: "Garra", group: "custom", parentId: null });
+  const smash = competency({ id: 2, key: "smash", group: "technique", parentId: 1 });
+  const bandejaTop = competency({ id: 12, key: "bandeja", group: "technique", parentId: null });
+  const data = {
+    competencies: [FOREHAND_LEGACY, technique, consistency, grit, rec, garra, smash, bandejaTop],
+    catalogue: [],
+  };
+
+  it("a catalogue sub-category goes under another category, never to the top level (it would be a stray)", () => {
+    expect(moveTargets(data, smash)).toEqual({ categories: [consistency, grit, garra], topLevel: false });
+  });
+
+  it("a custom sub-category may also go to the top level", () => {
+    expect(moveTargets(data, rec)).toEqual({ categories: [technique, consistency, garra], topLevel: true });
+  });
+
+  it("a top-level row with no sub-categories can go under any other category, not under itself", () => {
+    expect(moveTargets(data, bandejaTop)).toEqual({ categories: [technique, consistency, grit, garra], topLevel: false });
+    expect(moveTargets(data, garra)).toEqual({ categories: [technique, consistency, grit], topLevel: false });
+  });
+
+  it("a legacy row, a default category (with or without sub-categories) and a row holding sub-categories cannot move", () => {
+    expect(moveTargets(data, FOREHAND_LEGACY)).toBeNull();
+    expect(moveTargets(data, technique)).toBeNull();
+    expect(moveTargets(data, consistency)).toBeNull();
+    expect(moveTargets(data, grit)).toBeNull();
+  });
+
+  it("legacy rows, sub-categories and stranded catalogue sub-categories are never offered as a target", () => {
+    const targets = moveTargets(data, garra)!.categories.map((c) => c.id);
+    expect(targets).not.toContain(FOREHAND_LEGACY.id);
+    expect(targets).not.toContain(smash.id);
+    expect(targets).not.toContain(bandejaTop.id);
+  });
+});
+
+
+describe("converting a legacy category (rule 18, PAD-480)", () => {
+  const legacy = (id: number, name: string) => competency({ id, name, group: null });
+  const tecnica = legacy(5, "Técnica ");
+  const tactica = legacy(6, "Tactica ");
+  const consistencia = legacy(7, "Consistencia ");
+  const bandeja = competency({ id: 8, key: "bandeja", name: "Bandeja", group: "technique", parentId: null, isActive: false });
+  const servico = competency({ id: 9, key: "serve", name: "Serviço", group: "technique", parentId: null, isActive: false });
+  const coach2 = (extra: EvaluationCompetency[] = []): EvaluationCompetencies => ({
+    competencies: [tecnica, tactica, consistencia, bandeja, servico, ...extra],
+    catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }, { key: "smash", group: "technique" }],
+  });
+
+  it("each alias suggests its default, after trimming, case and accents (prod's names carry a trailing space)", () => {
+    const cases: [string, string][] = [
+      ["Técnica ", "technique"], ["tecnica", "technique"], ["Technique", "technique"],
+      ["Tática", "tactics"], ["Tactica ", "tactics"], ["Táctica", "tactics"], ["TACTICS", "tactics"],
+      ["Consistência", "consistency"], ["Consistencia ", "consistency"], ["consistency", "consistency"],
+    ];
+    for (const [name, key] of cases) {
+      expect(suggestConversion({ competencies: [legacy(1, name)], catalogue: [] }, legacy(1, name))?.suggested, name).toBe(key);
+    }
+  });
+
+  it("a near miss suggests nothing", () => {
+    for (const name of ["Tática avançada", "Tacticas", "Tecnico", "Técnica 2", "Consistente"]) {
+      expect(suggestConversion({ competencies: [legacy(1, name)], catalogue: [] }, legacy(1, name)), name).toBeNull();
+    }
+  });
+
+  it("the targets are every default the coach does not hold, the suggested one among them", () => {
+    expect(suggestConversion(coach2(), tactica)).toEqual({ suggested: "tactics", targets: ["technique", "tactics", "consistency"] });
+    const held = competency({ id: 20, key: "technique", name: "Técnica", group: "general", parentId: null });
+    expect(suggestConversion(coach2([held]), tactica)).toEqual({ suggested: "tactics", targets: ["tactics", "consistency"] });
+  });
+
+  it("no offer for a held default, or for a row that is not legacy", () => {
+    const tatica = competency({ id: 21, key: "tactics", name: "Tática", group: "general", parentId: null });
+    expect(suggestConversion(coach2([tatica]), tactica)).toBeNull();
+    expect(suggestConversion(coach2(), competency({ id: 22, name: "Tactica", group: "custom" }))).toBeNull();
+  });
+
+  it("the manager offers the conversion, not the add, for a default a legacy row suggests", () => {
+    const ids = categorySections(coach2()).map((s) => s.id);
+    expect(ids).not.toContain("key-tactics");
+    expect(ids).not.toContain("key-consistency");
+    // A default nothing suggests is still offered as an add.
+    const plain = categorySections({ competencies: [legacy(1, "Volley")], catalogue: [{ key: "tactics", group: "general" }] });
+    expect(plain.map((s) => s.id)).toContain("key-tactics");
+  });
+
+  it("the strays a conversion offers to move are the top-level catalogue rows of that group", () => {
+    expect(strandedSubs(coach2(), "technique")).toEqual([bandeja, servico]);
+    expect(strandedSubs(coach2(), "tactics")).toEqual([]);
+    expect(strandedSubs(coach2(), "consistency")).toEqual([]);
   });
 });

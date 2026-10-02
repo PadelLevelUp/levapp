@@ -30,15 +30,35 @@ def count_attempts(instance_id, player_id) -> int:
     of that pair, `_expire_stale_reminders`, runs only for a class that is over,
     which `send_class_reminders` already refuses to send for.
     """
+    return _query(instance_id, player_id).filter(_counted()).count()
+
+
+def _counted():
+    """The attempts that count toward the cap: everything but the voided ones (superseded
+    AND expired). One expression, shared by the single and the bulk count."""
     from padel_app.models import ReminderAttempt
 
-    return (
-        _query(instance_id, player_id)
-        .filter(
-            ~(ReminderAttempt.superseded.is_(True) & ReminderAttempt.expired.is_(True))
-        )
-        .count()
+    return ~(ReminderAttempt.superseded.is_(True) & ReminderAttempt.expired.is_(True))
+
+
+def count_attempts_bulk(instance_ids) -> dict:
+    """`count_attempts` for every (instance, player) of `instance_ids`, in one query:
+    ``{(instance_id, player_id): n}``; a pair with no counted attempt is absent (read it
+    with ``.get(pair, 0)``). PAD-478: the past-due listing asks this for every class at once."""
+    from sqlalchemy import func
+
+    from padel_app.models import ReminderAttempt
+
+    ids = list(instance_ids)
+    if not ids:
+        return {}
+    rows = (
+        db.session.query(ReminderAttempt.lesson_instance_id, ReminderAttempt.player_id, func.count(ReminderAttempt.id))
+        .filter(ReminderAttempt.lesson_instance_id.in_(ids), _counted())
+        .group_by(ReminderAttempt.lesson_instance_id, ReminderAttempt.player_id)
+        .all()
     )
+    return {(instance_id, player_id): n for instance_id, player_id, n in rows}
 
 
 def void_for_return(instance_id, player_id):

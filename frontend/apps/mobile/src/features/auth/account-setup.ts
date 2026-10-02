@@ -29,6 +29,8 @@
  */
 import { isUnderSignupAge } from "@levelup/config";
 import { toIso } from "./signup-form";
+import type { authApi } from "@levelup/api";
+import { needsEmailVerification } from "@/auth/postLoginRoute";
 import { z } from "zod";
 
 import { parseUniversalLink } from "@/lib/universalLinks";
@@ -138,6 +140,8 @@ export const coachInviteSchema = z
   .object({
     name: z.string().min(2, "nameMin"),
     username: z.string().min(3, "usernameMin"),
+    // clubs.coach-invitation rule 9 (PAD-477): confirmed with a code after the accept.
+    email: z.string().trim().email("emailInvalid"),
     ...passwordPair,
     ...birthDateField,
   })
@@ -220,4 +224,34 @@ export function statusFromError(error: unknown): number | undefined {
 /** Convenience: `statusFromError` + `submitOutcomeForStatus`. */
 export function submitOutcomeForError(error: unknown): SubmitOutcome {
   return submitOutcomeForStatus(statusFromError(error));
+}
+
+const DASHBOARD = "/(tabs)/dashboard";
+
+/** clubs.coach-invitation rule 9 (PAD-477): the accept body, with the trimmed email. */
+export function coachInviteAcceptPayload(values: Record<string, string>) {
+  return {
+    name: values.name,
+    username: values.username,
+    email: (values.email ?? "").trim(),
+    password: values.password,
+    birthDate: toIso(values.birthDate) ?? "",
+  };
+}
+
+/** Rule 9: the server's email refusals, as the form's own message keys. */
+export function coachInviteEmailError(error: unknown): "emailTaken" | "emailInvalid" | undefined {
+  const res = (error as { response?: { status?: number; data?: { field?: string } } } | null)?.response;
+  if (res?.data?.field !== "email") return undefined;
+  if (res.status === 409) return "emailTaken";
+  if (res.status === 400) return "emailInvalid";
+  return undefined;
+}
+
+/** Rule 9: a pending account confirms its email first, as after sign-up
+ * (auth.email-verification rule 8), then goes on to the dashboard. */
+export function coachInviteLanding(me: authApi.MeResponse | null | undefined): string {
+  return needsEmailVerification(me)
+    ? `/verify-email?next=${encodeURIComponent(DASHBOARD)}`
+    : DASHBOARD;
 }

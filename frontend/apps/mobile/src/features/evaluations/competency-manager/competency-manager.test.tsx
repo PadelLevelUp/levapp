@@ -76,10 +76,14 @@ const api = vi.hoisted(() => ({
   updateEvaluationCompetency: vi.fn(),
   deleteEvaluationCompetency: vi.fn(),
   getEvaluationCompetencyImpact: vi.fn(),
+  convertEvaluationCompetency: vi.fn(),
 }));
 
 // Exposed by the "@levelup/hooks" mock below; captures the list query's own `refetch`
 // so the test can force a second read (test 2) without a real QueryClient.
+// Every reader of the list registers here, as every observer of one react-query query would refetch
+// together (PAD-480: each row now reads the list too, for where it may move).
+const listReaders = new Set<() => void>();
 let listRefetch: (() => void) | null = null;
 
 vi.mock("@levelup/hooks", async () => {
@@ -120,7 +124,8 @@ vi.mock("@levelup/hooks", async () => {
   return {
     useEvaluationCompetencies: (enabled = true) => {
       const q = useFakeQuery(api.getEvaluationCompetencies, null, enabled);
-      listRefetch = q.refetch; // captured at render time — a test-only escape hatch
+      listReaders.add(q.refetch);
+      listRefetch = () => listReaders.forEach((refetch) => refetch()); // a test-only escape hatch
       return q;
     },
     useCreateCustomCompetency: () =>
@@ -131,6 +136,20 @@ vi.mock("@levelup/hooks", async () => {
         api.updateEvaluationCompetency(args.id, args.patch)),
     useSwitchOnCatalogueCompetency: () => useFakeMutation((key: string) => api.switchOnCatalogueCompetency(key)),
     useDeleteEvaluationCompetency: () => useFakeMutation((id: number) => api.deleteEvaluationCompetency(id)),
+    // Verbatim copy of packages/hooks/src/evaluations.ts's mutationFn (tested there, competencyConvert.test.tsx).
+    useConvertEvaluationCompetency: () =>
+      useFakeMutation(async ({ id, catalogueKey, moveIds }: { id: number; catalogueKey: string; moveIds: number[] }) => {
+        const competency = await api.convertEvaluationCompetency(id, catalogueKey);
+        const notMoved: number[] = [];
+        for (const moveId of moveIds) {
+          try {
+            await api.updateEvaluationCompetency(moveId, { parentId: competency.id });
+          } catch {
+            notMoved.push(moveId);
+          }
+        }
+        return { competency, notMoved };
+      }),
     useEvaluationCompetencyImpact: (competencyId: number | null, enabled = true) =>
       useFakeQuery<EvaluationCategoryImpact>(
         () => api.getEvaluationCompetencyImpact(competencyId as number),
@@ -177,6 +196,7 @@ vi.mock("@/components/ui/alert-dialog", async () => {
 import { AddCustomCompetency } from "./add-custom-competency";
 import { CompetencyRow } from "./competency-row";
 import { DeleteCompetencyDialog } from "./delete-competency-dialog";
+import { ConvertCompetencyDialog } from "./convert-competency-dialog";
 import { CategorySectionView } from "./category-section";
 import { useEvaluationCompetencies } from "@levelup/hooks";
 import { View } from "react-native";
@@ -223,6 +243,7 @@ beforeEach(() => {
   api.getEvaluationCompetencyImpact.mockResolvedValue({ scores: 0, players: 0 });
   settleLanguage();
   listRefetch = null;
+  listReaders.clear();
 });
 
 describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-392/B-155 family)", () => {
@@ -257,6 +278,7 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
     await n.changeText("competency-add-name", "Maestro Cat");
 
     api.getEvaluationCompetencies.mockResolvedValue(DATA_V2);
+    const readsBefore = api.getEvaluationCompetencies.mock.calls.length;
     await act(async () => {
       listRefetch?.();
     });
@@ -264,7 +286,8 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
 
     expect(n.byTestId("competency-add-name").props.value).toBe("Maestro Cat");
     expect(n.queryByTestId("competency-row-id-9")).not.toBeNull();
-    expect(api.getEvaluationCompetencies).toHaveBeenCalledTimes(2);
+    // The list was read again (each reader of the shim reads for itself; PAD-480's rows read it too).
+    expect(api.getEvaluationCompetencies.mock.calls.length).toBeGreaterThan(readsBefore);
   });
 
   it("a successful add DOES clear the field — by design (Session-C)", async () => {
@@ -323,7 +346,7 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
     return createElement(
       View,
       null,
-      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: setDeleting })),
+      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: setDeleting, onConvert: () => {} })),
       createElement(DeleteCompetencyDialog, { competency: deleting, subNames, onClose: () => setDeleting(null) }),
     );
   }
@@ -372,5 +395,209 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
     await n.flush();
 
     expect(n.queryByTestId("competency-delete-subs")).not.toBeNull();
+  });
+});
+
+describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
+  const TECHNIQUE = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+  const BANDEJA = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique", parentId: 1 });
+  const SAQUE = competency({ id: 13, name: "Saque cruzado", group: "custom", parentId: null });
+  // A custom sub-category: the only kind that may go to the top level.
+  const LIFT = competency({ id: 14, name: "Saque liftado", group: "custom", parentId: 13 });
+  const DATA: EvaluationCompetencies = { competencies: [TECHNIQUE, BANDEJA, FOREHAND, SAQUE, LIFT], catalogue: [] };
+  const rowOf = (c: EvaluationCompetency, rowKind: "catalogue" | "custom" | "legacy") =>
+    createElement(CompetencyRow, { row: { kind: "existing", competency: c, rowKind }, onDelete: () => {}, level: "sub" });
+
+  beforeEach(() => {
+    api.getEvaluationCompetencies.mockReset().mockResolvedValue(DATA);
+    api.updateEvaluationCompetency.mockReset();
+  });
+
+  it("a catalogue sub-category offers the other categories, never the top level; picking one sends parentId", async () => {
+    api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
+    const n = await renderNative(rowOf(BANDEJA, "catalogue"));
+    await n.flush();
+
+    await n.press("competency-move-key-bandeja");
+    expect(n.queryByTestId("competency-move-to-key-bandeja-13")).not.toBeNull();
+    expect(n.queryByTestId("competency-move-to-key-bandeja-top")).toBeNull(); // it would be a stray (B-255)
+    expect(n.queryByTestId("competency-move-to-key-bandeja-7")).toBeNull(); // legacy: never a target
+    expect(n.queryByTestId("competency-move-to-key-bandeja-1")).toBeNull(); // its current category
+
+    await n.press("competency-move-to-key-bandeja-13");
+    await n.flush();
+
+    expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: 13 });
+    expect(n.queryByTestId("competency-move-panel-key-bandeja")).toBeNull();
+  });
+
+  it("a custom sub-category may go to the top level, which sends parentId null", async () => {
+    api.updateEvaluationCompetency.mockResolvedValue({ ...LIFT, parentId: null, sortOrder: null });
+    const n = await renderNative(rowOf(LIFT, "custom"));
+    await n.flush();
+
+    await n.press("competency-move-id-14");
+    await n.press("competency-move-to-id-14-top");
+    await n.flush();
+
+    expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(14, { parentId: null });
+  });
+
+  it("a legacy row and a default category offer no move", async () => {
+    const legacy = await renderNative(rowOf(FOREHAND, "legacy"));
+    await legacy.flush();
+    expect(legacy.queryByTestId("competency-move-id-7")).toBeNull();
+    const technique = await renderNative(rowOf(TECHNIQUE, "catalogue"));
+    await technique.flush();
+    expect(technique.queryByTestId("competency-move-key-technique")).toBeNull();
+  });
+
+  it("a refused move says so on the row", async () => {
+    api.updateEvaluationCompetency.mockRejectedValue({ response: { status: 400, data: { error: "parent_invalid" } } });
+    const n = await renderNative(rowOf(BANDEJA, "catalogue"));
+    await n.flush();
+
+    await n.press("competency-move-key-bandeja");
+    await n.press("competency-move-to-key-bandeja-13");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-error-key-bandeja")).not.toBeNull();
+  });
+});
+
+// PAD-480 (evaluations.competencies rule 18): converting a legacy category on iOS, the same test ids as web.
+describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
+  // Coach 2 on prod: legacy rows named like the defaults (trailing spaces as stored), and the two
+  // Técnica entries the migration left at the top level, switched off.
+  const TECNICA = competency({ id: 5, name: "Técnica ", group: null });
+  const TACTICA = competency({ id: 6, name: "Tactica ", group: null });
+  const VOLLEY = competency({ id: 10, name: "Volley", group: null });
+  const BANDEJA_OFF = competency({ id: 8, key: "bandeja", name: "Bandeja", group: "technique", parentId: null, isActive: false });
+  const SERVE_OFF = competency({ id: 9, key: "serve", name: "Serviço", group: "technique", parentId: null, isActive: false });
+  const COACH2: EvaluationCompetencies = {
+    competencies: [TECNICA, TACTICA, VOLLEY, BANDEJA_OFF, SERVE_OFF],
+    catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }],
+  };
+  const CONVERTED = { ...TECNICA, key: "technique", name: "Técnica", group: "general" as const };
+  // After a conversion whose move of Serviço failed: Bandeja under Técnica, Serviço still at the top level.
+  const AFTER: EvaluationCompetencies = {
+    competencies: [CONVERTED, TACTICA, VOLLEY, { ...BANDEJA_OFF, parentId: 5 }, SERVE_OFF],
+    catalogue: COACH2.catalogue,
+  };
+
+  function ConvertHarness() {
+    const competencies = useEvaluationCompetencies(true);
+    const [converting, setConverting] = useState<EvaluationCompetency | null>(null);
+    const sections = competencies.data ? categorySections(competencies.data) : [];
+    return createElement(
+      View,
+      null,
+      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: () => {}, onConvert: setConverting })),
+      createElement(ConvertCompetencyDialog, { competency: converting, onClose: () => setConverting(null) }),
+    );
+  }
+
+  beforeEach(() => {
+    api.getEvaluationCompetencies.mockReset().mockResolvedValue(COACH2);
+    api.convertEvaluationCompetency.mockReset().mockResolvedValue(CONVERTED);
+    api.updateEvaluationCompetency.mockReset();
+  });
+
+  it("a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    expect(n.queryByTestId("competency-convert-id-5")).not.toBeNull();
+    expect(n.queryByTestId("competency-convert-id-6")).not.toBeNull();
+    expect(n.queryByTestId("competency-convert-id-10")).toBeNull();
+    expect(n.queryByTestId("competency-section-key-tactics")).toBeNull();
+    expect(n.queryByTestId("competency-section-key-consistency")).not.toBeNull();
+  });
+
+  it("the dialog says what happens, then converts and moves the checked strays under it", async () => {
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => ({ ...BANDEJA_OFF, id, parentId: 5 }));
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    expect(n.queryByTestId("competency-convert-old-app")).not.toBeNull();
+    expect(n.byTestId("competency-convert-target-technique").props.accessibilityState.selected).toBe(true);
+    expect(n.byTestId("competency-convert-move").props.accessibilityState.checked).toBe(true);
+
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique");
+    expect(api.updateEvaluationCompetency.mock.calls).toEqual([[8, { parentId: 5 }], [9, { parentId: 5 }]]);
+    expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
+  });
+
+  it("a move that fails after the conversion is said, and the dialog stays until closed", async () => {
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => {
+      if (id === 9) throw { response: { status: 400, data: { error: "parent_invalid" } } };
+      return { ...BANDEJA_OFF, parentId: 5 };
+    });
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-convert-not-moved")).not.toBeNull();
+    await n.press("competency-convert-done");
+    await n.flush();
+    expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
+    // The re-list reads the new state: Serviço stayed at the top level and still offers "Mover para…".
+    api.getEvaluationCompetencies.mockResolvedValue(AFTER);
+    act(() => listRefetch?.());
+    await n.flush();
+    expect(n.queryByTestId("competency-move-key-serve")).not.toBeNull();
+  });
+
+  it("unchecked, the strays are not moved", async () => {
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    await n.press("competency-convert-move");
+    expect(n.byTestId("competency-convert-move").props.accessibilityState.checked).toBe(false);
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique");
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("another target can be picked", async () => {
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    await n.press("competency-convert-target-consistency");
+    expect(n.queryByTestId("competency-convert-move")).toBeNull(); // Consistência has no strays
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "consistency");
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("a refused conversion says why and moves nothing", async () => {
+    api.convertEvaluationCompetency.mockRejectedValue({ response: { status: 409, data: { error: "default_held" } } });
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-6");
+    await n.flush();
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-convert-failed")).not.toBeNull();
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
   });
 });

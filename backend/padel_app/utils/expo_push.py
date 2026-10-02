@@ -41,6 +41,14 @@ def _headers() -> dict:
     return headers
 
 
+def _token_tail(token) -> str:
+    """B-254: enough of a device token to tell two devices apart in a log, never the whole token."""
+    core = str(token or "")
+    if core.endswith("]"):
+        core = core[:-1]
+    return f"...{core[-6:]}"
+
+
 def _chunks(items, size):
     for i in range(0, len(items), size):
         yield items[i : i + size]
@@ -116,14 +124,19 @@ def send_expo_push(
                 # reaches stderr. Losing a device token silently is exactly
                 # what made PAD-118 ("no push arrived") undiagnosable.
                 logger.warning(
-                    "Deleting stale Expo device token (DeviceNotRegistered): %s", token
+                    "Deleting stale Expo device token (DeviceNotRegistered): %s", _token_tail(token)
                 )
                 # Rule 9 (PAD-269): several users may hold the token; retire it for all.
                 if DeviceToken.query.filter_by(token=token).delete(synchronize_session=False):
                     db.session.commit()
             else:
+                # B-254: the status and Expo's error code, not the receipt's message (it quotes
+                # the whole token).
                 logger.warning(
-                    "Expo push receipt error for token=%s: %s", token, receipt
+                    "Expo push receipt error for token=%s: status=%s error=%s",
+                    _token_tail(token),
+                    receipt.get("status") if isinstance(receipt, dict) else None,
+                    error_type,
                 )
 
     return any_success

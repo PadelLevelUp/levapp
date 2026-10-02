@@ -91,10 +91,25 @@ export function __appStateListenerCount(): number {
   return appStateListeners.size;
 }
 
+const announcements: string[] = [];
+
+/** Mirrors RN's AccessibilityInfo.announceForAccessibility; what was announced is kept for tests. */
+export const AccessibilityInfo = {
+  announceForAccessibility(message: string) {
+    announcements.push(message);
+  },
+};
+
+/** Test-only: what screen readers were told, in order (settings.save-on-change rule 2). */
+export function __announcements(): string[] {
+  return [...announcements];
+}
+
 /** Test-only: drop every listener and restore the default platform. */
 export function __resetReactNativeMock(): void {
   listeners.clear();
   appStateListeners.clear();
+  announcements.length = 0;
   AppState.currentState = "active";
   Platform.OS = "ios";
 }

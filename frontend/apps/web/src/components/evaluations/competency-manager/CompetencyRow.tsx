@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil, Trash2 } from "lucide-react";
-import { competencyLabel, legacyScaleLabel, type ManagerRow } from "@levelup/config";
+import { ArrowUpCircle, CornerDownRight, Pencil, Trash2 } from "lucide-react";
+import { competencyLabel, legacyScaleLabel, moveTargets, suggestConversion, type ManagerRow } from "@levelup/config";
 import {
   evaluationApiErrorCode,
+  useEvaluationCompetencies,
   useSwitchOnCatalogueCompetency,
   useUpdateEvaluationCompetency,
 } from "@levelup/hooks";
@@ -23,6 +24,8 @@ interface CompetencyRowProps {
   onDelete: (competency: EvaluationCompetency) => void;
   /** PAD-431: a category heads its section; a sub-category is indented under it. */
   level?: "category" | "sub";
+  /** PAD-480 (rule 18): opens the conversion dialog for a legacy row that suggests a default. */
+  onConvert?: (competency: EvaluationCompetency) => void;
 }
 
 /**
@@ -30,7 +33,7 @@ interface CompetencyRowProps {
  * when made: while its request is in flight the row is disabled — one request per
  * tap — and a failure puts the switch back and says so on this row.
  */
-export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyRowProps) {
+export function CompetencyRow({ row, onDelete, level = "category", onConvert }: CompetencyRowProps) {
   const { t } = useTranslation();
   const switchOn = useSwitchOnCatalogueCompetency();
   const update = useUpdateEvaluationCompetency();
@@ -38,6 +41,8 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState("");
+  const [moving, setMoving] = useState(false);
+  const competencies = useEvaluationCompetencies();
   // A ref, not state: two taps in the same frame both see the state from before the
   // first one, and the API being idempotent is no reason to send the second request.
   const inFlight = useRef(false);
@@ -53,6 +58,10 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
   const checked = wanted ?? competency?.isActive ?? false;
   // PAD-431 (rules 8, 9): every row the coach holds can be renamed and deleted, a default included.
   const editable = kind !== "available";
+  // PAD-480 (rule 15 "Moving"): where this row may go; null when it cannot move.
+  const targets = competency && competencies.data ? moveTargets(competencies.data, competency) : null;
+  // PAD-480 (rule 18): a legacy row named like a default the coach does not hold.
+  const convertible = onConvert && competency && competencies.data ? suggestConversion(competencies.data, competency) !== null : false;
 
   const fail = (error: unknown) =>
     setErrorKey(evaluationApiErrorCode(error) === "duplicate_name" ? "duplicateName"
@@ -83,6 +92,17 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
     try {
       await update.mutateAsync({ id: competency.id, patch: { name } });
       setRenaming(false);
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const move = async (parentId: number | null) => {
+    if (!competency || busy) return;
+    setErrorKey(null);
+    try {
+      await update.mutateAsync({ id: competency.id, patch: { parentId } });
+      setMoving(false);
     } catch (error) {
       fail(error);
     }
@@ -141,6 +161,32 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
             >
               <Pencil className="h-4 w-4" />
             </Button>
+            {targets && (targets.categories.length > 0 || targets.topLevel) ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                data-testid={`competency-move-${rowId}`}
+                aria-label={`${t("evaluations.manager.moveTo")}: ${label}`}
+                aria-expanded={moving}
+                disabled={busy}
+                onClick={() => { setErrorKey(null); setMoving((open) => !open); }}
+              >
+                <CornerDownRight className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {convertible ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                data-testid={`competency-convert-${rowId}`}
+                aria-label={`${t("evaluations.manager.convert")}: ${label}`}
+                title={t("evaluations.manager.convert")}
+                disabled={busy}
+                onClick={() => onConvert?.(competency)}
+              >
+                <ArrowUpCircle className="h-4 w-4" />
+              </Button>
+            ) : null}
             <Button
               size="icon"
               variant="ghost"
@@ -161,6 +207,25 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
           onCheckedChange={(next) => void toggle(next)}
         />
       </div>
+      {moving && targets ? (
+        <div data-testid={`competency-move-panel-${rowId}`} className="flex flex-wrap items-center gap-2 pl-1">
+          <span className="text-xs text-muted-foreground">{t("evaluations.manager.moveTo")}</span>
+          {targets.categories.map((target) => (
+            <Button key={target.id} size="sm" variant="outline" disabled={busy}
+              data-testid={`competency-move-to-${rowId}-${target.id}`}
+              onClick={() => void move(target.id)}>
+              {competencyLabel(t, target)}
+            </Button>
+          ))}
+          {targets.topLevel ? (
+            <Button size="sm" variant="outline" disabled={busy}
+              data-testid={`competency-move-to-${rowId}-top`}
+              onClick={() => void move(null)}>
+              {t("evaluations.manager.moveTopLevel")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {errorKey ? (
         <p data-testid={`competency-error-${rowId}`} role="alert" className="text-xs text-destructive">
           {t(`evaluations.manager.${errorKey}`)}

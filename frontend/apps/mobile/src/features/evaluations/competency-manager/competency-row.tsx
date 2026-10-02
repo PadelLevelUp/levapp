@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { competencyLabel, legacyScaleLabel, lightTheme, type ManagerRow } from "@levelup/config";
+import { competencyLabel, legacyScaleLabel, lightTheme, moveTargets, suggestConversion, type ManagerRow } from "@levelup/config";
 import {
   evaluationApiErrorCode,
+  useEvaluationCompetencies,
   useSwitchOnCatalogueCompetency,
   useUpdateEvaluationCompetency,
 } from "@levelup/hooks";
@@ -26,6 +27,8 @@ interface CompetencyRowProps {
   onDelete: (competency: EvaluationCompetency) => void;
   /** PAD-431: a category heads its section; a sub-category is indented under it. */
   level?: "category" | "sub";
+  /** PAD-480 (rule 18): opens the conversion dialog for a legacy row that suggests a default. */
+  onConvert?: (competency: EvaluationCompetency) => void;
 }
 
 /**
@@ -35,7 +38,7 @@ interface CompetencyRowProps {
  * it, since two taps in one frame see the same state), and a failure puts the switch back
  * and says so on this row.
  */
-export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyRowProps) {
+export function CompetencyRow({ row, onDelete, level = "category", onConvert }: CompetencyRowProps) {
   const { t } = useTranslation();
   const switchOn = useSwitchOnCatalogueCompetency();
   const update = useUpdateEvaluationCompetency();
@@ -43,6 +46,8 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
   const [errorKey, setErrorKey] = React.useState<string | null>(null);
   const [renaming, setRenaming] = React.useState(false);
   const [draftName, setDraftName] = React.useState("");
+  const [moving, setMoving] = React.useState(false);
+  const competencies = useEvaluationCompetencies();
   const inFlight = React.useRef(false);
 
   const rowId = managerRowId(row);
@@ -56,6 +61,10 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
   const checked = wanted ?? competency?.isActive ?? false;
   // PAD-431 (rules 8, 9): every row the coach holds can be renamed and deleted, a default included.
   const editable = kind !== "available";
+  // PAD-480 (rule 15 "Moving"): where this row may go; null when it cannot move.
+  const targets = competency && competencies.data ? moveTargets(competencies.data, competency) : null;
+  // PAD-480 (rule 18): a legacy row named like a default the coach does not hold.
+  const convertible = onConvert && competency && competencies.data ? suggestConversion(competencies.data, competency) !== null : false;
 
   const fail = (error: unknown) => {
     const code = evaluationApiErrorCode(error);
@@ -87,6 +96,17 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
     try {
       await update.mutateAsync({ id: competency.id, patch: { name } });
       setRenaming(false);
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const move = async (parentId: number | null) => {
+    if (!competency || busy) return;
+    setErrorKey(null);
+    try {
+      await update.mutateAsync({ id: competency.id, patch: { parentId } });
+      setMoving(false);
     } catch (error) {
       fail(error);
     }
@@ -136,6 +156,31 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
               >
                 <Ionicons name="pencil" size={18} color={lightTheme.foreground} />
               </Button>
+              {targets && (targets.categories.length > 0 || targets.topLevel) ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  testID={`competency-move-${rowId}`}
+                  accessibilityLabel={`${t("evaluations.manager.moveTo")}: ${label}`}
+                  accessibilityState={{ expanded: moving, disabled: busy }}
+                  disabled={busy}
+                  onPress={() => { setErrorKey(null); setMoving((open) => !open); }}
+                >
+                  <Ionicons name="return-down-forward-outline" size={18} color={lightTheme.foreground} />
+                </Button>
+              ) : null}
+              {convertible ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  testID={`competency-convert-${rowId}`}
+                  accessibilityLabel={`${t("evaluations.manager.convert")}: ${label}`}
+                  disabled={busy}
+                  onPress={() => onConvert?.(competency)}
+                >
+                  <Ionicons name="arrow-up-circle-outline" size={18} color={lightTheme.foreground} />
+                </Button>
+              ) : null}
               <Button
                 variant="ghost"
                 size="icon"
@@ -157,6 +202,25 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
           />
         </View>
       )}
+      {moving && targets ? (
+        <View testID={`competency-move-panel-${rowId}`} className="flex-row flex-wrap items-center gap-2">
+          <Text className="text-xs text-muted-foreground">{t("evaluations.manager.moveTo")}</Text>
+          {targets.categories.map((target) => (
+            <Button key={target.id} size="sm" variant="outline" disabled={busy}
+              testID={`competency-move-to-${rowId}-${target.id}`}
+              onPress={() => void move(target.id)}>
+              <Text>{competencyLabel(t, target)}</Text>
+            </Button>
+          ))}
+          {targets.topLevel ? (
+            <Button size="sm" variant="outline" disabled={busy}
+              testID={`competency-move-to-${rowId}-top`}
+              onPress={() => void move(null)}>
+              <Text>{t("evaluations.manager.moveTopLevel")}</Text>
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
       {errorKey ? (
         <Text testID={`competency-error-${rowId}`} role="alert" className="text-xs text-destructive">
           {t(`evaluations.manager.${errorKey}`)}

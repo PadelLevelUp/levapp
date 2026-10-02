@@ -57,6 +57,8 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 2. **Three kinds of row.** *Legacy* (`competency_group` NULL): every category that existed before
    this leaf, and every one created by a legacy endpoint or the import. *Catalogue*
    (`catalogue_key` set, group `general`/`technique`/`tactics`). *Custom* (group `custom`, no key).
+   A legacy row stays legacy unless the coach converts it into a default category (rule 18).
+   Nothing turns a row legacy.
 3. **(AV-003) Scale.** Catalogue and custom competencies are created on **the coach's scale**
    (`evaluations.scale` rules 1–2; 1–5 unless the coach chose another) and rated with five whole
    stars on 1–5 or a slider on 1–10/20/100 (`evaluations.scale` rule 7; PAD-423 partly reverses
@@ -164,8 +166,28 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
     - **Two levels, never more.** A parent must be one of the coach's own **non-legacy
       categories** (`parent_id` NULL, `competency_group` not NULL); anything else → 400 (another
       coach's → 403). A legacy row is never a parent or a sub-category (R-047), and a
-      sub-category never has sub-categories. Moving a sub-category to another category is not
-      offered.
+      sub-category never has sub-categories.
+    - **Moving (PAD-480, reverses D150's "moving is not offered").** A non-legacy row that is not a
+      default category and holds no sub-categories can be moved under any of the coach's own
+      non-legacy categories; a custom one can also go to the top level. `PATCH /evaluation_competency/<id>`
+      `{parentId: <id>}` moves it under that category; `{parentId: null}` makes a custom row a category; an
+      absent `parentId` changes nothing (rule 10), so a client that sends only `name`, `isActive` or
+      `sortOrder` (every build before PAD-480) never detaches a row. A move to the parent the row
+      already has is a no-op (200). Refused, 400 `parent_invalid`, nothing written: a legacy row or a
+      legacy target (R-047); a default category (`general`) as the row; a row with sub-categories; a
+      target that is itself a sub-category, or a sub-level catalogue row at the top level (a stray: it
+      could then not be moved under its default); the row itself; `{parentId: null}` for a catalogue
+      row (it would be a stray, B-255). Another coach's row or target → 403. A
+      move keeps the row's id, name, flag, scores and each score's scale, and sets its `sortOrder` to
+      `null`, so it sorts after its new siblings' ordered rows, by name (rule 8). Rule 16 then decides
+      afresh what is scored for the old and the new category, and rule 9's cascade and impact follow
+      the new parent. A move, and a create with `parentId`, hold the coach's row (`SELECT … FOR
+      UPDATE`) before reading the tree, so two at once cannot leave three levels. The manager offers
+      the move as a row action, "Mover para…", listing the eligible categories and, for a custom row,
+      "Sem categoria".
+    - **No new strays (PAD-480, B-255).** Where a legacy row holds a default category's name, the
+      manager does not offer that default's sub-categories: they could not belong to it (the next
+      bullet's API path would create each as a category of its own). The API path stays.
     - **Creating.** `POST /evaluation_competency` accepts `parentId` with `{name}` or with a
       sub-level `{catalogueKey}` (a `technique` / `tactics` group entry). A sub-level catalogue
       entry sent without `parentId` goes under the coach's category keyed by its group word
@@ -195,6 +217,44 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
     competency, as today; nothing derives a category's figure from its sub-categories, and any
     future figure that combines competencies counts **scored leaves only** — a history score on a
     category with sub-categories is never added in.
+18. **(PAD-480, owner decision 2026-10-02; R-047 rule 9) Converting a legacy category into a
+    default category.** `POST /api/app/evaluation_competency/<id>/convert` with `{catalogueKey}`
+    (`technique`, `tactics` or `consistency`) turns one of the coach's legacy rows into that default
+    category. Only the coach's explicit act does this.
+    - **What changes.** `competency_group` becomes `general` and `catalogue_key` the key; `name`
+      becomes the default's Portuguese label (rule 1); `scale_min`/`scale_max` become the coach's
+      scale (`evaluations.scale` rule 2).
+    - **What stays.** Its id, `is_active`, `sort_order` and `parent_id` (NULL), and every score on
+      it, each on its own scale snapshot (`evaluations.scale` rules 3, 6).
+    - **Afterwards** it is the coach's default category in every respect: it holds sub-categories
+      (rule 15, and the manager offers the default's missing ones under it), rule 16 decides what is
+      scored, and it can be renamed (rule 8) or deleted (rule 9).
+    - **Refused, nothing written, checked in this order:** 404 `competency_not_found` (no such row)
+      and 403 another coach's row; 400 `body_invalid` (the body is not an object); 400
+      `catalogue_key_invalid` (absent, not a string, or not a `general` key); 400 `not_legacy` (the
+      row is not legacy); 409 `default_held` (the coach holds a row with that `catalogue_key`); 409
+      `name_taken` (another of the coach's rows holds the label, compared as rule 6 does). A request
+      that loses a race to another row on the (coach, key) or (coach, name) index is answered the
+      same way. A score on the row that the PAD-423 backfill left without a snapshot is stamped with
+      the row's old scale before the row takes the coach's scale, so every score keeps its own.
+    - **The server matches no names.** The manager offers "Converter em categoria padrão" on a
+      legacy row whose name, trimmed, whitespace-collapsed, case- and accent-folded, equals an alias
+      of a default the coach does not hold: its pt and en labels, and "tactica" for `tactics`
+      (`SUGGESTION_ALIASES`, `packages/config/src/competency-manager.ts`). The fold only suggests;
+      rules 4, 6 and 15 keep their own comparison. Where a legacy row suggests a default, the manager
+      offers the conversion instead of that default's "add" (the server still accepts the POST).
+      The dialog names the target (changeable to another unheld default) and the consequences, and
+      lists the default's top-level sub-level rows (rule 15's strays, e.g. Bandeja) to move under it,
+      checked; after converting, the client moves each with rule 15's `PATCH {parentId}`, and says
+      which, if any, it could not move (they stay where they were, offered "Mover para…").
+    - **Not reversible:** nothing turns it back.
+    - **Known limits.** (a) App Store builds 27 and 28 predate this rule: their manager offers the
+      default's "add" beside the legacy row, and a default added there is held, so the legacy row
+      no longer offers conversion on web and iOS; deleting the empty default brings the offer back.
+      (b) App Store 1.1.0's editor posts its whole category list with the names it read; saved
+      after the conversion from a list read before it, the legacy upsert (R-047 rule 5) creates a
+      legacy row with the old name, empty at first; the next 1.1.0 evaluation save posts it a
+      midpoint score (3 on 1–5), as it does every legacy category. The coach can delete it (rule 9).
 
 ### Touches
 - `settings.role-scope` — its coach-only Preferences list names "evaluation categories"; the
@@ -329,6 +389,90 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 - **Given** an authenticated student
 - **When** they open a link carrying `?competencies=open` (web) or `/competencies` (iOS)
 - **Then** no manager is shown
+
+#### A row moves under another category, and back (rule 15 "Moving", PAD-480)
+- **Given** coach Ana's top-level catalogue sub-category Bandeja (id 12, 4 scores, sortOrder 2) and her
+  custom category Grit (id 30) with no sub-categories
+- **When** she sends `PATCH /api/app/evaluation_competency/12` `{"parentId": 30}`
+- **Then** Bandeja's `parentId` is 30, its `sortOrder` is null, its 4 scores and their scales are
+  unchanged, and Grit (now holding an active sub-category) is no longer offered for scoring (rule 16)
+- **When** she sends `{"parentId": null}`
+- **Then** Bandeja is a category again, scored directly
+
+#### A move that breaks the two levels or R-047 is refused, and nothing changes (rule 15, PAD-480)
+- **Given** Ana's legacy "Forehand" (id 7), her Consistência (id 3, `general`), Grit (id 30) with the
+  sub-category Recuperação (id 31), Bandeja (id 12) and Bruno's category id 50
+- **When** she moves 7 under 30; 12 under 7; 3 under 30; 30 under another category; 12 under 31;
+  12 under 12; 12 under 50
+- **Then** each is 400 `parent_invalid` (403 for 50) and no row changes
+
+#### A move to the parent the row already has changes nothing (rule 15, PAD-480)
+- **Given** Recuperação (id 31) under Grit (id 30), sortOrder 1
+- **When** Ana sends `{"parentId": 30}`
+- **Then** 200, and parentId 30 and sortOrder 1 are kept
+
+#### An edit that does not send parentId keeps the parent (rule 15, PAD-480)
+- **Given** Recuperação (id 31) under Grit (id 30)
+- **When** a client sends `{"name": "Recuperação ativa"}` or `{"isActive": false}`
+- **Then** its `parentId` is still 30
+
+#### Deleting the new parent takes the moved row with it (rules 9, 15; PAD-480)
+- **Given** Bandeja (id 12, 4 scores) moved under Grit (id 30)
+- **When** Ana reads the impact of deleting Grit, then deletes it
+- **Then** the impact counts Bandeja's 4 scores, and Bandeja and its scores are gone with Grit
+
+#### No sub-categories are offered under a default whose name a legacy row holds (rule 15, B-255)
+- **Given** coach Rui holds a legacy " Técnica " and no Técnica row
+- **When** he opens "Definir categorias de avaliação"
+- **Then** no Técnica heading offers sub-categories; his top-level catalogue rows are still listed
+
+#### A legacy row converts into a default category and keeps its scores (rule 18, PAD-480)
+- **Given** coach Ana holds the legacy " Técnica " (id 5, 1–5) with Rui's score 4
+- **When** she posts `{"catalogueKey": "technique"}` to `/evaluation_competency/5/convert`
+- **Then** row 5 has `key` technique, `group` general, `name` "Técnica", the same flag and order,
+  and Rui's score is still 4 on 1–5
+
+#### The converted row takes the coach's scale; its scores keep the one they were given on (rule 18)
+- **Given** Ana's scale is 1–10 and her legacy " Técnica " holds a 4 given on 1–5
+- **When** she converts it
+- **Then** the row is 1–10 and the score is still 4 with its 1–5 snapshot
+
+#### A conversion that cannot be made is refused, and nothing changes (rule 18)
+- **Given** Ana's custom "Grit", her legacy " Técnica " and "técnica", and a held "Tática"
+- **When** she converts Grit (400 `not_legacy`), " Técnica " to `bandeja` or with no key (400
+  `catalogue_key_invalid`), " Técnica " to `tactics` (409 `default_held`), " Técnica " to
+  `technique` (409 `name_taken`)
+- **Then** no row and no score changed
+
+#### After conversion the old builds' endpoints no longer see it (rule 18, R-047 rule 9)
+- **Given** Ana converted " Técnica " (id 5), which holds a score
+- **When** an App Store 1.1.0 build lists categories, reads the profile, posts a score for 5, and
+  deletes 5 through the legacy endpoint
+- **Then** 5 is not listed and not on the profile, the score is answered 200 and not stored, and
+  the delete is 403
+
+#### A stale 1.1.0 editor recreates the old name as an empty legacy row (rule 18 known limit)
+- **Given** Ana converted " Técnica "
+- **When** a 1.1.0 editor read before the conversion posts `[{"name": " Técnica ", …}]`
+- **Then** a new, empty legacy " Técnica " exists beside the converted "Técnica", which is unchanged,
+  and Ana can delete it
+
+#### The converted row holds the default's sub-categories (rules 15, 18)
+- **Given** Ana converted " Técnica " (id 5); her Smash was created top-level before it
+- **When** she adds `{"catalogueKey": "vibora"}` and moves Smash with `{parentId: 5}`
+- **Then** both have `parentId` 5
+
+#### The manager offers the conversion, not the add, for a default a legacy row suggests (rule 18)
+- **Given** Ana holds the legacy "Tactica " and no "Tática"
+- **When** she opens the manager
+- **Then** "Tactica " offers "Converter em categoria padrão" with Tática as the target, and Tática
+  is not offered as "add"; a legacy "Tática avançada" offers nothing
+
+#### A move that fails after the conversion is said (rule 18)
+- **Given** Ana converts " Técnica " with Bandeja and Serviço checked, and the move of Serviço fails
+- **When** the conversion and the moves have answered
+- **Then** the dialog says " Técnica " is now Técnica and Serviço was not moved, and Serviço still
+  offers "Mover para…"
 
 ### Notes
 - ASSUMED by the building slice (PAD-373), none of them in the canvas: (1) "Técnica" and

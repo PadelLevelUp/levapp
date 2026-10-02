@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import type { InvitationMode, NotificationConfig } from "@/types";
-import { getNotificationConfig, updateNotificationConfig } from "@/api/notificationEngine";
+import { PAST_DUE_SEND_MAX, getNotificationConfig, sendPastDueReminders, updateNotificationConfig } from "@/api/notificationEngine";
+import type { PastDue, PastDueSendResult } from "@/api/notificationEngine";
+import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 import { RemindersSection } from "./RemindersSection";
+import { PastDueRemindersDialog } from "./PastDueRemindersDialog";
 import { InvitationGroupsSection, DEFAULT_INVITATION_GROUPS } from "./InvitationGroupsSection";
 import { EligibilitySection } from "./EligibilitySection";
 import { EligibilityImpactNote } from "./EligibilityImpactNote";
@@ -22,11 +25,13 @@ import { RestrictionsPanel } from "./RestrictionsPanel";
 import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
+import { SaveSign, useSaveSign } from "./SaveSign";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 
 type SectionKey = "reminders" | "eligibility" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
 export function NotificationsEngineSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [config, setConfig] = useState<NotificationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [openSection, setOpenSection] = useState<SectionKey | null>(null);
@@ -34,29 +39,116 @@ export function NotificationsEngineSection() {
   // PAD-150 (rule 9b): who the last saved bar would exclude; `null` = no bar
   // saved yet this visit. Stored as data, never as translated text.
   const [eligibilityImpact, setEligibilityImpact] = useState<EligibilityImpactEntry[] | null>(null);
+  // settings.save-on-change rules 2-3 / B-243 (PAD-473): each control signs its save under its own
+  // key, and what a failure puts back comes from the shared SaveLedger: per field, the value the server
+  // last confirmed, decided only by that field's newest save.
+  const sign = useSaveSign();
+  const [rescheduleFailed, setRescheduleFailed] = useState(false);
+  // notifications.config rule 10f (PAD-478): what the newest timing save said is past due. The
+  // coach is asked once they have stopped editing, and only about classes not answered for in
+  // this visit. Nothing here is stored: a later visit that saves a timing asks again.
+  const { toast } = useToast();
+  const [pastDue, setPastDue] = useState<PastDue | null>(null);
+  const [pastDueUnknown, setPastDueUnknown] = useState(false);
+  const [pastDueSend, setPastDueSend] = useState<"idle" | "sending" | "failed">("idle");
+  const [remindersBusy, setRemindersBusy] = useState(false);
+  const timingSaves = useRef(0);
+  const answeredPastDue = useRef(new Set<string>());
+  const ledger = useRef(new SaveLedger<NotificationConfig>());
+  // settings.save-on-change rule 3: one engine save in flight at a time; patches waiting meanwhile are
+  // merged and sent next, so the server ends in the order the saves were sent. The reminders sub-panel
+  // goes through it too (PAD-478), after its own pause (RemindersSection).
+  const [saveEngine] = useState(() =>
+    createSerialSaver(
+      (patch: Partial<NotificationConfig>) => updateNotificationConfig(patch),
+      (pending, next) => ({ ...pending, ...next }),
+    ),
+  );
 
   useEffect(() => {
     getNotificationConfig()
       // Normalize: invitationMode must always be a concrete value so the
       // RadioGroup is fully controlled and never fires a spurious change.
-      .then((cfg) =>
-        setConfig({ ...cfg, invitationMode: cfg.invitationMode ?? "automatic" })
-      )
+      .then((cfg) => {
+        const loaded = { ...cfg, invitationMode: cfg.invitationMode ?? "automatic" };
+        ledger.current.seed(loaded);
+        setConfig(loaded);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const save = async (patch: Partial<NotificationConfig>) => {
+  // `signKey` names the control's sign. Every engine control has one, the reminders sub-panel
+  // included since PAD-478 (settings.save-on-change rule 1).
+  const save = async (patch: Partial<NotificationConfig>, signKey: string) => {
     if (!config) return;
-    const updated = { ...config, ...patch };
-    setConfig(updated);
+    const token = ledger.current.begin(patch);
+    // Only the newest timing save's answer may ask (rule 10f): an older one describes a
+    // configuration the coach has already moved on from.
+    const timingSave = "reminderTiming" in patch ? ++timingSaves.current : null;
+    if (timingSave !== null) setPastDue(null);
+    setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
+    const request = saveEngine(patch);
+    const show = (values: Partial<NotificationConfig>) => {
+      if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
+    };
     try {
-      const saved = await updateNotificationConfig(patch);
+      const saved = await sign.track(signKey, request);
+      show(ledger.current.confirm(token, saved).show);
+      // notifications.config rule 10c (PAD-478): saved, but the scheduled jobs were not re-armed.
+      // The answer of a merged request speaks for every patch in it.
+      if ("reminderTiming" in patch) setRescheduleFailed(saved.rescheduleFailed === true);
+      if (timingSave !== null && timingSave === timingSaves.current) {
+        setPastDueUnknown(saved.pastDueUnknown === true);
+        setPastDueSend("idle");
+        setPastDue(saved.pastDue ?? null);
+      }
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
     } catch {
-      // Revert on failure
-      setConfig(config);
+      // Back to the confirmed value, for the fields whose newest save this was (B-243).
+      show(ledger.current.fail(token));
+    }
+  };
+
+  const pastDueToAsk = (pastDue?.reminders ?? []).filter((c) => !answeredPastDue.current.has(c.key));
+  const answerPastDue = () => {
+    for (const c of pastDueToAsk) answeredPastDue.current.add(c.key);
+    setPastDue(null);
+    setPastDueSend("idle");
+  };
+  const sendPastDue = async () => {
+    const keys = pastDueToAsk.map((c) => c.key);
+    setPastDueSend("sending");
+    try {
+      // One request names at most PAST_DUE_SEND_MAX classes. A longer list goes in several, one
+      // after the other; if one fails the dialog stays open, and trying again is safe because
+      // the server checks every class again and sends nothing twice.
+      const result: PastDueSendResult = { sent: 0, scheduledFor: null, classes: [], skipped: 0 };
+      for (let from = 0; from < keys.length; from += PAST_DUE_SEND_MAX) {
+        const part = await sendPastDueReminders(keys.slice(from, from + PAST_DUE_SEND_MAX));
+        result.sent += part.sent;
+        result.skipped += part.skipped;
+        result.classes.push(...part.classes);
+        if (part.scheduledFor && (!result.scheduledFor || part.scheduledFor < result.scheduledFor)) {
+          result.scheduledFor = part.scheduledFor;
+        }
+      }
+      answerPastDue();
+      if (result.scheduledFor) {
+        const time = new Date(result.scheduledFor).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+        toast({ title: t(keys.length === 1 ? "settings.engine.pastDue.scheduledOne" : "settings.engine.pastDue.scheduledMany", { time }) });
+      } else if (result.sent > 0) {
+        const classes = result.classes.filter((c) => c.sent > 0).length || keys.length;
+        toast({
+          title: classes === 1 ? t("settings.engine.pastDue.sentOne") : t("settings.engine.pastDue.sentMany", { count: classes }),
+        });
+      } else {
+        // The server checks each class again: its reminder may have gone out in the meantime.
+        toast({ title: t("settings.engine.pastDue.nothingToSend") });
+      }
+    } catch {
+      setPastDueSend("failed");
     }
   };
 
@@ -82,6 +174,7 @@ export function NotificationsEngineSection() {
     const isDisabled = disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates";
     return (
       <CollapsibleTrigger
+        data-testid={`notification-engine-section-${sectionKey}`}
         className={`flex w-full items-center justify-between py-1 text-sm font-medium transition-colors ${
           isDisabled ? "opacity-40 pointer-events-none" : "hover:text-primary"
         }`}
@@ -101,6 +194,7 @@ export function NotificationsEngineSection() {
   }
 
   return (
+    <>
     <Card data-testid="notifications-engine-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2" data-testid="notification-engine-title">
@@ -115,7 +209,10 @@ export function NotificationsEngineSection() {
         {/* Master toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium" data-testid="notification-engine-auto-notify-label">{t("settings.engine.automaticNotifications")}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium" data-testid="notification-engine-auto-notify-label">{t("settings.engine.automaticNotifications")}</p>
+              <SaveSign status={sign.status("autoNotify")} testId="notification-engine-auto-notify-sign" />
+            </div>
             <p className="text-xs text-muted-foreground">
               {t("settings.engine.automaticNotificationsDescription")}
             </p>
@@ -128,10 +225,10 @@ export function NotificationsEngineSection() {
                 setGroupsInitializing(true);
                 setOpenSection("groups");
                 await new Promise((r) => setTimeout(r, 700));
-                await save({ autoNotifyEnabled: true, invitationGroups: DEFAULT_INVITATION_GROUPS });
+                await save({ autoNotifyEnabled: true, invitationGroups: DEFAULT_INVITATION_GROUPS }, "autoNotify");
                 setGroupsInitializing(false);
               } else {
-                save({ autoNotifyEnabled: val });
+                save({ autoNotifyEnabled: val }, "autoNotify");
               }
             }}
           />
@@ -141,7 +238,10 @@ export function NotificationsEngineSection() {
         {config.autoNotifyEnabled && (
           <div className="space-y-2" data-testid="notification-engine-invitation-mode">
             <div>
-              <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
+                <SaveSign status={sign.status("invitationMode")} testId="notification-engine-invitation-mode-sign" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t("settings.engine.invitationModeDescription")}
               </p>
@@ -153,7 +253,7 @@ export function NotificationsEngineSection() {
                 // ({invitationMode} only) so this save can never overwrite
                 // other config fields (backend patches only provided keys).
                 if (value !== (config.invitationMode ?? "automatic")) {
-                  save({ invitationMode: value as InvitationMode });
+                  save({ invitationMode: value as InvitationMode }, "invitationMode");
                 }
               }}
               className="gap-2"
@@ -182,10 +282,36 @@ export function NotificationsEngineSection() {
           onOpenChange={() => toggleSection("reminders")}
         >
           <SectionHeader sectionKey="reminders" icon={Bell} label={t("settings.engine.reminders")} />
-          <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.remindersHint")}
+          {rescheduleFailed && (
+            // notifications.config rule 10c (PAD-478): the timing IS saved; the server could
+            // not re-arm the reminders of classes already scheduled. Not a failed save. Outside the
+            // collapsible content, like the note below: the answer can arrive after the section closed.
+            <p
+              role="status"
+              data-testid="notification-engine-reschedule-failed"
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.rescheduleFailed")}
             </p>
+          )}
+          {pastDueUnknown && (
+            // Rule 10f: the timing IS saved; the server could not say whether a reminder is past due.
+            // Outside the collapsible content: the answer can arrive after the coach closed the section.
+            <p
+              role="status"
+              data-testid="notification-engine-past-due-unknown"
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.pastDueUnknown")}
+            </p>
+          )}
+          <CollapsibleContent className="pt-1 pb-1">
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {t("settings.engine.remindersHint")}
+              </p>
+              <SaveSign status={sign.status("reminders")} testId="notification-engine-reminders-sign" />
+            </div>
             <RemindersSection
               reminderTiming={{
                 firstReminder: { type: "hours_before", value: 48 },
@@ -194,7 +320,11 @@ export function NotificationsEngineSection() {
                 invitationStart: { type: "hours_before", value: 24 },
                 ...config.reminderTiming,
               }}
-              onChange={(reminderTiming) => save({ reminderTiming })}
+              onChange={(reminderTiming) => save({ reminderTiming }, "reminders")}
+              // Read from storage at the moment the section closes, not from the auth hook:
+              // sign-out is what unmounts it, so a render-time value would still say "signed in".
+              flushOnClose={() => localStorage.getItem("accessToken") !== null}
+              onBusyChange={setRemindersBusy}
               disabled={disabled}
             />
           </CollapsibleContent>
@@ -211,21 +341,25 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="eligibility" icon={ShieldCheck} label={t("settings.engine.eligibility")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.eligibilityHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("settings.engine.eligibilityHint")}</p>
+              <SaveSign status={sign.status("eligibility")} testId="notification-engine-eligibility-sign" />
+            </div>
             <EligibilitySection
               rules={config.eligibilityRules}
-              onChange={(eligibilityRules) => save({ eligibilityRules })}
+              onChange={(eligibilityRules) => save({ eligibilityRules }, "eligibility")}
               disabled={disabled}
             />
             <EligibilityImpactNote affected={eligibilityImpact} />
             {/* PAD-130 (eligibility.open-spot-visibility rule 3): the coach standard. */}
             <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
-              <span className="text-xs">{t("settings.eligibility.openSpots.label")}</span>
+              <span className="flex items-center gap-2 text-xs">
+                {t("settings.eligibility.openSpots.label")}
+                <SaveSign status={sign.status("openSpots")} testId="notification-engine-open-spots-sign" />
+              </span>
               <Switch
                 checked={config.openSpotsVisible ?? false}
-                onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible })}
+                onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible }, "openSpots")}
                 disabled={disabled}
                 aria-label={t("settings.eligibility.openSpots.label")}
                 data-testid="open-spots-visible"
@@ -243,9 +377,10 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="groups" icon={Layers} label={t("settings.engine.invitationGroups")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.invitationGroupsHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("settings.engine.invitationGroupsHint")}</p>
+              <SaveSign status={sign.status("groups")} testId="notification-engine-groups-sign" />
+            </div>
             {groupsInitializing ? (
               <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -254,7 +389,7 @@ export function NotificationsEngineSection() {
             ) : (
               <InvitationGroupsSection
                 groups={config.invitationGroups ?? []}
-                onChange={(invitationGroups) => save({ invitationGroups })}
+                onChange={(invitationGroups) => save({ invitationGroups }, "groups")}
                 disabled={disabled}
               />
             )}
@@ -270,12 +405,13 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="tiebreakers" icon={ArrowUpDown} label={t("settings.engine.tiebreakers")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.tiebreakersHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("settings.engine.tiebreakersHint")}</p>
+              <SaveSign status={sign.status("tiebreakers")} testId="notification-engine-tiebreakers-sign" />
+            </div>
             <TiebreakersSection
               tiebreakers={config.tiebreakers && config.tiebreakers.length > 0 ? config.tiebreakers : DEFAULT_TIEBREAKERS}
-              onChange={(tiebreakers) => save({ tiebreakers })}
+              onChange={(tiebreakers) => save({ tiebreakers }, "tiebreakers")}
               disabled={disabled}
             />
           </CollapsibleContent>
@@ -290,6 +426,9 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="restrictions" icon={ShieldAlert} label={t("settings.engine.restrictions")} />
           <CollapsibleContent className="pt-3">
+            <div className="mb-2 flex justify-end">
+              <SaveSign status={sign.status("restrictions")} testId="notification-engine-restrictions-sign" />
+            </div>
             <RestrictionsPanel
               restrictions={{
                 maxInactiveTime: { enabled: false, value: 120 },
@@ -299,7 +438,7 @@ export function NotificationsEngineSection() {
                 ...config.restrictions,
               }}
               excludedPlayerNames={config.excludedPlayerNames ?? {}}
-              onChange={(restrictions) => save({ restrictions })}
+              onChange={(restrictions) => save({ restrictions }, "restrictions")}
               disabled={disabled}
             />
           </CollapsibleContent>
@@ -324,9 +463,12 @@ export function NotificationsEngineSection() {
             )}
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
+            <div className="mb-2 flex justify-end">
+              <SaveSign status={sign.status("notifyGroups")} testId="notification-engine-notifyGroups-sign" />
+            </div>
             <NotificationGroupsSection
               groups={config.notificationGroups ?? []}
-              onChange={(notificationGroups) => save({ notificationGroups })}
+              onChange={(notificationGroups) => save({ notificationGroups }, "notifyGroups")}
             />
           </CollapsibleContent>
         </Collapsible>
@@ -394,5 +536,16 @@ export function NotificationsEngineSection() {
         </Collapsible>
       </CardContent>
     </Card>
+    {pastDueToAsk.length > 0 && !remindersBusy && (
+      <PastDueRemindersDialog
+        classes={pastDueToAsk}
+        quietUntil={pastDue?.quietUntil ?? null}
+        sending={pastDueSend === "sending"}
+        failed={pastDueSend === "failed"}
+        onSend={() => void sendPastDue()}
+        onDecline={answerPastDue}
+      />
+    )}
+    </>
   );
 }

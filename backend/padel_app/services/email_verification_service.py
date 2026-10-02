@@ -112,7 +112,9 @@ def send_code(user, now=None):
     try:
         _deliver(user, code)
     except Exception as exc:  # noqa: BLE001 — surface as 503, never 500
-        current_app.logger.warning("verification mail to %s failed: %s", user.email, exc)
+        # B-254: the user id and the exception class, never the address or the exception text (an SMTP
+        # refusal names the recipient).
+        current_app.logger.warning("verification mail to user %s failed: %s", user.id, type(exc).__name__)
         _clear_code(user)
         user.email_verification_sent_at = None
         db.session.commit()
@@ -144,7 +146,10 @@ def begin_verification(user, now=None):
     try:
         _deliver(user, code)
     except Exception as exc:  # noqa: BLE001 — the account still exists; "send a new code" recovers
-        current_app.logger.warning("first verification mail to %s failed: %s", user.email, exc)
+        # B-254: the user id and the exception class, never the address or the exception text.
+        current_app.logger.warning(
+            "first verification mail to user %s failed: %s", user.id, type(exc).__name__
+        )
         _clear_code(user)
         user.email_verification_sent_at = None
     db.session.commit()

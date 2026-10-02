@@ -179,6 +179,7 @@ export function CoachLevelsSection() {
               return (
                 <View key={draft.id} className="flex-row items-center gap-2">
                   <Input
+                    testID={`level-code-${index}`}
                     accessibilityLabel={t("settings.coachLevels.code")}
                     placeholder={t("settings.coachLevels.codePlaceholder")}
                     className="w-20"
@@ -186,6 +187,7 @@ export function CoachLevelsSection() {
                     onChangeText={(v) => handleChange(draft.id, "code", v)}
                   />
                   <Input
+                    testID={`level-label-${index}`}
                     accessibilityLabel={t("settings.coachLevels.label")}
                     placeholder={t("settings.coachLevels.labelPlaceholder")}
                     className="flex-1"

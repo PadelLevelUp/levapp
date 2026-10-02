@@ -177,7 +177,7 @@ export function JoinCoachScreen({ token }: { token: string | null }) {
       <>
         <CardHeader className="items-center">
           {icon("checkmark-circle-outline")}
-          <CardTitle className="text-center">{t("players.joinCoach.successTitle")}</CardTitle>
+          <CardTitle className="text-center">{t("players.joinCoach.successTitle", { coach: result.coachName })}</CardTitle>
           <CardDescription className="text-center">
             {result.alreadyMember
               ? t("players.joinCoach.alreadyMember", { coach: result.coachName })

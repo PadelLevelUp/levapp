@@ -211,17 +211,30 @@ def _name_taken(coach, name, *, except_id=None) -> bool:
 SUB_LEVEL_GROUPS = ("technique", "tactics")
 
 
+def _lock_tree(coach):
+    """Rule 15: serialises one coach's tree changes. Two requests that each pass the two-level check
+    ("X under Y" and "Y under Z") could otherwise leave three levels; holding the coach row until the
+    commit makes the second read what the first wrote. A no-op on SQLite."""
+    from padel_app.models.coaches import Coach
+
+    db.session.query(Coach.id).filter(Coach.id == coach.id).with_for_update().first()
+
+
 def _parent(coach, value) -> EvaluationCategory:
     """Rule 15: a parent is one of the coach's own non-legacy categories — never a sub-category,
-    never a legacy row (R-047). Another coach's → 403; anything else → 400."""
+    never a legacy row (R-047), never a sub-level catalogue row left at the top level (a stray: it
+    could then not be moved under its default). Another coach's → 403; anything else → 400."""
     if isinstance(value, bool) or not isinstance(value, int):
         raise ApiError(400, "parent_invalid")
-    parent = db.session.get(EvaluationCategory, value)
+    _lock_tree(coach)
+    parent = db.session.get(EvaluationCategory, value, populate_existing=True)
     if parent is None:
         raise ApiError(400, "parent_invalid")
     if parent.coach_id != coach.id:
         raise ApiError(403, "not_your_competency")
     if parent.parent_id is not None or parent.competency_group is None:
+        raise ApiError(400, "parent_invalid")
+    if parent.catalogue_key is not None and parent.competency_group in SUB_LEVEL_GROUPS:
         raise ApiError(400, "parent_invalid")
     return parent
 
@@ -309,7 +322,7 @@ def create_competency(coach, body):
 
 
 def update_competency(coach, category_id, body) -> EvaluationCategory:
-    """`{name?, isActive?, sortOrder?}` — by id, and only the keys that are present."""
+    """`{name?, isActive?, sortOrder?, parentId?}` — by id, and only the keys that are present."""
     category = own_competency(coach, category_id)
     if not isinstance(body, dict):
         raise ApiError(400, "body_invalid")
@@ -334,10 +347,81 @@ def update_competency(coach, category_id, body) -> EvaluationCategory:
         if order is not None and (isinstance(order, bool) or not isinstance(order, int) or order < 0):
             raise ApiError(400, "sort_order_invalid")
         changes["sort_order"] = order
+    if "parentId" in body:
+        changes.update(_move(coach, category, body["parentId"]))
 
     for column, value in changes.items():
         setattr(category, column, value)
     db.session.commit()
+    return category
+
+
+def _move(coach, category, target) -> dict:
+    """PAD-480 (rule 15 "Moving"): under one of the coach's own non-legacy categories, or back to the
+    top level with `None`. A move to the current parent changes nothing. Refused, 400, before anything is
+    written: a legacy row or target (R-047), a default category as the row, a row holding sub-categories,
+    a sub-category or a stray as the target, the row itself, a catalogue sub-category to the top level
+    (it would be a stray, B-255). A moved row goes after its new siblings' ordered rows."""
+    from padel_app.models import EvaluationCategory
+
+    if target is not None and (isinstance(target, bool) or not isinstance(target, int)):
+        raise ApiError(400, "parent_invalid")
+    _lock_tree(coach)
+    db.session.refresh(category)
+    if target == category.parent_id:
+        return {}
+    if category.competency_group in (None, "general"):
+        raise ApiError(400, "parent_invalid")
+    if target is None and category.catalogue_key is not None:
+        raise ApiError(400, "parent_invalid")
+    if EvaluationCategory.query.filter_by(parent_id=category.id).first() is not None:
+        raise ApiError(400, "parent_invalid")
+    if target is not None:
+        if target == category.id:
+            raise ApiError(400, "parent_invalid")
+        _parent(coach, target)
+    return {"parent_id": target, "sort_order": None}
+
+
+def convert_competency(coach, category_id, body) -> EvaluationCategory:
+    """PAD-480 (rule 18, R-047 rule 9): the coach's explicit act turning one of their legacy rows into
+    the default category `catalogueKey` (a `general` key). It keeps its id, flag, order and every score
+    (each on its own snapshot) and takes the default's Portuguese name and the coach's scale. The server
+    matches no names: the coach chose the target. Refused before anything is written: a row that is not
+    legacy, a key that is not a `general` one, a default the coach already holds, a name another row
+    holds."""
+    category = own_competency(coach, category_id)
+    if not isinstance(body, dict):
+        raise ApiError(400, "body_invalid")
+    key = body.get("catalogueKey")
+    if not isinstance(key, str) or key not in BY_KEY or BY_KEY[key]["group"] != "general":
+        raise ApiError(400, "catalogue_key_invalid")
+    if category.competency_group is not None:
+        raise ApiError(400, "not_legacy")
+    if EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first() is not None:
+        raise ApiError(409, "default_held")
+    name = BY_KEY[key]["pt"]
+    if _name_taken(coach, name, except_id=category.id):
+        raise ApiError(409, "name_taken")
+    # evaluations.scale rule 2: a non-legacy row is on the coach's scale. Its scores keep their own
+    # snapshots (rule 3). A score the PAD-423 backfill could not stamp is read on its category's scale
+    # (`_own_scale`), so it is stamped with the row's old scale first, in the same transaction.
+    old_min, old_max = _scale(category)
+    try:
+        EvaluationEntry.query.filter(
+            EvaluationEntry.category_id == category.id, EvaluationEntry.scale_max.is_(None),
+        ).update({"scale_min": old_min, "scale_max": old_max}, synchronize_session=False)
+        category.name = name
+        category.catalogue_key = key
+        category.competency_group = "general"
+        category.scale_min, category.scale_max = 1, coach_scale(coach)
+        db.session.commit()
+    except IntegrityError:
+        # Lost a race the checks above could not see: another row took this default (the
+        # (coach_id, catalogue_key) index) or the name (the (coach_id, name) index) in between.
+        db.session.rollback()
+        held = EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first() is not None
+        raise ApiError(409, "default_held" if held else "name_taken")
     return category
 
 

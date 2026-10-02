@@ -51,23 +51,6 @@ def _io_patched():
         yield
 
 
-@pytest.fixture
-def live_scheduler(app):
-    """A real APScheduler on a memory store, never started: jobs only run by hand."""
-    from apscheduler.jobstores.memory import MemoryJobStore
-    from apscheduler.schedulers.background import BackgroundScheduler
-
-    from padel_app import scheduler as sched
-
-    sched._scheduler = BackgroundScheduler(jobstores={"default": MemoryJobStore()}, timezone="UTC")
-    sched._app = app
-    try:
-        yield sched
-    finally:
-        sched._scheduler = None
-        sched._app = None
-
-
 def _seed(app, *, reminder_count, hours_between=2.0, n_players=3):
     """A coach, a one-off class tomorrow with `n_players` on its roster, not materialised."""
     from padel_app.models.Association_CoachLesson import Association_CoachLesson

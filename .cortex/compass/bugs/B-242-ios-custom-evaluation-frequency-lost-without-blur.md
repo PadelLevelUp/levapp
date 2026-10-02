@@ -89,6 +89,10 @@ number the coach typed is never dropped (B-242). An invalid one is not sent."
 - **Known limit, no ordering guard:** two saves 600 ms apart are two independent PUTs; the server
   keeps whichever arrives last, and a late failure of an earlier one ("1") can show "saveFailed"
   after the later one ("12") succeeded. Accepted at review (#494).
+  **Retired by PAD-473 PR 2:** `settings.save-on-change` rule 3 — only a control's newest save decides
+  its sign and its rollback, so an earlier save failing after a later one was confirmed shows nothing
+  and the field keeps the confirmed later value. The web tab-close gap is closed there too
+  (`useFlushOnPageHide`, keepalive).
 
 ### Resolution
 

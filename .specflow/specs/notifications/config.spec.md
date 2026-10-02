@@ -93,6 +93,137 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
 10. Updating timing configs reschedules all future scheduler jobs
+10a. **After a timing change, each job is the one the saved configuration implies (PAD-478, B-249).**
+   For every future class of the coach, materialised or not, the reminder job and the
+   invitation-start job are derived again from the saved configuration. One configuration
+   decides a class's jobs, the one the send path honours: its **primary coach's**
+   (`classes.coach-assignment` rule 4: the occurrence's own first coach row, else the lesson's;
+   an occurrence not materialised yet follows the lesson's first coach). Whoever triggers the
+   derivation, a co-coach's save, the lesson's coach when the occurrence has a substitute, or a
+   pass that walks every coach, the class's jobs come from its primary coach and from nobody else.
+   The same coach's configuration governs the class's invitations as a whole (mode, groups,
+   eligibility, auto-notify): the invitation-start job carries the primary coach. The spacing of
+   follow-ups is the primary coach's too, including for a class coached through its lesson.
+   Reading a coach's configuration for a derivation never creates one: a coach with none saved
+   answers with the defaults. A job whose new fire time
+   is in the future replaces the old one. A job whose new fire time is already past, or whose
+   timing is `none`, is removed: that class gets no automatic reminder (or no invitation start)
+   from that job. The class gets nothing from the save itself; rule 10f says how the coach can have it sent. A
+   job already armed at exactly the implied time is left alone, even when that time has just
+   passed, so it fires or expires inside its grace time. No job armed from a previous or an
+   intermediate value remains. The startup re-arm and the daily window pass use the same
+   derivation, and for them a past fire time always means no job and nothing sent. Both passes
+   work coach by coach: a failure for one coach is logged with that coach and the pass goes on
+   to the next. Deploying
+   this rule sends nothing: the startup pass removes jobs the configuration no longer implies
+   and never sends for a past time.
+10b. **A pending follow-up moves with the spacing and the count (PAD-478, B-250).** When a timing
+   is saved, each pending follow-up job of the classes the coach is primary coach of is re-timed.
+   A follow-up is one job per class, not per student: it moves to the newest reminder sent to any
+   student who is still owed one, plus the saved `hoursBetweenReminders`, so that at that moment
+   nobody is inside the spacing and skipped; never earlier than a minute from now and never at or
+   after the class start. Known limit: a student reminded earlier than that newest reminder waits
+   longer than the spacing. It is removed when no further reminder is owed (the count was lowered
+   to or below what was sent, or everyone answered) or when there is no room before the class.
+   When the only students still owed one have had no reminder yet (added after the first pass,
+   or blocked during it), the job stays where it is: it is what will reach them. Two follow-ups
+   of one class collapse into one. A follow-up that fires while the re-timing runs is done, not
+   a failure. It is never left to fire at the old spacing, where
+   the pass would send nothing and end the chain. A re-timed follow-up is a follow-up like any
+   other: quiet hours do not defer it, as they do not defer the follow-ups a reminder pass arms
+   (only the late-arrival ask is deferred, `notifications.reminders` rule 18). **Behaviour
+   change:** a follow-up is armed after a reminder pass for every class that has a primary
+   coach, including a class with no coach row of its own (coached through its lesson). Such a
+   class used to get its first reminder and never a follow-up. Nothing is armed retroactively
+   for a reminder that went out before this rule. Only a settings
+   change re-times; the startup and daily passes leave follow-ups where they are.
+10c. **A failed reschedule is reported, not swallowed (PAD-478).** The configuration is saved. The
+   failure is logged with the coach, and the response carries `rescheduleFailed: true`. The web
+   form then confirms the save with its sign, as for any saved value, and says on a line of its
+   own that the reminders of classes already scheduled may still follow the previous timing; the
+   line sits under the reminders heading and is visible with the section closed (the answer can
+   arrive after the coach closed it), and goes when a later timing save re-arms them. The
+   daily window pass derives the jobs of every active lesson inside its 60-day window again with
+   rule 10a's derivation, so for those a failed reschedule heals within a day. Follow-ups (rule
+   10b) are not part of that pass. Creating or editing a class is committed before its jobs are
+   derived: a derivation that fails there is logged and the class still answers as saved; the
+   daily pass derives its jobs.
+10d. **The web form holds a save until the coach pauses (PAD-478).** The reminders form shows
+   each stepper tap and each edit of the time field at once, and sends the timing after the coach
+   stops for 600 ms, and at once when the time field loses focus or the section closes. A coach
+   who pauses 600 ms in the middle of typing a time does send that intermediate value; rule 10e
+   is what makes that harmless. The value then goes through the card's one save, like
+   every engine control (`settings.save-on-change` rules 2-3): signed, one save in flight at a
+   time, only the latest waiting value sent next. After a save that failed and was rolled back,
+   the controls return to the saved value. When the section closes, everything the form still
+   holds (the edit inside its pause, or a value waiting behind a save in flight) is handed to the
+   card's save at once, so a section closed and reopened during a slow save never sends a newer
+   value before an older one. An edit still inside its pause is sent when the tab is hidden. That
+   request is an ordinary one (no keepalive, unlike the evaluation forms), so on a tab that is
+   CLOSING two things can be lost: an edit made in the last 600 ms, and a value still waiting
+   behind a save in flight, which is only sent when that save returns. On a tab that is merely
+   hidden both are sent. When the section closes because the user signed out, the edit is
+   dropped, not sent. iOS has no control for these fields.
+10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
+   saved configuration alone, whatever sequence of saves led to it and in whatever order the
+   requests arrived. Every derivation of a class's jobs, by a save, the startup re-arm or the
+   daily pass, holds that class's primary coach's lock and reads the configuration again inside
+   it, taking no value from its request and none from a row loaded earlier. So whichever
+   derivation runs last arms what is saved at that moment. A derivation waits at most 30 seconds
+   for the lock; a save that gives up is reported as in rule 10c. Limit: the lock is per process,
+   which is where the jobs live; production runs one worker. The backend does not rely on the
+   client sending one save per edit.
+10f. **The coach is asked before anything past due is sent (PAD-478; owner, 2026-10-02).** A timing
+   save answers with `pastDue.reminders`: the upcoming classes, not cancelled or completed, of which the coach is primary coach
+   whose reminder time, under the SAVED configuration, is already past and who have at least one
+   student a reminder pass run now would reach (not answered, under the count, not blocked). It is
+   read from the saved configuration alone, not from what this save changed, so a class that was
+   already past due before the change is listed too. A class whose students have each had every
+   reminder the count allows, or have answered, is not listed; with a count above one, a class
+   whose student is still owed a follow-up and is outside the spacing is listed, because a pass
+   run now would send that follow-up. For a class
+   not materialised yet the roster is counted as it stands, unfiltered (nothing can be checked
+   per student without materialising it, and listing must not write): it is listed when its
+   lesson has a roster, and the number the coach is shown can be higher than the number the
+   send then reaches. Listing writes nothing and sends
+   nothing. The web form asks the coach in a dialog (copy approved by the owner, 2026-10-02): it
+   names the class with its day and time, or lists up to five classes and counts the rest, and
+   its body ends with the question; the two buttons are "send now" (inside quiet hours, "send at
+   <time>") and "do not send", and one choice covers every class listed. It asks only from the
+   answer of the NEWEST timing save, and only once the coach has stopped editing (nothing of
+   theirs inside the form's pause, waiting, or being sent), so an intermediate save never asks.
+   The dialog belongs to the card, not to the reminders section: when the newest save's answer
+   arrives after the coach has closed the section, the dialog still appears.
+   A class the coach has answered for, either way, is not asked about again during the visit; a
+   class that appears later is asked about alone. Known limit: a class is remembered by the
+   key the server gave it, and a class materialised by something else during the visit changes
+   key, so it can be asked about a second time; the send is still checked on the server. Nothing about the answer is stored: a later
+   visit that saves a timing asks again. Closing the dialog is "do not send". A send that fails
+   says so in the dialog, which stays open. After a yes the coach is told what happened: sent,
+   scheduled for a time, or nothing left to send (the server's second check found none). When
+   the save answers `pastDueUnknown`, the card says, under the reminders heading and visible
+   with the section closed, that the check could not be made, and asks nothing; the next
+   timing save that makes the check removes it. The listing has no upper limit, and one send
+   request names at most 200 classes (more is a 400): the form sends a longer list in several
+   requests, one after the other, each key once; if one fails the dialog stays open and trying
+   again sends every key again, which the server's own check makes harmless. Web only, and deliberately: the question is asked from a timing save, and iOS has no
+   control that saves a reminder timing (rule 10d), so there is nothing to ship there. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
+   server checks every requested class again with the same predicate, for the calling coach only,
+   and runs the ordinary reminder pass for each one it still finds past due, with all its guards
+   (count, spacing, PAD-407's lock), then arms the follow-up as after any pass. A repeated or
+   duplicated request sends nothing more. When sending is not permitted now (the coach's quiet
+   hours), nothing is sent at once: one pass is armed for the next permitted instant
+   (`notifications.reminders` rule 18), `pastDue.quietUntil` tells the form so before the coach
+   confirms, and a class that starts before then is not listed. That armed pass is removed when a
+   later save arms the class's ordinary reminder again. No, or a dismissed dialog, sends nothing.
+   Nothing here runs at startup or in the daily pass, and neither removes an armed pass. The
+   send takes at most 200 classes per request and answers with counts and with the classes it
+   acted on; a class it skipped is counted, never named back. A listing that fails does not fail
+   the save: the configuration is saved and the response says the check could not be made
+   (`pastDueUnknown`). Known limits: an armed pass is not moved when the coach widens their
+   quiet hours afterwards (the pass itself does not look at quiet hours); and an armed pass
+   that the scheduler could not run within six hours of its time is dropped (an ordinary
+   reminder job: five minutes).
 11. `cancellation_deadline_hours` (default 24; on the wire `restrictions.cancellationDeadlineHours`): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
 
 12. **Typed storage, stable wire shape (PAD-279, audit M21).** Every scalar setting lives in its own
@@ -149,6 +280,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    player the coach no longer has. The key is additive: App Store clients that do not read it are
    unaffected.
 
+15. **(PAD-473) What a saved setting shows.** Every engine control that saves on change shows the
+    sign of `settings.save-on-change` and follows its failure rule (B-243); the reminders subsection included (since PAD-478).
+
 ### Acceptance Criteria
 
 #### Get or create config
@@ -161,6 +295,106 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** POST `/api/app/notification_config` with `{"auto_notify_enabled": true, "reminder_timing": {"type": "hours_before", "value": 24}}`
 - **Then** the config is updated
 - **And** scheduler jobs are rescheduled based on new timing
+
+#### A timing moved into the past leaves no job from the old timing (PAD-478)
+- **Given** a class on Monday 18:00 (Lisbon), now Saturday 11:00, and a reminder "1 day before at 18:00", so `reminder_<id>` is armed for Sunday 18:00
+- **When** the coach saves "2 days before at 09:00", which for this class was two hours ago
+- **Then** no `reminder_<id>` job remains, and running whatever is armed sends the student nothing
+- **And** the same holds for `invite_start_<id>`, for an occurrence job `reminder_lesson_<lesson>_<date>`, and for a timing of type `none`
+
+#### A class's jobs come from its primary coach (PAD-478)
+- **Given** a class with coaches P (assigned first) and S, P's reminder "1 day before at 18:00" (future) and S's "2 days before at 09:00" (past)
+- **When** S saves their settings, or the startup pass walks every coach
+- **Then** `reminder_<id>` and `invite_start_<id>` are still armed at P's time, and `invite_start_<id>` carries P
+- **And** with the timings swapped, no job is armed at S's time
+- **And** the same holds when the occurrence's own coach is a substitute and the lesson's coach has the other timing
+- **And** an occurrence not materialised yet follows the lesson's first coach
+- **And** a class coached through its lesson, with two reminders, gets its follow-up armed at the lesson coach's spacing
+- **And** a co-coach's save creates no configuration row for a primary coach who has none
+
+#### The coach is asked before past-due reminders are sent (PAD-478)
+- **Given** a class on Monday 18:00, now Saturday 11:00, one student who has not been reminded, and the coach saves "2 days before at 09:00"
+- **When** the save answers
+- **Then** `pastDue.reminders` lists that class with 1 student, and no reminder has been sent
+- **And** a class whose reminder time is still in the future, a class whose student was already reminded or has answered, and a class the coach is not primary coach of are not listed
+- **When** the coach confirms and `POST /api/app/notify/past_due/send` is called with that class
+- **Then** the student gets one reminder; calling it again, or twice at once, sends nothing more
+- **And** a class that is another coach's, or that is no longer past due, is skipped and reported
+- **And** a class cancelled or completed after it was listed is no longer listed, and a send that names it sends nothing
+- **And** inside quiet hours nothing is sent at once: `quietUntil` is given, one pass is armed for that instant, and it sends when it runs; a later save that moves the reminder into the future removes that pass
+- **And** the startup and daily passes send nothing and leave an armed pass in place
+
+#### The form asks once the coach has stopped, and only a yes sends (PAD-478)
+- **Given** the coach changes a reminder timing on the web and the save answers with `pastDue.reminders` listing "Academy B1", Monday 12 July, 18:00
+- **When** they have stopped editing
+- **Then** a dialog names that class with its day and time and ends with the question; nothing has been sent
+- **When** they choose "do not send", or close the dialog
+- **Then** nothing is sent, and a later timing save in the same visit that lists only that class does not ask again
+- **When** a later save lists that class and "Kids", and they choose "send"
+- **Then** the dialog names "Kids" alone and `POST /api/app/notify/past_due/send` is called with exactly its key
+- **And** an answer that arrives while the coach is still editing, or after a newer timing save has begun, never asks
+- **And** when the newest save's answer arrives after the coach has closed the reminders section, the dialog still appears
+- **And** a send that fails says so in the dialog, which stays open
+- **And** a list of 450 classes is sent as three requests of 200, 200 and 50, and the coach is told once
+- **And** inside quiet hours the button says the time it will be sent at, not "now"
+
+#### One failure does not cost the rest (PAD-478)
+- **Given** two coaches with a class each, and a derivation that fails for the first coach
+- **When** the startup re-arm or the daily pass runs
+- **Then** the second coach's class is armed, and the failure is logged with the first coach
+- **And** creating a class, or editing a series, whose derivation fails still answers as saved
+
+#### An intermediate value leaves nothing behind (PAD-478)
+- **Given** the same class and reminder
+- **When** the coach saves "2 days before at 18:00" and then "2 days before at 09:00"
+- **Then** no job remains at Saturday 18:00
+
+#### The implied job is not removed when it is merely due (PAD-478)
+- **Given** `reminder_<id>` armed for Sunday 18:00 and a restart 20 seconds after that instant
+- **When** the startup re-arm runs
+- **Then** the job is still armed for Sunday 18:00
+
+#### The startup and daily passes send nothing (PAD-478)
+- **Given** a class whose reminder time is already past and whose student was never reminded
+- **When** the startup re-arm and the daily window pass run
+- **Then** no reminder is sent and no reminder job is armed for it
+
+#### A pending follow-up moves with the spacing (PAD-478)
+- **Given** two reminders 2 hours apart, the first sent at 17:00 UTC, so a follow-up is armed for 19:00
+- **When** the coach raises the spacing to 6 hours at 18:00
+- **Then** the follow-up is re-timed to 23:00 and the second reminder is sent then
+- **And** lowering the spacing to 1 hour instead re-times it to 18:01
+- **And** lowering the count to 1 instead removes it
+- **And** it is removed when the student has answered, or when 17:00 plus the new spacing is at or after the class start
+- **And** with a second student reminded at 17:30, it is re-timed to 23:30 and both are sent then
+- **And** when the only student still owed one has had no reminder yet, it stays at 19:00
+- **And** two follow-ups of one class become one; quiet hours do not defer it
+- **And** the startup and daily passes leave it at 19:00
+
+#### A failed reschedule is reported (PAD-478)
+- **Given** a scheduler whose job store cannot be reached
+- **When** the coach saves a new `reminderTiming`
+- **Then** the response is 200 with the saved configuration and `rescheduleFailed: true`, and the failure is logged with the coach
+- **And** a save whose reschedule succeeded carries no `rescheduleFailed`
+
+#### The form holds a save until the coach pauses (PAD-478)
+- **Given** the reminders form with "24 hours before"
+- **When** the coach taps "+" five times
+- **Then** the control shows 29 at once and one save is sent, 600 ms after the last tap, with 29
+- **And** typing a time through 00:00 and 09:00 to 09:30 without a 600 ms pause sends one save, with 09:30
+- **And** leaving the time field, or closing the section, sends what is pending at once
+- **And** a value entered while a save is in flight is sent after it, and only the latest one
+- **And** the save shows the sign; a response with `rescheduleFailed` also shows the line that says the timing is saved but scheduled reminders may still follow the previous one
+- **And** hiding the tab sends what is pending; closing the section after sign-out sends nothing
+
+#### A reschedule that runs late arms what is saved (PAD-478)
+- **Given** save A then save B of one coach
+- **When** A's reschedule runs after B's
+- **Then** the jobs are B's
+- **And** two derivations for one primary coach started on two threads run one after the other
+- **And** a derivation triggered by a co-coach, by the startup pass or by the daily pass holds the primary coach's lock
+- **And** a configuration changed after the session loaded it is read again: the job is armed from the saved row
+- **And** a derivation that cannot get the lock within its bound is reported as `rescheduleFailed`
 
 #### Update invitation mode
 - **Given** an existing config with `auto_notify_enabled: true`

@@ -6,6 +6,10 @@
     "english": "Inglês",
     "title": "Definições",
     "subtitle": "Gere o teu perfil, predefinições do calendário, notificações e segurança.",
+    "saveSign": {
+      "saved": "Guardado",
+      "failed": "Não foi possível guardar"
+    },
     "saveChanges": "Guardar alterações",
     "sections": "Secções",
     "quickNavigation": "Navegação rápida",
@@ -64,8 +68,6 @@
     "preferences": {
       "requestAlerts": "Alertas de pedidos",
       "requestAlertsDescription": "Push e email quando um pedido precisa de ti (entrada no clube, ligação de conta, aprovação de treinador) e quando o teu é decidido. Os avisos dentro da app continuam sempre.",
-      "requestAlertsSaved": "Preferência guardada.",
-      "requestAlertsSaveFailed": "Não foi possível guardar. Tenta outra vez.",
       "title": "Preferências",
       "description": "Como queres que a aplicação se comporte.",
       "theme": "Tema",
@@ -139,8 +141,6 @@
       "saving": "A guardar…",
       "profileSaved": "Perfil guardado.",
       "profileSaveFailed": "Não foi possível guardar o teu perfil. Tenta novamente.",
-      "languageSaved": "Preferência de idioma guardada.",
-      "languageSaveFailed": "Não foi possível guardar a preferência de idioma.",
       "removeCategory": "Remover categoria {{name}}",
       "removeLevel": "Remover nível {{name}}",
       "moveLevelUp": "Mover nível para cima",
@@ -389,6 +389,29 @@
       "semiAutomatic": "Semiautomático",
       "reminders": "Lembretes",
       "remindersHint": "Lembrar automaticamente os alunos antes da aula e pedir-lhes que confirmem a presença.",
+      "rescheduleFailed": "O horário foi guardado, mas os lembretes das aulas já agendadas podem ainda seguir o horário anterior. São atualizados automaticamente uma vez por dia. Para tentar já, altera o horário outra vez.",
+      "pastDueUnknown": "O horário foi guardado, mas não foi possível verificar se há aulas cujo lembrete já devia ter saído.",
+      "pastDue": {
+        "titleOne": "A hora deste lembrete já passou",
+        "titleMany": "A hora destes lembretes já passou",
+        "bodyOne": "Com o horário que definiste, a hora do lembrete da aula {{class}} ({{day}}, {{time}}) já passou. Queres enviar o lembrete agora ou não enviar para esta aula?",
+        "bodyOneQuiet": "Com o horário que definiste, a hora do lembrete da aula {{class}} ({{day}}, {{time}}) já passou. Estás no horário de silêncio, por isso o lembrete só sai às {{sendAt}}. Queres enviar o lembrete às {{sendAt}} ou não enviar para esta aula?",
+        "introMany": "Com o horário que definiste, a hora do lembrete já passou para {{count}} aulas:",
+        "listItem": "{{class}} — {{day}}, {{time}}",
+        "andMore": "e mais {{count}}",
+        "questionMany": "Queres enviar os lembretes agora ou não enviar para estas aulas?",
+        "questionManyQuiet": "Estás no horário de silêncio, por isso os lembretes só saem às {{sendAt}}. Queres enviar os lembretes às {{sendAt}} ou não enviar para estas aulas?",
+        "sendOne": "Enviar lembrete agora",
+        "sendMany": "Enviar lembretes agora",
+        "sendAt": "Enviar às {{time}}",
+        "decline": "Não enviar",
+        "sendFailed": "Não foi possível enviar. Tenta novamente.",
+        "sentOne": "Lembrete enviado.",
+        "sentMany": "Lembretes enviados para {{count}} aulas.",
+        "scheduledOne": "Lembrete agendado para as {{time}}.",
+        "scheduledMany": "Lembretes agendados para as {{time}}.",
+        "nothingToSend": "Não havia lembretes por enviar."
+      },
       "invitationGroups": "Grupos de convite",
       "invitationGroupsHint": "Define quem é convidado e por que ordem. Cada grupo é tentado em sequência — se ninguém do Grupo 1 aceitar, o sistema avança para o Grupo 2. Usados pelos convites automáticos.",
       "settingUpGroups": "A configurar os grupos de convite predefinidos…",
@@ -597,6 +620,12 @@
         "atMost": "no máximo",
         "greaterThan": "mais de",
         "atLeast": "pelo menos"
+      },
+      "direction": "Direção",
+      "directions": {
+        "both": "acima e abaixo",
+        "above": "apenas acima",
+        "below": "apenas abaixo"
       },
       "impact": {
         "title_one": "{{count}} aluno inscrito deixa de cumprir esta fasquia",

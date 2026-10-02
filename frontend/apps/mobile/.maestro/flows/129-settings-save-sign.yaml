@@ -1,0 +1,43 @@
+# PAD-473 / settings.save-on-change rule 2 — on iOS a Settings control that saves on change says so
+# beside itself. Choosing "1-10" in "Escala de avaliações" shows the sign's text
+# (`settings-evaluation-scale-sign-text`, by id — it renders in the account's language), the server
+# holds 10, and the sign goes after about two seconds. `onFlowComplete` puts the scale back to 5 (R-040).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.restore = (typeof output.coachTok === 'undefined') ? false : http.put(output.api + '/api/app/evaluation_scale', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ scaleMax: 5 }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.reset = http.put(output.api + '/api/app/evaluation_scale', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ scaleMax: 5 }) }).ok}"
+- assertTrue: "${output.reset == true}"
+
+- runFlow: ../subflows/login-coach.yaml
+
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-scale-option-10"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible:
+    id: "settings-evaluation-scale-sign-text"
+- tapOn:
+    id: "settings-evaluation-scale-option-10"
+- extendedWaitUntil:
+    visible:
+      id: "settings-evaluation-scale-sign-text"
+    timeout: 8000
+- evalScript: "${output.scale = json(http.get(output.api + '/api/app/evaluation_scale', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).scaleMax}"
+- assertTrue: "${output.scale == 10}"
+# The sign goes after about two seconds.
+- extendedWaitUntil:
+    notVisible:
+      id: "settings-evaluation-scale-sign-text"
+    timeout: 8000

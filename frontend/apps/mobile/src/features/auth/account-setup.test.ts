@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import type { authApi } from "@levelup/api";
 
 import {
   coachInviteSchema,
@@ -14,6 +15,9 @@ import {
   submitOutcomeForError,
   submitOutcomeForStatus,
   validateAccountForm,
+  coachInviteAcceptPayload,
+  coachInviteEmailError,
+  coachInviteLanding,
 } from "./account-setup";
 
 /**
@@ -123,7 +127,8 @@ const validPlayer = {
   birthDate: "01/01/1990",
 };
 
-const validCoach = { name: "Nina Coach", ...validPlayer };
+// PAD-477: the coach invite form asks for an email (clubs.coach-invitation rule 9).
+const validCoach = { name: "Nina Coach", email: "nina@example.com", ...validPlayer };
 
 const validRegister = {
   name: "Nina Player",
@@ -188,6 +193,7 @@ describe("validateAccountForm — coach invite", () => {
       validateAccountForm(coachInviteSchema, {
         name: "",
         username: "a",
+        email: "", // PAD-477: the screen's state always holds the email key
         password: "x",
         repeatPassword: "y",
         birthDate: "01/01/1990",
@@ -195,6 +201,7 @@ describe("validateAccountForm — coach invite", () => {
     ).toEqual({
       name: "nameMin",
       username: "usernameMin",
+      email: "emailInvalid",
       password: "passwordMin",
       repeatPassword: "passwordsMismatch",
     });
@@ -344,6 +351,9 @@ const SCREEN_KEYS = [
   "coachInvite.description",
   "coachInvite.name",
   "coachInvite.username",
+  "coachInvite.email",
+  "coachInvite.emailInvalid",
+  "coachInvite.emailTaken",
   "coachInvite.password",
   "coachInvite.repeatPassword",
   "coachInvite.join",
@@ -456,3 +466,47 @@ describe("adults only on both invitations too (PAD-457)", () => {
   });
 });
 
+
+describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9, PAD-477)", () => {
+  const filled = {
+    name: "Rita Coach",
+    username: "rita_coach",
+    email: "  Rita@Example.com ",
+    password: "Secret123!",
+    repeatPassword: "Secret123!",
+    birthDate: "01/01/1990",
+  };
+
+  it("the form requires a valid email", () => {
+    expect(validateAccountForm(coachInviteSchema, { ...filled, email: "" })).toHaveProperty("email", "emailInvalid");
+    expect(validateAccountForm(coachInviteSchema, { ...filled, email: "not-an-address" })).toHaveProperty("email", "emailInvalid");
+    expect(validateAccountForm(coachInviteSchema, filled)).not.toHaveProperty("email");
+  });
+
+  it("sends the trimmed email with the rest of the form", () => {
+    expect(coachInviteAcceptPayload(filled)).toEqual({
+      name: "Rita Coach",
+      username: "rita_coach",
+      email: "Rita@Example.com",
+      password: "Secret123!",
+      birthDate: "1990-01-01",
+    });
+  });
+
+  it("maps the server's email refusals onto the field", () => {
+    const err = (status: number, field: string) => ({ response: { status, data: { field } } });
+    expect(coachInviteEmailError(err(409, "email"))).toBe("emailTaken");
+    expect(coachInviteEmailError(err(400, "email"))).toBe("emailInvalid");
+    expect(coachInviteEmailError(err(409, "username"))).toBeUndefined();
+    expect(coachInviteEmailError(new Error("network"))).toBeUndefined();
+  });
+
+  it("a pending account lands on Verify your email, then the dashboard", () => {
+    const me = (emailVerification: string) => ({ emailVerification }) as unknown as authApi.MeResponse;
+    expect(coachInviteLanding(me("pending"))).toBe(
+      `/verify-email?next=${encodeURIComponent("/(tabs)/dashboard")}`
+    );
+    expect(coachInviteLanding(me("verified"))).toBe("/(tabs)/dashboard");
+    expect(coachInviteLanding(null)).toBe("/(tabs)/dashboard");
+  });
+});

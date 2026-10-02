@@ -26,6 +26,23 @@
       "custom": "Personalizada"
     },
     "manager": {
+      "moveTo": "Mover para…",
+      "moveTopLevel": "Sem categoria",
+      "convert": "Converter em categoria padrão",
+      "convertTitle": "Converter «{{name}}» em {{label}}?",
+      "convertBecomes": "Passa a ser a categoria padrão {{label}}, com esse nome, e pode ter subcategorias.",
+      "convertScores": "Todas as avaliações já feitas mantêm-se, cada uma na escala em que foi dada.",
+      "convertOldApp": "Numa versão antiga da app deixas de ver esta categoria e as suas avaliações.",
+      "convertIrreversible": "Não é possível desfazer.",
+      "convertTarget": "Converter em:",
+      "convertMoveStrays": "Mover também {{names}} para {{label}}",
+      "convertMoveStraysOff": "Mover também {{names}} para {{label}} (continuam desligadas)",
+      "convertConfirm": "Converter",
+      "convertDefaultHeld": "Já tens a categoria {{label}}.",
+      "convertNameTaken": "Já tens uma categoria chamada {{label}}.",
+      "convertNotMoved_one": "«{{name}}» é agora {{label}}, mas não foi possível mover {{names}}: ficou onde estava e continua disponível em «Mover para…».",
+      "convertNotMoved_other": "«{{name}}» é agora {{label}}, mas não foi possível mover {{names}}: ficaram onde estavam e continuam disponíveis em «Mover para…».",
+      "convertDone": "Fechar",
       "title": "Definir categorias de avaliação",
       "open": "Definir categorias de avaliação",
       "settingsTitle": "Categorias de avaliação",
@@ -75,7 +92,6 @@
       "hint": "A cada quantas aulas queres ser lembrado",
       "caption": "O lembrete só ajuda a manter o histórico atualizado — a avaliação continua opcional.",
       "invalidNumber": "Escreve um número inteiro entre 1 e 99.",
-      "saveFailed": "Não foi possível guardar. Tenta novamente.",
       "dueLabel": "Avaliação em falta"
     },
     "scale": {
@@ -86,8 +102,7 @@
         "20": "1–20",
         "100": "1–100"
       },
-      "caption": "As avaliações já feitas mantêm a sua escala; as novas usam a escolhida.",
-      "saveFailed": "Não foi possível guardar. Tenta novamente."
+      "caption": "As avaliações já feitas mantêm a sua escala; as novas usam a escolhida."
     },
     "settingsGroupTitle": "Avaliações"
   }

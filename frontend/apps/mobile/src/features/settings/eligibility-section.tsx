@@ -1,5 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import {
+  WITHIN_N_DIRECTIONS,
+  isWithinNOperation,
+  lightTheme,
+  menuOperation,
+  withinNDirection,
+  type WithinNDirection,
+} from "@levelup/config";
 import type { GroupRule } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -23,6 +30,7 @@ import {
   newRule,
   removeRuleAt,
   withAttribute,
+  withDirection,
   withOperation,
 } from "./eligibility-rules";
 
@@ -52,6 +60,11 @@ function RuleRow({
   const attributeOptions: Option[] = ELIGIBILITY_ATTRIBUTES.map((a) => ({
     value: a.id,
     label: t(a.labelKey),
+  }));
+  // PAD-481: "within N levels" looks both ways, only above, or only below.
+  const directionOptions = WITHIN_N_DIRECTIONS.map((d) => ({
+    value: d,
+    label: t(`settings.eligibility.directions.${d}`),
   }));
   const operationOptions: Option[] = (attr?.operations ?? []).map((op) => ({
     value: op.id,
@@ -103,7 +116,7 @@ function RuleRow({
         <View className="flex-row items-center gap-2">
           <View className="flex-1">
             <Select
-              value={operationOptions.find((o) => o!.value === rule.operation)}
+              value={operationOptions.find((o) => o!.value === menuOperation(rule.operation))}
               onValueChange={(option) =>
                 option && onChange(withOperation(rule, option.value))
               }
@@ -149,6 +162,40 @@ function RuleRow({
               ) : null}
             </View>
           ) : null}
+        </View>
+      ) : null}
+
+      {attr?.id === "level" && isWithinNOperation(rule.operation) ? (
+        // The wrapper names the stored direction: the trigger text is folded
+        // into its a11y label, so a flow cannot read it (flow 133).
+        <View
+          collapsable={false}
+          testID={`eligibility-direction-is-${withinNDirection(rule.operation) ?? "both"}`}
+        >
+          <Select
+            value={directionOptions.find((o) => o.value === (withinNDirection(rule.operation) ?? "both"))}
+            onValueChange={(option) =>
+              option && onChange(withDirection(rule, option.value as WithinNDirection))
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger
+              testID="eligibility-direction"
+              accessibilityLabel={t("settings.eligibility.direction")}
+            >
+              <SelectValue placeholder={t("settings.eligibility.direction")} />
+            </SelectTrigger>
+            <SelectContent>
+              {directionOptions.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  testID={`eligibility-direction-${option.value}`}
+                />
+              ))}
+            </SelectContent>
+          </Select>
         </View>
       ) : null}
     </View>

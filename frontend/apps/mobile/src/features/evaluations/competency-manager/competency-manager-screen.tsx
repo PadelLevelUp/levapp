@@ -17,6 +17,7 @@ import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 import { AddCustomCompetency } from "./add-custom-competency";
 import { CategorySectionView } from "./category-section";
+import { ConvertCompetencyDialog } from "./convert-competency-dialog";
 import { DeleteCompetencyDialog } from "./delete-competency-dialog";
 
 /**
@@ -36,6 +37,7 @@ export function CompetencyManagerScreen() {
   const isCoach = user?.roles?.includes("coach") ?? false;
   const competencies = useEvaluationCompetencies(isCoach);
   const [deleting, setDeleting] = React.useState<EvaluationCompetency | null>(null);
+  const [converting, setConverting] = React.useState<EvaluationCompetency | null>(null);
 
   React.useEffect(() => {
     // coach-only (rule 11). `replace`, not `back`: a student cold-launched on the deep
@@ -83,7 +85,7 @@ export function CompetencyManagerScreen() {
           ) : (
             <>
               {sections.map((section) => (
-                <CategorySectionView key={section.id} section={section} onDelete={setDeleting} />
+                <CategorySectionView key={section.id} section={section} onDelete={setDeleting} onConvert={setConverting} />
               ))}
               {/* Below the rows, never above them (Session-B, #361): appearing above would move
                   every switch under the finger the moment the last one is turned off. */}
@@ -103,6 +105,7 @@ export function CompetencyManagerScreen() {
       </KeyboardAvoidingView>
 
       <DeleteCompetencyDialog competency={deleting} subNames={subNames} onClose={() => setDeleting(null)} />
+      <ConvertCompetencyDialog competency={converting} onClose={() => setConverting(null)} />
     </Screen>
   );
 }
