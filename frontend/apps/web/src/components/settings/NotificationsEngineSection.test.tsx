@@ -174,6 +174,20 @@ describe("the engine card signs its saves (settings.save-on-change rule 2)", () 
     fireEvent.click(screen.getByTestId("stub-reminders-change"));
     await waitFor(() => expect(screen.queryByTestId("notification-engine-reschedule-failed")).toBeNull());
   });
+
+  it("PAD-478 (rule 10c): a save of another control does not remove the note; it says nothing about the jobs", async () => {
+    await mount();
+    await openSection("settings.engine.reminders");
+    api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch, rescheduleFailed: true }));
+    fireEvent.click(await screen.findByTestId("stub-reminders-change"));
+    await screen.findByTestId("notification-engine-reschedule-failed");
+
+    fireEvent.click(toggle()); // the master toggle: its answer carries no rescheduleFailed
+    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("notification-engine-reschedule-failed")).toBeTruthy();
+  });
 });
 
 describe("a failed save is never silent (rule 3, B-243)", () => {

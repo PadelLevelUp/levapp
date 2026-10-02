@@ -154,9 +154,14 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    is what makes that harmless. The value then goes through the card's one save, like
    every engine control (`settings.save-on-change` rules 2-3): signed, one save in flight at a
    time, only the latest waiting value sent next. After a save that failed and was rolled back,
-   the controls return to the saved value. An edit still inside its pause is sent when the tab is
-   hidden; on a tab that is closing that request may not leave, so an edit made in the last 600 ms
-   before closing can be lost. When the section closes because the user signed out, the edit is
+   the controls return to the saved value. When the section closes, everything the form still
+   holds (the edit inside its pause, or a value waiting behind a save in flight) is handed to the
+   card's save at once, so a section closed and reopened during a slow save never sends a newer
+   value before an older one. An edit still inside its pause is sent when the tab is hidden. That
+   request is an ordinary one (no keepalive, unlike the evaluation forms), so on a tab that is
+   CLOSING two things can be lost: an edit made in the last 600 ms, and a value still waiting
+   behind a save in flight, which is only sent when that save returns. On a tab that is merely
+   hidden both are sent. When the section closes because the user signed out, the edit is
    dropped, not sent. iOS has no control for these fields.
 10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
    saved configuration alone, whatever sequence of saves led to it and in whatever order the
