@@ -89,6 +89,6 @@ test("PAD-486/490: a student who joined by link is told why, reminds the coach o
     await expect(page).toHaveURL(/\/players\/\d+$/);
   } else {
     await block.getByTestId("dashboard-incomplete-players-see-all").click();
-    await expect(page).toHaveURL(/\/players\?missing_(level|side)=true$/);
+    await expect(page).toHaveURL(/\/players\?incomplete=true$/);
   }
 });

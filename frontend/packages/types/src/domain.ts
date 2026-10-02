@@ -1765,7 +1765,14 @@ export interface DashboardProfileIncompleteBlock {
   id: string;
   type: "profile_incomplete";
   data: {
-    coaches: { coachId: number; coachName: string; missing: ProfileMissing[]; remindedToday: boolean }[];
+    coaches: {
+      coachId: number;
+      coachName: string;
+      missing: ProfileMissing[];
+      remindedToday: boolean;
+      /** False for a blocked pair (either way): the card explains, but offers no button. */
+      canRemind?: boolean;
+    }[];
   };
 }
 

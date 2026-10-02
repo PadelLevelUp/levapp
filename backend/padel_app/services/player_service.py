@@ -5,7 +5,7 @@ from padel_app.models import (
     PlayerLevelHistory,
 )
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func, case
+from sqlalchemy import case, func, or_
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
@@ -261,7 +261,7 @@ def search_coach_players(coach_id, term, limit=20):
 
 def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
                                 sort_by="name", sort_dir="asc",
-                                missing_level=False, missing_side=False):
+                                missing_level=False, missing_side=False, incomplete=False):
     from padel_app.models.coach_levels import CoachLevel
 
     query = (
@@ -285,6 +285,9 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
         query = query.filter(Association_CoachPlayer.level_id.is_(None))
     if missing_side:
         query = query.filter(Association_CoachPlayer.side.is_(None))
+    # dashboard.profile-completeness rule 3: the dashboard's "see all" (no level OR no side).
+    if incomplete:
+        query = query.filter(or_(Association_CoachPlayer.level_id.is_(None), Association_CoachPlayer.side.is_(None)))
 
     # Sorting
     if sort_by == "level":

@@ -5,6 +5,7 @@
  */
 import type { DashboardProfileIncompleteBlock } from "@levelup/types";
 import { dashboardApi } from "@levelup/api";
+import { profileIncompleteBodyKey } from "@levelup/config";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -47,21 +48,26 @@ export function ProfileIncompleteBlock({
           <ActionCard key={c.coachId} accent="attention" testId={`profile-incomplete-${c.coachId}`}>
             <div className="flex flex-col gap-2">
               <h2 className="font-display text-base font-semibold">{t("dashboard.profileCompleteness.studentTitle")}</h2>
-              <p className="text-sm text-muted-foreground">{t("dashboard.profileCompleteness.studentBody")}</p>
+              <p className="text-sm text-muted-foreground" data-testid={`profile-incomplete-body-${c.coachId}`}>
+                {t(profileIncompleteBodyKey(c.missing))}
+              </p>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">
                   {t("dashboard.profileCompleteness.studentCoach", { name: c.coachName })}
                 </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={reminded || sending === c.coachId}
-                  data-testid={`profile-incomplete-remind-${c.coachId}`}
-                  data-reminded={reminded ? "true" : "false"}
-                  onClick={() => void remind(c.coachId)}
-                >
-                  {t(reminded ? "dashboard.profileCompleteness.reminded" : "dashboard.profileCompleteness.remind")}
-                </Button>
+                {/* #523: no button for a blocked pair; the card still explains the cost. */}
+                {c.canRemind !== false && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={reminded || sending === c.coachId}
+                    data-testid={`profile-incomplete-remind-${c.coachId}`}
+                    data-reminded={reminded ? "true" : "false"}
+                    onClick={() => void remind(c.coachId)}
+                  >
+                    {t(reminded ? "dashboard.profileCompleteness.reminded" : "dashboard.profileCompleteness.remind")}
+                  </Button>
+                )}
               </div>
               {failed === c.coachId && (
                 <p className="text-sm text-destructive" role="alert">

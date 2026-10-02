@@ -62,7 +62,8 @@ def build_incomplete_players_block(*, coach_id: int) -> Optional[Dict[str, Any]]
         }
         for cp, user in rows[:COACH_BLOCK_LIMIT]
     ]
-    see_all = "/players?missing_level=true" if missing_level else "/players?missing_side=true"
+    # #523 review: the same definition as the block (no level OR no side).
+    see_all = "/players?incomplete=true"
     return {
         "id": "incomplete_players",
         "type": "incomplete_players",
@@ -109,15 +110,20 @@ def build_profile_incomplete_block(*, player, now_utc=None) -> Optional[Dict[str
         .order_by(Association_CoachPlayer.coach_id.asc())
         .all()
     )
+    from padel_app.services.messaging_service import _is_blocked_either_way
+
     for cp, coach in rows:
         missing = missing_of(cp)
-        if not missing:
+        # Rule 1: a disabled coach is not counted, nor offered a reminder (as the Players alerts).
+        if not missing or coach.user is None or coach.user.status == "disabled":
             continue
         entries.append({
             "coachId": coach.id,
-            "coachName": coach.user.name if coach.user else "",
+            "coachName": coach.user.name,
             "missing": missing,
             "remindedToday": _reminded_today(player.user_id, coach.id, now_utc),
+            # Rule 6e: no button for a blocked pair (either way); the card still explains.
+            "canRemind": not _is_blocked_either_way(player.user_id, coach.user.id),
         })
     if not entries:
         return None
@@ -149,24 +155,43 @@ def send_profile_reminder(*, player, coach_id: int, now_utc=None):
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
     from padel_app.services.notification_service import _get_or_create_direct_conversation
-    from padel_app.utils.expo_push import send_expo_push_to_user
-    from padel_app.utils.push_notifications import send_push_notification
+
+    from padel_app.services.messaging_service import _is_blocked_either_way
 
     now_utc = now_utc or utcnow_naive()
-    # 6a: the caller's OWN link to that coach; the player is always the caller.
+    # 6a: the caller's OWN link to that coach; the player is always the caller. A disabled
+    # coach is treated as no link at all (rule 1).
     cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player.id).first()
-    if cp is None or cp.coach is None or cp.coach.user is None:
+    if cp is None or cp.coach is None or cp.coach.user is None or cp.coach.user.status == "disabled":
         abort(404, "Not one of your coaches")
+    coach_user = cp.coach.user
+    if not missing_of(cp):
+        _refuse("profile_complete", "Your profile is already complete")
+    # 6e: messaging's block check, either way. Generic code: a block is not readable from it.
+    if _is_blocked_either_way(player.user_id, coach_user.id):
+        _refuse("cannot_remind", "This reminder cannot be sent")
+
+    # The direct conversation first: its helper commits, which would release the lock below.
+    conv = _get_or_create_direct_conversation(coach_user.id, player.user_id)
+
+    # 6c, atomic: lock the link row, then check and write in one transaction. A second request
+    # at the same time waits here, then finds the first reminder (#523 review).
+    cp = (
+        Association_CoachPlayer.query
+        .filter_by(coach_id=coach_id, player_id=player.id)
+        .with_for_update()
+        .first()
+    )
     missing = missing_of(cp)
     if not missing:
+        db.session.rollback()
         _refuse("profile_complete", "Your profile is already complete")
     if _reminded_today(player.user_id, coach_id, now_utc):
+        db.session.rollback()
         _refuse("already_reminded", "You already reminded this coach today")
 
-    coach_user = cp.coach.user
     locale = "pt" if (getattr(coach_user, "language", None) or "pt") == "pt" else "en"
     text = _reminder_text(missing, locale)
-    conv = _get_or_create_direct_conversation(coach_user.id, player.user_id)
     msg = Message(
         text=text,
         sender_id=player.user_id,
@@ -175,12 +200,20 @@ def send_profile_reminder(*, player, coach_id: int, now_utc=None):
         msg_metadata={"profileReminder": {"coachId": coach_id, "missing": missing}},
         sent_at=now_utc,
     )
-    msg.create()
+    msg.create()  # commits: the reminder is written and the lock released together
 
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
     title = player.user.name if player.user else ("Aluno" if locale == "pt" else "Student")
-    send_push_notification(user_id=coach_user.id, title=title, body=text[:100],
-                           url=f"/messages/{conv.id}?message={msg.id}")
-    send_expo_push_to_user(coach_user.id, title=title, body=text[:100],
-                           data={"type": "message", "conversationId": conv.id, "messageId": msg.id})
+    _push_to_coach(coach_user.id, title, text, conv.id, msg.id)
     return msg
+
+
+def _push_to_coach(coach_user_id: int, title: str, text: str, conversation_id: int, message_id: int) -> None:
+    """The normal message push, web and Expo (rule 6d)."""
+    from padel_app.utils.expo_push import send_expo_push_to_user
+    from padel_app.utils.push_notifications import send_push_notification
+
+    send_push_notification(user_id=coach_user_id, title=title, body=text[:100],
+                           url=f"/messages/{conversation_id}?message={message_id}")
+    send_expo_push_to_user(coach_user_id, title=title, body=text[:100],
+                           data={"type": "message", "conversationId": conversation_id, "messageId": message_id})

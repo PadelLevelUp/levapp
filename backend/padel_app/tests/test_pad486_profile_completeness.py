@@ -96,7 +96,7 @@ def test_the_coach_sees_who_is_missing_what(client, app, world):
     assert by_name["Bruno NoSide"]["missing"] == ["side"]
     assert by_name["Sofia JoinedByLink"]["missing"] == ["level", "side"]
     assert by_name["Ana NoLevel"]["href"] == f"/players/{world['a_player_id']}"
-    assert data["seeAllHref"] == "/players?missing_level=true"
+    assert data["seeAllHref"] == "/players?incomplete=true"
 
 
 def test_the_coach_block_lists_five_names_and_the_full_count(client, app, world):
@@ -135,7 +135,7 @@ def test_a_student_who_joined_by_link_sees_why(client, app, world):
     block = _block(client, app, world["s_user_id"], "profile_incomplete")
     assert block["data"]["coaches"] == [{
         "coachId": world["coach_id"], "coachName": "P486 Coach",
-        "missing": ["level", "side"], "remindedToday": False,
+        "missing": ["level", "side"], "remindedToday": False, "canRemind": True,
     }]
     assert _block(client, app, world["d_user_id"], "profile_incomplete") is None
 
@@ -194,3 +194,78 @@ def test_no_reminder_for_a_complete_profile_or_a_stranger(client, app, world):
 def test_a_coach_cannot_send_a_reminder(client, app, world):
     resp = _remind(client, app, world["coach_user_id"], world["coach_id"])
     assert resp.status_code == 403
+
+
+# ── review round (#523) ──────────────────────────────────────────────────────
+
+def _block_pair(app, blocker_id, blocked_id):
+    from padel_app.models import BlockedUser
+
+    with app.app_context():
+        db.session.add(BlockedUser(blocker_id=blocker_id, blocked_id=blocked_id))
+        db.session.commit()
+
+
+@pytest.mark.parametrize("direction", ["coach_blocked_student", "student_blocked_coach"])
+def test_a_blocked_pair_gets_no_reminder_and_no_button(client, app, world, monkeypatch, direction):
+    """Messaging's block check applies: nothing is written and nothing is pushed, either way.
+    The card still explains the cost but offers no button (`canRemind: false`); the refusal is a
+    generic 409 so the student cannot read a block from it."""
+    pushes = []
+    monkeypatch.setattr("padel_app.services.profile_completeness_service._push_to_coach",
+                        lambda *a, **k: pushes.append(a))
+    if direction == "coach_blocked_student":
+        _block_pair(app, world["coach_user_id"], world["s_user_id"])
+    else:
+        _block_pair(app, world["s_user_id"], world["coach_user_id"])
+
+    entry = _block(client, app, world["s_user_id"], "profile_incomplete")["data"]["coaches"][0]
+    assert entry["canRemind"] is False
+    resp = _remind(client, app, world["s_user_id"], world["coach_id"])
+    assert resp.status_code == 409 and resp.get_json()["code"] == "cannot_remind"
+    assert _reminders(app, world["s_user_id"]) == 0
+    assert pushes == []
+
+
+def test_a_disabled_coach_is_neither_shown_nor_reminded(client, app, world):
+    from padel_app.models import User
+
+    with app.app_context():
+        db.session.get(User, world["coach_user_id"]).status = "disabled"
+        db.session.commit()
+    assert _block(client, app, world["s_user_id"], "profile_incomplete") is None
+    resp = _remind(client, app, world["s_user_id"], world["coach_id"])
+    assert resp.status_code == 404
+    assert _reminders(app, world["s_user_id"]) == 0
+
+
+@pytest.mark.parametrize("key, text", [
+    ("a", "Hi coach, my profile isn't complete yet (missing: level)."),
+    ("b", "Hi coach, my profile isn't complete yet (missing: side)."),
+])
+def test_the_reminder_names_only_what_is_missing(client, app, world, key, text):
+    resp = _remind(client, app, world[f"{key}_user_id"], world["coach_id"])
+    assert resp.status_code == 200, resp.get_json()
+    assert resp.get_json()["message"]["content"] == text
+
+
+def test_see_all_opens_a_filter_that_matches_the_block(client, app, world):
+    """#523 review: with mixed gaps, "see all" must list everyone the block counts (no level OR
+    no side), not only the missing-level ones."""
+    data = _block(client, app, world["coach_user_id"], "incomplete_players")["data"]
+    assert data["seeAllHref"] == "/players?incomplete=true"
+    resp = client.get("/api/app/coach_players_paginated?incomplete=true",
+                      headers=_auth(app, world["coach_user_id"]))
+    assert resp.status_code == 200
+    names = {p["name"] for p in resp.get_json()["items"]}
+    assert names == {"Ana NoLevel", "Bruno NoSide", "Sofia JoinedByLink"}
+    assert resp.get_json()["pagination"]["total"] == data["count"]
+
+
+def test_the_student_block_comes_before_the_hero(client, app, world):
+    """Rule 4 as the clients render it: the card above the next-class hero."""
+    resp = client.get("/api/app/dashboard", headers=_auth(app, world["s_user_id"]))
+    types = [b["type"] for b in resp.get_json()["blocks"]]
+    assert "profile_incomplete" in types
+    if "next_class" in types:
+        assert types.index("profile_incomplete") < types.index("next_class")

@@ -3,6 +3,7 @@
  * IncompletePlayersBlock and ProfileIncompleteBlock: same copy, same order, same test ids.
  */
 import { dashboardApi } from "@levelup/api";
+import { profileIncompleteBodyKey } from "@levelup/config";
 import type { DashboardIncompletePlayersBlock, DashboardProfileIncompleteBlock } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
@@ -100,22 +101,27 @@ export function ProfileIncompleteBlock({ block }: { block: DashboardProfileIncom
           <AttentionCard key={c.coachId} testID={`profile-incomplete-${c.coachId}`}>
             <View className="gap-2">
               <Text className="text-base font-semibold">{t("dashboard.profileCompleteness.studentTitle")}</Text>
-              <Text className="text-sm text-muted-foreground">{t("dashboard.profileCompleteness.studentBody")}</Text>
+              <Text className="text-sm text-muted-foreground" testID={`profile-incomplete-body-${c.coachId}`}>
+                {t(profileIncompleteBodyKey(c.missing))}
+              </Text>
               <Text className="text-xs text-muted-foreground">
                 {t("dashboard.profileCompleteness.studentCoach", { name: c.coachName })}
               </Text>
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start"
-                disabled={reminded || sending === c.coachId}
-                testID={reminded ? `profile-incomplete-reminded-${c.coachId}` : `profile-incomplete-remind-${c.coachId}`}
-                onPress={() => void remind(c.coachId)}
-              >
-                <Text>
-                  {t(reminded ? "dashboard.profileCompleteness.reminded" : "dashboard.profileCompleteness.remind")}
-                </Text>
-              </Button>
+              {/* #523: no button for a blocked pair; the card still explains the cost. */}
+              {c.canRemind !== false ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  disabled={reminded || sending === c.coachId}
+                  testID={reminded ? `profile-incomplete-reminded-${c.coachId}` : `profile-incomplete-remind-${c.coachId}`}
+                  onPress={() => void remind(c.coachId)}
+                >
+                  <Text>
+                    {t(reminded ? "dashboard.profileCompleteness.reminded" : "dashboard.profileCompleteness.remind")}
+                  </Text>
+                </Button>
+              ) : null}
               {failed === c.coachId ? (
                 <Text className="text-sm text-destructive" accessibilityRole="alert">
                   {t("dashboard.profileCompleteness.remindFailed")}

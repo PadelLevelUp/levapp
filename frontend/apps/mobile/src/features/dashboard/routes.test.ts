@@ -81,6 +81,12 @@ describe("PAD-486: the incomplete-profiles block's destinations", () => {
       params: { missing_side: "true" },
     });
   });
+  it("'See all' keeps the incomplete filter (no level OR no side, #523)", () => {
+    expect(nativeRouteForWebPath("/players?incomplete=true")).toEqual({
+      pathname: "/(tabs)/players",
+      params: { incomplete: "true" },
+    });
+  });
   it("the bare Players path is unchanged", () => {
     expect(nativeRouteForWebPath("/players")).toEqual({ pathname: "/(tabs)/players" });
   });

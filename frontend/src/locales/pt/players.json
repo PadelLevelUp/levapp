@@ -14,6 +14,7 @@
     "missingSideAlert_one": "{{count}} jogador sem lado de jogo definido",
     "missingSideAlert_other": "{{count}} jogadores sem lado de jogo definido",
     "missingLevelFilterActive": "Filtro sem nível ativo",
+    "incompleteFilterActive": "Filtro de perfil incompleto ativo",
     "missingSideFilterActive": "Filtro sem lado ativo",
     "clearFilterAriaLabel": "Limpar filtro",
     "clearFilter": "Limpar filtro",

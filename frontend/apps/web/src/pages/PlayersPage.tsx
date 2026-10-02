@@ -47,6 +47,8 @@ export default function PlayersPage() {
   const [searchParams] = useSearchParams();
   const [missingLevelFilter, setMissingLevelFilter] = useState(searchParams.get("missing_level") === "true");
   const [missingSideFilter, setMissingSideFilter] = useState(searchParams.get("missing_side") === "true");
+  // The dashboard's "see all" (#523): no level OR no side, the block's own definition.
+  const [incompleteFilter, setIncompleteFilter] = useState(searchParams.get("incomplete") === "true");
   const [alertCounts, setAlertCounts] = useState({ missingLevel: 0, missingSide: 0 });
   const { user } = useAuth();
   const { toast } = useToast();
@@ -118,10 +120,10 @@ export default function PlayersPage() {
       return getCoachPlayersPaginated(
         page, PAGE_SIZE, searchParam,
         sortBy, sortDir,
-        missingLevelFilter, missingSideFilter,
+        missingLevelFilter, missingSideFilter, incompleteFilter,
       );
     },
-    [debouncedSearch, sortOption, missingLevelFilter, missingSideFilter],
+    [debouncedSearch, sortOption, missingLevelFilter, missingSideFilter, incompleteFilter],
   );
 
   // PAD-410: every roster fetch goes through here. Each request takes a sequence
@@ -191,18 +193,21 @@ export default function PlayersPage() {
   const toggleMissingLevelFilter = () => {
     setMissingLevelFilter((prev) => !prev);
     setMissingSideFilter(false);
+    setIncompleteFilter(false);
     setCurrentPage(1);
   };
 
   const toggleMissingSideFilter = () => {
     setMissingSideFilter((prev) => !prev);
     setMissingLevelFilter(false);
+    setIncompleteFilter(false);
     setCurrentPage(1);
   };
 
   const clearFilters = () => {
     setMissingLevelFilter(false);
     setMissingSideFilter(false);
+    setIncompleteFilter(false);
     setCurrentPage(1);
   };
 
@@ -251,7 +256,7 @@ export default function PlayersPage() {
     }
   };
 
-  const hasActiveFilter = missingLevelFilter || missingSideFilter;
+  const hasActiveFilter = missingLevelFilter || missingSideFilter || incompleteFilter;
 
   const alertsSection = (alertCounts.missingLevel > 0 || alertCounts.missingSide > 0) && (
     <div className="flex flex-col gap-2">
@@ -304,7 +309,11 @@ export default function PlayersPage() {
       {hasActiveFilter && (
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-sm">
-            {missingLevelFilter ? t("players.missingLevelFilterActive") : t("players.missingSideFilterActive")}
+            {incompleteFilter
+              ? t("players.incompleteFilterActive")
+              : missingLevelFilter
+                ? t("players.missingLevelFilterActive")
+                : t("players.missingSideFilterActive")}
           </Badge>
           <Button
             variant="ghost"

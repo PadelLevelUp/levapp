@@ -23,7 +23,7 @@ export type DashboardRoute =
   | { pathname: "/(tabs)/calendar" }
   | { pathname: "/(tabs)/messages" }
   | { pathname: "/conversation/[id]"; params: { id: string } }
-  | { pathname: "/(tabs)/players"; params?: { missing_level?: string; missing_side?: string } }
+  | { pathname: "/(tabs)/players"; params?: { missing_level?: string; missing_side?: string; incomplete?: string } }
   | { pathname: "/player/[playerId]"; params: { playerId: string } }
   | { pathname: "/(tabs)/presences"; params: { week: string; validate?: string } }
   | { pathname: "/attendance" }
@@ -69,6 +69,7 @@ export function nativeRouteForWebPath(
     const id = href.split("?")[0].split("/")[2] ?? "";
     if (/^\d+$/.test(id)) return { pathname: "/player/[playerId]", params: { playerId: id } };
     const params = query(href);
+    if (params.get("incomplete") === "true") return { pathname: "/(tabs)/players", params: { incomplete: "true" } };
     if (params.get("missing_level") === "true") return { pathname: "/(tabs)/players", params: { missing_level: "true" } };
     if (params.get("missing_side") === "true") return { pathname: "/(tabs)/players", params: { missing_side: "true" } };
     return { pathname: "/(tabs)/players" };

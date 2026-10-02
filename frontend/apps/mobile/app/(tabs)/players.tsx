@@ -59,10 +59,11 @@ export default function PlayersScreen() {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
   // PAD-287: Settings → My connections lands here with `addByQr=1`.
-  const { addByQr, missing_level, missing_side } = useLocalSearchParams<{
+  const { addByQr, missing_level, missing_side, incomplete } = useLocalSearchParams<{
     addByQr?: string;
     missing_level?: string;
     missing_side?: string;
+    incomplete?: string;
   }>();
   const [qrOpen, setQrOpen] = React.useState(addByQr === "1");
   React.useEffect(() => {
@@ -81,12 +82,16 @@ export default function PlayersScreen() {
     sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];
   const [missingLevelFilter, setMissingLevelFilter] = React.useState(missing_level === "true");
   const [missingSideFilter, setMissingSideFilter] = React.useState(missing_side === "true");
-  // PAD-486: the dashboard's "See all" lands here with the filter on. The tab stays
-  // mounted, so a later arrival with the param is applied too.
+  const [incompleteFilter, setIncompleteFilter] = React.useState(incomplete === "true");
+  // PAD-486 (#523 review): the dashboard's "See all" lands here with a filter. The tab stays
+  // mounted, so the filters FOLLOW the URL both ways: a later arrival with different params
+  // (or none) turns the earlier filter off instead of leaving it stuck on.
   React.useEffect(() => {
-    if (missing_level === "true") setMissingLevelFilter(true);
-    if (missing_side === "true") setMissingSideFilter(true);
-  }, [missing_level, missing_side]);
+    setMissingLevelFilter(missing_level === "true");
+    setMissingSideFilter(missing_side === "true");
+    setIncompleteFilter(incomplete === "true");
+    setPage(1);
+  }, [missing_level, missing_side, incomplete]);
 
   // Debounce search — reset to page 1 on a new query (mirrors web, 300ms).
   React.useEffect(() => {
@@ -107,13 +112,14 @@ export default function PlayersScreen() {
     sortDir,
     missingLevel: missingLevelFilter,
     missingSide: missingSideFilter,
+    incomplete: incompleteFilter,
   });
 
   const players = data?.items ?? [];
   const totalPages = data?.pagination.pages || 1;
   const totalItems = data?.pagination.total || 0;
   const alerts = data?.alerts ?? { missingLevel: 0, missingSide: 0 };
-  const hasActiveFilter = missingLevelFilter || missingSideFilter;
+  const hasActiveFilter = missingLevelFilter || missingSideFilter || incompleteFilter;
 
   const handleSortChange = (option: Option) => {
     if (option?.value) setSortValue(option.value as SortValue);
@@ -123,18 +129,21 @@ export default function PlayersScreen() {
   const toggleMissingLevel = () => {
     setMissingLevelFilter((prev) => !prev);
     setMissingSideFilter(false);
+    setIncompleteFilter(false);
     setPage(1);
   };
 
   const toggleMissingSide = () => {
     setMissingSideFilter((prev) => !prev);
     setMissingLevelFilter(false);
+    setIncompleteFilter(false);
     setPage(1);
   };
 
   const clearFilters = () => {
     setMissingLevelFilter(false);
     setMissingSideFilter(false);
+    setIncompleteFilter(false);
     setPage(1);
   };
 
@@ -335,9 +344,11 @@ export default function PlayersScreen() {
           <View className="flex-row items-center gap-2">
             <Badge variant="secondary">
               <Text>
-                {missingLevelFilter
-                  ? t("players.missingLevelFilterActive")
-                  : t("players.missingSideFilterActive")}
+                {incompleteFilter
+                  ? t("players.incompleteFilterActive")
+                  : missingLevelFilter
+                    ? t("players.missingLevelFilterActive")
+                    : t("players.missingSideFilterActive")}
               </Text>
             </Badge>
             <Button

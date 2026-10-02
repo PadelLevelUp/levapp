@@ -21,8 +21,9 @@ classes are missing and lets them remind the coach.
 
 ### Rules
 1. **Incomplete link.** A `coach_in_player` row is incomplete when its `level_id` is null or its
-   `side` is null. Disabled accounts are not counted, matching the Players page alerts
-   (`players.list` rules 2 and 5), which read the same two columns.
+   `side` is null. Disabled accounts are not counted, on either side of the link: a disabled
+   student is not listed to the coach and a disabled coach is neither shown to the student nor
+   reminded, matching the Players page alerts (`players.list` rules 2 and 5).
 2. **What it costs** (the copy must say so): with no level a student fails every level rule
    (`student_has_no_level`, fail-closed), so no invitations to a class with a level rule and no join
    request to one; with no side a student is never offered a left- or right-only spot and does not
@@ -32,13 +33,17 @@ classes are missing and lets them remind the coach.
    players: [{playerId, name, missing: ["level"|"side", …], href: "/players/<playerId>"}],
    seeAllHref}}` right after `needs_you`, listing the first 5 by name, while `count > 0`; omitted
    entirely when it is 0. A tap on a player opens that player (web `/players/<id>`, iOS
-   `/player/<id>`); "see all" opens the Players list with the missing-level filter
-   (`seeAllHref` `/players?missing_level=true`, or `missing_side` when no level is missing).
+   `/player/<id>`). When there are more than the five listed, "see all" opens the Players list on
+   the block's own definition — `seeAllHref` `/players?incomplete=true`, no level OR no side
+   (`players.list`). The Players screens follow those URL filters both ways (iOS: the tab stays
+   mounted, so a later arrival with other params, or none, turns an earlier filter off).
 4. **Student block (PAD-490).** `GET /api/app/dashboard` for a student carries a top-level block
    `{id: "profile_incomplete", type: "profile_incomplete", data: {coaches: [{coachId, coachName,
-   missing, remindedToday}]}}` right after the next-class hero, one entry per linked coach whose
-   link is incomplete; omitted entirely when there is none. It disappears for a coach as soon as
-   that coach sets both.
+   missing, remindedToday, canRemind}]}}` first, above the next-class hero (payload and both
+   clients), one entry per linked coach whose link is incomplete; omitted entirely when there is
+   none. It disappears for a coach as soon as that coach sets both. The card's body names what is
+   missing and only its real cost — level only, side only, or both — and always ends with "you
+   can always request a private class" (a class request needs only the roster link).
 5. **Old builds.** Both blocks are new top-level types. Every installed iOS build skips a top-level
    block type it does not know (1.0.0/1.1.2: `renderBlock`'s `default: return null`; 1.2.0/1.2.1:
    blocks are looked up by type and the rest are never read), and the web looks blocks up by type.
@@ -50,13 +55,18 @@ classes are missing and lets them remind the coach.
    b. a complete link answers `409 {code: "profile_complete"}` and sends nothing;
    c. one reminder per student per coach per **club day** (Lisbon): a second one the same day answers
       `409 {code: "already_reminded"}` and sends nothing. The day is `club_day_start_utc` of now, so it
-      turns at Lisbon midnight, not UTC midnight;
+      turns at Lisbon midnight, not UTC midnight. The check and the write are one step: the link row
+      is locked (`SELECT … FOR UPDATE`) before the check, so two requests at once send one;
    d. otherwise it writes one chat message from the student to the coach in their direct
       conversation (created if absent), `message_type: "profile_reminder"`,
       `msg_metadata: {profileReminder: {coachId, missing}}`, in the coach's language
       ("Olá treinador, o meu perfil ainda não está completo (falta: nível, lado)." / "Hi coach, my
       profile isn't complete yet (missing: level, side)."), publishes it over SSE and sends the
-      normal message push to the coach. It is an automatic message (`messaging.messages` rule 6).
+      normal message push to the coach. It is an automatic message (`messaging.messages` rule 6,
+      which arrives with PAD-492);
+   e. a pair blocked either way (`messaging.block-and-report`) answers `409 {code: "cannot_remind"}`
+      and sends nothing — a generic code, so a block cannot be read from it — and the card carries
+      `canRemind: false`: it still explains the cost but offers no button.
 7. **After pressing.** The block's entry reads `remindedToday: true`; the button becomes disabled
    "Lembrete enviado hoje" / "Reminder sent today" until the next club day. The card stays until
    the profile is complete.
@@ -97,3 +107,23 @@ classes are missing and lets them remind the coach.
 - **Given** the data above
 - **When** C and S open the dashboard on web and on iOS
 - **Then** C sees the block with names that open the player, and S sees the card with "Remind my coach", which reads "Reminder sent today" after a tap
+
+#### A blocked pair gets no reminder and no button (rule 6e, #523)
+- **Given** S's incomplete link to C, and either C blocked S or S blocked C
+- **When** S opens the dashboard and POSTs `/api/app/profile-reminder {coachId: C}`
+- **Then** the card has `canRemind: false` and no button, the POST answers 409 `cannot_remind`, and nothing is written or pushed
+
+#### A disabled coach is neither shown nor reminded (rule 1, #523)
+- **Given** S's incomplete link to C, and C's account disabled
+- **When** S opens the dashboard and reminds C
+- **Then** no card names C and the POST answers 404
+
+#### Two reminders at once send one (rule 6c, #523)
+- **Given** two devices of S reminding C at the same moment (Postgres)
+- **When** both requests run
+- **Then** exactly one `profile_reminder` message exists and the other answers 409 `already_reminded`
+
+#### The card says what is missing (rule 4, #523)
+- **Given** S's link lacks only the side
+- **When** S opens the dashboard
+- **Then** the card says the coach has not set the side and that S misses spots reserved for one side, and says nothing about level rules
