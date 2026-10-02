@@ -1,0 +1,104 @@
+# PAD-488 / classes.class-requests rule 19 (B-264) on iOS — the reporter's case. The coach's
+# calendar tab is open on a day holding a student's request ("pedido de aula"); the coach accepts
+# it in the chat and comes back to the SAME, still-mounted calendar tab: the hold is gone and the
+# class is there, with no reload, no app resume and no logout. Before the fix the tab kept the
+# hold until the app was backgrounded or the coach logged out (the query was never invalidated).
+#
+# Setup through the API (R-040): e2e-student asks e2e-coach for the first free hour two days
+# out; onFlowComplete (scripts/pad488-clear.js) removes the class and the request even when a
+# step fails. Assertions by testID and server values only (`calendar-grid-block-<feed id>`).
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 139 is from Session-D's
+# reserved block (139–141, coordinator 2026-10-02).
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad488-clear.js
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.plus60 = function (t) { var p = t.split(':'), m = Number(p[0]) * 60 + Number(p[1]) + 60, h = Math.floor(m / 60), mm = m % 60; return (h < 10 ? '0' + h : '' + h) + ':' + (mm < 10 ? '0' + mm : '' + mm); }}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.studentUserId = String(json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).id)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.slot = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).filter(function (b) { return b.date === output.day && output.plus60(b.startTime) <= b.endTime; })[0]}"
+- assertTrue: "${output.slot != null}"
+- evalScript: "${output.start = output.slot.startTime}"
+- evalScript: "${output.rid = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: Number(output.coachId), date: output.day, startTime: output.start, endTime: output.plus60(output.start) }) }).body).id}"
+- assertTrue: "${output.rid != null}"
+- evalScript: "${output.feed = function () { return json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); }}"
+- evalScript: "${output.holdId = String(output.feed().filter(function (e) { return e.requestHoldOf === output.rid; })[0].id)}"
+- evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).conversations.filter(function (c) { return String(c.participantId) === output.studentUserId; })[0].id)}"
+
+# ── The coach's calendar tab, on that day, shows the hold ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- scrollUntilVisible:
+    element:
+      id: "calendar-grid-block-${output.holdId}"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+
+# ── Accept in the chat ──
+- openLink: "levelup://conversation/${output.convId}"
+- scrollUntilVisible:
+    element:
+      id: "class-request-proposal-actions-${output.rid}"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-request-bubble-accept"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-request-bubble-accept"
+    timeout: 20000
+- evalScript: "${output.classId = String(output.feed().filter(function (e) { return e.type === 'class' && e.startTime === output.start && e.classType === 'private'; })[0].id)}"
+
+# ── Back to the same calendar tab: the hold is gone, the class is there ──
+- openLink: "levelup://calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "calendar-grid-block-${output.holdId}"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "calendar-grid-block-${output.classId}"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
