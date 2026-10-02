@@ -189,3 +189,4 @@ whether a failure mode has been seen before.
 - [B-243](B-243-engine-settings-save-failure-reverts-silently.md) — Notification-engine settings: a failed save snapped the control back silently, to a stale closure copy (incomplete-rule, medium, triaged)
 - [B-244](B-244-web-language-saved-only-by-the-header-button.md) — Web Settings: a language picked on Preferences was stored only by the page-header Save (layer-drift, medium, triaged)
 - [B-251](B-251-maestro-95-drove-a-removed-categories-editor.md) — Maestro flow 95 drove the evaluation-categories editor PAD-373 removed; it failed at its first scroll (test-defect, low, resolved)
+- [B-252](B-252-dropdown-reopen-test-spent-seconds-in-jsdom-modal-matching.md) — Web unit test dropdown-menu.reopen timed out under load: floating-ui's top-layer check costs ~300 ms per `matches(':modal')` in jsdom; the test answers top-layer selectors false (test-defect, medium, resolved)
