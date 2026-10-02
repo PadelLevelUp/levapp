@@ -403,19 +403,25 @@ def convert_competency(coach, category_id, body) -> EvaluationCategory:
     name = BY_KEY[key]["pt"]
     if _name_taken(coach, name, except_id=category.id):
         raise ApiError(409, "name_taken")
-    category.name = name
-    category.catalogue_key = key
-    category.competency_group = "general"
     # evaluations.scale rule 2: a non-legacy row is on the coach's scale. Its scores keep their own
-    # snapshots (rule 3); nothing here touches an entry.
-    category.scale_min, category.scale_max = 1, coach_scale(coach)
+    # snapshots (rule 3). A score the PAD-423 backfill could not stamp is read on its category's scale
+    # (`_own_scale`), so it is stamped with the row's old scale first, in the same transaction.
+    old_min, old_max = _scale(category)
     try:
+        EvaluationEntry.query.filter(
+            EvaluationEntry.category_id == category.id, EvaluationEntry.scale_max.is_(None),
+        ).update({"scale_min": old_min, "scale_max": old_max}, synchronize_session=False)
+        category.name = name
+        category.catalogue_key = key
+        category.competency_group = "general"
+        category.scale_min, category.scale_max = 1, coach_scale(coach)
         db.session.commit()
     except IntegrityError:
-        # Two rows converted to one default at the same instant: the (coach_id, catalogue_key) index
-        # lets one through; the other is answered as if it had looked after the first.
+        # Lost a race the checks above could not see: another row took this default (the
+        # (coach_id, catalogue_key) index) or the name (the (coach_id, name) index) in between.
         db.session.rollback()
-        raise ApiError(409, "default_held")
+        held = EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first() is not None
+        raise ApiError(409, "default_held" if held else "name_taken")
     return category
 
 

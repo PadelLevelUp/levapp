@@ -170,6 +170,15 @@ def test_the_frozen_endpoints_treat_a_converted_row_as_non_legacy(app, client):
     assert deleted.status_code == 403
     assert _row(app, tecnica) is not None
 
+    # The upsert skips the new name: no legacy "Técnica" appears, and the converted row is untouched.
+    upserted = client.post(f"{BASE}/add_evaluation_categories", headers=headers,
+                           json=[{"name": "Técnica", "scaleMin": 1, "scaleMax": 5}])
+    assert upserted.status_code == 200
+    from padel_app.models import EvaluationCategory
+    with app.app_context():
+        assert [c.id for c in EvaluationCategory.query.filter_by(coach_id=ids["coach_id"], name="Técnica")] == [tecnica]
+    assert _row(app, tecnica)["key"] == "technique"
+
 
 def test_known_limit_a_stale_old_editor_recreates_the_old_name_as_an_empty_legacy_row(app, client):
     """Rule 18's known limit, pinned so the frozen upsert is not "fixed" by accident (R-047 rule 6):
@@ -193,6 +202,9 @@ def test_known_limit_a_stale_old_editor_recreates_the_old_name_as_an_empty_legac
         recreated_id = recreated.id
         assert recreated.competency_group is None and recreated.id != tecnica
     assert _row(app, tecnica)["key"] == "technique" and _entries(app, tecnica) == [(4.0, 1, 5)]
+    # The next 1.1.0 save posts every legacy category it lists, an unrated one at the midpoint.
+    assert _save(app, client, ids, [{"categoryId": recreated_id, "value": 3}]).status_code == 200
+    assert _entries(app, recreated_id) == [(3.0, 1, 5)]
     assert client.delete(f"{BASE}/evaluation_competency/{recreated_id}", headers=headers).status_code == 200
 
 
@@ -209,3 +221,70 @@ def test_a_sub_level_entry_added_after_conversion_goes_under_the_converted_row(a
 
     assert after["parentId"] == tecnica
     assert moved.status_code == 200 and moved.get_json()["parentId"] == tecnica
+
+
+def test_a_score_with_no_snapshot_keeps_the_scale_it_was_given_on(app, client):
+    """Rule 18 "each on its own scale snapshot", true by construction: a score the PAD-423 backfill could
+    not stamp (NULL snapshot) is read on its category's scale, so the conversion stamps the row's old
+    scale onto it before the row takes the coach's scale."""
+    from sqlalchemy import text
+
+    ids, tecnica = _scored_tecnica(app, client)
+    with app.app_context():
+        db.session.execute(text("UPDATE evaluation_entries SET scale_min = NULL, scale_max = NULL WHERE category_id = :c"),
+                           {"c": tecnica})
+        db.session.commit()
+    assert _entries(app, tecnica) == [(4.0, None, None)]
+    headers = _coach_headers(app, ids)
+    assert client.put(f"{BASE}/evaluation_scale", json={"scaleMax": 10}, headers=headers).status_code == 200
+
+    assert _convert(app, client, ids, tecnica, {"catalogueKey": "technique"}).status_code == 200
+
+    assert _row(app, tecnica)["scale"] == (1, 10)
+    assert _entries(app, tecnica) == [(4.0, 1, 5)]
+
+
+def test_a_switched_off_legacy_row_stays_off(app, client):
+    from padel_app.models import EvaluationCategory
+
+    ids, tecnica = _scored_tecnica(app, client)
+    with app.app_context():
+        db.session.get(EvaluationCategory, tecnica).is_active = False
+        db.session.commit()
+
+    res = _convert(app, client, ids, tecnica, {"catalogueKey": "technique"})
+
+    assert res.status_code == 200 and res.get_json()["isActive"] is False
+    assert _row(app, tecnica)["is_active"] is False
+
+
+def test_a_name_that_races_in_is_answered_name_taken(app, client, monkeypatch):
+    """A row named "Técnica" inserted between the name check and the commit (a custom one, at the same
+    moment) trips the (coach_id, name) index: answered name_taken, nothing written."""
+    from padel_app.services import evaluation_api_service as service
+
+    ids, tecnica = _scored_tecnica(app, client)
+    from padel_app.models import EvaluationCategory
+
+    with app.app_context():  # inserted by the racing request: past this request's name check
+        db.session.add(EvaluationCategory(coach_id=ids["coach_id"], name="Técnica", scale_min=1, scale_max=5,
+                                          competency_group="custom"))
+        db.session.commit()
+    monkeypatch.setattr(service, "_name_taken", lambda *a, **k: False)  # the check ran before the insert
+
+    res = _convert(app, client, ids, tecnica, {"catalogueKey": "technique"})
+
+    assert res.status_code == 409 and res.get_json()["error"] == "name_taken"
+    assert _row(app, tecnica)["group"] is None
+
+
+def test_an_unknown_row_and_a_body_that_is_not_an_object_are_refused(app, client):
+    ids, tecnica = _scored_tecnica(app, client)
+    headers = _coach_headers(app, ids)
+
+    unknown = _convert(app, client, ids, 999999, {"catalogueKey": "technique"})
+    listed = client.post(f"{BASE}/evaluation_competency/{tecnica}/convert", json=["technique"], headers=headers)
+
+    assert (unknown.status_code, unknown.get_json()["error"]) == (404, "competency_not_found")
+    assert (listed.status_code, listed.get_json()["error"]) == (400, "body_invalid")
+    assert _row(app, tecnica)["group"] is None

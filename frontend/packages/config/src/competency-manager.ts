@@ -233,7 +233,7 @@ export function suggestionFold(name: string): string {
 }
 
 /** Rule 18: the folded names that suggest each default — its pt and en labels, and the old pt / Spanish
- * "táctica". `docs/plans/2026-10-02-pad480-convertible.sql` holds the same list for the prod read. */
+ * "táctica". A prod read of which rows would be offered must use this same list. */
 export const SUGGESTION_ALIASES: Readonly<Record<(typeof DEFAULT_CATEGORIES)[number], readonly string[]>> = {
   technique: ["tecnica", "technique"],
   tactics: ["tatica", "tactica", "tactics"],

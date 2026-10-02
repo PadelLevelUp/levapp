@@ -229,10 +229,14 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
     - **Afterwards** it is the coach's default category in every respect: it holds sub-categories
       (rule 15, and the manager offers the default's missing ones under it), rule 16 decides what is
       scored, and it can be renamed (rule 8) or deleted (rule 9).
-    - **Refused, nothing written:** 400 `not_legacy` (the row is not legacy); 400
-      `catalogue_key_invalid` (absent, not a string, or not a `general` key); 409 `default_held`
-      (the coach holds a row with that `catalogue_key`); 409 `name_taken` (another of the coach's
-      rows holds the label, compared as rule 6 does); 403 another coach's row.
+    - **Refused, nothing written, checked in this order:** 404 `competency_not_found` (no such row)
+      and 403 another coach's row; 400 `body_invalid` (the body is not an object); 400
+      `catalogue_key_invalid` (absent, not a string, or not a `general` key); 400 `not_legacy` (the
+      row is not legacy); 409 `default_held` (the coach holds a row with that `catalogue_key`); 409
+      `name_taken` (another of the coach's rows holds the label, compared as rule 6 does). A request
+      that loses a race to another row on the (coach, key) or (coach, name) index is answered the
+      same way. A score on the row that the PAD-423 backfill left without a snapshot is stamped with
+      the row's old scale before the row takes the coach's scale, so every score keeps its own.
     - **The server matches no names.** The manager offers "Converter em categoria padrão" on a
       legacy row whose name, trimmed, whitespace-collapsed, case- and accent-folded, equals an alias
       of a default the coach does not hold: its pt and en labels, and "tactica" for `tactics`
@@ -244,9 +248,13 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
       checked; after converting, the client moves each with rule 15's `PATCH {parentId}`, and says
       which, if any, it could not move (they stay where they were, offered "Mover para…").
     - **Not reversible:** nothing turns it back.
-    - **Known limit.** App Store 1.1.0's editor posts its whole category list with the names it
-      read; saved after the conversion from a list read before it, the legacy upsert (R-047 rule 5)
-      creates an empty legacy row with the old name, which the coach can delete (rule 9).
+    - **Known limits.** (a) App Store builds 27 and 28 predate this rule: their manager offers the
+      default's "add" beside the legacy row, and a default added there is held, so the legacy row
+      no longer offers conversion on web and iOS; deleting the empty default brings the offer back.
+      (b) App Store 1.1.0's editor posts its whole category list with the names it read; saved
+      after the conversion from a list read before it, the legacy upsert (R-047 rule 5) creates a
+      legacy row with the old name, empty at first; the next 1.1.0 evaluation save posts it a
+      midpoint score (3 on 1–5), as it does every legacy category. The coach can delete it (rule 9).
 
 ### Touches
 - `settings.role-scope` — its coach-only Preferences list names "evaluation categories"; the

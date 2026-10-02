@@ -506,6 +506,11 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }],
   };
   const CONVERTED = { ...TECNICA, key: "technique", name: "Técnica", group: "general" as const };
+  // After a conversion whose move of Serviço failed: Bandeja under Técnica, Serviço still at the top level.
+  const AFTER: EvaluationCompetencies = {
+    competencies: [CONVERTED, TACTICA, VOLLEY, { ...BANDEJA_OFF, parentId: 5 }, SERVE_OFF],
+    catalogue: COACH2.catalogue,
+  };
 
   afterEach(() => {
     api.convertEvaluationCompetency.mockReset();
@@ -549,6 +554,7 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     });
 
     fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
+    api.getEvaluationCompetencies.mockResolvedValue(AFTER); // what the re-list reads
     fireEvent.click(within(await screen.findByTestId("competency-convert-dialog")).getByTestId("competency-convert-confirm"));
 
     const said = await screen.findByTestId("competency-convert-not-moved");
@@ -557,15 +563,31 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     expect(said).toHaveTextContent("Serviço");
     fireEvent.click(screen.getByTestId("competency-convert-done"));
     await waitFor(() => expect(screen.queryByTestId("competency-convert-dialog")).toBeNull());
+    // Serviço stayed at the top level and still offers "Mover para…".
+    expect(await screen.findByTestId("competency-move-key-serve")).toBeInTheDocument();
   });
 
-  it("unchecked, nothing is moved; another target can be picked", async () => {
+  it("unchecked, the strays are not moved", async () => {
+    open(COACH2);
+    api.convertEvaluationCompetency.mockResolvedValue(CONVERTED);
+
+    fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
+    const dialog = await screen.findByTestId("competency-convert-dialog");
+    fireEvent.click(within(dialog).getByTestId("competency-convert-move"));
+    expect(within(dialog).getByTestId("competency-convert-move")).toHaveAttribute("data-state", "unchecked");
+    fireEvent.click(within(dialog).getByTestId("competency-convert-confirm"));
+
+    await waitFor(() => expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique"));
+    await waitFor(() => expect(screen.queryByTestId("competency-convert-dialog")).toBeNull());
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("another target can be picked", async () => {
     open(COACH2);
     api.convertEvaluationCompetency.mockResolvedValue({ ...TECNICA, key: "consistency", group: "general" });
 
     fireEvent.click(await screen.findByTestId("competency-convert-id-5"));
     const dialog = await screen.findByTestId("competency-convert-dialog");
-    fireEvent.click(within(dialog).getByTestId("competency-convert-move"));
     fireEvent.click(within(dialog).getByTestId("competency-convert-target-consistency"));
     expect(within(dialog).queryByTestId("competency-convert-move")).toBeNull(); // Consistência has no strays
     fireEvent.click(within(dialog).getByTestId("competency-convert-confirm"));

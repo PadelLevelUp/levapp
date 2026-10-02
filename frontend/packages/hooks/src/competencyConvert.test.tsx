@@ -19,12 +19,12 @@ const { api } = vi.hoisted(() => ({
 vi.mock("@levelup/api/src/resources/evaluationRecords", () => api);
 
 import { useConvertEvaluationCompetency } from "./evaluations";
+import { queryKeys } from "./queryKeys";
 
 const converted = { id: 5, key: "technique", name: "Técnica", group: "general", parentId: null,
   scaleMin: 1, scaleMax: 5, isActive: true, sortOrder: null, scoreCount: 6 };
 
-function setup() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+function setup(queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })) {
   const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client: queryClient }, children);
   return renderHook(() => useConvertEvaluationCompetency(), { wrapper });
 }
@@ -63,7 +63,28 @@ describe("useConvertEvaluationCompetency (rule 18, PAD-480)", () => {
     api.convertEvaluationCompetency.mockRejectedValue({ response: { status: 409, data: { error: "default_held" } } });
     const { result } = setup();
 
-    await expect(act(() => result.current.mutateAsync({ id: 5, catalogueKey: "technique", moveIds: [8] }))).rejects.toBeTruthy();
+    await act(async () => {
+      await expect(result.current.mutateAsync({ id: 5, catalogueKey: "technique", moveIds: [8] })).rejects.toBeTruthy();
+    });
     expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("writes the converted row and each moved one into the list, then re-lists it and the class reads", async () => {
+    const classRef = { model: "LessonInstance", id: 7, date: "2026-09-25" };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const legacy = { ...converted, key: null, name: "Técnica ", group: null };
+    const bandeja = { ...converted, id: 8, key: "bandeja", name: "Bandeja", group: "technique", parentId: null };
+    queryClient.setQueryData(queryKeys.evaluationCompetencies, { competencies: [legacy, bandeja], catalogue: [] });
+    queryClient.setQueryData(queryKeys.classEvaluations(classRef), { competencies: [], participants: [] });
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => ({ ...bandeja, id, parentId: 5 }));
+    const { result } = setup(queryClient);
+
+    await act(() => result.current.mutateAsync({ id: 5, catalogueKey: "technique", moveIds: [8] }));
+
+    const list = queryClient.getQueryData<{ competencies: typeof converted[] }>(queryKeys.evaluationCompetencies)!;
+    expect(list.competencies.find((c) => c.id === 5)).toMatchObject({ key: "technique", group: "general" });
+    expect(list.competencies.find((c) => c.id === 8)).toMatchObject({ parentId: 5 });
+    expect(queryClient.getQueryState(queryKeys.evaluationCompetencies)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(queryKeys.classEvaluations(classRef))?.isInvalidated).toBe(true);
   });
 });

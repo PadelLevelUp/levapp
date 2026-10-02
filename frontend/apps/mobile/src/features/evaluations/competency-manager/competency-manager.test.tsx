@@ -479,6 +479,11 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
     catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }],
   };
   const CONVERTED = { ...TECNICA, key: "technique", name: "Técnica", group: "general" as const };
+  // After a conversion whose move of Serviço failed: Bandeja under Técnica, Serviço still at the top level.
+  const AFTER: EvaluationCompetencies = {
+    competencies: [CONVERTED, TACTICA, VOLLEY, { ...BANDEJA_OFF, parentId: 5 }, SERVE_OFF],
+    catalogue: COACH2.catalogue,
+  };
 
   function ConvertHarness() {
     const competencies = useEvaluationCompetencies(true);
@@ -545,15 +550,34 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
     await n.press("competency-convert-done");
     await n.flush();
     expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
+    // The re-list reads the new state: Serviço stayed at the top level and still offers "Mover para…".
+    api.getEvaluationCompetencies.mockResolvedValue(AFTER);
+    act(() => listRefetch?.());
+    await n.flush();
+    expect(n.queryByTestId("competency-move-key-serve")).not.toBeNull();
   });
 
-  it("unchecked, nothing is moved; another target can be picked", async () => {
+  it("unchecked, the strays are not moved", async () => {
     const n = await renderNative(createElement(ConvertHarness));
     await n.flush();
 
     await n.press("competency-convert-id-5");
     await n.flush();
     await n.press("competency-convert-move");
+    expect(n.byTestId("competency-convert-move").props.accessibilityState.checked).toBe(false);
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique");
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("another target can be picked", async () => {
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
     await n.press("competency-convert-target-consistency");
     expect(n.queryByTestId("competency-convert-move")).toBeNull(); // Consistência has no strays
     await n.press("competency-convert-confirm");
