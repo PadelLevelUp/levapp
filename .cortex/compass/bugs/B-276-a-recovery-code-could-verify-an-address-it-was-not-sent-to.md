@@ -54,7 +54,7 @@ rule.
     - It no longer uses `active_history`, which would raise on a detached instance.
     - An old value that isn't loaded counts as a change.
   - **Staging-sync:** the bulk rewrite in `sync-staging-db.sh` clears both codes in the same statement.
-- **Tests:** `test_pad498_recovery_code_and_email_change.py`, 12 tests.
+- **Tests:** `test_pad498_recovery_code_and_email_change.py`, 11 tests.
   - Red first on staging 4a77b1134:
     - a change of address;
     - a clear followed by a new address;
