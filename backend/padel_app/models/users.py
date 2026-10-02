@@ -211,3 +211,25 @@ class User(db.Model, model.Model, UserMixin):
         form.add_block(info_block)
 
         return form
+
+
+# PAD-498 (auth.password-recovery rule 9, B-276): a recovery code belongs to the address it was mailed
+# to. Any write that changes `email` (or clears it) discards a pending code, whichever path writes it —
+# the profile endpoint, activation, a claim, a deletion, a form. Re-saving the same address in another
+# case is not a change.
+from sqlalchemy import event as _event  # noqa: E402
+from sqlalchemy.orm.attributes import NO_VALUE as _NO_VALUE  # noqa: E402
+
+
+# `active_history` loads the old value even when it was expired (after a commit), so a write that never
+# read the address is still seen as a change.
+@_event.listens_for(User.email, "set", active_history=True)
+def _email_change_discards_recovery_code(target, value, oldvalue, initiator):
+    if oldvalue is _NO_VALUE:
+        return  # a row being created: nothing pending to protect
+    if (oldvalue or "").strip().lower() == (value or "").strip().lower():
+        return
+    target.password_reset_code_hash = None
+    target.password_reset_expires_at = None
+    target.password_reset_sent_at = None
+    target.password_reset_attempts = 0

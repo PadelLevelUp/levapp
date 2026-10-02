@@ -95,8 +95,26 @@ back at all.
    flag-gated and unauthenticated by design.
 10. **Per-IP throttle (PAD-228).** `POST /api/auth/password-recovery/request` and `/confirm` share one bucket, throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_RECOVERY` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. This is the per-IP layer on top of the
     per-email cooldown of rule 4, and it caps code guessing across many emails.
+11. **A code belongs to the address it was sent to (PAD-498, B-276).** Rule 6 marks the account's email
+    verified on success, because the person just proved they read mail at that address. So a pending
+    code must never outlive its address: any write that changes the account's email or clears it
+    discards the pending code (hash, expiry, sent time, attempts), whatever path writes it — the
+    profile, an activation, a claim, a deletion. It lives on the model (a `set` listener on
+    `User.email`), not in each caller. Re-saving the same address in another case is not a change. A
+    recovery requested and confirmed on an unchanged address is unaffected.
 
 ### Acceptance Criteria
+
+#### A recovery code does not survive an email change (rule 11, PAD-498)
+- **Given** a recovery code was mailed to the account's address
+- **When** the account's email is changed, or cleared and then set again, before the code is used
+- **Then** the code no longer confirms (410 `CODE_EXPIRED`), the new address is not marked verified,
+  and the password is unchanged
+
+#### A recovery on an unchanged address is unchanged (rule 11)
+- **Given** a recovery code was mailed to the account's address, which has not changed
+- **When** it is confirmed with a new password
+- **Then** the password is reset, the user is signed in and the address is marked verified, as before
 
 #### Request issues a code and mails the username
 - **Given** user `ana` with email `ana@example.com`, username `ana.silva`, `language` `pt` and a captured mail transport
