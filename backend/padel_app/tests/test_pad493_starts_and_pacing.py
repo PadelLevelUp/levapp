@@ -434,7 +434,8 @@ def test_a_spot_whose_first_batch_maxtotal_stopped_is_retried_on_the_next_tick(a
     with app.app_context(), _io():
         instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=4, max_players=2, max_total=3,
                                             max_inactive=max_inactive)
-        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        # A stamp with microseconds: the give-back compares it, and must survive the round trip.
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW.replace(microsecond=123456))
         vacancies = _vacancies(instance_id)
         assert [v[3] for v in vacancies] == [1, 0]         # the second spot sent nothing
         first, second = vacancies[0][0], vacancies[1][0]
@@ -576,3 +577,111 @@ def test_an_absence_that_frees_no_place_creates_no_vacancy(app, monkeypatch):
         assert trigger_invitations(_instance(instance_id), coach_id, now=NOW) == []
         assert Vacancy.query.filter_by(lesson_instance_id=instance_id).count() == 0
         assert _live_events(instance_id) == []
+
+
+# ── third review of #507 ─────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("max_inactive", [True, False])
+def test_a_claim_whose_process_died_mid_send_lapses_and_is_retried(app, monkeypatch, max_inactive):
+    """The claim committed, the first student's invitation was committed, and the process died
+    before its message (or before the batch counter moved): open, round 1, batch 0, stamped, one
+    live invitation. Once the claim lapses the next tick restarts the spot; the dedupe skips the
+    student already invited."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import process_invitation_batches
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, others = _seed(enrolled=0, candidates=4, max_players=1, max_inactive=max_inactive)
+        vacancy = Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                          current_round_number=1, current_batch_number=0, last_activity_at=NOW)
+        db.session.add(vacancy)
+        db.session.flush()
+        db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id, player_id=others[0],
+                                         vacancy_id=vacancy.id, type="auto", round_number=1, status="sent"))
+        db.session.commit()
+
+        soon = pin_clock(monkeypatch, NOW + timedelta(minutes=4))
+        process_invitation_batches(now=soon)
+        assert _vacancies(instance_id) == [(1, "open", 1, 0)]
+
+        later = pin_clock(monkeypatch, NOW + timedelta(minutes=12))
+        process_invitation_batches(now=later)
+        vacancies, events = _state(instance_id)
+        assert vacancies == [(1, "open", 1, 1)]
+        assert sorted(p for _, p in events) == sorted(others)          # the first once, the others now
+
+
+def test_the_give_back_leaves_a_row_that_moved_alone(app, monkeypatch):
+    """`_give_back_claim` clears only its own claim: not a stamp another caller wrote, not a row
+    whose batch or round has moved, not a vacancy that is no longer open."""
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import _give_back_claim
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    stamp = NOW.replace(microsecond=123456)
+    other = stamp + timedelta(seconds=1)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=1, max_players=1)
+        rows = [
+            Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                    current_round_number=1, current_batch_number=0, last_activity_at=other),      # restamped
+            Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                    current_round_number=1, current_batch_number=1, last_activity_at=stamp),      # batch moved
+            Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                    current_round_number=2, current_batch_number=0, last_activity_at=stamp),      # round moved
+            Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="filled",
+                    current_round_number=1, current_batch_number=0, last_activity_at=stamp),      # closed
+            Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                    current_round_number=1, current_batch_number=0, last_activity_at=stamp),      # untouched
+        ]
+        db.session.add_all(rows)
+        db.session.commit()
+        ids = [r.id for r in rows]
+        for vid in ids:
+            _give_back_claim(vid, stamp, 0, 1)
+        after = [db.session.get(Vacancy, vid).last_activity_at for vid in ids]
+        assert after == [other, stamp, stamp, stamp, None]
+
+
+def test_the_claim_is_committed_before_the_batch_is_sent(app, monkeypatch):
+    """Rule 1b: the claim (the stamp) is committed, and the lock with it, before any invitation is
+    sent, so no push goes out inside a transaction a rollback could undo and no lock spans a send."""
+    from sqlalchemy import event as sa_event
+    from sqlalchemy.orm import Session
+
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=1)
+        vacancy = Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                          current_round_number=1, current_batch_number=0)
+        db.session.add(vacancy)
+        db.session.commit()
+
+        trail = []
+
+        def before_commit(session):
+            stamped = any(isinstance(o, Vacancy) and o.last_activity_at is not None for o in session.dirty)
+            trail.append("commit-claim" if stamped else "commit")
+
+        real = ns._send_invitation_batch
+
+        def spy(*args, **kwargs):
+            trail.append("send")
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(ns, "_send_invitation_batch", spy)
+        sa_event.listen(Session, "before_commit", before_commit)
+        try:
+            ns._start_vacancy(vacancy, _instance(instance_id), ns.get_or_create_config(coach_id), coach_id, now=NOW)
+        finally:
+            sa_event.remove(Session, "before_commit", before_commit)
+        assert "send" in trail
+        assert "commit-claim" in trail[: trail.index("send")]

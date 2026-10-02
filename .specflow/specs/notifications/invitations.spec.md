@@ -34,11 +34,19 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    sending after the commit means no push goes out for a claim a rollback could undo. A batch that
    sent nothing and advanced no round (`maxTotal` used up), or that raised, gives the claim back
    (under the lock, only if nothing has moved since), so the vacancy is retried on the next tick
-   like any never-started one. A claim whose process died before the batch (round 1, batch 0, no
-   invitation) lapses after `START_CLAIM_LEASE` (10 minutes) and is started again by the next
-   caller or tick, whatever `maxInactiveTime` is. A decline's follow-up invitation (one
+   like any never-started one. A claim whose first batch never completed (round 1, batch 0: the
+   process died before the batch, or part-way through it after committing some invitations)
+   lapses after `START_CLAIM_LEASE` (10 minutes) and is started again by the next caller or tick,
+   whatever `maxInactiveTime` is; the restart's dedupe skips the students already invited.
+   **Assumption, not a guarantee:** a live sender completes its first batch inside the lease (a
+   batch is at most `maxSimultaneous` students, seconds of work). A sender that stalls longer than
+   10 minutes inside that batch is raced by the restart, and both send. Not covered by the lapse:
+   a started vacancy (batch 1 or later) that stalls is paced by `maxInactiveTime` as before, and
+   with it off waits for the class start (PAD-495 lists the cases that are identical on staging). A decline's follow-up invitation (one
    more, to the next candidate) is not a start and is unchanged. Every call also creates a
-   vacancy for each absent student who has none, even while another vacancy of the class is open,
+   vacancy for each absent student who has no vacancy of any status on the class (one whose earlier
+   vacancy was filled or expired and who is marked absent again gets none, as on staging), even
+   while another vacancy of the class is open,
    but only as many as the absences free (places minus filled spots minus open vacancies): an
    absence on an over-full roster creates none (rule 13); never-filled places get theirs, as before, when the class has no
    open vacancy.
