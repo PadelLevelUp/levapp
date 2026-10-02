@@ -3,6 +3,15 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { GroupRule } from "@/types";
+import {
+  WITHIN_N_DIRECTIONS,
+  isWithinNOperation,
+  menuOperation,
+  operationForMenuPick,
+  withinNDirection,
+  withinNOperation,
+  type WithinNDirection,
+} from "@levelup/config";
 
 /**
  * PAD-128 — the coach's standard eligibility bar.
@@ -21,6 +30,10 @@ import type { GroupRule } from "@/types";
  *    (eligibility.rules rule 5).
  *  - **level operations are anchored to the CLASS**, not to a vacancy, because
  *    the bar must be answerable for a class with no spot open.
+ *  - **"within N levels" has a direction** (PAD-481): one menu entry, plus a
+ *    selector beside N for both / only above / only below. The direction is the
+ *    stored operation (`within_n_of_class` / `_above_` / `_below_`), mapped by
+ *    `@levelup/config`'s level-direction module, shared with iOS.
  */
 const ELIGIBILITY_ATTRIBUTES = [
   {
@@ -33,9 +46,8 @@ const ELIGIBILITY_ATTRIBUTES = [
       { id: "one_below_or_above_class", labelKey: "settings.eligibility.operations.oneBelowOrAboveClass" },
       { id: "within_n_of_class", labelKey: "settings.eligibility.operations.withinNOfClass" },
     ],
-    // `within_n_of_class` is the only level operation that carries a value.
+    // Only the three `within_n_*` operations carry a value (see needsValue).
     valueType: "conditional-number" as const,
-    valueForOperations: ["within_n_of_class"],
   },
   {
     id: "unjustified_absences",
@@ -70,9 +82,7 @@ const ELIGIBILITY_ATTRIBUTES = [
 
 function needsValue(attr: (typeof ELIGIBILITY_ATTRIBUTES)[number], operation: string): boolean {
   if (attr.valueType === "number" || attr.valueType === "percentage") return true;
-  if (attr.valueType === "conditional-number") {
-    return (attr.valueForOperations ?? []).includes(operation);
-  }
+  if (attr.valueType === "conditional-number") return isWithinNOperation(operation);
   return false;
 }
 
@@ -120,15 +130,16 @@ function RuleRow({
 
       {attr && (
         <Select
-          value={rule.operation}
-          onValueChange={(v) =>
+          value={menuOperation(rule.operation)}
+          onValueChange={(v) => {
+            const operation = operationForMenuPick(rule.operation, v);
             onChange({
               ...rule,
-              operation: v,
+              operation,
               // Drop a stale value when switching to an operation that has none.
-              value: needsValue(attr, v) ? rule.value : undefined,
-            })
-          }
+              value: needsValue(attr, operation) ? rule.value : undefined,
+            });
+          }}
           disabled={disabled}
         >
           <SelectTrigger className="w-[170px] h-7 text-xs" aria-label={t("settings.eligibility.operation")}>
@@ -138,6 +149,29 @@ function RuleRow({
             {attr.operations.map((op) => (
               <SelectItem key={op.id} value={op.id} className="text-xs">
                 {t(op.labelKey)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {attr?.id === "level" && isWithinNOperation(rule.operation) && (
+        <Select
+          value={withinNDirection(rule.operation) ?? "both"}
+          onValueChange={(d) => onChange({ ...rule, operation: withinNOperation(d as WithinNDirection) })}
+          disabled={disabled}
+        >
+          <SelectTrigger
+            className="w-[150px] h-7 text-xs"
+            aria-label={t("settings.eligibility.direction")}
+            data-testid="eligibility-direction"
+          >
+            <SelectValue placeholder={t("settings.eligibility.direction")} />
+          </SelectTrigger>
+          <SelectContent>
+            {WITHIN_N_DIRECTIONS.map((d) => (
+              <SelectItem key={d} value={d} className="text-xs" data-testid={`eligibility-direction-${d}`}>
+                {t(`settings.eligibility.directions.${d}`)}
               </SelectItem>
             ))}
           </SelectContent>

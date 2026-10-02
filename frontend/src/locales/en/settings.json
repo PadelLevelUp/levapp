@@ -620,6 +620,12 @@
         "greaterThan": "more than",
         "atLeast": "at least"
       },
+      "direction": "Direction",
+      "directions": {
+        "both": "above and below",
+        "above": "only above",
+        "below": "only below"
+      },
       "impact": {
         "title_one": "{{count}} enrolled student no longer meets this bar",
         "title_other": "{{count}} enrolled students no longer meet this bar",

@@ -52,6 +52,14 @@ describe("describeEligibilityFailure", () => {
     );
   });
 
+  it("names an unknown level operation instead of reading it as a level mismatch (B-257)", () => {
+    expect(
+      describeEligibilityFailure(
+        failure({ reason: "unknown_operation", operation: "made_up", ladder_distance: null }),
+      ).key,
+    ).toBe("tutorials.eligibility.unknownOperation");
+  });
+
   it("renders 'over the unjustified-absence limit (4, limit is 2)' from the record", () => {
     expect(
       describeEligibilityFailure(
