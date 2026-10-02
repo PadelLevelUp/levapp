@@ -191,7 +191,8 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
             <CalendarIcon className="h-5 w-5 text-primary" />
             {t("players.addToClassesTitle", { name: player.name })}
           </DialogTitle>
-          <DialogDescription>
+          {/* PAD-496: at phone width the line gives its row to the list. Still read by a screen reader. */}
+          <DialogDescription className="sr-only sm:not-sr-only">
             {t("players.addToClassesDescription")}
           </DialogDescription>
         </DialogHeader>

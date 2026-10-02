@@ -62,7 +62,9 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    picker is never taller than the visible window: when the week is long the list gets the
    space that is left and scrolls under a finger; the header and the footer never leave the
    screen. In a phone-width browser the picker takes the screen's height less a small margin
-   (`dvh` where the browser has it, so the browser's own toolbars are not counted as space). On
+   (`dvh` where the browser has it, so the browser's own toolbars are not counted as space), and
+   the description line under the title is not shown (a screen reader still reads it), which
+   gives the list one more row. On
    the app the shared dialog is bound to the window minus the safe areas, and the list has no
    fixed height. The picker has no text field, so the keyboard does not come into it.
 6. Client calls to `/api/app/lesson_instances` must use the HTTP verb the route exposes (`GET`).
@@ -113,7 +115,7 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 #### A long week on a phone (PAD-496, B-270)
 - **Given** a 360×560 phone browser and a week of 45 classes
 - **When** the coach opens the picker from the player's actions menu and drags the list with a finger
-- **Then** the picker is on screen and at least 536 px tall, the week's last class ends above the Cancel/Add footer, the week arrows are still on screen, and that class can be chosen
+- **Then** the picker is on screen and at least 536 px tall, its list window is at least 240 px (three classes), the week's last class ends above the Cancel/Add footer, the week arrows are still on screen, and that class can be chosen
 - **Given** the app and a week of fourteen classes
 - **When** the coach swipes the list to the week's last class and taps it
 - **Then** the Add button, disabled until then, is enabled, and the week arrows and the footer never left the screen

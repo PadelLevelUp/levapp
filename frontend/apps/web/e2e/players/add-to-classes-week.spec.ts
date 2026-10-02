@@ -131,6 +131,8 @@ test.describe("PAD-496: the picker on a phone", () => {
 
     const listEl = page.getByTestId("add-to-classes-list");
     const list = (await listEl.boundingBox())!;
+    // Three classes at a time, not two: the description line is not shown at this width.
+    expect(list.height, "the list window shows at least three classes").toBeGreaterThanOrEqual(240);
     const cdp = await page.context().newCDPSession(page);
     const x = list.x + list.width / 2;
     const from = list.y + list.height * 0.8;
