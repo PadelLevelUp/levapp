@@ -50,7 +50,8 @@ def _messageable_target_ids_for(user):
 
     Coach -> the union of their own roster (`coach_in_player`) and the players
     of every club they belong to (`player_in_club`).
-    Everyone else (student/player) -> any active coach.
+    Everyone else (student/player) -> the active coaches they are linked to
+    (`_linked_coach_user_ids`; messaging.conversations rule 7, B-267).
 
     PAD-205 / B-025: this read club membership alone. Outside `seed/mock_data.py`
     nothing writes `player_in_club` — adding a player, importing one, or
@@ -67,11 +68,48 @@ def _messageable_target_ids_for(user):
         # A player awaiting activation can exist without a user row yet.
         return {player.user_id for player in players if player.user_id}
 
+    # B-267 / PAD-483: a student reaches only the active coaches they are linked
+    # to — on the coach's roster, a shared club, or a class the coach teaches
+    # (rule 7). Anyone else stays reachable by exact username.
+    player = getattr(user, "player", None)
+    if player is None:
+        return set()
+    return _linked_coach_user_ids(player.id)
+
+
+def _linked_coach_user_ids(player_id):
+    from padel_app.models.Association_CoachClub import Association_CoachClub
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.Association_PlayerClub import Association_PlayerClub
+    from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+    from padel_app.models.presences import Presence
+
+    roster = db.session.query(Association_CoachPlayer.coach_id).filter(
+        Association_CoachPlayer.player_id == player_id
+    )
+    shared_club = (
+        db.session.query(Association_CoachClub.coach_id)
+        .join(Association_PlayerClub, Association_PlayerClub.club_id == Association_CoachClub.club_id)
+        .filter(Association_PlayerClub.player_id == player_id)
+    )
+    series = (
+        db.session.query(Association_CoachLesson.coach_id)
+        .join(Association_PlayerLesson, Association_PlayerLesson.lesson_id == Association_CoachLesson.lesson_id)
+        .filter(Association_PlayerLesson.player_id == player_id)
+    )
+    occurrence = (
+        db.session.query(Association_CoachLessonInstance.coach_id)
+        .join(Presence, Presence.lesson_instance_id == Association_CoachLessonInstance.lesson_instance_id)
+        .filter(Presence.player_id == player_id)
+    )
+    coach_ids = roster.union(shared_club, series, occurrence)
     return {
         row.user_id
         for row in (
             Coach.query.join(User, Coach.user_id == User.id)
-            .filter(User.status == "active")
+            .filter(User.status == "active", Coach.id.in_(coach_ids))
             .all()
         )
     }
