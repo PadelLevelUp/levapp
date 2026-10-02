@@ -29,6 +29,7 @@
  */
 import { isUnderSignupAge } from "@levelup/config";
 import { toIso } from "./signup-form";
+import type { authApi } from "@levelup/api";
 import { needsEmailVerification } from "@/auth/postLoginRoute";
 import { z } from "zod";
 
@@ -249,8 +250,8 @@ export function coachInviteEmailError(error: unknown): "emailTaken" | "emailInva
 
 /** Rule 9: a pending account confirms its email first, as after sign-up
  * (auth.email-verification rule 8), then goes on to the dashboard. */
-export function coachInviteLanding(me: { emailVerification?: string } | null | undefined): string {
-  return needsEmailVerification(me as Parameters<typeof needsEmailVerification>[0])
+export function coachInviteLanding(me: authApi.MeResponse | null | undefined): string {
+  return needsEmailVerification(me)
     ? `/verify-email?next=${encodeURIComponent(DASHBOARD)}`
     : DASHBOARD;
 }

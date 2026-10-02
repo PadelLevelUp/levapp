@@ -22,7 +22,6 @@ const BIRTH_CODE_KEYS: Record<string, string> = {
   UNDERAGE: "birthDateUnderage",
 };
 import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
-import { getMe } from "@/api/auth";
 import { useAuth } from "@/auth/AuthContext";
 import { needsEmailVerification } from "@/auth/postLoginPath";
 
@@ -52,7 +51,7 @@ const CoachInvitePage = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
   const { t } = useTranslation();
 
   const [status, setStatus] = useState<InvitationStatus>("loading");
@@ -131,7 +130,8 @@ const CoachInvitePage = () => {
       // Rule 9: the account is pending until the code is typed back, so the verify screen comes
       // first, as after sign-up (auth.email-verification rule 8). The guards would also send it
       // there; routing here says so outright.
-      const me = await getMe();
+      // refreshUser swallows a /me failure (null): the account exists, so never report a failed accept.
+      const me = await refreshUser();
       navigate(needsEmailVerification(me) ? `/verify-email?next=${encodeURIComponent("/")}` : "/", {
         replace: true,
       });
@@ -198,6 +198,7 @@ const CoachInvitePage = () => {
         </CardHeader>
 
         <CardContent>
+          {/* noValidate, as sign-up: zod owns the messages; the browser's email tooltip would pre-empt emailInvalid. */}
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {[
               { id: "name", label: t("auth.coachInvite.name") },

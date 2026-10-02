@@ -192,3 +192,26 @@ def test_an_existing_coach_accepting_keeps_their_verification_state_and_gets_no_
         user = db.session.get(User, outsider_user_id)
         assert user.email_verified_at is None
         assert not user.email_verification_required
+
+
+@pytest.mark.parametrize("headers,expected", [(CAPABLE, 400), ({}, 200)])
+def test_a_blank_email_counts_as_none(client, app, outbox, headers, expected):
+    """Whitespace only is no email: refused from a declaring client, the legacy accept otherwise."""
+    token, _ = _invitation(app)
+    res = _accept(client, token, headers=headers, email="   ")
+
+    assert res.status_code == expected, res.get_json()
+    assert outbox == []
+
+
+def test_pad477_capability_spelling_matches_both_shells():
+    """Each shell pins its own declaration; this ties both to the server's constant, so a typo in a
+    shell cannot put a capable build on the legacy path."""
+    from pathlib import Path
+
+    from padel_app.utils.client_capabilities import COACH_INVITE_EMAIL
+
+    frontend = Path(__file__).resolve().parents[3] / "frontend"
+    for shell in ("apps/web/src/api/client.ts", "apps/mobile/src/lib/api.ts"):
+        source = (frontend / shell).read_text()
+        assert f'"{COACH_INVITE_EMAIL}"' in source, f"{shell} does not declare {COACH_INVITE_EMAIL}"

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import type { authApi } from "@levelup/api";
 
 import {
   coachInviteSchema,
@@ -501,10 +502,11 @@ describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9
   });
 
   it("a pending account lands on Verify your email, then the dashboard", () => {
-    expect(coachInviteLanding({ emailVerification: "pending" })).toBe(
+    const me = (emailVerification: string) => ({ emailVerification }) as unknown as authApi.MeResponse;
+    expect(coachInviteLanding(me("pending"))).toBe(
       `/verify-email?next=${encodeURIComponent("/(tabs)/dashboard")}`
     );
-    expect(coachInviteLanding({ emailVerification: "verified" })).toBe("/(tabs)/dashboard");
+    expect(coachInviteLanding(me("verified"))).toBe("/(tabs)/dashboard");
     expect(coachInviteLanding(null)).toBe("/(tabs)/dashboard");
   });
 });

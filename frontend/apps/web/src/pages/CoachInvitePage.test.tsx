@@ -7,14 +7,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const accept = vi.fn();
-const getMe = vi.fn();
+const refreshUser = vi.fn();
 const navigate = vi.fn();
 vi.mock("@/api/invitations", () => ({
   getCoachInvitation: vi.fn().mockResolvedValue({ clubName: "Clube Teste" }),
   acceptCoachInvitation: (...a: unknown[]) => accept(...a),
 }));
-vi.mock("@/api/auth", () => ({ getMe: (...a: unknown[]) => getMe(...a) }));
-vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ login: vi.fn().mockResolvedValue(undefined) }) }));
+vi.mock("@/auth/AuthContext", () => ({
+  useAuth: () => ({ login: vi.fn().mockResolvedValue(undefined), refreshUser: (...a: unknown[]) => refreshUser(...a) }),
+}));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }),
@@ -52,14 +53,14 @@ const submit = () => fireEvent.click(screen.getByRole("button", { name: "auth.co
 
 beforeEach(() => {
   accept.mockReset();
-  getMe.mockReset();
+  refreshUser.mockReset();
   navigate.mockReset();
 });
 
 describe("CoachInvitePage — the invited coach's email (PAD-477, rule 9)", () => {
   it("sends the email it was given", async () => {
     accept.mockResolvedValue({ accessToken: "t" });
-    getMe.mockResolvedValue({ emailVerification: "pending" });
+    refreshUser.mockResolvedValue({ emailVerification: "pending" });
     await mount();
     fill("  Rita@Example.com ");
     submit();
@@ -69,12 +70,22 @@ describe("CoachInvitePage — the invited coach's email (PAD-477, rule 9)", () =
 
   it("a pending account goes to Verify your email", async () => {
     accept.mockResolvedValue({ accessToken: "t" });
-    getMe.mockResolvedValue({ emailVerification: "pending" });
+    refreshUser.mockResolvedValue({ emailVerification: "pending" });
     await mount();
     fill("rita@example.com");
     submit();
     await waitFor(() => expect(navigate).toHaveBeenCalled());
     expect(navigate.mock.calls.at(-1)?.[0]).toMatch(/^\/verify-email\?next=/);
+  });
+
+  it("an account that exists is never told the accept failed: a failed /me still moves on", async () => {
+    accept.mockResolvedValue({ accessToken: "t" });
+    refreshUser.mockResolvedValue(null); // AuthContext.refreshUser swallows a /me failure
+    await mount();
+    fill("rita@example.com");
+    submit();
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    expect(screen.queryByText("auth.coachInvite.genericError")).toBeNull();
   });
 
   it("refuses an empty or malformed email on the field and sends nothing", async () => {
