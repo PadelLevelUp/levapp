@@ -126,7 +126,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 7. If confirmed: Vacancy.status = "filled", player added to instance
 8. If all decline or expire: moves to next round. A player invited for a vacancy in a round is
    not invited for it again in that round, whatever they answered: a decline, a timeout and a
-   still-open invitation all count. The next round applies its own criteria (B-056).
+   still-open invitation all count. The next round applies its own criteria (B-056), within the
+   class-wide exclusions of rule 18: a student who said "no" is never asked again for the class,
+   in any round.
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
 10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
@@ -231,10 +233,32 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     retires the other invitations, and that commits). So a double tap racing itself is answered
     once. A "no" on an invitation already `confirmed` is the same no-op: the student keeps the spot
     and the invitation stays `confirmed` (the answer reports `declined`). Leaving a class after
-    winning it goes through the attendance cancel, not the invitation. **Not covered here:** a "yes"
-    after the student's own "no" on the same invitation still enrols them while the spot is open
-    (decided by PAD-497: a "no" is final for that class); a student who lost the spot and answers
-    "yes" again is told `spot_filled` and offered the waiting list again each time (PAD-495).
+    winning it goes through the attendance cancel, not the invitation. A "yes" after the
+    student's own "no" on the same invitation is the same no-op too (rule 18). **Not covered
+    here:** a student who lost the spot and answers "yes" again is told `spot_filled` and offered
+    the waiting list again each time (PAD-495).
+18. **A student's "no" is final for that class; one live offer per student per class (PAD-497,
+    absorbing PAD-494; owner, 2026-10-02: "a student no means I dont want a spot in this class.
+    He should never be invited to that class again").** "That class" is the single occurrence
+    (`lesson_instance_id`), not the recurring series; the key is chosen in one place. The answer a
+    student gives is stored on the invitation (`NotificationEvent.answer`, `yes`|`no`), written by
+    the student's own answer and by the coach recording it for them (rule 9). Only an answer is a
+    "no": an invitation retired because someone else took the spot, expired with the class, or
+    never answered is not one. Then, for every automatic path of that occurrence:
+    - a student who answered "no" to any of its invitations is never invited again — not in a
+      later round, not for another spot, not by a re-created vacancy — and is skipped by its
+      automatic waiting-list fill;
+    - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
+      its other spots until that offer resolves; if it resolves without a "no" (the spot went to
+      someone else), they may be asked for another spot on the next pass.
+    A "yes" after the student's own "no" on the same invitation changes nothing and sends
+    nothing; the answer reports `declined`, so both clients keep the invitation marked
+    "Declined" (they already show that badge, without buttons, once a "no" is recorded). A
+    change of mind goes through the coach or the student's own request. Unchanged, because they
+    are not automatic invitations: the coach's manual invite and manual add (the manual picker
+    marks the student "declined this class" but keeps them selectable), and the student's own
+    class or join request. The invite explanation names both skips — `declined_this_class` and
+    `offered_another_spot` — on web and iOS.
 
 ### Acceptance Criteria
 
@@ -492,6 +516,26 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** nothing changes: no further invitation goes to anyone, the winner keeps the spot and a `confirmed` invitation, and nobody is told the spot was filled
 - **And** the same holds when the two identical answers arrive at once (Postgres, forced interleave)
 - **And** a "no" after winning the spot changes nothing: the invitation stays `confirmed`, the student stays enrolled, and nobody else is invited
+
+#### A "no" is final for that class (PAD-497)
+- **Given** a class with an open spot and a student who answered "no" to its invitation
+- **When** the spot reaches a later round, a second spot of the class opens, the spot is re-created, or the class's waiting list is filled automatically
+- **Then** the student is not invited and not placed, and the invite explanation gives `declined_this_class`
+- **And** the same holds when the coach recorded the "no" for them
+- **And** a "yes" from that student on the same invitation enrols nobody and reports `declined`
+- **And** the coach can still invite them by hand, and the invitation is sent
+
+#### One live offer per student per class (PAD-497, absorbing PAD-494)
+- **Given** a class with two open spots and the same eligible students
+- **When** both spots invite
+- **Then** no student holds two live invitations for the class, and a skipped student's reason is `offered_another_spot`
+- **And** when a student's offer for the first spot is retired because someone else took it, they are invited for the second spot on the next pass
+- **And** when it is declined instead, they are not
+
+#### An unanswered or retired invitation is not a "no" (PAD-497)
+- **Given** a student whose invitation was retired (spot filled by someone else) without an answer
+- **When** another spot of the same class invites
+- **Then** the student may be invited for it
 
 #### Only one open vacancy per departing player per occurrence (PAD-303)
 - **Given** an open vacancy on instance 10 for player 7
