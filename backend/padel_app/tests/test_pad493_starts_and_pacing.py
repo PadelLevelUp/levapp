@@ -611,7 +611,10 @@ def test_a_claim_whose_process_died_mid_send_lapses_and_is_retried(app, monkeypa
         process_invitation_batches(now=later)
         vacancies, events = _state(instance_id)
         assert vacancies == [(1, "open", 1, 1)]
-        assert sorted(p for _, p in events) == sorted(others)          # the first once, the others now
+        # The first student once; the restart tops the batch up to maxSimultaneous (3) rather than
+        # sending a full batch on top (PAD-495 item 10).
+        players = [p for _, p in events]
+        assert players.count(others[0]) == 1 and len(players) == 3 and len(set(players)) == 3
 
 
 def test_the_give_back_leaves_a_row_that_moved_alone(app, monkeypatch):

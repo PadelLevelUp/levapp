@@ -3923,6 +3923,18 @@ def _send_invitation_batch(
     else:
         max_sim = restrictions.get("maxSimultaneous", {})
         batch_size = max_sim["value"] if max_sim.get("enabled") else len(eligible)
+        if vacancy.current_batch_number == 0 and max_sim.get("enabled"):
+            # PAD-495 item 10 (rule 1b): the FIRST batch may be a restart of one that died part-way
+            # (its claim lapsed, or was given back on a raise). The invitations it already sent are
+            # live and count toward maxSimultaneous, so the restart tops the batch up instead of
+            # sending a full one on top. Later batches are not capped this way: invitations do not
+            # expire before the class starts, so counting every live one would stop all later
+            # batches; their pacing is maxInactiveTime.
+            already_out = NotificationEvent.query.filter(
+                NotificationEvent.vacancy_id == vacancy.id,
+                NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            ).count()
+            batch_size = max(0, batch_size - already_out)
 
     # Respect maxTotal across ALL vacancies for this instance
     max_total = restrictions.get("maxTotal", {})

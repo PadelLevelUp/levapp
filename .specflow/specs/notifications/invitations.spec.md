@@ -37,7 +37,13 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    like any never-started one. A claim whose first batch never completed (round 1, batch 0: the
    process died before the batch, or part-way through it after committing some invitations)
    lapses after `START_CLAIM_LEASE` (10 minutes) and is started again by the next caller or tick,
-   whatever `maxInactiveTime` is; the restart's dedupe skips the students already invited.
+   whatever `maxInactiveTime` is; the restart's dedupe skips the students already invited, and the
+   invitations they hold count toward `maxSimultaneous`, so the restart tops the first batch up
+   instead of sending a full one on top (PAD-495). Only the first batch is capped this way: an
+   invitation does not expire before the class starts, so counting every live one would stop all
+   later batches; later batches are paced by `maxInactiveTime` alone. Each invitation is committed
+   together with its message, never before it, so a message that fails to send leaves no live
+   invitation behind (PAD-495).
    **Assumption, not a guarantee:** a live sender completes its first batch inside the lease (a
    batch is at most `maxSimultaneous` students, seconds of work). The window the lapse can race is
    the whole first batch, from the claim's commit to the batch counter's update: a sender that
