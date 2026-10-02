@@ -5,6 +5,8 @@ import type { EvaluationSettings } from "@levelup/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
+import { useFlushOnPageHide } from "./useFlushOnPageHide";
 
 /**
  * evaluations.reminders rules 1, 2, 7, 8 (PAD-404) — "Frequência de avaliações" on web.
@@ -61,6 +63,11 @@ export function EvaluationReminderSetting() {
   const [option, setOption] = React.useState<ReminderOption | "">("");
   const [customValue, setCustomValue] = React.useState(DEFAULT_CUSTOM_N);
   const [errorKey, setErrorKey] = React.useState<string | null>(null);
+  const sign = useSaveSign();
+  // settings.save-on-change rule 3: what the server last confirmed, and which save is newest —
+  // only the newest save's failure puts the control back, to the confirmed value.
+  const confirmed = React.useRef<{ option: ReminderOption | ""; custom: string }>({ option: "", custom: DEFAULT_CUSTOM_N });
+  const saveSeq = React.useRef(0);
   // The server value hydrates local state once — after that, every change here is
   // this control's own (a selection or a saved custom number), never overwritten
   // by a background refetch, so a coach never sees their own pick flicker back.
@@ -80,20 +87,30 @@ export function EvaluationReminderSetting() {
     setCustomValue(custom);
     latestCustom.current = custom;
     sentCustomN.current = opt === "custom" ? data.everyN ?? null : null;
+    confirmed.current = { option: opt, custom };
   }, [data]);
 
-  // Every change is saved at once, so the control never shows a choice the server does not
-  // hold: a refused or failed save puts the previous choice back and says so.
-  const persist = (next: ReminderOption, everyN: number, previous: ReminderOption | "") => {
+  // Every change is saved at once and signed (settings.save-on-change): a refused or failed save
+  // says so and puts the control back to the last value the server confirmed.
+  const persist = (next: ReminderOption, everyN: number, keepalive = false) => {
+    const seq = ++saveSeq.current;
     setErrorKey(null);
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
-    void save.mutateAsync(bodyForOption(next, everyN)).catch(() => {
-      setOption(previous);
-      setErrorKey("saveFailed");
-      // Nothing was stored: the same number typed again must be sent again.
-      sentCustomN.current = null;
-    });
+    const body = bodyForOption(next, everyN);
+    void sign.track("reminder", save.mutateAsync(keepalive ? { ...body, keepalive } : body)).then(
+      () => {
+        confirmed.current = { option: next, custom: next === "custom" ? String(everyN) : confirmed.current.custom };
+      },
+      () => {
+        if (seq !== saveSeq.current) return;
+        const back = confirmed.current;
+        setOption(back.option);
+        setCustomValue(back.custom);
+        latestCustom.current = back.custom;
+        sentCustomN.current = back.option === "custom" ? Number(back.custom) : null;
+      },
+    );
   };
 
   const cancelPendingSave = () => {
@@ -111,10 +128,10 @@ export function EvaluationReminderSetting() {
       setCustomValue(DEFAULT_CUSTOM_N);
       latestCustom.current = DEFAULT_CUSTOM_N;
     }
-    persist(next, n, option);
+    persist(next, n);
   };
 
-  const commitCustom = () => {
+  const commitCustom = (keepalive = false) => {
     cancelPendingSave();
     const n = validCustomN(latestCustom.current);
     if (n === null) {
@@ -126,17 +143,18 @@ export function EvaluationReminderSetting() {
       setErrorKey(null);
       return;
     }
-    persist("custom", n, "custom");
+    persist("custom", n, keepalive);
   };
 
   const changeCustom = (text: string) => {
     setCustomValue(text);
     latestCustom.current = text;
     cancelPendingSave();
-    if (validCustomN(text) !== null) pendingSave.current = setTimeout(commitCustom, CUSTOM_SAVE_DELAY_MS);
+    if (validCustomN(text) !== null) pendingSave.current = setTimeout(() => commitCustom(), CUSTOM_SAVE_DELAY_MS);
   };
 
-  // B-242: a typed number still waiting for its delayed save is sent when the screen goes away.
+  // B-242: a typed number still waiting for its delayed save is sent when the screen goes away,
+  // and with keepalive when the page itself goes away (tab closed or hidden; PAD-473).
   const commitRef = React.useRef(commitCustom);
   commitRef.current = commitCustom;
   React.useEffect(
@@ -145,13 +163,19 @@ export function EvaluationReminderSetting() {
     },
     [],
   );
+  useFlushOnPageHide(({ keepalive }) => {
+    if (pendingSave.current) commitCustom(keepalive);
+  });
 
   const disabled = isLoading;
 
   return (
     <div className="space-y-3" data-testid="settings-evaluation-reminder">
       <div>
-        <h3 className="text-sm font-medium">{t("evaluations.reminder.title")}</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">{t("evaluations.reminder.title")}</h3>
+          <SaveSign status={sign.status("reminder")} testId="settings-evaluation-reminder-sign" />
+        </div>
         <p className="text-sm text-muted-foreground">{t("evaluations.reminder.caption")}</p>
       </div>
 
@@ -182,7 +206,7 @@ export function EvaluationReminderSetting() {
               value={customValue}
               data-testid="settings-evaluation-reminder-n"
               onChange={(e) => changeCustom(e.target.value)}
-              onBlur={commitCustom}
+              onBlur={() => commitCustom()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();

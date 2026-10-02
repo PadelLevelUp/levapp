@@ -28,6 +28,8 @@ import { CUSTOM_SAVE_DELAY_MS, EvaluationReminderSetting } from "./evaluation-re
 const FIELD = "settings-evaluation-reminder-n";
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 const waitPastDelay = () => wait(CUSTOM_SAVE_DELAY_MS + 50);
+const signText = (n: Awaited<ReturnType<typeof renderNative>>, id: string) =>
+  n.byTestId(id).findAll((x) => typeof x.props.children === "string").map((x) => x.props.children).join("");
 
 afterEach(() => {
   hooks.data = undefined;
@@ -99,15 +101,17 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     expect(hooks.mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("after a failed save the same number is sent again on blur", async () => {
+  it("a failed save says so, returns the field to the confirmed number, and the same number can be sent again", async () => {
     const n = await openCustom();
     hooks.mutateAsync.mockRejectedValueOnce(new Error("offline"));
 
     await n.changeText(FIELD, "5");
     await waitPastDelay();
     await n.flush();
-    expect(n.queryByTestId("settings-evaluation-reminder-error")).not.toBeNull();
+    expect(signText(n, "settings-evaluation-reminder-sign")).toContain("settings.saveSign.failed");
+    expect(n.byTestId(FIELD).props.value).toBe("7");
 
+    await n.changeText(FIELD, "5");
     await act(async () => { n.byTestId(FIELD).props.onBlur(); });
     expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
     expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 5 });

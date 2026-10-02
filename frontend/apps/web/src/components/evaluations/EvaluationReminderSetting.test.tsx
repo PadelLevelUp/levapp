@@ -138,8 +138,8 @@ describe("the control never shows a choice the server does not hold", () => {
 
     fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly"));
 
-    expect(await screen.findByTestId("settings-evaluation-reminder-error")).toHaveTextContent(
-      "evaluations.reminder.saveFailed",
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-evaluation-reminder-sign")).toHaveAttribute("data-state", "failed"),
     );
     expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
     expect(screen.getByTestId("settings-evaluation-reminder-option-monthly")).not.toBeChecked();
@@ -229,6 +229,28 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     await advance(CUSTOM_SAVE_DELAY_MS + 50);
 
     expect(screen.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+  it("the page going away sends a number still waiting for its delay, with keepalive", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "8" } });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    await advance(0);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 }, { keepalive: true });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("the page going away with nothing pending sends nothing", async () => {
+    await typedField();
+
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
     expect(api.putEvaluationSettings).not.toHaveBeenCalled();
   });
 });

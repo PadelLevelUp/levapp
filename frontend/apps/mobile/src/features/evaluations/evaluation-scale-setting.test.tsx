@@ -4,6 +4,7 @@
  * what the component does with the server value and with a save that succeeds or fails.
  */
 import * as React from "react";
+import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderNative } from "@/test/render-native";
 
@@ -57,6 +58,24 @@ describe("Escala de avaliações (iOS)", () => {
     await n.flush();
 
     expect(checked(n, 20)).toBe(true);
-    expect(n.queryByTestId("settings-evaluation-scale-error")).not.toBeNull();
+    expect(n.byTestId("settings-evaluation-scale-sign").findAll((x) => x.props.children === "settings.saveSign.failed")).not.toHaveLength(0);
+  });
+
+  it("an older save failing after a newer one was confirmed keeps the newer scale (settings.save-on-change rule 3)", async () => {
+    hooks.data = { scaleMax: 5 };
+    let failOlder!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((_res, rej) => { failOlder = rej; }))
+      .mockImplementationOnce(async () => ({ scaleMax: 100 }));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10");
+    await n.press("settings-evaluation-scale-option-100");
+    await n.flush();
+    await act(async () => { failOlder(new Error("late")); });
+    await n.flush();
+
+    expect(checked(n, 100)).toBe(true);
+    expect(n.byTestId("settings-evaluation-scale-sign").findAll((x) => x.props.children === "settings.saveSign.failed")).toHaveLength(0);
   });
 });

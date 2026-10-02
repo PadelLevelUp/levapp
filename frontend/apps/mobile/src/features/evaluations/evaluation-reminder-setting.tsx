@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
+import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
+
 import { useFlushOnBackground } from "./use-flush-on-background";
 
 /**
@@ -66,6 +68,11 @@ export function EvaluationReminderSetting() {
   const [option, setOption] = React.useState<ReminderOption | "">("");
   const [customValue, setCustomValue] = React.useState(DEFAULT_CUSTOM_N);
   const [errorKey, setErrorKey] = React.useState<string | null>(null);
+  const sign = useSaveSign();
+  // settings.save-on-change rule 3: what the server last confirmed, and which save is newest —
+  // only the newest save's failure puts the control back, to the confirmed value.
+  const confirmed = React.useRef<{ option: ReminderOption | ""; custom: string }>({ option: "", custom: DEFAULT_CUSTOM_N });
+  const saveSeq = React.useRef(0);
   const hydrated = React.useRef(false);
   // B-242: the custom number last sent (so a blur right after the delayed save sends nothing
   // twice), the field's latest text, and the timer of a save still waiting for typing to stop.
@@ -82,20 +89,29 @@ export function EvaluationReminderSetting() {
     setCustomValue(custom);
     latestCustom.current = custom;
     sentCustomN.current = opt === "custom" ? data.everyN ?? null : null;
+    confirmed.current = { option: opt, custom };
   }, [data]);
 
-  // Every change is saved at once, so the control never shows a choice the server does not
-  // hold: a refused or failed save puts the previous choice back and says so.
-  const persist = (next: ReminderOption, everyN: number, previous: ReminderOption | "") => {
+  // Every change is saved at once and signed (settings.save-on-change): a refused or failed save
+  // says so and puts the control back to the last value the server confirmed.
+  const persist = (next: ReminderOption, everyN: number) => {
+    const seq = ++saveSeq.current;
     setErrorKey(null);
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
-    void save.mutateAsync(bodyForOption(next, everyN)).catch(() => {
-      setOption(previous);
-      setErrorKey("saveFailed");
-      // Nothing was stored: the same number typed again must be sent again.
-      sentCustomN.current = null;
-    });
+    void sign.track("reminder", save.mutateAsync(bodyForOption(next, everyN))).then(
+      () => {
+        confirmed.current = { option: next, custom: next === "custom" ? String(everyN) : confirmed.current.custom };
+      },
+      () => {
+        if (seq !== saveSeq.current) return;
+        const back = confirmed.current;
+        setOption(back.option);
+        setCustomValue(back.custom);
+        latestCustom.current = back.custom;
+        sentCustomN.current = back.option === "custom" ? Number(back.custom) : null;
+      },
+    );
   };
 
   const cancelPendingSave = () => {
@@ -113,7 +129,7 @@ export function EvaluationReminderSetting() {
       setCustomValue(DEFAULT_CUSTOM_N);
       latestCustom.current = DEFAULT_CUSTOM_N;
     }
-    persist(value, n, option);
+    persist(value, n);
   };
 
   const commitCustom = () => {
@@ -128,7 +144,7 @@ export function EvaluationReminderSetting() {
       setErrorKey(null);
       return;
     }
-    persist("custom", n, "custom");
+    persist("custom", n);
   };
 
   const changeCustom = (text: string) => {
@@ -151,7 +167,10 @@ export function EvaluationReminderSetting() {
   return (
     <Card testID="settings-evaluation-reminder">
       <CardHeader>
-        <CardTitle>{t("evaluations.reminder.title")}</CardTitle>
+        <View className="flex-row items-center justify-between gap-2">
+          <CardTitle>{t("evaluations.reminder.title")}</CardTitle>
+          <SaveSign status={sign.status("reminder")} testID="settings-evaluation-reminder-sign" />
+        </View>
         <CardDescription>{t("evaluations.reminder.caption")}</CardDescription>
       </CardHeader>
       <CardContent className="gap-2" accessibilityRole="radiogroup">

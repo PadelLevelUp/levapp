@@ -46,7 +46,8 @@ toast; every save-on-change control, on both clients, converges on it.
 3. **A failed save is never silent.** It says so at once, inline beside the control ("Não foi possível
    guardar" / "Couldn't save"), and the control returns to the last value the server confirmed — tracked
    from the server's answers in the order they arrive, never a copy taken when the save started (B-243).
-   The failure stays until the coach changes that control again. The coach is never left believing a
+   The failure stays until the coach changes that control again. Only the newest save of a control
+   decides its sign: an older save that fails after a newer one was confirmed shows nothing. The coach is never left believing a
    setting saved when it did not.
 4. **Where a Save button appears.** Web's page-header "Guardar alterações" appears only on a tab that
    holds explicit-save fields (today: Perfil), because a Save button must save what is on the screen in
@@ -76,7 +77,8 @@ toast; every save-on-change control, on both clients, converges on it.
 #### Overlapping saves return to the last confirmed value (rule 3, B-243)
 - **Given** the master toggle confirmed on
 - **When** the coach switches it off (save A) and on again (save B), B is confirmed, and then A fails
-- **Then** the toggle shows on — the value B confirmed — and the failure is shown
+- **Then** the toggle shows on — the value B confirmed — and its sign says saved: an older save's
+  answer never speaks over a newer one's
 
 #### Web language saves on change (rules 1, 4, 5; B-244)
 - **Given** a coach on `en` on Settings → Preferences on web

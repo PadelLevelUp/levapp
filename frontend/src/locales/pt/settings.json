@@ -6,6 +6,10 @@
     "english": "Inglês",
     "title": "Definições",
     "subtitle": "Gere o teu perfil, predefinições do calendário, notificações e segurança.",
+    "saveSign": {
+      "saved": "Guardado",
+      "failed": "Não foi possível guardar"
+    },
     "saveChanges": "Guardar alterações",
     "sections": "Secções",
     "quickNavigation": "Navegação rápida",

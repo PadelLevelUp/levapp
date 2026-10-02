@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvaluationScale } from "@levelup/types";
 
@@ -62,7 +62,24 @@ describe("Escala de avaliações", () => {
 
     fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-100"));
 
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-error")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-sign")).toHaveAttribute("data-state", "failed"));
     expect(screen.getByTestId("settings-evaluation-scale-option-20")).toBeChecked();
+  });
+
+  it("an older save failing after a newer one was confirmed keeps the newer scale (settings.save-on-change rule 3)", async () => {
+    open({ scaleMax: 5 });
+    let failOlder!: (e: Error) => void;
+    api.putEvaluationScale
+      .mockImplementationOnce(() => new Promise((_res, rej) => { failOlder = rej; }))
+      .mockImplementationOnce(async () => ({ scaleMax: 100 }));
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-100"));
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
+    await act(async () => { failOlder(new Error("late")); });
+
+    expect(screen.getByTestId("settings-evaluation-scale-option-100")).toBeChecked();
+    expect(screen.getByTestId("settings-evaluation-scale-sign")).not.toHaveAttribute("data-state", "failed");
   });
 });
