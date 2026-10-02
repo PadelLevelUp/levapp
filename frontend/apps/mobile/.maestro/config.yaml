@@ -114,6 +114,9 @@ executionOrder:
     - 25-claim-request
     - 26-message-by-username
     - 27-unknown-sender-block
+    # 142 (PAD-483, B-267) blocks a roster student as the coach and unblocks it in
+    # onFlowComplete; it picks a student with no thread, so its position is not load bearing.
+    - 142-picker-refusal-explains-itself
     # 143 (PAD-492) shares and unshares its own evaluation and posts one message;
     # its position is not load bearing.
     - 143-automatic-message-note

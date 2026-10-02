@@ -25,7 +25,7 @@ interface User {
 
 interface NewConversationDialogProps {
   existingParticipantIds: string[];
-  onSelectUser: (userId: string) => void;
+  onSelectUser: (userId: string) => void | Promise<void>;
   /**
    * messaging.direct-by-username: anyone types another user's exact username.
    * Rendered for every role; rejects with the API error so the 404 ("No user
@@ -55,6 +55,7 @@ export function NewConversationDialog({
   const [username, setUsername] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [submittingUsername, setSubmittingUsername] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
 
   // messaging.direct-by-username rules 1 / 6 (PAD-225): the username path is
   // for every role — anyone can reach any other user by exact username. The
@@ -104,6 +105,7 @@ export function NewConversationDialog({
     };
 
     if (open) {
+      setPickerError(null);
       loadUsers();
     }
   }, [open, existingParticipantIds]);
@@ -120,10 +122,21 @@ export function NewConversationDialog({
       .toUpperCase()
       .slice(0, 2);
 
-  const handleSelectUser = (userId: string) => {
-    onSelectUser(userId);
-    setOpen(false);
-    setSearchQuery('');
+  // B-267 (PAD-483): the server can refuse a picked person (a stale list, a link removed
+  // since it loaded). Say why and stay on the picker instead of closing on nothing.
+  const handleSelectUser = async (userId: string) => {
+    setPickerError(null);
+    try {
+      await onSelectUser(userId);
+      setOpen(false);
+      setSearchQuery('');
+    } catch (error) {
+      setPickerError(
+        errorStatus(error) === 403
+          ? t('messages.cannotMessageUser')
+          : t('messages.somethingWentWrong')
+      );
+    }
   };
 
   return (
@@ -166,7 +179,8 @@ export function NewConversationDialog({
                 filteredUsers.map((user) => (
                   <button
                     key={user.id}
-                    onClick={() => handleSelectUser(user.id)}
+                    data-testid="new-conversation-row"
+                    onClick={() => void handleSelectUser(user.id)}
                     className={cn(
                       'w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left',
                       'hover:bg-muted/50'
@@ -196,6 +210,16 @@ export function NewConversationDialog({
               )}
             </div>
           </ScrollArea>
+
+          {/* B-267: below the list, so the row that was clicked does not move; the line's
+              space is always reserved, so the username section below does not jump either. */}
+          <div className="min-h-5">
+            {pickerError && (
+              <p className="text-sm text-destructive" role="alert" data-testid="new-conversation-picker-error">
+                {pickerError}
+              </p>
+            )}
+          </div>
 
           {showUsernameField && <div className="border-t border-border pt-4" />}
           {showUsernameField && (

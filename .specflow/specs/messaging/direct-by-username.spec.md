@@ -41,7 +41,7 @@ can't search for usernames unless you are already connected."*
    autocomplete. On 404 it shows "No user with that username".
 7. **Discovery stays connection-scoped.** The picker (`GET /api/app/messageable-users`) lists only
    people the caller is already connected with — a coach's roster and club players, a student's
-   coaches — and its search box filters that list by name on both platforms. There is no endpoint
+   linked coaches (`messaging.conversations` rule 7, B-267) — and its search box filters that list by name on both platforms. There is no endpoint
    that searches users by name or username beyond that list.
 8. The iOS new-conversation screen mirrors the web dialog: a search field over the connected list
    at the top, the list itself, and the "Message by username" section below — same order, same
