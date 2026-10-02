@@ -2755,6 +2755,80 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
+def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None):
+    """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
+
+    The one place that decides it. The pass sends to exactly these; PAD-478's "is this class
+    past due and would anyone be reached" reads the same list, so the question the coach is
+    asked and what a yes then sends cannot drift apart.
+
+    PAD-107 + PAD-112: two independent reasons a student is skipped for this class's
+    reminders — they marked themselves unavailable for the slot (PAD-107), or they blocked
+    ALL notifications (PAD-112). Both apply. A student hit by both appears once, carrying the
+    PAD-112 entry, because that reason is the student's own coach-visible words; an
+    availability blocker's details stay private. Only the "all" preference level reaches
+    this far — blocking just the automatic or manual INVITATIONS leaves reminders alone,
+    because a reminder is about a class they are already enrolled in. Everyone else in the
+    class is still reminded: one silenced student must not silence the whole class. Skipped
+    students are reported so the coach knows the count is deliberately short.
+    """
+    from padel_app.services import reminder_attempt_service as attempts
+    from padel_app.services.student_availability_service import (
+        blocked_players_for_instance,
+    )
+    from padel_app.services.student_notification_preferences import (
+        preference_blocked_players,
+    )
+
+    _blocked_by_id = {
+        entry["playerId"]: entry
+        for entry in blocked_players_for_instance(instance)
+    }
+    for entry in preference_blocked_players(
+        [p.player_id for p in instance.presences], kind="all",
+    ):
+        _blocked_by_id[entry["playerId"]] = entry
+    blocked = list(_blocked_by_id.values())
+    blocked_ids = set(_blocked_by_id)
+    reminder_count = config.get_reminder_count()
+
+    due = []
+    # PAD-259: the presence rows ARE the roster; nothing is created here.
+    for existing_presence in list(instance.presences):
+        player_id = existing_presence.player_id
+        if int(player_id) in blocked_ids:
+            continue
+        if not _user_id_for_player(player_id) or not coach_user_id:
+            continue
+
+        # Stop reminding a student as soon as they have responded.
+        # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
+        if existing_presence.confirmed:
+            continue
+
+        # Count reminders already sent to THIS player for THIS instance —
+        # notifications.reminders rule 14 (PAD-207): the reminder_attempts
+        # table is the source of truth, not a scan of the conversation.
+        # (`sent_counts`: the same count, read for many classes at once by the past-due
+        # listing — `count_attempts_bulk`. The pass itself always counts here, under its lock.)
+        sent_count = (
+            sent_counts.get((instance.id, player_id), 0) if sent_counts is not None
+            else attempts.count_attempts(instance.id, player_id)
+        )
+
+        if sent_count >= reminder_count:
+            continue
+        # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
+        # It sends nothing and does not report `more_due`, so the twin chain ends here.
+        if scheduled and sent_count > 0 and _sent_within_spacing(
+            instance.id, player_id, config.get_hours_between_reminders(), now,
+        ):
+            continue
+        due.append((existing_presence, sent_count))
+
+    return due, blocked
+
+
 def send_class_reminders(instance_id: int, *, now: datetime | None = None, scheduled: bool = False) -> dict:
     """PAD-407: one pass at a time per occurrence (see `_reminder_pass_lock`). A
     ``scheduled`` pass (the scheduler's runners) also skips a student reminded less than
@@ -2857,22 +2931,9 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
     # Everyone else in the class is still reminded: one silenced student must
     # not silence the whole class. Skipped students are reported so the coach
     # knows the count is deliberately short.
-    from padel_app.services.student_availability_service import (
-        blocked_players_for_instance,
-    )
-    from padel_app.services.student_notification_preferences import (
-        preference_blocked_players,
-    )
-    _blocked_by_id = {
-        entry["playerId"]: entry
-        for entry in blocked_players_for_instance(instance)
-    }
-    for entry in preference_blocked_players(
-        [p.player_id for p in instance.presences], kind="all",
-    ):
-        _blocked_by_id[entry["playerId"]] = entry
-    blocked = list(_blocked_by_id.values())
-    blocked_ids = set(_blocked_by_id)
+    from padel_app.services import reminder_attempt_service as attempts
+
+    due, blocked = _reminder_recipients(instance, config, coach_user_id, _now, scheduled=scheduled)
     if blocked and _log:
         _log.info(
             "send_class_reminders: instance %s — skipping %d student(s) who are "
@@ -2880,35 +2941,9 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
             instance_id, len(blocked),
         )
 
-    # PAD-259: the presence rows ARE the roster; nothing is created here.
-    for existing_presence in list(instance.presences):
+    for existing_presence, sent_count in due:
         player_id = existing_presence.player_id
-        if int(player_id) in blocked_ids:
-            continue
         player_user_id = _user_id_for_player(player_id)
-        if not player_user_id or not coach_user_id:
-            continue
-
-        # Stop reminding a student as soon as they have responded.
-        # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
-        if existing_presence.confirmed:
-            continue
-
-        # Count reminders already sent to THIS player for THIS instance —
-        # notifications.reminders rule 14 (PAD-207): the reminder_attempts
-        # table is the source of truth, not a scan of the conversation.
-        from padel_app.services import reminder_attempt_service as attempts
-
-        sent_count = attempts.count_attempts(instance_id, player_id)
-
-        if sent_count >= reminder_count:
-            continue
-        # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
-        # It sends nothing and does not report `more_due`, so the twin chain ends here.
-        if scheduled and sent_count > 0 and _sent_within_spacing(
-            instance_id, player_id, config.get_hours_between_reminders(), _now,
-        ):
-            continue
 
         player = Player.query.get(player_id)
         player_name = (player.user.name if player and player.user else "there").split()[0]
