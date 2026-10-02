@@ -35,8 +35,8 @@ onFlowComplete:
       text: "E2E Coach"
     timeout: 10000
     optional: true
-- tapOn:
-    id: "settings-profile-email"
+# No tap on the field: "Adicionar email" must land with it focused (#509 review: otherwise the text goes
+# nowhere and the server check at the end fails).
 - inputText: "e2e-coach@test.com"
 - pressKey: Enter
 - scrollUntilVisible:

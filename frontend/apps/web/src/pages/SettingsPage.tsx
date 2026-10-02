@@ -231,10 +231,12 @@ export function parseTab(search: string): SettingsTab {
   return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
 }
 
-/** B-263: the loaded profile, keeping what the coach already typed into the fields they touched. */
+/** B-263: the loaded profile, keeping what the coach already typed into the fields they touched. A field
+ *  touched but left empty before the read lands takes the loaded value (#509 review): otherwise typing
+ *  then deleting there would save "" and, for the email, clear it and its verification. */
 function hydrateUntouched(loaded: ProfileForm, current: ProfileForm, touched: Set<keyof ProfileForm>): ProfileForm {
   const next = { ...loaded };
-  for (const field of touched) next[field] = current[field];
+  for (const field of touched) if (current[field].trim()) next[field] = current[field];
   return next;
 }
 
@@ -307,6 +309,9 @@ export default function SettingsPage() {
   // baseline and fills every OTHER field without wiping what they typed. B-263: one flag for the whole
   // form left an untouched name empty, and the save then sent `name: ""` and was refused.
   const profileTouched = useRef(new Set<keyof ProfileForm>());
+  // PAD-482 (#509 review): the "needed to recover" line waits for the read, or it flashes for a coach who
+  // has an email.
+  const [profileLoaded, setProfileLoaded] = useState(false);
   // B-184: the same guard for the language. Once the user has chosen one, the mount-time
   // profile read (which can land later) must not put the stored language back.
   const languageDirty = useRef(false);
@@ -441,6 +446,7 @@ export default function SettingsPage() {
         setEmailState(me.emailVerification);
         setRequestAlerts(me.requestAlerts !== false);
         setProfile((current) => hydrateUntouched(loaded, current, profileTouched.current));
+        setProfileLoaded(true);
       })
       .catch(() => {
         // ignore — keep default language
@@ -688,7 +694,7 @@ export default function SettingsPage() {
                       onChange={(e) => setProfileField("email", e.target.value)}
                     />
                     {/* PAD-482 (rule 14): a coach with no email cannot recover a password. */}
-                    {isCoach && !profile.email.trim() ? (
+                    {isCoach && profileLoaded && !profile.email.trim() ? (
                       <p data-testid="settings-profile-email-needed" className="text-xs text-muted-foreground">
                         {t("settings.profile.emailNeeded")}
                       </p>

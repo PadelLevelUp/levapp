@@ -38,7 +38,7 @@ what the state of an account with no email is. Type 2, incomplete rule.
 ### Change Plan
 - Spec: `settings.profile` rule 9 — clearing the email resets verification (unverified, nothing
   pending); `auth.email-verification` rule 2 — with no email the state is `unverified`.
-- Code: `update_user_profile` clears `email_verified_at`, `email_verification_required` and the pending
+- Code: `update_own_profile_service` clears `email_verified_at`, `email_verification_required` and the pending
   code fields when the email is cleared. Red first, the admin approvals list included.
 
 ### Resolution (PAD-482)
@@ -48,10 +48,14 @@ what the state of an account with no email is. Type 2, incomplete rule.
   `auth.email-verification` rule 2 — with no email the state is `unverified`; rule 10 — the admin
   list's `emailVerified` is that state.
 - **Code:** `email_verification_service.forget_verification` (no timestamp, nothing required, no
-  pending code), called by `update_user_profile` when the email is cleared; `verification_state`
+  pending code), called by `update_own_profile_service` when the email is cleared; `verification_state`
   answers `unverified` first when there is no email, so a row cleared before the fix reads right
   without a data change; `coach_approval_service` derives `emailVerified` (and the admin mail's
   "verified") from that state.
 - **Tests:** `test_pad482_clearing_the_email.py` — the three empty shapes, a pending code dropped, a
-  PATCH without `email`, an old build's whole-form save with the same address, adding one back, and
+  PATCH without `email`, a PATCH re-sending the same address in another case, adding one back, and
   a stale row; red first, the admin approvals list included.
+- **#509 review round:** the admin mail's "verified" line is pinned for a row with no email; on iOS a
+  session lost to a 401 now ends the email prompt's dismissal too (`endSessionState`). Known gap, not
+  fixed here: that 401 path does not call `dropPendingSaves` either, as a sign-out does.
+

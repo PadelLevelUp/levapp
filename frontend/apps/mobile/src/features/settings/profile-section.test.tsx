@@ -16,7 +16,7 @@
  * app's copy, matching `react-test-renderer`'s).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { renderNative } from "@/test/render-native";
 import {
   UnsavedRegistryProvider,
@@ -37,11 +37,15 @@ vi.mock("@levelup/api", () => ({
   },
 }));
 
+// A later /auth/me read (react-query refetches on focus and after a save): the test pushes it here.
+const reread = vi.hoisted(() => ({ push: (_me: unknown) => {} }));
+
 vi.mock("@tanstack/react-query", async () => {
   const React = await import("react");
   return {
     useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
       const [data, setData] = React.useState<unknown>(undefined);
+      reread.push = setData;
       React.useEffect(() => {
         let alive = true;
         queryFn().then((d) => {
@@ -189,6 +193,41 @@ describe("typing before the profile has loaded (B-263)", () => {
     await n.press("settings-profile-save");
     await n.flush();
     expect(updateMe).toHaveBeenCalledWith({ email: "rui@example.com" });
+  });
+});
+
+describe("#509 review", () => {
+  it("the reason line waits for /auth/me: a coach who has an email never sees it flash", async () => {
+    getMe.mockReturnValue(new Promise(() => undefined));
+    const { n } = await mountProfile();
+    expect(n.queryByTestId("settings-profile-email-needed")).toBeNull();
+  });
+
+  it("a field typed in and emptied again before the read lands takes the loaded value", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    const { n } = await mountProfile();
+
+    await n.changeText("settings-profile-email", "x");
+    await n.changeText("settings-profile-email", "");
+    land(ME);
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-email").props.value).toBe(ME.email);
+  });
+
+  it("after a save, a later read fills the fields the coach had edited (the touched set is cleared)", async () => {
+    updateMe.mockResolvedValue({ ...ME, phone: "+351922222222" });
+    const { n } = await mountProfile();
+    await n.changeText("settings-profile-phone", "+351922222222");
+    await n.press("settings-profile-save");
+    await n.flush();
+
+    // Changed elsewhere since (another device): the next read shows it.
+    await act(async () => { reread.push({ ...ME, phone: "+351933333333" }); });
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-phone").props.value).toBe("+351933333333");
   });
 });
 

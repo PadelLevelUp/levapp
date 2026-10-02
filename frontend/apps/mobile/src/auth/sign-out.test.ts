@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createSerialSaver, emailPromptSession, SaveSuperseded } from "@levelup/config";
 
-import { signOut } from "./sign-out";
+import { endSessionState, signOut } from "./sign-out";
 
 /** A server that refuses the device DELETE once the session is revoked. */
 function fakeServer() {
@@ -125,3 +125,21 @@ describe("signOut ends the email prompt's dismissal", () => {
     expect(emailPromptSession.isDismissed(7)).toBe(false);
   });
 });
+
+// #509 review: a session lost to a 401 (AuthContext's unauthorized handler) ends the same session-only state.
+describe("a session lost to a 401", () => {
+  it("endSessionState ends the email prompt's dismissal", () => {
+    emailPromptSession.dismiss(7);
+    endSessionState();
+    expect(emailPromptSession.isDismissed(7)).toBe(false);
+  });
+
+  it("the 401 handler calls it before dropping the user", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(path.resolve(__dirname, "AuthContext.tsx"), "utf8");
+    const at = src.indexOf("setUnauthorizedHandler(");
+    expect(src.slice(at, at + 500)).toMatch(/endSessionState\(\);\s*setUser\(null\)/);
+  });
+});
+

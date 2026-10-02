@@ -93,7 +93,8 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
     setSaved(loaded);
     setForm((current) => {
       const next = { ...loaded };
-      for (const field of touchedRef.current) next[field] = current[field];
+      // #509 review: a field touched but left empty before the read lands takes the loaded value.
+      for (const field of touchedRef.current) if (current[field].trim()) next[field] = current[field];
       return next;
     });
   }, [me]);
@@ -237,7 +238,8 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
             onChangeText={(v) => setField("email", v)}
           />
           {/* PAD-482 (rule 14): a coach with no email cannot recover a password. */}
-          {(me ?? user)?.roles?.includes("coach") && !form.email.trim() ? (
+          {/* Only once /auth/me has answered, or it flashes for a coach who has an email (#509 review). */}
+          {me?.roles?.includes("coach") && !form.email.trim() ? (
             <Text testID="settings-profile-email-needed" className="text-xs text-muted-foreground">
               {t("settings.profile.emailNeeded")}
             </Text>

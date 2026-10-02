@@ -51,13 +51,19 @@ test("PAD-482: a coach with no email is asked for one, adds it and confirms it",
     await expect(page).toHaveURL(/\/settings\?tab=profile&focus=email/);
     const field = page.getByTestId("settings-profile-email");
     await expect(field).toBeFocused();
-    await expect(page.getByTestId("settings-profile-email-needed")).toBeVisible();
+    // The reason line waits for the read (#509 review), so nothing flashes before it lands.
+    await expect(page.getByTestId("settings-profile-email-needed")).toHaveCount(0);
 
     // Typed before GET /auth/me has filled the form: B-263 fills the untouched name all the same.
     await field.fill(EMAIL);
     release();
     await expect(page.locator("#profile-name")).toHaveValue("E2E Coach", { timeout: 10000 });
     await page.unroute("**/api/auth/me");
+
+    // Loaded, with the field empty: the reason shows; with the address back, it goes.
+    await field.fill("");
+    await expect(page.getByTestId("settings-profile-email-needed")).toBeVisible();
+    await field.fill(EMAIL);
     await expect(page.getByTestId("settings-profile-email-needed")).toBeHidden();
     const saved = page.waitForResponse((r) => r.url().endsWith("/api/auth/me") && r.request().method() === "PATCH");
     await page.getByTestId("settings-header-save").click();

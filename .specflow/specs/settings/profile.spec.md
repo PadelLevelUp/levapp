@@ -46,7 +46,8 @@ out of scope (no backend support exists for them).
 8. After a successful save, a reload of the Settings screen shows the newly saved values (the form is
    hydrated from `GET /api/auth/me`, not from local defaults). A field the user edits before that
    read lands keeps what they typed; every other field is still filled from it (B-263), so a save never
-   sends a field the user did not touch.
+   sends a field the user did not touch. A field typed in and left empty before the read lands counts as
+   untouched and takes the loaded value, so a save can never clear it by accident.
 9. Saving an `email` that differs from the stored one (case-insensitively) clears `email_verified_at`,
    marks the account as needing verification and mails a 6-digit code to the new address, best-effort
    (`auth.email-verification` rules 1, 3 and 6). The response's `emailVerification` is `"pending"`
@@ -98,8 +99,8 @@ out of scope (no backend support exists for them).
 - **Given** an authenticated coach whose email `rui@example.com` is verified
 - **When** they PATCH `/api/auth/me` with `{"email": ""}` (or whitespace, or `null`)
 - **Then** the response is 200 with `emailVerification: "unverified"` and no code is pending
-- **And** a PATCH that omits `email`, or a whole-form save that sends `"RUI@example.com"` (builds
-  27/28), leaves a verified email verified and mails nothing
+- **And** a PATCH that omits `email`, or one that re-sends the same address in another case
+  (`"RUI@example.com"`, any client), leaves a verified email verified and mails nothing
 
 #### Typing before the profile has loaded keeps the other fields (rule 8, B-263)
 - **Given** a coach opens Perfil and types `rui@example.com` into the email field before `GET /api/auth/me` answers

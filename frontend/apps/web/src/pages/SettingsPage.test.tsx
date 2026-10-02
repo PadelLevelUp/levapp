@@ -619,3 +619,32 @@ describe("SettingsPage — typing before the profile has loaded (B-263)", () => 
   });
 });
 
+describe("SettingsPage — #509 review", () => {
+  it("the reason line waits for the profile: a coach who has an email never sees it flash", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    goto("/settings?tab=profile");
+    renderSettings();
+
+    await screen.findByTestId("settings-profile-email");
+    expect(screen.queryByTestId("settings-profile-email-needed")).toBeNull();
+    await act(async () => { land(ME); });
+    await waitFor(() => expect(screen.getByTestId("settings-profile-email")).toHaveValue("coach@example.com"));
+    expect(screen.queryByTestId("settings-profile-email-needed")).toBeNull();
+  });
+
+  it("a field typed in and emptied again before the read lands takes the loaded value, so nothing is cleared", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    goto("/settings?tab=profile");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    fireEvent.change(field, { target: { value: "x" } });
+    fireEvent.change(field, { target: { value: "" } });
+    await act(async () => { land(ME); });
+
+    await waitFor(() => expect(field).toHaveValue("coach@example.com"));
+  });
+});
+

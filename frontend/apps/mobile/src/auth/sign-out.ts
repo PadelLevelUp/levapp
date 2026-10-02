@@ -30,6 +30,17 @@ function bounded(work: Promise<void>, ms: number): Promise<void> {
   });
 }
 
+/**
+ * PAD-482 (#509 review): the client-only state of a session that ends — on a sign-out, and on a 401 that
+ * drops the session without one. "Agora não" on the email prompt lasts for the session
+ * (auth.email-verification rule 14), so the same user signing back in is asked again.
+ * (`dropPendingSaves` is not here: the 401 path does not drop pending saves either, a known gap of its
+ * own — see B-262's resolution.)
+ */
+export function endSessionState(): void {
+  emailPromptSession.reset();
+}
+
 export async function signOut(deps: {
   unregisterPush: () => Promise<void>;
   revokeSession: () => Promise<void>;
@@ -41,7 +52,7 @@ export async function signOut(deps: {
   // it must never be sent with the next account's session.
   dropPendingSaves();
   // PAD-482 (auth.email-verification rule 14): the next sign-in asks for a missing email again.
-  emailPromptSession.reset();
+  endSessionState();
   await bounded(deps.unregisterPush(), deps.unregisterTimeoutMs ?? PUSH_UNREGISTER_TIMEOUT_MS);
   await bounded(deps.revokeSession(), deps.revokeTimeoutMs ?? REVOKE_TIMEOUT_MS);
   await deps.clearToken().catch(() => undefined);

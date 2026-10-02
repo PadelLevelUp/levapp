@@ -144,10 +144,12 @@ own email in Settings.
     email** (opens Settings → Perfil with the email field focused) and **Agora não** / **Not now**.
     It never blocks anything: there is no hold, and nothing is gated on it. **Agora não** hides it
     for the rest of the session only — nothing is stored, so it is back at the next sign-in or app
-    launch. While the Settings email field is empty, a line under it says "Necessário para recuperar
-    a palavra-passe." / "Needed to recover your password.". Saving an address runs
+    launch (and a session lost to a 401 ends it too). Once the profile has loaded and while the Settings
+    email field is empty, a line under it says "Necessário para recuperar a palavra-passe." / "Needed
+    to recover your password.". Saving an address runs
     `settings.profile` rule 9 (a code, the code screen, then verified); the banner is gone once
-    `/auth/me` has an email. A player is never shown it: coach-created players have no email by
+    `/auth/me` has an email. (With `EMAIL_VERIFICATION_REQUIRED` off, rule 1, the save verifies at once
+    and the banner goes at the next read of `/auth/me`; every deployed environment keeps the gate on.) A player is never shown it: coach-created players have no email by
     design (rule 1). Such a coach comes from the iOS 27/28 invitation accept
     (`clubs.coach-invitation` rule 9, legacy path) or from clearing the email in Settings. Builds
     27/28 do not show it; they can already add and verify an email in Settings.

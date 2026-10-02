@@ -7,7 +7,8 @@ no timestamp, nothing required, no pending code. What each shape of `email` in a
 - `""` or whitespace: clears the email (and, now, the verification);
 - `null`: the same as `""` — the service reads `data.get("email") or ""`;
 - the key absent: nothing about the email or its verification changes;
-- the same address (any case), as an old build's whole-form save sends it: nothing changes.
+- the same address (any case), from any client: nothing changes. (Clients send only the fields that
+  changed; the server must still not re-verify a re-sent address.)
 """
 import pytest
 
@@ -88,8 +89,9 @@ def test_a_patch_without_the_email_key_changes_nothing_about_it(app, client, out
     assert _verification_columns(app) == before
 
 
-def test_an_old_build_whole_form_save_with_the_same_email_changes_nothing(app, client, outbox):
-    """Builds 27/28 save the whole profile form: name, abbreviation, the email as stored, phone."""
+def test_a_save_that_re_sends_the_same_email_changes_nothing(app, client, outbox):
+    """Every client sends only the changed fields today; a request that re-sends the stored address (in
+    another case) alongside other fields must still leave its verification alone."""
     headers = _verified_coach(app, client, outbox)
     before = _verification_columns(app)
 
@@ -127,3 +129,21 @@ def test_a_row_left_with_no_email_and_a_timestamp_reads_unverified_everywhere(ap
     rows = client.get("/api/app/admin/coach-approvals", headers=_admin_headers(app)).get_json()
     assert [(r["username"], r["emailVerified"]) for r in rows] == [("rui", False)]
 
+
+
+def test_the_admin_mail_says_unverified_for_a_coach_with_no_email(app, client, outbox):
+    """#509 review: the admin's "coach waiting" mail reads the same derived state, so a row left with no
+    email and an old timestamp is never reported as verified there either."""
+    from padel_app.models import Coach, User
+    from padel_app.services.coach_approval_service import notify_admin_of_pending_coach
+
+    _verified_coach(app, client, outbox)
+    app.config["ADMIN_NOTIFY_EMAIL"] = "admin@levapp.app"
+    with app.app_context():
+        user = User.query.filter_by(username="rui").first()
+        user.email = None  # as the old PATCH left it: the timestamp stays
+        db.session.commit()
+        notify_admin_of_pending_coach(Coach.query.filter_by(user_id=user.id).first())
+
+    (mail,) = [m for m in outbox if m["recipients"] == ["admin@levapp.app"]]
+    assert "Email verified: no" in mail["body"]
