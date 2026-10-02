@@ -481,3 +481,35 @@ def test_f3_a_no_landing_between_a_yes_and_its_lock_wins(app, monkeypatch):
         event = db.session.get(NotificationEvent, event_id)
         assert student not in _instance(instance_id).enrolled_player_ids
         assert (event.status, event.answer) == ("expired", "no")
+
+
+def test_f2_a_failed_send_leaves_no_phantom_to_hold_the_class(app, monkeypatch):
+    """#513 review F2 (PAD-495 item 8, landed here): a batch whose second message fails must not
+    leave that student holding a live invitation they never received — under rule 18 such a phantom
+    would skip them for every spot of the class and could hold a spot until the class starts."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=5, max_players=1)
+        real = ns._send_system_message
+        calls = {"n": 0}
+
+        def flaky(*args, **kwargs):
+            if kwargs.get("message_type") == "notification_invite":
+                calls["n"] += 1
+                if calls["n"] == 2:
+                    raise RuntimeError("send failed")
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(ns, "_send_system_message", flaky)
+        with pytest.raises(RuntimeError):
+            trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert NotificationEvent.query.filter(
+            NotificationEvent.lesson_instance_id == instance_id,
+            NotificationEvent.status.in_(("sent", "queued")),
+            NotificationEvent.message_id.is_(None),
+        ).count() == 0
