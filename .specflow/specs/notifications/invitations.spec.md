@@ -268,7 +268,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
       someone else), they may be asked for another spot on the next pass.
     A spot whose **last** round is empty only because its remaining candidates hold an offer for
     another spot **waits** rather than expiring; an earlier round in that state moves on as usual, so
-    students only a later invitation group admits are still asked. It is looked at again on every
+    students only a later invitation group admits are still asked.
+    A student freed later (their other offer retired) is judged by the round the spot is then in:
+    with the default groups the last round is the widest, but a coach whose last group is narrower
+    than an earlier one will not re-ask a freed student whom only the earlier group admitted, and the
+    spot then expires. It is looked at again on every
     tick (a never-started spot gives its claim back; a started one with no invitation of its own out
     is not paced by `maxInactiveTime`), so the wait ends on the first tick after any of: the sibling
     offer is declined (that student is out; the round moves on or the spot expires as usual), is
