@@ -127,7 +127,7 @@ whether a failure mode has been seen before.
 - [B-012](B-012-dead-supabase-integration.md) — Dead Supabase integration left from the Lovable prototype (layer-drift, low, resolved)
 - [B-013](B-013-student-detail-sheet-unwired-save.md) — StudentDetailSheet's Level/Side selects and Save button persist nothing (missing-criterion, medium, resolved)
 - [B-014](B-014-dead-delete-class-dialog.md) — DeleteClassDialog.tsx is dead code, superseded by ClassScopeDialog (layer-drift, low, resolved)
-- [B-015](B-015-ios-message-push-not-delivered-backgrounded.md) — iOS message pushes are not delivered while the app is backgrounded, and the backend cannot tell (incomplete-rule, high, triaged)
+- [B-015](B-015-ios-message-push-not-delivered-backgrounded.md) — iOS message pushes are not delivered while the app is backgrounded, and the backend cannot tell (incomplete-rule, high, resolved)
 - [B-016](B-016-side-label-hardcoded-english.md) — A player's court side rendered in English regardless of the coach's language (missing-criterion, medium, resolved)
 - [B-018](B-018-image-signing-failure-breaks-serializers.md) — A private image that cannot be signed turns every user/club/message payload into a 500 — and signing built a storage client per image (layer-drift, critical, resolved)
 - [B-019](B-019-chat-role-badge-fixed-on-dead-header.md) — The chat header's role badge fix landed on a headerTitle that headerShown:false never mounts (test-defect, high, resolved)

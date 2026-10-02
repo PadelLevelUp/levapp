@@ -83,3 +83,30 @@ def test_the_people_named_on_a_group_request_are_told_too(app, monkeypatch):
     sent = _capture(monkeypatch)
     _decide(app, ids, rid, "accept")
     assert _told(sent) == sorted([ids["coach_user_id"], ids["bruno_user_id"], carla_user])
+
+
+# ── Join requests (academy classes): a decision moves a student onto a class ──
+
+@pytest.mark.parametrize("accept", [True, False])
+def test_a_join_request_decision_tells_the_coach_and_the_student(app, monkeypatch, accept):
+    """Rule 19 (PAD-488 review): deciding a join request published nothing, so neither side's
+    open calendar learned that the student is now on the class."""
+    from padel_app.models import Coach, Vacancy
+    from padel_app.models.players import Player
+    from padel_app.tests.test_pad128_eligibility import _seed as _seed128
+    from padel_app.tests.test_pad131_join_requests import _config, _decide as _decide_join
+    from padel_app.tests.test_pad131_join_requests import _request as _ask, _student
+
+    ids = _seed128(app, eligibility_rules=None)
+    _config(app, ids, open_spots_visible=True)
+    pid = _student(app, ids, "asker")
+    with app.app_context():
+        db.session.add(Vacancy(lesson_instance_id=ids["instance_id"], coach_id=ids["coach_id"], status="open"))
+        db.session.commit()
+        coach_user = db.session.get(Coach, ids["coach_id"]).user_id
+        player_user = db.session.get(Player, pid).user_id
+    rid, _, _ = _ask(app, ids, pid)
+    sent = _capture(monkeypatch)
+    _decide_join(app, ids, rid, accept=accept)
+    told = sorted({uid for kind, uids in sent if kind == "join_request_decided" for uid in uids})
+    assert told == sorted([coach_user, player_user])

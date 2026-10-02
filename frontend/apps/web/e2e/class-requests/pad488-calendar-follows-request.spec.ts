@@ -120,4 +120,40 @@ test.describe("PAD-488: an open calendar follows the request", () => {
       await request.post(`${API_APP}/class-requests/${rid}/withdraw`, { headers: student, data: {} });
     }
   });
+
+  test("US-488: a refetch that lands after the week changed does not replace the new week", async ({ page, request }) => {
+    test.setTimeout(150_000);
+    const day = seededMonday();
+    const student = { Authorization: `Bearer ${await token(request, STUDENT_USERNAME, STUDENT_PASSWORD)}` };
+    await loginAsCoach(page);
+    await openCalendar(page);
+    await expect(page.getByTestId("calendar-event-card").first()).toBeVisible({ timeout: 15_000 });
+
+    // Arm before the trigger: the next calendar read is fetched now and delivered only on release.
+    let hits = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    await page.route(/\/api\/app\/calendar\?/, async (route) => {
+      if (hits++ > 0) return route.continue();
+      const stale = await route.fetch();
+      await gate;
+      await route.fulfill({ response: stale });
+    });
+
+    // A request event makes the open week refetch (this week's range; held above)…
+    const { rid } = await openRequest(request, student, day);
+    try {
+      await expect.poll(() => hits, { timeout: 15_000 }).toBeGreaterThan(0);
+      // …the coach moves to next week, which loads…
+      await goToNextWeek(page);
+      await expect(page.getByText("E2E Academy Class").first()).toBeVisible({ timeout: 15_000 });
+      // …and then the old week's answer arrives. It must not replace next week.
+      release();
+      await page.waitForTimeout(1_500);
+      await expect(page.getByText("E2E Academy Class").first()).toBeVisible();
+    } finally {
+      release();
+      await request.post(`${API_APP}/class-requests/${rid}/withdraw`, { headers: student, data: {} });
+    }
+  });
 });

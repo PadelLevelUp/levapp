@@ -3,7 +3,7 @@ id: B-264
 title: "An open calendar kept a class request's hold after the request was accepted, withdrawn or moved"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - .specflow/specs/classes/class-requests.spec.md
   - frontend/apps/web/src/pages/CalendarPage.tsx
@@ -12,6 +12,7 @@ affects:
   - backend/padel_app/services/class_request_service.py
 proposed_fix: "Rule 19: every class-request transition refreshes the calendar of both sides and the actor's other devices — the calendar data is invalidated after each action and on class_request_changed, the web calendar refetches on that event, and the server tells the actor too."
 opened: 2026-10-02T16:59:31Z
+resolved: 2026-10-02T18:14:59Z
 ---
 
 # B-264: the calendar does not follow a class request
@@ -81,4 +82,14 @@ the class; the student withdraws → the coach's open calendar drops the hold.
 
 ### Resolution
 
-(open)
+- Spec: `classes.class-requests` rule 19 (+2 criteria; known limits recorded), business line in
+  `student-books-a-class`.
+- Code: `@levelup/hooks` `refreshAfterRequestChange` (request lists, calendar, class sheet,
+  dashboard) called by both shells' realtime handlers and every request action, class and join;
+  web `CalendarPage` and `DashboardPage` refetch on request events, and only their newest read
+  lands; the server tells the coach, the requester and the invitees (`class_request_changed`)
+  and both sides of a join decision (`join_request_decided`).
+- Tests: web E2E pad488 (3, red first: hold stayed 15 s; late old-week answer replaced the new
+  week), backend test_pad488 (8, red first), hooks requestEvents (red against a stub, then on the
+  dashboard and the new event type), iOS flows 139/140 (red on staging's code, green here).
+- Resolved: 2026-10-02T18:14:59Z

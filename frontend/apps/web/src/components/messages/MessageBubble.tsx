@@ -155,11 +155,8 @@ export function MessageBubble({
   // class sheet and "Pedidos de Aula" ask (ClassRequestsSection).
   const [pendingJoinIneligible, setPendingJoinIneligible] = useState<EligibilityCheckEntry[] | null>(null);
 
-  const invalidateJoinRequestQueries = () => Promise.all([
-    queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
-    queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
-  ]);
+  // The request lists, the class sheet and, rule 19 (PAD-488), the calendar and dashboard.
+  const invalidateJoinRequestQueries = () => refreshAfterRequestChange(queryClient);
 
   const handleAnswerJoinRequest = async (accept: boolean, confirm = false) => {
     if (!joinRequestMeta || responding) return;

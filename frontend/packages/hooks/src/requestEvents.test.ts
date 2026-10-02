@@ -15,6 +15,7 @@ function seeded() {
     queryKeys.classRequests,
     queryKeys.classJoinRequests,
     ["class-instance", { id: 1 }],
+    queryKeys.dashboard({ from: "a", to: "b" }),
     ["unrelated"],
   ];
   for (const k of keys) qc.setQueryData(k, { v: 1 });
@@ -22,15 +23,15 @@ function seeded() {
 }
 
 describe("refreshAfterRequestChange (PAD-488)", () => {
-  it("marks the calendar, the request lists and the class sheet stale, nothing else", async () => {
+  it("marks the calendar, the request lists, the class sheet and the dashboard stale, nothing else", async () => {
     const { qc, keys } = seeded();
     await refreshAfterRequestChange(qc);
     const stale = keys.map((k) => qc.getQueryState(k)?.isInvalidated ?? false);
-    expect(stale).toEqual([true, true, true, true, false]);
+    expect(stale).toEqual([true, true, true, true, true, false]);
   });
 
   it("knows the request events, and only them", () => {
-    expect(["class_request_changed", "join_request_created", "join_requests_superseded"].every(isRequestEvent)).toBe(true);
+    expect(["class_request_changed", "join_request_created", "join_requests_superseded", "join_request_decided"].every(isRequestEvent)).toBe(true);
     expect(isRequestEvent("message_created")).toBe(false);
   });
 });

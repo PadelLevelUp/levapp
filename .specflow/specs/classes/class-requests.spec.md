@@ -246,12 +246,19 @@ held on the coach's calendar while the request is open.
     - **No client change (web and iOS).** Both already render `withdrawn` and `declined`; nothing
       new reaches a screen, so PAD-360 ships backend-only.
 19. **An open calendar follows the request (PAD-488, B-264).** Every transition that changes a
-    calendar — `accept`, `accept-proposal`, `decline`, `decline-proposal`, `withdraw`, `propose`,
-    `counter-proposal` — publishes `class_request_changed` to the coach **and** the student, the
-    one who acted included (their other devices). Every client that receives it refreshes its
-    calendar data together with the request lists, and the client that performed the action
-    refreshes them as well. A calendar already open on web or iOS therefore shows the class, the
-    moved hold or no hold without a reload or a fresh login.
+    calendar — the request's creation, `accept`, `accept-proposal`, `decline`, `decline-proposal`,
+    `withdraw`, `propose`, `counter-proposal` — publishes `class_request_changed` to the coach, the
+    requester and the people named on the request (rule 12), the one who acted included (their
+    other devices). A decision on an academy join request publishes `join_request_decided` to the
+    coach and the student. A client that receives either event refreshes its calendar and its
+    home screen (dashboard) with the request lists, and the client that performed the action
+    refreshes them as well. So a calendar or home screen already open on web or iOS shows the
+    class, the moved hold or no hold without a reload or a fresh login. A web calendar read that
+    lands after a newer read, or after a local edit, is dropped, never shown.
+    **Known limits:** installed iOS builds up to 1.2.1 refresh only the request lists on these
+    events (harmless; they follow on the next resume). An event missed while the realtime
+    connection was down is not replayed when it reconnects; that view catches up on its next
+    read (resume, range change, navigation).
 
 ### Acceptance Criteria
 
@@ -322,7 +329,7 @@ held on the coach's calendar while the request is open.
 - **Given** a pending request and the coach's calendar open on its week, showing the hold
 - **When** the coach accepts it on another device
 - **Then** the open calendar shows no hold for it without a reload
-- **And** the class is on the coach's calendar at that slot
+- **And** the coach's calendar feed has the class at that slot
 
 #### An open calendar drops the hold when the student withdraws (PAD-488)
 - **Given** a pending request and the coach's calendar open on its week, showing the hold
