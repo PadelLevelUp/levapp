@@ -27,7 +27,8 @@ own email in Settings.
 
 ### Rules
 1. **Who must verify.** `email_verification_required` is set to true only by self-signup
-   (`auth.register`) and by a self-service email change (`settings.profile` rule 9). An email a
+   (`auth.register`), by accepting a club's coach invitation as a new user (`clubs.coach-invitation`
+   rule 9, PAD-477), and by a self-service email change (`settings.profile` rule 9). An email a
    coach types for a player (`players.create`, `auth.activate`) never triggers the step, so a
    coach-created player is not stopped on first sign-in. When the config flag
    `EMAIL_VERIFICATION_REQUIRED` is off (default on), neither path sets the flag and the user

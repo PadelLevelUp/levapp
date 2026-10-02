@@ -30,6 +30,12 @@ EVALUATIONS = "evaluations"
 # is the same. Retire once no App Store build older than the first declaring one is in use.
 CLASS_TYPE_DEFAULTS = "class-type-defaults"
 
+# PAD-477 (clubs.coach-invitation rule 9): the coach-invite accept form sends an `email`. A client
+# that declares this and sends none is refused (400 EMAIL_REQUIRED); one that does not (iOS 1.2.0
+# (27) and 1.2.1 (28)) keeps the pre-PAD-477 accept without an email. Retire, with that legacy path,
+# once no App Store build older than the first declaring one is in use.
+COACH_INVITE_EMAIL = "coach-invite-email"
+
 
 def declared_capabilities() -> frozenset:
     """The tokens the current request declares, lower-cased; empty outside a request."""
