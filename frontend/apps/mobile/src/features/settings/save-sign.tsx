@@ -73,7 +73,8 @@ export function useSaveSign() {
 
 /**
  * Always mounted with a fixed minimum height, so the row does not jump when the sign appears.
- * `textTestID` marks the text only while it shows (Maestro flows 12/95 assert the language one).
+ * The text carries `textTestID` (default `<testID>-text`) only while it shows — what Maestro asserts
+ * (flows 12/95 the language one, 129 the scale).
  */
 export function SaveSign({
   status,
@@ -90,7 +91,7 @@ export function SaveSign({
   return (
     <View testID={testID} accessibilityLiveRegion="polite" className={cn("min-h-4 flex-row items-center", className)}>
       {status === "idle" ? null : (
-        <Text testID={textTestID} className={cn("text-xs", status === "failed" ? "text-destructive" : "text-muted-foreground")}>
+        <Text testID={textTestID ?? `${testID}-text`} className={cn("text-xs", status === "failed" ? "text-destructive" : "text-muted-foreground")}>
           {status === "saved" ? `✓ ${t(COPY.saved)}` : t(COPY.failed)}
         </Text>
       )}
