@@ -140,8 +140,10 @@ def _send(subject, recipients, body, html=None):
     try:
         send_email(subject, recipients, body=body, html=html)
     except Exception as exc:  # noqa: BLE001 — never fail the caller on mail
+        # B-254: how many recipients and the exception class, never the addresses or the
+        # exception text (an SMTP refusal names the recipient).
         current_app.logger.warning(
-            "coach-approval mail to %s failed: %s", recipients, exc
+            "coach-approval mail to %d recipient(s) failed: %s", len(recipients), type(exc).__name__
         )
 
 
@@ -159,7 +161,8 @@ def notify_admin_of_pending_coach(coach):
             actor=user.name if user else "",
         )
     except Exception as exc:  # noqa: BLE001 — never fail the signup
-        current_app.logger.warning("coach-approval superadmin alert failed: %s", exc)
+        # B-254: the exception class only; the alert path mails, so its text can carry an address.
+        current_app.logger.warning("coach-approval superadmin alert failed: %s", type(exc).__name__)
     to = current_app.config.get("ADMIN_NOTIFY_EMAIL")
     if not to:
         return

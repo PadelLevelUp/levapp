@@ -126,7 +126,10 @@ def notify_request_event(kind: str, recipients, **ctx) -> int:
                 subject, text, html = render_request_alert_email(user, title, body, path)
                 send_email(subject, [user.email], body=text, html=html)
             except Exception as exc:  # noqa: BLE001
-                current_app.logger.warning("request-alert mail to %s failed: %s", user.email, exc)
+                # B-254: the user id and the exception class, never the address or the exception text.
+                current_app.logger.warning(
+                    "request-alert mail to user %s failed: %s", user.id, type(exc).__name__
+                )
     return alerted
 
 
