@@ -32,7 +32,14 @@ export async function getNotificationConfig(): Promise<NotificationConfig> {
  */
 export async function updateNotificationConfig(
   data: Partial<NotificationConfig>
-): Promise<NotificationConfig & { eligibilityImpact?: EligibilityImpact }> {
+): Promise<
+  NotificationConfig & {
+    eligibilityImpact?: EligibilityImpact;
+    /** PAD-478 (notifications.config rule 10c): the configuration is saved, but the server could
+     *  not re-arm the reminder and invitation jobs of classes already scheduled. */
+    rescheduleFailed?: boolean;
+  }
+> {
   const res = await getApi().post("/app/notify/config", data);
   return res.data;
 }

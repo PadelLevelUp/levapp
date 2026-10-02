@@ -3,7 +3,7 @@ id: B-249
 title: "A reminder or invitation timing changed to a time already past (or to none) leaves the previously armed job in place, and it fires"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - notifications.config
   - notifications.reminders
@@ -12,6 +12,7 @@ affects:
   - frontend/apps/web/src/components/settings/RemindersSection.tsx
 proposed_fix: "Re-derive each job from the saved config and REMOVE a job whose new fire time is past or none; one derivation for the settings change, the startup re-arm and the daily pass."
 opened: 2026-10-02T09:03:55Z
+resolved: 2026-10-02T13:14:00Z
 ---
 
 # B-249: a timing change leaves the previous job armed (PAD-478)
@@ -55,3 +56,7 @@ The first version of the fix derived a class's jobs from whichever coach trigger
 - Creating a class and a same-lesson "this and all future" edit called the derivation unguarded after committing: a lock timeout would have answered 500 for a saved change. Both now log and let the daily pass derive the jobs.
 - Behaviour change, stated in rule 10b: a class with no coach row of its own now gets follow-ups. Prod, read-only, run by the coordinator on 2026-10-02 11:03 UTC: 5 future instances, 0 future instances without an own coach row, 0 instances of any date without one, 0 active lessons without a coach. No class in prod changes behaviour on deploy.
 
+### Resolution
+- Part 1 (PR #496) resolves the stale jobs. What a class gets when its new reminder time is already past is part 2 (PR #499, rule 10f).
+- Tests: `test_pad478_stale_timing_jobs.py`, `test_pad478_primary_coach_decides.py`, `test_pad478_one_failure_does_not_cost_the_rest.py`; web `pausedSaver.test.ts`, `RemindersSection.test.tsx`, `NotificationsEngineSection.test.tsx`.
+- Resolved: 2026-10-02T13:14:00Z

@@ -389,6 +389,7 @@
       "semiAutomatic": "Semiautomático",
       "reminders": "Lembretes",
       "remindersHint": "Lembrar automaticamente os alunos antes da aula e pedir-lhes que confirmem a presença.",
+      "rescheduleFailed": "O horário foi guardado, mas os lembretes das aulas já agendadas podem ainda seguir o horário anterior. Guarde de novo para tentar outra vez; são também atualizados uma vez por dia.",
       "invitationGroups": "Grupos de convite",
       "invitationGroupsHint": "Define quem é convidado e por que ordem. Cada grupo é tentado em sequência — se ninguém do Grupo 1 aceitar, o sistema avança para o Grupo 2. Usados pelos convites automáticos.",
       "settingUpGroups": "A configurar os grupos de convite predefinidos…",
