@@ -4012,6 +4012,17 @@ def _defer_next_round(
     vacancy.save()
 
 
+def _nothing_out(vacancy: Vacancy) -> bool:
+    """PAD-497: a vacancy whose first batch completed (batch 1 or later) and that has no invitation
+    of its own still live — nothing for `maxInactiveTime` to pace. A claim still in its first batch
+    (batch 0) is left to the claim's lease (rule 1b)."""
+    batch = vacancy.current_batch_number
+    # A real row only: the schedule tests drive this tick with MagicMock vacancies (as _round_pending).
+    if not isinstance(batch, int) or batch < 1:
+        return False
+    return not _has_live_offers(vacancy)
+
+
 def _has_live_offers(vacancy: Vacancy) -> bool:
     """True while any invitation for this vacancy can still be answered (``LIVE_INVITATION_STATES``)."""
     return (
@@ -4464,6 +4475,14 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         # now — one round per tick — regardless of maxInactiveTime, which waits
         # for invited students to answer and an empty round invited nobody.
         if _round_pending(vacancy):
+            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            processed += 1
+            continue
+
+        # PAD-497 (rule 18): a started vacancy with no invitation of its own still out has nothing
+        # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
+        # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
+        if _nothing_out(vacancy):
             _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue

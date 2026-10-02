@@ -8,6 +8,8 @@ one-spot and two-spot classes reads straight off the file: cells marked OLD-RED 
 from datetime import timedelta
 from unittest.mock import patch
 
+import pytest
+
 from padel_app.sql_db import db
 from padel_app.tests.test_pad493_invitations_run_twice import (
     NOW,
@@ -263,3 +265,41 @@ def test_the_explanation_names_both_skips_and_the_picker_marks_the_decliner(app,
                  for p in g["players"]}
         assert flags.get(str(decliner)) is True
         assert all(v is False for k, v in flags.items() if k != str(decliner))
+
+
+@pytest.mark.parametrize("max_inactive", [True, False])
+def test_a_started_spot_waiting_on_a_sibling_offer_is_asked_again_on_the_next_tick(app, monkeypatch, max_inactive):
+    """Starvation, started spot. Two spots, three students, one offer at a time: the first spot
+    asks A, the second asks B. B and then C decline the second spot, whose only remaining
+    candidate, A, holds the first spot's offer: it waits with nothing of its own out. The first
+    spot is then taken by someone else, retiring A's offer. The second spot must ask A on the next
+    tick: not after maxInactiveTime, and not never (with it off)."""
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (a, b, c) = _seed(enrolled=0, candidates=3, max_players=2, max_sim=1,
+                                                   max_inactive=max_inactive)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        first, second = (v[0] for v in _vacancies(instance_id))
+        assert sorted(_live_events(instance_id)) == [(first, a), (second, b)]
+
+        # B declines the second spot: its follow-up finds A (offer on the first) and C (free).
+        _answer(instance_id, b, "no", NOW + timedelta(minutes=1))
+        assert (second, c) in _live_events(instance_id)
+        # C declines too: the second spot's only remaining candidate, A, holds the first spot's offer.
+        _answer(instance_id, c, "no", NOW + timedelta(minutes=2))
+        assert [e for e in _live_events(instance_id) if e[0] == second] == []
+        assert next(v for v in _vacancies(instance_id) if v[0] == second)[1] == "open"   # waiting
+
+        # The first spot is taken by someone else (the coach adds a student): A's offer is retired.
+        from padel_app.services.notification_service import _close_vacancy
+        from padel_app.models.vacancy import Vacancy
+
+        _close_vacancy(db.session.get(Vacancy, first), None)
+        db.session.commit()
+        assert _live_events(instance_id) == []
+
+        _tick(monkeypatch, 4)
+        assert _live_events(instance_id) == [(second, a)]

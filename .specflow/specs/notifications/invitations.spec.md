@@ -225,11 +225,10 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     is still looked at on each `maxInactiveTime` pass of the tick, so a student who has become
     eligible meanwhile is invited; nobody already asked in that round is asked again. It expires
     on the first pass through the round logic after its last live invitation has resolved: at once
-    when that is a student's own "no" (the decline's follow-up runs it); on the tick's next
-    `maxInactiveTime` pass when the coach records the "no"; and otherwise at the class start
-    (PAD-68). The class start is the only later point when `maxInactiveTime` is off, and while
-    automatic invitations are off for the class, which skips both the decline's follow-up and the
-    tick. Holding sends no message of its own, and because the vacancy stays open, no second vacancy is created for that same place while it holds (other places get theirs,
+    when that is a student's own "no" (the decline's follow-up runs it); on the next tick when the
+    coach records the "no" (a vacancy with nothing of its own out is looked at every tick, rule 18);
+    and otherwise at the class start (PAD-68). While automatic invitations are off for the class,
+    which skips both the decline's follow-up and the tick, the class start is the only later point. Holding sends no message of its own, and because the vacancy stays open, no second vacancy is created for that same place while it holds (other places get theirs,
     rule 1b). (Before this, the rounds could run out under live offers and a "yes" was answered
     `spot_filled` on a spot nobody had taken.) `queued` counts as live because it is in
     `LIVE_INVITATION_STATES` (rule 15); nothing writes it today.
@@ -260,6 +259,15 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
+    A spot whose round is empty only because its remaining candidates hold an offer for another
+    spot **waits** rather than moving to the next round or expiring. It is looked at again on every
+    tick (a never-started spot gives its claim back; a started one with no invitation of its own out
+    is not paced by `maxInactiveTime`), so the wait ends on the first tick after any of: the sibling
+    offer is declined (that student is out; the round moves on or the spot expires as usual), is
+    accepted or retired (that student is free or enrolled), a new candidate becomes eligible,
+    capacity closes the spot (rule 13), or the class starts (PAD-68). A sibling offer nobody answers
+    keeps it waiting until the class starts, exactly as that offer keeps its own spot holding
+    (rule 16).
     A "yes" after the student's own "no" on the same invitation changes nothing and sends
     nothing; the answer reports `declined`, so both clients keep the invitation marked
     "Declined" (they already show that badge, without buttons, once a "no" is recorded). A
