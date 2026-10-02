@@ -10,13 +10,9 @@
  * open, "exit" once closed. Presence then waits for an `animationend` that never fires,
  * and the closing window stays open for as long as the test needs it.
  *
- * B-252: nothing here waits on the clock. What made these tests take 15–45 s under machine
- * load was floating-ui's positioning: on every update it asks each ancestor
- * `matches(":modal")` / `matches(":popover-open")` (its top-layer check). jsdom's selector
- * engine (nwsapi 2.2.27) answers `:modal` by re-entering its own `matches` — about
- * 300 ms of CPU per call on a busy machine. jsdom has no top layer
- * (no `showModal`, no popover API), so both pseudo-classes can never match here; the shim
- * below answers them `false` directly and leaves every other selector to jsdom.
+ * B-252: nothing here waits on the clock. These tests once took 15–45 s under machine load
+ * because of jsdom's `:modal` matching in floating-ui's top-layer check; the shim for that
+ * lives in src/test/setup.ts, for every test that renders a popper.
  */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,14 +30,7 @@ if (typeof window.PointerEvent === "undefined") {
   (window as unknown as { PointerEvent: typeof MouseEvent }).PointerEvent = PointerEvent;
 }
 
-const TOP_LAYER = new Set([":modal", ":popover-open"]);
-
 beforeEach(() => {
-  const realMatches = Element.prototype.matches;
-  vi.spyOn(Element.prototype, "matches").mockImplementation(function (this: Element, selector: string) {
-    return TOP_LAYER.has(selector) ? false : realMatches.call(this, selector);
-  });
-
   const real = window.getComputedStyle.bind(window);
   vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
     const styles = real(el, pseudo);

@@ -6,7 +6,8 @@ severity: medium
 status: resolved
 affects:
   - frontend/apps/web/src/components/ui/dropdown-menu.reopen.test.tsx
-proposed_fix: "Answer `:modal` / `:popover-open` false in the test (jsdom has no top layer); no wall-clock wait was involved."
+  - frontend/apps/web/src/test/setup.ts
+proposed_fix: "Answer `:modal` / `:popover-open` false in the web test setup (jsdom has no top layer); no wall-clock wait was involved."
 opened: 2026-10-02T12:13:53Z
 resolved: 2026-10-02T12:13:53Z
 ---
@@ -34,9 +35,16 @@ pre-push gates. It passed when run alone.
   took under 1 ms.
 - Normally that adds up to seconds; at load ~400 it exceeds the 30 s timeout.
 
-**Fix (test only; the component is unchanged):** jsdom has no top layer (no `showModal`, no popover API),
-so `:modal` and `:popover-open` can never match there. The test's `beforeEach` answers exactly those
-two selectors `false` and passes every other selector to jsdom. The per-file 30 s timeout is removed.
+**Fix (tests only; the component is unchanged):** jsdom has no top layer (no `showModal`, no popover API),
+so `:modal` and `:popover-open` can never match there.
+- The web test setup (`src/test/setup.ts`) answers exactly those two selectors `false` and passes every
+  other selector to jsdom unchanged. It applies to every web test that renders a floating-ui popper, not
+  only this file (coordinator, 2026-10-02).
+- `src/test/top-layer-shim.test.ts` pins the shim: the two selectors are answered without asking jsdom,
+  and ordinary and invalid selectors still go to jsdom.
+- The reopen test keeps no copy of its own, and its per-file 30 s timeout is removed.
+- Mobile (`environment: "node"`) and packages (node, plus jsdom only for hook tests that render no
+  popper) do not need it.
 
 ### Resolution
 - **At load 320–400:** each test takes 18–93 ms over 3 runs, about 110 ms for the file, down from
