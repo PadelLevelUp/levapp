@@ -9,7 +9,8 @@ affects:
   - frontend/apps/mobile/app/class-request-wizard.tsx
   - frontend/apps/mobile/app/conversation/new.tsx
   - frontend/apps/mobile/src/lib/native-header-offset.ts
-proposed_fix: "Screens under a native stack header pass the header's height as keyboardVerticalOffset (useNativeHeaderKeyboardOffset)."
+  - frontend/apps/mobile/src/lib/scroll-to-end-on-keyboard.ts
+proposed_fix: "Screens under a native stack header pass the header's height as keyboardVerticalOffset; the wizard scrolls its focused last field above the keyboard."
 opened: 2026-10-02T18:21:05Z
 ---
 
@@ -37,6 +38,15 @@ one text box inside a native Modal (BlockerSheet) is a full-screen Modal with no
 **Unreproduced so far:** the simulator was under the release-gate quiet on 2026-10-02. To do:
 screenshots of the focused field on staging's code and on the fix (Maestro cannot tell covered
 from visible).
+
+**Correction after the first simulator runs (2026-10-02, flow 141):** on staging's code both
+fields were behind the keyboard (18:58Z and 19:06Z). With the header offset alone (19:15Z) the
+new-conversation field was above the keyboard, but the wizard's note was still covered. The view
+now shrank by the right amount, but the wizard's ScrollView kept its offset, so the note stayed
+where the keyboard now is. The new-conversation field is the list's footer and lands in view by
+itself. **Second cause:** nothing scrolls the focused bottom field into view. Fix: the note's
+focus arms `useScrollToEndOnKeyboard`, and on `keyboardDidShow` (iOS and Android) the form scrolls
+to its end.
 
 **Root cause:** `mobile.android-runtime` rule 2 fixed the `behavior` for every screen but said
 nothing about the offset a screen under a native header needs (Type 2).

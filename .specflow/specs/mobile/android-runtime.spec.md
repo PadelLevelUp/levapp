@@ -46,6 +46,10 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    no offset the view shrinks too little and the bottom of the form stays under the keyboard.
    Today that is the class-request wizard and the new-conversation screen; screens that draw
    their own header inside the view, or have none, pass no offset.
+   **A scrolling form whose last field can be covered scrolls it into view (PAD-487):** the
+   shrink alone leaves the ScrollView's offset where it was, so the wizard's notes field, on
+   focus, scrolls the form to its end once the keyboard is up (`useScrollToEndOnKeyboard`,
+   `keyboardDidShow`, both platforms).
 
 #### Back button
 3. **The hardware / gesture back closes the topmost transient surface first.** A registry in
