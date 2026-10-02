@@ -1,4 +1,4 @@
-import { formatBirthInput, toIso } from "@/features/auth/signup-form";
+import { formatBirthInput } from "@/features/auth/signup-form";
 import { invitationsApi } from "@levelup/api";
 import { router } from "expo-router";
 import * as React from "react";
@@ -12,6 +12,9 @@ import {
   type AccountFormField,
 } from "@/features/auth/AccountSetupScreen";
 import {
+  coachInviteAcceptPayload,
+  coachInviteEmailError,
+  coachInviteLanding,
   coachInviteSchema,
   submitOutcomeForError,
   ACTIVATION_BIRTH_CODES,
@@ -32,7 +35,7 @@ type Status = "loading" | "valid" | "invalid";
  */
 export function CoachInviteScreen({ token }: { token: string | null }) {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
 
   const [status, setStatus] = React.useState<Status>(
     token ? "loading" : "invalid"
@@ -41,6 +44,7 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
   const [values, setValues] = React.useState({
     name: "",
     username: "",
+    email: "",
     password: "",
     repeatPassword: "",
     // PAD-457: DD/MM/AAAA, typed with the number pad as on sign-up.
@@ -101,24 +105,28 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
 
     setSubmitting(true);
     try {
-      const { accessToken } = await invitationsApi.acceptCoachInvitation(token, {
-        name: values.name,
-        username: values.username,
-        password: values.password,
-        birthDate: toIso(values.birthDate) ?? "",
-      });
+      const { accessToken } = await invitationsApi.acceptCoachInvitation(
+        token,
+        coachInviteAcceptPayload(values)
+      );
       toast.success(
         t("auth.coachInvite.welcomeTitle"),
         t("auth.coachInvite.welcomeDescription", { clubName })
       );
       await login(accessToken);
-      router.replace("/(tabs)/dashboard");
+      // Rule 9: a pending account confirms its email before the dashboard.
+      router.replace(coachInviteLanding(await refreshUser()) as never);
     } catch (error) {
       // PAD-457: a birth-date refusal belongs on the field, in the form's words.
       const res = (error as { response?: { status?: number; data?: { field?: string; code?: string } } }).response;
       const birthKey = res?.data?.code ? ACTIVATION_BIRTH_CODES[res.data.code] : undefined;
       if (res?.status === 400 && res.data?.field === "birthDate" && birthKey) {
         setErrors({ birthDate: t(`auth.coachInvite.${birthKey}`) });
+        return;
+      }
+      const emailKey = coachInviteEmailError(error);
+      if (emailKey) {
+        setErrors({ email: t(`auth.coachInvite.${emailKey}`) });
         return;
       }
       const outcome = submitOutcomeForError(error);
@@ -132,7 +140,7 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     } finally {
       setSubmitting(false);
     }
-  }, [clubName, login, t, token, values]);
+  }, [clubName, login, refreshUser, t, token, values]);
 
   if (status === "loading") {
     return <AccountSetupLoading testID="coach-invite-loading" />;
@@ -156,6 +164,12 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
       id: "username",
       label: t("auth.coachInvite.username"),
       autoComplete: "username-new",
+    },
+    {
+      id: "email",
+      label: t("auth.coachInvite.email"),
+      keyboardType: "email-address",
+      autoComplete: "email",
     },
     {
       id: "password",

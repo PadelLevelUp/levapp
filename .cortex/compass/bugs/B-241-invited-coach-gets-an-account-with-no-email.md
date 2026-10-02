@@ -11,7 +11,7 @@ affects:
   - frontend/apps/web/src/pages/CoachInvitePage.tsx
   - frontend/apps/mobile/src/features/auth/CoachInviteScreen.tsx
   - frontend/packages/api/src/resources/invitations.ts
-proposed_fix: "The new-user accept requires an email (sign-up's validation; 400 EMAIL_REQUIRED with the update message for builds that send none; 409 field email for a taken one) and sends the first verification code after the account is committed, so the coach is 'pending' and both clients hold them on Verify your email."
+proposed_fix: "The new-user accept validates an email as sign-up does (409 field email when taken) and sends the first code after the commit, so the coach is pending. Clients declaring coach-invite-email must send one (400 EMAIL_REQUIRED); iOS 27/28, which cannot, keep the pre-PAD-477 accept (legacy path, to be retired)."
 opened: 2026-10-02T11:23:48Z
 ---
 
@@ -65,8 +65,13 @@ unchanged by decision; a server test pins what it does today.
    `auth.email-verification` rule 1 lists the invitation accept. The wording goes to the coordinator before
    it is committed.
 2. Backend: the new-user accept validates the email as sign-up does, before anything is written: 400
-   `EMAIL_REQUIRED` with the update message when absent, 400 when malformed, 409 `field: "email"` when
-   taken. After the unit commits, it runs `begin_verification(user)`.
+   when malformed, 409 `field: "email"` when taken. When the email is absent: 400 `EMAIL_REQUIRED` from a
+   client declaring `coach-invite-email`, and from one that does not (iOS 27/28) the legacy accept
+   without an email. After the unit commits, it runs `begin_verification(user)`.
+   - **Decision change (coordinator, 2026-10-02):** a plain 400 for old builds was withdrawn. iOS 1.2.x
+     opens the invite link in the app and shows its own generic error ("Algo correu mal") for any
+     400 other than birthDate, so an invitee on a build released that morning would be stuck with no
+     message that could reach them.
 3. Clients, web and iOS together: a required email field on both accept forms and the shared payload type.
    400/409 `field: "email"` are mapped onto the field. A test on each client shows accept leads to
    `/verify-email`.
@@ -75,4 +80,17 @@ unchanged by decision; a server test pins what it does today.
 
 ### Resolution
 
-(Filled in when the PR lands.)
+- Spec: `clubs.coach-invitation` rule 9 (new) and rule 4 (the code goes out after the commit);
+  `auth.email-verification` rule 1 lists the invitation accept.
+- Backend: `club_service.accept_coach_invitation_service` (email check, legacy path,
+  `begin_verification` after the unit); `registration_service.normalised_email` /
+  `assert_email_free`, shared with sign-up and behaving the same there; capability
+  `COACH_INVITE_EMAIL`.
+- Clients, web and iOS: a required email field; the payload type gains `email`; email refusals land
+  on the field; a pending account lands on `/verify-email`; both shells declare `coach-invite-email`.
+- **Legacy path, to remove:** iOS 1.2.0 (27) and 1.2.1 (28) accept without an email (state
+  `"unverified"`, no code). Remove it, with the token's gate, when no build older than the first
+  declaring one is in use. Ask at each promotion's compat audit. The query above counts what it
+  produces.
+- **Follow-up (separate ticket, the coordinator files it):** a coach with no email (legacy-path
+  accounts) is asked for one in Settings on a build that can. Today they cannot recover a password.
