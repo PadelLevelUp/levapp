@@ -211,12 +211,15 @@ export function NewConversationDialog({
             </div>
           </ScrollArea>
 
-          {/* B-267: below the list, so the row that was clicked does not move. */}
-          {pickerError && (
-            <p className="text-sm text-destructive" role="alert" data-testid="new-conversation-picker-error">
-              {pickerError}
-            </p>
-          )}
+          {/* B-267: below the list, so the row that was clicked does not move; the line's
+              space is always reserved, so the username section below does not jump either. */}
+          <div className="min-h-5">
+            {pickerError && (
+              <p className="text-sm text-destructive" role="alert" data-testid="new-conversation-picker-error">
+                {pickerError}
+              </p>
+            )}
+          </div>
 
           {showUsernameField && <div className="border-t border-border pt-4" />}
           {showUsernameField && (

@@ -77,15 +77,22 @@ def _messageable_target_ids_for(user):
     return _linked_coach_user_ids(player.id)
 
 
-def _linked_coach_user_ids(player_id):
+def _linked_coach_user_ids(player_id, now=None):
+    """Rule 7's student side. A class links only while it is not over (#514 review): an
+    occurrence the student is enrolled in that has not ended and is not cancelled (a declined
+    "not coming" enrolment still counts — the student is still enrolled), or a series with an
+    occurrence still ahead. A class taught months ago is not a link."""
     from padel_app.models.Association_CoachClub import Association_CoachClub
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.Association_PlayerClub import Association_PlayerClub
     from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.lessons import Lesson
     from padel_app.models.presences import Presence
 
+    now = now or utcnow_naive()
     roster = db.session.query(Association_CoachPlayer.coach_id).filter(
         Association_CoachPlayer.player_id == player_id
     )
@@ -97,12 +104,27 @@ def _linked_coach_user_ids(player_id):
     series = (
         db.session.query(Association_CoachLesson.coach_id)
         .join(Association_PlayerLesson, Association_PlayerLesson.lesson_id == Association_CoachLesson.lesson_id)
-        .filter(Association_PlayerLesson.player_id == player_id)
+        .join(Lesson, Lesson.id == Association_CoachLesson.lesson_id)
+        .filter(
+            Association_PlayerLesson.player_id == player_id,
+            or_(
+                and_(Lesson.is_recurring.is_(False), Lesson.end_datetime > now),
+                and_(
+                    Lesson.is_recurring.is_(True),
+                    or_(Lesson.recurrence_end.is_(None), Lesson.recurrence_end >= now.date()),
+                ),
+            ),
+        )
     )
     occurrence = (
         db.session.query(Association_CoachLessonInstance.coach_id)
         .join(Presence, Presence.lesson_instance_id == Association_CoachLessonInstance.lesson_instance_id)
-        .filter(Presence.player_id == player_id)
+        .join(LessonInstance, LessonInstance.id == Association_CoachLessonInstance.lesson_instance_id)
+        .filter(
+            Presence.player_id == player_id,
+            LessonInstance.end_datetime > now,
+            LessonInstance.status != "canceled",
+        )
     )
     coach_ids = roster.union(shared_club, series, occurrence)
     return {
@@ -705,7 +727,7 @@ def create_conversation_service(data, user):
     """Finds or creates a conversation for the given participants.
 
     Two ways to name the other side: `otherParticipants` (ids; coach → roster
-    or club, student → any coach, messaging.conversations rule 7) or
+    or club, student → linked coaches only, messaging.conversations rule 7) or
     `otherUsername` (anyone reaching any active user by exact username,
     messaging.direct-by-username). Never both.
     """

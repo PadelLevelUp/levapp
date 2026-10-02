@@ -213,3 +213,139 @@ def test_coach_side_is_unchanged(client, app, scope):
     resp = _start(client, app, scope["user_ids"]["stranger"],
                   {"otherParticipants": [scope["student_user_id"]]})
     assert resp.status_code == 403
+
+
+# ── review round (#514): a class is a link only while it is not over ─────────
+
+def _make_user_coach(username, status="active"):
+    from padel_app.models import User
+    from padel_app.models.coaches import Coach
+
+    user = User(name=username, username=username, password="x", status=status)
+    db.session.add(user)
+    db.session.flush()
+    coach = Coach(user_id=user.id)
+    db.session.add(coach)
+    db.session.flush()
+    return user, coach
+
+
+def _make_lesson(club_id, start, *, recurring=False, recurrence_end=None, title="S483 class"):
+    from padel_app.models.lessons import Lesson
+
+    lesson = Lesson(
+        title=title, start_datetime=start, end_datetime=start + timedelta(hours=1),
+        is_recurring=recurring, recurrence_end=recurrence_end, type="academy", max_players=4,
+        color="#000", status="active", club_id=club_id,
+    )
+    db.session.add(lesson)
+    db.session.flush()
+    return lesson
+
+
+@pytest.fixture
+def class_links(app, scope):
+    """Coaches linked to the student ONLY through a class, each in a different tense."""
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+    from padel_app.models.clubs import Club
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+
+    now = utcnow_naive()
+    with app.app_context():
+        club = Club(name="S483 Club 2", description="", location="x")
+        db.session.add(club)
+        db.session.flush()
+        sid = scope["student_player_id"]
+        users = {}
+
+        def occurrence(name, start, *, status="scheduled", response="none"):
+            user, coach = _make_user_coach(f"s483_{name}")
+            lesson = _make_lesson(club.id, start, title=f"S483 {name}")
+            inst = LessonInstance(
+                lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                max_players=4, status=status,
+            )
+            db.session.add(inst)
+            db.session.flush()
+            db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=inst.id))
+            db.session.add(Presence(player_id=sid, lesson_instance_id=inst.id, response=response))
+            users[name] = user.id
+
+        def series(name, start, *, recurring, recurrence_end=None):
+            user, coach = _make_user_coach(f"s483_{name}")
+            lesson = _make_lesson(club.id, start, recurring=recurring, recurrence_end=recurrence_end,
+                                  title=f"S483 {name}")
+            db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=lesson.id))
+            db.session.add(Association_PlayerLesson(player_id=sid, lesson_id=lesson.id))
+            users[name] = user.id
+
+        occurrence("taught_once_past", now - timedelta(days=90))
+        occurrence("future_declined", now + timedelta(days=2), response="declined")
+        occurrence("future_cancelled", now + timedelta(days=2), status="canceled")
+        series("ended_series", now - timedelta(days=200), recurring=True,
+               recurrence_end=(now - timedelta(days=10)).date())
+        series("open_series", now - timedelta(days=200), recurring=True)
+        series("future_series_end", now - timedelta(days=200), recurring=True,
+               recurrence_end=(now + timedelta(days=30)).date())
+        series("past_one_off", now - timedelta(days=5), recurring=False)
+        db.session.commit()
+        return users
+
+
+@pytest.mark.parametrize("name", ["taught_once_past", "ended_series", "past_one_off", "future_cancelled"])
+def test_a_class_that_is_over_is_not_a_link(client, app, scope, class_links, name):
+    uid = class_links[name]
+    assert uid not in _messageable_ids(client, app, scope["student_user_id"])
+    resp = _start(client, app, scope["student_user_id"], {"otherParticipants": [uid]})
+    assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("name", ["future_declined", "open_series", "future_series_end"])
+def test_a_class_not_yet_over_is_a_link(client, app, scope, class_links, name):
+    """A declined ('not coming') enrolment on a future class still links: still enrolled."""
+    assert class_links[name] in _messageable_ids(client, app, scope["student_user_id"])
+
+
+def test_removing_the_roster_row_unlinks_a_coach_whose_classes_are_over(client, app, scope, class_links):
+    """The reviewer's shape: taught once, roster row deleted, coach must drop out."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.coaches import Coach
+
+    uid = class_links["taught_once_past"]
+    with app.app_context():
+        coach_id = Coach.query.filter_by(user_id=uid).one().id
+        db.session.add(Association_CoachPlayer(coach_id=coach_id, player_id=scope["student_player_id"]))
+        db.session.commit()
+    assert uid in _messageable_ids(client, app, scope["student_user_id"])
+
+    with app.app_context():
+        Association_CoachPlayer.query.filter_by(
+            coach_id=coach_id, player_id=scope["student_player_id"]
+        ).delete()
+        db.session.commit()
+    assert uid not in _messageable_ids(client, app, scope["student_user_id"])
+    resp = _start(client, app, scope["student_user_id"], {"otherParticipants": [uid]})
+    assert resp.status_code == 403
+
+
+def test_a_group_with_one_unlinked_coach_is_refused(client, app, scope):
+    """Every participant is checked, not just the first."""
+    resp = _start(client, app, scope["student_user_id"], {
+        "otherParticipants": [scope["user_ids"]["roster"], scope["user_ids"]["stranger"]],
+    })
+    assert resp.status_code == 403
+
+
+def test_an_inactive_linked_coach_is_refused(client, app, scope):
+    from padel_app.models import User
+
+    with app.app_context():
+        db.session.get(User, scope["user_ids"]["roster"]).status = "inactive"
+        db.session.commit()
+    assert scope["user_ids"]["roster"] not in _messageable_ids(client, app, scope["student_user_id"])
+    resp = _start(client, app, scope["student_user_id"],
+                  {"otherParticipants": [scope["user_ids"]["roster"]]})
+    assert resp.status_code == 403

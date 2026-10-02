@@ -58,6 +58,16 @@ Clients: the picker path on web (`MessagesPage.handleNewConversation`) and iOS
 Old iOS builds (1.0–1.2.1) list whatever the server returns, so unlinked coaches simply disappear
 from their picker; a stale row tapped after the fix is a silent no-op there.
 
+### Review round (#514, 2026-10-02)
+
+The independent review reproduced a hole in the first fix: the class clauses had no date or status
+filter, so a coach who removed a student from the roster stayed in the student's picker for as long
+as any class row linked them, including a class taught months ago. Decision: a class links only
+while it is not over (an occurrence not ended and not cancelled; a series with an occurrence still
+ahead); a declined enrolment on a future class still counts. Red first in the reviewer's shape
+(taught once, roster row deleted), then fixed in `_linked_coach_user_ids`. Two mutant gaps closed
+with tests: a group with one unlinked coach, and an inactive linked coach at the POST guard.
+
 ### Resolution
 
 (filled in when the PR lands)

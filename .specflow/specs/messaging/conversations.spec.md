@@ -46,12 +46,17 @@ Manage conversations between users (1:1 or group chats).
    any **club** they belong to (`player_in_club`) — the union of the two is the coach's
    messageable set. Everyone else is a student and may start a conversation with an active coach
    they are **linked** to: the coach has them on their roster (`coach_in_player`), they share a
-   club (`coach_in_club` × `player_in_club`), or the coach teaches a class they are in
-   (`coach_in_lesson` × `player_in_lesson`, or `coach_in_lesson_instance` × `presences`) — B-267,
-   PAD-483. The same set backs both `GET /api/app/messageable-users` (the picker) and the 403
+   club (`coach_in_club` × `player_in_club`), or the coach teaches a class they are in that is
+   **not yet over** — an occurrence (`coach_in_lesson_instance` × `presences`) that has not ended
+   and is not cancelled, or a series (`coach_in_lesson` × `player_in_lesson`) with an occurrence
+   still ahead (one-off: its end is in the future; recurring: no `recurrence_end`, or one not yet
+   passed). A past class is not a link, so removing a student from the roster drops the coach
+   once their shared classes are over. A declined ("not coming") enrolment on a future class
+   still counts: the student is still enrolled. — B-267, PAD-483. The same set backs both `GET /api/app/messageable-users` (the picker) and the 403
    guard on `POST /api/app/conversation` with `otherParticipants`. Blocks, either way, remove a
-   user from it. What stays reachable outside the set, on purpose: any active user by exact
-   username (`messaging.direct-by-username`, decision 2026-09-06 item 5), and any automatic
+   user from it. What stays reachable outside the set, on purpose: any active, activated user by exact
+   username — placeholder accounts and users without a password never match
+   (`messaging.direct-by-username` rules 2–3, decision 2026-09-06 item 5) — and any automatic
    message, which never consults the set (system sends create their own direct conversation).
 8. The scope in rule 7 governs **starting** a conversation only. It never restricts sending inside
    a conversation that already exists.
@@ -218,9 +223,17 @@ Manage conversations between users (1:1 or group chats).
 - **And** POSTing `otherUsername: "<E's username>"` instead still opens the conversation
 
 #### Removing a link does not cut an existing thread (B-267, rule 8)
-- **Given** S and A have a conversation and A then removes S from the roster
+- **Given** S and A have a conversation, A then removes S from the roster, and they share no class that
+  is not yet over
 - **When** S sends a message in that conversation
 - **Then** it is delivered, and A no longer appears in S's picker
+
+#### A class that is over is not a link (B-267, #514 review)
+- **Given** coach F taught S once, 90 days ago, and S is on no roster, club or current class of F's
+- **When** S GETs `/api/app/messageable-users` and POSTs `otherParticipants: [F]`
+- **Then** F is absent and the POST answers 403
+- **And** the same holds for a series whose `recurrence_end` has passed, a one-off class that has ended,
+  and a future occurrence that was cancelled; a future occurrence S declined still links
 
 #### The clients say why a picked person cannot be messaged (B-267)
 - **Given** a picker row that the server refuses with 403 (a stale list)
