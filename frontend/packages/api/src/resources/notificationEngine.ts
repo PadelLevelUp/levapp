@@ -38,9 +38,51 @@ export async function updateNotificationConfig(
     /** PAD-478 (notifications.config rule 10c): the configuration is saved, but the server could
      *  not re-arm the reminder and invitation jobs of classes already scheduled. */
     rescheduleFailed?: boolean;
+    /** PAD-478 (rule 10f): present on a timing save. The classes whose reminder time is already
+     *  past under what was just saved. The save sent nothing for them; the form asks the coach. */
+    pastDue?: PastDue;
+    /** The timing is saved, but the server could not make that check. */
+    pastDueUnknown?: boolean;
   }
 > {
   const res = await getApi().post("/app/notify/config", data);
+  return res.data;
+}
+
+/** One class the coach is asked about (notifications.config rule 10f). */
+export interface PastDueClass {
+  /** `i:<instanceId>`, or `o:<lessonId>:<date>` for a class not materialised yet. Opaque to the form. */
+  key: string;
+  title: string;
+  /** The class's wall-clock start, without a zone: `2027-07-12T18:00:00`. */
+  startsAt: string;
+  students: number;
+}
+
+export interface PastDue {
+  reminders: PastDueClass[];
+  /** Set when sending is not permitted now (the coach's quiet hours): the UTC instant a yes is sent at. */
+  quietUntil: string | null;
+}
+
+export interface PastDueSendResult {
+  sent: number;
+  scheduledFor: string | null;
+  classes: { key: string; sent: number; scheduledFor: string | null }[];
+  skipped: number;
+}
+
+/** The most classes one send request may name; the server answers 400 above it
+ *  (`MAX_KEYS` in past_due_service.py, tied by test_pad478_ask_before_sending.py). The form
+ *  sends a longer list in several requests. */
+export const PAST_DUE_SEND_MAX = 200;
+
+/**
+ * The coach's explicit yes (rule 10f). The keys are a request, not an instruction: the server
+ * checks each class again and runs the ordinary reminder pass for those still past due.
+ */
+export async function sendPastDueReminders(keys: string[]): Promise<PastDueSendResult> {
+  const res = await getApi().post("/app/notify/past_due/send", { reminders: keys });
   return res.data;
 }
 
