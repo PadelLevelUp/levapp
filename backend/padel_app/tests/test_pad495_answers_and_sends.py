@@ -164,3 +164,49 @@ def test_item_9_a_batch_the_daily_limit_skipped_entirely_is_not_counted(app, mon
         from padel_app.models.vacancy import Vacancy
 
         assert Vacancy.query.one().last_activity_at is None
+
+
+@pytest.mark.skipif(
+    __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="a lock is only visible with two real connections",
+)
+def test_item_3_two_declines_at_once_invite_two_different_students(app, monkeypatch):
+    """Two students asked for one spot decline at the same moment. Each decline invites the next
+    student; the two follow-ups must not both pick the same one (forced: both reach the follow-up
+    before either sends)."""
+    import threading
+
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (a, b, c, d) = _seed(enrolled=0, candidates=4, max_players=1, max_sim=2)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        asked = sorted(p for _, p in _live_events(instance_id))
+        assert asked == sorted([a, b])
+        events = {p: (_event_for(instance_id, p).id, _user(p)) for p in (a, b)}
+
+    real = ns._send_next_on_decline
+    gate = threading.Barrier(2)
+
+    def gated(*args, **kwargs):
+        try:
+            gate.wait(timeout=1.5)
+        except threading.BrokenBarrierError:
+            pass
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(ns, "_send_next_on_decline", gated)
+
+    def decline(p):
+        event_id, user_id = events[p]
+        return lambda: respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
+
+    with _io():
+        _race(app, [decline(a), decline(b)])
+    with app.app_context():
+        live = [p for _, p in _live_events(instance_id)]
+        assert sorted(live) == sorted([c, d])
