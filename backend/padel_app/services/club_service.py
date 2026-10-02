@@ -128,31 +128,36 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     if User.query.filter_by(username=username).first() is not None:
         abort(409, "Username already taken")
 
-    user = User(
-        name=name,
-        username=username,
-        email=data.get("email") or invitation.email,
-        password=generate_password_hash(password),
-        status="active",
-        birth_date=birth_date,
-    )
-    db.session.add(user)
-    db.session.flush()
+    # clubs.coach-invitation rule 4 (PAD-476, B-246): the account, its levels, the
+    # club link and the accepted invitation are one transaction. A failure at any
+    # step leaves nothing, and the invitation stays pending for another try.
+    from padel_app.tools.unit_of_work import unit_of_work
 
-    # auth.coach-approval rule 1: an existing club member vouched for them.
-    new_coach = Coach(user_id=user.id, approval_status="approved")
-    db.session.add(new_coach)
-    db.session.flush()
+    with unit_of_work():
+        user = User(
+            name=name,
+            username=username,
+            email=data.get("email") or invitation.email,
+            password=generate_password_hash(password),
+            status="active",
+            birth_date=birth_date,
+        )
+        db.session.add(user)
+        db.session.flush()
 
-    from padel_app.services.coach_service import create_default_levels_for_coach
+        # auth.coach-approval rule 1: an existing club member vouched for them.
+        new_coach = Coach(user_id=user.id, approval_status="approved")
+        db.session.add(new_coach)
+        db.session.flush()
 
-    create_default_levels_for_coach(new_coach)
+        from padel_app.services.coach_service import create_default_levels_for_coach
 
-    db.session.add(
-        Association_CoachClub(coach_id=new_coach.id, club_id=invitation.club_id)
-    )
-    invitation.status = "accepted"
-    db.session.commit()
+        create_default_levels_for_coach(new_coach)
+
+        db.session.add(
+            Association_CoachClub(coach_id=new_coach.id, club_id=invitation.club_id)
+        )
+        invitation.status = "accepted"
     return user
 
 

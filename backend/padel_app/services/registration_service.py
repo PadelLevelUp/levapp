@@ -191,7 +191,13 @@ def register_user_service(data, now=None):
 
     approval_required = coach_approval_required()
 
-    try:
+    # auth.register rule 12 (PAD-476, B-246): one transaction. Inside the unit the
+    # default-levels helper flushes instead of committing; the unit commits once on
+    # the way out and rolls back on any exception. Nothing with an outside effect
+    # runs inside it: the code, the admin notice and the CRM sync come after.
+    from padel_app.tools.unit_of_work import unit_of_work
+
+    with unit_of_work():
         user = User(
             name=name,
             username=username,
@@ -217,11 +223,6 @@ def register_user_service(data, now=None):
             from padel_app.services.coach_service import create_default_levels_for_coach
 
             create_default_levels_for_coach(coach)
-
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
 
     # auth.register rule 14 / auth.email-verification rule 6: the first code
     # goes out inside the signup request, best-effort. Runs before the admin
