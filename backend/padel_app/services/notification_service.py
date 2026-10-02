@@ -3964,7 +3964,11 @@ def _send_invitation_batch(
             round_number=vacancy.current_round_number,
             status="sent",
         )
-        event.create()
+        # PAD-495 item 8: flushed, not committed — the id is needed for the message's metadata,
+        # and the message's own create commits both, so a failed message rolls its invitation
+        # back instead of leaving a live invitation the student never received.
+        db.session.add(event)
+        db.session.flush()
 
         text = _format_template(
             resolve_message_template(templates, "invite", locale),
