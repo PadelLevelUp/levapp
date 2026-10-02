@@ -41,7 +41,9 @@ appId: com.padellevelup.app
 - inputText: "Maestro 141 nota"
 - waitForAnimationToEnd
 - takeScreenshot: pad487-wizard-note
-- runFlow: ../subflows/logout.yaml
+# The wizard is a pushed screen with no account header; a clean relaunch signs out instead.
+- launchApp:
+    clearState: true
 
 # ── The new-conversation screen's lowest field ──
 - runFlow: ../subflows/login-coach.yaml

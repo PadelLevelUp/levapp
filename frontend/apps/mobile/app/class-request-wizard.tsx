@@ -22,6 +22,7 @@ import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import { Text } from "@/components/ui/text";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 import { useNativeHeaderKeyboardOffset } from "@/lib/native-header-offset";
+import { useScrollToEndOnKeyboard } from "@/lib/scroll-to-end-on-keyboard";
 import { AcademyClassStep } from "@/features/class-requests/wizard/AcademyClassStep";
 import { CoachStep } from "@/features/class-requests/wizard/CoachStep";
 import { KindStep, type ClassRequestKind } from "@/features/class-requests/wizard/KindStep";
@@ -58,6 +59,9 @@ export default function ClassRequestWizardScreen() {
   };
   const coach = coaches?.find((c) => c.id === coachId) ?? null;
   const keyboardOffset = useNativeHeaderKeyboardOffset();
+  // PAD-487: the note is the last field; once the keyboard is up the form scrolls to it.
+  const scrollRef = React.useRef<ScrollView>(null);
+  const onNoteFocus = useScrollToEndOnKeyboard(() => scrollRef.current?.scrollToEnd({ animated: true }));
   const finish = () => router.back();
 
   return (
@@ -80,6 +84,7 @@ export default function ClassRequestWizardScreen() {
         }}
       />
       <ScrollView
+        ref={scrollRef}
         testID={`class-request-wizard-${step}`}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -122,7 +127,7 @@ export default function ClassRequestWizardScreen() {
             }}
           />
         ) : null}
-        {step === "private" && coachId ? <PrivateClassStep coachId={coachId} onDone={finish} /> : null}
+        {step === "private" && coachId ? <PrivateClassStep coachId={coachId} onDone={finish} onNoteFocus={onNoteFocus} /> : null}
         {step === "academy" && coachId ? <AcademyClassStep coachId={coachId} onDone={finish} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
