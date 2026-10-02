@@ -439,6 +439,23 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(screen.queryByTestId("reminder-per-student")).toBeNull();
   });
 
+  it("the 'reminders could not be re-armed' note (rule 10c) is visible with the reminders section closed", async () => {
+    await mountOpen();
+    const slow = deferred<object>();
+    api.updateNotificationConfig.mockImplementationOnce(() => slow.promise);
+
+    plus();
+    await waitFor(() => expect(sentCounts()).toEqual([2]), LONG);
+    toggleReminders(); // closed before the answer arrives
+    await waitFor(() => expect(screen.queryByTestId("reminder-per-student")).toBeNull());
+    await act(async () => {
+      slow.resolve({ ...CONFIG, reminderTiming: { ...TIMING, reminderCount: 2 }, rescheduleFailed: true });
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("notification-engine-reschedule-failed")).not.toBeNull());
+    expect(screen.queryByTestId("reminder-per-student")).toBeNull();
+  });
+
   it("more classes than one request may carry are sent in several requests, every key once", async () => {
     await mountOpen();
     const many = Array.from({ length: 450 }, (_, n) => ({ ...A, key: `i:${n + 1}` }));

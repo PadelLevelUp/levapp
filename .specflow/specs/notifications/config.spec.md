@@ -141,7 +141,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    failure is logged with the coach, and the response carries `rescheduleFailed: true`. The web
    form then confirms the save with its sign, as for any saved value, and says on a line of its
    own that the reminders of classes already scheduled may still follow the previous timing; the
-   line goes when a later timing save re-arms them. The
+   line sits under the reminders heading and is visible with the section closed (the answer can
+   arrive after the coach closed it), and goes when a later timing save re-arms them. The
    daily window pass derives the jobs of every active lesson inside its 60-day window again with
    rule 10a's derivation, so for those a failed reschedule heals within a day. Follow-ups (rule
    10b) are not part of that pass. Creating or editing a class is committed before its jobs are

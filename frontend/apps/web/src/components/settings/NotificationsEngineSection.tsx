@@ -282,6 +282,18 @@ export function NotificationsEngineSection() {
           onOpenChange={() => toggleSection("reminders")}
         >
           <SectionHeader sectionKey="reminders" icon={Bell} label={t("settings.engine.reminders")} />
+          {rescheduleFailed && (
+            // notifications.config rule 10c (PAD-478): the timing IS saved; the server could
+            // not re-arm the reminders of classes already scheduled. Not a failed save. Outside the
+            // collapsible content, like the note below: the answer can arrive after the section closed.
+            <p
+              role="status"
+              data-testid="notification-engine-reschedule-failed"
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.rescheduleFailed")}
+            </p>
+          )}
           {pastDueUnknown && (
             // Rule 10f: the timing IS saved; the server could not say whether a reminder is past due.
             // Outside the collapsible content: the answer can arrive after the coach closed the section.
@@ -300,17 +312,6 @@ export function NotificationsEngineSection() {
               </p>
               <SaveSign status={sign.status("reminders")} testId="notification-engine-reminders-sign" />
             </div>
-            {rescheduleFailed && (
-              // notifications.config rule 10c (PAD-478): the timing IS saved; the server could
-              // not re-arm the reminders of classes already scheduled. Not a failed save.
-              <p
-                role="status"
-                data-testid="notification-engine-reschedule-failed"
-                className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-              >
-                {t("settings.engine.rescheduleFailed")}
-              </p>
-            )}
             <RemindersSection
               reminderTiming={{
                 firstReminder: { type: "hours_before", value: 48 },
