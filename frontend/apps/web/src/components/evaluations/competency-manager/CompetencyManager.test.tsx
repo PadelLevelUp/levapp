@@ -120,7 +120,8 @@ describe("what the manager lists (rules 2, 3, 5)", () => {
   });
 
   it("lists only the sections that have something, and no legacy caption without legacy rows", async () => {
-    open({ competencies: [TECHNIQUE, BANDEJA], catalogue: [{ key: "transition", group: "tactics" }] });
+    // The server offers a default the coach lacks with its sub-categories (B-255: without it, a legacy row holds its name).
+    open({ competencies: [TECHNIQUE, BANDEJA], catalogue: [{ key: "tactics", group: "general" }, { key: "transition", group: "tactics" }] });
 
     await row("key-bandeja");
     expect(screen.getAllByTestId(/^competency-section-/).map((el) => el.getAttribute("data-testid"))).toEqual(
@@ -437,5 +438,52 @@ describe("presentation (rule 14)", () => {
     expect(screen.getByTestId("competency-add-name")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("competency-manager-done"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("moving a row (rule 15 \"Moving\", PAD-480)", () => {
+  it("a sub-category offers the other categories and the top level; picking one sends parentId", async () => {
+    open();
+    api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
+
+    fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
+    const panel = screen.getByTestId("competency-move-panel-key-bandeja");
+    expect(within(panel).getByTestId("competency-move-to-key-bandeja-13")).toBeInTheDocument();
+    expect(within(panel).getByTestId("competency-move-to-key-bandeja-top")).toBeInTheDocument();
+    expect(within(panel).queryByTestId("competency-move-to-key-bandeja-7")).toBeNull(); // legacy: never a target
+    expect(within(panel).queryByTestId("competency-move-to-key-bandeja-1")).toBeNull(); // its current category
+
+    fireEvent.click(within(panel).getByTestId("competency-move-to-key-bandeja-13"));
+
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: 13 }));
+    await waitFor(() => expect(screen.queryByTestId("competency-move-panel-key-bandeja")).toBeNull());
+  });
+
+  it("to the top level sends parentId null", async () => {
+    open();
+    api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: null, sortOrder: null });
+
+    fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
+    fireEvent.click(screen.getByTestId("competency-move-to-key-bandeja-top"));
+
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: null }));
+  });
+
+  it("a legacy row and a default category offer no move", async () => {
+    open();
+    await row("id-7");
+    expect(screen.queryByTestId("competency-move-id-7")).toBeNull();
+    expect(screen.queryByTestId("competency-move-key-technique")).toBeNull();
+  });
+
+  it("a refused move says so on the row, and the row stays where it was", async () => {
+    open();
+    api.updateEvaluationCompetency.mockRejectedValue({ response: { status: 400, data: { error: "parent_invalid" } } });
+
+    fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
+    fireEvent.click(screen.getByTestId("competency-move-to-key-bandeja-13"));
+
+    expect(await screen.findByTestId("competency-error-key-bandeja")).toHaveTextContent("evaluations.manager.saveFailed");
+    expect(screen.getByTestId("competency-move-panel-key-bandeja")).toBeInTheDocument();
   });
 });

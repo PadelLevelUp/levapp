@@ -139,14 +139,8 @@ function ManagerSectionView({ section, onDelete }: { section: CategorySection; o
   return (
     <section data-testid={`competency-section-${section.id}`} className="rounded-md border px-3 py-1">
       <ul className="divide-y">
-        {section.head ? (
-          <CompetencyRow row={section.head} onDelete={onDelete} level="category" />
-        ) : (
-          // A default the coach cannot be offered (they hold its name): its sub-categories still are.
-          <li data-testid={`competency-category-title-${section.id}`} className="py-2 text-sm font-semibold">
-            {t(`evaluations.catalogue.${section.headKey}`)}
-          </li>
-        )}
+        {/* B-255: a default the coach cannot be offered gets no section, so every section has a head. */}
+        {section.head ? <CompetencyRow row={section.head} onDelete={onDelete} level="category" /> : null}
         {section.subs.map((row) => (
           <CompetencyRow key={managerRowId(row)} row={row} onDelete={onDelete} level="sub" />
         ))}

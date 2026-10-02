@@ -26,6 +26,8 @@
       "custom": "Personalizada"
     },
     "manager": {
+      "moveTo": "Mover para…",
+      "moveTopLevel": "Sem categoria",
       "title": "Definir categorias de avaliação",
       "open": "Definir categorias de avaliação",
       "settingsTitle": "Categorias de avaliação",

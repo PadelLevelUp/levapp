@@ -26,6 +26,8 @@
       "custom": "Custom"
     },
     "manager": {
+      "moveTo": "Move to…",
+      "moveTopLevel": "No category",
       "title": "Set up evaluation categories",
       "open": "Set up evaluation categories",
       "settingsTitle": "Evaluation categories",
