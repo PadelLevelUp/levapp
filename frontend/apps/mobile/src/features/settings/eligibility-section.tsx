@@ -166,30 +166,37 @@ function RuleRow({
       ) : null}
 
       {attr?.id === "level" && isWithinNOperation(rule.operation) ? (
-        <Select
-          value={directionOptions.find((o) => o.value === (withinNDirection(rule.operation) ?? "both"))}
-          onValueChange={(option) =>
-            option && onChange(withDirection(rule, option.value as WithinNDirection))
-          }
-          disabled={disabled}
+        // The wrapper names the stored direction: the trigger text is folded
+        // into its a11y label, so a flow cannot read it (flow 133).
+        <View
+          collapsable={false}
+          testID={`eligibility-direction-is-${withinNDirection(rule.operation) ?? "both"}`}
         >
-          <SelectTrigger
-            testID="eligibility-direction"
-            accessibilityLabel={t("settings.eligibility.direction")}
+          <Select
+            value={directionOptions.find((o) => o.value === (withinNDirection(rule.operation) ?? "both"))}
+            onValueChange={(option) =>
+              option && onChange(withDirection(rule, option.value as WithinNDirection))
+            }
+            disabled={disabled}
           >
-            <SelectValue placeholder={t("settings.eligibility.direction")} />
-          </SelectTrigger>
-          <SelectContent>
-            {directionOptions.map((option) => (
-              <SelectItem
-                key={option.value}
-                value={option.value}
-                label={option.label}
-                testID={`eligibility-direction-${option.value}`}
-              />
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              testID="eligibility-direction"
+              accessibilityLabel={t("settings.eligibility.direction")}
+            >
+              <SelectValue placeholder={t("settings.eligibility.direction")} />
+            </SelectTrigger>
+            <SelectContent>
+              {directionOptions.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  testID={`eligibility-direction-${option.value}`}
+                />
+              ))}
+            </SelectContent>
+          </Select>
+        </View>
       ) : null}
     </View>
   );

@@ -261,6 +261,11 @@ executionOrder:
     # 129 (PAD-473, settings.save-on-change): choosing a scale shows the save sign beside it, the server
     # holds 10, and the sign goes. onFlowComplete restores 5.
     - 129-settings-save-sign
+    # 133/134 (PAD-481, eligibility.rules rule 6): "within N levels" has a direction — in Settings
+    # (133; teardown restores the coach's bar) and on a class's own override (134; the class is
+    # added and removed through the API).
+    - 133-settings-eligibility-direction
+    - 134-class-override-eligibility-direction
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
