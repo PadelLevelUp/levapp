@@ -131,8 +131,9 @@ test.describe("PAD-496: the picker on a phone", () => {
 
     const listEl = page.getByTestId("add-to-classes-list");
     const list = (await listEl.boundingBox())!;
-    // Three classes at a time, not two: the description line is not shown at this width.
-    expect(list.height, "the list window shows at least three classes").toBeGreaterThanOrEqual(240);
+    // The description line is not shown at this width and its row goes to the list. With the
+    // line shown the list measures 224 px and this fails (watched, review of #515).
+    expect(list.height, "the list has the description's row too").toBeGreaterThanOrEqual(270);
     const cdp = await page.context().newCDPSession(page);
     const x = list.x + list.width / 2;
     const from = list.y + list.height * 0.8;
@@ -155,7 +156,7 @@ test.describe("PAD-496: the picker on a phone", () => {
     await expect(page.getByTestId("add-to-classes-next-week")).toBeInViewport();
     // Reachable, not only measured: the last class can be chosen and the footer counts it.
     await rows.last().tap();
-    await expect(rows.last()).toHaveAttribute("aria-pressed", "true");
+    await expect(rows.last().getByRole("checkbox")).toBeChecked();
   });
 });
 

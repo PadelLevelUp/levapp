@@ -7,20 +7,21 @@ import { describe, expect, it } from "vitest";
 import { DIALOG_WINDOW_MARGIN, dialogMaxHeight } from "./dialog-size";
 
 describe("dialogMaxHeight", () => {
-  it("leaves the safe areas and the overlay's margin free", () => {
-    // iPhone 17 Pro: 874 pt, notch 62, home indicator 34.
-    expect(dialogMaxHeight(874, { top: 62, bottom: 34 })).toBe(874 - 62 - 34 - DIALOG_WINDOW_MARGIN);
+  it("leaves the larger safe area free at both ends, and the overlay's margin", () => {
+    // iPhone 17 Pro: 874 pt, notch 62, home indicator 34. The dialog is centred, so a
+    // full-height one starts (874 - 734) / 2 = 70 pt down: below the 62 pt notch.
+    expect(dialogMaxHeight(874, { top: 62, bottom: 34 })).toBe(874 - 2 * 62 - DIALOG_WINDOW_MARGIN);
+  });
+
+  it("the bottom safe area counts the same way when it is the larger one", () => {
+    expect(dialogMaxHeight(800, { top: 24, bottom: 48 })).toBe(800 - 2 * 48 - DIALOG_WINDOW_MARGIN);
   });
 
   it("a short phone gets a shorter dialog, not a clipped one", () => {
-    expect(dialogMaxHeight(568, { top: 20, bottom: 0 })).toBe(568 - 20 - DIALOG_WINDOW_MARGIN);
-  });
-
-  it("the keyboard, when it is up, is not dialog space", () => {
-    expect(dialogMaxHeight(874, { top: 62, bottom: 34 }, 336)).toBe(874 - 62 - 336 - DIALOG_WINDOW_MARGIN);
+    expect(dialogMaxHeight(568, { top: 20, bottom: 0 })).toBe(568 - 40 - DIALOG_WINDOW_MARGIN);
   });
 
   it("never answers a height too small to show a header, one row and a footer", () => {
-    expect(dialogMaxHeight(300, { top: 60, bottom: 40 }, 250)).toBe(240);
+    expect(dialogMaxHeight(300, { top: 60, bottom: 40 })).toBe(240);
   });
 });

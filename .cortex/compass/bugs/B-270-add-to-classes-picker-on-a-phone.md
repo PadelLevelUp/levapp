@@ -8,7 +8,6 @@ affects:
   - players.profile
   - frontend/apps/mobile/src/components/ui/dialog.tsx
   - frontend/apps/mobile/src/features/players/add-to-classes-dialog.tsx
-  - frontend/apps/mobile/src/features/calendar/notify-modal.tsx
   - frontend/apps/web/src/components/players/detail/AddToClassesDialog.tsx
 proposed_fix: "Hardening, not a proven fix: the app's dialogs are bound to the window and the picker's list shrinks instead of the header or footer; on a phone browser the picker takes the screen's height (dvh). Maestro flow 145 is the instrument for Android."
 opened: 2026-10-02T15:00:45Z
@@ -34,7 +33,7 @@ opened: 2026-10-02T15:00:45Z
 
 ### Change plan (hardening)
 - Rule 5c: the picker never exceeds the window on any surface; on a phone it uses the screen's height; a criterion for a phone.
-- App: `DialogContent` is bound to the window minus safe areas (`dialogMaxHeight`); the picker's and the notify dialog's lists lose the fixed 384 pt and shrink (`flexGrow: 0, flexShrink: 1`).
+- App: `DialogContent` is bound to the window, the larger safe area left free at both ends (`dialogMaxHeight`); the picker's list loses the fixed 384 pt and shrinks (`flexGrow: 0, flexShrink: 1`). The notify dialog's list keeps its 384 pt: that dialog has a search field and nothing lifts a dialog above the keyboard (review of #515). A component test pins that the bound is applied.
 - Web: `max-h-[calc(100dvh-1rem)]` below `sm`, `85dvh` from `sm`, `85vh` where the browser has no `dvh`.
 - Tests: `dialog-size.test.ts`; a phone-viewport case in `e2e/players/add-to-classes-week.spec.ts` (finger drag, red on the old layout: dialog 476 px where at least 536 is required); Maestro flow 145 (swipe to the week's last class, choose it, Add becomes enabled). Flow 145 is green on the old iOS layout too: on iOS it is a guard, not a reproduction. On Android it is the instrument that says whether Android is the broken surface.
 

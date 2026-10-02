@@ -65,8 +65,13 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    (`dvh` where the browser has it, so the browser's own toolbars are not counted as space), and
    the description line under the title is not shown (a screen reader still reads it), which
    gives the list one more row. On
-   the app the shared dialog is bound to the window minus the safe areas, and the list has no
-   fixed height. The picker has no text field, so the keyboard does not come into it.
+   the app the shared dialog is bound to the window, leaving the larger safe area free at both
+   ends (the dialog is centred), and the picker's list has no fixed height. The picker has no
+   text field, so the keyboard does not come into it. That bound applies to every dialog of the
+   app; it does not lift a dialog above the keyboard, so a dialog with a text field keeps its
+   own limits (the class notify dialog's list keeps its fixed height). Known limit: a dialog
+   whose fixed content is taller than the bound, which needs a very large system text size,
+   draws past its card instead of running off the screen.
 6. Client calls to `/api/app/lesson_instances` must use the HTTP verb the route exposes (`GET`).
    A verb mismatch fails the request and renders as an empty picker with no error surfaced
 7. `GET /api/app/player_profile/{playerId}` is **coach-only**: it resolves the acting coach with
@@ -115,7 +120,7 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 #### A long week on a phone (PAD-496, B-270)
 - **Given** a 360×560 phone browser and a week of 45 classes
 - **When** the coach opens the picker from the player's actions menu and drags the list with a finger
-- **Then** the picker is on screen and at least 536 px tall, its list window is at least 240 px (three classes), the week's last class ends above the Cancel/Add footer, the week arrows are still on screen, and that class can be chosen
+- **Then** the picker is on screen and at least 536 px tall, its list window is at least 270 px (224 with the description line shown), the week's last class ends above the Cancel/Add footer, the week arrows are still on screen, and that class can be chosen
 - **Given** the app and a week of fourteen classes
 - **When** the coach swipes the list to the week's last class and taps it
 - **Then** the Add button, disabled until then, is enabled, and the week arrows and the footer never left the screen

@@ -266,7 +266,6 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                             type="button"
                             data-testid={`add-to-classes-class-${cls.id}`}
                             disabled={isFull}
-                            aria-pressed={isSelected}
                             onClick={() => toggleClass(cls.id)}
                             className={cn(
                               "w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
