@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { competencyLabel, legacyScaleLabel, lightTheme, moveTargets, type ManagerRow } from "@levelup/config";
+import { competencyLabel, legacyScaleLabel, lightTheme, moveTargets, suggestConversion, type ManagerRow } from "@levelup/config";
 import {
   evaluationApiErrorCode,
   useEvaluationCompetencies,
@@ -27,6 +27,8 @@ interface CompetencyRowProps {
   onDelete: (competency: EvaluationCompetency) => void;
   /** PAD-431: a category heads its section; a sub-category is indented under it. */
   level?: "category" | "sub";
+  /** PAD-480 (rule 18): opens the conversion dialog for a legacy row that suggests a default. */
+  onConvert?: (competency: EvaluationCompetency) => void;
 }
 
 /**
@@ -36,7 +38,7 @@ interface CompetencyRowProps {
  * it, since two taps in one frame see the same state), and a failure puts the switch back
  * and says so on this row.
  */
-export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyRowProps) {
+export function CompetencyRow({ row, onDelete, level = "category", onConvert }: CompetencyRowProps) {
   const { t } = useTranslation();
   const switchOn = useSwitchOnCatalogueCompetency();
   const update = useUpdateEvaluationCompetency();
@@ -61,6 +63,8 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
   const editable = kind !== "available";
   // PAD-480 (rule 15 "Moving"): where this row may go; null when it cannot move.
   const targets = competency && competencies.data ? moveTargets(competencies.data, competency) : null;
+  // PAD-480 (rule 18): a legacy row named like a default the coach does not hold.
+  const convertible = onConvert && competency && competencies.data ? suggestConversion(competencies.data, competency) !== null : false;
 
   const fail = (error: unknown) => {
     const code = evaluationApiErrorCode(error);
@@ -163,6 +167,18 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
                   onPress={() => { setErrorKey(null); setMoving((open) => !open); }}
                 >
                   <Ionicons name="return-down-forward-outline" size={18} color={lightTheme.foreground} />
+                </Button>
+              ) : null}
+              {convertible ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  testID={`competency-convert-${rowId}`}
+                  accessibilityLabel={`${t("evaluations.manager.convert")}: ${label}`}
+                  disabled={busy}
+                  onPress={() => onConvert?.(competency)}
+                >
+                  <Ionicons name="arrow-up-circle-outline" size={18} color={lightTheme.foreground} />
                 </Button>
               ) : null}
               <Button

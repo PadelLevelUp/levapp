@@ -159,9 +159,11 @@ export function categorySections(data: EvaluationCompetencies): CategorySection[
     sections.push({ id: "legacy", kind: "legacy", head: null, headKey: null, subs: legacy.map(existingRow), parentId: null });
   }
 
+  // Rule 18: a default a legacy row suggests is offered as that row's conversion, not as an "add".
+  const suggested = new Set(legacy.map((c) => suggestConversion(data, c)?.suggested));
   for (const key of DEFAULT_CATEGORIES) {
     const held = rows.find((c) => c.key === key && c.parentId == null);
-    const available = data.catalogue.find((entry) => entry.key === key);
+    const available = suggested.has(key) ? undefined : data.catalogue.find((entry) => entry.key === key);
     // B-255 (rule 15 "No new strays"): with neither the default held nor offered, a legacy row holds
     // its name — a sub-category added here could not belong to it, so none is offered.
     const offered = SUB_LEVEL.includes(key) && (held || available) ? data.catalogue.filter((entry) => entry.group === key) : [];
@@ -220,4 +222,45 @@ export function moveTargets(
   );
   // A catalogue sub-category at the top level would be a stray (B-255): only a custom one may go there.
   return { categories, topLevel: row.parentId != null && row.key === null };
+}
+
+// ── PAD-480: converting a legacy category into a default category (rule 18) ──────────────────
+
+/** Trimmed, whitespace collapsed, lower case, accents removed: " Técnica " → "tecnica". Used only to
+ * SUGGEST a conversion; the server and rules 4, 6 and 15 never compare names this way. */
+export function suggestionFold(name: string): string {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** Rule 18: the folded names that suggest each default — its pt and en labels, and the old pt / Spanish
+ * "táctica". `docs/plans/2026-10-02-pad480-convertible.sql` holds the same list for the prod read. */
+export const SUGGESTION_ALIASES: Readonly<Record<(typeof DEFAULT_CATEGORIES)[number], readonly string[]>> = {
+  technique: ["tecnica", "technique"],
+  tactics: ["tatica", "tactica", "tactics"],
+  consistency: ["consistencia", "consistency"],
+};
+
+/**
+ * Rule 18: what the manager offers to convert `row` into — `null` unless it is a legacy row whose name
+ * suggests a default the coach does not hold. `targets` is every default the coach does not hold (the
+ * coach may pick another); `suggested` is the one the name points at, preselected.
+ */
+export function suggestConversion(
+  data: EvaluationCompetencies,
+  row: EvaluationCompetency,
+): { suggested: string; targets: string[] } | null {
+  if (row.group !== null) return null;
+  const targets = DEFAULT_CATEGORIES.filter((key) => !data.competencies.some((c) => c.key === key));
+  const folded = suggestionFold(row.name);
+  const suggested = targets.find((key) => SUGGESTION_ALIASES[key].includes(folded));
+  return suggested ? { suggested, targets } : null;
+}
+
+/** Rule 18: the top-level sub-level catalogue rows of `key`'s group (rule 15's strays, e.g. a Bandeja
+ * the migration left as a category) — what the conversion dialog offers to move under the new default. */
+export function strandedSubs(data: EvaluationCompetencies, key: string): EvaluationCompetency[] {
+  if (!SUB_LEVEL.includes(key)) return [];
+  return data.competencies.filter(
+    (c) => c.parentId == null && c.group === key && c.key !== null && !data.competencies.some((k) => k.parentId === c.id),
+  );
 }

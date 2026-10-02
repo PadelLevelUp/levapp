@@ -383,6 +383,42 @@ def _move(coach, category, target) -> dict:
     return {"parent_id": target, "sort_order": None}
 
 
+def convert_competency(coach, category_id, body) -> EvaluationCategory:
+    """PAD-480 (rule 18, R-047 rule 9): the coach's explicit act turning one of their legacy rows into
+    the default category `catalogueKey` (a `general` key). It keeps its id, flag, order and every score
+    (each on its own snapshot) and takes the default's Portuguese name and the coach's scale. The server
+    matches no names: the coach chose the target. Refused before anything is written: a row that is not
+    legacy, a key that is not a `general` one, a default the coach already holds, a name another row
+    holds."""
+    category = own_competency(coach, category_id)
+    if not isinstance(body, dict):
+        raise ApiError(400, "body_invalid")
+    key = body.get("catalogueKey")
+    if not isinstance(key, str) or key not in BY_KEY or BY_KEY[key]["group"] != "general":
+        raise ApiError(400, "catalogue_key_invalid")
+    if category.competency_group is not None:
+        raise ApiError(400, "not_legacy")
+    if EvaluationCategory.query.filter_by(coach_id=coach.id, catalogue_key=key).first() is not None:
+        raise ApiError(409, "default_held")
+    name = BY_KEY[key]["pt"]
+    if _name_taken(coach, name, except_id=category.id):
+        raise ApiError(409, "name_taken")
+    category.name = name
+    category.catalogue_key = key
+    category.competency_group = "general"
+    # evaluations.scale rule 2: a non-legacy row is on the coach's scale. Its scores keep their own
+    # snapshots (rule 3); nothing here touches an entry.
+    category.scale_min, category.scale_max = 1, coach_scale(coach)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Two rows converted to one default at the same instant: the (coach_id, catalogue_key) index
+        # lets one through; the other is answered as if it had looked after the first.
+        db.session.rollback()
+        raise ApiError(409, "default_held")
+    return category
+
+
 def delete_competency(coach, category_id) -> dict:
     from padel_app.services.coach_service import delete_evaluation_category_service
 

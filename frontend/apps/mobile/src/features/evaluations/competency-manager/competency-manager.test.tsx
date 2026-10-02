@@ -76,6 +76,7 @@ const api = vi.hoisted(() => ({
   updateEvaluationCompetency: vi.fn(),
   deleteEvaluationCompetency: vi.fn(),
   getEvaluationCompetencyImpact: vi.fn(),
+  convertEvaluationCompetency: vi.fn(),
 }));
 
 // Exposed by the "@levelup/hooks" mock below; captures the list query's own `refetch`
@@ -135,6 +136,20 @@ vi.mock("@levelup/hooks", async () => {
         api.updateEvaluationCompetency(args.id, args.patch)),
     useSwitchOnCatalogueCompetency: () => useFakeMutation((key: string) => api.switchOnCatalogueCompetency(key)),
     useDeleteEvaluationCompetency: () => useFakeMutation((id: number) => api.deleteEvaluationCompetency(id)),
+    // Verbatim copy of packages/hooks/src/evaluations.ts's mutationFn (tested there, competencyConvert.test.tsx).
+    useConvertEvaluationCompetency: () =>
+      useFakeMutation(async ({ id, catalogueKey, moveIds }: { id: number; catalogueKey: string; moveIds: number[] }) => {
+        const competency = await api.convertEvaluationCompetency(id, catalogueKey);
+        const notMoved: number[] = [];
+        for (const moveId of moveIds) {
+          try {
+            await api.updateEvaluationCompetency(moveId, { parentId: competency.id });
+          } catch {
+            notMoved.push(moveId);
+          }
+        }
+        return { competency, notMoved };
+      }),
     useEvaluationCompetencyImpact: (competencyId: number | null, enabled = true) =>
       useFakeQuery<EvaluationCategoryImpact>(
         () => api.getEvaluationCompetencyImpact(competencyId as number),
@@ -181,6 +196,7 @@ vi.mock("@/components/ui/alert-dialog", async () => {
 import { AddCustomCompetency } from "./add-custom-competency";
 import { CompetencyRow } from "./competency-row";
 import { DeleteCompetencyDialog } from "./delete-competency-dialog";
+import { ConvertCompetencyDialog } from "./convert-competency-dialog";
 import { CategorySectionView } from "./category-section";
 import { useEvaluationCompetencies } from "@levelup/hooks";
 import { View } from "react-native";
@@ -330,7 +346,7 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
     return createElement(
       View,
       null,
-      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: setDeleting })),
+      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: setDeleting, onConvert: () => {} })),
       createElement(DeleteCompetencyDialog, { competency: deleting, subNames, onClose: () => setDeleting(null) }),
     );
   }
@@ -446,5 +462,118 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
     await n.flush();
 
     expect(n.queryByTestId("competency-error-key-bandeja")).not.toBeNull();
+  });
+});
+
+// PAD-480 (evaluations.competencies rule 18): converting a legacy category on iOS, the same test ids as web.
+describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
+  // Coach 2 on prod: legacy rows named like the defaults (trailing spaces as stored), and the two
+  // Técnica entries the migration left at the top level, switched off.
+  const TECNICA = competency({ id: 5, name: "Técnica ", group: null });
+  const TACTICA = competency({ id: 6, name: "Tactica ", group: null });
+  const VOLLEY = competency({ id: 10, name: "Volley", group: null });
+  const BANDEJA_OFF = competency({ id: 8, key: "bandeja", name: "Bandeja", group: "technique", parentId: null, isActive: false });
+  const SERVE_OFF = competency({ id: 9, key: "serve", name: "Serviço", group: "technique", parentId: null, isActive: false });
+  const COACH2: EvaluationCompetencies = {
+    competencies: [TECNICA, TACTICA, VOLLEY, BANDEJA_OFF, SERVE_OFF],
+    catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }],
+  };
+  const CONVERTED = { ...TECNICA, key: "technique", name: "Técnica", group: "general" as const };
+
+  function ConvertHarness() {
+    const competencies = useEvaluationCompetencies(true);
+    const [converting, setConverting] = useState<EvaluationCompetency | null>(null);
+    const sections = competencies.data ? categorySections(competencies.data) : [];
+    return createElement(
+      View,
+      null,
+      sections.map((section) => createElement(CategorySectionView, { key: section.id, section, onDelete: () => {}, onConvert: setConverting })),
+      createElement(ConvertCompetencyDialog, { competency: converting, onClose: () => setConverting(null) }),
+    );
+  }
+
+  beforeEach(() => {
+    api.getEvaluationCompetencies.mockReset().mockResolvedValue(COACH2);
+    api.convertEvaluationCompetency.mockReset().mockResolvedValue(CONVERTED);
+    api.updateEvaluationCompetency.mockReset();
+  });
+
+  it("a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    expect(n.queryByTestId("competency-convert-id-5")).not.toBeNull();
+    expect(n.queryByTestId("competency-convert-id-6")).not.toBeNull();
+    expect(n.queryByTestId("competency-convert-id-10")).toBeNull();
+    expect(n.queryByTestId("competency-section-key-tactics")).toBeNull();
+    expect(n.queryByTestId("competency-section-key-consistency")).not.toBeNull();
+  });
+
+  it("the dialog says what happens, then converts and moves the checked strays under it", async () => {
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => ({ ...BANDEJA_OFF, id, parentId: 5 }));
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    expect(n.queryByTestId("competency-convert-old-app")).not.toBeNull();
+    expect(n.byTestId("competency-convert-target-technique").props.accessibilityState.selected).toBe(true);
+    expect(n.byTestId("competency-convert-move").props.accessibilityState.checked).toBe(true);
+
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "technique");
+    expect(api.updateEvaluationCompetency.mock.calls).toEqual([[8, { parentId: 5 }], [9, { parentId: 5 }]]);
+    expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
+  });
+
+  it("a move that fails after the conversion is said, and the dialog stays until closed", async () => {
+    api.updateEvaluationCompetency.mockImplementation(async (id: number) => {
+      if (id === 9) throw { response: { status: 400, data: { error: "parent_invalid" } } };
+      return { ...BANDEJA_OFF, parentId: 5 };
+    });
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-convert-not-moved")).not.toBeNull();
+    await n.press("competency-convert-done");
+    await n.flush();
+    expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
+  });
+
+  it("unchecked, nothing is moved; another target can be picked", async () => {
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-5");
+    await n.flush();
+    await n.press("competency-convert-move");
+    await n.press("competency-convert-target-consistency");
+    expect(n.queryByTestId("competency-convert-move")).toBeNull(); // Consistência has no strays
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(api.convertEvaluationCompetency).toHaveBeenCalledWith(5, "consistency");
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
+  });
+
+  it("a refused conversion says why and moves nothing", async () => {
+    api.convertEvaluationCompetency.mockRejectedValue({ response: { status: 409, data: { error: "default_held" } } });
+    const n = await renderNative(createElement(ConvertHarness));
+    await n.flush();
+
+    await n.press("competency-convert-id-6");
+    await n.flush();
+    await n.press("competency-convert-confirm");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-convert-failed")).not.toBeNull();
+    expect(api.updateEvaluationCompetency).not.toHaveBeenCalled();
   });
 });
