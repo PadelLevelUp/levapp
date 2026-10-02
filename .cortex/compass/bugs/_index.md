@@ -185,3 +185,4 @@ whether a failure mode has been seen before.
 - [B-248](B-248-a-hole-in-the-cached-thread-hides-a-push-target.md) — iOS thread: a push target missing from the middle of the cached thread is never fetched, and is marked read unseen (incomplete-rule, low, triaged)
 - [B-249](B-249-a-timing-change-leaves-the-previous-job-armed.md) — A reminder or invitation timing changed to a time already past (or to none) leaves the previously armed job in place, and it fires (incomplete-rule, medium, triaged)
 - [B-250](B-250-raising-the-reminder-spacing-loses-a-pending-follow-up.md) — Raising hoursBetweenReminders while a follow-up is pending loses that follow-up (incomplete-rule, medium, triaged)
+- [B-253](B-253-a-skip-prepush-marker-exempts-every-push-that-contains-its-commit.md) — A [skip-prepush] line in any commit of a push skips the gate for the whole push, and for every later branch that contains that commit (incomplete-rule, medium, triaged)
