@@ -61,9 +61,7 @@ def validate_registration(data):
     if username.startswith(PLACEHOLDER_USERNAME_PREFIX):
         raise RegistrationError("username is reserved", 400, "username")
 
-    email = _clean(data.get("email")).lower()
-    if not EMAIL_RE.match(email):
-        raise RegistrationError("a valid email is required", 400, "email")
+    email = normalised_email(data.get("email"))
 
     password = data.get("password") or ""
     if not isinstance(password, str) or len(password) < PASSWORD_MIN_LENGTH:
@@ -160,14 +158,25 @@ def validate_consent_fields(data, email, today=None):
     return birth, country
 
 
+def normalised_email(raw):
+    """A valid address, lowercased, or a 400 on `email`. Shared by sign-up and the coach-invite
+    accept (clubs.coach-invitation rule 9)."""
+    email = _clean(raw).lower()
+    if not EMAIL_RE.match(email):
+        raise RegistrationError("a valid email is required", 400, "email")
+    return email
+
+
+def assert_email_free(email):
+    """409 on `email` when an account already has it, ignoring case."""
+    if User.query.filter(db.func.lower(User.email) == email).first() is not None:
+        raise RegistrationError("Email already registered", 409, "email")
+
+
 def _assert_unique(username, email):
     if User.query.filter_by(username=username).first() is not None:
         raise RegistrationError("Username already taken", 409, "username")
-    if (
-        User.query.filter(db.func.lower(User.email) == email).first()
-        is not None
-    ):
-        raise RegistrationError("Email already registered", 409, "email")
+    assert_email_free(email)
 
 
 def register_user_service(data, now=None):

@@ -125,6 +125,27 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
         data.get("birthDate"), utcnow_naive().date(), update_app_message=_UPDATE_APP["birthDate"]
     )
 
+    # clubs.coach-invitation rule 9 (PAD-477, B-241): the email, validated as sign-up validates it,
+    # before anything is written. A client declaring `coach-invite-email` must send one; a build
+    # that predates the field (iOS 27/28) sends none and keeps the pre-PAD-477 accept (legacy path).
+    from padel_app.services.registration_service import (
+        RegistrationError,
+        assert_email_free,
+        normalised_email,
+    )
+    from padel_app.utils.client_capabilities import COACH_INVITE_EMAIL, client_declares
+
+    raw_email = data.get("email")
+    if raw_email is not None and str(raw_email).strip():
+        email = normalised_email(raw_email)
+        assert_email_free(email)
+    elif client_declares(COACH_INVITE_EMAIL):
+        raise RegistrationError(
+            "O email é obrigatório. / Email is required.", 400, "email", code="EMAIL_REQUIRED"
+        )
+    else:
+        email = None
+
     if User.query.filter_by(username=username).first() is not None:
         abort(409, "Username already taken")
 
@@ -137,7 +158,7 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
         user = User(
             name=name,
             username=username,
-            email=data.get("email") or invitation.email,
+            email=email,
             password=generate_password_hash(password),
             status="active",
             birth_date=birth_date,
@@ -158,6 +179,12 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
             Association_CoachClub(coach_id=new_coach.id, club_id=invitation.club_id)
         )
         invitation.status = "accepted"
+
+    # Rule 9: the first code goes out only after the unit has committed (rule 4), never inside it.
+    if email:
+        from padel_app.services.email_verification_service import begin_verification
+
+        begin_verification(user)
     return user
 
 
