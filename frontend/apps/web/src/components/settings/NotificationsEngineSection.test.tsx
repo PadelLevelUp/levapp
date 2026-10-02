@@ -277,4 +277,24 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     expect(screen.queryByTestId("notification-engine-reminders-sign")).toBeNull();
     await waitFor(() => expect(screen.getByTestId("stub-reminders-value")).not.toHaveTextContent('"reminderCount":3'));
   });
+
+  it("review #497 round 2: changes to two controls made while a save is out are merged into the next request, neither lost", async () => {
+    await mount();
+    await openSection("settings.engine.eligibility");
+    const first = deferred<NotificationConfig>();
+    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
+
+    fireEvent.click(screen.getByTestId("open-spots-visible")); // sent
+    fireEvent.click(toggle()); // master off — waits
+    await openSection("settings.engine.notifyGroups"); // stays enabled with the engine off
+    fireEvent.click(await screen.findByTestId("stub-notifyGroups-change")); // notify groups — waits, merged
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
+    await act(async () => { first.resolve({ ...CONFIG, openSpotsVisible: true } as NotificationConfig); });
+
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
+    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({
+      autoNotifyEnabled: false,
+      notificationGroups: [{ id: "n" }],
+    });
+  });
 });

@@ -233,4 +233,40 @@ describe("iOS Preferences save on change (settings.save-on-change)", () => {
     expect(updateMe).toHaveBeenCalledTimes(2);
     expect(updateMe).toHaveBeenLastCalledWith({ requestAlerts: true });
   });
+
+  // A profile read (a focus refetch, the Settings screen's own query) landing while a save is out.
+  const landRead = (patch: object) =>
+    act(async () => {
+      const key = JSON.stringify(["auth-me"]);
+      store.data.set(key, { ...(store.data.get(key) as object), ...patch });
+      store.subs.forEach((f) => f());
+    });
+
+  it("review #497 round 2: request alerts — a read landing during the save does not survive the save's answer", async () => {
+    const n = await open();
+    const a = deferred<unknown>();
+    updateMe.mockReturnValueOnce(a.promise);
+
+    await n.toggle("settings-request-alerts"); // off
+    await n.flush();
+    await landRead({ requestAlerts: true }); // the read started before the PATCH: says on
+    await act(async () => { a.resolve({ ...ME, requestAlerts: false }); });
+    await n.flush();
+
+    expect(on(n)).toBe(false);
+  });
+
+  it("review #497 round 2: language — a read landing during the save does not survive the save's answer", async () => {
+    const n = await open();
+    const a = deferred<unknown>();
+    updateMe.mockReturnValueOnce(a.promise);
+
+    await n.press("settings-language-pt");
+    await n.flush();
+    await landRead({ language: "en" });
+    await act(async () => { a.resolve({ ...ME, language: "pt" }); });
+    await n.flush();
+
+    expect(n.byTestId("settings-language-select").props.accessibilityValue.text).toBe("pt");
+  });
 });

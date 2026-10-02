@@ -125,16 +125,18 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
     );
   };
 
-  // The save's answer is the newest profile (B-185, writeAuthMe), except for the two save-on-change
-  // fields: they keep what the screen shows — a newer save's value — unless the ledger says otherwise.
+  // The save's answer is the newest profile (B-185, writeAuthMe). Only a save-on-change field with a
+  // NEWER save of its own still out keeps what the screen shows (that save's value); otherwise the
+  // answer wins — so a read that landed during the save, carrying the old value, does not survive it
+  // (review #497 round 2).
   const writeAnswer = async (answer: Me, show: Shown) => {
     const cur = queryClient.getQueryData<Me>(AUTH_ME_KEY);
-    const updated = {
-      ...answer,
-      ...(cur ? { language: cur.language, requestAlerts: cur.requestAlerts } : {}),
-      ...show,
-    };
+    const keep: Partial<Me> = {};
+    if (cur && ledger.current!.newerSaveOut("language")) keep.language = cur.language;
+    if (cur && ledger.current!.newerSaveOut("requestAlerts")) keep.requestAlerts = cur.requestAlerts;
+    const updated = { ...answer, ...keep, ...show };
     await writeAuthMe(queryClient, updated);
+    if (!keep.language && updated.language) setLanguage(updated.language as Language);
   };
   const showInCache = (show: Shown) => {
     if (Object.keys(show).length === 0) return;

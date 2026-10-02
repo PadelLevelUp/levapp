@@ -33,8 +33,9 @@ toast; every save-on-change control, on both clients, converges on it.
    and evaluation scale. **Excepted, by name:** the engine's reminders subsection (`reminderTiming`,
    `invitationStartTiming`) shows no sign until PAD-478 (a timing save can leave a reminder armed at the
    old time) closes — a sign there would promise more than the system keeps; its requests are sent
-   exactly as before, and a failed save returns its fields to the confirmed value like every other
-   control (rule 3). Not in scope: theme (a device preference with no server write)
+   exactly as before (same bodies, same moments, not queued); what changed for it is the failure and
+   the confirmation — a failed save returns its fields to the confirmed value like every other control,
+   and a confirmation records the server's answer rather than the value sent (rule 3). Not in scope: theme (a device preference with no server write)
    and message templates (explicit Save, `settings.unsaved-edits` rule 1). A guard per client fails when
    a Settings file saves on change without the sign (see Tests).
 2. **The sign.** When the server confirms a save, the control shows "Guardado" / "Saved" with a tick,
@@ -49,7 +50,10 @@ toast; every save-on-change control, on both clients, converges on it.
    answer to the newest confirmed save, by the order the saves were sent (an answer arriving late never
    moves it back), never a copy taken when the save started (B-243). If the newest save failed and an
    older one is confirmed afterwards, the control shows what that confirmation stored. A read of the
-   settings never replaces a value a save has touched (B-184's guard, for this record). The failure
+   settings never replaces a value a save has touched — in the record, and on screen: on iOS a profile
+   read that lands while a save is out does not survive that save's answer (the answer wins unless a
+   newer save of the field is still out); on web the opening read does not replace a chosen language
+   (B-184), and request alerts cannot be changed before that read lands. The failure
    stays until the coach changes that control again. Only the newest save of a control decides its
    sign: an older save that fails after a newer one was confirmed shows nothing. Every save-on-change
    control keeps this record the same way, through the shared `SaveLedger` (`@levelup/config`).
@@ -57,8 +61,13 @@ toast; every save-on-change control, on both clients, converges on it.
    while one is out, a newer change waits (the latest replaces an older waiting one; engine patches
    merge) and is sent when the answer comes — `createSerialSaver` (`@levelup/config`). Two exceptions,
    named: the engine's reminders subsection keeps its own requests until PAD-478 (#496 puts it on the
-   same helper), and web's keepalive send when the page goes away goes at once, since a queued request
-   would die with the page. The
+   same helper); and web's keepalive send when the page goes away (closed, or hidden by a tab switch)
+   goes at once — a queued request would die with a closing page — and drops any value still waiting in
+   the queue, so nothing older follows it. **Remaining limit, named:** on a tab switch the page stays,
+   and a request already out when the keepalive one left may reach the server after it; the screen then
+   shows the newer value while the server holds the older until the settings are read again (reopening
+   Settings). Signing out drops every value still waiting in any queue, so a setting is never sent with
+   the next account's session. The
    coach is never left believing a setting saved when it did not.
 4. **Where a Save button appears.** Web's page-header "Guardar alterações" appears only on a tab that
    holds explicit-save fields (today: Perfil), because a Save button must save what is on the screen in

@@ -190,4 +190,25 @@ describe("iOS engine card (settings.save-on-change, B-243)", () => {
     expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
     expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ openSpotsVisible: true });
   });
+
+  it("review #497 round 2: changes to two controls made while a save is out are merged into the next request, neither lost", async () => {
+    const n = await mount();
+    const first = deferred<unknown>();
+    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
+
+    await n.toggle("open-spots-visible"); // sent
+    await n.toggle("settings-auto-invite-toggle"); // master off — waits
+    await n.press("settings-restrictions-header");
+    await n.press("stub-restrictions-change"); // restrictions 13 — waits, merged
+    await n.flush();
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
+    await act(async () => { first.resolve({ ...CONFIG, openSpotsVisible: true }); });
+    await n.flush();
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({
+      autoNotifyEnabled: false,
+      restrictions: { cancellationDeadlineHours: 13 },
+    });
+  });
 });

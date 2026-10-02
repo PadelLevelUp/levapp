@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSerialSaver } from "./serial-saver";
+import { SaveSuperseded, createSerialSaver, dropPendingSaves } from "./serial-saver";
 
 // settings.save-on-change rule 3 (PAD-473): one save of a field in flight at a time, the latest pending
 // value sent when it returns — so the server ends in the order the saves were sent.
@@ -90,5 +90,38 @@ describe("createSerialSaver", () => {
     h.answers[1].resolve("B");
     await h.tick();
     expect(h.save.busy()).toBe(false);
+  });
+
+  it("drop() discards the waiting value: it is never sent and its callers learn it was superseded", async () => {
+    const h = harness();
+    const a = h.save("a");
+    const b = h.save("b");
+    h.save.drop();
+    await expect(b).rejects.toBeInstanceOf(SaveSuperseded);
+    h.answers[0].resolve("A");
+    await expect(a).resolves.toBe("A");
+    await h.tick();
+    expect(h.sent).toEqual(["a"]);
+    expect(h.save.busy()).toBe(false);
+  });
+
+  it("dropPendingSaves() (sign-out) discards what waits in every saver, and nothing after", async () => {
+    const one = harness();
+    const two = harness();
+    void one.save("a1");
+    const waiting1 = one.save("b1");
+    void two.save("a2");
+    const waiting2 = two.save("b2");
+    dropPendingSaves();
+    await expect(waiting1).rejects.toBeInstanceOf(SaveSuperseded);
+    await expect(waiting2).rejects.toBeInstanceOf(SaveSuperseded);
+    one.answers[0].resolve("A1");
+    two.answers[0].resolve("A2");
+    await one.tick();
+    expect(one.sent).toEqual(["a1"]);
+    expect(two.sent).toEqual(["a2"]);
+    const later = one.save("c1"); // a save made after sign-in again goes normally
+    one.answers[1].resolve("C1");
+    await expect(later).resolves.toBe("C1");
   });
 });

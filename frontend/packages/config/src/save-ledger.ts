@@ -32,6 +32,18 @@ export class SaveLedger<V extends object> {
     return this.confirmed[field];
   }
 
+  /** A save of this field has begun on this screen (a read must not replace what the screen shows). */
+  touched(field: keyof V & string): boolean {
+    return this.newest[field] !== undefined;
+  }
+
+  /** A save of this field newer than the last confirmed one is still out (and has not failed): what the
+   * screen shows for it is that save's value, not a read's or an older answer's. */
+  newerSaveOut(field: keyof V & string): boolean {
+    const newest = this.newest[field];
+    return newest !== undefined && newest > (this.confirmedSeq[field] ?? 0) && !this.newestFailed[field];
+  }
+
   begin(patch: Partial<V>): SaveToken<V> {
     const seq = ++this.next;
     const seqs: Record<string, number> = {};

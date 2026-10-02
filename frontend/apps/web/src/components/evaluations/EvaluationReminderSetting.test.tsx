@@ -318,4 +318,25 @@ describe("review #497", () => {
     expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
   });
 });
+
+  it("review #497 round 2 item 3(b): a value waiting in the queue is not sent after a keepalive flush", async () => {
+    const pastDelay = CUSTOM_SAVE_DELAY_MS + 50;
+    const { input } = await typedField(7);
+    let ok8!: (v: unknown) => void;
+    api.putEvaluationSettings.mockImplementationOnce(() => new Promise((res) => { ok8 = res; }));
+
+    fireEvent.change(input, { target: { value: "8" } });
+    await advance(pastDelay); // 8 out
+    fireEvent.change(input, { target: { value: "9" } });
+    await advance(pastDelay); // 9 waits in the queue behind 8
+    fireEvent.change(input, { target: { value: "10" } }); // still being typed
+    act(() => { window.dispatchEvent(new Event("pagehide")); }); // 10 goes with keepalive
+    await advance(0);
+    await act(async () => { ok8({ reminder: "every_n_classes", everyN: 8 }); });
+    await advance(pastDelay);
+
+    const sent = api.putEvaluationSettings.mock.calls.map((c) => (c[0] as { everyN?: number }).everyN);
+    expect(sent).toEqual([8, 10]);
+    expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 10 }, { keepalive: true });
+  });
 });

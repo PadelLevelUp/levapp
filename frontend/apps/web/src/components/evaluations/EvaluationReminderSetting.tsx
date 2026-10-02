@@ -113,7 +113,9 @@ export function EvaluationReminderSetting() {
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
     const body = bodyForOption(next, everyN);
-    // A keepalive flush goes at once: a request queued behind another would die with the page.
+    // A keepalive flush goes at once (a request queued behind another would die with a closing page),
+    // and drops the value waiting in the queue, so nothing older can follow it (review #497 round 2).
+    if (keepalive) saveSetting.drop();
     void sign.track("reminder", keepalive ? save.mutateAsync({ ...body, keepalive }) : saveSetting(body)).then(
       () => {
         const shown = ledger.current.confirm(token).show.setting;

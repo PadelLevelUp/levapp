@@ -87,4 +87,17 @@ describe("SaveLedger", () => {
     const y = l.begin({ mode: "y" });
     expect(l.fail(y)).toEqual({});
   });
+
+  it("touched / newerSaveOut say whether a read or an older answer may set what the screen shows", () => {
+    const l = new SaveLedger<S>();
+    expect(l.touched("mode")).toBe(false);
+    const y = l.begin({ mode: "y" });
+    expect(l.touched("mode")).toBe(true);
+    expect(l.newerSaveOut("mode")).toBe(true);
+    l.confirm(y);
+    expect(l.newerSaveOut("mode")).toBe(false);
+    const z = l.begin({ mode: "z" });
+    l.fail(z);
+    expect(l.newerSaveOut("mode")).toBe(false);
+  });
 });
