@@ -10,15 +10,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
  * evaluations.reminders rules 1, 2, 7, 8 (PAD-404) — "Frequência de avaliações" on web.
  * Saves on change: there is no Save button and no dirty state, and a failed save puts the
  * previous choice back. "A cada 2/4 aulas" and "Personalizado" are all `every_n_classes`
- * (rule 1); "Personalizado" saves 4 when chosen, and a typed number saves on blur/Enter
- * once it is an integer 1-99 — rule 8 refuses the rest on the server, and refusing it
- * here too means a typo never sends `everyN: 0`.
+ * (rule 1); "Personalizado" saves 4 when chosen, and a typed number saves once it is an
+ * integer 1-99: shortly after typing stops, at once on blur/Enter, and on leaving the screen
+ * (B-242) — rule 8 refuses the rest on the server, and refusing it here too means a typo
+ * never sends `everyN: 0`.
  */
 type ReminderOption = "never" | "monthly" | "every_2" | "every_4" | "custom";
 
 const OPTIONS: ReminderOption[] = ["never", "monthly", "every_2", "every_4", "custom"];
 
 const DEFAULT_CUSTOM_N = "4";
+
+/** B-242: how long after the last keystroke a valid typed number is saved. */
+export const CUSTOM_SAVE_DELAY_MS = 600;
+
+function validCustomN(raw: string): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+}
 
 function optionFromSettings(settings: EvaluationSettings | undefined): ReminderOption | "" {
   if (!settings) return "";
@@ -56,13 +65,21 @@ export function EvaluationReminderSetting() {
   // this control's own (a selection or a saved custom number), never overwritten
   // by a background refetch, so a coach never sees their own pick flicker back.
   const hydrated = React.useRef(false);
+  // B-242: the custom number last sent (so a blur right after the delayed save sends nothing
+  // twice), the field's latest text, and the timer of a save still waiting for typing to stop.
+  const sentCustomN = React.useRef<number | null>(null);
+  const latestCustom = React.useRef(DEFAULT_CUSTOM_N);
+  const pendingSave = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!data || hydrated.current) return;
     hydrated.current = true;
     const opt = optionFromSettings(data);
     setOption(opt);
-    setCustomValue(opt === "custom" ? String(data.everyN ?? DEFAULT_CUSTOM_N) : DEFAULT_CUSTOM_N);
+    const custom = opt === "custom" ? String(data.everyN ?? DEFAULT_CUSTOM_N) : DEFAULT_CUSTOM_N;
+    setCustomValue(custom);
+    latestCustom.current = custom;
+    sentCustomN.current = opt === "custom" ? data.everyN ?? null : null;
   }, [data]);
 
   // Every change is saved at once, so the control never shows a choice the server does not
@@ -70,29 +87,64 @@ export function EvaluationReminderSetting() {
   const persist = (next: ReminderOption, everyN: number, previous: ReminderOption | "") => {
     setErrorKey(null);
     setOption(next);
+    sentCustomN.current = next === "custom" ? everyN : null;
     void save.mutateAsync(bodyForOption(next, everyN)).catch(() => {
       setOption(previous);
       setErrorKey("saveFailed");
+      // Nothing was stored: the same number typed again must be sent again.
+      sentCustomN.current = null;
     });
+  };
+
+  const cancelPendingSave = () => {
+    if (pendingSave.current) clearTimeout(pendingSave.current);
+    pendingSave.current = null;
   };
 
   const handleSelect = (value: string) => {
     const next = value as ReminderOption;
     // Rule 1: "Personalizado" opens at 4, saved as soon as it is chosen; the typed number
     // then replaces it on blur/Enter.
+    cancelPendingSave();
     const n = next === "custom" ? Number(DEFAULT_CUSTOM_N) : Number(customValue);
-    if (next === "custom") setCustomValue(DEFAULT_CUSTOM_N);
+    if (next === "custom") {
+      setCustomValue(DEFAULT_CUSTOM_N);
+      latestCustom.current = DEFAULT_CUSTOM_N;
+    }
     persist(next, n, option);
   };
 
   const commitCustom = () => {
-    const n = Number(customValue);
-    if (!Number.isInteger(n) || n < 1 || n > 99) {
+    cancelPendingSave();
+    const n = validCustomN(latestCustom.current);
+    if (n === null) {
       setErrorKey("invalidNumber");
       return;
     }
-    persist("custom", n, option);
+    if (n === sentCustomN.current) {
+      // Already stored: nothing to send, but an earlier "invalid" no longer applies.
+      setErrorKey(null);
+      return;
+    }
+    persist("custom", n, "custom");
   };
+
+  const changeCustom = (text: string) => {
+    setCustomValue(text);
+    latestCustom.current = text;
+    cancelPendingSave();
+    if (validCustomN(text) !== null) pendingSave.current = setTimeout(commitCustom, CUSTOM_SAVE_DELAY_MS);
+  };
+
+  // B-242: a typed number still waiting for its delayed save is sent when the screen goes away.
+  const commitRef = React.useRef(commitCustom);
+  commitRef.current = commitCustom;
+  React.useEffect(
+    () => () => {
+      if (pendingSave.current) commitRef.current();
+    },
+    [],
+  );
 
   const disabled = isLoading;
 
@@ -129,7 +181,7 @@ export function EvaluationReminderSetting() {
               disabled={disabled}
               value={customValue}
               data-testid="settings-evaluation-reminder-n"
-              onChange={(e) => setCustomValue(e.target.value)}
+              onChange={(e) => changeCustom(e.target.value)}
               onBlur={commitCustom}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {

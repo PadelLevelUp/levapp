@@ -176,6 +176,7 @@ jobs:
             -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
             -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
+            -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # PAD-220: `docker run` succeeding proves nothing about migrations — the
           # entrypoint runs them, and a failed one crash-loops the container
@@ -254,6 +255,11 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:staging
           platforms: linux/amd64
+          # PAD-469: the HubSpot demo form on the landing page. A repository
+          # *variable* (the ID is public). Its own name, so staging can stay on
+          # the mailto (unset) and keep test submissions out of the CRM.
+          build-args: |
+            VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:

@@ -28,7 +28,9 @@ an idea.
 2. Three tabs at the top let them switch to the player story or to "Others"; the whole page follows
    the choice — hero, benefits, how it works, results, and the closing call to action.
 3. A coach reads the three benefits (less admin, more revenue, more competitive classes), the
-   three-step onboarding, and the results, then asks for a demo by email.
+   three-step onboarding, and the results, then asks for a demo — in a short HubSpot form that
+   opens on the page, so the request lands in the sales CRM as an inbound lead from the site
+   (PAD-469). Until the form is configured, the demo button is an email.
 4. A player sees what they gain, how to get started, and signs in — or asks support for help if
    their invitation is missing.
 5. A partner is told plainly that there is nothing for them yet and invited to email an idea.
@@ -41,11 +43,15 @@ an idea.
 - Web-only by design: the iOS app is for people who already have an account, and its marketing
   surface is the App Store listing.
 - A shareable link can open the page directly on an audience (`?audience=…`).
-- No forms or backend: every call to action is a link — email, login, support, or an anchor.
+- No backend of our own: every call to action is a link — email, login, support, or an anchor —
+  except the demo request, which is HubSpot's form, embedded (PAD-469).
+- Privacy first: the site measures visits with HubSpot only after the visitor accepts cookies, and
+  declining is as easy as accepting. The choice can be changed from the footer and is asked again
+  after 12 months.
 - Copy is Portuguese by default with an English translation; product screenshots stay Portuguese.
 
 ## Success Metrics
 
-- Demo-request emails from coaches arriving at the support inbox.
+- Demo requests from coaches arriving in HubSpot as contacts with source Inbound / Site.
 - Players reaching `/auth` from the landing page rather than bouncing to support.
 - Idea emails from the "Others" audience.

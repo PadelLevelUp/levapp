@@ -1,0 +1,52 @@
+# PAD-475 / messaging.push-notifications rule 12a — a message push tapped while the app is
+# in the BACKGROUND (not killed) opens the thread WITH the pushed message.
+# The coach reads conversation 1, so its cache entry is fresh, and goes back, so no thread
+# screen is mounted to receive the message live. The app goes to the background and the
+# student posts one message. The app comes back through the route a message push's tap
+# resolves to (/conversation/<id>?message=<mid>; the tap and the deep link share it, as in
+# flow 103). The pushed message must be on screen, under the "Unread messages" divider.
+# The whole sequence stays inside the app's 30 s staleTime on purpose: a stale entry
+# refetches on mount by itself, a fresh one did not (B-236). `cacheAgeMs` is asserted so a
+# slow run cannot pass for that reason. Teardown deletes the message (R-040).
+appId: com.padellevelup.app
+tags:
+  - ios-only
+onFlowStart:
+  - stopApp
+  - runScript: ../scripts/warm-push-target-setup.js
+onFlowComplete:
+  - runScript: ../scripts/warm-push-target-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://conversation/1"
+- extendedWaitUntil:
+    visible:
+      id: "message-input"
+    timeout: 30000
+- runScript: ../scripts/warm-push-target-cached.js
+# Leave the thread: a mounted thread screen writes a live arrival into the cache itself
+# (the simulator does not suspend the app this quickly), which is not the case under test.
+- tapOn:
+    id: "chat-back"
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 30000
+# Background (an optional wait on a locator that never appears is the only sleep Maestro has).
+- pressKey: Home
+- extendedWaitUntil:
+    visible:
+      text: "pad-475-never-appears"
+    timeout: 8000
+    optional: true
+- runScript: ../scripts/warm-push-target-post.js
+- assertTrue: "${output.newId > 0}"
+- assertTrue: "${output.cacheAgeMs < 28000}"
+- openLink: "levelup://conversation/1?message=${output.newId}"
+- extendedWaitUntil:
+    visible:
+      id: "message-item-${output.newId}"
+    timeout: 20000
+# Still unread: the open's GET ran before the read mark, so it carried the first unread.
+- assertVisible:
+    id: "unread-divider"

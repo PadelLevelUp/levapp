@@ -1,13 +1,17 @@
 // PAD-438 / B-223 (flow 116): the coach token, the E2E Student's player id, the day two days out
 // the flow's class goes on, and no leftover "Maestro PAD-438" class in the next week (R-040).
-// Exposes: output.api, output.coachTok, output.pid, output.day, output.rangeFrom, output.rangeTo.
+// Exposes: output.api, output.coachTok, output.coachUserId, output.pid, output.day, output.rangeFrom,
+// output.rangeTo, output.lastMsgId (the newest message in seeded conversation 1, coach <-> E2E
+// Student, before this run: adding and removing the class each post one there).
 var api = typeof API_BASE === "undefined" ? "http://localhost:5001" : API_BASE;
 output.api = api;
 var login = http.post(api + "/api/auth/login", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ username: "e2e-coach", password: "E2eCoach123!" }),
 });
-output.coachTok = json(login.body).accessToken;
+var session = json(login.body);
+output.coachTok = session.accessToken;
+output.coachUserId = session.user.id;
 var auth = { "Content-Type": "application/json", Authorization: "Bearer " + output.coachTok };
 
 var roster = json(http.get(api + "/api/app/coach_players", { headers: auth }).body);
@@ -30,3 +34,10 @@ for (var j = 0; j < events.length; j++) {
     http.post(api + "/api/app/remove_class", { headers: auth, body: JSON.stringify({ event: events[j], scope: "single" }) });
   }
 }
+
+var thread = json(http.get(api + "/api/app/conversation/1?limit=30", { headers: auth }).body);
+var newest = 0;
+for (var m = 0; m < thread.messages.length; m++) {
+  if (thread.messages[m].id > newest) newest = thread.messages[m].id;
+}
+output.lastMsgId = newest;

@@ -47,16 +47,68 @@ export function diffInstance<T extends object>(
 }
 
 /** Diffs two participant lists down to id sets for the addPlayers/removePlayers
- * edit-class payload keys. Ports web's ClassDetailSheet.tsx diffParticipants. */
+ * edit-class payload keys. Ports web's ClassDetailSheet.tsx diffParticipants.
+ * Ids compare as strings (PAD-474): the API serialises a participant id as a
+ * number and the picker hands back a string, so unticking and re-ticking a
+ * student must cancel out. */
 export function diffParticipants(
   original: { id: string }[],
   updated: { id: string }[]
 ): { addPlayers: string[]; removePlayers: string[] } {
-  const originalIds = new Set(original.map((p) => p.id));
-  const updatedIds = new Set(updated.map((p) => p.id));
+  const originalIds = new Set(original.map((p) => String(p.id)));
+  const updatedIds = new Set(updated.map((p) => String(p.id)));
 
   const addPlayers = [...updatedIds].filter((id) => !originalIds.has(id));
   const removePlayers = [...originalIds].filter((id) => !updatedIds.has(id));
 
   return { addPlayers, removePlayers };
+}
+
+/** The edit screen's change set: the field diff plus the participant diff
+ * (classes.edit rule 9, PAD-474). Web's commitEdit builds both before deciding
+ * there is nothing to save; diffing the fields alone dropped an edit that only
+ * added or removed students. */
+export function buildClassEditChanges<T extends { participants?: { id: string }[] }>(
+  original: T,
+  updated: T
+): Record<string, unknown> {
+  const changes = diffInstance(
+    original,
+    updated,
+    // The allow-list is typed against ClassInstance; T is any shape with participants.
+    EDITABLE_CLASS_FIELDS as unknown as (keyof T)[]
+  ) as Record<string, unknown>;
+  const { addPlayers, removePlayers } = diffParticipants(
+    original.participants ?? [],
+    updated.participants ?? []
+  );
+  if (addPlayers.length > 0) changes.addPlayers = addPlayers;
+  if (removePlayers.length > 0) changes.removePlayers = removePlayers;
+  return changes;
+}
+
+
+/** Ticks or unticks a student in the edit draft (classes.edit rule 9). Ids
+ * compare as strings; a student the coach's roster does not know is not added. */
+export function toggleDraftParticipant<P extends { id: string; userId: string }>(
+  participants: P[],
+  playerId: string,
+  coachPlayers: { playerId: string; userId: string }[]
+): P[] {
+  const key = String(playerId);
+  if (participants.some((p) => String(p.id) === key)) {
+    return participants.filter((p) => String(p.id) !== key);
+  }
+  const player = coachPlayers.find((p) => String(p.playerId) === key);
+  return player ? [...participants, { id: key, userId: player.userId } as P] : participants;
+}
+
+/** The presences of the listed participants only. While editing, the count
+ * subtracts declines among the draft's students, never one the coach unticked. */
+export function presencesOfParticipants<R extends { playerId: string | number }>(
+  presences: R[] | null | undefined,
+  participants: { id: string }[]
+): R[] {
+  const ids = new Set(participants.map((p) => String(p.id)));
+  return (presences ?? []).filter((r) => ids.has(String(r.playerId)));
 }

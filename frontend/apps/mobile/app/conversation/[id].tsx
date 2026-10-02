@@ -6,11 +6,9 @@ import {
   applyIncomingMessage,
   queryKeys,
   shouldShowJumpToBottom,
-  nextTargetStep,
   openingTarget,
   canRetryThreadLoad,
   threadLoadErrorKey,
-  useConversationThread,
 } from "@levelup/hooks";
 import type { EligibilityCheckEntry, Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,13 +62,8 @@ import {
 import { isAtBottomOf } from "@/features/messages/scroll-position";
 import { composerBottomPadding } from "@/features/messages/composer-padding";
 import { isFirstUnreadMessage } from "@/features/messages/unread-divider";
-import {
-  shouldFreezeFirstUnread,
-  advanceOpenFetch,
-  type OpenFetch,
-  threadQueryOverrides,
-  shouldMarkRead,
-} from "@/features/messages/open-sequence";
+import { shouldFreezeFirstUnread, shouldMarkRead } from "@/features/messages/open-sequence";
+import { useThreadOpen } from "@/features/messages/use-thread-open";
 import { followReducer, initialFollowState, type FollowEvent } from "@/features/messages/follow-state";
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
@@ -131,6 +124,10 @@ export default function ConversationScreen() {
   const myId = Number(user?.id);
   const queryClient = useQueryClient();
 
+  // The open's four decisions (thread query override, fetch phase, target step, scroll retry)
+  // come from `useThreadOpen`, where they are tested mounted (PAD-475).
+  const threadOpen = useThreadOpen({ conversationId, target: targetMessageParam ?? null, queryClient });
+  const { openPhase } = threadOpen;
   const {
     data: conversation,
     isLoading,
@@ -140,10 +137,7 @@ export default function ConversationScreen() {
     hasMore,
     isLoadingOlder,
     loadOlder,
-    isFetching,
-  // B-190: a plain open always makes its own GET, so the first unread is this open's value even
-  // when an SSE write just made the cached entry fresh; a push-tap open keeps the cache (flow 103).
-  } = useConversationThread(conversationId, threadQueryOverrides(targetMessageParam ?? null));
+  } = threadOpen.thread;
 
   const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
@@ -187,14 +181,6 @@ export default function ConversationScreen() {
     },
     []
   );
-
-  // B-222: this open's fetch phase — in flight, settled, or none coming (a still-fresh cache).
-  // Advanced during render from `isFetching` alone: a live `setQueryData` (the SSE handlers,
-  // `loadOlder`) bumps query-core's data count mid-flight, so `isFetchedAfterMount` cannot
-  // tell this open's answer from a cached copy. Same ref-during-render pattern as below.
-  const openFetchRef = React.useRef<OpenFetch | null>(null);
-  openFetchRef.current = advanceOpenFetch(openFetchRef.current, conversationId, isFetching);
-  const openPhase = openFetchRef.current.phase;
 
   // Mark the conversation read once per open (clears badge + list count).
   const markedRef = React.useRef<string | null>(null);
@@ -739,6 +725,8 @@ export default function ConversationScreen() {
         (m) => String(m.id) === String(messageId)
       );
       if (index === -1) return;
+      // B-238: a retry of this scroll finds the row again by id (onScrollToIndexFailed).
+      threadOpen.scrollStarted(messageId);
       listRef.current?.scrollToIndex({
         index,
         animated: true,
@@ -757,7 +745,7 @@ export default function ConversationScreen() {
         );
       }
     },
-    [conversation]
+    [conversation, threadOpen.scrollStarted]
   );
 
   // ── PAD-408 / PAD-415: land on the message a push named, or — absent one —
@@ -787,12 +775,10 @@ export default function ConversationScreen() {
   React.useEffect(() => {
     const target = targetRef.current;
     if (!target || !anchored || !conversation || isLoadingOlder) return;
-    const step = nextTargetStep({
-      messages: conversation.messages,
-      targetId: target,
-      olderPagesLoaded: targetOlderPagesRef.current,
-      hasOlder: hasMore,
-    });
+    // B-237: `targetStep` waits while this open's GET is in flight, so the walk never runs on
+    // the cached copy.
+    const step = threadOpen.targetStep(target, targetOlderPagesRef.current);
+    if (step.kind === "wait") return;
     if (step.kind === "load-older") {
       // A failed page is not fatal: `loadOlder` swallows the error and drops
       // `isLoadingOlder`, which re-runs this effect — each attempt counts
@@ -814,7 +800,7 @@ export default function ConversationScreen() {
     // delivered the rows (ios-flatlist-fabric-traps); a miss on an unmeasured
     // row is retried by onScrollToIndexFailed.
     requestAnimationFrame(() => scrollToMessage(landedId, highlight));
-  }, [anchored, conversation, dispatchFollow, hasMore, isLoadingOlder, loadOlder, scrollToMessage]);
+  }, [anchored, conversation, dispatchFollow, isLoadingOlder, loadOlder, scrollToMessage, threadOpen.targetStep]);
 
   // ── Notification-invite respond (Yes/No on notification_invite messages) ──
   // Mirrors web's MessageBubble.tsx handleRespond. Unlike web's ephemeral
@@ -1141,6 +1127,7 @@ export default function ConversationScreen() {
       >
         <View className="h-14 flex-row items-center gap-2 px-2">
           <Pressable
+            testID="chat-back"
             accessibilityLabel={t("common.back")}
             role="button"
             hitSlop={10}
@@ -1321,12 +1308,16 @@ export default function ConversationScreen() {
                 </View>
               ) : null
             }
-            onScrollToIndexFailed={(info) => {
+            onScrollToIndexFailed={() => {
               // Item not measured yet (variable bubble heights) — retry
               // once layout settles, standard FlatList workaround.
+              // B-238: by message id, in the list as it is at retry time; `info.index`
+              // may be out of range once a refetch has replaced the list.
               setTimeout(() => {
+                const index = threadOpen.retryIndex();
+                if (index === null) return;
                 listRef.current?.scrollToIndex({
-                  index: info.index,
+                  index,
                   animated: true,
                   viewPosition: 0.5,
                 });

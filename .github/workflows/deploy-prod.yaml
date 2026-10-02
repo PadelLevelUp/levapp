@@ -192,6 +192,7 @@ jobs:
             -e VAPID_PRIVATE_KEY="${{ secrets.VAPID_PRIVATE_KEY }}" \
             -e VAPID_CLAIMS_EMAIL="${{ secrets.VAPID_CLAIMS_EMAIL }}" \
             -e EXPO_ACCESS_TOKEN="${{ secrets.EXPO_ACCESS_TOKEN }}" \
+            -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.HUBSPOT_PRIVATE_APP_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:$TAG
           # PAD-220: `docker run` succeeding proves nothing about migrations — the
           # entrypoint runs them, and a failed one crash-loops the container
@@ -320,6 +321,11 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:${{ github.sha }}
           platforms: linux/amd64
+          # PAD-469: the HubSpot demo form on the landing page (repository
+          # variable; unset = the demo buttons stay a mailto). Staging reads
+          # its own HUBSPOT_DEMO_FORM_ID_STAGING (see deploy-staging.yaml).
+          build-args: |
+            VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:
