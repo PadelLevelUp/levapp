@@ -1,4 +1,10 @@
 import type { GroupRule } from "@levelup/types";
+import {
+  isWithinNOperation,
+  operationForMenuPick,
+  withinNOperation,
+  type WithinNDirection,
+} from "@levelup/config";
 
 /**
  * The coach's standard eligibility bar (PAD-128, ported to iOS by PAD-161).
@@ -26,8 +32,6 @@ export type EligibilityAttribute = {
   labelKey: string;
   operations: { id: string; labelKey: string }[];
   valueType: EligibilityValueType;
-  /** For `conditional-number`: the operations that actually carry a value. */
-  valueForOperations?: string[];
 };
 
 export const ELIGIBILITY_ATTRIBUTES: EligibilityAttribute[] = [
@@ -53,9 +57,9 @@ export const ELIGIBILITY_ATTRIBUTES: EligibilityAttribute[] = [
         labelKey: "settings.eligibility.operations.withinNOfClass",
       },
     ],
-    // `within_n_of_class` is the only level operation that carries a value.
+    // Only the three `within_n_*` operations carry a value (PAD-481: the
+    // direction is the operation — see `@levelup/config`'s level-direction).
     valueType: "conditional-number",
-    valueForOperations: ["within_n_of_class"],
   },
   {
     id: "unjustified_absences",
@@ -101,9 +105,7 @@ export function needsValue(
   operation: string
 ): boolean {
   if (attr.valueType === "number" || attr.valueType === "percentage") return true;
-  if (attr.valueType === "conditional-number") {
-    return (attr.valueForOperations ?? []).includes(operation);
-  }
+  if (attr.valueType === "conditional-number") return isWithinNOperation(operation);
   return false;
 }
 
@@ -135,13 +137,20 @@ export function withAttribute(attribute: string): GroupRule {
  * Without this, moving `level within_n_of_class 2` to `same_as_class` would
  * keep the 2 attached to an operation that has no value.
  */
-export function withOperation(rule: GroupRule, operation: string): GroupRule {
+export function withOperation(rule: GroupRule, picked: string): GroupRule {
   const attr = findAttribute(rule.attribute);
+  // PAD-481: picking "within N levels" on a rule that already is one keeps its direction.
+  const operation = operationForMenuPick(rule.operation, picked);
   return {
     ...rule,
     operation,
     value: attr && needsValue(attr, operation) ? rule.value : undefined,
   };
+}
+
+/** PAD-481: set the direction of a "within N levels" rule; N is kept. */
+export function withDirection(rule: GroupRule, direction: WithinNDirection): GroupRule {
+  return { ...rule, operation: withinNOperation(direction) };
 }
 
 /**

@@ -79,6 +79,7 @@ export function describeEligibilityFailure(f: EligibilityFailure): I18nText {
     if (f.reason === "class_has_no_level") return { key: `${NS}.eligibility.classHasNoLevel` };
     if (f.reason === "student_has_no_level") return { key: `${NS}.eligibility.studentHasNoLevel` };
     if (f.reason === "level_not_in_ladder") return { key: `${NS}.eligibility.levelNotInLadder` };
+    if (f.reason === "unknown_operation") return { key: `${NS}.eligibility.unknownOperation` };
     const distance = f.ladder_distance;
     if (typeof distance === "number" && distance !== 0) {
       // Positive = weaker than the class (a higher ladder index) = "below".

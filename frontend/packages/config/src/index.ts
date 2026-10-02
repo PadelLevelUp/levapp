@@ -11,6 +11,7 @@ export * from "./presence-status";
 export * from "./validation-tier";
 export * from "./presence-scope";
 export * from "./eligibility-report";
+export * from "./level-direction";
 export * from "./eligibility-tier";
 export * from "./class-request-slots";
 export * from "./availability";
