@@ -40,6 +40,12 @@ due. It is a marker inside the app, never a message to anyone.
    typed number. Coach-only (`settings.role-scope` rule 3); web and iOS in the same ticket.
    The control reads back what is stored, not what was tapped: "Personalizado" with 2 or 4
    is the same setting as "A cada 2/4 aulas" and reopens as that option — intended, not a bug.
+   **(B-242, PAD-473) A typed number is never dropped.** A valid one (rule 2's 1–99) is saved
+   shortly after typing stops (600 ms today), and at once when the field loses focus or is
+   submitted, when the coach leaves the screen, or (iOS) when the app leaves the foreground —
+   the iOS number pad has no Return key, so focus alone cannot be what saves it. An invalid
+   number is never sent; it is refused in place when the field loses focus. What the control shows
+   when it saves or fails is `settings.save-on-change` (rules 2-3).
 2. **The endpoint.** `GET /api/app/evaluation_settings` and `PUT /api/app/evaluation_settings`
    (JWT, coach) with `{reminder: 'never' | 'monthly' | 'every_n_classes', everyN?}` → the same
    shape. `everyN` is an integer 1–99, required with `every_n_classes` (else 400) and ignored
@@ -128,6 +134,16 @@ due. It is a marker inside the app, never a message to anyone.
   `{"reminder": "every_n_classes"}`, then `PUT` `{"reminder": "every_n_classes", "everyN": 0}`
 - **Then** the first two answer `{"reminder": "every_n_classes", "everyN": 3}` and the third
   answers 400 leaving 3 stored
+
+#### A typed number is saved however the coach leaves it (rule 1, B-242)
+- **Given** coach `e2e-coach` on iOS with "Personalizado" chosen (stored `everyN` 4)
+- **When** they type 7 and send the app to the background with the field still focused, then type
+  9 and follow a link to the players list with the field still focused
+- **Then** `GET /api/app/evaluation_settings` answers `everyN` 7 after the first and 9 after the
+  second. Maestro flow 128 shows the number survives leaving on a device; Maestro cannot leave
+  inside the 600 ms delay (one typed character takes ~950 ms), so which path sent it is pinned by
+  the web and iOS unit tests: the delay (not earlier, once per pause), the flush on unmount and on
+  background, a radio choice dropping a pending number, and invalid input never sent
 
 #### The reminder never leaves the app (rule 5)
 - **Given** any frequency and any due player

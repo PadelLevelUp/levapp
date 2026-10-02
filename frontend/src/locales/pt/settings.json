@@ -6,6 +6,10 @@
     "english": "Inglês",
     "title": "Definições",
     "subtitle": "Gere o teu perfil, predefinições do calendário, notificações e segurança.",
+    "saveSign": {
+      "saved": "Guardado",
+      "failed": "Não foi possível guardar"
+    },
     "saveChanges": "Guardar alterações",
     "sections": "Secções",
     "quickNavigation": "Navegação rápida",
@@ -64,8 +68,6 @@
     "preferences": {
       "requestAlerts": "Alertas de pedidos",
       "requestAlertsDescription": "Push e email quando um pedido precisa de ti (entrada no clube, ligação de conta, aprovação de treinador) e quando o teu é decidido. Os avisos dentro da app continuam sempre.",
-      "requestAlertsSaved": "Preferência guardada.",
-      "requestAlertsSaveFailed": "Não foi possível guardar. Tenta outra vez.",
       "title": "Preferências",
       "description": "Como queres que a aplicação se comporte.",
       "theme": "Tema",
@@ -139,8 +141,6 @@
       "saving": "A guardar…",
       "profileSaved": "Perfil guardado.",
       "profileSaveFailed": "Não foi possível guardar o teu perfil. Tenta novamente.",
-      "languageSaved": "Preferência de idioma guardada.",
-      "languageSaveFailed": "Não foi possível guardar a preferência de idioma.",
       "removeCategory": "Remover categoria {{name}}",
       "removeLevel": "Remover nível {{name}}",
       "moveLevelUp": "Mover nível para cima",

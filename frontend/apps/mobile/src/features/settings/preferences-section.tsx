@@ -24,6 +24,9 @@ import { Text } from "@/components/ui/text";
 import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { EvaluationSettingsGroup } from "@/features/evaluations/evaluation-settings-group";
 import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
+import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
+import { useFlushOnBackground } from "@/features/evaluations/use-flush-on-background";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -58,12 +61,23 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const [language, setLanguage] = React.useState<Language>(
     user?.language ?? "pt"
   );
-  // Holds the KEY, not the resolved string. `changeLanguage` is async, so
-  // resolving here would freeze the message in the language being replaced —
-  // switching to pt reported success in English.
-  const [languageStatusKey, setLanguageStatusKey] = React.useState<
-    string | null
-  >(null);
+  // settings.save-on-change (PAD-473): language and request alerts sign their saves. What they show
+  // after a failure comes from the shared SaveLedger (rule 3), seeded from the cached profile — which
+  // never replaces a field a save has touched. Both controls display the cache, so every rollback is a
+  // cache write.
+  const sign = useSaveSign();
+  const ledger = React.useRef<SaveLedger<{ language: Language; requestAlerts: boolean }> | null>(null);
+  if (!ledger.current) ledger.current = new SaveLedger();
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const [saveLanguage] = React.useState(() => createSerialSaver((value: Language) => authApi.updateMe({ language: value })));
+  const [saveRequestAlerts] = React.useState(() => createSerialSaver((on: boolean) => authApi.updateMe({ requestAlerts: on })));
+  // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
+  // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
+  useFlushOnBackground(() => {
+    saveLanguage.sendPendingNow();
+    saveRequestAlerts.sendPendingNow();
+  });
 
   // Same key the Settings screen uses, so this is served from cache rather
   // than refetched — and it stays reactive when the screen's copy resolves.
@@ -74,44 +88,69 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   React.useEffect(() => {
     if (me?.language) setLanguage(me.language);
   }, [me?.language]);
+  React.useEffect(() => {
+    if (!me) return;
+    ledger.current!.seed({
+      ...(me.language ? { language: me.language as Language } : {}),
+      requestAlerts: me.requestAlerts !== false,
+    });
+  }, [me]);
 
   // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
   // Server value wins; an explicit `false` is the only "off".
   const requestAlerts = me?.requestAlerts !== false;
-  const [requestAlertsStatusKey, setRequestAlertsStatusKey] = React.useState<
-    string | null
-  >(null);
+  type Me = NonNullable<typeof me>;
+  type Shown = Partial<{ language: Language; requestAlerts: boolean }>;
+
   const handleRequestAlertsChange = async (checked: boolean) => {
-    setRequestAlertsStatusKey(null);
-    const previous = me;
+    const token = ledger.current!.begin({ requestAlerts: checked });
     // B-185 (C's #430 review): an in-flight read landing mid-save would flicker the toggle back.
     await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
     queryClient.setQueryData(["auth-me"], (cur: typeof me) =>
       cur ? { ...cur, requestAlerts: checked } : cur
     );
-    try {
-      const updated = await authApi.updateMe({ requestAlerts: checked });
-      await writeAuthMe(queryClient, updated);
-      setRequestAlertsStatusKey("settings.preferences.requestAlertsSaved");
-    } catch {
-      queryClient.setQueryData(["auth-me"], previous);
-      setRequestAlertsStatusKey("settings.preferences.requestAlertsSaveFailed");
-    }
+    await sign.track("requestAlerts", saveRequestAlerts(checked)).then(
+      (answer) => writeAnswer(answer, ledger.current!.confirm(token, { requestAlerts: answer.requestAlerts !== false }).show),
+      () => showInCache(ledger.current!.fail(token)),
+    );
   };
 
   const handleLanguageChange = async (value: Language) => {
-    const previous = language;
+    const token = ledger.current!.begin({ language: value });
     setLanguage(value);
-    setLanguageStatusKey(null);
-    try {
-      const updated = await authApi.updateMe({ language: value });
-      await writeAuthMe(queryClient, updated);
-      void i18n.changeLanguage(value);
-      setLanguageStatusKey("settings.mobile.languageSaved");
-    } catch {
-      setLanguage(previous);
-      setLanguageStatusKey("settings.mobile.languageSaveFailed");
-    }
+    await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
+    queryClient.setQueryData(["auth-me"], (cur: typeof me) => (cur ? { ...cur, language: value } : cur));
+    await sign.track("language", saveLanguage(value)).then(
+      async (answer) => {
+        const { advanced, show } = ledger.current!.confirm(token, { language: (answer.language ?? value) as Language });
+        await writeAnswer(answer, show);
+        if (show.language) setLanguage(show.language);
+        const applied = show.language ?? (advanced.language === language ? advanced.language : undefined);
+        void i18n.changeLanguage(applied ?? value);
+      },
+      () => showInCache(ledger.current!.fail(token)),
+    );
+  };
+
+  // The save's answer is the newest profile (B-185, writeAuthMe). Only a save-on-change field with a
+  // NEWER save of its own still out keeps what the screen shows (that save's value); otherwise the
+  // answer wins — so a read that landed during the save, carrying the old value, does not survive it
+  // (review #497 round 2).
+  const writeAnswer = async (answer: Me, show: Shown) => {
+    const cur = queryClient.getQueryData<Me>(AUTH_ME_KEY);
+    const keep: Partial<Me> = {};
+    if (cur && ledger.current!.newerSaveOut("language")) keep.language = cur.language;
+    if (cur && ledger.current!.newerSaveOut("requestAlerts")) keep.requestAlerts = cur.requestAlerts;
+    const updated = { ...answer, ...keep, ...show };
+    await writeAuthMe(queryClient, updated);
+    if (!keep.language && updated.language) setLanguage(updated.language as Language);
+  };
+  const showInCache = (show: Shown) => {
+    if (Object.keys(show).length === 0) return;
+    queryClient.setQueryData(AUTH_ME_KEY, (cur: typeof me) => (cur ? { ...cur, ...show } : cur));
+    // The select also holds the language locally; a rollback batched with the optimistic write
+    // leaves the cached language unchanged between renders, so its effect would not fire.
+    if (show.language) setLanguage(show.language);
   };
 
   return (
@@ -154,20 +193,16 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               />
             </SelectContent>
           </Select>
-          {languageStatusKey ? (
-            <Text
-              testID="settings-language-status"
-              className="text-sm text-muted-foreground"
-            >
-              {t(languageStatusKey)}
-            </Text>
-          ) : null}
+          <SaveSign status={sign.status("language")} testID="settings-language-sign" textTestID="settings-language-status" />
 
           {/* PAD-232: for every role — a student is asked to link accounts, a
               coach hears about club join requests, an admin about approvals. */}
           <View className="mt-4 flex-row items-start justify-between gap-3">
             <View className="flex-1 gap-0.5">
-              <Label>{t("settings.preferences.requestAlerts")}</Label>
+              <View className="flex-row items-center gap-2">
+                <Label>{t("settings.preferences.requestAlerts")}</Label>
+                <SaveSign status={sign.status("requestAlerts")} testID="settings-request-alerts-sign" />
+              </View>
               <Text className="text-xs text-muted-foreground">
                 {t("settings.preferences.requestAlertsDescription")}
               </Text>
@@ -179,14 +214,6 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
             />
           </View>
-          {requestAlertsStatusKey ? (
-            <Text
-              testID="settings-request-alerts-status"
-              className="text-sm text-muted-foreground"
-            >
-              {t(requestAlertsStatusKey)}
-            </Text>
-          ) : null}
         </CardContent>
       </Card>
 

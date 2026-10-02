@@ -4,11 +4,13 @@ import { useEvaluationScale, useSaveEvaluationScale } from "@levelup/hooks";
 import type { EvaluationScaleMax } from "@levelup/types";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 
 /**
  * evaluations.scale rules 1 and 8 (PAD-423) — "Escala de avaliações" on web, beside the
  * evaluation frequency. Saves on change like the frequency: no Save button, no dirty state, and
- * a failed save puts the previous choice back. The server rescales the coach's competencies;
+ * a failed save says so and returns to the scale the server confirmed (settings.save-on-change). The server rescales the coach's competencies;
  * past scores keep their own scale (rule 3), which the caption says.
  */
 const SCALES: EvaluationScaleMax[] = [5, 10, 20, 100];
@@ -19,7 +21,14 @@ export function EvaluationScaleSetting() {
   const save = useSaveEvaluationScale();
 
   const [choice, setChoice] = React.useState<EvaluationScaleMax | null>(null);
-  const [failed, setFailed] = React.useState(false);
+  const sign = useSaveSign();
+  // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger.
+  const ledger = React.useRef(new SaveLedger<{ scaleMax: EvaluationScaleMax }>());
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const sendScale = React.useRef(save.mutateAsync);
+  sendScale.current = save.mutateAsync;
+  const [saveScale] = React.useState(() => createSerialSaver((body: { scaleMax: EvaluationScaleMax }) => sendScale.current(body)));
   // The server value hydrates local state once; after that every change is this control's own,
   // so a background refetch never flicks the coach's pick back.
   const hydrated = React.useRef(false);
@@ -28,23 +37,32 @@ export function EvaluationScaleSetting() {
     if (!data || hydrated.current) return;
     hydrated.current = true;
     setChoice(data.scaleMax);
+    ledger.current.seed({ scaleMax: data.scaleMax });
   }, [data]);
 
   const handleSelect = (value: string) => {
     const next = Number(value) as EvaluationScaleMax;
-    const previous = choice;
-    setFailed(false);
+    const token = ledger.current.begin({ scaleMax: next });
     setChoice(next);
-    void save.mutateAsync({ scaleMax: next }).catch(() => {
-      setChoice(previous);
-      setFailed(true);
-    });
+    void sign.track("scale", saveScale({ scaleMax: next })).then(
+      (answer) => {
+        const shown = ledger.current.confirm(token, answer).show.scaleMax;
+        if (shown !== undefined) setChoice(shown);
+      },
+      () => {
+        const back = ledger.current.fail(token).scaleMax;
+        if (back !== undefined) setChoice(back);
+      },
+    );
   };
 
   return (
     <div className="space-y-3" data-testid="settings-evaluation-scale">
       <div>
-        <h3 className="text-sm font-medium">{t("evaluations.scale.title")}</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">{t("evaluations.scale.title")}</h3>
+          <SaveSign status={sign.status("scale")} testId="settings-evaluation-scale-sign" />
+        </div>
         <p className="text-sm text-muted-foreground">{t("evaluations.scale.caption")}</p>
       </div>
 
@@ -59,11 +77,6 @@ export function EvaluationScaleSetting() {
         ))}
       </RadioGroup>
 
-      {failed ? (
-        <p role="alert" data-testid="settings-evaluation-scale-error" className="text-xs text-destructive">
-          {t("evaluations.scale.saveFailed")}
-        </p>
-      ) : null}
     </div>
   );
 }

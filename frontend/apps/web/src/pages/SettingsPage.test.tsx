@@ -12,7 +12,7 @@
  * mobile-width back button, beforeunload), not each section's own save logic.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -31,7 +31,8 @@ vi.mock("next-themes", () => ({
   useTheme: () => ({ theme: "system", setTheme: vi.fn() }),
 }));
 
-vi.mock("@/i18n", () => ({ default: { changeLanguage: vi.fn() } }));
+// `language` is what AuthContext applied from the stored profile before the page mounts (B-184).
+vi.mock("@/i18n", () => ({ default: { changeLanguage: vi.fn(), language: "en" } }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -65,6 +66,23 @@ vi.mock("@levelup/api", async (importOriginal) => {
   };
 });
 
+// The Preferences tab's evaluation settings read through @levelup/hooks; answered here so the tab makes no
+// network call (review #497 item 8: a real request made these tests load-sensitive).
+const evaluationApi = vi.hoisted(() => ({
+  getEvaluationSettings: vi.fn(async () => ({ reminder: "never" })),
+  putEvaluationSettings: vi.fn(async (body: unknown) => body),
+  getEvaluationScale: vi.fn(async () => ({ scaleMax: 5 })),
+  putEvaluationScale: vi.fn(async (body: unknown) => body),
+}));
+vi.mock("@levelup/api/src/resources/evaluationSettings", () => ({
+  getEvaluationSettings: evaluationApi.getEvaluationSettings,
+  putEvaluationSettings: evaluationApi.putEvaluationSettings,
+}));
+vi.mock("@levelup/api/src/resources/evaluationScale", () => ({
+  getEvaluationScale: evaluationApi.getEvaluationScale,
+  putEvaluationScale: evaluationApi.putEvaluationScale,
+}));
+
 // Stubs — these tabs/sections have their own tests; this file only drives the
 // page-level tab-switch guard through ONE real rule-2 section (working hours).
 vi.mock("@/components/settings/SeasonsSection", () => ({
@@ -77,7 +95,31 @@ vi.mock("@/components/evaluations/competency-manager/CompetenciesSettingsEntry",
   CompetenciesSettingsEntry: () => <div data-testid="stub-competencies" />,
 }));
 
+// A light stand-in for the Radix Select (language, theme): opening the real one over this page's DOM
+// takes ~15 s in jsdom. It keeps the contract the page relies on — value in, onValueChange out.
+vi.mock("@/components/ui/select", async () => {
+  const React = await import("react");
+  type Ctx = { value?: string; onValueChange?: (v: string) => void };
+  const SelectCtx = React.createContext<Ctx>({});
+  return {
+    Select: ({ value, onValueChange, children }: Ctx & { children: React.ReactNode }) => (
+      <SelectCtx.Provider value={{ value, onValueChange }}>{children}</SelectCtx.Provider>
+    ),
+    SelectTrigger: ({ id, "aria-label": ariaLabel, children }: { id?: string; "aria-label"?: string; children: React.ReactNode }) => {
+      const ctx = React.useContext(SelectCtx);
+      return <div id={id} aria-label={ariaLabel} data-value={ctx.value}>{children}</div>;
+    },
+    SelectValue: () => <span>{React.useContext(SelectCtx).value}</span>,
+    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => {
+      const ctx = React.useContext(SelectCtx);
+      return <button type="button" data-testid={`select-option-${value}`} onClick={() => ctx.onValueChange?.(value)}>{children}</button>;
+    },
+  };
+});
+
 import SettingsPage, { parseTab } from "./SettingsPage";
+import i18n from "@/i18n";
 
 const ME = {
   name: "Coach",
@@ -90,13 +132,27 @@ const ME = {
 };
 
 beforeAll(() => {
+  // jsdom has no PointerEvent, so Radix Select (opened on a mouse pointerdown) never sees its
+  // pointerType; this gives fireEvent.pointerDown a real one (PAD-473's language tests).
+  if (!window.PointerEvent) {
+    class PointerEventPolyfill extends MouseEvent {
+      pointerType: string;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerType = init.pointerType ?? "mouse";
+      }
+    }
+    window.PointerEvent = PointerEventPolyfill as unknown as typeof PointerEvent;
+  }
+  window.HTMLElement.prototype.releasePointerCapture = () => {};
   window.HTMLElement.prototype.hasPointerCapture = () => false;
   window.HTMLElement.prototype.scrollIntoView = () => {};
 });
 
 beforeEach(() => {
   getMe.mockReset().mockResolvedValue(ME);
-  updateMe.mockReset().mockResolvedValue(ME);
+  // The real endpoint answers with the profile as stored: the patch applied.
+  updateMe.mockReset().mockImplementation(async (patch: object) => ({ ...ME, ...patch }));
   getCoachWorkingHours.mockReset().mockResolvedValue({ workingHours: null });
   putCoachWorkingHours.mockReset();
 });
@@ -364,5 +420,156 @@ describe("SettingsPage — the tab follows the URL (PAD-459, settings.role-scope
     expect(screen.getByTestId("working-hours")).toBeInTheDocument();
     expect(sunday()).toHaveAttribute("data-state", "off");
     await waitFor(() => expect(screen.getByTestId("probe-search").textContent).toBe("?tab=calendar"));
+  });
+});
+
+describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", () => {
+  async function chooseLanguage(lang: "pt" | "en") {
+    fireEvent.click(await screen.findByTestId(`select-option-${lang}`));
+  }
+
+  it("B-244: choosing a language stores it at once, shows it, and signs it", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(getMe).toHaveBeenCalled());
+
+    await chooseLanguage("pt");
+
+    await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ language: "pt" }));
+    expect(i18n.changeLanguage).toHaveBeenCalledWith("pt");
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved"));
+  });
+
+  it("a failed language save says so and returns to the confirmed language", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(getMe).toHaveBeenCalled());
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+
+    await chooseLanguage("pt");
+
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
+    expect(screen.getByLabelText("settings.language")).toHaveAttribute("data-value", "en");
+  });
+
+  it("request alerts sign their save; a failure says so and switches back", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect(screen.getByTestId("settings-request-alerts-sign")).toHaveAttribute("data-state", "saved"));
+
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(toggle);
+    await waitFor(() => expect(screen.getByTestId("settings-request-alerts-sign")).toHaveAttribute("data-state", "failed"));
+    expect(toggle).toHaveAttribute("data-state", "unchecked");
+  });
+
+  it("the page-header Save shows on Perfil only (rule 4)", async () => {
+    // By test id: an accessible-name query over this page's DOM is what made the test load-sensitive.
+    const headerSave = () => screen.queryByTestId("settings-header-save");
+    goto("/settings?tab=profile");
+    renderSettings();
+    expect(await screen.findByTestId("settings-header-save")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-nav-preferences"));
+    await screen.findByTestId("settings-request-alerts");
+    expect(headerSave()).not.toBeInTheDocument();
+
+    // Calendar: its sections have their own Save buttons, so the page header has nothing to save there.
+    fireEvent.click(screen.getByTestId("settings-nav-calendar"));
+    await screen.findByTestId("working-hours-works-sun");
+    expect(headerSave()).not.toBeInTheDocument();
+  });
+
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: Error) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+  const shownLanguage = () => screen.getByLabelText("settings.language").getAttribute("data-value");
+
+  it("rule 3 / review #497: a late opening read does not replace a confirmed language", async () => {
+    const read = deferred<typeof ME>();
+    getMe.mockReset().mockReturnValueOnce(read.promise);
+    updateMe.mockImplementationOnce(async () => ({ ...ME, language: "pt" }));
+    goto("/settings?tab=preferences");
+    renderSettings();
+
+    await chooseLanguage("pt");
+    await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1));
+    await act(async () => { read.resolve(ME); }); // the read started before the PATCH: it says en
+    await waitFor(() => expect(shownLanguage()).toBe("pt"));
+
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+    await chooseLanguage("en");
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
+    expect(shownLanguage()).toBe("pt");
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("pt");
+  });
+
+  it("rule 3 / review #497: a language save failing before the opening read lands returns to the language shown", async () => {
+    getMe.mockReset().mockReturnValueOnce(new Promise(() => undefined));
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+    goto("/settings?tab=preferences");
+    renderSettings();
+
+    await chooseLanguage("pt");
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
+    expect(shownLanguage()).toBe("en");
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
+  });
+
+  it("rule 3: two held language saves both fail — back to the confirmed language, not the one the last started from", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(getMe).toHaveBeenCalled());
+    await waitFor(() => expect(shownLanguage()).toBe("en"));
+    const y = deferred<typeof ME>();
+    const z = deferred<typeof ME>();
+    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
+
+    await chooseLanguage("pt"); // Y
+    await chooseLanguage("en"); // Z, started from pt
+    await act(async () => { y.reject(new Error("y")); });
+    await act(async () => { z.reject(new Error("z")); });
+
+    expect(shownLanguage()).toBe("en");
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
+  });
+
+  it("rule 3: request alerts — two held saves both fail, back to the confirmed value", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+    const y = deferred<typeof ME>();
+    const z = deferred<typeof ME>();
+    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
+
+    fireEvent.click(toggle); // Y: off
+    fireEvent.click(toggle); // Z: on, started from off
+    await act(async () => { y.reject(new Error("y")); });
+    await act(async () => { z.reject(new Error("z")); });
+
+    expect(toggle).toHaveAttribute("data-state", "checked");
+  });
+
+  it("settings.unsaved-edits rule 1: frequency and scale save on change and never ask", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    fireEvent.click(await screen.findByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(await screen.findByTestId("settings-evaluation-reminder-option-monthly"));
+    await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledWith({ scaleMax: 10 }));
+    await waitFor(() => expect(evaluationApi.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "monthly" }));
+
+    fireEvent.click(screen.getByTestId("settings-nav-calendar"));
+    expect(dialog()).not.toBeInTheDocument();
+    expect(await screen.findByTestId("working-hours-works-sun")).toBeInTheDocument();
   });
 });

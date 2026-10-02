@@ -202,7 +202,9 @@ def test_validation_errors_name_the_field(client, app, over, field):
 
 # --- Transaction is atomic --------------------------------------------------
 
-def test_registration_is_atomic(client, app, monkeypatch):
+def test_a_failure_before_the_levels_exist_leaves_no_account(client, app, monkeypatch):
+    """The early case: the ladder fails before writing anything. A failure AFTER the real
+    levels were written is test_pad476_registration_is_one_transaction (auth.register rule 12)."""
     from padel_app.models import Coach, User
     from padel_app.services import coach_service
 

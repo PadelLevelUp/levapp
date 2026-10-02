@@ -30,6 +30,9 @@ export interface AcceptCoachInvitationPayload {
   name: string;
   username: string;
   password: string;
+  /** PAD-477 (clubs.coach-invitation rule 9): confirmed with a code after the accept. Shells that
+   * send it declare the `coach-invite-email` capability. */
+  email: string;
   /** PAD-457 (clubs.coach-invitation rule 8): `YYYY-MM-DD`, required; under 18 is refused. */
   birthDate?: string;
 }
