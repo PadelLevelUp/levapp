@@ -37,6 +37,8 @@ async function signUpStudent(page: Page) {
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
   // PAD-198: birth date is required at sign-up; an adult in Portugal (the default country).
   await page.locator("#signup-birthDate").fill("2000-01-01");
+  // PAD-485 (auth.register rule 19): the Terms box is required.
+  await page.getByTestId("signup-terms").click();
   await page.getByTestId("signup-submit").click();
   // PAD-234: sign-up now routes through email verification before the
   // destination below. The debug outbox hands back the real code.
