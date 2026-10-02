@@ -164,8 +164,24 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
     - **Two levels, never more.** A parent must be one of the coach's own **non-legacy
       categories** (`parent_id` NULL, `competency_group` not NULL); anything else → 400 (another
       coach's → 403). A legacy row is never a parent or a sub-category (R-047), and a
-      sub-category never has sub-categories. Moving a sub-category to another category is not
-      offered.
+      sub-category never has sub-categories.
+    - **Moving (PAD-480, reverses D150's "moving is not offered").** A non-legacy row that is not a
+      default category and holds no sub-categories can be moved under any of the coach's own
+      non-legacy categories, or back to the top level. `PATCH /evaluation_competency/<id>`
+      `{parentId: <id>}` moves it under that category; `{parentId: null}` makes it a category; an
+      absent `parentId` changes nothing (rule 10), so a client that sends only `name`, `isActive` or
+      `sortOrder` (every build before PAD-480) never detaches a row. A move to the parent the row
+      already has is a no-op (200). Refused, 400 `parent_invalid`, nothing written: a legacy row or a
+      legacy target (R-047); a default category (`general`) as the row; a row with sub-categories; a
+      target that is itself a sub-category; the row itself. Another coach's row or target → 403. A
+      move keeps the row's id, name, flag, scores and each score's scale, and sets its `sortOrder` to
+      `null`, so it sorts after its new siblings' ordered rows, by name (rule 8). Rule 16 then decides
+      afresh what is scored for the old and the new category, and rule 9's cascade and impact follow
+      the new parent. The manager offers the move as a row action, "Mover para…", listing the eligible
+      categories and "Sem categoria".
+    - **No new strays (PAD-480, B-255).** Where a legacy row holds a default category's name, the
+      manager does not offer that default's sub-categories: they could not belong to it (the next
+      bullet's API path would create each as a category of its own). The API path stays.
     - **Creating.** `POST /evaluation_competency` accepts `parentId` with `{name}` or with a
       sub-level `{catalogueKey}` (a `technique` / `tactics` group entry). A sub-level catalogue
       entry sent without `parentId` goes under the coach's category keyed by its group word
@@ -329,6 +345,42 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 - **Given** an authenticated student
 - **When** they open a link carrying `?competencies=open` (web) or `/competencies` (iOS)
 - **Then** no manager is shown
+
+#### A row moves under another category, and back (rule 15 "Moving", PAD-480)
+- **Given** coach Ana's top-level catalogue sub-category Bandeja (id 12, 4 scores, sortOrder 2) and her
+  custom category Grit (id 30) with no sub-categories
+- **When** she sends `PATCH /api/app/evaluation_competency/12` `{"parentId": 30}`
+- **Then** Bandeja's `parentId` is 30, its `sortOrder` is null, its 4 scores and their scales are
+  unchanged, and Grit (now holding an active sub-category) is no longer offered for scoring (rule 16)
+- **When** she sends `{"parentId": null}`
+- **Then** Bandeja is a category again, scored directly
+
+#### A move that breaks the two levels or R-047 is refused, and nothing changes (rule 15, PAD-480)
+- **Given** Ana's legacy "Forehand" (id 7), her Consistência (id 3, `general`), Grit (id 30) with the
+  sub-category Recuperação (id 31), Bandeja (id 12) and Bruno's category id 50
+- **When** she moves 7 under 30; 12 under 7; 3 under 30; 30 under another category; 12 under 31;
+  12 under 12; 12 under 50
+- **Then** each is 400 `parent_invalid` (403 for 50) and no row changes
+
+#### A move to the parent the row already has changes nothing (rule 15, PAD-480)
+- **Given** Recuperação (id 31) under Grit (id 30), sortOrder 1
+- **When** Ana sends `{"parentId": 30}`
+- **Then** 200, and parentId 30 and sortOrder 1 are kept
+
+#### An edit that does not send parentId keeps the parent (rule 15, PAD-480)
+- **Given** Recuperação (id 31) under Grit (id 30)
+- **When** a client sends `{"name": "Recuperação ativa"}` or `{"isActive": false}`
+- **Then** its `parentId` is still 30
+
+#### Deleting the new parent takes the moved row with it (rules 9, 15; PAD-480)
+- **Given** Bandeja (id 12, 4 scores) moved under Grit (id 30)
+- **When** Ana reads the impact of deleting Grit, then deletes it
+- **Then** the impact counts Bandeja's 4 scores, and Bandeja and its scores are gone with Grit
+
+#### No sub-categories are offered under a default whose name a legacy row holds (rule 15, B-255)
+- **Given** coach Rui holds a legacy " Técnica " and no Técnica row
+- **When** he opens "Definir categorias de avaliação"
+- **Then** no Técnica heading offers sub-categories; his top-level catalogue rows are still listed
 
 ### Notes
 - ASSUMED by the building slice (PAD-373), none of them in the canvas: (1) "Técnica" and

@@ -8,6 +8,7 @@ import {
   activeCount,
   CATALOGUE_ORDER,
   categorySections,
+  moveTargets,
   competencyKind,
   legacyScaleLabel,
   managerSections,
@@ -228,16 +229,16 @@ describe("categorySections (PAD-431)", () => {
     expect(sections.map((s) => [s.id, s.subs.length, s.parentId])).toEqual([["key-technique", 8, null], ["id-1", 1, 1]]);
   });
 
-  it("a default the coach cannot be offered (they hold its name) still lists its sub-categories, under its name", () => {
-    const legacyTecnica = competency({ id: 9, key: null, name: "Técnica", group: null });
+  it("B-255: a default the coach cannot be offered (a legacy row holds its name) offers none of its sub-categories — they could not belong to it", () => {
+    const legacyTecnica = competency({ id: 9, key: null, name: " Técnica ", group: null });
     const bandejaTop = competency({ id: 10, key: "bandeja", group: "technique", parentId: null });
     const offered = CATALOGUE.filter((e) => e.group === "technique" && e.key !== "bandeja");
     const sections = categorySections({ competencies: [legacyTecnica, bandejaTop], catalogue: offered });
-    const technique = sections.find((s) => s.id === "key-technique")!;
-    expect([technique.head, technique.headKey, technique.parentId, technique.subs.length]).toEqual([null, "technique", null, 8]);
-    // the sub-level row the server left top-level is a category of its own, which cannot hold sub-categories
+    expect(sections.find((s) => s.id === "key-technique")).toBeUndefined();
+    // the sub-level row the server left top-level is still a category of its own
     expect(shape(sections).find((s) => s[0] === "key-bandeja")).toEqual(["key-bandeja", 10, [], null]);
   });
+
 
   it("a row whose category is missing from the list is shown on its own, never lost", () => {
     const stray = competency({ id: 8, key: null, name: "Stray", group: "custom", parentId: 99 });
@@ -252,3 +253,34 @@ describe("categorySections (PAD-431)", () => {
     expect(shape(categorySections({ competencies: flipped, catalogue: [] }))).toEqual(shape(before));
   });
 });
+
+describe("moveTargets (rule 15 \"Moving\", PAD-480)", () => {
+  const technique = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+  const grit = competency({ id: 5, key: null, name: "Grit", group: "custom", parentId: null });
+  const rec = competency({ id: 6, key: null, name: "Recuperação", group: "custom", parentId: 5 });
+  const smash = competency({ id: 2, key: "smash", group: "technique", parentId: 1 });
+  const bandejaTop = competency({ id: 12, key: "bandeja", group: "technique", parentId: null });
+  const data = { competencies: [FOREHAND_LEGACY, technique, grit, rec, smash, bandejaTop], catalogue: [] };
+
+  it("a sub-category can go under another non-legacy category, or to the top level", () => {
+    expect(moveTargets(data, smash)).toEqual({ categories: [grit, bandejaTop], topLevel: true });
+  });
+
+  it("a top-level row with no sub-categories can go under any other non-legacy category, not to where it is", () => {
+    expect(moveTargets(data, bandejaTop)).toEqual({ categories: [technique, grit], topLevel: false });
+  });
+
+  it("a legacy row, a default category and a row holding sub-categories cannot move", () => {
+    expect(moveTargets(data, FOREHAND_LEGACY)).toBeNull();
+    expect(moveTargets(data, technique)).toBeNull();
+    expect(moveTargets(data, grit)).toBeNull();
+  });
+
+  it("legacy rows and sub-categories are never offered as a target", () => {
+    const targets = moveTargets(data, rec)!.categories.map((c) => c.id);
+    expect(targets).not.toContain(FOREHAND_LEGACY.id);
+    expect(targets).not.toContain(smash.id);
+    expect(targets).toEqual([1, 12]);
+  });
+});
+

@@ -309,7 +309,7 @@ def create_competency(coach, body):
 
 
 def update_competency(coach, category_id, body) -> EvaluationCategory:
-    """`{name?, isActive?, sortOrder?}` — by id, and only the keys that are present."""
+    """`{name?, isActive?, sortOrder?, parentId?}` — by id, and only the keys that are present."""
     category = own_competency(coach, category_id)
     if not isinstance(body, dict):
         raise ApiError(400, "body_invalid")
@@ -334,11 +334,35 @@ def update_competency(coach, category_id, body) -> EvaluationCategory:
         if order is not None and (isinstance(order, bool) or not isinstance(order, int) or order < 0):
             raise ApiError(400, "sort_order_invalid")
         changes["sort_order"] = order
+    if "parentId" in body:
+        changes.update(_move(coach, category, body["parentId"]))
 
     for column, value in changes.items():
         setattr(category, column, value)
     db.session.commit()
     return category
+
+
+def _move(coach, category, target) -> dict:
+    """PAD-480 (rule 15 "Moving"): under one of the coach's own non-legacy categories, or back to the
+    top level with `None`. A move to the current parent changes nothing. Refused, 400, before anything is
+    written: a legacy row or target (R-047), a default category as the row, a row holding sub-categories,
+    a sub-category as the target, the row itself. A moved row goes after its new siblings' ordered rows."""
+    from padel_app.models import EvaluationCategory
+
+    if target is not None and (isinstance(target, bool) or not isinstance(target, int)):
+        raise ApiError(400, "parent_invalid")
+    if target == category.parent_id:
+        return {}
+    if category.competency_group in (None, "general"):
+        raise ApiError(400, "parent_invalid")
+    if EvaluationCategory.query.filter_by(parent_id=category.id).first() is not None:
+        raise ApiError(400, "parent_invalid")
+    if target is not None:
+        if target == category.id:
+            raise ApiError(400, "parent_invalid")
+        _parent(coach, target)
+    return {"parent_id": target, "sort_order": None}
 
 
 def delete_competency(coach, category_id) -> dict:

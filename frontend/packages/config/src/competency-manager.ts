@@ -104,8 +104,8 @@ export function activeCount(data: EvaluationCompetencies): number {
 /**
  * A section of "Definir categorias de avaliação" (evaluations.competencies rule 15). `legacy`
  * holds the categories the coach already had (flat, first, as Q31 set). A `category` section is
- * one category — its own row, or a default not yet held (`available`), or `null` when a default
- * cannot be offered because the coach already holds a row of its name — with its sub-categories.
+ * one category — its own row, or a default not yet held (`available`) — with its sub-categories. A
+ * default the coach cannot be offered (a legacy row holds its name) gets no section (B-255).
  * `parentId` is the id new sub-categories are created under, `null` when there is none yet (a
  * default's sub-categories are then added without one, and the server brings the default back).
  */
@@ -162,7 +162,9 @@ export function categorySections(data: EvaluationCompetencies): CategorySection[
   for (const key of DEFAULT_CATEGORIES) {
     const held = rows.find((c) => c.key === key && c.parentId == null);
     const available = data.catalogue.find((entry) => entry.key === key);
-    const offered = SUB_LEVEL.includes(key) ? data.catalogue.filter((entry) => entry.group === key) : [];
+    // B-255 (rule 15 "No new strays"): with neither the default held nor offered, a legacy row holds
+    // its name — a sub-category added here could not belong to it, so none is offered.
+    const offered = SUB_LEVEL.includes(key) && (held || available) ? data.catalogue.filter((entry) => entry.group === key) : [];
     const kids = held ? children.get(held.id) ?? [] : [];
     if (!held && !available && offered.length === 0) continue;
     sections.push({
@@ -194,4 +196,22 @@ export function categorySections(data: EvaluationCompetencies): CategorySection[
     });
   }
   return sections;
+}
+
+/**
+ * PAD-480 (evaluations.competencies rule 15 "Moving"): where a row can be moved — under one of the
+ * coach's own non-legacy categories other than its current one, and to the top level when it has a
+ * parent. `null` when the row cannot move: a legacy row (R-047), a default category, or a category
+ * holding sub-categories (two levels only). The server refuses the same cases.
+ */
+export function moveTargets(
+  data: EvaluationCompetencies,
+  row: EvaluationCompetency,
+): { categories: EvaluationCompetency[]; topLevel: boolean } | null {
+  if (row.group === null || row.group === "general") return null;
+  if (data.competencies.some((c) => c.parentId === row.id)) return null;
+  const categories = data.competencies.filter(
+    (c) => c.parentId == null && c.group !== null && c.id !== row.id && c.id !== row.parentId,
+  );
+  return { categories, topLevel: row.parentId != null };
 }
