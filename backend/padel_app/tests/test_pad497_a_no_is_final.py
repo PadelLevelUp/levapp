@@ -339,3 +339,88 @@ def test_a_spot_held_up_in_an_early_round_moves_on_to_the_next_group(app, monkey
         _tick(monkeypatch, 2)
         _tick(monkeypatch, 4)
         assert [p for v, p in _live_events(instance_id) if v == second] == [d]
+
+
+# ── #513 review F1: the wait counts only holders this round would otherwise ask ──────────────
+
+def _sided_class(app, *, spots, groups, sides, max_sim=1, exclude=()):
+    """A class with `spots` open left-side spots; students with the given sides; invitation
+    groups: 1 = round 1 requires the spot's side, 2 = round 1 sided then round 2 open."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.vacancy import Vacancy
+
+    instance_id, coach_id, _, players = _seed(enrolled=0, candidates=len(sides), max_players=spots,
+                                              groups=groups, max_sim=max_sim)
+    cfg = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+    sided = {"id": "1", "rules": [{"attribute": "side", "operation": "same_as_vacancy"}]}
+    cfg.invitation_groups = [sided, {"id": "2", "rules": []}][:groups] if groups > 1 else [{"id": "1", "rules": []}]
+    if exclude:
+        cfg.restrictions = {**cfg.get_restrictions(),
+                            "excludedPlayers": {"enabled": True, "playerIds": [str(p) for p in exclude]}}
+    for pid, side in zip(players, sides):
+        Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=pid).one().side = side
+    rows = [Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open", side="left",
+                    current_round_number=1, current_batch_number=0) for _ in range(spots)]
+    db.session.add_all(rows)
+    db.session.commit()
+    return instance_id, coach_id, players, [r.id for r in rows]
+
+
+def test_s1_two_spots_nobody_answers_a_later_group_student_is_still_asked(app, monkeypatch):
+    """S1. Two spots; round 1 admits the left players A and B, round 2 everyone (C is right-side);
+    one offer at a time; nobody answers. Each spot asks one of A/B; once the inactivity interval
+    passes, a spot finds its round-1 students all holding offers and must move on to round 2 and
+    ask C — not sit in round 1 until the class starts."""
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, (a, b, c), _ = _sided_class(app, spots=2, groups=2, sides=("left", "left", "right"))
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert sorted(p for _, p in _live_events(instance_id)) == sorted([a, b])
+        for m in (121, 123, 125, 127):
+            _tick(monkeypatch, m)
+        assert c in [p for _, p in _live_events(instance_id)]
+
+
+def test_s2_an_excluded_student_with_a_manual_invite_does_not_hold_round_1(app, monkeypatch):
+    """S2. One spot; round 1 admits A and B (left), round 2 everyone. The coach excluded B from
+    automatic invitations and invited B by hand. A declines: round 1 has nobody it would ask (B is
+    excluded), so the spot moves to round 2 and asks C."""
+    from padel_app.services.notification_service import send_manual_notifications, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, (a, b, c), _ = _sided_class(app, spots=1, groups=2, sides=("left", "left", "right"),
+                                                           exclude=(2,))
+        assert b == 2
+        send_manual_notifications(instance_id, [b], coach_id)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert [p for v, p in _live_events(instance_id) if v is not None] == [a]
+        _answer(instance_id, a, "no", NOW + timedelta(minutes=1))
+        for m in (3, 5, 7):
+            _tick(monkeypatch, m)
+        assert c in [p for v, p in _live_events(instance_id) if v is not None]
+
+
+def test_s3_one_group_an_excluded_holder_does_not_hold_the_spot_open(app, monkeypatch):
+    """S3. One spot, ONE invitation group (round 1 is the last). B is excluded and holds a manual
+    invitation; A is asked and declines. Nobody the round would ask is left, and B is someone it
+    would never ask: the spot expires as before, instead of waiting until the class starts."""
+    from padel_app.services.notification_service import send_manual_notifications, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, (a, b), (spot,) = _sided_class(app, spots=1, groups=1, sides=("left", "left"),
+                                                             exclude=(2,))
+        assert b == 2
+        send_manual_notifications(instance_id, [b], coach_id)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        _answer(instance_id, a, "no", NOW + timedelta(minutes=1))
+        for m in (3, 5):
+            _tick(monkeypatch, m)
+        assert _vacancies(instance_id)[0][1] == "expired"
