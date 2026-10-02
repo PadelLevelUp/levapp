@@ -103,7 +103,11 @@ cross-spot split out as PAD-494).
     `maxInactiveTime`, or never retried with it off, and submitted pushes before the commit.
     Second review: a batch that raised, or a process that died after the claim, left the same
     stall. A raise now gives the claim back (re-locked, only if unchanged), and an abandoned
-    claim lapses after `START_CLAIM_LEASE` (10 minutes).
+    claim (round 1, batch 0) lapses after `START_CLAIM_LEASE` (10 minutes). Third review: the
+    lapse first also required "no invitation yet", so a process that died after committing one
+    invitation left the spot stalled for good with `maxInactiveTime` off; that clause is gone. The
+    lease is an assumption (a live sender finishes its first batch inside 10 minutes), named in
+    rule 1b.
   - `_find_or_create_open_vacancies` creates a vacancy for each absent student without one even
     while another vacancy of the class is open (never-filled places unchanged), only as many as
     the absences free: an absence on an over-full roster creates none. Review of #507: a student marked absent while another spot held got no vacancy;

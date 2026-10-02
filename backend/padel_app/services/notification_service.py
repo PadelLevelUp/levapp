@@ -4071,23 +4071,27 @@ def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> l
     )
 
 
-#: PAD-493 (rule 1b): how long a start claim holds before it lapses. A claim that never sent
-#: anything (the process died between the claim's commit and the batch) is retried after this;
-#: it is far longer than any batch takes, so a live sender is never raced.
+#: PAD-493 (rule 1b): how long a start claim holds before it lapses. A claim whose batch never
+#: finished (the process died between the claim's commit and the batch's counter update) is
+#: retried after this. ASSUMPTION, not a guarantee: a live sender finishes its batch well inside
+#: it — a batch is at most maxSimultaneous students, seconds of work — so it is not raced. A
+#: sender that stalls longer than this inside its first batch can be raced by the restart, and
+#: both would send (named in rule 1b).
 START_CLAIM_LEASE = timedelta(minutes=10)
 
 
 def _claim_lapsed(vacancy: Vacancy, now: datetime) -> bool:
-    """True for an open vacancy that was claimed but never sent (round 1, batch 0, no invitation
-    for it) longer than `START_CLAIM_LEASE` ago. A round deferral moves the round, a batch moves
-    the counter and a send writes an invitation, so only an abandoned claim looks like this."""
+    """True for an open vacancy claimed longer than `START_CLAIM_LEASE` ago whose first batch
+    never completed (round 1, batch 0). A round deferral moves the round and a completed batch
+    moves the counter, so only an abandoned claim looks like this — including one whose process
+    died after committing some of the batch's invitations (third review of #507): the restart's
+    dedupe skips the students those invitations went to."""
     return (
         vacancy.status == "open"
         and vacancy.last_activity_at is not None
         and vacancy.current_batch_number == 0
         and vacancy.current_round_number == 1
         and now - vacancy.last_activity_at >= START_CLAIM_LEASE
-        and NotificationEvent.query.filter_by(vacancy_id=vacancy.id).count() == 0
     )
 
 
