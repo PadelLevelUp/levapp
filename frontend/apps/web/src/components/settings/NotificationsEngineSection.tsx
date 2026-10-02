@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
@@ -22,6 +22,7 @@ import { RestrictionsPanel } from "./RestrictionsPanel";
 import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
+import { SaveSign, useSaveSign } from "./SaveSign";
 
 type SectionKey = "reminders" | "eligibility" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
@@ -34,29 +35,50 @@ export function NotificationsEngineSection() {
   // PAD-150 (rule 9b): who the last saved bar would exclude; `null` = no bar
   // saved yet this visit. Stored as data, never as translated text.
   const [eligibilityImpact, setEligibilityImpact] = useState<EligibilityImpactEntry[] | null>(null);
+  // settings.save-on-change rules 2-3 / B-243 (PAD-473): each control signs its save under its own
+  // key; `confirmed` is what the server last confirmed (the loaded config, then each successful
+  // patch in the order the answers arrive), and `newestSave` numbers each field's saves so only a
+  // field whose NEWEST save failed is put back.
+  const sign = useSaveSign();
+  const confirmed = useRef<NotificationConfig | null>(null);
+  const newestSave = useRef<Record<string, number>>({});
 
   useEffect(() => {
     getNotificationConfig()
       // Normalize: invitationMode must always be a concrete value so the
       // RadioGroup is fully controlled and never fires a spurious change.
-      .then((cfg) =>
-        setConfig({ ...cfg, invitationMode: cfg.invitationMode ?? "automatic" })
-      )
+      .then((cfg) => {
+        const loaded = { ...cfg, invitationMode: cfg.invitationMode ?? "automatic" };
+        confirmed.current = loaded;
+        setConfig(loaded);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const save = async (patch: Partial<NotificationConfig>) => {
+  // `signKey` names the control's sign. The reminders sub-panel passes none: it keeps no sign until
+  // PAD-478 (settings.save-on-change rule 1).
+  const save = async (patch: Partial<NotificationConfig>, signKey?: string) => {
     if (!config) return;
-    const updated = { ...config, ...patch };
-    setConfig(updated);
+    const fields = Object.keys(patch) as (keyof NotificationConfig)[];
+    const mine: Record<string, number> = {};
+    for (const f of fields) mine[f] = newestSave.current[f] = (newestSave.current[f] ?? 0) + 1;
+    setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
+    const request = updateNotificationConfig(patch);
     try {
-      const saved = await updateNotificationConfig(patch);
+      const saved = await (signKey ? sign.track(signKey, request) : request);
+      if (confirmed.current) confirmed.current = { ...confirmed.current, ...patch };
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
     } catch {
-      // Revert on failure
-      setConfig(config);
+      // Back to the confirmed value, for the fields whose newest save this was (B-243).
+      const back: Partial<NotificationConfig> = {};
+      for (const f of fields) {
+        if (newestSave.current[f] === mine[f] && confirmed.current) {
+          (back as Record<string, unknown>)[f] = confirmed.current[f];
+        }
+      }
+      if (Object.keys(back).length > 0) setConfig((prev) => (prev ? { ...prev, ...back } : prev));
     }
   };
 
@@ -115,7 +137,10 @@ export function NotificationsEngineSection() {
         {/* Master toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium" data-testid="notification-engine-auto-notify-label">{t("settings.engine.automaticNotifications")}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium" data-testid="notification-engine-auto-notify-label">{t("settings.engine.automaticNotifications")}</p>
+              <SaveSign status={sign.status("autoNotify")} testId="notification-engine-auto-notify-sign" />
+            </div>
             <p className="text-xs text-muted-foreground">
               {t("settings.engine.automaticNotificationsDescription")}
             </p>
@@ -128,10 +153,10 @@ export function NotificationsEngineSection() {
                 setGroupsInitializing(true);
                 setOpenSection("groups");
                 await new Promise((r) => setTimeout(r, 700));
-                await save({ autoNotifyEnabled: true, invitationGroups: DEFAULT_INVITATION_GROUPS });
+                await save({ autoNotifyEnabled: true, invitationGroups: DEFAULT_INVITATION_GROUPS }, "autoNotify");
                 setGroupsInitializing(false);
               } else {
-                save({ autoNotifyEnabled: val });
+                save({ autoNotifyEnabled: val }, "autoNotify");
               }
             }}
           />
@@ -141,7 +166,10 @@ export function NotificationsEngineSection() {
         {config.autoNotifyEnabled && (
           <div className="space-y-2" data-testid="notification-engine-invitation-mode">
             <div>
-              <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">{t("settings.engine.invitationMode")}</p>
+                <SaveSign status={sign.status("invitationMode")} testId="notification-engine-invitation-mode-sign" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t("settings.engine.invitationModeDescription")}
               </p>
@@ -153,7 +181,7 @@ export function NotificationsEngineSection() {
                 // ({invitationMode} only) so this save can never overwrite
                 // other config fields (backend patches only provided keys).
                 if (value !== (config.invitationMode ?? "automatic")) {
-                  save({ invitationMode: value as InvitationMode });
+                  save({ invitationMode: value as InvitationMode }, "invitationMode");
                 }
               }}
               className="gap-2"
@@ -211,21 +239,25 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="eligibility" icon={ShieldCheck} label={t("settings.engine.eligibility")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.eligibilityHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("settings.engine.eligibilityHint")}</p>
+              <SaveSign status={sign.status("eligibility")} testId="notification-engine-eligibility-sign" />
+            </div>
             <EligibilitySection
               rules={config.eligibilityRules}
-              onChange={(eligibilityRules) => save({ eligibilityRules })}
+              onChange={(eligibilityRules) => save({ eligibilityRules }, "eligibility")}
               disabled={disabled}
             />
             <EligibilityImpactNote affected={eligibilityImpact} />
             {/* PAD-130 (eligibility.open-spot-visibility rule 3): the coach standard. */}
             <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
-              <span className="text-xs">{t("settings.eligibility.openSpots.label")}</span>
+              <span className="flex items-center gap-2 text-xs">
+                {t("settings.eligibility.openSpots.label")}
+                <SaveSign status={sign.status("openSpots")} testId="notification-engine-open-spots-sign" />
+              </span>
               <Switch
                 checked={config.openSpotsVisible ?? false}
-                onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible })}
+                onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible }, "openSpots")}
                 disabled={disabled}
                 aria-label={t("settings.eligibility.openSpots.label")}
                 data-testid="open-spots-visible"
@@ -243,9 +275,10 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="groups" icon={Layers} label={t("settings.engine.invitationGroups")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.invitationGroupsHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("settings.engine.invitationGroupsHint")}</p>
+              <SaveSign status={sign.status("groups")} testId="notification-engine-groups-sign" />
+            </div>
             {groupsInitializing ? (
               <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -254,7 +287,7 @@ export function NotificationsEngineSection() {
             ) : (
               <InvitationGroupsSection
                 groups={config.invitationGroups ?? []}
-                onChange={(invitationGroups) => save({ invitationGroups })}
+                onChange={(invitationGroups) => save({ invitationGroups }, "groups")}
                 disabled={disabled}
               />
             )}
@@ -270,12 +303,13 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="tiebreakers" icon={ArrowUpDown} label={t("settings.engine.tiebreakers")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.tiebreakersHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{t("settings.engine.tiebreakersHint")}</p>
+              <SaveSign status={sign.status("tiebreakers")} testId="notification-engine-tiebreakers-sign" />
+            </div>
             <TiebreakersSection
               tiebreakers={config.tiebreakers && config.tiebreakers.length > 0 ? config.tiebreakers : DEFAULT_TIEBREAKERS}
-              onChange={(tiebreakers) => save({ tiebreakers })}
+              onChange={(tiebreakers) => save({ tiebreakers }, "tiebreakers")}
               disabled={disabled}
             />
           </CollapsibleContent>
@@ -290,6 +324,9 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="restrictions" icon={ShieldAlert} label={t("settings.engine.restrictions")} />
           <CollapsibleContent className="pt-3">
+            <div className="mb-2 flex justify-end">
+              <SaveSign status={sign.status("restrictions")} testId="notification-engine-restrictions-sign" />
+            </div>
             <RestrictionsPanel
               restrictions={{
                 maxInactiveTime: { enabled: false, value: 120 },
@@ -299,7 +336,7 @@ export function NotificationsEngineSection() {
                 ...config.restrictions,
               }}
               excludedPlayerNames={config.excludedPlayerNames ?? {}}
-              onChange={(restrictions) => save({ restrictions })}
+              onChange={(restrictions) => save({ restrictions }, "restrictions")}
               disabled={disabled}
             />
           </CollapsibleContent>
@@ -324,9 +361,12 @@ export function NotificationsEngineSection() {
             )}
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
+            <div className="mb-2 flex justify-end">
+              <SaveSign status={sign.status("notifyGroups")} testId="notification-engine-notifyGroups-sign" />
+            </div>
             <NotificationGroupsSection
               groups={config.notificationGroups ?? []}
-              onChange={(notificationGroups) => save({ notificationGroups })}
+              onChange={(notificationGroups) => save({ notificationGroups }, "notifyGroups")}
             />
           </CollapsibleContent>
         </Collapsible>

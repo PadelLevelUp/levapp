@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
+import { SaveSign, useSaveSign } from "./save-sign";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
@@ -53,6 +54,12 @@ export function AutoInviteSection() {
 
   const [config, setConfig] = React.useState<NotificationConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
+  // settings.save-on-change rules 2-3 / B-243 (PAD-473), as web's card: each control signs its save
+  // under its own key; `confirmed` is what the server last confirmed (the loaded config, then each
+  // successful patch as answers arrive), and only a field whose NEWEST save failed is put back.
+  const sign = useSaveSign();
+  const confirmed = React.useRef<NotificationConfig | null>(null);
+  const newestSave = React.useRef<Record<string, number>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -62,7 +69,9 @@ export function AutoInviteSection() {
         if (cancelled) return;
         // Normalize like web: invitationMode always concrete so the control
         // below is fully controlled and never fires a spurious change.
-        setConfig({ ...cfg, invitationMode: cfg.invitationMode ?? "automatic" });
+        const loaded = { ...cfg, invitationMode: cfg.invitationMode ?? "automatic" };
+        confirmed.current = loaded;
+        setConfig(loaded);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -78,17 +87,27 @@ export function AutoInviteSection() {
   // Closed by default, like web's collapsible sub-panels.
   const [restrictionsOpen, setRestrictionsOpen] = React.useState(false);
 
-  const save = async (patch: Partial<NotificationConfig>) => {
+  const save = async (patch: Partial<NotificationConfig>, signKey: string) => {
     if (!config) return;
-    const previous = config;
-    setConfig({ ...config, ...patch });
+    const fields = Object.keys(patch) as (keyof NotificationConfig)[];
+    const mine: Record<string, number> = {};
+    for (const f of fields) mine[f] = newestSave.current[f] = (newestSave.current[f] ?? 0) + 1;
+    setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
     try {
-      const saved = await notificationEngineApi.updateNotificationConfig(patch);
+      const saved = await sign.track(signKey, notificationEngineApi.updateNotificationConfig(patch));
+      if (confirmed.current) confirmed.current = { ...confirmed.current, ...patch };
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
     } catch {
-      setConfig(previous);
+      // Back to the confirmed value, for the fields whose newest save this was (B-243).
+      const back: Partial<NotificationConfig> = {};
+      for (const f of fields) {
+        if (newestSave.current[f] === mine[f] && confirmed.current) {
+          (back as Record<string, unknown>)[f] = confirmed.current[f];
+        }
+      }
+      if (Object.keys(back).length > 0) setConfig((prev) => (prev ? { ...prev, ...back } : prev));
     }
   };
 
@@ -115,9 +134,12 @@ export function AutoInviteSection() {
       <CardContent className="gap-4">
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1">
-            <Text className="text-sm font-medium">
-              {t("settings.engine.automaticNotifications")}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-sm font-medium">
+                {t("settings.engine.automaticNotifications")}
+              </Text>
+              <SaveSign status={sign.status("autoNotify")} testID="settings-auto-invite-sign" />
+            </View>
             <Text className="text-xs text-muted-foreground">
               {t("settings.engine.automaticNotificationsDescription")}
             </Text>
@@ -126,16 +148,19 @@ export function AutoInviteSection() {
             testID="settings-auto-invite-toggle"
             accessibilityLabel={t("settings.engine.automaticNotifications")}
             checked={config.autoNotifyEnabled}
-            onCheckedChange={(val: boolean) => void save({ autoNotifyEnabled: val })}
+            onCheckedChange={(val: boolean) => void save({ autoNotifyEnabled: val }, "autoNotify")}
           />
         </View>
 
         {config.autoNotifyEnabled ? (
           <View className="gap-2">
             <View>
-              <Text className="text-sm font-medium">
-                {t("settings.engine.invitationMode")}
-              </Text>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-sm font-medium">
+                  {t("settings.engine.invitationMode")}
+                </Text>
+                <SaveSign status={sign.status("invitationMode")} testID="settings-invite-mode-sign" />
+              </View>
               <Text className="text-xs text-muted-foreground">
                 {t("settings.engine.invitationModeDescription")}
               </Text>
@@ -160,7 +185,7 @@ export function AutoInviteSection() {
                     accessibilityState={{ checked: isSelected }}
                     accessibilityLabel={label}
                     onPress={() => {
-                      if (value !== mode) void save({ invitationMode: value });
+                      if (value !== mode) void save({ invitationMode: value }, "invitationMode");
                     }}
                     className={cn(
                       "flex-1 items-center rounded-md border px-3 py-2.5",
@@ -192,26 +217,32 @@ export function AutoInviteSection() {
             not a permission system of their own. */}
         <View className="gap-2 border-t border-border pt-4">
           <View>
-            <Text className="text-sm font-medium">
-              {t("settings.engine.eligibility")}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-sm font-medium">
+                {t("settings.engine.eligibility")}
+              </Text>
+              <SaveSign status={sign.status("eligibility")} testID="settings-eligibility-sign" />
+            </View>
             <Text className="text-xs text-muted-foreground">
               {t("settings.engine.eligibilityHint")}
             </Text>
           </View>
           <EligibilitySection
             rules={config.eligibilityRules}
-            onChange={(eligibilityRules) => void save({ eligibilityRules })}
+            onChange={(eligibilityRules) => void save({ eligibilityRules }, "eligibility")}
           />
           <EligibilityImpactNote affected={eligibilityImpact} />
           {/* PAD-130: the coach standard of the open-spot toggle. */}
           <View className="mt-3 flex-row items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
-            <Text className="flex-1 text-xs">{t("settings.eligibility.openSpots.label")}</Text>
+            <View className="flex-1 flex-row items-center gap-2">
+              <Text className="text-xs">{t("settings.eligibility.openSpots.label")}</Text>
+              <SaveSign status={sign.status("openSpots")} testID="settings-open-spots-sign" />
+            </View>
             <Switch
               testID="open-spots-visible"
               accessibilityLabel={t("settings.eligibility.openSpots.label")}
               checked={config.openSpotsVisible ?? false}
-              onCheckedChange={(openSpotsVisible) => void save({ openSpotsVisible })}
+              onCheckedChange={(openSpotsVisible) => void save({ openSpotsVisible }, "openSpots")}
             />
           </View>
         </View>
@@ -226,7 +257,10 @@ export function AutoInviteSection() {
             onPress={() => setRestrictionsOpen((open) => !open)}
             className="flex-row items-center justify-between"
           >
-            <Text className="text-sm font-medium">{t("settings.engine.restrictions")}</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-sm font-medium">{t("settings.engine.restrictions")}</Text>
+              <SaveSign status={sign.status("restrictions")} testID="settings-restrictions-sign" />
+            </View>
             <Ionicons
               name={restrictionsOpen ? "chevron-up" : "chevron-down"}
               size={16}
@@ -238,7 +272,7 @@ export function AutoInviteSection() {
               restrictions={{ ...RESTRICTION_FALLBACKS, ...config.restrictions }}
               excludedPlayerNames={config.excludedPlayerNames ?? {}}
               disabled={!config.autoNotifyEnabled}
-              onChange={(restrictions) => void save({ restrictions })}
+              onChange={(restrictions) => void save({ restrictions }, "restrictions")}
             />
           ) : null}
         </View>
