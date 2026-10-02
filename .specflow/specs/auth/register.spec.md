@@ -65,8 +65,12 @@ create one, or ask to join an existing one — happens right after approval (`cl
     On every later app load the coach is routed by `coachApproval` then `clubs`: pending →
     pending-approval screen; rejected → rejected screen; approved with no club → club
     onboarding (`clubs.join-request` rule 7); approved with a club → dashboard.
-12. The whole registration is one DB transaction: a failure after the User insert leaves no
-    orphan User, Coach or Player.
+12. **An account is created completely or not at all (PAD-476, B-246).** The whole registration
+    is one DB transaction: the User, its Player or Coach, and a coach's default level ladder. A
+    failure at any step after the User insert leaves no User, Player, Coach or level behind, and
+    the same request sent again succeeds. The verification code (rule 14), the admin notice
+    (rule 13) and the CRM sync (`auth.coach-crm-sync`) run only after that transaction has
+    committed, and never when it rolls back.
 13. Signup notifies the LevApp admin that a coach is waiting (`auth.coach-approval` rule 4).
 14. Signup marks the email as needing verification and sends the first 6-digit code inside the
     same request, best-effort (`auth.email-verification` rules 1 and 6). The 201 body's `user`
@@ -148,11 +152,11 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **And** signing out and back in shows the same screen while still pending
 - **And** the same flow exists on iOS
 
-#### Transaction is atomic
-- **Given** a coach payload whose default-ladder creation is made to fail (monkeypatched)
-- **When** POST `/api/auth/register`
-- **Then** the response is 500 or 400
-- **And** no User or Coach row was created
+#### An account is created completely or not at all (rule 12, PAD-476)
+- **Given** a coach payload
+- **When** registration fails after the coach's default levels were written
+- **Then** the answer is 500, no User, Coach or level exists, no verification code was sent and no CRM sync ran
+- **And** the same payload sent again is 201 with one User, one Coach and three levels
 
 #### Too many signups from one IP are throttled
 - **Given** `AUTH_RATE_LIMIT_REGISTER` is `2/600`
