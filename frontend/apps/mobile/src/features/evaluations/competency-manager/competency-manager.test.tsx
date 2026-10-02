@@ -80,6 +80,9 @@ const api = vi.hoisted(() => ({
 
 // Exposed by the "@levelup/hooks" mock below; captures the list query's own `refetch`
 // so the test can force a second read (test 2) without a real QueryClient.
+// Every reader of the list registers here, as every observer of one react-query query would refetch
+// together (PAD-480: each row now reads the list too, for where it may move).
+const listReaders = new Set<() => void>();
 let listRefetch: (() => void) | null = null;
 
 vi.mock("@levelup/hooks", async () => {
@@ -120,7 +123,8 @@ vi.mock("@levelup/hooks", async () => {
   return {
     useEvaluationCompetencies: (enabled = true) => {
       const q = useFakeQuery(api.getEvaluationCompetencies, null, enabled);
-      listRefetch = q.refetch; // captured at render time — a test-only escape hatch
+      listReaders.add(q.refetch);
+      listRefetch = () => listReaders.forEach((refetch) => refetch()); // a test-only escape hatch
       return q;
     },
     useCreateCustomCompetency: () =>
@@ -223,6 +227,7 @@ beforeEach(() => {
   api.getEvaluationCompetencyImpact.mockResolvedValue({ scores: 0, players: 0 });
   settleLanguage();
   listRefetch = null;
+  listReaders.clear();
 });
 
 describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-392/B-155 family)", () => {
@@ -257,6 +262,7 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
     await n.changeText("competency-add-name", "Maestro Cat");
 
     api.getEvaluationCompetencies.mockResolvedValue(DATA_V2);
+    const readsBefore = api.getEvaluationCompetencies.mock.calls.length;
     await act(async () => {
       listRefetch?.();
     });
@@ -264,7 +270,8 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
 
     expect(n.byTestId("competency-add-name").props.value).toBe("Maestro Cat");
     expect(n.queryByTestId("competency-row-id-9")).not.toBeNull();
-    expect(api.getEvaluationCompetencies).toHaveBeenCalledTimes(2);
+    // The list was read again (each reader of the shim reads for itself; PAD-480's rows read it too).
+    expect(api.getEvaluationCompetencies.mock.calls.length).toBeGreaterThan(readsBefore);
   });
 
   it("a successful add DOES clear the field — by design (Session-C)", async () => {
@@ -372,5 +379,58 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
     await n.flush();
 
     expect(n.queryByTestId("competency-delete-subs")).not.toBeNull();
+  });
+});
+
+describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
+  const TECHNIQUE = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+  const BANDEJA = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique", parentId: 1 });
+  const SAQUE = competency({ id: 13, name: "Saque cruzado", group: "custom", parentId: null });
+  const DATA: EvaluationCompetencies = { competencies: [TECHNIQUE, BANDEJA, FOREHAND, SAQUE], catalogue: [] };
+  const rowOf = (c: EvaluationCompetency, rowKind: "catalogue" | "custom" | "legacy") =>
+    createElement(CompetencyRow, { row: { kind: "existing", competency: c, rowKind }, onDelete: () => {}, level: "sub" });
+
+  beforeEach(() => {
+    api.getEvaluationCompetencies.mockReset().mockResolvedValue(DATA);
+    api.updateEvaluationCompetency.mockReset();
+  });
+
+  it("a sub-category offers the other categories and the top level; picking one sends parentId", async () => {
+    api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
+    const n = await renderNative(rowOf(BANDEJA, "catalogue"));
+    await n.flush();
+
+    await n.press("competency-move-key-bandeja");
+    expect(n.queryByTestId("competency-move-to-key-bandeja-13")).not.toBeNull();
+    expect(n.queryByTestId("competency-move-to-key-bandeja-top")).not.toBeNull();
+    expect(n.queryByTestId("competency-move-to-key-bandeja-7")).toBeNull(); // legacy: never a target
+    expect(n.queryByTestId("competency-move-to-key-bandeja-1")).toBeNull(); // its current category
+
+    await n.press("competency-move-to-key-bandeja-13");
+    await n.flush();
+
+    expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: 13 });
+    expect(n.queryByTestId("competency-move-panel-key-bandeja")).toBeNull();
+  });
+
+  it("a legacy row and a default category offer no move", async () => {
+    const legacy = await renderNative(rowOf(FOREHAND, "legacy"));
+    await legacy.flush();
+    expect(legacy.queryByTestId("competency-move-id-7")).toBeNull();
+    const technique = await renderNative(rowOf(TECHNIQUE, "catalogue"));
+    await technique.flush();
+    expect(technique.queryByTestId("competency-move-key-technique")).toBeNull();
+  });
+
+  it("a refused move says so on the row", async () => {
+    api.updateEvaluationCompetency.mockRejectedValue({ response: { status: 400, data: { error: "parent_invalid" } } });
+    const n = await renderNative(rowOf(BANDEJA, "catalogue"));
+    await n.flush();
+
+    await n.press("competency-move-key-bandeja");
+    await n.press("competency-move-to-key-bandeja-top");
+    await n.flush();
+
+    expect(n.queryByTestId("competency-error-key-bandeja")).not.toBeNull();
   });
 });
