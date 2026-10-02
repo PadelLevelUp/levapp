@@ -60,10 +60,8 @@ test("PAD-325: a reminder for a deleted class shows a note instead of its answer
   await loginAsStudent(page);
   await page.goto(`/messages/${conversationId}`);
 
-  const live = page.getByText("PAD-325 reminder live").locator("xpath=ancestor::*[.//*[@data-testid='message-reminder-yes']][1]");
-  const deleted = page.getByText("PAD-325 reminder deleted").locator(
-    "xpath=ancestor::*[.//*[@data-testid='message-class-deleted']][1]"
-  );
+  const live = page.getByTestId("message-bubble-990001");
+  const deleted = page.getByTestId("message-bubble-990002");
 
   await expect(deleted.getByTestId("message-class-deleted")).toBeVisible({ timeout: 15_000 });
   await expect(deleted.getByTestId("message-reminder-yes")).toHaveCount(0);

@@ -315,7 +315,7 @@ export function MessageBubble({
   }
 
   return (
-    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}>
+    <div data-testid={`message-bubble-${message.id}`} className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}>
       <motion.div
         className={`relative max-w-[80%] md:max-w-[65%] ${message.reactions?.length ? 'pb-4' : ''}`}
         drag="x"
