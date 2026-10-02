@@ -113,7 +113,7 @@ describe("the engine card signs its saves (settings.save-on-change rule 2)", () 
     }
   });
 
-  it("PAD-478: the reminders sub-panel saves exactly as before and has no sign", async () => {
+  it("PAD-478: the reminders sub-panel sends the same request as before and has no sign", async () => {
     await mount();
     await openSection("settings.engine.reminders");
     fireEvent.click(await screen.findByTestId("stub-reminders-change"));

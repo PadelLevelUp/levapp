@@ -282,6 +282,26 @@ describe("review #497", () => {
     expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
   });
 
+  it("rule 3: two held frequency saves both fail — back to the confirmed frequency, not the one the last started from", async () => {
+    vi.useRealTimers();
+    api.putEvaluationSettings.mockReset();
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationSettings
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    open({ reminder: "never" });
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly")); // Y
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-every_2")); // Z, started from monthly
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(2));
+    await act(async () => { failY(new Error("y")); });
+    await act(async () => { failZ(new Error("z")); });
+
+    expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
+  });
+
   it("rule 2: typing gives one sign, after typing stops (counted by signs shown)", async () => {
     const input = await field(7);
     const states: string[] = [];

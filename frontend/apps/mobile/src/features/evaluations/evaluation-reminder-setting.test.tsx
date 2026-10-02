@@ -157,4 +157,22 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     await waitPastDelay();
     expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
   });
+
+  it("rule 3: two held frequency saves both fail — back to the confirmed frequency", async () => {
+    hooks.data = { reminder: "never" };
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    const n = await renderNative(<EvaluationReminderSetting />);
+
+    await n.press("settings-evaluation-reminder-option-monthly"); // Y
+    await n.press("settings-evaluation-reminder-option-every_2"); // Z, started from monthly
+    await act(async () => { failY(new Error("y")); });
+    await act(async () => { failZ(new Error("z")); });
+    await n.flush();
+
+    expect(n.byTestId("settings-evaluation-reminder-option-never").props.accessibilityState.checked).toBe(true);
+  });
 });

@@ -199,4 +199,21 @@ describe("iOS Preferences save on change (settings.save-on-change)", () => {
 
     expect(n.byTestId("settings-language-select").props.accessibilityValue.text).toBe("pt");
   });
+
+  it("rule 3: language — two held saves both fail, back to the confirmed language (not the one the last started from)", async () => {
+    const n = await open();
+    const y = deferred<unknown>();
+    const z = deferred<unknown>();
+    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
+
+    await n.press("settings-language-pt"); // Y
+    await n.flush();
+    await n.press("settings-language-en"); // Z, started from pt
+    await n.flush();
+    await act(async () => { y.reject(new Error("y")); });
+    await act(async () => { z.reject(new Error("z")); });
+    await n.flush();
+
+    expect(n.byTestId("settings-language-select").props.accessibilityValue.text).toBe("en");
+  });
 });

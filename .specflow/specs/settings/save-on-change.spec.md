@@ -31,9 +31,10 @@ toast; every save-on-change control, on both clients, converges on it.
    engine's controls (on/off, invitation mode, eligibility and open spots, invitation groups,
    tiebreakers, restrictions, notify groups; web has all, iOS the subset it ports), evaluation frequency
    and evaluation scale. **Excepted, by name:** the engine's reminders subsection (`reminderTiming`,
-   `invitationStartTiming`) stays as it is, with no sign and no change to how or when it saves, until
-   PAD-478 (a timing save can leave a reminder armed at the old time) is closed; a sign there would
-   promise more than the system keeps. Not in scope: theme (a device preference with no server write)
+   `invitationStartTiming`) shows no sign until PAD-478 (a timing save can leave a reminder armed at the
+   old time) closes — a sign there would promise more than the system keeps; its requests are sent
+   exactly as before, and a failed save returns its fields to the confirmed value like every other
+   control (rule 3). Not in scope: theme (a device preference with no server write)
    and message templates (explicit Save, `settings.unsaved-edits` rule 1). A guard per client fails when
    a Settings file saves on change without the sign (see Tests).
 2. **The sign.** When the server confirms a save, the control shows "Guardado" / "Saved" with a tick,
@@ -44,11 +45,15 @@ toast; every save-on-change control, on both clients, converges on it.
    the sign follows typing once. The sign is announced to assistive technology (a polite live region on
    web; an accessibility announcement on iOS) — a tick only sighted users get is half a sign.
 3. **A failed save is never silent.** It says so at once, inline beside the control ("Não foi possível
-   guardar" / "Couldn't save"), and the control returns to the last value the server confirmed — tracked
-   from the server's answers in the order they arrive, never a copy taken when the save started (B-243).
-   The failure stays until the coach changes that control again. Only the newest save of a control
-   decides its sign: an older save that fails after a newer one was confirmed shows nothing. The coach is never left believing a
-   setting saved when it did not.
+   guardar" / "Couldn't save"), and the control returns to the last value the server confirmed — the
+   answer to the newest confirmed save, by the order the saves were sent (an answer arriving late never
+   moves it back), never a copy taken when the save started (B-243). If the newest save failed and an
+   older one is confirmed afterwards, the control shows what that confirmation stored. A read of the
+   settings never replaces a value a save has touched (B-184's guard, for this record). The failure
+   stays until the coach changes that control again. Only the newest save of a control decides its
+   sign: an older save that fails after a newer one was confirmed shows nothing. Every save-on-change
+   control keeps this record the same way, through the shared `SaveLedger` (`@levelup/config`). The
+   coach is never left believing a setting saved when it did not.
 4. **Where a Save button appears.** Web's page-header "Guardar alterações" appears only on a tab that
    holds explicit-save fields (today: Perfil), because a Save button must save what is on the screen in
    front of it. A tab where everything saves on change shows none; a new explicit-save field on such a
@@ -95,14 +100,26 @@ toast; every save-on-change control, on both clients, converges on it.
 - **Then** it shows no sign and saves exactly as before
 
 ### Tests
+- The record: `packages/config/src/save-ledger.test.ts` (newest only, both held saves failing, recovery after
+  the newest failed, sending order, answer over patch, independent fields, a read never replaces a saved
+  field).
 - Web: `src/components/settings/SaveSign.test.tsx` (sign, pause, failure, newest save only, live region);
-  `EvaluationReminderSetting.test.tsx` / `EvaluationScaleSetting.test.tsx`; `src/pages/SettingsPage.test.tsx`
-  ("save on change": language, request alerts, header Save); `NotificationsEngineSection.test.tsx` (signs per
-  key, B-243 rollback incl. overlapping saves, the reminders exception); the guard
-  `src/components/settings/save-on-change-guard.test.ts` (rule 1).
-- iOS: `src/features/settings/save-sign.test.tsx`; the evaluation twins' tests; `preferences-section.test.tsx`;
-  `auto-invite-section.test.tsx`; the guard `src/features/settings/save-on-change-guard.test.ts` (rule 1).
-- E2E: `e2e/settings/save-on-change.spec.ts` (web); Maestro flow 129 (iOS).
+  `EvaluationReminderSetting.test.tsx` / `EvaluationScaleSetting.test.tsx` (incl. "the sign follows typing
+  once", counted by signs shown, and a failure landing mid-typing); `src/pages/SettingsPage.test.tsx`
+  (language, request alerts, the late read, the header Save, "frequency and scale never ask");
+  `NotificationsEngineSection.test.tsx` (signs per key, B-243 rollback, both held saves failing, the
+  reminders exception); the guard `src/components/settings/save-on-change-guard.test.ts`.
+- iOS: `src/features/settings/save-sign.test.tsx`; the evaluation twins' tests; `preferences-section.test.tsx`
+  (with a react-query stand-in that keeps a real cache); `auto-invite-section.test.tsx`; the guard
+  `src/features/settings/save-on-change-guard.test.ts` (incl. rule 4's "no page-level Save on iOS").
+- E2E only: rule 5 (the sign in the new language) and `settings.language` rule 7's save on choice —
+  `e2e/settings/save-on-change.spec.ts`, `e2e/settings/language-preference.spec.ts`; Maestro flow 129 (iOS).
+- What the guards cannot see (rule 1 is a property; the guards approach it): a save-on-change endpoint
+  they do not name (they know `updateMe`, `updateNotificationConfig`, the evaluation save hooks), a
+  control that saves without going through those calls, a sign rendered but hidden by layout, and a sign
+  shown beside the wrong control. Rule 4's "a new explicit-save field brings the button back" is
+  guidance for whoever adds one: the header renders on Perfil only (`activeTab === "profile"`), so a new
+  explicit-save field elsewhere must change that condition, which review checks.
 
 ### Notes
 - The per-keystroke and per-drag saves of some engine controls (invitation-group numbers, tiebreaker

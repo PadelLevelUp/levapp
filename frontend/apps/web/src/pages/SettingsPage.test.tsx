@@ -66,6 +66,23 @@ vi.mock("@levelup/api", async (importOriginal) => {
   };
 });
 
+// The Preferences tab's evaluation settings read through @levelup/hooks; answered here so the tab makes no
+// network call (review #497 item 8: a real request made these tests load-sensitive).
+const evaluationApi = vi.hoisted(() => ({
+  getEvaluationSettings: vi.fn(async () => ({ reminder: "never" })),
+  putEvaluationSettings: vi.fn(async (body: unknown) => body),
+  getEvaluationScale: vi.fn(async () => ({ scaleMax: 5 })),
+  putEvaluationScale: vi.fn(async (body: unknown) => body),
+}));
+vi.mock("@levelup/api/src/resources/evaluationSettings", () => ({
+  getEvaluationSettings: evaluationApi.getEvaluationSettings,
+  putEvaluationSettings: evaluationApi.putEvaluationSettings,
+}));
+vi.mock("@levelup/api/src/resources/evaluationScale", () => ({
+  getEvaluationScale: evaluationApi.getEvaluationScale,
+  putEvaluationScale: evaluationApi.putEvaluationScale,
+}));
+
 // Stubs — these tabs/sections have their own tests; this file only drives the
 // page-level tab-switch guard through ONE real rule-2 section (working hours).
 vi.mock("@/components/settings/SeasonsSection", () => ({
@@ -452,19 +469,22 @@ describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", (
   });
 
   it("the page-header Save shows on Perfil only (rule 4)", async () => {
+    // By test id: an accessible-name query over this page's DOM is what made the test load-sensitive.
+    const headerSave = () => screen.queryByTestId("settings-header-save");
     goto("/settings?tab=profile");
     renderSettings();
-    expect(await screen.findByRole("button", { name: "settings.saveChanges" })).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-header-save")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("settings-nav-preferences"));
     await screen.findByTestId("settings-request-alerts");
-    expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
+    expect(headerSave()).not.toBeInTheDocument();
 
     // Calendar: its sections have their own Save buttons, so the page header has nothing to save there.
     fireEvent.click(screen.getByTestId("settings-nav-calendar"));
     await screen.findByTestId("working-hours-works-sun");
-    expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
+    expect(headerSave()).not.toBeInTheDocument();
   });
+
 
   function deferred<T>() {
     let resolve!: (v: T) => void;
@@ -538,5 +558,18 @@ describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", (
     await act(async () => { z.reject(new Error("z")); });
 
     expect(toggle).toHaveAttribute("data-state", "checked");
+  });
+
+  it("settings.unsaved-edits rule 1: frequency and scale save on change and never ask", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    fireEvent.click(await screen.findByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(await screen.findByTestId("settings-evaluation-reminder-option-monthly"));
+    await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledWith({ scaleMax: 10 }));
+    await waitFor(() => expect(evaluationApi.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "monthly" }));
+
+    fireEvent.click(screen.getByTestId("settings-nav-calendar"));
+    expect(dialog()).not.toBeInTheDocument();
+    expect(await screen.findByTestId("working-hours-works-sun")).toBeInTheDocument();
   });
 });

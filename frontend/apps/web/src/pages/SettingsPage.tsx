@@ -546,6 +546,7 @@ export default function SettingsPage() {
               phone is showing the section list. */}
           {activeTab === "profile" && (
             <Button
+              data-testid="settings-header-save"
               onClick={handleSave}
               className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
               disabled={isSaving}

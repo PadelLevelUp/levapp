@@ -89,9 +89,9 @@ export function SaveSign({
 }) {
   const { t } = useTranslation();
   return (
-    <View testID={testID} accessibilityLiveRegion="polite" className={cn("min-h-4 flex-row items-center", className)}>
+    <View testID={testID} accessibilityLiveRegion="polite" className={cn("min-h-4 shrink-0 flex-row items-center", className)}>
       {status === "idle" ? null : (
-        <Text testID={textTestID ?? `${testID}-text`} className={cn("text-xs", status === "failed" ? "text-destructive" : "text-muted-foreground")}>
+        <Text testID={textTestID ?? `${testID}-text`} numberOfLines={1} className={cn("text-xs", status === "failed" ? "text-destructive" : "text-muted-foreground")}>
           {status === "saved" ? `✓ ${t(COPY.saved)}` : t(COPY.failed)}
         </Text>
       )}

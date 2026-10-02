@@ -70,7 +70,7 @@ export function SaveSign({ status, testId, className }: { status: SaveSignStatus
       data-testid={testId}
       data-state={status}
       className={cn(
-        "inline-flex min-h-4 items-center gap-1 text-xs",
+        "inline-flex min-h-4 shrink-0 items-center gap-1 whitespace-nowrap text-xs",
         status === "failed" ? "text-destructive" : "text-muted-foreground",
         className,
       )}

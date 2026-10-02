@@ -60,6 +60,9 @@ test("PAD-473 / B-244: the language is stored when chosen and its sign speaks th
   await page.reload();
   const me = await (await page.request.get(`${API_AUTH}/me`, { headers: { Authorization: `Bearer ${await token(page)}` } })).json();
   expect(me.language).toBe("pt");
+  // And the screen after the reload: the select shows Portuguese, in Portuguese.
+  await openTab(page, "settings.nav.preferences");
+  await expect(page.locator("#language-select")).toContainText(uiText("settings.portuguese", "pt"));
 });
 
 test("PAD-473: the page-header Save shows on Perfil only", async ({ page }) => {
