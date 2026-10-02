@@ -424,3 +424,60 @@ def test_s3_one_group_an_excluded_holder_does_not_hold_the_spot_open(app, monkey
         for m in (3, 5):
             _tick(monkeypatch, m)
         assert _vacancies(instance_id)[0][1] == "expired"
+
+
+@pytest.mark.skipif(
+    __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="a lock is only visible with two real connections",
+)
+def test_f3_a_no_landing_between_a_yes_and_its_lock_wins(app, monkeypatch):
+    """#513 review F3. The yes path commits (the invite message's save) before it takes rule 10's
+    lock; a "no" on the same invitation landing in that gap must win: no enrolment, no
+    confirmed invitation carrying answer "no"."""
+    import threading
+
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, candidates = _seed(enrolled=0, candidates=2, max_players=1)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        student = _events(instance_id)[0][1]
+        from padel_app.models.players import Player
+
+        event_id = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=student).one().id
+        user_id = Player.query.get(student).user_id
+
+    in_gap, no_done = threading.Event(), threading.Event()
+    real_lock = ns._lock_vacancy_and_instance
+
+    def gated_lock(vacancy, instance):
+        if threading.current_thread().name == "yes":
+            in_gap.set()
+            no_done.wait(timeout=5)
+        return real_lock(vacancy, instance)
+
+    monkeypatch.setattr(ns, "_lock_vacancy_and_instance", gated_lock)
+
+    def yes():
+        threading.current_thread().name = "yes"
+        respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
+
+    def no():
+        in_gap.wait(timeout=5)
+        try:
+            respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
+        finally:
+            no_done.set()
+
+    with _io():
+        _race(app, [yes, no])
+    with app.app_context():
+        db.session.expire_all()
+        event = db.session.get(NotificationEvent, event_id)
+        assert student not in _instance(instance_id).enrolled_player_ids
+        assert (event.status, event.answer) == ("expired", "no")
