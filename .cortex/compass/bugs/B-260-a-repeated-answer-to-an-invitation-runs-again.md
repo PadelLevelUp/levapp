@@ -61,12 +61,12 @@ Yes/No buttons once an answer is recorded, so a repeat needs a double tap or a r
 
 ### Resolution
 
-Fixed in PAD-493's PR, together with B-259. Out of scope, and not checked:
-`coach_respond_to_notification` (the coach recording an answer for a student) has the same shape
-and is not guarded here.
+Fixed in PAD-493's PR, together with B-259. A "no" on a `confirmed` invitation is now the same
+no-op (rule 17, tested). Left for PAD-495: `coach_respond_to_notification` (the coach recording
+an answer for a student) has the same shape and is not guarded here.
 
 Seen while fixing, not fixed here: PAD-261's accept comment says the vacancy and class locks end
 at the enrolment's commit. In fact `_close_vacancy` commits earlier, through the retired
 messages' saves, so the class lock ends before the winner is enrolled. A second accept on a
 *different* vacancy of the same class could then count capacity without the first enrolment.
-Not reproduced; reported to the coordinator.
+Not reproduced; filed as PAD-495.

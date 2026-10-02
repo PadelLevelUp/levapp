@@ -112,3 +112,6 @@ Fixed in PAD-493's PR. Not covered here, by decision:
 - the same students invited for every spot of a class: PAD-494;
 - a decliner asked again for the same spot in a later round: by design under rule 8, and a product
   question.
+- PAD-495: two different students declining one vacancy at once can both invite the same next
+  student, and a vacancy whose first batch `maxTotal` stops now waits `maxInactiveTime` before
+  the tick retries it, instead of 2 minutes.

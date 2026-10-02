@@ -280,3 +280,31 @@ def test_a_held_spot_expires_when_its_last_live_invitation_is_declined(app, monk
         print("F2 decline:", _vacancies(instance_id), _live_events(instance_id))
         assert _vacancies(instance_id)[0][1] == "expired"
         assert _live_events(instance_id) == []
+
+
+def test_b260_a_no_on_a_confirmed_invitation_changes_nothing(app, monkeypatch):
+    """B-260 (rule 17): a "no" after winning the spot is not a way out. The invitation stays
+    confirmed, the student keeps the spot, and nobody else is invited; leaving the class goes
+    through the attendance cancel path."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=5, max_players=1)
+        trigger_invitations(LessonInstance.query.get(instance_id), coach_id, now=NOW)
+        first = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).order_by(NotificationEvent.id).first()
+        winner_user_id = Player.query.get(first.player_id).user_id
+        respond_to_notification(first.id, "yes", winner_user_id, now=NOW + timedelta(minutes=1))
+        total = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count()
+
+        result = respond_to_notification(first.id, "no", winner_user_id, now=NOW + timedelta(minutes=2))
+
+        assert result["action"] == "declined"
+        assert NotificationEvent.query.get(first.id).status == "confirmed"
+        assert first.player_id in LessonInstance.query.get(instance_id).enrolled_player_ids
+        assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == total
+        assert _vacancies(instance_id)[0][1] == "filled"

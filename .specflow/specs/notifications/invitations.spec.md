@@ -213,6 +213,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     anything commits, and a "yes" marks it `confirmed` before the spot is closed (closing
     retires the other invitations, and that commits). So a double tap racing itself is answered
     once.
+    A "no" on an invitation already `confirmed` is the same no-op: the student keeps the spot and
+    the invitation stays `confirmed` (the answer reports `declined`, nothing else happens).
+    Leaving a class after winning it goes through the attendance cancel, not the invitation.
 
 ### Acceptance Criteria
 
@@ -467,6 +470,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **When** they send the same answer again â€” "no" twice, or "yes" after winning the spot
 - **Then** nothing changes: no further invitation goes to anyone, the winner keeps the spot and a `confirmed` invitation, and nobody is told the spot was filled
 - **And** the same holds when the two identical answers arrive at once (Postgres, forced interleave)
+- **And** a "no" after winning the spot changes nothing: the invitation stays `confirmed`, the student stays enrolled, and nobody else is invited
 
 #### Only one open vacancy per departing player per occurrence (PAD-303)
 - **Given** an open vacancy on instance 10 for player 7
