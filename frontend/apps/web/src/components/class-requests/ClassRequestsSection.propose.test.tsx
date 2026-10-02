@@ -4,7 +4,7 @@
  * The rule itself is unit-tested in @levelup/config (proposalAfterStartChange); this pins the
  * form's wiring, through what is sent. Asserted by test id and request payload, never by copy.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -79,6 +79,11 @@ const sent = async () => {
   await waitFor(() => expect(requestsApi.proposeClassRequest).toHaveBeenCalled());
   return requestsApi.proposeClassRequest.mock.calls[0][1];
 };
+
+// jsdom has no scrollIntoView; the section scrolls the row it opens into view.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 afterEach(() => {
   Object.values(requestsApi).forEach((fn) => typeof fn === "function" && "mockReset" in fn && fn.mockReset());
