@@ -210,6 +210,8 @@ export interface EvaluationCompetencyPatch {
   name?: string;
   isActive?: boolean;
   sortOrder?: number | null;
+  /** PAD-480 (rule 15 "Moving"): a category's id to move under, or `null` for the top level. */
+  parentId?: number | null;
 }
 
 export interface EvaluationRating {
