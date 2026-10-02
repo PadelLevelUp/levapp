@@ -16,7 +16,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 
 ### Entities
 - **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
-- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
+- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued), answer (yes|no|null — the student's answer, rule 18) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
 
 ### Rules
 1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
@@ -39,8 +39,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    lapses after `START_CLAIM_LEASE` (10 minutes) and is started again by the next caller or tick,
    whatever `maxInactiveTime` is; the restart's dedupe skips the students already invited.
    **Assumption, not a guarantee:** a live sender completes its first batch inside the lease (a
-   batch is at most `maxSimultaneous` students, seconds of work). A sender that stalls longer than
-   10 minutes inside that batch is raced by the restart, and both send. Not covered by the lapse:
+   batch is at most `maxSimultaneous` students, seconds of work). The window the lapse can race is
+   the whole first batch, from the claim's commit to the batch counter's update: a sender that
+   stalls longer than 10 minutes anywhere in it is raced by the restart, and both send. Not covered by the lapse:
    a started vacancy (batch 1 or later) that stalls is paced by `maxInactiveTime` as before, and
    with it off waits for the class start (PAD-495 lists the cases that are identical on staging). A decline's follow-up invitation (one
    more, to the next candidate) is not a start and is unchanged. Every call also creates a
