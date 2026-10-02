@@ -120,6 +120,13 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    form can tell the coach that classes already scheduled may still use the previous timing. The
    daily window pass derives every job again with rule 10a's derivation, so a failed reschedule
    heals within a day. Follow-ups (rule 10b) are not part of that pass.
+10d. **One save per edit on the web form (PAD-478).** The reminders form shows each stepper tap
+   and each edit of the time field at once, and sends the timing once, with the final value:
+   600 ms after the coach stops, or at once when the time field loses focus or the section
+   closes. One save is in flight at a time; a value entered meanwhile waits, and only the latest
+   waiting value is sent next. After a save that failed and was rolled back, the controls return
+   to the saved value. iOS has no control for these fields. This spares the server a reschedule
+   per keystroke; rule 10e is what makes the result correct.
 10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
    saved configuration alone, whatever sequence of saves led to it and in whatever order the
    requests arrived: a reschedule takes no value from its request, it reads the saved
@@ -227,6 +234,14 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** the coach saves a new `reminderTiming`
 - **Then** the response is 200 with the saved configuration and `rescheduleFailed: true`, and the failure is logged with the coach
 - **And** a save whose reschedule succeeded carries no `rescheduleFailed`
+
+#### The form sends one save per edit (PAD-478)
+- **Given** the reminders form with "24 hours before"
+- **When** the coach taps "+" five times
+- **Then** the control shows 29 at once and one save is sent, 600 ms after the last tap, with 29
+- **And** typing a time through 00:00 and 09:00 to 09:30 sends one save, with 09:30
+- **And** leaving the time field, or closing the section, sends what is pending at once
+- **And** a value entered while a save is in flight is sent after it, and only the latest one
 
 #### A reschedule that runs late arms what is saved (PAD-478)
 - **Given** save A then save B of one coach
