@@ -26,7 +26,9 @@ opened: 2026-10-02T09:03:55Z
 
 **Evidence:** `backend/padel_app/tests/test_pad478_stale_timing_jobs.py` on staging 80cd3b3c4, a real APScheduler (memory store, paused) and a pinned clock: a baseline with both times in the future passes; six cases fail (reminder, intermediate value, invitation start, the measured send, an occurrence job, type `none`). The observation that selects the cause is the job's `run_date` after the change: still the old instant.
 
-**Prod (read-only, run by the coordinator 2026-10-02 08:59 UTC):** 120 reminder and invitation jobs, all matching the current configs; no stale job.
+**Prod (read-only, both run by the coordinator on 2026-10-02):**
+- 08:59 UTC, `apscheduler_jobs` against each coach's current config: 120 reminder and invitation jobs, all matching; no stale job. That run resolved a class's coach as the lowest coach id; the query now takes the first coach row, as `primary_coach` does. The two differ only for a class with two coaches, and the next read found none whose timings differ, so it was not re-run.
+- 09:37 UTC, classes reachable by a non-primary coach (a co-coach's own row, or the lesson's coach) whose implied reminder or invitation time differs from the primary's: 0 future classes, 0 active lessons. No class in prod could have lost a job through the co-coach or substitute path.
 
 **Open product decision (with the owner):** what a class gets when the coach's new reminder time is already past: nothing (what a class created inside the window gets today), a reminder now, or the old-time reminder (today's accident). For invitations, whether a past start means "start now".
 
