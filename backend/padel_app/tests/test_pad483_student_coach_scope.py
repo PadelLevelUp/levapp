@@ -349,3 +349,37 @@ def test_an_inactive_linked_coach_is_refused(client, app, scope):
     resp = _start(client, app, scope["student_user_id"],
                   {"otherParticipants": [scope["user_ids"]["roster"]]})
     assert resp.status_code == 403
+
+
+def test_not_over_reads_the_club_clock_not_utc(client, app, scope, monkeypatch):
+    """Class times are stored on the club's wall clock (R-023). Pinned at 12:00 UTC on a July day
+    (13:00 in Lisbon), a class that ended at 12:30 Lisbon time is over; compared with UTC it would
+    still look 30 minutes from ending. One that ends at 13:30 Lisbon time still links."""
+    from datetime import datetime
+
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.clubs import Club
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, datetime(2026, 7, 15, 12, 0))
+    ids = {}
+    with app.app_context():
+        club = Club.query.filter_by(name="S483 Club").one()
+        for name, wall_end in (("ended_1230_wall", datetime(2026, 7, 15, 12, 30)),
+                               ("ends_1330_wall", datetime(2026, 7, 15, 13, 30))):
+            user, coach = _make_user_coach(f"s483_{name}")
+            lesson = _make_lesson(club.id, wall_end - timedelta(hours=1), title=f"S483 {name}")
+            inst = LessonInstance(lesson_id=lesson.id, start_datetime=wall_end - timedelta(hours=1),
+                                  end_datetime=wall_end, max_players=4, status="scheduled")
+            db.session.add(inst)
+            db.session.flush()
+            db.session.add(Association_CoachLessonInstance(coach_id=coach.id, lesson_instance_id=inst.id))
+            db.session.add(Presence(player_id=scope["student_player_id"], lesson_instance_id=inst.id))
+            ids[name] = user.id
+        db.session.commit()
+
+    listed = _messageable_ids(client, app, scope["student_user_id"])
+    assert ids["ended_1230_wall"] not in listed
+    assert ids["ends_1330_wall"] in listed

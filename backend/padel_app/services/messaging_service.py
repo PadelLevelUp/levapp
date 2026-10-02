@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive
 
 from flask import abort, jsonify, make_response
 from sqlalchemy import func, nullslast, or_, and_
@@ -77,11 +77,14 @@ def _messageable_target_ids_for(user):
     return _linked_coach_user_ids(player.id)
 
 
-def _linked_coach_user_ids(player_id, now=None):
+def _linked_coach_user_ids(player_id, wall_now=None):
     """Rule 7's student side. A class links only while it is not over (#514 review): an
     occurrence the student is enrolled in that has not ended and is not cancelled (a declined
     "not coming" enrolment still counts — the student is still enrolled), or a series with an
-    occurrence still ahead. A class taught months ago is not a link."""
+    occurrence still ahead. A class taught months ago is not a link.
+
+    Class times are stored on the club's wall clock, so "not over" compares them with
+    `club_now_naive()`, never with UTC now (R-023, PAD-256)."""
     from padel_app.models.Association_CoachClub import Association_CoachClub
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
@@ -92,7 +95,7 @@ def _linked_coach_user_ids(player_id, now=None):
     from padel_app.models.lessons import Lesson
     from padel_app.models.presences import Presence
 
-    now = now or utcnow_naive()
+    now = wall_now or club_now_naive()
     roster = db.session.query(Association_CoachPlayer.coach_id).filter(
         Association_CoachPlayer.player_id == player_id
     )
