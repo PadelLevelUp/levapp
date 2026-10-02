@@ -1,7 +1,9 @@
-"""PAD-498 (B-276, auth.password-recovery rule 11): a password-recovery code belongs to the address it was
-mailed to. When an account's email changes or is cleared, any pending recovery code is discarded, so it
-can never vouch for an address it was not sent to. A recovery started and finished on the same address
-is unchanged.
+"""PAD-498 (B-276, auth.password-recovery rule 11; auth.email-verification rule 3): a recovery or
+verification code belongs to the address it was mailed to. The binding is in the code's HMAC (the
+normalised address is part of the input, checked at confirm), so a code never confirms for another
+address whatever order the writes land in; a `set` listener on `User.email` also discards a pending
+recovery code at once, as defence in depth. A recovery started and finished on the same address is
+unchanged.
 """
 from flask_jwt_extended import create_access_token
 
@@ -127,7 +129,7 @@ def test_the_staging_sync_rewrite_clears_codes_too():
     for column in ("password_reset_code_hash = null", "password_reset_expires_at = null",
                    "password_reset_sent_at = null", "password_reset_attempts = 0",
                    "email_verification_code_hash = null", "email_verification_expires_at = null",
-                   "email_verification_attempts = 0"):
+                   "email_verification_sent_at = null", "email_verification_attempts = 0"):
         assert column in rewrite.lower(), column
 
 
@@ -192,16 +194,19 @@ def test_a_verification_code_issued_while_the_address_changes_does_not_verify_th
 
 
 def test_a_mixed_case_rewrite_of_the_same_address_through_the_orm_keeps_the_code(client, app, ana, outbox):
-    """Writers that do not lower-case (activation, the admin editor) reach the listener's case branch."""
+    """Writers that do not lower-case (activation, the admin editor) reach the listener's case branch, and
+    the code still confirms: the address is normalised on the confirm side too (#518 second read)."""
     from padel_app.models import User
 
-    _code_for_ana(client, outbox)
+    code = _code_for_ana(client, outbox)
     with app.app_context():
         user = db.session.get(User, ana)
         user.email = "Ana@Example.COM"
         db.session.commit()
 
     assert _pending_code(app, ana)[0] is not None
+    res = _confirm(client, code)
+    assert res.status_code == 200, res.get_json()
 
 
 def test_setting_the_email_on_a_detached_expired_user_does_not_raise(client, app, ana, outbox):
@@ -216,3 +221,20 @@ def test_setting_the_email_on_a_detached_expired_user_does_not_raise(client, app
         user.email = NEW_ADDRESS  # an unknown old value counts as a change
         assert user.password_reset_code_hash is None
 
+
+
+def test_a_verification_code_still_confirms_after_a_mixed_case_rewrite_of_the_same_address(client, app, ana, outbox):
+    """The verification code's binding normalises the address on the confirm side as well."""
+    from padel_app.models import User
+
+    headers = _auth(app, ana)
+    assert client.post("/api/auth/email-verification/send", headers=headers).status_code == 200
+    code = _code_from(outbox[-1])
+    with app.app_context():
+        user = db.session.get(User, ana)
+        user.email = "Ana@Example.COM"
+        db.session.commit()
+
+    res = client.post("/api/auth/email-verification/confirm", json={"code": code}, headers=headers)
+
+    assert res.status_code == 200, res.get_json()

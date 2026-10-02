@@ -105,8 +105,10 @@ back at all.
     `set` listener on `User.email`); re-saving the same address in another case is not a change. The
     one writer outside the ORM, `backend/scripts/sync-staging-db.sh` (the bulk email rewrite on the
     staging copy after each deploy), clears both this code and the email-verification code in the same
-    statement. A recovery requested and confirmed on an unchanged address is unaffected. Codes issued
-    before this change stop matching when it deploys (their 15-minute life ends anyway).
+    statement. A recovery requested and confirmed on an unchanged address is unaffected. **At deploy:**
+    a recovery code issued before this change no longer matches — its confirm answers 400
+    `INVALID_CODE` and uses up an attempt (not 410); the person asks for a new code (the old one would
+    have expired within 15 minutes anyway).
 
 ### Acceptance Criteria
 
