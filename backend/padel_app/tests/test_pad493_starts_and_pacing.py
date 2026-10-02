@@ -342,3 +342,75 @@ def test_without_the_lock_the_same_race_starts_the_spot_twice(app, monkeypatch):
         _race(app, [_trigger(instance_id, coach_id)] * 2)
     with app.app_context():
         assert _vacancies(instance_id)[0][3] == 2, "both callers sent a batch"
+
+
+# ── B-260 (rule 17): a double tap racing itself is answered once (Postgres only) ─────────────
+
+@contextlib.contextmanager
+def _both_past_the_repeat_check(monkeypatch):
+    """Hold each answer just after the first repeat check until the other has passed it too, or
+    the gate times out (a lock that makes the second wait is visible as the timeout)."""
+    from padel_app.services import notification_service as ns
+
+    real = ns._repeated_answer
+    gate = threading.Barrier(2)
+
+    def gated(event, action):
+        result = real(event, action)
+        try:
+            gate.wait(timeout=1.5)
+        except threading.BrokenBarrierError:
+            pass
+        return result
+
+    monkeypatch.setattr(ns, "_repeated_answer", gated)
+    yield
+
+
+def _one_invitation_out(app, candidates):
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import trigger_invitations
+
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=candidates, max_players=1)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        event = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).order_by(NotificationEvent.id).first()
+        return instance_id, event.id, Player.query.get(event.player_id).user_id
+
+
+def _answer(event_id, action, user_id, results):
+    from padel_app.services.notification_service import respond_to_notification
+
+    return lambda: results.append(respond_to_notification(event_id, action, user_id, now=NOW + timedelta(minutes=1)))
+
+
+@POSTGRES_ONLY
+def test_a_double_yes_at_once_leaves_the_winner_confirmed(app, monkeypatch):
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, event_id, user_id = _one_invitation_out(app, candidates=3)
+    results = []
+    with _io(), _both_past_the_repeat_check(monkeypatch):
+        _race(app, [_answer(event_id, "yes", user_id, results)] * 2)
+    with app.app_context():
+        assert sorted(r["action"] for r in results) == ["confirmed", "confirmed"]
+        assert db.session.get(NotificationEvent, event_id).status == "confirmed"
+
+
+@POSTGRES_ONLY
+def test_a_double_no_at_once_invites_one_next_student(app, monkeypatch):
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, event_id, user_id = _one_invitation_out(app, candidates=6)
+    with app.app_context():
+        before = len(_live_events(instance_id))           # 3 out of 6
+    results = []
+    with _io(), _both_past_the_repeat_check(monkeypatch):
+        _race(app, [_answer(event_id, "no", user_id, results)] * 2)
+    with app.app_context():
+        # one declined, one more invited: still `before` live
+        assert len(_live_events(instance_id)) == before

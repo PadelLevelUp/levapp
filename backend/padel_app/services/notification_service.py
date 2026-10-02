@@ -4320,6 +4320,11 @@ def respond_to_notification(
     repeat = _repeated_answer(event, action)
     if repeat is not None:
         return repeat
+    if action == "no":
+        # Claimed while the vacancy lock is still held: the invite message's save below commits
+        # and releases it, and a second "no" waiting on that lock must already see this one.
+        event.status = "expired"
+        db.session.flush()
 
     config = get_or_create_config(event.coach_id)
 
@@ -4395,6 +4400,13 @@ def respond_to_notification(
             db.session.commit()  # release the lock
             return {"action": "expired"}
 
+        # B-260 (rule 17) under the lock: this same answer may have won the spot while this one
+        # waited. The winner keeps it; they are not told it was filled.
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        if event.status == "confirmed":
+            db.session.commit()  # release the lock; nothing was written
+            return {"action": "confirmed"}
+
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
             event.status = "expired"
@@ -4450,11 +4462,15 @@ def respond_to_notification(
         # PAD-317: through the one routine, which also retires the invitations
         # still offering this seat — this path expired only `sent` ones, so a
         # `queued` invitation survived the close and was sent afterwards.
+        # B-260: the answer is confirmed before anything here commits (retiring the other
+        # invitations saves their messages, which commits and ends the lock), so a second "yes"
+        # waiting on the lock finds it confirmed rather than a filled vacancy and a `sent` invitation.
+        event.status = "confirmed"
+        db.session.flush()
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _add_player_to_instance(event.player_id, instance)
-        event.status = "confirmed"
         event.save()
 
         if coach_user_id:

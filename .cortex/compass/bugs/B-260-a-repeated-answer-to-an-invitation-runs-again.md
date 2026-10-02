@@ -41,14 +41,32 @@ Yes/No buttons once an answer is recorded, so a repeat needs a double tap or a r
 ### Change Plan
 
 - Spec: `notifications.invitations` rule 17 ("An answer is taken once") and its criterion.
-- Code: `_repeated_answer` in `notification_service.py`. It locks the vacancy (rule 10's order),
-  re-reads the invitation, and returns `{"action": "declined"}` / `{"action": "confirmed"}`
-  without writing anything when the answer was already given.
-- Tests: the two B-260 tests in `test_pad493_invitations_run_twice.py`, red on `0305880a1`, green
-  after.
+- Code (`notification_service.py`):
+  - `_repeated_answer` locks the vacancy (rule 10's order), re-reads the invitation, and returns
+    `{"action": "declined"}` / `{"action": "confirmed"}` without writing anything when the
+    answer was already given.
+  - A "no" marks its invitation `expired` and flushes while that lock is held. Before this, the
+    invite message's save committed and released the lock while the invitation was still
+    `sent`.
+  - A "yes" re-reads the invitation under rule 10's lock, and marks it `confirmed` before
+    `_close_vacancy`. Closing retires the other candidates' messages, whose saves commit and
+    end the lock; a second tap waiting on it found a filled vacancy and a `sent` invitation.
+- Tests:
+  - the two B-260 tests in `test_pad493_invitations_run_twice.py`, red on `0305880a1`, green
+    after;
+  - two Postgres race cells in `test_pad493_starts_and_pacing.py` (a double "yes" and a double
+    "no" at once, forced by a gate after the repeat check). Both were red before the
+    lock-window fix: the second "yes" got `spot_filled_waiting_list_offered`, and the double
+    "no" invited one student twice for the spot.
 
 ### Resolution
 
 Fixed in PAD-493's PR, together with B-259. Out of scope, and not checked:
 `coach_respond_to_notification` (the coach recording an answer for a student) has the same shape
 and is not guarded here.
+
+Seen while fixing, not fixed here: PAD-261's accept comment says the vacancy and class locks end
+at the enrolment's commit. In fact `_close_vacancy` commits earlier, through the retired
+messages' saves, so the class lock ends before the winner is enrolled. A second accept on a
+*different* vacancy of the same class could then count capacity without the first enrolment.
+Not reproduced; reported to the coordinator.

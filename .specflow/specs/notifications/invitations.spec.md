@@ -208,8 +208,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 17. **An answer is taken once (PAD-493, ledger B-260).** A "no" on an invitation that is no longer
     live, and a "yes" on an invitation already `confirmed`, change nothing and send nothing: no
     second decline message, no next invitation, no `spot_filled` to the student who holds the
-    spot. The check runs on the invitation re-read after the vacancy lock (rule 10), so a double
-    tap racing itself is answered once.
+    spot. The check runs on the invitation re-read after the vacancy lock (rule 10), and the
+    answer is recorded before the lock can end: a "no" marks the invitation `expired` before
+    anything commits, and a "yes" marks it `confirmed` before the spot is closed (closing
+    retires the other invitations, and that commits). So a double tap racing itself is answered
+    once.
 
 ### Acceptance Criteria
 
@@ -463,6 +466,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** a student who has answered an invitation
 - **When** they send the same answer again â€” "no" twice, or "yes" after winning the spot
 - **Then** nothing changes: no further invitation goes to anyone, the winner keeps the spot and a `confirmed` invitation, and nobody is told the spot was filled
+- **And** the same holds when the two identical answers arrive at once (Postgres, forced interleave)
 
 #### Only one open vacancy per departing player per occurrence (PAD-303)
 - **Given** an open vacancy on instance 10 for player 7
