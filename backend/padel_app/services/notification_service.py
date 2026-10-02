@@ -3957,12 +3957,33 @@ def _defer_next_round(
     """PAD-87: the current round had nobody to invite. Advance the counter (or
     expire past the last round) and leave the sending to the next engine tick.
     `last_activity_at` is stamped so the tick's "fresh vacancy" branch does not
-    re-send round 1; `_round_pending` is what makes the tick pick it up."""
-    vacancy.current_round_number += 1
+    re-send round 1; `_round_pending` is what makes the tick pick it up.
+
+    PAD-493 / B-259 (rule 16): past the last round the vacancy expires only when none of its
+    invitations is live. While one is, it holds on its last round — open, sending nothing new —
+    so a "yes" can still take the spot; the decline of the last live invitation (or the class
+    starting) brings it back here to expire."""
     vacancy.last_activity_at = now or utcnow_naive()
-    if vacancy.current_round_number > _round_max_count(config):
+    if vacancy.current_round_number >= _round_max_count(config):
+        if _has_live_offers(vacancy):
+            vacancy.save()
+            return
+        vacancy.current_round_number += 1
         vacancy.status = "expired"
+    else:
+        vacancy.current_round_number += 1
     vacancy.save()
+
+
+def _has_live_offers(vacancy: Vacancy) -> bool:
+    """True while any invitation for this vacancy can still be answered (``LIVE_INVITATION_STATES``)."""
+    return (
+        NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        ).count()
+        > 0
+    )
 
 
 def _round_pending(vacancy: Vacancy) -> bool:
@@ -4023,31 +4044,127 @@ def _send_next_on_decline(
 # ---------------------------------------------------------------------------
 
 def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> list[Vacancy]:
-    """Find existing open vacancies for an instance or create new ones
-    (from absent presences + structural open spots)."""
-    open_vacancies = Vacancy.query.filter_by(
-        lesson_instance_id=instance.id,
-        status="open",
-    ).all()
+    """The class's open vacancies, after creating the missing ones: one per absent student who has
+    none yet and, when the class has no open vacancy, the never-filled spots.
 
-    if not open_vacancies:
-        # Create vacancies from absent presences
-        absent_ids = {
-            p.player_id for p in instance.presences if p.status == "absent"
-        }
-        # Avoid duplicates — check which absent players already have vacancies
-        existing_vacancy_player_ids = {
-            v.original_player_id
-            for v in Vacancy.query.filter_by(lesson_instance_id=instance.id).all()
-            if v.original_player_id is not None
-        }
-        for player_id in absent_ids - existing_vacancy_player_ids:
-            open_vacancies.append(_create_vacancy_for_absent_player(instance, coach_id, player_id))
+    PAD-493 (review of #507): absent students used to get theirs only when the class had no open
+    vacancy at all, so a student marked absent while another spot was still being filled got none;
+    rule 16's hold made that window long. Capacity still bounds the result (PAD-271, rule 13).
+    """
+    any_open = (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").first() is not None
+    )
+    absent_ids = {p.player_id for p in instance.presences if p.status == "absent"}
+    # Avoid duplicates — check which absent players already have vacancies
+    existing_vacancy_player_ids = {
+        v.original_player_id
+        for v in Vacancy.query.filter_by(lesson_instance_id=instance.id).all()
+        if v.original_player_id is not None
+    }
+    # Only as many as the absences free: an absence on an over-full roster frees no place, and a
+    # vacancy for it would be open (and startable by a concurrent tick) until reconciled.
+    room = max(
+        0,
+        (instance.effective_max_players or 0) - _effective_filled_spots(instance)
+        - Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").count(),
+    )
+    created = [
+        _create_vacancy_for_absent_player(instance, coach_id, player_id)
+        for player_id in sorted(absent_ids - existing_vacancy_player_ids)[:room]
+    ]
+    if not any_open:
+        created.extend(_create_structural_vacancies(instance, coach_id))
+    if created:
+        reconcile_vacancies(instance)
+    return (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
+        .order_by(Vacancy.id.asc())
+        .all()
+    )
 
-        # Also create structural vacancies (spots never filled)
-        open_vacancies.extend(_create_structural_vacancies(instance, coach_id))
 
-    return open_vacancies
+#: PAD-493 (rule 1b): how long a start claim holds before it lapses. A claim whose batch never
+#: finished (the process died between the claim's commit and the batch's counter update) is
+#: retried after this. ASSUMPTION, not a guarantee: a live sender finishes its batch well inside
+#: it — a batch is at most maxSimultaneous students, seconds of work — so it is not raced. A
+#: sender that stalls longer than this inside its first batch can be raced by the restart, and
+#: both would send (named in rule 1b).
+START_CLAIM_LEASE = timedelta(minutes=10)
+
+
+def _claim_lapsed(vacancy: Vacancy, now: datetime) -> bool:
+    """True for an open vacancy claimed longer than `START_CLAIM_LEASE` ago whose first batch
+    never completed (round 1, batch 0). A round deferral moves the round and a completed batch
+    moves the counter, so only an abandoned claim looks like this — including one whose process
+    died after committing some of the batch's invitations (third review of #507): the restart's
+    dedupe skips the students those invitations went to."""
+    return (
+        vacancy.status == "open"
+        and vacancy.last_activity_at is not None
+        and vacancy.current_batch_number == 0
+        and vacancy.current_round_number == 1
+        and now - vacancy.last_activity_at >= START_CLAIM_LEASE
+    )
+
+
+def _give_back_claim(vacancy_id: int, stamp: datetime, batch: int, round_no: int) -> None:
+    """Undo a start claim that sent nothing, under the lock and only if nothing has moved since."""
+    locked = (
+        Vacancy.query.filter_by(id=vacancy_id).with_for_update().populate_existing().one()
+    )
+    if (
+        locked.status == "open"
+        and locked.last_activity_at == stamp
+        and locked.current_batch_number == batch
+        and locked.current_round_number == round_no
+    ):
+        locked.last_activity_at = None
+    db.session.commit()  # the give-back, and the end of the lock
+
+
+def _start_vacancy(
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    config: NotificationConfig,
+    coach_id: int,
+    *,
+    now: datetime,
+) -> list[dict]:
+    """PAD-493 / B-259 (invitations rule 1b): send a vacancy's first batch, once.
+
+    The start is claimed in its own short transaction: the row is locked
+    (``SELECT … FOR UPDATE``) and re-read, and only an open vacancy that has never started
+    (``last_activity_at`` null, or a claim that lapsed without sending, `_claim_lapsed`) is
+    claimed, by stamping ``last_activity_at`` and committing. A second caller waiting on the lock
+    then reads the stamp and sends nothing. The batch goes out after that commit, outside the lock,
+    so no push or live event is sent for a row a rollback could still undo. A batch that sent
+    nothing and advanced no round (``maxTotal`` used up), or that raised, gives the claim back, so
+    the next tick tries again.
+    """
+    locked = (
+        Vacancy.query.filter_by(id=vacancy.id)
+        .with_for_update()
+        .populate_existing()
+        .one()
+    )
+    if locked.status != "open" or not (
+        locked.last_activity_at is None or _claim_lapsed(locked, now)
+    ):
+        db.session.commit()  # release the lock; nothing was written
+        return []
+    locked.last_activity_at = now
+    db.session.commit()  # the claim, and the end of the lock
+
+    vacancy_id, batch, round_no = locked.id, locked.current_batch_number, locked.current_round_number
+    try:
+        sent = _send_invitation_batch(locked, instance, config, coach_id, now=now)
+    except Exception:
+        db.session.rollback()
+        _give_back_claim(vacancy_id, now, batch, round_no)
+        raise
+    if not sent:
+        _give_back_claim(vacancy_id, now, batch, round_no)
+    return sent
 
 
 def trigger_invitations(
@@ -4058,8 +4175,10 @@ def trigger_invitations(
 ) -> list[dict]:
     """
     Main entry point to start filling open spots.
-    Finds or creates vacancies and sends the first invitation batch for each.
-    Returns list of {id, name} for players notified in round 1.
+    Finds or creates vacancies and sends the first invitation batch for each vacancy that has not
+    started yet (PAD-493, rule 1b); a started vacancy is left to process_invitation_batches, so a
+    repeated call sends nothing and returns [].
+    Returns list of {id, name} for players notified by this call.
 
     In semi-automatic mode, vacancies pending coach approval produce a
     replacement approval prompt instead of invitations; only "not_required"
@@ -4122,8 +4241,7 @@ def trigger_invitations(
 
     all_notified: list[dict] = []
     for vacancy in sendable:
-        notified = _send_invitation_batch(vacancy, instance, config, coach_id, now=_now)
-        all_notified.extend(notified)
+        all_notified.extend(_start_vacancy(vacancy, instance, config, coach_id, now=_now))
 
     if all_notified:
         publish(
@@ -4298,9 +4416,10 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 
         last = vacancy.last_activity_at
 
-        # Fresh vacancy (no batch sent yet) — trigger immediately
-        if last is None:
-            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+        # Fresh vacancy (no batch sent yet) — start it, through the same claim as
+        # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
+        if last is None or _claim_lapsed(vacancy, _now):
+            _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue
 
@@ -4326,6 +4445,25 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # ---------------------------------------------------------------------------
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
+
+def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
+    """B-260 (invitations rule 17): the response for an answer already given, else None.
+
+    Locks the vacancy (if any) and re-reads the invitation — rule 10's order, vacancy first — so of
+    two identical answers racing each other the second sees the first's outcome. A "no" on an
+    invitation that is no longer live and a "yes" on one already confirmed change nothing.
+    """
+    if event.vacancy_id is not None:
+        Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
+    NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    if action == "no" and event.status not in LIVE_INVITATION_STATES:
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "declined"}
+    if action == "yes" and event.status == "confirmed":
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "confirmed"}
+    return None
+
 
 def respond_to_notification(
     notification_event_id: int,
@@ -4354,6 +4492,18 @@ def respond_to_notification(
         # skipped it) while its message was still showing live buttons.
         _retire_invite_message(event)
         return {"action": "expired"}
+
+    # B-260 (invitations rule 17): an answer is taken once. A second "no" re-ran the decline
+    # (another student invited, a second decline message); a second "yes" told the winner the spot
+    # was filled and expired their confirmed invitation.
+    repeat = _repeated_answer(event, action)
+    if repeat is not None:
+        return repeat
+    if action == "no":
+        # Claimed while the vacancy lock is still held: the invite message's save below commits
+        # and releases it, and a second "no" waiting on that lock must already see this one.
+        event.status = "expired"
+        db.session.flush()
 
     config = get_or_create_config(event.coach_id)
 
@@ -4429,6 +4579,13 @@ def respond_to_notification(
             db.session.commit()  # release the lock
             return {"action": "expired"}
 
+        # B-260 (rule 17) under the lock: this same answer may have won the spot while this one
+        # waited. The winner keeps it; they are not told it was filled.
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        if event.status == "confirmed":
+            db.session.commit()  # release the lock; nothing was written
+            return {"action": "confirmed"}
+
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
             event.status = "expired"
@@ -4484,11 +4641,15 @@ def respond_to_notification(
         # PAD-317: through the one routine, which also retires the invitations
         # still offering this seat — this path expired only `sent` ones, so a
         # `queued` invitation survived the close and was sent afterwards.
+        # B-260: the answer is confirmed before anything here commits (retiring the other
+        # invitations saves their messages, which commits and ends the lock), so a second "yes"
+        # waiting on the lock finds it confirmed rather than a filled vacancy and a `sent` invitation.
+        event.status = "confirmed"
+        db.session.flush()
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _add_player_to_instance(event.player_id, instance)
-        event.status = "confirmed"
         event.save()
 
         if coach_user_id:
