@@ -89,6 +89,9 @@ appId: com.padellevelup.app
             id: "signup-submit"
           direction: DOWN
           timeout: 10000
+      # PAD-485 (auth.register rule 19): the Terms box is required; ticked once per form.
+      - tapOn:
+          id: "signup-terms"
       - tapOn:
           id: "signup-submit"
       - extendedWaitUntil:

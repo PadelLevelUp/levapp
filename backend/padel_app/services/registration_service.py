@@ -24,6 +24,28 @@ PASSWORD_MIN_LENGTH = 8
 ROLES = ("coach", "student")
 
 
+# PAD-485 (auth.register rule 19): the Terms version a sign-up accepts — the effective date the Terms
+# page states (`frontend/apps/web/src/pages/TermsPage.tsx` EFFECTIVE_DATE, tied by
+# test_pad485_terms_acceptance.py). Change both together when the Terms change.
+TERMS_VERSION = "2026-07-14"
+
+
+def validate_terms(data):
+    """auth.register rule 19: a client declaring `terms-acceptance` must send `termsAccepted: true`
+    (else 400 on `field: "terms"`); one that does not declare it registers as before. Returns
+    whether an acceptance is recorded."""
+    from padel_app.utils.client_capabilities import TERMS_ACCEPTANCE, client_declares
+
+    if not client_declares(TERMS_ACCEPTANCE):
+        return False
+    if (data or {}).get("termsAccepted") is not True:
+        raise RegistrationError(
+            "É preciso aceitar os Termos e a Política de Privacidade. / You must accept the Terms and the Privacy Policy.",
+            400, "terms", code="TERMS_REQUIRED",
+        )
+    return True
+
+
 class RegistrationError(Exception):
     """A rejected signup. `status` is the HTTP status the route surfaces;
     `field` names the offending input when there is one (409 username/email)."""
@@ -192,6 +214,7 @@ def register_user_service(data, now=None):
     now = now or utcnow_naive()
     role, name, username, email, password = validate_registration(data)
     birth_date, country = validate_consent_fields(data, email, today=now.date())
+    terms_accepted = validate_terms(data)
     _assert_unique(username, email)
 
     # auth.coach-approval rule 9 (PAD-238/PAD-279): the app_settings row wins,
@@ -215,6 +238,8 @@ def register_user_service(data, now=None):
             status="active",
             birth_date=birth_date,
             country=country,
+            terms_accepted_at=now if terms_accepted else None,
+            terms_version=TERMS_VERSION if terms_accepted else None,
         )
         db.session.add(user)
         db.session.flush()

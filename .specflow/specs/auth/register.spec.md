@@ -56,7 +56,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
    state and know whether a student is connected to a coach without guessing from the calendar.
 10. Entry points: the web `/auth` page and the iOS login screen both show "Create account"
     (R-024, web and iOS ship together). Web route `/signup`; iOS route `signup`. The form links
-    Privacy Policy and Terms. **Every rejection names the field**: client-side validation shows
+    Privacy Policy and Terms, from the required acceptance box (rule 19). **Every rejection names the field**: client-side validation shows
     its message under the offending input, every server 400/409 carries `field` and is shown
     under that input, and a rejection with no field shows the server's message verbatim — never
     a generic "check your data" alone (TestFlight feedback 2026-09-07).
@@ -94,8 +94,40 @@ create one, or ask to join an existing one — happens right after approval (`cl
     iOS map `UNDERAGE` to their own localized copy (`auth.signup.errors.underage`) and also refuse
     under 18 on the client before sending. Every self sign-up — web, iOS, the coach QR code and invite
     links — goes through this endpoint.
+19. **The Terms are accepted explicitly (PAD-485).** The sign-up form (both roles; web `/signup`, iOS
+    `signup`, and the join-by-link flow that leads to it) has a required checkbox, "Li e aceito a
+    Política de Privacidade e os Termos de Serviço" / "I have read and accept the Privacy Policy and the
+    Terms of Service", each document a link (`/privacy`, `/terms` on levapp.app; iOS opens them in the
+    browser). It replaces the implied "Ao criar conta aceitas a…" line. Submitting unticked shows
+    "Para criar conta tens de aceitar…" under the box and sends nothing (rule 10). A client that
+    declares the capability `terms-acceptance` (web, iOS 29+) sends `termsAccepted: true`; for such a
+    client anything else answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and writes nothing. The
+    User then records `terms_accepted_at` (the request's instant, UTC) and `terms_version` (the Terms
+    page's effective date, `2026-07-14`; `TERMS_VERSION` in `registration_service.py`, tied to
+    `TermsPage.tsx`'s `EFFECTIVE_DATE` by a test — change both together). A client that does not
+    declare it (App Store 1.2.0 (27) and 1.2.1 (28)) registers exactly as before, with both columns
+    NULL; retire that path with the token. **Out of scope:** accounts that exist already (NULL, never
+    asked); the activation of a coach-created player (`auth.activate`); the coach club-invitation accept
+    (`clubs.coach-invitation`). Each can take the same field later.
 
 ### Acceptance Criteria
+
+#### The Terms must be accepted to sign up (rule 19, PAD-485)
+- **Given** the web or iOS sign-up form, filled in, with the Terms box unticked
+- **When** the newcomer taps Create account
+- **Then** "Para criar conta tens de aceitar…" shows under the box and no request is sent
+- **And** with the box ticked the request carries `termsAccepted: true`, and the new User has
+  `terms_accepted_at` = the request's instant and `terms_version` = `2026-07-14`
+
+#### A declaring client that does not accept is refused (rule 19)
+- **Given** a request declaring `terms-acceptance` with `termsAccepted` absent, `false` or not a boolean
+- **When** it posts `/api/auth/register`
+- **Then** it answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and no User exists
+
+#### Older builds still register (rule 19)
+- **Given** a request from App Store 1.2.0 or 1.2.1 (no `terms-acceptance` declared, no `termsAccepted`)
+- **When** it posts `/api/auth/register`
+- **Then** it answers 201 exactly as before, and the User's `terms_accepted_at` and `terms_version` are NULL
 
 #### Student signs up and is signed in
 - **Given** no user with username `ana` or email `ana@example.com`

@@ -90,7 +90,9 @@ without their knowledge (that case is picked up in
   is approved or they create one.
 - Joining an existing club always needs a current member's approval; nobody can walk into a
   club's roster and message its students just by knowing the club's name.
-- The signup form links to the Privacy Policy and Terms, on both platforms.
+- The signup form links to the Privacy Policy and Terms, on both platforms, and the newcomer must tick
+  that they accept them before the account can be created; when and which version they accepted is
+  kept (PAD-485). Accounts that existed before are not asked.
 - A coach who signs up on their own appears in the sales CRM within a minute, marked as an inbound
   lead from the app, and the CRM keeps their account status (pending, approved, rejected) current;
   a deal already open for them moves to "Em teste". Only the coach's own name, email, phone and

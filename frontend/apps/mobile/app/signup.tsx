@@ -18,6 +18,7 @@ import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -37,7 +38,7 @@ import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 type Role = "coach" | "student";
 type Field = "name" | "username" | "email" | "password" | "repeatPassword" | "birthDate";
-type FieldErrors = Partial<Record<Field | "country", string>>;
+type FieldErrors = Partial<Record<Field | "country" | "terms", string>>;
 
 /**
  * auth.register — self-service signup, mirroring web's SignUpPage. On success
@@ -58,6 +59,8 @@ export default function SignUpScreen() {
     birthDate: "",
   });
   const [country, setCountry] = React.useState("PT");
+  // auth.register rule 19 (PAD-485): the Terms must be accepted, explicitly, before an account exists.
+  const [termsAccepted, setTermsAccepted] = React.useState(false);
   const birthIso = toIso(form.birthDate);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -98,14 +101,17 @@ export default function SignUpScreen() {
 
   const validate = (): boolean => {
     const result = signUpSchema.safeParse({ ...form, country });
-    if (result.success) {
+    const next: FieldErrors = {};
+    if (!result.success) {
+      for (const issue of result.error.errors) {
+        const field = issue.path[0] as Field;
+        if (!next[field]) next[field] = t(`auth.signup.${issue.message}`);
+      }
+    }
+    if (!termsAccepted) next.terms = t("auth.signup.termsRequired");
+    if (Object.keys(next).length === 0) {
       setErrors({});
       return true;
-    }
-    const next: FieldErrors = {};
-    for (const issue of result.error.errors) {
-      const field = issue.path[0] as Field;
-      if (!next[field]) next[field] = t(`auth.signup.${issue.message}`);
     }
     setErrors(next);
     setFormError(t("auth.signup.fixHighlighted"));
@@ -126,6 +132,7 @@ export default function SignUpScreen() {
         password: form.password,
         birthDate: birthIso ?? "",
         country,
+        termsAccepted,
       });
       const me = result.user;
       let destination: string;
@@ -371,6 +378,49 @@ export default function SignUpScreen() {
               ) : null}
             </View>
 
+            {/* auth.register rule 19 (PAD-485): required, with both documents a tap away. */}
+            <View className="gap-1">
+              <View className="flex-row items-start gap-2">
+                <Pressable
+                  testID="signup-terms"
+                  role="checkbox"
+                  accessibilityState={{ checked: termsAccepted, disabled: loading }}
+                  accessibilityLabel={`${t("auth.signup.termsAcceptPrefix")} ${t("auth.legal.privacyPolicy")} ${t("auth.signup.termsAcceptJoin")} ${t("auth.legal.terms")}`}
+                  disabled={loading}
+                  hitSlop={8}
+                  onPress={() => {
+                    setTermsAccepted((on) => !on);
+                    setErrors((e) => ({ ...e, terms: undefined }));
+                  }}
+                >
+                  <Checkbox
+                    checked={termsAccepted}
+                    onCheckedChange={(next) => {
+                      setTermsAccepted(next === true);
+                      setErrors((e) => ({ ...e, terms: undefined }));
+                    }}
+                    disabled={loading}
+                    className={errors.terms ? "border-destructive" : undefined}
+                  />
+                </Pressable>
+                <View className="flex-1 flex-row flex-wrap items-center gap-x-1">
+                  <Text className="text-sm">{t("auth.signup.termsAcceptPrefix")}</Text>
+                  <Pressable accessibilityRole="link" testID="signup-terms-privacy" onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}>
+                    <Text className="text-sm text-primary underline">{t("auth.legal.privacyPolicy")}</Text>
+                  </Pressable>
+                  <Text className="text-sm">{t("auth.signup.termsAcceptJoin")}</Text>
+                  <Pressable accessibilityRole="link" testID="signup-terms-terms" onPress={() => void Linking.openURL(TERMS_URL)}>
+                    <Text className="text-sm text-primary underline">{t("auth.legal.terms")}</Text>
+                  </Pressable>
+                </View>
+              </View>
+              {errors.terms ? (
+                <Text className="text-sm text-destructive" testID="signup-error-terms" accessibilityLiveRegion="polite">
+                  {errors.terms}
+                </Text>
+              ) : null}
+            </View>
+
             {formError ? (
               <Text className="text-center text-sm text-destructive" testID="signup-error">
                 {formError}
@@ -399,19 +449,6 @@ export default function SignUpScreen() {
             </View>
           </CardContent>
         </Card>
-
-        <View className="mt-4 flex-row flex-wrap items-center justify-center gap-1">
-          <Text className="text-xs text-sidebar-foreground opacity-70">{t("auth.signup.legalPrefix")}</Text>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}>
-            <Text className="text-xs text-sidebar-foreground underline opacity-90">
-              {t("auth.legal.privacyPolicy")}
-            </Text>
-          </Pressable>
-          <Text className="text-xs text-sidebar-foreground opacity-70">{t("auth.legal.separator")}</Text>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(TERMS_URL)}>
-            <Text className="text-xs text-sidebar-foreground underline opacity-90">{t("auth.legal.terms")}</Text>
-          </Pressable>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
