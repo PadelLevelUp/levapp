@@ -43,8 +43,10 @@ def _headers() -> dict:
 
 def _token_tail(token) -> str:
     """B-254: enough of a device token to tell two devices apart in a log, never the whole token."""
-    core = str(token or "").rstrip("]")
-    return f"…{core[-6:]}"
+    core = str(token or "")
+    if core.endswith("]"):
+        core = core[:-1]
+    return f"...{core[-6:]}"
 
 
 def _chunks(items, size):

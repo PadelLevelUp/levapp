@@ -97,9 +97,10 @@ def send_email(subject, recipients, body=None, html=None):
     kept = allowed_recipients(recipients)
     dropped = [r for r in recipients if r not in kept]
     if dropped:
-        # B-254: a count, never the addresses.
+        # B-254: a count, never the addresses, and not the subject: a verification mail's subject
+        # carries the 6-digit code ("Your LevApp code: 123456").
         current_app.logger.warning(
-            "mail to %d recipient(s) dropped: outside MAIL_ALLOWED_RECIPIENTS (%r)", len(dropped), subject
+            "mail to %d recipient(s) dropped: outside MAIL_ALLOWED_RECIPIENTS", len(dropped)
         )
     if not kept:
         # B-254: the message is a count. Callers log exceptions, so it must not carry addresses.

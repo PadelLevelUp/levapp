@@ -5,9 +5,9 @@ Every mail path that logged `user.email`, a recipient list, or the exception's T
 user id (or a count) and the exception's CLASS. The exception text is out because it can carry the
 recipient itself: an SMTP refusal names it, and `MailRecipientNotAllowed` used to list them.
 
-Each test makes the send fail with an exception whose message contains the address, then asserts
-two things: the warning WAS logged (so a disabled logger cannot pass the test vacuously), and no
-log record contains the address.
+Most tests make the send fail with an exception whose message contains the address. Each asserts two
+things: the warning WAS logged (so a disabled logger cannot pass the test vacuously), and neither a
+record's message nor the captured text (tracebacks included) contains the sensitive value.
 
 Run:
     pytest padel_app/tests/test_b254_no_addresses_in_logs.py -v
@@ -53,6 +53,7 @@ def _assert_logged_without_address(caplog, must_contain):
     )
     leaked = [r.getMessage() for r in caplog.records if ADDRESS in r.getMessage().lower()]
     assert leaked == [], f"an address reached the log: {leaked}"
+    assert ADDRESS not in caplog.text.lower(), "an address reached the captured log text"
 
 
 def _user(app, **over):
@@ -190,9 +191,10 @@ def test_the_allowlist_guard_logs_a_count_not_the_dropped_addresses(app, monkeyp
     app.config["E2E_DEBUG_ENDPOINTS"] = None
     app.config["MAIL_ALLOWED_RECIPIENTS"] = ("@levapp.app",)
     with app.app_context():
-        send_email("x", ["ana@levapp.app", ADDRESS], body="y")
+        send_email("Your LevApp code: 123456", ["ana@levapp.app", ADDRESS], body="y")
 
     _assert_logged_without_address(caplog, "dropped")
+    assert "123456" not in caplog.text, "the subject (a verification code) reached the log"
 
 
 def test_the_not_allowed_exception_names_no_address(app):
@@ -220,12 +222,41 @@ def test_bad_llm_json_logs_its_length_and_error_class_not_the_content(caplog):
 
     caplog.set_level(logging.WARNING)
     raw = "Players: Ana Silva (backhand weak), Bruno Costa — this is not JSON"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as caught:
         parse_json(raw, label="roster")
+    # The raised message is shown to callers and logged by ai_service: it must not carry content.
+    assert "Ana Silva" not in str(caught.value)
 
     records = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
     assert any("bad JSON" in m and str(len(raw)) in m and "JSONDecodeError" in m for m in records), records
-    assert not any("Ana Silva" in m or "Bruno Costa" in m for m in (r.getMessage() for r in caplog.records))
+    assert "Ana Silva" not in caplog.text and "Bruno Costa" not in caplog.text
+
+
+def test_llm_json_that_is_not_an_object_carries_no_content(caplog):
+    """The other ValueError branch (an array): neither the log nor the raised message carries it."""
+    from padel_app.helpers.llm import parse_json
+
+    caplog.set_level(logging.WARNING)
+    with pytest.raises(ValueError) as caught:
+        parse_json('["Ana Silva", "Bruno Costa"]', label="roster")
+
+    assert "Ana Silva" not in str(caught.value)
+    assert any("bad JSON" in r.getMessage() for r in caplog.records)
+    assert "Ana Silva" not in caplog.text
+
+
+def test_a_clean_send_and_a_clean_parse_log_nothing(client, app, monkeypatch, caplog):
+    """The trigger-absent cell: a successful send logs no warning at all; valid JSON stays silent."""
+    from padel_app.helpers.llm import parse_json
+    from padel_app.tools import email_tools
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(email_tools, "send_email", lambda *a, **k: "Sent")
+    user_id = _user(app)
+
+    assert client.post("/api/auth/email-verification/send", headers=_auth(app, user_id)).status_code == 200
+    assert parse_json('{"players": []}') == {"players": []}
+    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 TOKEN = "ExponentPushToken[abcdefghijklmnop]"
@@ -251,6 +282,23 @@ def test_expo_receipts_log_a_token_tail_never_the_token(app, caplog, receipt):
             send_expo_push([TOKEN], "Title", "Body", {})
 
     messages = [r.getMessage() for r in caplog.records]
-    assert any("klmnop" in m for m in messages if "token" in m.lower()), messages
+    assert any("...klmnop" in m for m in messages if "token" in m.lower()), messages
     assert not any(TOKEN in m or "abcdefghij" in m for m in messages), messages
     assert any(receipt["details"]["error"] in m for m in messages), messages
+
+
+def test_an_expo_error_receipt_without_details_still_logs_only_the_tail(app, caplog):
+    """No `details` (error code None) and the receipt's message quotes the token: tail only."""
+    from unittest.mock import patch
+
+    from padel_app.tests.test_native_push import _mock_response
+    from padel_app.utils.expo_push import send_expo_push
+
+    caplog.set_level(logging.WARNING)
+    with app.app_context():
+        with patch("padel_app.utils.expo_push.requests.post") as mock_post:
+            mock_post.return_value = _mock_response({"data": [{"status": "error", "message": f"bad {TOKEN}"}]})
+            send_expo_push([TOKEN], "Title", "Body", {})
+
+    assert "...klmnop" in caplog.text
+    assert TOKEN not in caplog.text and "abcdefghij" not in caplog.text

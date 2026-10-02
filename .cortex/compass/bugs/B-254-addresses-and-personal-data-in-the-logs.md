@@ -54,13 +54,16 @@ and `request_alert_service.py` (115, 123). They carry database, HTTP or LLM erro
 address-bearing by construction. Those messages are what make a production failure diagnosable.
 `hubspot_sync` was already clean (class names only).
 
-**Exposure** (stated, not guessed):
-- Production logs are the `padelapp` container's docker logs (json-file driver, no `--log-*`
-  options). They hold warnings and errors only; Gunicorn writes no access log.
-- Every deploy runs `docker stop padelapp && docker rm padelapp` and then a fresh `docker run`
-  (`.github/workflows/deploy-prod.yaml:179-181`), so the log goes with the container.
-- Therefore an address logged before this fix exists only in the CURRENT container's log on the VM,
-  back to the last deploy. Staging deploys the same way.
+**Exposure** (stated, not guessed; by role only, per R-036):
+- Production's application log is the API container's own log on the VM. It holds warnings and
+  errors only; there is no access log.
+- Each deploy replaces the container, and its log with it. So an address (or code) logged before this
+  fix exists only in the current container's log, back to the last deploy. Staging deploys the same
+  way.
+- Staging runs on a copy of production data and has a recipient allowlist, so real users' addresses
+  were the dropped ones its guard logged, together with the subject. A verification mail's subject
+  carries the 6-digit code, so those lines held an address AND a live code (codes expire after 15
+  minutes).
 - Host nginx's access log is separate and holds request lines, not these warnings.
 
 ### Change Plan
@@ -80,6 +83,11 @@ address-bearing by construction. Those messages are what make a production failu
 - Commit 2: `llm.py` logs the output's length and the parse error's class. `expo_push.py` logs
   `…` plus the token's last 6 characters (`_token_tail`), and for an error receipt its status and
   Expo's error code. Not the receipt's message, which quotes the whole token.
-- Tests: `test_b254_no_addresses_in_logs.py`, 12. All were red first, with the leak shown verbatim.
+- Review round (sonnet, `specflow-request-review`): the allowlist line no longer logs the subject, because
+  a verification subject carries the code. The token tail uses an ASCII prefix and strips one `]`.
+  Assertions also check `caplog.text`, which includes tracebacks. Added: the raised `ValueError`
+  carries no content (both branches); a clean send or parse logs nothing; an Expo receipt without
+  `details`. The exposure note was reworded to roles only (R-036).
+- Tests: `test_b254_no_addresses_in_logs.py`, 15. All were red first, with the leak shown verbatim.
   Each asserts the warning was logged, so a silenced logger fails the test, and that the address,
   names or token are absent.
