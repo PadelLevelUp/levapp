@@ -149,7 +149,7 @@ def test_schedule_instance_jobs_arms_the_reminder_on_the_club_clock(app, live_sc
     )
     with app.app_context():
         coach_id, _student_id, instance_id = _seed(app, wall_start)
-        with patch("padel_app.services.notification_service.get_or_create_config", return_value=config):
+        with patch("padel_app.scheduler._saved_config", return_value=config):
             scheduler.schedule_instance_jobs(instance_id, coach_id, now=datetime(2025, 12, 1))
 
     armed = {job.id: job.trigger for job in scheduler._scheduler.get_jobs()}
@@ -204,7 +204,7 @@ def test_rearm_never_lands_after_the_start(app, live_scheduler, monkeypatch, wal
     with app.app_context():
         _coach_id, _student_id, instance_id = _seed(app, wall_start)
         instance = LessonInstance.query.get(instance_id)
-        with patch("padel_app.services.notification_service.get_or_create_config", return_value=config):
+        with patch("padel_app.scheduler._saved_config", return_value=config):
             scheduler._maybe_rearm_reminder(
                 instance, func=lambda *a: None, args=[instance_id],
                 base_job_id=f"reminder_{instance_id}", result={"more_due": True},

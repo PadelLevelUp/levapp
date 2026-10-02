@@ -198,3 +198,108 @@ def test_an_occurrence_job_follows_the_lessons_first_coach(app, live_scheduler, 
         job = live_scheduler._scheduler.get_job(job_id)
         assert job is not None and job.trigger.run_date.replace(tzinfo=None) == FUTURE_AT
 
+
+# ── the same rule everywhere (second review of #496) ────────────────────────
+
+def test_a_follow_up_is_armed_for_a_class_coached_through_its_lesson(substituted, monkeypatch):
+    """`_maybe_rearm_reminder` looked the coach up in the occurrence's OWN coach rows only.
+    A class with none (its coach is the lesson's) got its first reminder and never a second."""
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.reminder_attempts import ReminderAttempt
+
+    # No coach row of its own: the lesson's coach is the primary coach now.
+    Association_CoachLessonInstance.query.filter_by(lesson_instance_id=substituted["instance"]).delete()
+    db.session.commit()
+    coach = substituted["lesson_coach"]
+    from padel_app.services.notification_service import get_or_create_config
+
+    config = get_or_create_config(coach)
+    config.reminder_timing = {"firstReminder": FUTURE, "reminderCount": 2, "hoursBetweenReminders": 3}
+    config.save()
+    substituted["module"].schedule_instance_jobs(substituted["instance"], coach)
+
+    first = substituted["sched"].get_job(f"reminder_{substituted['instance']}")
+    pin_clock(monkeypatch, FUTURE_AT)
+    first.func(*first.args)
+
+    assert ReminderAttempt.query.count() == 1
+    retries = [j.trigger.run_date.replace(tzinfo=None) for j in substituted["sched"].get_jobs() if "_retry_" in j.id]
+    assert retries == [datetime(2027, 7, 11, 20, 0)]     # 17:00 + the primary coach's 3 h
+
+
+def test_the_follow_up_spacing_is_the_primary_coachs(co_coached, monkeypatch):
+    """A pin: with two coach rows the spacing comes from the first one assigned."""
+    from padel_app.services.notification_service import get_or_create_config
+
+    for coach_id, hours in ((co_coached["primary"], 2), (co_coached["second"], 5)):
+        config = get_or_create_config(coach_id)
+        config.reminder_timing = {"firstReminder": FUTURE, "reminderCount": 2, "hoursBetweenReminders": hours}
+        config.save()
+    co_coached["module"].schedule_instance_jobs(co_coached["instance"], co_coached["primary"])
+
+    first = co_coached["sched"].get_job(f"reminder_{co_coached['instance']}")
+    pin_clock(monkeypatch, FUTURE_AT)
+    first.func(*first.args)
+
+    retries = [j.trigger.run_date.replace(tzinfo=None) for j in co_coached["sched"].get_jobs() if "_retry_" in j.id]
+    assert retries == [datetime(2027, 7, 11, 19, 0)]
+
+
+def test_a_co_coachs_derivation_creates_no_configuration_for_the_primary_coach(co_coached):
+    """Reading the primary coach's configuration must not write one: the co-coach saved
+    THEIR settings, nobody asked for a row for the other coach."""
+    from padel_app.models.notification_config import NotificationConfig
+
+    _store_timing(co_coached["second"], FUTURE)
+    assert NotificationConfig.query.filter_by(coach_id=co_coached["primary"]).count() == 0
+
+    _run_every_pass_as(co_coached["module"], co_coached["second"])
+
+    assert NotificationConfig.query.filter_by(coach_id=co_coached["primary"]).count() == 0
+    # ...and the class is armed from the primary coach's DEFAULTS (48 h before the class),
+    # not from the co-coach's "1 day before at 18:00".
+    assert _fire_times(co_coached["sched"], co_coached["instance"])[0] == datetime(2027, 7, 10, 17, 0)
+
+
+def test_the_derivation_runs_under_the_primary_coachs_lock_whoever_triggers_it(co_coached, monkeypatch):
+    """Rule 10e: one derivation at a time per PRIMARY coach, for a save, the startup pass and
+    the daily pass alike, with the configuration read inside the lock."""
+    module = co_coached["module"]
+    _store_timing(co_coached["primary"], FUTURE)
+    held = []
+    real = module._reconcile_date_job
+
+    def spy(job_id, *args, **kwargs):
+        held.append((job_id.split("_")[0], module._coach_reschedule_lock(co_coached["primary"]).locked()))
+        return real(job_id, *args, **kwargs)
+
+    monkeypatch.setattr(module, "_reconcile_date_job", spy)
+
+    module.reschedule_all_future_jobs(co_coached["second"])      # a co-coach's save
+    module._reschedule_for_coach(co_coached["second"])           # the startup walk
+    module._schedule_lesson_occurrences_for_coach(co_coached["second"])
+
+    assert held and all(locked for _kind, locked in held), held
+    assert not module._coach_reschedule_lock(co_coached["primary"]).locked()
+
+
+def test_the_configuration_is_read_again_inside_the_lock(co_coached):
+    """A pass that loaded the configuration before a save committed must not arm the old
+    time afterwards: inside the lock the row is read again, not taken from the session."""
+    from sqlalchemy import text
+
+    from padel_app.services.notification_service import get_or_create_config
+
+    _store_timing(co_coached["primary"], FUTURE)                 # 1 day before at 18:00
+    stale = get_or_create_config(co_coached["primary"])
+    assert stale.reminder_time == "18:00"                        # loaded in this session
+    # Another request commits "1 day before at 06:00" behind this session's back.
+    db.session.execute(
+        text("UPDATE notification_configs SET reminder_time = '06:00', invitation_start_time = '06:00' WHERE coach_id = :c"),
+        {"c": co_coached["primary"]},
+    )
+
+    co_coached["module"].schedule_instance_jobs(co_coached["instance"], co_coached["primary"])
+
+    assert _fire_times(co_coached["sched"], co_coached["instance"])[0] == datetime(2027, 7, 11, 5, 0)
+

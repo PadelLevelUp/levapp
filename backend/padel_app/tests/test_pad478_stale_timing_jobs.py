@@ -22,6 +22,26 @@ import pytest
 from padel_app.tests.helpers import pin_clock
 from padel_app.tests.test_pad256_reminder_clock import _seed
 
+
+@pytest.fixture(autouse=True)
+def _no_test_may_hang():
+    """These tests take locks. A regression that waits for one for ever (the bound removed,
+    a lock never released) must FAIL, not hang CI: each test gets 60 s, then an alarm raises
+    in it. (pytest-timeout is not installed; a blocking lock acquire is interrupted by a
+    signal on POSIX.)"""
+    import signal
+
+    def too_long(_signum, _frame):
+        raise TimeoutError("a PAD-478 test ran for over 60 s: a lock was waited for without a bound")
+
+    previous = signal.signal(signal.SIGALRM, too_long)
+    signal.alarm(60)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
 NOW_UTC = datetime(2027, 7, 10, 10, 0)          # Saturday 11:00 in Lisbon
 CLASS_WALL = datetime(2027, 7, 12, 18, 0)       # Monday 18:00 in Lisbon
 DAY_BEFORE_18 = {"type": "days_before_at_time", "days": 1, "time": "18:00"}   # fires 07-11 17:00 UTC
@@ -472,9 +492,9 @@ def test_the_daily_pass_removes_a_stale_job_and_sends_nothing(armed):
 
 # ── overlapping saves, and a reschedule that hangs ──────────────────────────
 
-def test_two_overlapping_reschedules_of_one_coach_run_one_after_the_other(armed, monkeypatch):
-    """Two request threads, one coach. The second waits for the first to finish; their
-    per-class work never interleaves."""
+def test_two_overlapping_derivations_for_one_coach_run_one_after_the_other():
+    """Two threads deriving jobs for the same primary coach: the second waits for the first.
+    The derivation lock itself, with no database in the threads."""
     import threading
 
     from padel_app import scheduler
@@ -483,17 +503,17 @@ def test_two_overlapping_reschedules_of_one_coach_run_one_after_the_other(armed,
     first_inside = threading.Event()
     release_first = threading.Event()
 
-    def body(coach_id):
+    def derive():
         me = threading.current_thread().name
-        events.append(f"{me} in")
-        if me == "first":
-            first_inside.set()
-            assert release_first.wait(5)
-        events.append(f"{me} out")
+        with scheduler._derivation_lock(4780):
+            events.append(f"{me} in")
+            if me == "first":
+                first_inside.set()
+                assert release_first.wait(5)
+            events.append(f"{me} out")
 
-    monkeypatch.setattr(scheduler, "_reschedule_all_future_jobs_locked", body)
-    first = threading.Thread(target=scheduler.reschedule_all_future_jobs, args=(armed["coach"],), name="first")
-    second = threading.Thread(target=scheduler.reschedule_all_future_jobs, args=(armed["coach"],), name="second")
+    first = threading.Thread(target=derive, name="first")
+    second = threading.Thread(target=derive, name="second")
     first.start()
     assert first_inside.wait(5)
     second.start()
@@ -512,13 +532,26 @@ def test_a_reschedule_that_cannot_get_the_lock_is_reported_not_left_hanging(arme
     from padel_app import scheduler
     from padel_app.services.notification_service import update_config
 
+    import threading
+
     monkeypatch.setattr(scheduler, "_RESCHEDULE_LOCK_TIMEOUT_S", 0.05)
     lock = scheduler._coach_reschedule_lock(armed["coach"])
-    assert lock.acquire(timeout=1)
+    holding, done = threading.Event(), threading.Event()
+
+    def hang():                           # another thread's derivation that never finishes
+        lock.acquire()
+        holding.set()
+        done.wait(10)
+        lock.release()
+
+    holder = threading.Thread(target=hang)
+    holder.start()
+    assert holding.wait(5)
     try:
         config = update_config(armed["coach"], {"reminderTiming": {"firstReminder": TWO_DAYS_18}})
     finally:
-        lock.release()
+        done.set()
+        holder.join(5)
 
     assert config.reschedule_failed is True
 
@@ -572,19 +605,19 @@ def test_a_reschedule_that_runs_late_arms_what_is_saved(armed):
     assert _fire_time(armed["sched"], f"reminder_{armed['instance']}") == datetime(2027, 7, 11, 17, 0)
 
 
-def test_one_reschedule_at_a_time_per_coach(armed, monkeypatch):
-    """Two overlapping reschedules of one coach would interleave their per-class loops and
-    leave a mix of two configurations armed. The whole reschedule runs under the coach's lock."""
+def test_every_derivation_runs_under_the_coachs_lock(armed, monkeypatch):
+    """A save's per-class work and a pass's must not interleave on one class: each job is
+    reconciled with the primary coach's lock held."""
     from padel_app import scheduler
 
     held = []
-    real = scheduler.schedule_instance_jobs
+    real = scheduler._reconcile_date_job
 
-    def spy(instance_id, coach_id, **kwargs):
-        held.append(scheduler._coach_reschedule_lock(coach_id).locked())
-        return real(instance_id, coach_id, **kwargs)
+    def spy(job_id, *args, **kwargs):
+        held.append(scheduler._coach_reschedule_lock(armed["coach"]).locked())
+        return real(job_id, *args, **kwargs)
 
-    monkeypatch.setattr(scheduler, "schedule_instance_jobs", spy)
+    monkeypatch.setattr(scheduler, "_reconcile_date_job", spy)
     scheduler.reschedule_all_future_jobs(armed["coach"])
 
     assert held and all(held)

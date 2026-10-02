@@ -100,7 +100,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    (`classes.coach-assignment` rule 4: the occurrence's own first coach row, else the lesson's;
    an occurrence not materialised yet follows the lesson's first coach). Whoever triggers the
    derivation, a co-coach's save, the lesson's coach when the occurrence has a substitute, or a
-   pass that walks every coach, the class's jobs come from its primary coach and from nobody else. A job whose new fire time
+   pass that walks every coach, the class's jobs come from its primary coach and from nobody else.
+   The same coach's configuration governs the class's invitations as a whole (mode, groups,
+   eligibility, auto-notify): the invitation-start job carries the primary coach. The spacing of
+   follow-ups is the primary coach's too, including for a class coached through its lesson.
+   Reading a coach's configuration for a derivation never creates one: a coach with none saved
+   answers with the defaults. A job whose new fire time
    is in the future replaces the old one. A job whose new fire time is already past, or whose
    timing is `none`, is removed: that class gets no automatic reminder (or no invitation start)
    from that job. What the class then gets instead is decided in PAD-478; until then: nothing. A
@@ -132,19 +137,22 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    daily window pass derives the jobs of every active lesson inside its 60-day window again with
    rule 10a's derivation, so for those a failed reschedule heals within a day. Follow-ups (rule
    10b) are not part of that pass.
-10d. **One save per edit on the web form (PAD-478).** The reminders form shows each stepper tap
-   and each edit of the time field at once, and sends the timing once, with the final value:
-   600 ms after the coach stops, or at once when the time field loses focus or the section
-   closes. One save is in flight at a time; a value entered meanwhile waits, and only the latest
-   waiting value is sent next. After a save that failed and was rolled back, the controls return
-   to the saved value. iOS has no control for these fields. This spares the server a reschedule
-   per keystroke; rule 10e is what makes the result correct.
+10d. **The web form holds a save until the coach pauses (PAD-478).** The reminders form shows
+   each stepper tap and each edit of the time field at once, and sends the timing after the coach
+   stops for 600 ms, and at once when the time field loses focus or the section closes. A coach
+   who pauses 600 ms in the middle of typing a time does send that intermediate value; rule 10e
+   is what makes that harmless. One save is in flight at a time; a value entered meanwhile
+   waits, and only the latest waiting value is sent next. After a save that failed and was
+   rolled back, the controls return to the saved value. iOS has no control for these fields.
 10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
    saved configuration alone, whatever sequence of saves led to it and in whatever order the
-   requests arrived: a reschedule takes no value from its request, it reads the saved
-   configuration, and one reschedule runs at a time per coach. A reschedule waits at most 30
-   seconds for the one before it; a save that gives up is reported as in rule 10c. The backend
-   does not rely on the client sending one save per edit.
+   requests arrived. Every derivation of a class's jobs, by a save, the startup re-arm or the
+   daily pass, holds that class's primary coach's lock and reads the configuration again inside
+   it, taking no value from its request and none from a row loaded earlier. So whichever
+   derivation runs last arms what is saved at that moment. A derivation waits at most 30 seconds
+   for the lock; a save that gives up is reported as in rule 10c. Limit: the lock is per process,
+   which is where the jobs live; production runs one worker. The backend does not rely on the
+   client sending one save per edit.
 11. `cancellation_deadline_hours` (default 24; on the wire `restrictions.cancellationDeadlineHours`): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
 
 12. **Typed storage, stable wire shape (PAD-279, audit M21).** Every scalar setting lives in its own
@@ -227,6 +235,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **And** with the timings swapped, no job is armed at S's time
 - **And** the same holds when the occurrence's own coach is a substitute and the lesson's coach has the other timing
 - **And** an occurrence not materialised yet follows the lesson's first coach
+- **And** a class coached through its lesson, with two reminders, gets its follow-up armed at the lesson coach's spacing
+- **And** a co-coach's save creates no configuration row for a primary coach who has none
 
 #### An intermediate value leaves nothing behind (PAD-478)
 - **Given** the same class and reminder
@@ -261,11 +271,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Then** the response is 200 with the saved configuration and `rescheduleFailed: true`, and the failure is logged with the coach
 - **And** a save whose reschedule succeeded carries no `rescheduleFailed`
 
-#### The form sends one save per edit (PAD-478)
+#### The form holds a save until the coach pauses (PAD-478)
 - **Given** the reminders form with "24 hours before"
 - **When** the coach taps "+" five times
 - **Then** the control shows 29 at once and one save is sent, 600 ms after the last tap, with 29
-- **And** typing a time through 00:00 and 09:00 to 09:30 sends one save, with 09:30
+- **And** typing a time through 00:00 and 09:00 to 09:30 without a 600 ms pause sends one save, with 09:30
 - **And** leaving the time field, or closing the section, sends what is pending at once
 - **And** a value entered while a save is in flight is sent after it, and only the latest one
 
@@ -273,8 +283,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Given** save A then save B of one coach
 - **When** A's reschedule runs after B's
 - **Then** the jobs are B's
-- **And** two reschedules of one coach started on two threads run one after the other
-- **And** a reschedule that cannot get the lock within its bound is reported as `rescheduleFailed`
+- **And** two derivations for one primary coach started on two threads run one after the other
+- **And** a derivation triggered by a co-coach, by the startup pass or by the daily pass holds the primary coach's lock
+- **And** a configuration changed after the session loaded it is read again: the job is armed from the saved row
+- **And** a derivation that cannot get the lock within its bound is reported as `rescheduleFailed`
 
 #### Update invitation mode
 - **Given** an existing config with `auto_notify_enabled: true`
