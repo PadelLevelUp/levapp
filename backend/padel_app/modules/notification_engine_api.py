@@ -94,6 +94,12 @@ def save_config():
     # PAD-478 (notifications.config rule 10c): saved, but the jobs were not re-armed.
     if getattr(config, "reschedule_failed", False):
         payload["rescheduleFailed"] = True
+    # PAD-478 (rule 10f): the classes whose reminder time is already past under what was
+    # just saved. The save sends nothing for them; the form asks the coach.
+    if "reminderTiming" in data:
+        from padel_app.services.past_due_service import past_due
+
+        payload["pastDue"] = past_due(coach.id)
 
     # PAD-133 / eligibility.enforcement rule 9: when the coach saves an
     # eligibility bar, report which already-enrolled students would not meet it.
@@ -270,6 +276,22 @@ def manual_notify():
     blocked = list(blocked_by_id.values())
     events = send_manual_notifications(instance.id, player_ids, coach.id)
     return jsonify({"sent": len(events), "blocked": blocked})
+
+
+@bp.post("/past_due/send")
+@jwt_required()
+def send_past_due_reminders():
+    """PAD-478 (notifications.config rule 10f): the coach's explicit yes. The body names the
+    classes the form listed; the server decides again which of them are past due for THIS
+    coach and runs the ordinary reminder pass for those."""
+    from padel_app.services.past_due_service import send_past_due
+
+    coach = _current_coach()
+    data = request.get_json() or {}
+    keys = data.get("reminders")
+    if not isinstance(keys, list):
+        return jsonify({"error": "reminders must be a list of class keys"}), 400
+    return jsonify(send_past_due(coach.id, keys))
 
 
 @bp.post("/send_reminders")
