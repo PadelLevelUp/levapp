@@ -81,7 +81,7 @@ describe("createSerialSaver", () => {
   it("busy() is true while a request is out or a value waits, false once all have settled", async () => {
     const h = harness();
     expect(h.save.busy()).toBe(false);
-    void h.save("a");
+    h.save("a").catch(() => undefined); // it fails below; its caller handles that
     void h.save("b");
     expect(h.save.busy()).toBe(true);
     h.answers[0].reject(new Error("x"));

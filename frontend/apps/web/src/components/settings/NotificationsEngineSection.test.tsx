@@ -250,17 +250,18 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     await waitFor(() => expect(sign("restrictions")).toHaveAttribute("data-state", "failed"));
   });
 
-  it("rule 3: the newest fails, then an older save is confirmed — the panel shows what the server confirmed", async () => {
+  it("rule 3: the first is confirmed, the waiting newer one fails — the panel shows what the server confirmed", async () => {
     await mount();
     await openSection("settings.engine.restrictions");
     const y = deferred<NotificationConfig>();
     const z = deferred<NotificationConfig>();
     api.updateNotificationConfig.mockImplementationOnce(() => y.promise).mockImplementationOnce(() => z.promise);
 
-    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // Y: 13
-    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // Z: 14
-    await act(async () => { z.reject(new Error("z")); });
+    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // Y: 13, sent
+    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // Z: 14, waits
     await act(async () => { y.resolve({ ...CONFIG, restrictions: { cancellationDeadlineHours: 13 } } as unknown as NotificationConfig); });
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
+    await act(async () => { z.reject(new Error("z")); });
 
     expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":13');
   });

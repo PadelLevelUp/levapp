@@ -157,17 +157,19 @@ describe("iOS engine card (settings.save-on-change, B-243)", () => {
     expect(n.byTestId("stub-restrictions-value").props.children).toContain('"cancellationDeadlineHours":24');
   });
 
-  it("rule 3: the newest fails, then an older save is confirmed — shows what the server confirmed", async () => {
+  it("rule 3: the first is confirmed, the waiting newer one fails — shows what the server confirmed", async () => {
     const n = await mount();
     const y = deferred<unknown>();
     const z = deferred<unknown>();
     api.updateNotificationConfig.mockImplementationOnce(() => y.promise).mockImplementationOnce(() => z.promise);
 
     await n.press("settings-restrictions-header");
-    await n.press("stub-restrictions-change"); // Y: 13
-    await n.press("stub-restrictions-change"); // Z: 14
-    await act(async () => { z.reject(new Error("z")); });
+    await n.press("stub-restrictions-change"); // Y: 13, sent
+    await n.press("stub-restrictions-change"); // Z: 14, waits
     await act(async () => { y.resolve({ ...CONFIG, restrictions: { cancellationDeadlineHours: 13 } }); });
+    await n.flush();
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    await act(async () => { z.reject(new Error("z")); });
     await n.flush();
 
     expect(n.byTestId("stub-restrictions-value").props.children).toContain('"cancellationDeadlineHours":13');
