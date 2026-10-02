@@ -33,14 +33,8 @@ export function CategorySectionView({ section, onDelete }: { section: CategorySe
   }
   return (
     <View testID={`competency-section-${section.id}`} className="gap-1 rounded-md border border-border px-3">
-      {section.head ? (
-        <CompetencyRow row={section.head} onDelete={onDelete} level="category" />
-      ) : (
-        // A default the coach cannot be offered (they hold its name): its sub-categories still are.
-        <Text testID={`competency-category-title-${section.id}`} className="py-3 text-base font-semibold">
-          {t(`evaluations.catalogue.${section.headKey}`)}
-        </Text>
-      )}
+      {/* B-255: a default the coach cannot be offered gets no section, so every section has a head. */}
+      {section.head ? <CompetencyRow row={section.head} onDelete={onDelete} level="category" /> : null}
       {section.subs.map((row) => (
         <CompetencyRow key={managerRowId(row)} row={row} onDelete={onDelete} level="sub" />
       ))}

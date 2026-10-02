@@ -1,0 +1,66 @@
+# PAD-480 / evaluations.competencies rule 15 "Moving" — on iOS a coach moves a sub-category under another
+# of their categories from "Definir categorias de avaliação", and the server holds the new parent.
+#
+# Mirrors: apps/web/e2e/evaluation-tools/pad480-move-competency.spec.ts. Builds its own rows through the
+# API (two custom categories and a sub-category of the first); `onFlowComplete` deletes the two
+# categories, which takes the sub-category with them (rule 9), so the shared coach is left as it was (R-040).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleanA = (typeof output.firstId === 'undefined') ? false : http.request(output.api + '/api/app/evaluation_competency/' + output.firstId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
+  - evalScript: "${output.cleanB = (typeof output.secondId === 'undefined') ? false : http.request(output.api + '/api/app/evaluation_competency/' + output.secondId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.tag = String(Date.now()).slice(-6)}"
+- evalScript: "${output.firstId = json(http.post(output.api + '/api/app/evaluation_competency', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: 'Maestro Mover A ' + output.tag }) }).body).id}"
+- evalScript: "${output.secondId = json(http.post(output.api + '/api/app/evaluation_competency', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: 'Maestro Mover B ' + output.tag }) }).body).id}"
+- evalScript: "${output.subId = json(http.post(output.api + '/api/app/evaluation_competency', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: 'Maestro Mover sub ' + output.tag, parentId: output.firstId }) }).body).id}"
+- assertTrue: "${typeof output.subId === 'number'}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-competencies-open"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-competencies-open"
+- extendedWaitUntil:
+    visible:
+      id: "competency-manager"
+    timeout: 15000
+
+- scrollUntilVisible:
+    element:
+      id: "competency-move-id-${output.subId}"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "competency-move-id-${output.subId}"
+- extendedWaitUntil:
+    visible:
+      id: "competency-move-to-id-${output.subId}-${output.secondId}"
+    timeout: 10000
+- tapOn:
+    id: "competency-move-to-id-${output.subId}-${output.secondId}"
+
+# The server holds the new parent (read until the PATCH lands, up to ~10 s).
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "pad480-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.parent = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return c.id === output.subId; })[0].parentId}"
+      - assertTrue: "${output.parent == output.secondId}"
