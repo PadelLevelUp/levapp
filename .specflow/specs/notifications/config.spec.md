@@ -191,13 +191,16 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    <time>") and "do not send", and one choice covers every class listed. It asks only from the
    answer of the NEWEST timing save, and only once the coach has stopped editing (nothing of
    theirs inside the form's pause, waiting, or being sent), so an intermediate save never asks.
+   The dialog belongs to the card, not to the reminders section: when the newest save's answer
+   arrives after the coach has closed the section, the dialog still appears.
    A class the coach has answered for, either way, is not asked about again during the visit; a
    class that appears later is asked about alone. Nothing about the answer is stored: a later
    visit that saves a timing asks again. Closing the dialog is "do not send". A send that fails
    says so in the dialog, which stays open. After a yes the coach is told what happened: sent,
    scheduled for a time, or nothing left to send (the server's second check found none). When
    the save answers `pastDueUnknown`, the form says the check could not be made and asks
-   nothing. Web only: iOS has no control for these fields. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
+   nothing. Web only, and deliberately: the question is asked from a timing save, and iOS has no
+   control that saves a reminder timing (rule 10d), so there is nothing to ship there. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
    server checks every requested class again with the same predicate, for the calling coach only,
    and runs the ordinary reminder pass for each one it still finds past due, with all its guards
    (count, spacing, PAD-407's lock), then arms the follow-up as after any pass. A repeated or
@@ -322,6 +325,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** a later save lists that class and "Kids", and they choose "send"
 - **Then** the dialog names "Kids" alone and `POST /api/app/notify/past_due/send` is called with exactly its key
 - **And** an answer that arrives while the coach is still editing, or after a newer timing save has begun, never asks
+- **And** when the newest save's answer arrives after the coach has closed the reminders section, the dialog still appears
 - **And** a send that fails says so in the dialog, which stays open
 - **And** inside quiet hours the button says the time it will be sent at, not "now"
 
