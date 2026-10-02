@@ -3843,12 +3843,33 @@ def _defer_next_round(
     """PAD-87: the current round had nobody to invite. Advance the counter (or
     expire past the last round) and leave the sending to the next engine tick.
     `last_activity_at` is stamped so the tick's "fresh vacancy" branch does not
-    re-send round 1; `_round_pending` is what makes the tick pick it up."""
-    vacancy.current_round_number += 1
+    re-send round 1; `_round_pending` is what makes the tick pick it up.
+
+    PAD-493 / B-259 (rule 16): past the last round the vacancy expires only when none of its
+    invitations is live. While one is, it holds on its last round — open, sending nothing new —
+    so a "yes" can still take the spot; the decline of the last live invitation (or the class
+    starting) brings it back here to expire."""
     vacancy.last_activity_at = now or utcnow_naive()
-    if vacancy.current_round_number > _round_max_count(config):
+    if vacancy.current_round_number >= _round_max_count(config):
+        if _has_live_offers(vacancy):
+            vacancy.save()
+            return
+        vacancy.current_round_number += 1
         vacancy.status = "expired"
+    else:
+        vacancy.current_round_number += 1
     vacancy.save()
+
+
+def _has_live_offers(vacancy: Vacancy) -> bool:
+    """True while any invitation for this vacancy can still be answered (``LIVE_INVITATION_STATES``)."""
+    return (
+        NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        ).count()
+        > 0
+    )
 
 
 def _round_pending(vacancy: Vacancy) -> bool:
@@ -3936,6 +3957,37 @@ def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> l
     return open_vacancies
 
 
+def _start_vacancy(
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    config: NotificationConfig,
+    coach_id: int,
+    *,
+    now: datetime,
+) -> list[dict]:
+    """PAD-493 / B-259 (invitations rule 1b): send a vacancy's first batch, once.
+
+    The start is decided on the row re-read under ``SELECT … FOR UPDATE`` and marked
+    (``last_activity_at``) before any invitation goes out, all in one unit of work, so two callers
+    racing for one vacancy — two triggers, or a trigger and the tick — start it once. A vacancy
+    that has started (a batch sent or a round deferred) is the tick's to pace: nothing is sent.
+    """
+    from padel_app.tools.unit_of_work import unit_of_work
+
+    with unit_of_work():
+        locked = (
+            Vacancy.query.filter_by(id=vacancy.id)
+            .with_for_update()
+            .populate_existing()
+            .one()
+        )
+        if locked.status != "open" or locked.last_activity_at is not None:
+            return []
+        locked.last_activity_at = now
+        db.session.flush()
+        return _send_invitation_batch(locked, instance, config, coach_id, now=now)
+
+
 def trigger_invitations(
     instance: LessonInstance,
     coach_id: int,
@@ -3944,8 +3996,10 @@ def trigger_invitations(
 ) -> list[dict]:
     """
     Main entry point to start filling open spots.
-    Finds or creates vacancies and sends the first invitation batch for each.
-    Returns list of {id, name} for players notified in round 1.
+    Finds or creates vacancies and sends the first invitation batch for each vacancy that has not
+    started yet (PAD-493, rule 1b); a started vacancy is left to process_invitation_batches, so a
+    repeated call sends nothing and returns [].
+    Returns list of {id, name} for players notified by this call.
 
     In semi-automatic mode, vacancies pending coach approval produce a
     replacement approval prompt instead of invitations; only "not_required"
@@ -4008,8 +4062,7 @@ def trigger_invitations(
 
     all_notified: list[dict] = []
     for vacancy in sendable:
-        notified = _send_invitation_batch(vacancy, instance, config, coach_id, now=_now)
-        all_notified.extend(notified)
+        all_notified.extend(_start_vacancy(vacancy, instance, config, coach_id, now=_now))
 
     if all_notified:
         publish(
@@ -4184,9 +4237,10 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 
         last = vacancy.last_activity_at
 
-        # Fresh vacancy (no batch sent yet) — trigger immediately
+        # Fresh vacancy (no batch sent yet) — start it, through the same claim as
+        # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
         if last is None:
-            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue
 
@@ -4212,6 +4266,25 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # ---------------------------------------------------------------------------
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
+
+def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
+    """B-260 (invitations rule 17): the response for an answer already given, else None.
+
+    Locks the vacancy (if any) and re-reads the invitation — rule 10's order, vacancy first — so of
+    two identical answers racing each other the second sees the first's outcome. A "no" on an
+    invitation that is no longer live and a "yes" on one already confirmed change nothing.
+    """
+    if event.vacancy_id is not None:
+        Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
+    NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    if action == "no" and event.status not in LIVE_INVITATION_STATES:
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "declined"}
+    if action == "yes" and event.status == "confirmed":
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "confirmed"}
+    return None
+
 
 def respond_to_notification(
     notification_event_id: int,
@@ -4240,6 +4313,13 @@ def respond_to_notification(
         # skipped it) while its message was still showing live buttons.
         _retire_invite_message(event)
         return {"action": "expired"}
+
+    # B-260 (invitations rule 17): an answer is taken once. A second "no" re-ran the decline
+    # (another student invited, a second decline message); a second "yes" told the winner the spot
+    # was filled and expired their confirmed invitation.
+    repeat = _repeated_answer(event, action)
+    if repeat is not None:
+        return repeat
 
     config = get_or_create_config(event.coach_id)
 

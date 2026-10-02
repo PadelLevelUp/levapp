@@ -20,6 +20,17 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 
 ### Rules
 1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
+1b. **Starting is once per vacancy (PAD-493, ledger B-259).** `trigger_invitations` only ever
+   *starts* a vacancy: it sends the first batch to a sendable open vacancy that has never started
+   (`last_activity_at` is null — no batch sent, no round deferred). A vacancy that has started is
+   left to `process_invitation_batches` (rule 5), which alone sends later batches and advances
+   rounds. So the function is safe to call any number of times — a second decline, a coach's
+   repeated attendance confirm, a re-armed invitation-start job — and a call that starts nothing
+   sends nothing and returns an empty list. The start is claimed under a row lock
+   (`SELECT … FOR UPDATE` on the vacancy, re-read) and marked before any invitation is sent, so
+   two concurrent callers — two triggers, or a trigger and the tick's fresh-vacancy branch —
+   cannot both start one vacancy. A decline's follow-up invitation (one more, to the next
+   candidate) is not a start and is unchanged.
 2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
 2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
@@ -185,6 +196,20 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     send the other candidates the `spot_filled` message; the waiting-list placement and
     reconciliation retire silently, as they always have. Whether a candidate should be told
     their seat went is a product question, deliberately left open here.
+16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
+    vacancy's last round has nobody left to invite, it expires only if none of its invitations is
+    still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open`,
+    stays on its last round, sends nothing new for that round, and a "yes" in that window is
+    accepted as on any open vacancy. It expires when the last live invitation resolves — the
+    decline of the last one, or the class starting (PAD-68). Holding sends no message of its own,
+    and because the vacancy stays open, no second vacancy is created for the same spot while an
+    earlier one still has offers out. (Before this, the rounds could run out under live offers and
+    a "yes" was answered `spot_filled` on a spot nobody had taken.)
+17. **An answer is taken once (PAD-493, ledger B-260).** A "no" on an invitation that is no longer
+    live, and a "yes" on an invitation already `confirmed`, change nothing and send nothing: no
+    second decline message, no next invitation, no `spot_filled` to the student who holds the
+    spot. The check runs on the invitation re-read after the vacancy lock (rule 10), so a double
+    tap racing itself is answered once.
 
 ### Acceptance Criteria
 
@@ -414,6 +439,30 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** the vacancy is `filled` and neither invitation is left in a live state
 - **And** neither candidate's invitation message stays actionable
 - **And** the winner's own invitation is untouched by the close, and is marked `confirmed` by the path that accepted it
+
+#### A repeated start changes nothing (PAD-493, B-259)
+- **Given** a class with one open spot whose first batch has gone out and is still unanswered
+- **When** `trigger_invitations` runs again for the class — a second decline minutes later, a coach confirming attendance twice, the invitation-start job firing again
+- **Then** the started vacancy keeps its round, batch and status, gains no invitation, and the call returns an empty list
+- **And** a vacancy opened by the second decline is started by that same call
+- **And** the next batch for the first spot still goes out from `process_invitation_batches` once `maxInactiveTime` has passed
+
+#### Two callers cannot both start one vacancy (PAD-493, B-259)
+- **Given** a never-started open vacancy
+- **When** two callers try to start it at once (two triggers, or a trigger and the tick)
+- **Then** the start is decided on the vacancy row re-read under `SELECT … FOR UPDATE`, and only the first caller sends
+
+#### Rounds that run out under a live invitation hold the spot (PAD-493, B-259)
+- **Given** an open vacancy on its last round with an invitation still `sent` and nobody left to invite
+- **When** the round would advance past the last one
+- **Then** the vacancy stays `open` on its last round, and a "yes" to the live invitation enrols the student
+- **And** no second vacancy is created for the class while it holds
+- **And** when the last live invitation is declined, the vacancy expires
+
+#### An answer is taken once (PAD-493, B-260)
+- **Given** a student who has answered an invitation
+- **When** they send the same answer again — "no" twice, or "yes" after winning the spot
+- **Then** nothing changes: no further invitation goes to anyone, the winner keeps the spot and a `confirmed` invitation, and nobody is told the spot was filled
 
 #### Only one open vacancy per departing player per occurrence (PAD-303)
 - **Given** an open vacancy on instance 10 for player 7

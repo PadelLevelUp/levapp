@@ -3,12 +3,13 @@ id: B-259
 title: "trigger_invitations is not safe to run twice: a repeat re-batches or expires a spot whose invitations are pending, and a student can be invited twice for one spot"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-10-02T14:13:17Z
 affects:
   - notifications.invitations
   - backend/padel_app/services/notification_service.py
   - backend/padel_app/modules/frontend_api.py
-proposed_fix: "Pending the coordinator's review of the design: trigger_invitations starts a vacancy at most once (round 1 to a never-batched vacancy) and leaves a vacancy already sending to process_invitation_batches."
+proposed_fix: "trigger_invitations starts a vacancy at most once, under a row lock, and leaves a started vacancy to process_invitation_batches (rule 1b); a vacancy whose rounds run out while an invitation is live holds open instead of expiring (rule 16)."
 opened: 2026-10-02T13:51:27Z
 ---
 
@@ -70,16 +71,44 @@ invitation window open, one round, batches of 3). Both tests are red on staging 
 starts matching" and says nothing about a second call. The pacing rule (rule 5) assumes it alone
 sends later batches. Incomplete rule.
 
-**Production:** not yet known. The read-only query is
-`docs/qa/2026-10-02-pad-493-prod-read.sql` (local, untracked); the coordinator runs it. Note: the
-direct shape (expire, then recreate a never-filled spot) creates vacancies with no departing player,
-so its query counts it under "several spots", not "same spot".
+**Production (read-only reads run by the coordinator, 2026-10-02 13:53–14:00Z):** nothing is exposed
+now; no invitation is live. In history, B-259's pacing break shows in vacancies whose batch 2 went
+out seconds after batch 1 while batch 1 was still unanswered: 30 s, 83 s (exactly the
+two-declines shape), 0.7 s, 3 s, and under 1 s on four more. Correct pacing was about 2 h. The
+expiry shape shows in almost every expired vacancy of the history read: invitations stayed live
+until the bulk expiry of 2026-07-23. In two classes a departing student's seat was offered again
+while an older offer to the same student was still live. No "yes" was ever refused on an expired
+vacancy; a first reading said two were, and was retracted, because the query read the vacancy's
+current status, not its status at the answer. The class-367 evening of 2026-08-27 was B-056 and
+PAD-271, both fixed in September, plus the cross-spot design (PAD-494).
+
+**Spec/code mismatch, noted and not fixed here:** rule 5 says the engine "expires unanswered
+invitations after maxInactiveTime". The code never expires an invitation before the class starts
+(PAD-68's sweep); `maxInactiveTime` only paces the next batch. Under rule 16, "the last live
+invitation resolves" therefore means it is declined, or the class starts.
 
 ### Change Plan
 
-Held until the coordinator has reviewed the diagnosis and the design (it changes user-visible
-notification volume).
+Design reviewed and approved by the coordinator before the build (F1 start-only, F2 hold,
+cross-spot split out as PAD-494).
+- Spec: `notifications.invitations` rule 1b ("Starting is once per vacancy") and rule 16 ("A spot is
+  not dropped while someone asked can still say yes"), with four criteria.
+- Code (`notification_service.py`):
+  - `_start_vacancy` locks the vacancy (`SELECT … FOR UPDATE`, re-read) and starts it only if it
+    is open and `last_activity_at` is null. It marks it started before sending, in one unit of
+    work. Both `trigger_invitations` and the tick's fresh-vacancy branch go through it.
+  - `_defer_next_round` holds a vacancy on its last round while `_has_live_offers` is true,
+    instead of expiring it.
+- Tests: `test_pad493_invitations_run_twice.py` (red on `0305880a1`, green after), and
+  `test_pad493_starts_and_pacing.py`:
+  - every legitimate start, each first call × repeat, run on the old and the new code;
+  - the pacing guard;
+  - the lock spy and a stale-row cell;
+  - a forced two-thread race on Postgres, with an unlocked cell that double-sends.
 
 ### Resolution
 
-(Filled in when the fix lands.)
+Fixed in PAD-493's PR. Not covered here, by decision:
+- the same students invited for every spot of a class: PAD-494;
+- a decliner asked again for the same spot in a later round: by design under rule 8, and a product
+  question.

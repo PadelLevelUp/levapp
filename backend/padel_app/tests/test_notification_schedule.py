@@ -556,14 +556,17 @@ class TestProcessInvitationBatches:
         future_start = now + timedelta(hours=4)
         vacancy = self._make_vacancy(future_start, last_activity_at=None)
 
+        # PAD-493 (rule 1b): a fresh vacancy is started through the same locked claim as
+        # trigger_invitations, which then sends its first batch.
         with patch("padel_app.services.notification_service.Vacancy") as MockV, \
              patch("padel_app.services.notification_service.get_or_create_config") as mock_cfg, \
-             patch("padel_app.services.notification_service._send_invitation_batch") as mock_send:
+             patch("padel_app.services.notification_service._start_vacancy") as mock_start:
             MockV.query.filter_by.return_value.all.return_value = [vacancy]
             mock_cfg.return_value.get_restrictions.return_value = DEFAULT_RESTRICTIONS
 
             count = process_invitation_batches(now=now)
-            mock_send.assert_called_once()
+            mock_start.assert_called_once()
+            assert mock_start.call_args.args[0] is vacancy
             assert count == 1
 
     def test_inactive_long_enough_triggers_batch(self):

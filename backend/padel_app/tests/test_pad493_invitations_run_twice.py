@@ -25,9 +25,10 @@ NOW = datetime(2026, 6, 10, 14, 0)           # 15:00 Lisbon; class tomorrow 09:0
 START = datetime(2026, 6, 11, 9, 0)
 
 
-def _seed(*, enrolled: int, candidates: int, max_players: int):
+def _seed(*, enrolled: int, candidates: int, max_players: int, quiet: bool = False, semi: bool = False):
     """A coach, one level, `enrolled` students on the class and `candidates` eligible others.
-    One invitation round (no rules), batches of 3, no total cap, no quiet hours."""
+    One invitation round (no rules), batches of 3, 120 min between batches, no total cap; quiet
+    hours (22:00-07:00 Lisbon) only with `quiet`, approval before sending only with `semi`."""
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.clubs import Club
@@ -80,8 +81,10 @@ def _seed(*, enrolled: int, candidates: int, max_players: int):
                                 confirmed=False, enrolment_source="coach"))
     db.session.add(NotificationConfig(
         coach_id=coach.id, auto_notify_enabled=True, invitation_groups=[{"id": "1", "rules": []}],
-        restrictions={"quietHours": {"enabled": False},
+        invitation_mode="semi_automatic" if semi else "automatic",
+        restrictions={"quietHours": {"enabled": quiet},
                       "maxSimultaneous": {"enabled": True, "value": 3},
+                      "maxInactiveTime": {"enabled": True, "value": 120},
                       "maxTotal": {"enabled": False, "value": 10}},
     ))
     db.session.commit()
@@ -163,3 +166,117 @@ def test_two_declines_minutes_apart_leave_the_first_spot_alone(app, monkeypatch)
         # (b) per spot, no student holds two live invitations
         pairs = _live_events(instance_id)
         assert len(pairs) == len(set(pairs))
+
+
+def test_b260_a_repeated_no_on_one_invitation_invites_nobody_else(app, monkeypatch):
+    """B-260: a student answers "no" to the same invitation twice (double tap, retry). The second
+    answer must not invite another student: only the first decline frees an offer slot."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        instance_id, coach_id, _, candidates = _seed(enrolled=0, candidates=6, max_players=1)
+        trigger_invitations(LessonInstance.query.get(instance_id), coach_id, now=NOW)
+        first = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).order_by(NotificationEvent.id).first()
+        decliner_user_id = Player.query.get(first.player_id).user_id
+
+        respond_to_notification(first.id, "no", decliner_user_id, now=NOW + timedelta(minutes=1))
+        after_first_no = _live_events(instance_id)
+        total_after_first_no = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count()
+        respond_to_notification(first.id, "no", decliner_user_id, now=NOW + timedelta(minutes=2))
+        print("B-260 repeated no:", after_first_no, "->", _live_events(instance_id))
+
+        assert _live_events(instance_id) == after_first_no
+        assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == total_after_first_no
+
+
+def test_b260_a_repeated_yes_keeps_the_spot_and_its_confirmation(app, monkeypatch):
+    """B-260: a student who won the spot answers "yes" a second time (double tap, retry). They keep
+    the spot, the invitation stays confirmed, and nobody is told the spot was filled."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=1)
+        trigger_invitations(LessonInstance.query.get(instance_id), coach_id, now=NOW)
+        first = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).order_by(NotificationEvent.id).first()
+        winner_user_id = Player.query.get(first.player_id).user_id
+
+        assert respond_to_notification(first.id, "yes", winner_user_id, now=NOW + timedelta(minutes=1))["action"] != "spot_filled_waiting_list_offered"
+        second = respond_to_notification(first.id, "yes", winner_user_id, now=NOW + timedelta(minutes=2))
+        print("B-260 repeated yes:", second, NotificationEvent.query.get(first.id).status, _vacancies(instance_id))
+
+        assert second["action"] != "spot_filled_waiting_list_offered"
+        assert NotificationEvent.query.get(first.id).status == "confirmed"
+
+
+# ── F2: a spot is not dropped while someone asked can still say yes (rule 16) ──────────────────
+
+def _one_spot_one_student_started(app_monkeypatch_now):
+    """One open spot, one eligible student holding a live invitation from the first batch."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import trigger_invitations
+
+    instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=1, max_players=1)
+    trigger_invitations(LessonInstance.query.get(instance_id), coach_id, now=NOW)
+    event = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).one()
+    return instance_id, coach_id, event.id, Player.query.get(event.player_id).user_id
+
+
+def test_rounds_that_run_out_under_a_live_invitation_hold_the_spot_and_accept_a_yes(app, monkeypatch):
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.notification_service import (
+        process_invitation_batches,
+        respond_to_notification,
+        trigger_invitations,
+    )
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        instance_id, coach_id, event_id, user_id = _one_spot_one_student_started(None)
+
+        # Well past maxInactiveTime, several ticks: nobody else to invite, the one offer is live.
+        for hours in (3, 4, 5):
+            later = NOW + timedelta(hours=hours)
+            pin_clock(monkeypatch, later)
+            process_invitation_batches(now=later)
+        held = _vacancies(instance_id)
+        trigger_invitations(LessonInstance.query.get(instance_id), coach_id, now=NOW + timedelta(hours=5))
+        print("F2 hold:", held, _vacancies(instance_id), _live_events(instance_id))
+
+        assert [(v[1], v[2]) for v in held] == [("open", 1)]
+        assert len(_vacancies(instance_id)) == 1          # no second vacancy while it holds
+        assert len(_live_events(instance_id)) == 1
+
+        result = respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(hours=5, minutes=1))
+        assert result["action"] == "confirmed"
+        assert _vacancies(instance_id)[0][1] == "filled"
+
+
+def test_a_held_spot_expires_when_its_last_live_invitation_is_declined(app, monkeypatch):
+    from padel_app.services.notification_service import process_invitation_batches, respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        instance_id, coach_id, event_id, user_id = _one_spot_one_student_started(None)
+        later = NOW + timedelta(hours=3)
+        pin_clock(monkeypatch, later)
+        process_invitation_batches(now=later)
+        assert _vacancies(instance_id)[0][1] == "open"
+
+        respond_to_notification(event_id, "no", user_id, now=later + timedelta(minutes=1))
+        print("F2 decline:", _vacancies(instance_id), _live_events(instance_id))
+        assert _vacancies(instance_id)[0][1] == "expired"
+        assert _live_events(instance_id) == []
