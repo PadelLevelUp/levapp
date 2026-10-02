@@ -32,22 +32,17 @@ async function openPreferences(page: Page) {
 }
 
 async function selectLanguage(page: Page, option: RegExp) {
-  await page.getByLabel(/language|idioma/i).click();
-  await page.getByRole("option", { name: option }).click();
-  // PAD-300 (load flake, B-079): the save is `PATCH /auth/me`; under load it
-  // outlived the 5 s toast wait and the nav was still in the old language.
-  // Wait for the response itself, then for the toast.
+  // PAD-300 (load flake, B-079): the save is `PATCH /auth/me`; under load it outlived a 5 s wait.
+  // Since PAD-473 (B-244) choosing the language IS the save — no Save button on Preferences — and the
+  // sign beside it confirms it (settings.save-on-change).
   const saved = page.waitForResponse(
     (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200,
     { timeout: 30_000 }
   );
-  await page
-    .getByRole("button", { name: /save changes|guardar altera/i })
-    .click();
+  await page.getByLabel(/language|idioma/i).click();
+  await page.getByRole("option", { name: option }).click();
   await saved;
-  await expect(
-    page.getByText(/settings saved|saved|guardad|preferências/i).first()
-  ).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved", { timeout: 5000 });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -136,12 +131,13 @@ test("B-184: a late profile load does not overwrite the language just chosen", a
     );
     await page.getByRole("combobox", { name: ui("settings.language") }).click();
     await page.getByRole("option", { name: ui("settings.portuguese") }).click();
-    await saved;
 
-    // Now let the stale read land, and give React a beat to apply it.
+    // Now let the stale read land, and give React a beat to apply it. The PATCH is awaited only
+    // after the release: the held GET's route handler would otherwise keep it waiting too.
     const landed = page.waitForResponse((r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "GET");
     release();
     await landed;
+    await saved;
     await page.waitForTimeout(500);
     expect(held, "the Settings mount read was held until after the choice").toBe(1);
 
