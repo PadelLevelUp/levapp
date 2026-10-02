@@ -226,7 +226,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
             abort(400, "eligibilityRules must be a list or null")
         unknown = unknown_eligibility_level_operations(rules)
         if unknown:
-            # eligibility.rules rule 6 (PAD-481): before any write.
+            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
             from flask import abort
             abort(400, f"eligibilityRules: unknown level operation {unknown[0]!r}")
         config.eligibility_rules = rules
@@ -1002,7 +1002,7 @@ def _group_rule_failures(
                 elif op == "one_below_or_above_class":
                     limit = 1
                     breached = abs(distance) > 1
-                else:
+                elif op in ("within_n_of_class", "within_n_above_class", "within_n_below_class"):
                     # within_n_of_class (both ways) and, PAD-481, its two
                     # one-way forms. Both include the class's own level.
                     try:
@@ -1020,6 +1020,14 @@ def _group_rule_failures(
                         breached = distance < 0 or distance > limit
                     else:
                         breached = abs(distance) > limit
+                else:
+                    # Listed above but given no branch: fail closed (B-257).
+                    if fail(
+                        attr, op, actual=student_code, threshold=class_code,
+                        reason="unknown_operation",
+                    ):
+                        return failures
+                    continue
                 if breached:
                     if fail(
                         attr, op, actual=student_code,

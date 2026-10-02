@@ -133,6 +133,7 @@
       "classHasNoLevel": "the class has no level, so no level rule can be met",
       "studentHasNoLevel": "the student has no level assigned",
       "levelNotInLadder": "the student's level is not in your level ladder",
+      "unknownOperation": "the bar uses a level rule this version does not know",
       "absencesOver": "over the unjustified-absence limit ({{actual}}, limit is {{threshold}})",
       "justifiedAbsences": "justified absences outside the limit ({{actual}}, limit is {{threshold}})",
       "attendanceUnder": "attendance outside the limit ({{actual}}%, limit is {{threshold}}%)",

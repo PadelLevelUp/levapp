@@ -181,7 +181,12 @@ function RuleRow({
           </SelectTrigger>
           <SelectContent>
             {directionOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value} label={option.label} />
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                label={option.label}
+                testID={`eligibility-direction-${option.value}`}
+              />
             ))}
           </SelectContent>
         </Select>
