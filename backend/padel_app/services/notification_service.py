@@ -3918,6 +3918,7 @@ def _send_invitation_batch(
     restrictions = config.get_restrictions()
 
     # Determine batch size
+    first_batch_already_full = False
     if max_sim_override is not None:
         batch_size = max_sim_override
     else:
@@ -3935,6 +3936,7 @@ def _send_invitation_batch(
                 NotificationEvent.status.in_(LIVE_INVITATION_STATES),
             ).count()
             batch_size = max(0, batch_size - already_out)
+            first_batch_already_full = batch_size == 0
 
     # Respect maxTotal across ALL vacancies for this instance
     max_total = restrictions.get("maxTotal", {})
@@ -4009,6 +4011,12 @@ def _send_invitation_batch(
             event.save()
 
         notified.append({"id": str(cp.player_id), "name": player_name})
+
+    if not notified and not first_batch_already_full:
+        # PAD-495 item 9: nobody could be sent this batch (every candidate is at today's limit,
+        # or has no account to message). It does not count as a batch, so a first batch gives its
+        # claim back and is tried again on the next tick, and a later one is re-examined as before.
+        return notified
 
     vacancy.last_activity_at = utcnow_naive()
     vacancy.current_batch_number += 1
