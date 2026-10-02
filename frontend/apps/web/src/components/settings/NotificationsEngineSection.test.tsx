@@ -2,7 +2,7 @@
  * settings.save-on-change rules 1-3 + B-243 (PAD-473) on the web notification-engine card. Every
  * control behind the card's one save() signs its save and, on a failure, says so and returns to the
  * last value the server confirmed — only the fields whose newest save failed. The reminders
- * subsection is the named exception (PAD-478): no sign, saved exactly as before.
+ * subsection is one of them since PAD-478 (its own pause sits in RemindersSection, stubbed here).
  *
  * The sub-panels are stubs that call onChange and show the value they were given, so this file
  * pins the card's wiring (keys, signs, rollback), not each panel's own controls.
@@ -25,7 +25,15 @@ function stub(name: string, prop: string, next: unknown) {
     </div>
   );
 }
-vi.mock("./RemindersSection", () => ({ RemindersSection: stub("reminders", "reminderTiming", { reminderCount: 3 }) }));
+// The reminders stub also shows what the card answers when the form asks "send what is pending on close?".
+vi.mock("./RemindersSection", () => ({
+  RemindersSection: (props: Record<string, unknown>) => (
+    <div>
+      {stub("reminders", "reminderTiming", { reminderCount: 3 })(props)}
+      <span data-testid="stub-reminders-flush-on-close">{String((props.flushOnClose as () => boolean)())}</span>
+    </div>
+  ),
+}));
 vi.mock("./InvitationGroupsSection", () => ({
   DEFAULT_INVITATION_GROUPS: [{ id: "default" }],
   InvitationGroupsSection: stub("groups", "groups", [{ id: "g2" }]),
@@ -113,13 +121,72 @@ describe("the engine card signs its saves (settings.save-on-change rule 2)", () 
     }
   });
 
-  it("PAD-478: the reminders sub-panel sends the same request as before and has no sign", async () => {
+  it("PAD-478: the reminders sub-panel saves through the card's save and signs like the others", async () => {
     await mount();
     await openSection("settings.engine.reminders");
     fireEvent.click(await screen.findByTestId("stub-reminders-change"));
 
     expect(api.updateNotificationConfig).toHaveBeenCalledWith({ reminderTiming: { reminderCount: 3 } });
-    expect(screen.queryByTestId("notification-engine-reminders-sign")).toBeNull();
+    await waitFor(() => expect(sign("reminders")).toHaveAttribute("data-state", "saved"));
+    expect(screen.queryByTestId("notification-engine-reschedule-failed")).toBeNull();
+  });
+
+  it("PAD-478: the card tells the reminders form to drop a pending edit when there is no session", async () => {
+    localStorage.setItem("accessToken", "t");
+    await mount();
+    await openSection("settings.engine.reminders");
+    expect(await screen.findByTestId("stub-reminders-flush-on-close")).toHaveTextContent("true");
+
+    localStorage.removeItem("accessToken"); // what sign-out does, before the screen unmounts
+    fireEvent.click(screen.getByTestId("stub-reminders-change")); // any re-render
+    await waitFor(() => expect(screen.getByTestId("stub-reminders-flush-on-close")).toHaveTextContent("false"));
+  });
+
+  it("PAD-478: a reminders change made while another engine save is out waits for it (one in flight)", async () => {
+    await mount();
+    const first = deferred<NotificationConfig>();
+    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
+    await openSection("settings.engine.eligibility");
+    fireEvent.click(await screen.findByTestId("stub-eligibility-change")); // out
+    await openSection("settings.engine.reminders");
+    fireEvent.click(await screen.findByTestId("stub-reminders-change")); // must wait
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
+    await act(async () => { first.resolve({ ...CONFIG, eligibilityRules: [{ attribute: "level" }] } as unknown as NotificationConfig); });
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
+    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ reminderTiming: { reminderCount: 3 } });
+  });
+
+  it("PAD-478 (notifications.config rule 10c): a save the server stored but could not re-arm is confirmed AND says so", async () => {
+    await mount();
+    await openSection("settings.engine.reminders");
+    api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch, rescheduleFailed: true }));
+
+    fireEvent.click(await screen.findByTestId("stub-reminders-change"));
+
+    const note = await screen.findByTestId("notification-engine-reschedule-failed");
+    expect(note).toHaveTextContent("settings.engine.rescheduleFailed");
+    // It is a saved value, not a failure: the sign confirms it and the control keeps it.
+    await waitFor(() => expect(sign("reminders")).toHaveAttribute("data-state", "saved"));
+    expect(screen.getByTestId("stub-reminders-value")).toHaveTextContent('"reminderCount":3');
+
+    // The next reminders save that re-arms removes the note.
+    fireEvent.click(screen.getByTestId("stub-reminders-change"));
+    await waitFor(() => expect(screen.queryByTestId("notification-engine-reschedule-failed")).toBeNull());
+  });
+
+  it("PAD-478 (rule 10c): a save of another control does not remove the note; it says nothing about the jobs", async () => {
+    await mount();
+    await openSection("settings.engine.reminders");
+    api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch, rescheduleFailed: true }));
+    fireEvent.click(await screen.findByTestId("stub-reminders-change"));
+    await screen.findByTestId("notification-engine-reschedule-failed");
+
+    fireEvent.click(toggle()); // the master toggle: its answer carries no rescheduleFailed
+    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("notification-engine-reschedule-failed")).toBeTruthy();
   });
 });
 
@@ -266,7 +333,7 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":13');
   });
 
-  it("PAD-478 exception, stated precisely: the reminders request is unchanged and has no sign; its failure returns it to the confirmed value", async () => {
+  it("PAD-478: a failed reminders save says so and returns to the confirmed value, like every other control", async () => {
     await mount();
     await openSection("settings.engine.reminders");
     api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
@@ -274,7 +341,7 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     fireEvent.click(await screen.findByTestId("stub-reminders-change"));
 
     expect(api.updateNotificationConfig).toHaveBeenCalledWith({ reminderTiming: { reminderCount: 3 } });
-    expect(screen.queryByTestId("notification-engine-reminders-sign")).toBeNull();
+    await waitFor(() => expect(sign("reminders")).toHaveAttribute("data-state", "failed"));
     await waitFor(() => expect(screen.getByTestId("stub-reminders-value")).not.toHaveTextContent('"reminderCount":3'));
   });
 

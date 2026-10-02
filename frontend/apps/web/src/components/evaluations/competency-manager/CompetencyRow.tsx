@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CornerDownRight, Pencil, Trash2 } from "lucide-react";
-import { competencyLabel, legacyScaleLabel, moveTargets, type ManagerRow } from "@levelup/config";
+import { ArrowUpCircle, CornerDownRight, Pencil, Trash2 } from "lucide-react";
+import { competencyLabel, legacyScaleLabel, moveTargets, suggestConversion, type ManagerRow } from "@levelup/config";
 import {
   evaluationApiErrorCode,
   useEvaluationCompetencies,
@@ -24,6 +24,8 @@ interface CompetencyRowProps {
   onDelete: (competency: EvaluationCompetency) => void;
   /** PAD-431: a category heads its section; a sub-category is indented under it. */
   level?: "category" | "sub";
+  /** PAD-480 (rule 18): opens the conversion dialog for a legacy row that suggests a default. */
+  onConvert?: (competency: EvaluationCompetency) => void;
 }
 
 /**
@@ -31,7 +33,7 @@ interface CompetencyRowProps {
  * when made: while its request is in flight the row is disabled — one request per
  * tap — and a failure puts the switch back and says so on this row.
  */
-export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyRowProps) {
+export function CompetencyRow({ row, onDelete, level = "category", onConvert }: CompetencyRowProps) {
   const { t } = useTranslation();
   const switchOn = useSwitchOnCatalogueCompetency();
   const update = useUpdateEvaluationCompetency();
@@ -58,6 +60,8 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
   const editable = kind !== "available";
   // PAD-480 (rule 15 "Moving"): where this row may go; null when it cannot move.
   const targets = competency && competencies.data ? moveTargets(competencies.data, competency) : null;
+  // PAD-480 (rule 18): a legacy row named like a default the coach does not hold.
+  const convertible = onConvert && competency && competencies.data ? suggestConversion(competencies.data, competency) !== null : false;
 
   const fail = (error: unknown) =>
     setErrorKey(evaluationApiErrorCode(error) === "duplicate_name" ? "duplicateName"
@@ -168,6 +172,19 @@ export function CompetencyRow({ row, onDelete, level = "category" }: CompetencyR
                 onClick={() => { setErrorKey(null); setMoving((open) => !open); }}
               >
                 <CornerDownRight className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {convertible ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                data-testid={`competency-convert-${rowId}`}
+                aria-label={`${t("evaluations.manager.convert")}: ${label}`}
+                title={t("evaluations.manager.convert")}
+                disabled={busy}
+                onClick={() => onConvert?.(competency)}
+              >
+                <ArrowUpCircle className="h-4 w-4" />
               </Button>
             ) : null}
             <Button

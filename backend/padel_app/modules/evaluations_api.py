@@ -70,6 +70,13 @@ def update_evaluation_competency(category_id):
     return jsonify(service.serialize_competency(service.update_competency(coach, category_id, _body())))
 
 
+@bp.post("/evaluation_competency/<int:category_id>/convert")
+@jwt_required()
+def convert_evaluation_competency(category_id):
+    coach = require_coach()
+    return jsonify(service.serialize_competency(service.convert_competency(coach, category_id, _body())))
+
+
 @bp.get("/evaluation_competency/<int:category_id>/impact")
 @jwt_required()
 def evaluation_competency_impact(category_id):

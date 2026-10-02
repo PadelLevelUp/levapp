@@ -1,18 +1,31 @@
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ReminderConfig, ReminderTiming } from "@/types";
+import { useFlushOnPageHide } from "@/components/evaluations/useFlushOnPageHide";
+import { createPausedSaver, type PausedSaver } from "./pausedSaver";
+
+/** How long the coach must stop tapping or typing before the timing is sent (PAD-478). */
+export const REMINDERS_SAVE_DELAY_MS = 600;
 
 interface RemindersSectionProps {
   reminderTiming: ReminderConfig;
-  onChange: (reminderTiming: ReminderConfig) => void;
+  /** Called ONCE per edit, with the final value. May return the save's promise, so the
+   *  next save waits for it (notifications.config rule 10d). */
+  onChange: (reminderTiming: ReminderConfig) => void | Promise<unknown>;
   disabled?: boolean;
+  /** Asked when the section closes with an edit still inside its pause: send it (the default),
+   *  or drop it. The card answers "drop" when there is no session any more, so an edit made
+   *  just before sign-out is never sent (settings.save-on-change, review #497). */
+  flushOnClose?: () => boolean;
 }
 
 function TimingSelector({
   value,
   onChange,
+  onCommit,
   label,
   description,
   disabled,
@@ -20,6 +33,8 @@ function TimingSelector({
 }: {
   value: ReminderTiming;
   onChange: (v: ReminderTiming) => void;
+  /** The coach left a field: send what is pending now. */
+  onCommit: () => void;
   label: string;
   description: string;
   disabled?: boolean;
@@ -108,6 +123,7 @@ function TimingSelector({
               type="time"
               value={(value as { type: "days_before_at_time"; days: number; time: string }).time}
               onChange={(e) => onChange({ ...(value as { type: "days_before_at_time"; days: number; time: string }), time: e.target.value })}
+              onBlur={onCommit}
               disabled={disabled}
               className="h-7 rounded-md border border-input bg-background px-2 text-sm text-foreground"
             />
@@ -118,10 +134,67 @@ function TimingSelector({
   );
 }
 
-export function RemindersSection({ reminderTiming, onChange, disabled }: RemindersSectionProps) {
+export function RemindersSection({ reminderTiming: saved, onChange, disabled, flushOnClose }: RemindersSectionProps) {
   const { t } = useTranslation();
+
+  // PAD-478 (notifications.config rule 10d): the controls show each tap or keystroke at once
+  // from a local draft, and the timing is SENT once, after the coach pauses (or leaves the
+  // time field, or closes the section), with the final value. Before, every stepper tap and
+  // every segment edit of the time field was a save, and each save re-armed every future job.
+  const [draft, setDraft] = useState<ReminderConfig>(saved);
+  const draftRef = useRef(draft);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  // Bumped when a save settles, so the draft is compared with the saved value again then.
+  const [settled, setSettled] = useState(0);
+  const saverRef = useRef<PausedSaver<ReminderConfig> | null>(null);
+  if (saverRef.current === null) {
+    saverRef.current = createPausedSaver<ReminderConfig>({
+      delayMs: REMINDERS_SAVE_DELAY_MS,
+      send: (value) => onChangeRef.current(value),
+      // Told by the saver once it is no longer busy with that value: told any earlier (on the
+      // save's own promise), the effect below still read "editing" and kept a refused value.
+      onSettled: () => setSettled((n) => n + 1),
+    });
+  }
+  const saver = saverRef.current;
+
+  // The saved value wins whenever the coach is not in the middle of an edit: after a save
+  // is confirmed, and after a failed one that the parent rolled back.
+  const savedKey = JSON.stringify(saved);
+  useEffect(() => {
+    if (saver.busy()) return;
+    draftRef.current = saved;
+    setDraft(saved);
+    // `saved` is a new object on every parent render; its content is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedKey, saver, settled]);
+
+  // Closing the section must not lose an edit that is still inside its pause, unless the
+  // user has signed out: then it is dropped, with whatever was waiting to be sent. With a
+  // session, everything this mount still holds goes to the card's save at once (its queue
+  // orders it), so a reopened section never sends a newer value BEFORE this one.
+  const flushOnCloseRef = useRef(flushOnClose);
+  flushOnCloseRef.current = flushOnClose;
+  useEffect(
+    () => () => {
+      if (flushOnCloseRef.current?.() === false) saver.dispose();
+      else saver.close();
+    },
+    [saver],
+  );
+
+  // A tab closed or switched away while an edit is still inside its pause: send it now. The
+  // request is an ordinary one, so on a tab that is closing it may not leave; on a tab that
+  // is only hidden it does (notifications.config rule 10d states the limit).
+  useFlushOnPageHide(() => saver.flush());
+
+  const reminderTiming = draft;
   const update = (patch: Partial<ReminderConfig>) => {
-    onChange({ ...reminderTiming, ...patch });
+    const next = { ...draftRef.current, ...patch };
+    draftRef.current = next;
+    setDraft(next);
+    saver.push(next);
   };
 
   return (
@@ -129,6 +202,7 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
       <TimingSelector
         value={reminderTiming.firstReminder}
         onChange={(firstReminder) => update({ firstReminder })}
+        onCommit={saver.flush}
         label={t("settings.reminders.firstReminderTiming")}
         description={t("settings.reminders.firstReminderDescription")}
         disabled={disabled}
@@ -201,6 +275,7 @@ export function RemindersSection({ reminderTiming, onChange, disabled }: Reminde
       <TimingSelector
         value={reminderTiming.invitationStart}
         onChange={(invitationStart) => update({ invitationStart })}
+        onCommit={saver.flush}
         label={t("settings.reminders.startInvitations")}
         description={t("settings.reminders.startInvitationsDescription")}
         disabled={disabled}
