@@ -173,6 +173,38 @@ def unknown_eligibility_level_operations(rules) -> list:
     post is in the set — including one it only round-trips unchanged — so a
     client that does not know an operation can still save the list back.
     """
+    return _level_operations_outside(rules, ELIGIBILITY_LEVEL_OPERATIONS)
+
+
+# An invitation group's level rule is anchored to the VACANCY (eligibility.rules
+# rule 6); the class operations belong to the eligibility bar only.
+INVITATION_GROUP_LEVEL_OPERATIONS = frozenset({
+    "same_as_vacancy",
+    "one_above_vacancy",
+    "one_below_vacancy",
+    "all_above_vacancy",
+    "all_below_vacancy",
+})
+
+
+def unknown_invitation_group_level_operations(groups) -> list:
+    """The level operations in invitation groups outside the five vacancy ones.
+
+    Saving refuses them (`invitationGroups` → 400). Shapes the evaluator already
+    tolerates (a non-list, a group without rules) are left to it.
+    """
+    if not isinstance(groups, list):
+        return []
+    return [
+        op
+        for group in groups
+        if isinstance(group, dict)
+        for op in _level_operations_outside(
+            group.get("rules"), INVITATION_GROUP_LEVEL_OPERATIONS)
+    ]
+
+
+def _level_operations_outside(rules, known) -> list:
     if not isinstance(rules, list):
         return []
     return [
@@ -180,7 +212,7 @@ def unknown_eligibility_level_operations(rules) -> list:
         for rule in rules
         if isinstance(rule, dict)
         and rule.get("attribute") == "level"
-        and rule.get("operation") not in ELIGIBILITY_LEVEL_OPERATIONS
+        and rule.get("operation") not in known
     ]
 
 
@@ -213,6 +245,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.invitation_start_timing = data["invitationStartTiming"]
         timing_changed = True
     if "invitationGroups" in data:
+        unknown = unknown_invitation_group_level_operations(data["invitationGroups"])
+        if unknown:
+            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            from flask import abort
+            abort(400, f"invitationGroups: unknown level operation {unknown[0]!r}")
         config.invitation_groups = data["invitationGroups"]
     if "tiebreakers" in data:
         config.tiebreakers = data["tiebreakers"]

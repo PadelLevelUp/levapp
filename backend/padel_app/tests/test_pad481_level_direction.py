@@ -88,6 +88,11 @@ def test_n_zero_is_the_class_level_only(app, operation):
     assert _passing_indexes(app, [_rule(operation, 0)]) == {CLASS_INDEX}
 
 
+def test_n_sent_as_a_string_counts_as_the_number(app):
+    """Rule 6: `value` is an integer; a client that sends "2" gets the same recipients as 2."""
+    assert _passing_indexes(app, [_rule("within_n_above_class", "2")]) == {1, 2, 3}
+
+
 # ---------------------------------------------------------------------------
 # Rule 6 — a level outside the ladder, and an unknown operation (B-257)
 # ---------------------------------------------------------------------------
@@ -227,3 +232,37 @@ def test_edit_class_rejects_an_unknown_level_operation_and_accepts_the_new_ones(
             {"event": event, "scope": "single", "updates": {"eligibilityRules": below}})
         assert status == 200, result
         assert db.session.get(LessonInstance, inst.id).eligibility_rules == below
+
+
+@pytest.mark.parametrize("operation", ["within_n_above_class", "within_n_below_class", "made_up_operation"])
+def test_saving_invitation_groups_rejects_a_level_operation_outside_the_vacancy_five(app, operation):
+    """Rule 6: an invitation group's level rule is anchored to the VACANCY — saving one
+    with a class operation (or an unknown one) is refused, and nothing is stored."""
+    from padel_app.services.notification_service import get_config_dict, update_config
+
+    ids = _seed(app, levels=LADDER, eligibility_rules=None)
+    with app.app_context():
+        before = get_config_dict(ids["coach_id"])["invitationGroups"]
+        groups = [{"name": "G", "rules": [{"attribute": "level", "operation": operation, "value": 1}]}]
+        with pytest.raises(HTTPException) as err:
+            update_config(ids["coach_id"], {"invitationGroups": groups})
+        assert err.value.code == 400
+        assert "invitationGroups" in (err.value.description or "")
+        db.session.rollback()
+        assert get_config_dict(ids["coach_id"])["invitationGroups"] == before
+
+
+def test_saving_invitation_groups_accepts_the_vacancy_five_and_other_attributes(app):
+    """… and every vacancy operation, plus non-level rules, still save."""
+    from padel_app.services.notification_service import get_config_dict, update_config
+
+    groups = [
+        {"name": op, "rules": [{"attribute": "level", "operation": op},
+                               {"attribute": "side", "operation": "same_as_vacancy"}]}
+        for op in ("same_as_vacancy", "one_above_vacancy", "one_below_vacancy",
+                   "all_above_vacancy", "all_below_vacancy")
+    ]
+    ids = _seed(app, levels=LADDER, eligibility_rules=None)
+    with app.app_context():
+        update_config(ids["coach_id"], {"invitationGroups": groups})
+        assert get_config_dict(ids["coach_id"])["invitationGroups"] == groups

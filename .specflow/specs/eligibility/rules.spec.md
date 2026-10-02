@@ -80,7 +80,14 @@ answered for any future class whether or not a spot is currently open.
    list holding a level rule whose operation is not one of the seven: `400`, naming
    `eligibilityRules`. A client that does not know an operation must be able to save the list back
    unchanged, so every operation in this list is accepted whether or not the posting client offers
-   it.
+   it. Saving `invitationGroups` likewise rejects a group whose level rule's operation is not one of
+   the five vacancy operations (`same_as_vacancy`, `one_above_vacancy`, `one_below_vacancy`,
+   `all_above_vacancy`, `all_below_vacancy`): `400`, naming `invitationGroups`.
+   **Known limit (accepted, PAD-481):** on released iOS builds 1.2.0 (b27) and 1.2.1 (b28), a bar
+   holding `within_n_above_class` or `within_n_below_class` shows a blank operation with N hidden;
+   if the coach picks "within N levels" there, the build keeps N and saves `within_n_of_class`, so a
+   one-way bar becomes both-ways and nothing says so. No capability gate: rewriting the operation for
+   old clients would itself widen the bar when they post it back. The next iOS build carries the fix.
 7. **The evaluator is shared with the invitation engine.** The existing group-rule evaluator
    (`_passes_group_rules`) is generalized to accept **a vacancy or a class** as its matching target,
    so eligibility and wave criteria are evaluated by one code path. Two evaluators would drift.
@@ -150,6 +157,13 @@ answered for any future class whether or not a spot is currently open.
 - **Then** the save succeeds and the list is stored as sent
 - **And** the same holds for `edit_class` with `updates.eligibilityRules`
 
+#### Saving invitation groups accepts only the vacancy operations for level (PAD-481)
+- **Given** a coach
+- **When** they save `invitationGroups` with a group rule `{level, within_n_above_class, 1}`
+- **Then** the save answers `400` naming `invitationGroups` and nothing is stored
+- **When** they save groups whose level rules use only the five vacancy operations
+- **Then** the save succeeds and the groups are stored as sent
+
 #### Side never affects eligibility
 - **Given** a coach with any eligibility rule set
 - **And** a class whose effective level matches a `left`-side student
@@ -176,7 +190,7 @@ answered for any future class whether or not a spot is currently open.
   operations rather than as a `direction` field on `within_n_of_class`. Released iOS builds
   (1.2.0 b27, 1.2.1 b28) build their operation menu from their own list. They show a directional rule
   with a blank operation and no N (visibly incomplete, not a plausible wrong rule), and they save the
-  rule list back unchanged. A `direction` field would have shown as "within N" (both directions) and
+  rule list back unchanged unless the coach re-picks "within N" there (the known limit in rule 6). A `direction` field would have shown as "within N" (both directions) and
   could have survived an operation switch unseen. Their invite tutorial shows a raw i18n key for the
   new operations; this is cosmetic, and they are released. App Store 1.0 and 1.1.0 have no iOS
   eligibility editor.
