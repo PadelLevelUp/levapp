@@ -9,6 +9,10 @@
  * live. So the menu node's computed `animationName` is made live here: "enter" while
  * open, "exit" once closed. Presence then waits for an `animationend` that never fires,
  * and the closing window stays open for as long as the test needs it.
+ *
+ * B-252: nothing here waits on the clock. These tests once took 15–45 s under machine load
+ * because of jsdom's `:modal` matching in floating-ui's top-layer check; the shim for that
+ * lives in src/test/setup.ts, for every test that renders a popper.
  */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,7 +60,8 @@ function Menu() {
 
 const press = (el: Element) => fireEvent.pointerDown(el, { button: 0, ctrlKey: false, pointerType: "mouse" });
 
-describe("DropdownMenu reopened during its exit animation (PAD-462)", { timeout: 30_000 }, () => {
+// No per-file timeout: 18–93 ms per test at load ~400 (B-252).
+describe("DropdownMenu reopened during its exit animation (PAD-462)", () => {
   it("the closing menu lingers, so the window is real", async () => {
     render(<Menu />);
     press(screen.getByTestId("trigger"));
