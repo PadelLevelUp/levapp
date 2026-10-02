@@ -185,8 +185,19 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    per student without materialising it, and listing must not write): it is listed when its
    lesson has a roster, and the number the coach is shown can be higher than the number the
    send then reaches. Listing writes nothing and sends
-   nothing. The form asks the coach once, after they stop editing, how many there are and whether
-   to send now. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
+   nothing. The web form asks the coach in a dialog (copy approved by the owner, 2026-10-02): it
+   names the class with its day and time, or lists up to five classes and counts the rest, and
+   its body ends with the question; the two buttons are "send now" (inside quiet hours, "send at
+   <time>") and "do not send", and one choice covers every class listed. It asks only from the
+   answer of the NEWEST timing save, and only once the coach has stopped editing (nothing of
+   theirs inside the form's pause, waiting, or being sent), so an intermediate save never asks.
+   A class the coach has answered for, either way, is not asked about again during the visit; a
+   class that appears later is asked about alone. Nothing about the answer is stored: a later
+   visit that saves a timing asks again. Closing the dialog is "do not send". A send that fails
+   says so in the dialog, which stays open. After a yes the coach is told what happened: sent,
+   scheduled for a time, or nothing left to send (the server's second check found none). When
+   the save answers `pastDueUnknown`, the form says the check could not be made and asks
+   nothing. Web only: iOS has no control for these fields. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
    server checks every requested class again with the same predicate, for the calling coach only,
    and runs the ordinary reminder pass for each one it still finds past due, with all its guards
    (count, spacing, PAD-407's lock), then arms the follow-up as after any pass. A repeated or
@@ -301,6 +312,18 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **And** a class that is another coach's, or that is no longer past due, is skipped and reported
 - **And** inside quiet hours nothing is sent at once: `quietUntil` is given, one pass is armed for that instant, and it sends when it runs; a later save that moves the reminder into the future removes that pass
 - **And** the startup and daily passes send nothing and leave an armed pass in place
+
+#### The form asks once the coach has stopped, and only a yes sends (PAD-478)
+- **Given** the coach changes a reminder timing on the web and the save answers with `pastDue.reminders` listing "Academy B1", Monday 12 July, 18:00
+- **When** they have stopped editing
+- **Then** a dialog names that class with its day and time and ends with the question; nothing has been sent
+- **When** they choose "do not send", or close the dialog
+- **Then** nothing is sent, and a later timing save in the same visit that lists only that class does not ask again
+- **When** a later save lists that class and "Kids", and they choose "send"
+- **Then** the dialog names "Kids" alone and `POST /api/app/notify/past_due/send` is called with exactly its key
+- **And** an answer that arrives while the coach is still editing, or after a newer timing save has begun, never asks
+- **And** a send that fails says so in the dialog, which stays open
+- **And** inside quiet hours the button says the time it will be sent at, not "now"
 
 #### One failure does not cost the rest (PAD-478)
 - **Given** two coaches with a class each, and a derivation that fails for the first coach
