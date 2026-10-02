@@ -486,9 +486,12 @@ def test_player_payload_uses_the_home_vocabulary_and_its_own_id(app):
         payload = build_dashboard_payload(user=user, coach=None, player=player, now=now)
 
     assert payload["id"] == "player_default_v1"
+    # PAD-490 (dashboard.profile-completeness rule 4): the seed's link has no level or side,
+    # so the student's "profile incomplete" card sits right after the hero.
     assert [b["type"] for b in payload["blocks"]] == [
         "messages_overview",
         "next_class",
+        "profile_incomplete",
         "needs_you",
         "schedule_7d",
         "kpi_grid",
