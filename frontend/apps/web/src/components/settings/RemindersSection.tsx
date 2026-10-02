@@ -20,6 +20,9 @@ interface RemindersSectionProps {
    *  or drop it. The card answers "drop" when there is no session any more, so an edit made
    *  just before sign-out is never sent (settings.save-on-change, review #497). */
   flushOnClose?: () => boolean;
+  /** Told `true` when the coach changes a control and `false` once nothing of theirs is inside
+   *  the pause, waiting or being sent. The card asks its past-due question only then (rule 10f). */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 function TimingSelector({
@@ -134,7 +137,7 @@ function TimingSelector({
   );
 }
 
-export function RemindersSection({ reminderTiming: saved, onChange, disabled, flushOnClose }: RemindersSectionProps) {
+export function RemindersSection({ reminderTiming: saved, onChange, disabled, flushOnClose, onBusyChange }: RemindersSectionProps) {
   const { t } = useTranslation();
 
   // PAD-478 (notifications.config rule 10d): the controls show each tap or keystroke at once
@@ -147,6 +150,10 @@ export function RemindersSection({ reminderTiming: saved, onChange, disabled, fl
   onChangeRef.current = onChange;
   // Bumped when a save settles, so the draft is compared with the saved value again then.
   const [settled, setSettled] = useState(0);
+  const onBusyChangeRef = useRef(onBusyChange);
+  onBusyChangeRef.current = onBusyChange;
+  // A closed section's saver still settles later; it must not speak for the reopened one.
+  const open = useRef(true);
   const saverRef = useRef<PausedSaver<ReminderConfig> | null>(null);
   if (saverRef.current === null) {
     saverRef.current = createPausedSaver<ReminderConfig>({
@@ -154,7 +161,10 @@ export function RemindersSection({ reminderTiming: saved, onChange, disabled, fl
       send: (value) => onChangeRef.current(value),
       // Told by the saver once it is no longer busy with that value: told any earlier (on the
       // save's own promise), the effect below still read "editing" and kept a refused value.
-      onSettled: () => setSettled((n) => n + 1),
+      onSettled: () => {
+        setSettled((n) => n + 1);
+        if (open.current) onBusyChangeRef.current?.(saverRef.current?.busy() ?? false);
+      },
     });
   }
   const saver = saverRef.current;
@@ -176,13 +186,16 @@ export function RemindersSection({ reminderTiming: saved, onChange, disabled, fl
   // orders it), so a reopened section never sends a newer value BEFORE this one.
   const flushOnCloseRef = useRef(flushOnClose);
   flushOnCloseRef.current = flushOnClose;
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    open.current = true;
+    return () => {
       if (flushOnCloseRef.current?.() === false) saver.dispose();
       else saver.close();
-    },
-    [saver],
-  );
+      // What was held is now the card's (or dropped): this form is not editing any more.
+      open.current = false;
+      onBusyChangeRef.current?.(false);
+    };
+  }, [saver]);
 
   // A tab closed or switched away while an edit is still inside its pause: send it now. The
   // request is an ordinary one, so on a tab that is closing it may not leave; on a tab that
@@ -194,6 +207,7 @@ export function RemindersSection({ reminderTiming: saved, onChange, disabled, fl
     const next = { ...draftRef.current, ...patch };
     draftRef.current = next;
     setDraft(next);
+    onBusyChangeRef.current?.(true);
     saver.push(next);
   };
 
