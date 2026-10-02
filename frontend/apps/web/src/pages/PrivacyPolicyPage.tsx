@@ -10,13 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const EFFECTIVE_DATE = "July 14, 2026";
+const EFFECTIVE_DATE = "October 2, 2026";
 const PRIVACY_CONTACT_EMAIL = "privacy@levelup.app";
 
 /**
  * PAD-469: the website's HubSpot tracking and demo form (auth.landing-page
  * rules 10–13). One constant, so a wording change from the owner's legal
- * review is a one-line edit. Pending owner approval before prod promotion.
+ * review is a one-line edit. Approved by the owner on 2026-10-02.
  */
 const WEBSITE_TRACKING_NOTICE =
   "The app itself contains no advertising or analytics SDKs and uses no device advertising identifiers (IDFA). " +
@@ -28,7 +28,7 @@ const WEBSITE_TRACKING_NOTICE =
 /**
  * PAD-471: a coach's own sign-up data goes to the sales CRM
  * (auth.coach-crm-sync). One constant, next to the website notice, for the
- * owner's legal review. Pending owner approval before prod promotion.
+ * owner's legal review. Approved by the owner on 2026-10-02.
  */
 const COACH_CRM_NOTICE =
   "When a coach creates an account, we record their name, email, phone (if given) and account status in our CRM (HubSpot, EU data centre) to follow up on their use of LevApp; we never share their students' data.";
