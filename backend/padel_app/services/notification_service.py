@@ -4533,6 +4533,10 @@ def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = 
     if event.vacancy_id is not None:
         Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
     NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    if action == "no" and event.status == "confirmed":
+        # PAD-495 item 5: the student holds the spot; say so (both clients show Accepted).
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "confirmed"}
     if action == "no" and event.status not in LIVE_INVITATION_STATES:
         db.session.commit()  # release the lock; nothing was written
         return {"action": "declined"}

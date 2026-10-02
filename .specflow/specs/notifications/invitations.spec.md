@@ -240,7 +240,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     before anything commits, and a "yes" marks it `confirmed` before the spot is closed (closing
     retires the other invitations, and that commits). So a double tap racing itself is answered
     once. A "no" on an invitation already `confirmed` is the same no-op: the student keeps the spot
-    and the invitation stays `confirmed` (the answer reports `declined`). Leaving a class after
+    and the invitation stays `confirmed`, and the answer reports `confirmed`, so both clients show
+    the Accepted badge (PAD-495). Leaving a class after
     winning it goes through the attendance cancel, not the invitation. A "yes" after the
     student's own "no" on the same invitation is the same no-op too (rule 18). **Not covered
     here:** a student who lost the spot and answers "yes" again is told `spot_filled` and offered
