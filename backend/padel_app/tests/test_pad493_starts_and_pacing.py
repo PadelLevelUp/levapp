@@ -192,14 +192,18 @@ def test_only_the_tick_sends_the_next_batch_and_only_after_the_interval(app, mon
 
 @pytest.fixture
 def locks(monkeypatch):
-    """The entity of every SELECT ... FOR UPDATE the code asks for, in order (PAD-261's spy)."""
+    """Every SELECT ... FOR UPDATE the code asks for, in order, as (entity, the function that asked)
+    (PAD-261's spy). The asking function matters: since PAD-495 the batch sender also locks the
+    vacancy per student, so "a Vacancy was locked" no longer proves the START took the lock."""
+    import sys
+
     from sqlalchemy.orm import Query
 
     seen = []
     original = Query.with_for_update
 
     def spy(self, *args, **kwargs):
-        seen.append(self.column_descriptions[0]["entity"].__name__)
+        seen.append((self.column_descriptions[0]["entity"].__name__, sys._getframe(1).f_code.co_name))
         return original(self, *args, **kwargs)
 
     monkeypatch.setattr(Query, "with_for_update", spy)
@@ -221,7 +225,7 @@ def test_the_start_locks_the_vacancy(app, monkeypatch, locks, starter):
             trigger_invitations(_instance(instance_id), coach_id, now=MORNING)
         else:
             process_invitation_batches(now=MORNING)
-        assert "Vacancy" in locks
+        assert ("Vacancy", "_start_vacancy") in locks
         assert _vacancies(instance_id) == [(1, "open", 1, 1)]
 
 
