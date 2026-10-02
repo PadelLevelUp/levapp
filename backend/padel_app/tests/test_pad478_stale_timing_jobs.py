@@ -8,9 +8,9 @@ configuration does not imply.
 the future; when it is already past, the job armed from the previous value is
 left in place and fires.
 
-The other scheduler tests hand the module a MagicMock, which cannot show what
-REMAINS armed. These use a real APScheduler (memory store, started paused, so
-nothing fires by itself) and a pinned clock; the class and "now" are in 2027,
+No earlier test changed a coach's timing against a real scheduler, and a mock one
+cannot show what REMAINS armed. These use the shared real APScheduler (conftest
+`live_scheduler`: memory store, never started, so nothing fires by itself) and a pinned clock; the class and "now" are in 2027,
 so the real clock never overtakes them (wall-clock-tests-fail-overnight).
 
 Summer dates on purpose: Lisbon is UTC+1, so wall 18:00 is 17:00 UTC.
@@ -31,22 +31,13 @@ TWO_DAYS_09 = {"type": "days_before_at_time", "days": 2, "time": "09:00"}     # 
 
 
 @pytest.fixture
-def armed(app, monkeypatch):
-    """A real, paused scheduler wired into the module, and one class two days out."""
-    from apscheduler.jobstores.memory import MemoryJobStore
-    from apscheduler.schedulers.background import BackgroundScheduler
-
-    from padel_app import scheduler
-
-    sched = BackgroundScheduler(jobstores={"default": MemoryJobStore()}, timezone="UTC")
-    sched.start(paused=True)
-    monkeypatch.setattr(scheduler, "_scheduler", sched)
-    monkeypatch.setattr(scheduler, "_app", app)
+def armed(app, live_scheduler, monkeypatch):
+    """The shared real scheduler (conftest `live_scheduler`) and one class two days out."""
     pin_clock(monkeypatch, NOW_UTC)
     with app.app_context():
         coach_id, student_id, instance_id = _seed(app, CLASS_WALL)
-        yield {"coach": coach_id, "student": student_id, "instance": instance_id, "sched": sched}
-    sched.shutdown(wait=False)
+        yield {"coach": coach_id, "student": student_id, "instance": instance_id,
+               "sched": live_scheduler._scheduler}
 
 
 def _fire_time(sched, job_id):

@@ -19,7 +19,7 @@ class time.
 """
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -141,12 +141,8 @@ def _seed(app, wall_start):
     (at(SUMMER, 14), datetime(2026, 7, 13, 13, 0)),
     (at(WINTER, 14), datetime(2026, 1, 12, 14, 0)),
 ])
-def test_schedule_instance_jobs_arms_the_reminder_on_the_club_clock(app, monkeypatch, wall_start, fires_utc):
-    from padel_app import scheduler
-
-    fake_scheduler = MagicMock()
-    monkeypatch.setattr(scheduler, "_scheduler", fake_scheduler)
-    monkeypatch.setattr(scheduler, "_app", app)
+def test_schedule_instance_jobs_arms_the_reminder_on_the_club_clock(app, live_scheduler, wall_start, fires_utc):
+    scheduler = live_scheduler
     config = SimpleNamespace(
         get_reminder_timing=lambda: {"type": "hours_before", "value": 24},
         get_invitation_start_timing=lambda: None,
@@ -156,7 +152,7 @@ def test_schedule_instance_jobs_arms_the_reminder_on_the_club_clock(app, monkeyp
         with patch("padel_app.services.notification_service.get_or_create_config", return_value=config):
             scheduler.schedule_instance_jobs(instance_id, coach_id, now=datetime(2025, 12, 1))
 
-    armed = {c.kwargs["id"]: c.kwargs["trigger"] for c in fake_scheduler.add_job.call_args_list}
+    armed = {job.id: job.trigger for job in scheduler._scheduler.get_jobs()}
     assert f"reminder_{instance_id}" in armed, armed
     assert armed[f"reminder_{instance_id}"].run_date.replace(tzinfo=None) == fires_utc
 
@@ -199,12 +195,10 @@ def test_send_guard_uses_the_club_clock(app, wall_start, utc_now, expect_sent):
     # 09:30 UTC + 2 h = 11:30 Lisbon in January, before 12:00: follow-up armed.
     (at(WINTER, 12), datetime(2026, 1, 13, 9, 30), True),
 ])
-def test_rearm_never_lands_after_the_start(app, monkeypatch, wall_start, utc_now, rearmed):
-    from padel_app import scheduler
+def test_rearm_never_lands_after_the_start(app, live_scheduler, monkeypatch, wall_start, utc_now, rearmed):
     from padel_app.models.lesson_instances import LessonInstance
 
-    fake_scheduler = MagicMock()
-    monkeypatch.setattr(scheduler, "_scheduler", fake_scheduler)
+    scheduler = live_scheduler
     monkeypatch.setattr(scheduler, "utcnow_naive", lambda: utc_now)
     config = SimpleNamespace(get_hours_between_reminders=lambda: 2)
     with app.app_context():
@@ -215,4 +209,4 @@ def test_rearm_never_lands_after_the_start(app, monkeypatch, wall_start, utc_now
                 instance, func=lambda *a: None, args=[instance_id],
                 base_job_id=f"reminder_{instance_id}", result={"more_due": True},
             )
-    assert fake_scheduler.add_job.called is rearmed
+    assert bool(scheduler._scheduler.get_jobs()) is rearmed
