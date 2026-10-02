@@ -75,7 +75,8 @@
       "unavailable": "Marcou-se como indisponível à hora desta aula.",
       "auto_invites_off": "Desligou os convites automáticos.",
       "no_round_matched": "Não cumpre os critérios de nenhuma ronda:",
-      "invited": "Seria convidado(a)."
+      "invited": "Seria convidado(a).",
+      "unknown": "Não é convidado desta vez."
     },
     "rules": {
       "level": {

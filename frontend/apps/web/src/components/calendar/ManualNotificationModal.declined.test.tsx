@@ -68,3 +68,23 @@ describe("manual picker: declined this class", () => {
     expect(checkbox).toHaveAttribute("data-state", "checked");
   });
 });
+
+describe("manual picker: declined this class, group rows", () => {
+  it("marks the decliner on an expanded group's row, from the server's flag", async () => {
+    render(
+      <ManualNotificationModal
+        open
+        onClose={() => {}}
+        eventModel="LessonInstance"
+        eventOriginalId="5"
+        eventDate="2026-06-11"
+        coachPlayers={roster}
+        existingPlayerIds={[]}
+      />
+    );
+    fireEvent.click(await screen.findByTestId("notify-group-all_students"));
+    const marks = await screen.findAllByTestId("notify-declined-7");
+    expect(marks).toHaveLength(1);
+    expect(screen.queryByTestId("notify-declined-8")).toBeNull();
+  });
+});
