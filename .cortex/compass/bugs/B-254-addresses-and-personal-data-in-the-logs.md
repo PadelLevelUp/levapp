@@ -65,6 +65,15 @@ address-bearing by construction. Those messages are what make a production failu
   carries the 6-digit code, so those lines held an address AND a live code (codes expire after 15
   minutes).
 - Host nginx's access log is separate and holds request lines, not these warnings.
+- **Production never logged subjects or dropped addresses through the allowlist line** (checked in
+  code, 2026-10-02). `MAIL_ALLOWED_RECIPIENTS` is set only in the staging env template. The
+  production env template does not set it, and the production deploy passes no such variable. The
+  config default is empty, and an empty allowlist means "everyone" (`allowed_recipients`), so in
+  production nothing is dropped, the line never runs and `MailRecipientNotAllowed` is never raised.
+  Production's exposure is therefore the failed-send lines only: an address plus the exception text.
+- **Staging:** every merge into staging redeploys it and replaces the container with its log, so the
+  lines that could hold an address and a code reach back to the last merge, minutes rather than days.
+  The codes expire after 15 minutes. No operational action (coordinator, 2026-10-02).
 
 ### Change Plan
 
