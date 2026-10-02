@@ -62,3 +62,19 @@ export function formatWeekRangeLabel(weekStart: Date, locale: Locale): string {
 
   return `${format(start, "d MMM", { locale })}–${format(end, "d MMM", { locale })}`;
 }
+
+/**
+ * `2026-10-15` -> "15/10/2026" (or the locale's own order): a date-only ISO day as a short
+ * numeric date, read in UTC so the day never shifts with the device's zone. Takes a locale TAG,
+ * not a language: web passes `i18n.language`, iOS passes `nativeLocaleTag(language)` (Hermes'
+ * Intl needs a region). Lifted from the two class-request wizards' private copies (#466).
+ */
+export function formatShortDate(iso: string, localeTag: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(localeTag, {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
