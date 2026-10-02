@@ -85,8 +85,16 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
                     user_id,
                 )
         else:
-            logger.warning("Failed to send push notification for user_id=%s: %s", user_id, exc)
+            # B-254: the class and the HTTP status, never the text: pywebpush quotes the
+            # subscription endpoint, a URL that works as a capability for that browser.
+            logger.warning(
+                "Failed to send push notification for user_id=%s: %s (status=%s)",
+                user_id, type(exc).__name__, status_code,
+            )
         return False
     except Exception as exc:
-        logger.warning("Unexpected push notification failure for user_id=%s: %s", user_id, exc)
+        # B-254: the class only; the text can carry the endpoint.
+        logger.warning(
+            "Unexpected push notification failure for user_id=%s: %s", user_id, type(exc).__name__
+        )
         return False

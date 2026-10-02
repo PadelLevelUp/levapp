@@ -170,6 +170,7 @@ whether a failure mode has been seen before.
 - [B-233](B-233-the-class-roster-had-no-order-and-a-save-could-reorder-it.md) — The class roster had no defined order, so a save could swap participants under the coach's finger (incomplete-rule, low, resolved)
 - [B-234](B-234-e2e-escape-closed-a-select-and-its-sheet.md) — E2E specs closed Selects with an immediate Escape, which also closed the dialog; swept, helper + guard (test-defect, low, resolved)
 - [B-235](B-235-editor-i18n-root-path-matched-the-dashboards-calendar-link.md) — E2E editor-i18n PAD-55 matched the dashboard's second 'Calendar' link once the schedule block rendered (test-defect, low, resolved)
+- [B-254](B-254-addresses-and-personal-data-in-the-logs.md) — A failing send wrote the recipient's email address to the logs; so did the allowlist guard and its exception; raw LLM output and whole Expo tokens too (missing-criterion, medium, resolved)
 - [B-240](B-240-web-edit-count-subtracted-an-unticked-declined-student.md) — Web class detail, edit mode: the count subtracted a declined student the coach had unticked (missing-criterion, low, resolved)
 - [B-241](B-241-invited-coach-gets-an-account-with-no-email.md) — A coach who joins by club invitation gets an active account with no email, never verified; a duplicate email there is a 500 (PAD-477) (incomplete-rule, medium, triaged)
 - [B-239](B-239-ios-class-create-and-edit-had-no-participant-picker.md) — iOS class create and edit had no way to choose students; the web has PlayerSelector in both (PAD-474) (incomplete-rule, high, resolved)
