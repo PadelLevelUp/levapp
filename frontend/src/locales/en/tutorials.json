@@ -87,7 +87,9 @@
         "equal_or_above_class": "level equal to or above the class",
         "equal_or_below_class": "level equal to or below the class",
         "one_below_or_above_class": "at most one level away",
-        "within_n_of_class": "at most {{value}} levels away"
+        "within_n_of_class": "at most {{value}} levels away",
+        "within_n_above_class": "at most {{value}} levels above (the class's level included)",
+        "within_n_below_class": "at most {{value}} levels below (the class's level included)"
       },
       "side": {
         "same_as_vacancy": "same side as the spot",
