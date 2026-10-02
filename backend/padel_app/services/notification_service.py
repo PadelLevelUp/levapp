@@ -4519,12 +4519,16 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
 
-def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
+def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = False) -> dict | None:
     """B-260 (invitations rule 17): the response for an answer already given, else None.
 
     Locks the vacancy (if any) and re-reads the invitation — rule 10's order, vacancy first — so of
     two identical answers racing each other the second sees the first's outcome. A "no" on an
     invitation that is no longer live and a "yes" on one already confirmed change nothing.
+
+    ``by_coach`` (PAD-495 item 2): the coach recording an answer goes through the same guard, but
+    may still record a "yes" after the student's "no" — the coach deciding is not the engine
+    inviting (rule 18).
     """
     if event.vacancy_id is not None:
         Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
@@ -4535,11 +4539,18 @@ def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
     if action == "yes" and event.status == "confirmed":
         db.session.commit()  # release the lock; nothing was written
         return {"action": "confirmed"}
+    if by_coach:
+        return None
     if action == "yes" and event.answer == "no":
         # PAD-497 (rule 18): the student's "no" is final for the class; both clients already show
         # this invitation as Declined, and "declined" keeps it so.
         db.session.commit()  # release the lock; nothing was written
         return {"action": "declined"}
+    if action == "yes" and event.answer == "yes" and event.status not in LIVE_INVITATION_STATES:
+        # PAD-495 item 4: this "yes" was already answered "spot filled" (and offered the waiting
+        # list). Answer the same again, and send nothing more.
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "spot_filled_waiting_list_offered"}
     return None
 
 
@@ -4785,6 +4796,11 @@ def coach_respond_to_notification(
         _expire_stale_invitations(event.lesson_instance)
         _retire_invite_message(event)
         return {"action": "expired"}
+
+    # PAD-495 item 2 (rule 17): the coach recording the same answer twice changes nothing.
+    repeat = _repeated_answer(event, action, by_coach=True)
+    if repeat is not None:
+        return repeat
 
     instance = event.lesson_instance
     vacancy = event.vacancy
