@@ -36,6 +36,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 import { SettingsUnsavedContext } from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
 import {
@@ -304,6 +306,20 @@ export default function SettingsPage() {
   // `undefined` until /me answers, so the switch never flashes the default
   // before the server value lands.
   const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
+  // settings.save-on-change (PAD-473): language and request alerts save on change, with the sign
+  // beside each. What they show after a failure comes from the shared SaveLedger (rule 3): seeded with
+  // the language the app already shows, then with the profile read — which never replaces a field a
+  // save has touched.
+  const sign = useSaveSign();
+  const ledger = useRef<SaveLedger<{ language: AppLanguage; requestAlerts: boolean }> | null>(null);
+  if (!ledger.current) {
+    ledger.current = new SaveLedger();
+    ledger.current.seed({ language });
+  }
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const [saveLanguage] = useState(() => createSerialSaver((lang: AppLanguage) => updateMe({ language: lang })));
+  const [saveRequestAlerts] = useState(() => createSerialSaver((on: boolean) => updateMe({ requestAlerts: on })));
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -396,6 +412,10 @@ export default function SettingsPage() {
     getMe()
       .then((me) => {
         if (!active) return;
+        ledger.current?.seed({
+          language: (me.language ?? "pt") as AppLanguage,
+          requestAlerts: me.requestAlerts !== false,
+        });
         if (!languageDirty.current) {
           const lang = (me.language ?? "pt") as AppLanguage;
           setLanguage(lang);
@@ -420,20 +440,37 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const handleRequestAlertsChange = async (checked: boolean) => {
-    const previous = requestAlerts;
+  const handleRequestAlertsChange = (checked: boolean) => {
+    const token = ledger.current!.begin({ requestAlerts: checked });
     setRequestAlerts(checked);
-    try {
-      await updateMe({ requestAlerts: checked });
-      toast({ title: t("settings.preferences.requestAlertsSaved") });
-    } catch {
-      setRequestAlerts(previous);
-      toast({
-        title: t("settings.toast.couldNotSaveTitle"),
-        description: t("settings.preferences.requestAlertsSaveFailed"),
-        variant: "destructive",
-      });
-    }
+    void sign.track("requestAlerts", saveRequestAlerts(checked)).then(
+      (me) => {
+        const { show } = ledger.current!.confirm(token, { requestAlerts: me.requestAlerts !== false });
+        if (show.requestAlerts !== undefined) setRequestAlerts(show.requestAlerts);
+      },
+      () => {
+        const back = ledger.current!.fail(token).requestAlerts;
+        if (back !== undefined) setRequestAlerts(back);
+      },
+    );
+  };
+
+  // B-244: the language is stored as soon as it is chosen, as on iOS; the page shows it at once, so
+  // its sign appears in the new language (settings.save-on-change rule 5).
+  const handleLanguageChange = (lang: AppLanguage) => {
+    const token = ledger.current!.begin({ language: lang });
+    languageDirty.current = true;
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
+    const showLanguage = (shown: AppLanguage | undefined) => {
+      if (!shown) return;
+      setLanguage(shown);
+      i18n.changeLanguage(shown);
+    };
+    void sign.track("language", saveLanguage(lang)).then(
+      (me) => showLanguage(ledger.current!.confirm(token, { language: (me.language ?? lang) as AppLanguage }).show.language),
+      () => showLanguage(ledger.current!.fail(token).language),
+    );
   };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
@@ -508,15 +545,20 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* Nothing to save while the phone is showing the section list. */}
-          <Button
-            onClick={handleSave}
-            className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
-            disabled={isSaving}
-          >
-            <Save className="w-4 h-4" />
-            {t("settings.saveChanges")}
-          </Button>
+          {/* settings.save-on-change rule 4: only Perfil holds fields that wait for this button —
+              every other tab saves on change or has its own Save. Nothing to save while the
+              phone is showing the section list. */}
+          {activeTab === "profile" && (
+            <Button
+              data-testid="settings-header-save"
+              onClick={handleSave}
+              className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
+              disabled={isSaving}
+            >
+              <Save className="w-4 h-4" />
+              {t("settings.saveChanges")}
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -657,16 +699,11 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="max-w-xs space-y-2">
-                    <Label htmlFor="language-select">{t("settings.language")}</Label>
-                    <Select
-                      value={language}
-                      onValueChange={(v) => {
-                        const lang = v as AppLanguage;
-                        languageDirty.current = true;
-                        setLanguage(lang);
-                        i18n.changeLanguage(lang);
-                      }}
-                    >
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="language-select">{t("settings.language")}</Label>
+                      <SaveSign status={sign.status("language")} testId="settings-language-sign" />
+                    </div>
+                    <Select value={language} onValueChange={(v) => handleLanguageChange(v as AppLanguage)}>
                       <SelectTrigger id="language-select" aria-label={t("settings.language")}>
                         <SelectValue placeholder={t("settings.language")} />
                       </SelectTrigger>
@@ -700,9 +737,12 @@ export default function SettingsPage() {
                       requests, an admin about approvals. */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <Label htmlFor="request-alerts-switch">
-                        {t("settings.preferences.requestAlerts")}
-                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="request-alerts-switch">
+                          {t("settings.preferences.requestAlerts")}
+                        </Label>
+                        <SaveSign status={sign.status("requestAlerts")} testId="settings-request-alerts-sign" />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {t("settings.preferences.requestAlertsDescription")}
                       </p>
@@ -713,7 +753,7 @@ export default function SettingsPage() {
                       aria-label={t("settings.preferences.requestAlerts")}
                       checked={requestAlerts ?? true}
                       disabled={requestAlerts === undefined}
-                      onCheckedChange={(checked) => void handleRequestAlertsChange(checked)}
+                      onCheckedChange={handleRequestAlertsChange}
                     />
                   </div>
 

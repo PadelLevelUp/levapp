@@ -4,8 +4,10 @@
  * what the component does with the server value and with a save that succeeds or fails.
  */
 import * as React from "react";
+import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderNative } from "@/test/render-native";
+import { __emitAppState } from "@/test/mocks/react-native";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -57,6 +59,78 @@ describe("Escala de avaliações (iOS)", () => {
     await n.flush();
 
     expect(checked(n, 20)).toBe(true);
-    expect(n.queryByTestId("settings-evaluation-scale-error")).not.toBeNull();
+    expect(n.byTestId("settings-evaluation-scale-sign").findAll((x) => x.props.children === "settings.saveSign.failed")).not.toHaveLength(0);
+  });
+
+  it("an older save failing after a newer one was confirmed keeps the newer scale (settings.save-on-change rule 3)", async () => {
+    hooks.data = { scaleMax: 5 };
+    let failOlder!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((_res, rej) => { failOlder = rej; }))
+      .mockImplementationOnce(async () => ({ scaleMax: 100 }));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10");
+    await n.press("settings-evaluation-scale-option-100");
+    await n.flush();
+    await act(async () => { failOlder(new Error("late")); });
+    await n.flush();
+
+    expect(checked(n, 100)).toBe(true);
+    expect(n.byTestId("settings-evaluation-scale-sign").findAll((x) => x.props.children === "settings.saveSign.failed")).toHaveLength(0);
+  });
+
+  it("rule 3: two held saves both fail — back to the confirmed scale", async () => {
+    hooks.data = { scaleMax: 5 };
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10");
+    await n.press("settings-evaluation-scale-option-20");
+    await act(async () => { failY(new Error("y")); });
+    await act(async () => { failZ(new Error("z")); });
+    await n.flush();
+
+    expect(checked(n, 5)).toBe(true);
+  });
+
+  it("rule 3: the first is confirmed, the waiting newer one fails — shows the confirmed first; one save in flight", async () => {
+    hooks.data = { scaleMax: 5 };
+    let okY!: (v: unknown) => void;
+    let failZ!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((res) => { okY = res; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10"); // Y
+    await n.press("settings-evaluation-scale-option-20"); // Z, waits
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
+    await act(async () => { okY({ scaleMax: 10 }); });
+    await n.flush();
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    await act(async () => { failZ(new Error("z")); });
+    await n.flush();
+
+    expect(checked(n, 10)).toBe(true);
+  });
+
+  it("review #497: on leaving the foreground a scale waiting behind one in flight is sent at once", async () => {
+    hooks.data = { scaleMax: 5 };
+    hooks.mutateAsync.mockImplementation(async (body: unknown) => body);
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10"); // out, never answers
+    await n.press("settings-evaluation-scale-option-20"); // waits
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ scaleMax: 20 });
   });
 });
