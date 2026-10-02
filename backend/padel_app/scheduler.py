@@ -127,6 +127,20 @@ def _compute_invite_start_dt(instance, timing_config: dict) -> datetime | None:
     return _fire_time_utc(instance.start_datetime, timing_config)
 
 
+def _lesson_primary_coach_id(lesson_id: int) -> int | None:
+    """The lesson's primary coach: the first coach assigned to it (junction id ascending),
+    the same order `lesson_service.coaches_for` uses for an occurrence with no coach row."""
+    from padel_app.models import Association_CoachLesson
+
+    row = (
+        Association_CoachLesson.query
+        .filter_by(lesson_id=lesson_id)
+        .order_by(Association_CoachLesson.id.asc())
+        .first()
+    )
+    return row.coach_id if row is not None else None
+
+
 def _armed_fire_time(job_id: str) -> datetime | None:
     """The naive-UTC instant job ``job_id`` is armed for, or None when it is not armed."""
     job = _scheduler.get_job(job_id)
@@ -676,6 +690,9 @@ def schedule_lesson_reminder_jobs(
         if not lesson:
             return 0
 
+        # PAD-478: an occurrence that is not materialised yet is reminded under the LESSON's
+        # primary coach (the first coach assigned to it), whoever triggered this walk.
+        coach_id = _lesson_primary_coach_id(lesson_id) or coach_id
         config = get_or_create_config(coach_id)
         cutoff = now or utcnow_naive()
         # PAD-256: occurrences are wall-clock like the lesson's start, so the
@@ -883,6 +900,16 @@ def schedule_instance_jobs(instance_id: int, coach_id: int, *, now: datetime | N
         if not instance:
             return
 
+        # PAD-478: ONE configuration decides a class's jobs, the one the send path honours:
+        # its primary coach's. `coach_id` only says who triggered the derivation (a co-coach
+        # through the startup loop or their own settings save, the lesson's coach through
+        # the occurrence walk when the occurrence has a substitute). Deriving from the
+        # caller removed the primary coach's job whenever the caller's time was past.
+        from padel_app.services.lesson_service import primary_coach
+
+        primary = primary_coach(instance)
+        if primary is not None:
+            coach_id = primary.id
         config = get_or_create_config(coach_id)
         cutoff = now or utcnow_naive()
 
@@ -930,6 +957,7 @@ def cancel_instance_jobs(instance_id: int) -> None:
 
 
 _RESCHEDULE_LOCKS: dict[int, threading.Lock] = {}
+_RESCHEDULE_LOCK_TIMEOUT_S = 30.0
 _RESCHEDULE_LOCKS_GUARD = threading.Lock()
 
 
@@ -981,10 +1009,11 @@ def _retime_pending_followups(coach_id: int, config) -> None:
     A follow-up job is armed ``hoursBetweenReminders`` after the pass that sent a reminder.
     Left at the old spacing after the spacing was raised, it fired inside the new window:
     the scheduled pass (PAD-407's guard) sent nothing and re-armed nothing, and the
-    follow-up was lost. The anchor is the newest reminder SENT to a student who is still
+    follow-up was lost. The anchor is the newest reminder SENT to any student who is still
     owed one, read from ``reminder_attempts``, never the job's own time. Only a settings
     change calls this; the startup and daily passes have no old spacing and touch nothing.
     """
+    from apscheduler.jobstores.base import JobLookupError
     from apscheduler.triggers.date import DateTrigger
 
     from padel_app.services import reminder_attempt_service as attempts
@@ -1005,17 +1034,30 @@ def _retime_pending_followups(coach_id: int, config) -> None:
         if coach is None or coach.id != coach_id:
             continue
 
+        # Follow-ups are one job per CLASS. Who is still owed a reminder, and the newest
+        # reminder sent to any of them: at that instant plus the spacing every one of them
+        # is outside the spacing window, so the pass skips nobody. (A student reminded
+        # earlier than the newest waits longer than the spacing: the per-class limit.)
+        owed = False
         anchor = None
         if instance.status not in ("canceled", "completed") and instance.id not in seen_instances:
             for presence in list(instance.presences):
                 if presence.confirmed:
                     continue
                 sent = attempts.count_attempts(instance.id, presence.player_id)
-                if not 0 < sent < reminder_count:
+                if sent >= reminder_count:
                     continue
-                last = attempts.latest_counted_attempt(instance.id, presence.player_id)
+                owed = True
+                last = attempts.latest_counted_attempt(instance.id, presence.player_id) if sent else None
                 if last is not None and last.sent_at is not None:
                     anchor = last.sent_at if anchor is None else max(anchor, last.sent_at)
+
+        if owed and anchor is None:
+            # Owed only by students who have had no reminder yet (added after the first pass,
+            # or blocked during it): there is no sent reminder to count the spacing from, and
+            # this job is what will reach them. It stays where it is.
+            seen_instances.add(instance.id)
+            continue
 
         next_dt = None
         if anchor is not None:
@@ -1024,17 +1066,18 @@ def _retime_pending_followups(coach_id: int, config) -> None:
             if instance.start_datetime is None or next_dt >= wall_to_utc_naive(instance.start_datetime):
                 next_dt = None
 
-        if next_dt is None:
-            # Nothing owed, no room before the class, or a twin of a job already re-timed.
-            try:
+        try:
+            if next_dt is None:
+                # Nothing owed, no room before the class, or a twin of a job already re-timed.
                 _scheduler.remove_job(job.id)
-            except Exception:  # noqa: BLE001 — already gone
-                pass
-            _app.logger.info("retime: removed follow-up %s (none owed or no room)", job.id)
+                _app.logger.info("retime: removed follow-up %s (none owed or no room)", job.id)
+                continue
+            _scheduler.reschedule_job(job.id, trigger=DateTrigger(run_date=next_dt, timezone="UTC"))
+        except JobLookupError:
+            # It fired (or was removed) between the listing and this line: the follow-up did
+            # its job. Not a failed reschedule.
             continue
-
         seen_instances.add(instance.id)
-        _scheduler.reschedule_job(job.id, trigger=DateTrigger(run_date=next_dt, timezone="UTC"))
         _app.logger.info("retime: follow-up %s moved to %s (hours_between=%s)", job.id, next_dt, hours)
 
 
@@ -1050,7 +1093,24 @@ def reschedule_all_future_jobs(coach_id: int) -> None:
     if _scheduler is None or _app is None:
         return
 
-    with _coach_reschedule_lock(coach_id), _app_ctx():
+    lock = _coach_reschedule_lock(coach_id)
+    # Bounded: a reschedule that hangs must not block this coach's later saves for ever.
+    # The save that gives up is reported like any failed reschedule (rule 10c), and the
+    # daily pass derives the jobs again.
+    if not lock.acquire(timeout=_RESCHEDULE_LOCK_TIMEOUT_S):
+        raise RuntimeError(
+            f"another reschedule for coach {coach_id} has held the lock for over "
+            f"{_RESCHEDULE_LOCK_TIMEOUT_S} s"
+        )
+    try:
+        _reschedule_all_future_jobs_locked(coach_id)
+    finally:
+        lock.release()
+
+
+def _reschedule_all_future_jobs_locked(coach_id: int) -> None:
+    """The body of `reschedule_all_future_jobs`; the caller holds the coach's lock."""
+    with _app_ctx():
         from padel_app.models import Association_CoachLessonInstance, LessonInstance
         from padel_app.services.notification_service import get_or_create_config
 

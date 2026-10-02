@@ -245,6 +245,284 @@ def test_lowering_the_count_to_what_was_sent_removes_the_follow_up(armed, monkey
     assert sent == 1 and still_armed == []
 
 
+# ── follow-ups: what rule 10b says, case by case (review of #496) ───────────
+
+def _after_first_reminder(armed, monkeypatch, *, count=2, spacing=2):
+    """First reminder sent at 17:00 UTC (its attempt put on the pinned clock), one follow-up
+    armed for 17:00 + spacing, and "now" moved to 18:00."""
+    from padel_app.models.reminder_attempts import ReminderAttempt
+    from padel_app.sql_db import db
+
+    sched = armed["sched"]
+    _set_timing(armed["coach"], reminderTiming={
+        "firstReminder": DAY_BEFORE_18, "reminderCount": count, "hoursBetweenReminders": spacing,
+    })
+    first = sched.get_job(f"reminder_{armed['instance']}")
+    pin_clock(monkeypatch, datetime(2027, 7, 11, 17, 0))
+    first.func(*first.args)
+    sched.remove_job(first.id)
+    ReminderAttempt.query.update({"sent_at": datetime(2027, 7, 11, 17, 0)})
+    db.session.commit()
+    pin_clock(monkeypatch, datetime(2027, 7, 11, 18, 0))
+
+
+def _follow_ups(sched):
+    return sorted(j.trigger.run_date.replace(tzinfo=None) for j in sched.get_jobs() if "_retry_" in j.id)
+
+
+def _second_student(instance_id):
+    from padel_app.models.players import Player
+    from padel_app.models.presences import Presence
+    from padel_app.models.users import User
+    from padel_app.sql_db import db
+
+    user = User(name="Second Student", username="student-two", email="two@t.test", password="x", status="active")
+    db.session.add(user)
+    db.session.flush()
+    player = Player(user_id=user.id)
+    db.session.add(player)
+    db.session.flush()
+    db.session.add(Presence(player_id=player.id, lesson_instance_id=instance_id, invited=True, enrolment_source="roster"))
+    db.session.commit()
+    return player.id
+
+
+def _confirm(instance_id, player_id):
+    from padel_app.models.presences import Presence
+    from padel_app.sql_db import db
+
+    Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player_id).update({"confirmed": True})
+    db.session.commit()
+
+
+def test_the_startup_and_daily_passes_leave_a_pending_follow_up_where_it_is(app, armed, monkeypatch):
+    """Rule 10b: only a settings change re-times. A restart must neither move nor remove it."""
+    from padel_app import scheduler
+
+    from padel_app.models.reminder_attempts import ReminderAttempt
+    from padel_app.sql_db import db
+
+    _after_first_reminder(armed, monkeypatch)
+    assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 19, 0)]
+    # Make "the last reminder plus the spacing" (18:30) differ from where the job is (19:00),
+    # so a pass that re-timed it would be seen to move it.
+    ReminderAttempt.query.update({"sent_at": datetime(2027, 7, 11, 16, 30)})
+    db.session.commit()
+
+    scheduler._startup_reschedule(app)
+    scheduler._run_extend_schedule_window()
+
+    assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 19, 0)]
+
+
+def test_a_follow_up_that_fired_meanwhile_is_not_a_failed_reschedule(armed, monkeypatch):
+    """Between listing the jobs and moving one, a follow-up can fire and vanish. That is the
+    follow-up doing its job, not a failure to report to the coach."""
+    from apscheduler.jobstores.base import JobLookupError
+
+    from padel_app.services.notification_service import update_config
+
+    _after_first_reminder(armed, monkeypatch)
+
+    def gone(job_id, *args, **kwargs):
+        raise JobLookupError(job_id)
+
+    monkeypatch.setattr(armed["sched"], "reschedule_job", gone)
+    config = update_config(armed["coach"], {"reminderTiming": {"hoursBetweenReminders": 6}})
+
+    assert config.reschedule_failed is False
+
+
+def test_a_student_not_reminded_yet_keeps_the_follow_up(armed, monkeypatch):
+    """A student who has had no reminder (added after the first pass, or blocked during it)
+    is still owed one. With everyone else answered, the follow-up is what will reach them:
+    it stays, at its own time, since there is no sent reminder to count the spacing from."""
+    _after_first_reminder(armed, monkeypatch)
+    _second_student(armed["instance"])
+    _confirm(armed["instance"], armed["student"])
+
+    _set_timing(armed["coach"], reminderTiming={"hoursBetweenReminders": 6})
+
+    assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 19, 0)]
+
+
+def test_a_follow_up_is_removed_when_everyone_has_answered(armed, monkeypatch):
+    _after_first_reminder(armed, monkeypatch)
+    _confirm(armed["instance"], armed["student"])
+
+    _set_timing(armed["coach"], reminderTiming={"hoursBetweenReminders": 6})
+
+    assert _follow_ups(armed["sched"]) == []
+
+
+def test_a_follow_up_with_no_room_before_the_class_is_removed(armed, monkeypatch):
+    """The class starts 2027-07-12 17:00 UTC. 17:00 + 24 h is the start itself: never at or
+    after it."""
+    _after_first_reminder(armed, monkeypatch)
+
+    _set_timing(armed["coach"], reminderTiming={"hoursBetweenReminders": 24})
+
+    assert _follow_ups(armed["sched"]) == []
+
+
+def test_one_follow_up_per_class_timed_from_the_newest_reminder_so_nobody_is_skipped(armed, monkeypatch):
+    """Follow-ups are one job per CLASS. Two students owed one, the second reminded at 17:30
+    (a manual send): the job goes to 17:30 + 6 h, when both are outside the spacing, and both
+    are sent then. The first student waits 30 minutes longer than the spacing: the stated limit."""
+    from padel_app.models.reminder_attempts import ReminderAttempt
+    from padel_app.services import reminder_attempt_service as attempts
+    from padel_app.sql_db import db
+
+    second = _second_student(armed["instance"])
+    _after_first_reminder(armed, monkeypatch)
+    ReminderAttempt.query.filter_by(player_id=second).update({"sent_at": datetime(2027, 7, 11, 17, 30)})
+    db.session.commit()
+
+    _set_timing(armed["coach"], reminderTiming={"hoursBetweenReminders": 6})
+    assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 23, 30)]
+
+    for job in [j for j in armed["sched"].get_jobs() if "_retry_" in j.id]:
+        pin_clock(monkeypatch, job.trigger.run_date.replace(tzinfo=None))
+        job.func(*job.args)
+    assert attempts.count_attempts(armed["instance"], armed["student"]) == 2
+    assert attempts.count_attempts(armed["instance"], second) == 2
+
+
+def test_twin_follow_ups_of_one_class_collapse_into_one(armed, monkeypatch):
+    """B-161 left pairs of follow-ups for one class. Re-timing keeps one."""
+    from apscheduler.triggers.date import DateTrigger
+
+    from padel_app import scheduler
+
+    _after_first_reminder(armed, monkeypatch)
+    armed["sched"].add_job(
+        func=scheduler._run_send_reminders, args=[armed["instance"]],
+        trigger=DateTrigger(run_date=datetime(2027, 7, 11, 19, 0), timezone="UTC"),
+        id=f"reminder_{armed['instance']}_retry_999",
+    )
+    assert len(_follow_ups(armed["sched"])) == 2
+
+    _set_timing(armed["coach"], reminderTiming={"hoursBetweenReminders": 6})
+
+    assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 23, 0)]
+
+
+def test_quiet_hours_do_not_defer_a_re_timed_follow_up(armed, monkeypatch):
+    """23:00 UTC is midnight in Lisbon, inside the default quiet hours. A follow-up armed by
+    a reminder pass is not deferred by quiet hours either (only the late-arrival ask is)."""
+    from padel_app.services.notification_service import get_or_create_config
+
+    config = get_or_create_config(armed["coach"])
+    config.quiet_hours_enabled = True
+    config.save()
+    _after_first_reminder(armed, monkeypatch)
+
+    _set_timing(armed["coach"], reminderTiming={"hoursBetweenReminders": 6})
+
+    assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 23, 0)]
+
+
+# ── rule 10a at startup and in the daily pass, with a stale job really present ──
+
+def _plant_stale_reminder(armed):
+    """A job armed at a time the configuration does not imply, as an older build left it."""
+    from apscheduler.triggers.date import DateTrigger
+
+    from padel_app import scheduler
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.sql_db import db
+
+    # The daily pass reaches a class through its lesson's coach row.
+    lesson_id = LessonInstance.query.get(armed["instance"]).lesson_id
+    db.session.add(Association_CoachLesson(coach_id=armed["coach"], lesson_id=lesson_id))
+    db.session.commit()
+    _set_timing(armed["coach"], reminderTiming={"firstReminder": TWO_DAYS_09})   # past: no job
+    job_id = f"reminder_{armed['instance']}"
+    armed["sched"].add_job(
+        func=scheduler._run_send_reminders, args=[armed["instance"]],
+        trigger=DateTrigger(run_date=datetime(2027, 7, 11, 17, 0), timezone="UTC"), id=job_id,
+    )
+    return job_id
+
+
+def test_the_startup_pass_removes_a_stale_job_and_sends_nothing(app, armed):
+    from padel_app import scheduler
+    from padel_app.services import reminder_attempt_service as attempts
+
+    job_id = _plant_stale_reminder(armed)
+
+    scheduler._startup_reschedule(app)
+
+    assert armed["sched"].get_job(job_id) is None
+    assert attempts.count_attempts(armed["instance"], armed["student"]) == 0
+
+
+def test_the_daily_pass_removes_a_stale_job_and_sends_nothing(armed):
+    from padel_app import scheduler
+    from padel_app.services import reminder_attempt_service as attempts
+
+    job_id = _plant_stale_reminder(armed)
+
+    scheduler._run_extend_schedule_window()
+
+    assert armed["sched"].get_job(job_id) is None
+    assert attempts.count_attempts(armed["instance"], armed["student"]) == 0
+
+
+# ── overlapping saves, and a reschedule that hangs ──────────────────────────
+
+def test_two_overlapping_reschedules_of_one_coach_run_one_after_the_other(armed, monkeypatch):
+    """Two request threads, one coach. The second waits for the first to finish; their
+    per-class work never interleaves."""
+    import threading
+
+    from padel_app import scheduler
+
+    events = []
+    first_inside = threading.Event()
+    release_first = threading.Event()
+
+    def body(coach_id):
+        me = threading.current_thread().name
+        events.append(f"{me} in")
+        if me == "first":
+            first_inside.set()
+            assert release_first.wait(5)
+        events.append(f"{me} out")
+
+    monkeypatch.setattr(scheduler, "_reschedule_all_future_jobs_locked", body)
+    first = threading.Thread(target=scheduler.reschedule_all_future_jobs, args=(armed["coach"],), name="first")
+    second = threading.Thread(target=scheduler.reschedule_all_future_jobs, args=(armed["coach"],), name="second")
+    first.start()
+    assert first_inside.wait(5)
+    second.start()
+    second.join(0.3)                      # the second is still waiting for the lock
+    assert events == ["first in"]
+    release_first.set()
+    first.join(5)
+    second.join(5)
+
+    assert events == ["first in", "first out", "second in", "second out"]
+
+
+def test_a_reschedule_that_cannot_get_the_lock_is_reported_not_left_hanging(armed, monkeypatch):
+    """A reschedule that hangs must not block the coach's later saves for ever: the wait is
+    bounded, and the save that gave up is reported like any failed reschedule."""
+    from padel_app import scheduler
+    from padel_app.services.notification_service import update_config
+
+    monkeypatch.setattr(scheduler, "_RESCHEDULE_LOCK_TIMEOUT_S", 0.05)
+    lock = scheduler._coach_reschedule_lock(armed["coach"])
+    assert lock.acquire(timeout=1)
+    try:
+        config = update_config(armed["coach"], {"reminderTiming": {"firstReminder": TWO_DAYS_18}})
+    finally:
+        lock.release()
+
+    assert config.reschedule_failed is True
+
+
 # ── the implied job itself, merely due ──────────────────────────────────────
 
 def test_a_job_due_at_its_implied_time_is_left_to_fire(armed, monkeypatch):

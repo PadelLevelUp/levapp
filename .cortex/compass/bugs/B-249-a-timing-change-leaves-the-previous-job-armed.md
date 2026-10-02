@@ -39,3 +39,6 @@ opened: 2026-10-02T09:03:55Z
 - Tests: the six strict-xfail cases in `test_pad478_stale_timing_jobs.py` lose their mark.
 - Code: one derivation that arms, replaces or removes; used by the settings change, `_startup_reschedule` and the daily window pass. At startup and daily a past time means no job and nothing sent.
 - Deploy constraint: the fix must not send, re-send or suppress a reminder for an existing class as a side effect of being deployed.
+
+### Found in review (opus, #496 at 101d095ee), fixed before merge
+The first version of the fix derived a class's jobs from whichever coach triggered the derivation. With removal on a past time, a co-coach's pass (the startup loop over every coach, or their own save) or the lesson coach's occurrence walk for a substituted occurrence REMOVED the primary coach's job: a suppression the fix itself introduced. Reproduced by the reviewer, then by `test_pad478_primary_coach_decides.py` (7 tests; 6 red at 101d095ee). Jobs are now derived from the class's primary coach, whoever triggers it. Before PAD-478 the same mismatch re-armed the job at the other coach's time, whichever coach was processed last.
