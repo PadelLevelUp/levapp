@@ -192,3 +192,4 @@ whether a failure mode has been seen before.
 - [B-251](B-251-maestro-95-drove-a-removed-categories-editor.md) — Maestro flow 95 drove the evaluation-categories editor PAD-373 removed; it failed at its first scroll (test-defect, low, resolved)
 - [B-252](B-252-dropdown-reopen-test-spent-seconds-in-jsdom-modal-matching.md) — Web unit test dropdown-menu.reopen timed out under load: floating-ui's top-layer check costs ~300 ms per `matches(':modal')` in jsdom; the test answers top-layer selectors false (test-defect, medium, resolved)
 - [B-262](B-262-clearing-the-email-keeps-the-account-verified.md) — Settings: clearing the email left the account marked verified, with no email to reach it (incomplete-rule, medium, resolved)
+- [B-263](B-263-typing-before-the-profile-loads-empties-the-name.md) — Settings → Perfil: typing before the profile had loaded left the other fields empty and the save was refused (incomplete-rule, medium, resolved)

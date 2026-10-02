@@ -231,6 +231,13 @@ export function parseTab(search: string): SettingsTab {
   return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
 }
 
+/** B-263: the loaded profile, keeping what the coach already typed into the fields they touched. */
+function hydrateUntouched(loaded: ProfileForm, current: ProfileForm, touched: Set<keyof ProfileForm>): ProfileForm {
+  const next = { ...loaded };
+  for (const field of touched) next[field] = current[field];
+  return next;
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -296,9 +303,10 @@ export default function SettingsPage() {
   const [emailState, setEmailState] = useState<EmailVerificationState | undefined>(undefined);
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
-  // Set as soon as the coach edits a field, so a late `getMe()` response can
-  // refresh the "what's on the server" baseline without wiping what they typed.
-  const profileDirty = useRef(false);
+  // The fields the coach has edited, so a late `getMe()` response refreshes the "what's on the server"
+  // baseline and fills every OTHER field without wiping what they typed. B-263: one flag for the whole
+  // form left an untouched name empty, and the save then sent `name: ""` and was refused.
+  const profileTouched = useRef(new Set<keyof ProfileForm>());
   // B-184: the same guard for the language. Once the user has chosen one, the mount-time
   // profile read (which can land later) must not put the stored language back.
   const languageDirty = useRef(false);
@@ -432,7 +440,7 @@ export default function SettingsPage() {
         setSavedProfile(loaded);
         setEmailState(me.emailVerification);
         setRequestAlerts(me.requestAlerts !== false);
-        if (!profileDirty.current) setProfile(loaded);
+        setProfile((current) => hydrateUntouched(loaded, current, profileTouched.current));
       })
       .catch(() => {
         // ignore — keep default language
@@ -476,7 +484,7 @@ export default function SettingsPage() {
   };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
-    profileDirty.current = true;
+    profileTouched.current.add(field);
     setProfile((p) => ({ ...p, [field]: value }));
   };
 
@@ -519,7 +527,7 @@ export default function SettingsPage() {
     setProfile(confirmed);
     setSavedProfile(confirmed);
     setEmailState(updated.emailVerification);
-    profileDirty.current = false;
+    profileTouched.current.clear();
 
     toast({
       title: t("settings.toast.settingsSavedTitle"),

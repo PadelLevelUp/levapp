@@ -40,17 +40,30 @@ test("PAD-482: a coach with no email is asked for one, adds it and confirms it",
     await page.reload();
     await expect(banner).toBeVisible({ timeout: 15000 });
 
+    // B-263: hold Settings' GET /auth/me until the email is typed, so the typing always lands first.
+    let release!: () => void;
+    const typed = new Promise<void>((resolve) => { release = resolve; });
+    await page.route("**/api/auth/me", async (route) => {
+      if (route.request().method() === "GET") await typed;
+      await route.continue();
+    });
     await page.getByTestId("email-prompt-add").click();
     await expect(page).toHaveURL(/\/settings\?tab=profile&focus=email/);
     const field = page.getByTestId("settings-profile-email");
     await expect(field).toBeFocused();
     await expect(page.getByTestId("settings-profile-email-needed")).toBeVisible();
 
-    // The form is hydrated from GET /auth/me; typing before that lands would race it.
-    await expect(page.locator("#profile-name")).not.toHaveValue("", { timeout: 10000 });
+    // Typed before GET /auth/me has filled the form: B-263 fills the untouched name all the same.
     await field.fill(EMAIL);
+    release();
+    await expect(page.locator("#profile-name")).toHaveValue("E2E Coach", { timeout: 10000 });
+    await page.unroute("**/api/auth/me");
     await expect(page.getByTestId("settings-profile-email-needed")).toBeHidden();
+    const saved = page.waitForResponse((r) => r.url().endsWith("/api/auth/me") && r.request().method() === "PATCH");
     await page.getByTestId("settings-header-save").click();
+    const patch = (await saved).request().postDataJSON() as Record<string, unknown>;
+    expect(patch.email).toBe(EMAIL);
+    expect(patch.name === undefined || patch.name === "E2E Coach", `name sent as ${JSON.stringify(patch.name)}`).toBeTruthy();
     await completeEmailVerification(page);
 
     const me = await (await page.request.get(`${API_AUTH}/me`, { headers })).json();

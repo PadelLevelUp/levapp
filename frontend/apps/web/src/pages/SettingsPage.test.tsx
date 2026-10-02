@@ -595,3 +595,27 @@ describe("SettingsPage — a coach with no email (PAD-482, auth.email-verificati
     expect(document.activeElement).not.toBe(field);
   });
 });
+
+// B-263 (PAD-482): typing before /auth/me lands used to skip hydration for EVERY field, so a save sent
+// `name: ""` and was refused. Only the fields the coach touched keep what they typed.
+describe("SettingsPage — typing before the profile has loaded (B-263)", () => {
+  it("the untouched fields still fill in, and the save sends only the typed one", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    goto("/settings?tab=profile&focus=email");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    fireEvent.change(field, { target: { value: "rui@example.com" } });
+    await act(async () => { land({ ...ME, email: null, emailVerification: "unverified" }); });
+
+    await waitFor(() => expect(document.getElementById("profile-name")).toHaveValue("Coach"));
+    expect(field).toHaveValue("rui@example.com");
+    fireEvent.click(screen.getByTestId("settings-header-save"));
+    await waitFor(() => expect(updateMe).toHaveBeenCalled());
+    const payload = updateMe.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload.email).toBe("rui@example.com");
+    expect(payload).not.toHaveProperty("name");
+  });
+});
+
