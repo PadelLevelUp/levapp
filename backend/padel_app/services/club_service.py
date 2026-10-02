@@ -193,7 +193,10 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
             # screen's "Send a new code" recovers, as it does for a mail failure (rule 6).
             from flask import current_app
 
-            current_app.logger.warning("verification code for invited coach %s failed: %s", user.id, exc)
+            # B-254: the exception class, never its text.
+            current_app.logger.warning(
+                "verification code for invited coach %s failed: %s", user.id, type(exc).__name__
+            )
             db.session.rollback()
     return user
 
