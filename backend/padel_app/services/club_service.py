@@ -118,15 +118,38 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
         abort(400, "name, username and password are required")
     # clubs.coach-invitation rule 8 (PAD-457): a new coach account is adults-only too, the
     # check sign-up shares. Raises RegistrationError (400 on birthDate) before anything is written.
-    from padel_app.services.registration_service import _UPDATE_APP, validate_adult_birth_date
+    from padel_app.services.registration_service import (
+        _UPDATE_APP,
+        RegistrationError,
+        assert_email_free,
+        normalised_email,
+        validate_adult_birth_date,
+    )
+    from padel_app.utils.client_capabilities import COACH_INVITE_EMAIL, client_declares
     from padel_app.utils.dates import utcnow_naive
 
     birth_date = validate_adult_birth_date(
         data.get("birthDate"), utcnow_naive().date(), update_app_message=_UPDATE_APP["birthDate"]
     )
 
+    # clubs.coach-invitation rule 9 (PAD-477, B-241): the email, validated as sign-up validates it,
+    # before anything is written. A client declaring `coach-invite-email` must send one; a build
+    # that predates the field (iOS 27/28) sends none and keeps the pre-PAD-477 accept (legacy path).
+    raw_email = data.get("email")
+    if raw_email is not None and str(raw_email).strip():
+        email = normalised_email(raw_email)
+    elif client_declares(COACH_INVITE_EMAIL):
+        raise RegistrationError(
+            "O email é obrigatório. / Email is required.", 400, "email", code="EMAIL_REQUIRED"
+        )
+    else:
+        email = None
+
     if User.query.filter_by(username=username).first() is not None:
         abort(409, "Username already taken")
+    if email:
+        # After the username, as sign-up's _assert_unique tie-breaks.
+        assert_email_free(email)
 
     # clubs.coach-invitation rule 4 (PAD-476, B-246): the account, its levels, the
     # club link and the accepted invitation are one transaction. A failure at any
@@ -137,7 +160,7 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
         user = User(
             name=name,
             username=username,
-            email=data.get("email") or invitation.email,
+            email=email,
             password=generate_password_hash(password),
             status="active",
             birth_date=birth_date,
@@ -158,6 +181,20 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
             Association_CoachClub(coach_id=new_coach.id, club_id=invitation.club_id)
         )
         invitation.status = "accepted"
+
+    # Rule 9: the first code goes out only after the unit has committed (rule 4), never inside it.
+    if email:
+        from padel_app.services.email_verification_service import begin_verification
+
+        try:
+            begin_verification(user)
+        except Exception as exc:  # noqa: BLE001
+            # The account exists and the invitation is used: answer with the session. The verify
+            # screen's "Send a new code" recovers, as it does for a mail failure (rule 6).
+            from flask import current_app
+
+            current_app.logger.warning("verification code for invited coach %s failed: %s", user.id, exc)
+            db.session.rollback()
     return user
 
 

@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
 import { ui } from "../helpers/i18n";
+import { completeEmailVerification } from "../helpers/emailVerification";
 
 // Seeded in e2e/scripts/seed.py
 const CLUB_NAME = "E2E Club";
@@ -78,6 +79,8 @@ test.describe("clubs.coach-invitation", () => {
     await invitePage
       .getByLabel(ui("auth.coachInvite.username"))
       .fill(NEW_COACH_USERNAME);
+    // PAD-477 (clubs.coach-invitation rule 9): the invited coach gives an email and confirms it.
+    await invitePage.locator("#email").fill(`${NEW_COACH_USERNAME}@example.com`);
     await invitePage
       .getByLabel(ui("auth.coachInvite.password"))
       .fill(NEW_COACH_PASSWORD);
@@ -94,20 +97,9 @@ test.describe("clubs.coach-invitation", () => {
       })
       .click();
 
-    // Either auto-logged-in (off the invite page, into the app) or sent to
-    // /auth to sign in with the new credentials.
-    await invitePage.waitForURL((url) => !url.pathname.startsWith("/invite/"), {
-      timeout: 10_000,
-    });
-
-    if (invitePage.url().includes("/auth")) {
-      await invitePage.locator("#username").fill(NEW_COACH_USERNAME);
-      await invitePage.locator("#password").fill(NEW_COACH_PASSWORD);
-      await invitePage.locator('button[type="submit"]').click();
-      await invitePage.waitForURL((url) => !url.pathname.startsWith("/auth"), {
-        timeout: 10_000,
-      });
-    }
+    // Rule 9: signed in, and held on Verify your email until the code is typed back
+    // (E2E runs with EMAIL_VERIFICATION_REQUIRED on; the debug outbox hands back the code).
+    await completeEmailVerification(invitePage);
 
     // The new coach sees the app shell (coach navigation). A freshly-registered
     // coach has no language set yet, so the UI defaults to pt — match either language.

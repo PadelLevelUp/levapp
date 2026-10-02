@@ -23,6 +23,7 @@ const BIRTH_CODE_KEYS: Record<string, string> = {
 };
 import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
 import { useAuth } from "@/auth/AuthContext";
+import { needsEmailVerification } from "@/auth/postLoginPath";
 
 type InvitationStatus = "loading" | "valid" | "invalid";
 
@@ -30,6 +31,8 @@ const acceptSchema = z
   .object({
     name: z.string().min(2, "nameMin"),
     username: z.string().min(3, "usernameMin"),
+    // clubs.coach-invitation rule 9 (PAD-477): the coach confirms this address with a code.
+    email: z.string().trim().email("emailInvalid"),
     password: z.string().min(6, "passwordMin"),
     repeatPassword: z.string(),
     // PAD-457: adults only — this form creates a login.
@@ -48,7 +51,7 @@ const CoachInvitePage = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
   const { t } = useTranslation();
 
   const [status, setStatus] = useState<InvitationStatus>("loading");
@@ -60,6 +63,7 @@ const CoachInvitePage = () => {
   const [form, setForm] = useState({
     name: "",
     username: "",
+    email: "",
     password: "",
     repeatPassword: "",
     birthDate: "",
@@ -112,6 +116,7 @@ const CoachInvitePage = () => {
       const { accessToken } = await acceptCoachInvitation(token, {
         name: form.name,
         username: form.username,
+        email: form.email.trim(),
         password: form.password,
         birthDate: form.birthDate,
       });
@@ -122,13 +127,26 @@ const CoachInvitePage = () => {
       });
 
       await login(accessToken);
-      navigate("/");
+      // Rule 9: the account is pending until the code is typed back, so the verify screen comes
+      // first, as after sign-up (auth.email-verification rule 8). The guards would also send it
+      // there; routing here says so outright.
+      // refreshUser swallows a /me failure (null): the account exists, so never report a failed accept.
+      const me = await refreshUser();
+      navigate(needsEmailVerification(me) ? `/verify-email?next=${encodeURIComponent("/")}` : "/", {
+        replace: true,
+      });
     } catch (error: any) {
       const code = error?.response?.status;
       // PAD-457: a birth-date refusal belongs on the field, in the form's words.
       const birthKey = BIRTH_CODE_KEYS[error?.response?.data?.code ?? ""];
       if (code === 400 && error?.response?.data?.field === "birthDate" && birthKey) {
         setErrors((prev) => ({ ...prev, birthDate: t(`auth.coachInvite.${birthKey}`) }));
+        return;
+      }
+      // Rule 9: a refused or taken email belongs on its field.
+      if ((code === 400 || code === 409) && error?.response?.data?.field === "email") {
+        const key = code === 409 ? "emailTaken" : "emailInvalid";
+        setErrors((prev) => ({ ...prev, email: t(`auth.coachInvite.${key}`) }));
         return;
       }
       if (code === 409) {
@@ -180,10 +198,12 @@ const CoachInvitePage = () => {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* noValidate, as sign-up: zod owns the messages; the browser's email tooltip would pre-empt emailInvalid. */}
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {[
               { id: "name", label: t("auth.coachInvite.name") },
               { id: "username", label: t("auth.coachInvite.username") },
+              { id: "email", label: t("auth.coachInvite.email"), type: "email" },
               { id: "password", label: t("auth.coachInvite.password"), type: "password" },
               {
                 id: "repeatPassword",
