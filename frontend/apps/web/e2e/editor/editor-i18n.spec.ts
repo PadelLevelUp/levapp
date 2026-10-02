@@ -25,14 +25,17 @@ async function openPreferences(page: Page) {
 }
 
 async function selectLanguage(page: Page, option: RegExp) {
+  // PAD-473 (B-244): choosing the language IS the save — Preferences has no Save button. Wait for the
+  // PATCH itself (navigating away mid-flight would leave the shared coach in the wrong language),
+  // then for the sign beside the select (settings.save-on-change).
+  const saved = page.waitForResponse(
+    (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
+    { timeout: 30_000 }
+  );
   await page.getByLabel(/language|idioma/i).click();
   await page.getByRole("option", { name: option }).click();
-  await page
-    .getByRole("button", { name: /save changes|guardar altera/i })
-    .click();
-  await expect(
-    page.getByText(/settings saved|saved|guardad|preferências/i).first()
-  ).toBeVisible({ timeout: 5000 });
+  await saved;
+  await expect(page.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved", { timeout: 5000 });
 }
 
 test.beforeEach(async ({ page }) => {

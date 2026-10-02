@@ -138,8 +138,8 @@ describe("the control never shows a choice the server does not hold", () => {
 
     fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly"));
 
-    expect(await screen.findByTestId("settings-evaluation-reminder-error")).toHaveTextContent(
-      "evaluations.reminder.saveFailed",
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-evaluation-reminder-sign")).toHaveAttribute("data-state", "failed"),
     );
     expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
     expect(screen.getByTestId("settings-evaluation-reminder-option-monthly")).not.toBeChecked();
@@ -230,5 +230,113 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
 
     expect(screen.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
     expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+  it("the page going away sends a number still waiting for its delay, with keepalive", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "8" } });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    await advance(0);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 }, { keepalive: true });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("the page going away with nothing pending sends nothing", async () => {
+    await typedField();
+
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+describe("review #497", () => {
+  const pastDelay = CUSTOM_SAVE_DELAY_MS + 50;
+  afterEach(() => vi.useRealTimers());
+
+  async function field(stored = 7) {
+    api.putEvaluationSettings.mockImplementation(async (body: EvaluationSettings) => body);
+    open({ reminder: "every_n_classes", everyN: stored });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+    vi.useFakeTimers();
+    return input;
+  }
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("item 7: a failure landing while a newer number is being typed does not reset it; the newer number is saved", async () => {
+    const input = await field(7);
+    let fail8!: (e: Error) => void;
+    api.putEvaluationSettings.mockImplementationOnce(() => new Promise((_r, rej) => { fail8 = rej; }));
+
+    fireEvent.change(input, { target: { value: "8" } });
+    await advance(pastDelay); // 8 sent, held
+    fireEvent.change(input, { target: { value: "9" } }); // waiting for its delay
+    await act(async () => { fail8(new Error("offline")); });
+    expect(input).toHaveValue(9);
+
+    await advance(pastDelay);
+    expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
+
+  it("rule 3: two frequency saves both fail — back to the confirmed frequency, not the one the last started from", async () => {
+    vi.useRealTimers();
+    api.putEvaluationSettings.mockReset();
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationSettings
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    open({ reminder: "never" });
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly")); // Y, sent
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-every_2")); // Z, waits; started from monthly
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1));
+    await act(async () => { failY(new Error("y")); });
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(2));
+    await act(async () => { failZ(new Error("z")); });
+
+    expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
+  });
+
+  it("rule 2: typing gives one sign, after typing stops (counted by signs shown)", async () => {
+    const input = await field(7);
+    const states: string[] = [];
+    const sample = () => states.push(screen.getByTestId("settings-evaluation-reminder-sign").getAttribute("data-state") ?? "");
+
+    fireEvent.change(input, { target: { value: "1" } });
+    for (let i = 0; i < 3; i++) { await advance(100); sample(); }
+    fireEvent.change(input, { target: { value: "12" } });
+    for (let i = 0; i < 40; i++) { await advance(100); sample(); }
+
+    const rises = states.filter((st, i) => st === "saved" && states[i - 1] !== "saved").length;
+    expect(rises).toBe(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+  it("review #497 round 2 item 3(b): a value waiting in the queue is not sent after a keepalive flush", async () => {
+    const pastDelay = CUSTOM_SAVE_DELAY_MS + 50;
+    const { input } = await typedField(7);
+    let ok8!: (v: unknown) => void;
+    api.putEvaluationSettings.mockImplementationOnce(() => new Promise((res) => { ok8 = res; }));
+
+    fireEvent.change(input, { target: { value: "8" } });
+    await advance(pastDelay); // 8 out
+    fireEvent.change(input, { target: { value: "9" } });
+    await advance(pastDelay); // 9 waits in the queue behind 8
+    fireEvent.change(input, { target: { value: "10" } }); // still being typed
+    act(() => { window.dispatchEvent(new Event("pagehide")); }); // 10 goes with keepalive
+    await advance(0);
+    await act(async () => { ok8({ reminder: "every_n_classes", everyN: 8 }); });
+    await advance(pastDelay);
+
+    const sent = api.putEvaluationSettings.mock.calls.map((c) => (c[0] as { everyN?: number }).everyN);
+    expect(sent).toEqual([8, 10]);
+    expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 10 }, { keepalive: true });
   });
 });

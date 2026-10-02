@@ -50,27 +50,17 @@ async function openPreferences(page: Page) {
 }
 
 async function selectLanguage(page: Page, option: RegExp) {
+  // PAD-473 (B-244): choosing the language IS the save — Preferences has no Save button. Wait for the
+  // PATCH itself (navigating away mid-flight would leave the shared coach in the wrong language),
+  // then for the sign beside the select (settings.save-on-change).
+  const saved = page.waitForResponse(
+    (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
+    { timeout: 30_000 }
+  );
   await page.getByLabel(/language|idioma/i).click();
   await page.getByRole("option", { name: option }).click();
-  // Wait for the profile PATCH itself, not for on-screen copy: the
-  // "Preferências" heading already satisfies the text match before the save
-  // request has left the browser, and the very next step navigates away —
-  // which aborts an in-flight PATCH and leaves the shared coach in the wrong
-  // language for every later spec (seen as a 7-spec cascade under load).
-  const saved = page.waitForResponse(
-    (res) =>
-      res.url().includes("/api/auth/me") &&
-      res.request().method() === "PATCH" &&
-      res.ok(),
-    { timeout: 10000 }
-  );
-  await page
-    .getByRole("button", { name: /save changes|guardar altera/i })
-    .click();
   await saved;
-  await expect(
-    page.getByText(/settings saved|saved|guardad|preferências/i).first()
-  ).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved", { timeout: 5000 });
 }
 
 test.describe("PAD-52: calendar locale-aware date formatting", () => {

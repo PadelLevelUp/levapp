@@ -44,7 +44,8 @@ due. It is a marker inside the app, never a message to anyone.
    shortly after typing stops (600 ms today), and at once when the field loses focus or is
    submitted, when the coach leaves the screen, or (iOS) when the app leaves the foreground —
    the iOS number pad has no Return key, so focus alone cannot be what saves it. An invalid
-   number is never sent; it is refused in place when the field loses focus.
+   number is never sent; it is refused in place when the field loses focus. What the control shows
+   when it saves or fails is `settings.save-on-change` (rules 2-3).
 2. **The endpoint.** `GET /api/app/evaluation_settings` and `PUT /api/app/evaluation_settings`
    (JWT, coach) with `{reminder: 'never' | 'monthly' | 'every_n_classes', everyN?}` → the same
    shape. `everyN` is an integer 1–99, required with `every_n_classes` (else 400) and ignored
