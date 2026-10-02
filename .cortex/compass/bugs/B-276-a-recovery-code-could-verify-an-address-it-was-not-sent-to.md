@@ -5,8 +5,8 @@ type: incomplete-rule
 severity: high
 status: resolved
 opened: 2026-10-02T17:48:54Z
-resolved: 2026-10-02T17:48:54Z
-updated: 2026-10-02T17:48:54Z
+resolved: 2026-10-02T18:28:25Z
+updated: 2026-10-02T18:28:25Z
 affects:
   - auth.password-recovery
   - backend/padel_app/models/users.py
@@ -33,19 +33,36 @@ happens to a pending code when the address it was sent to stops being the accoun
 rule.
 
 ### Change Plan
-- Spec: `auth.password-recovery` rule 11 and two criteria.
-- Code: a `set` listener on `User.email` (`active_history=True`) discards a pending code on any change
-  or clear, whatever writes the email; same address in another case is not a change.
+- Spec: `auth.password-recovery` rule 11 and three criteria; `auth.email-verification` rule 3.
+- Code: bind each code to the address it was mailed to (the address is in the HMAC input, checked at
+  confirm). Keep a `set` listener on `User.email` as defence in depth, and clear both codes in the
+  staging-sync bulk rewrite.
 
 ### Resolution (PAD-498)
 
-- **Spec:** `auth.password-recovery` rule 11 with two acceptance criteria.
-- **Code:** `models/users.py` `_email_change_discards_recovery_code`.
-  - The listener is on the model, so it covers every path that writes the email: the profile, activation, a claim, a deletion, a form.
-  - `active_history=True` loads an old value that a commit has expired, so a write that never read the address is still seen as a change.
-- **Tests:** `test_pad498_recovery_code_and_email_change.py` (6 tests):
-  - a change of address, and a clear followed by a new address, each make the old code answer 410 with nothing verified and the password unchanged;
-  - the same address in another case keeps the code;
-  - a recovery on an unchanged address works as before;
-  - a write of the email through the ORM discards the code;
-  - so does a write after a commit expired the attribute (red without `active_history`).
+- **First round:** a `set` listener on `User.email` that discards a pending recovery code on any ORM
+  change or clear of the address.
+  - The independent review (#518) showed it orders writes but cannot close an overlap: an email change
+    committed while the code's mail is being sent leaves a live code on the new address. It reproduced
+    this with two sessions.
+- **Second round, the fix:**
+  - **Binding:** the recovery code and the email-verification code are now bound to the address they
+    were mailed to. The trimmed, lower-cased address is part of the HMAC input
+    (`password_recovery_service._hash`, `email_verification_service._hash`), and confirm checks it
+    against the account's current address. This holds whatever order the writes land in.
+  - **The listener stays as defence in depth:** it covers every ORM writer of the email.
+    - It no longer uses `active_history`, which would raise on a detached instance.
+    - An old value that isn't loaded counts as a change.
+  - **Staging-sync:** the bulk rewrite in `sync-staging-db.sh` clears both codes in the same statement.
+- **Tests:** `test_pad498_recovery_code_and_email_change.py`, 12 tests.
+  - Red first on staging 4a77b1134:
+    - a change of address;
+    - a clear followed by a new address;
+    - an overlapping email change, for both kinds of code.
+  - Also covered:
+    - the same address in another case (through the profile and through the ORM);
+    - a recovery on an unchanged address;
+    - an ORM write, and a write after a commit expired the attribute;
+    - a detached instance does not raise;
+    - the staging-sync statement clears both codes.
+  - Mutants: binding removed, case-sensitive compare, and `active_history` restored are each red.

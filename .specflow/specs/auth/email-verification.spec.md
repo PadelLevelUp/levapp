@@ -41,7 +41,10 @@ own email in Settings.
 3. **The code.** 6 digits, generated with a CSPRNG, stored only as an HMAC-SHA256 hash keyed by
    `SECRET_KEY`. Valid for 15 minutes. At most 5 wrong attempts per code; the 5th wrong attempt
    invalidates the code and the person must request a new one. Requesting a new code replaces the
-   old one (old code stops working) and resets the attempt counter.
+   old one (old code stops working) and resets the attempt counter. **(PAD-498)** The code is bound
+   to the address it was mailed to: that address (trimmed, lower-cased) is part of the HMAC input,
+   and confirm checks it against the account's address at that moment, so a code verifies only the
+   address it went to, whatever order an email change and the code's own commit land in.
 4. `POST /api/auth/email-verification/send` (JWT, any role) issues a code for the user's current
    email and sends it. 200 `{"email": "<the address>", "expiresInSeconds": 900,
    "resendAvailableInSeconds": 60}`. 400 `{"error": "NO_EMAIL"}` when the user has no email.

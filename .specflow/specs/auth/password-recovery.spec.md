@@ -96,14 +96,17 @@ back at all.
 10. **Per-IP throttle (PAD-228).** `POST /api/auth/password-recovery/request` and `/confirm` share one bucket, throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_RECOVERY` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. This is the per-IP layer on top of the
     per-email cooldown of rule 4, and it caps code guessing across many emails.
 11. **A code belongs to the address it was sent to (PAD-498, B-276).** Rule 6 marks the account's email
-    verified on success, because the person just proved they read mail at that address. So a pending
-    code must never outlive its address: any write that changes the account's email or clears it
-    discards the pending code (hash, expiry, sent time, attempts), whatever path writes it — the
-    profile, an activation, a claim, a deletion. It lives on the model (a `set` listener on
-    `User.email`), not in each caller. Re-saving the same address in another case is not a change. A
-    recovery requested and confirmed on an unchanged address is unaffected. The one writer outside the
-    ORM, `backend/scripts/sync-staging-db.sh` (the bulk email rewrite on the staging copy after each
-    deploy), clears the codes in the same statement.
+    verified on success, because the person just proved they read mail at that address. So the code is
+    **bound to that address**: the address it was mailed to (trimmed, lower-cased) is part of the HMAC
+    input, and confirm checks the code against the account's address at that moment. A code therefore
+    never confirms once the account's address is a different one, whatever order the writes land in —
+    including an email change committed while the code's mail is still being sent. As defence in depth,
+    any ORM write that changes or clears the account's email also discards the pending code at once (a
+    `set` listener on `User.email`); re-saving the same address in another case is not a change. The
+    one writer outside the ORM, `backend/scripts/sync-staging-db.sh` (the bulk email rewrite on the
+    staging copy after each deploy), clears both this code and the email-verification code in the same
+    statement. A recovery requested and confirmed on an unchanged address is unaffected. Codes issued
+    before this change stop matching when it deploys (their 15-minute life ends anyway).
 
 ### Acceptance Criteria
 
@@ -112,6 +115,12 @@ back at all.
 - **When** the account's email is changed, or cleared and then set again, before the code is used
 - **Then** the code no longer confirms (410 `CODE_EXPIRED`), the new address is not marked verified,
   and the password is unchanged
+
+#### A code issued while the address changes does not confirm on the new one (rule 11)
+- **Given** a recovery code is issued and, before its own write commits, another request changes the
+  account's email
+- **When** the code is confirmed against the new address
+- **Then** it is refused, the new address is not marked verified, and the password is unchanged
 
 #### A recovery on an unchanged address is unchanged (rule 11)
 - **Given** a recovery code was mailed to the account's address, which has not changed
