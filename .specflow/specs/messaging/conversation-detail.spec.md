@@ -114,6 +114,15 @@ through the history without the thread ever moving under the reader.
     no link to retire. An invite's Yes/No keys on its notification event, not the instance, and
     is unchanged.
 
+16. **An automatic message says so (PAD-492).** A message serialized with `isAutomatic: true`
+    (`messaging.messages` rule 6) carries one extra line under its text, "Automatic LevApp message"
+    (pt "Mensagem automática LevApp", key `messages.automaticMessage`), in the same size and colour
+    as the message time, on whichever side the bubble sits, on web and iOS alike
+    (web `message-automatic-note` inside `message-item-<id>`; iOS `message-automatic-note-<id>`, since
+    an iOS row's children are not nested under it for Maestro). Nothing else about the bubble changes: no icon, no background, no
+    separate feed. A typed message never carries it. The field is additive: builds that ignore it
+    (iOS 1.0–1.2.1) look exactly as before.
+
 ### Acceptance Criteria
 
 #### A landing is not re-pinned by the list settling or a new message (B-189)
@@ -237,3 +246,7 @@ through the history without the thread ever moving under the reader.
 - **When** they GET the conversation
 - **Then** `firstUnreadMessageId` is 46; for a participant with nothing unread it is `null`; their own messages are never the first unread
 
+#### An automatic message carries the note, a typed one does not (rule 16, PAD-492)
+- **Given** a conversation holding a class reminder and a message the coach typed
+- **When** the student opens it on web or on iOS
+- **Then** the reminder shows "Automatic LevApp message" under its text (`message-automatic-note`) and the typed message shows no such line

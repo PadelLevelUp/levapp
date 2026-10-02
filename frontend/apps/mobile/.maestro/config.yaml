@@ -114,6 +114,9 @@ executionOrder:
     - 25-claim-request
     - 26-message-by-username
     - 27-unknown-sender-block
+    # 143 (PAD-492) shares and unshares its own evaluation and posts one message;
+    # its position is not load bearing.
+    - 143-automatic-message-note
     # 42 (PAD-282/PAD-288) books, accepts, cancels and deletes its own class, so
     # its position is not load bearing. Not yet run.
     - 42-cancel-requested-class

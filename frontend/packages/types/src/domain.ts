@@ -721,6 +721,11 @@ export interface Message {
    * per conversation page; absent from older servers, so treat as false.
    */
   classDeleted?: boolean;
+  /**
+   * messaging.messages rule 6 (PAD-492): the app wrote this message (a reminder, an
+   * invitation, a notice), not a person. Absent from older servers, so treat as false.
+   */
+  isAutomatic?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
   actions?: MessageAction[];
   messageType?: string;

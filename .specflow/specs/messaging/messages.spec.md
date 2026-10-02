@@ -32,7 +32,17 @@ Send, edit, and delete messages within conversations, with support for replies a
     serializes as `null` and the failure is logged. A payload that carries an image must never
     fail because the image cannot be signed. The storage client is created once per process,
     not once per image.
-6. System messages have `message_type="notification"` or `"system"` with `msg_metadata`
+6. **Automatic messages are told apart from typed ones (PAD-492).** A message the app generated
+   (reminder, vacancy invitation, waiting-list offer or placement, class added/cancelled notice,
+   join- and class-request notices and replies, spot-filled/confirm/decline replies, replacement
+   approval, shared evaluation) is written with a `message_type` other than `"text"` or with a
+   non-null `msg_metadata` — `_send_system_message` always writes `msg_metadata or {}`, and every
+   other automatic writer names its own key. The human path (`POST /api/app/message`) writes
+   neither: `message_type` stays `"text"` and `msg_metadata` stays null, whatever the body sends.
+   `serialize_message` derives `isAutomatic` from exactly that, so every automatic message is
+   marked, the historic ones included (all automatic writers have stamped one or the other since
+   notifications began, 2026-03-11). A deleted message serializes `isAutomatic: false` with the
+   rest of its content withheld.
 7. On send: push notification sent to all other conversation participants. **One exception
    (PAD-402, owner's Q3):** the evaluation-share system message (`evaluations.sharing` rule 8)
    is written and published over SSE like any other but is **never pushed** — the sender is
@@ -130,6 +140,21 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Given** a conversation between users 1 and 5, and a connected user 9
 - **When** user 1 sends a message in it
 - **Then** the `message_created` event is delivered to users 1 and 5 only
+
+#### A typed message is never marked automatic (rule 6, PAD-492)
+- **Given** a conversation the sender is in
+- **When** they POST `{"conversationId": …, "text": "hi", "messageType": "notification_reminder", "metadata": {"x": 1}}`
+- **Then** the stored message has `message_type` `"text"` and null `msg_metadata`, and it serializes `isAutomatic: false`
+
+#### Every automatic writer marks its message (rule 6, PAD-492)
+- **Given** the backend source
+- **When** every `Message(` construction outside the human send path is listed, along with `_send_system_message`'s own write
+- **Then** each passes a non-`"text"` `message_type` or a non-null `msg_metadata`, so a new automatic message added without either fails the guard instead of looking human
+
+#### A template reply with no metadata is still automatic (rule 6, PAD-492)
+- **Given** a coach's "spot filled" reply sent through `_send_system_message` with no type and no metadata
+- **When** the conversation is fetched
+- **Then** that message serializes `isAutomatic: true`
 
 #### A message with no text is refused (rule 11)
 - **Given** a conversation the sender is in
