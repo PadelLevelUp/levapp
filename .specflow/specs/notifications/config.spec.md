@@ -138,8 +138,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    for a reminder that went out before this rule. Only a settings
    change re-times; the startup and daily passes leave follow-ups where they are.
 10c. **A failed reschedule is reported, not swallowed (PAD-478).** The configuration is saved. The
-   failure is logged with the coach, and the response carries `rescheduleFailed: true`, so the
-   form can tell the coach that classes already scheduled may still use the previous timing. The
+   failure is logged with the coach, and the response carries `rescheduleFailed: true`. The web
+   form then confirms the save with its sign, as for any saved value, and says on a line of its
+   own that the reminders of classes already scheduled may still follow the previous timing; the
+   line goes when a later timing save re-arms them. The
    daily window pass derives the jobs of every active lesson inside its 60-day window again with
    rule 10a's derivation, so for those a failed reschedule heals within a day. Follow-ups (rule
    10b) are not part of that pass. Creating or editing a class is committed before its jobs are
@@ -149,9 +151,13 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    each stepper tap and each edit of the time field at once, and sends the timing after the coach
    stops for 600 ms, and at once when the time field loses focus or the section closes. A coach
    who pauses 600 ms in the middle of typing a time does send that intermediate value; rule 10e
-   is what makes that harmless. One save is in flight at a time; a value entered meanwhile
-   waits, and only the latest waiting value is sent next. After a save that failed and was
-   rolled back, the controls return to the saved value. iOS has no control for these fields.
+   is what makes that harmless. The value then goes through the card's one save, like
+   every engine control (`settings.save-on-change` rules 2-3): signed, one save in flight at a
+   time, only the latest waiting value sent next. After a save that failed and was rolled back,
+   the controls return to the saved value. An edit still inside its pause is sent when the tab is
+   hidden; on a tab that is closing that request may not leave, so an edit made in the last 600 ms
+   before closing can be lost. When the section closes because the user signed out, the edit is
+   dropped, not sent. iOS has no control for these fields.
 10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
    saved configuration alone, whatever sequence of saves led to it and in whatever order the
    requests arrived. Every derivation of a class's jobs, by a save, the startup re-arm or the
@@ -248,6 +254,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    player the coach no longer has. The key is additive: App Store clients that do not read it are
    unaffected.
 
+15. **(PAD-473) What a saved setting shows.** Every engine control that saves on change shows the
+    sign of `settings.save-on-change` and follows its failure rule (B-243); the reminders subsection included (since PAD-478).
+
 ### Acceptance Criteria
 
 #### Get or create config
@@ -334,6 +343,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **And** typing a time through 00:00 and 09:00 to 09:30 without a 600 ms pause sends one save, with 09:30
 - **And** leaving the time field, or closing the section, sends what is pending at once
 - **And** a value entered while a save is in flight is sent after it, and only the latest one
+- **And** the save shows the sign; a response with `rescheduleFailed` also shows the line that says the timing is saved but scheduled reminders may still follow the previous one
+- **And** hiding the tab sends what is pending; closing the section after sign-out sends nothing
 
 #### A reschedule that runs late arms what is saved (PAD-478)
 - **Given** save A then save B of one coach

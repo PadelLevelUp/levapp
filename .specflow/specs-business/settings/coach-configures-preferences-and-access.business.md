@@ -8,6 +8,7 @@ implemented_by:
   - ../../specs/settings/admin-editor.spec.md
   - ../../specs/settings/coach-working-hours.spec.md
   - ../../specs/settings/unsaved-edits.spec.md
+  - ../../specs/settings/save-on-change.spec.md
 ---
 
 # Coach configures preferences and access

@@ -1,4 +1,5 @@
 from flask import Blueprint, Response, abort, current_app, g, jsonify, request
+from padel_app.utils.rate_limit import rate_limited
 from werkzeug.exceptions import HTTPException
 from datetime import datetime, timezone
 from dateutil import parser
@@ -2181,6 +2182,9 @@ def get_coach_invitation(token):
 
 
 @bp.post("/coach-invitations/<token>/accept")
+# clubs.coach-invitation rule 9 (PAD-477): a 409 does not use the invitation, so without this
+# a pending link answers "does this email have an account" for its whole life. Sign-up's budget.
+@rate_limited("register")
 @jwt_required(optional=True)
 def accept_coach_invitation(token):
     data = request.get_json(silent=True) or {}
@@ -2201,7 +2205,13 @@ def accept_coach_invitation(token):
         user = accept_coach_invitation_service(token, data=data)
     except RegistrationError as exc:
         # PAD-457: the birth-date refusals answer as sign-up's do.
-        return jsonify({"error": exc.message, "field": exc.field, "code": exc.code}), exc.status
+        # As sign-up's errors: `field` and `code` only when there is one.
+        payload = {"error": exc.message}
+        if exc.field:
+            payload["field"] = exc.field
+        if getattr(exc, "code", None):
+            payload["code"] = exc.code
+        return jsonify(payload), exc.status
     return jsonify({
         "accessToken": issue_access_token(user.id),
     })

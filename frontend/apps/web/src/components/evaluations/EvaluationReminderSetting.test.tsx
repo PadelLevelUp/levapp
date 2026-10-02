@@ -4,7 +4,7 @@
  */
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvaluationSettings } from "@levelup/types";
 
@@ -21,12 +21,12 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("@levelup/api/src/resources/evaluationSettings", () => api);
 
-import { EvaluationReminderSetting } from "./EvaluationReminderSetting";
+import { CUSTOM_SAVE_DELAY_MS, EvaluationReminderSetting } from "./EvaluationReminderSetting";
 
 function open(data: EvaluationSettings) {
   api.getEvaluationSettings.mockResolvedValue(data);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <EvaluationReminderSetting />
     </QueryClientProvider>,
@@ -138,10 +138,205 @@ describe("the control never shows a choice the server does not hold", () => {
 
     fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly"));
 
-    expect(await screen.findByTestId("settings-evaluation-reminder-error")).toHaveTextContent(
-      "evaluations.reminder.saveFailed",
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-evaluation-reminder-sign")).toHaveAttribute("data-state", "failed"),
     );
     expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
     expect(screen.getByTestId("settings-evaluation-reminder-option-monthly")).not.toBeChecked();
+  });
+});
+
+describe("Personalizado saves a typed number however the coach leaves it (B-242)", () => {
+  // Fake timers once the field is on screen: the delay, the flush and the duplicate check are
+  // asserted at exact times, so a 0 ms delay or a save that waits for a timer cannot pass.
+  async function typedField(stored = 7) {
+    api.putEvaluationSettings.mockImplementation(async (body: EvaluationSettings) => body);
+    const view = open({ reminder: "every_n_classes", everyN: stored });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+    vi.useFakeTimers();
+    return { view, input };
+  }
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+  afterEach(() => vi.useRealTimers());
+
+  it("saves once, shortly after typing stops, without a blur", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "1" } });
+    await advance(300);
+    fireEvent.change(input, { target: { value: "12" } });
+    await advance(CUSTOM_SAVE_DELAY_MS - 100);
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+
+    await advance(150);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 12 });
+  });
+
+  it("a blur after the delayed save sends nothing a second time", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "9" } });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+    fireEvent.blur(input);
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaving the screen sends a number still waiting for its delay, at once", async () => {
+    const { view, input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "8" } });
+    view.unmount();
+    await advance(0);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 });
+  });
+
+  it.each(["0", "100", "1.5", ""])("%j is never sent, by the delay or by leaving", async (typed) => {
+    const { view, input } = await typedField();
+
+    fireEvent.change(input, { target: { value: typed } });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+    view.unmount();
+    await advance(0);
+
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+  it("choosing a radio option drops a number still waiting for its delay", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "9" } });
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly"));
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "monthly" });
+  });
+
+  it("retyping the stored number after an invalid one clears the error and sends nothing", async () => {
+    const { input } = await typedField(7);
+
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(screen.getByTestId("settings-evaluation-reminder-error")).toHaveTextContent("evaluations.reminder.invalidNumber");
+
+    fireEvent.change(input, { target: { value: "7" } });
+    fireEvent.blur(input);
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(screen.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+  it("the page going away sends a number still waiting for its delay, with keepalive", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "8" } });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    await advance(0);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 }, { keepalive: true });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("the page going away with nothing pending sends nothing", async () => {
+    await typedField();
+
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+describe("review #497", () => {
+  const pastDelay = CUSTOM_SAVE_DELAY_MS + 50;
+  afterEach(() => vi.useRealTimers());
+
+  async function field(stored = 7) {
+    api.putEvaluationSettings.mockImplementation(async (body: EvaluationSettings) => body);
+    open({ reminder: "every_n_classes", everyN: stored });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+    vi.useFakeTimers();
+    return input;
+  }
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("item 7: a failure landing while a newer number is being typed does not reset it; the newer number is saved", async () => {
+    const input = await field(7);
+    let fail8!: (e: Error) => void;
+    api.putEvaluationSettings.mockImplementationOnce(() => new Promise((_r, rej) => { fail8 = rej; }));
+
+    fireEvent.change(input, { target: { value: "8" } });
+    await advance(pastDelay); // 8 sent, held
+    fireEvent.change(input, { target: { value: "9" } }); // waiting for its delay
+    await act(async () => { fail8(new Error("offline")); });
+    expect(input).toHaveValue(9);
+
+    await advance(pastDelay);
+    expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
+
+  it("rule 3: two frequency saves both fail — back to the confirmed frequency, not the one the last started from", async () => {
+    vi.useRealTimers();
+    api.putEvaluationSettings.mockReset();
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationSettings
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    open({ reminder: "never" });
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly")); // Y, sent
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-every_2")); // Z, waits; started from monthly
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1));
+    await act(async () => { failY(new Error("y")); });
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(2));
+    await act(async () => { failZ(new Error("z")); });
+
+    expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();
+  });
+
+  it("rule 2: typing gives one sign, after typing stops (counted by signs shown)", async () => {
+    const input = await field(7);
+    const states: string[] = [];
+    const sample = () => states.push(screen.getByTestId("settings-evaluation-reminder-sign").getAttribute("data-state") ?? "");
+
+    fireEvent.change(input, { target: { value: "1" } });
+    for (let i = 0; i < 3; i++) { await advance(100); sample(); }
+    fireEvent.change(input, { target: { value: "12" } });
+    for (let i = 0; i < 40; i++) { await advance(100); sample(); }
+
+    const rises = states.filter((st, i) => st === "saved" && states[i - 1] !== "saved").length;
+    expect(rises).toBe(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+  it("review #497 round 2 item 3(b): a value waiting in the queue is not sent after a keepalive flush", async () => {
+    const pastDelay = CUSTOM_SAVE_DELAY_MS + 50;
+    const { input } = await typedField(7);
+    let ok8!: (v: unknown) => void;
+    api.putEvaluationSettings.mockImplementationOnce(() => new Promise((res) => { ok8 = res; }));
+
+    fireEvent.change(input, { target: { value: "8" } });
+    await advance(pastDelay); // 8 out
+    fireEvent.change(input, { target: { value: "9" } });
+    await advance(pastDelay); // 9 waits in the queue behind 8
+    fireEvent.change(input, { target: { value: "10" } }); // still being typed
+    act(() => { window.dispatchEvent(new Event("pagehide")); }); // 10 goes with keepalive
+    await advance(0);
+    await act(async () => { ok8({ reminder: "every_n_classes", everyN: 8 }); });
+    await advance(pastDelay);
+
+    const sent = api.putEvaluationSettings.mock.calls.map((c) => (c[0] as { everyN?: number }).everyN);
+    expect(sent).toEqual([8, 10]);
+    expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 10 }, { keepalive: true });
   });
 });

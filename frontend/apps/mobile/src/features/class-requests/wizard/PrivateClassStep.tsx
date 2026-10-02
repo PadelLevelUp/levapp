@@ -18,6 +18,7 @@ import {
   clubTodayISO,
   endDateAfterClasses,
   firstFreeDay,
+  formatShortDate,
   occurrenceDates,
   slotStarts,
   weeklyIntersection,
@@ -50,17 +51,6 @@ function checkCode(c: ParticipantCheck | undefined): string | null {
 function addDaysIso(iso: string, n: number): string {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
-}
-
-/** `2026-10-15` -> "15/10/2026" (or the language's own order), mirroring AcademyClassStep's `dayLabel`. */
-function formatShortDate(iso: string, language: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(nativeLocaleTag(language), {
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 type Recurring = "single" | "weekly";
@@ -437,7 +427,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
               {endMode === "count" ? (
                 <Text className="text-xs text-muted-foreground" testID="request-end-count-last-date">
                   {computedEndDate
-                    ? t("classRequestWizard.lastClass", { date: formatShortDate(computedEndDate, i18n.language) })
+                    ? t("classRequestWizard.lastClass", { date: formatShortDate(computedEndDate, nativeLocaleTag(i18n.language)) })
                     : t("classRequestWizard.recurrenceInvalid")}
                 </Text>
               ) : null}

@@ -3,13 +3,14 @@ id: B-250
 title: "Raising hoursBetweenReminders while a follow-up is pending loses that follow-up"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - notifications.config
   - notifications.reminders
   - backend/padel_app/scheduler.py
 proposed_fix: "On a spacing or count change, re-time each pending follow-up job to the last reminder sent plus the new spacing, or remove it when none is owed."
 opened: 2026-10-02T09:03:55Z
+resolved: 2026-10-02T13:14:00Z
 ---
 
 # B-250: raising the reminder spacing loses a pending follow-up (PAD-478)
@@ -32,3 +33,8 @@ opened: 2026-10-02T09:03:55Z
 - Spec: rule 10b and a criterion.
 - Tests: the strict-xfail case loses its mark; add the lowered-spacing and the count-lowered cases.
 - Code: on a spacing or count change, re-time or remove the pending follow-up jobs of the coach's classes. PAD-407's tests stay green.
+
+### Resolution
+- Resolved by PR #496: follow-ups are re-timed on a settings change (rule 10b).
+- Tests: `test_pad478_stale_timing_jobs.py`, `test_pad478_primary_coach_decides.py`, `test_pad478_one_failure_does_not_cost_the_rest.py`; web `pausedSaver.test.ts`, `RemindersSection.test.tsx`, `NotificationsEngineSection.test.tsx`.
+- Resolved: 2026-10-02T13:14:00Z

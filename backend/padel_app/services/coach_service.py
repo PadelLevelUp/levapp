@@ -41,6 +41,10 @@ def create_default_levels_for_coach(coach):
 
     Idempotent: does nothing if the coach already has any levels.
     Returns the coach's levels.
+
+    PAD-476 (B-246): inside a unit of work (registration, invitation accept) the
+    levels are flushed and the caller's unit commits them with the account, so a
+    failure later in the caller leaves nothing. Outside one it commits, as before.
     """
     if coach.levels:
         return coach.levels
@@ -54,7 +58,11 @@ def create_default_levels_for_coach(coach):
                 display_order=entry["display_order"],
             )
         )
-    db.session.commit()
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    commit_or_flush()
+    # A flush leaves the collection loaded by the check above (empty) in place.
+    db.session.expire(coach, ["levels"])
     return coach.levels
 
 

@@ -114,4 +114,56 @@ describe("createPausedSaver", () => {
     await vi.advanceTimersByTimeAsync(600);
     expect(send).not.toHaveBeenCalled();
   });
+
+  it("a value waiting behind a save that fails is still sent", async () => {
+    const first = deferred();
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const saver = createPausedSaver<number>({ delayMs: 600, send });
+
+    saver.push(1);
+    await vi.advanceTimersByTimeAsync(600);
+    saver.push(2);
+    await vi.advanceTimersByTimeAsync(600); // 2 is waiting behind 1
+    expect(send).toHaveBeenCalledTimes(1);
+
+    first.reject(new Error("offline"));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenLastCalledWith(2);
+  });
+
+  it("dispose also drops a value waiting behind a save in flight (sign-out)", async () => {
+    const first = deferred();
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const saver = createPausedSaver<number>({ delayMs: 600, send });
+
+    saver.push(1);
+    await vi.advanceTimersByTimeAsync(600);
+    saver.push(2);
+    await vi.advanceTimersByTimeAsync(600); // 2 is waiting behind 1
+    saver.dispose();
+    first.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(saver.busy()).toBe(false);
+  });
+
+  it("the shared sign-out drop discards what waits behind a save in flight", async () => {
+    const { dropPendingSaves } = await import("@levelup/config");
+    const first = deferred();
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const saver = createPausedSaver<number>({ delayMs: 600, send });
+
+    saver.push(1);
+    await vi.advanceTimersByTimeAsync(600);
+    saver.push(2);
+    await vi.advanceTimersByTimeAsync(600);
+    dropPendingSaves();
+    first.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
 });

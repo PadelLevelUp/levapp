@@ -12,6 +12,8 @@
  * the same authenticated request (auth.logout rule 4) — the unregister above is
  * then only the fallback. Every step is best-effort: logout always completes.
  */
+import { dropPendingSaves } from "@levelup/config";
+
 export const PUSH_UNREGISTER_TIMEOUT_MS = 3000;
 /** The API client has no timeout; a blackholed /auth/logout must not hold logout either. */
 export const REVOKE_TIMEOUT_MS = 5000;
@@ -35,6 +37,9 @@ export async function signOut(deps: {
   unregisterTimeoutMs?: number;
   revokeTimeoutMs?: number;
 }): Promise<void> {
+  // settings.save-on-change (review #497): a setting still waiting to be saved belongs to this account;
+  // it must never be sent with the next account's session.
+  dropPendingSaves();
   await bounded(deps.unregisterPush(), deps.unregisterTimeoutMs ?? PUSH_UNREGISTER_TIMEOUT_MS);
   await bounded(deps.revokeSession(), deps.revokeTimeoutMs ?? REVOKE_TIMEOUT_MS);
   await deps.clearToken().catch(() => undefined);

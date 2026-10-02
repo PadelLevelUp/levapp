@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { enUS, pt } from "date-fns/locale";
-import { resolveDateLocale, formatWeekRangeLabel } from "./dateLocale";
+import { resolveDateLocale, formatWeekRangeLabel, formatShortDate } from "./dateLocale";
 
 // PAD-181 (spec: calendar.view rule 12, settings.language rule 4).
 //
@@ -71,5 +71,26 @@ describe("formatWeekRangeLabel", () => {
     expect(formatWeekRangeLabel(crossMonthWeekStart, resolveDateLocale("pt"))).not.toBe(
       formatWeekRangeLabel(crossMonthWeekStart, resolveDateLocale("en"))
     );
+  });
+});
+
+describe("formatShortDate", () => {
+  it("reads a date-only ISO day in the order of the tag each shell passes", () => {
+    // web passes i18n.language ("pt" / "en"); iOS passes nativeLocaleTag(...) ("pt-PT" / "en-US")
+    expect(formatShortDate("2026-10-15", "pt")).toBe("15/10/2026");
+    expect(formatShortDate("2026-10-15", "en")).toBe("10/15/2026");
+    expect(formatShortDate("2026-10-15", "pt-PT")).toBe("15/10/2026");
+    expect(formatShortDate("2026-10-15", "en-US")).toBe("10/15/2026");
+  });
+
+  it("keeps the day in a zone behind UTC (read in UTC)", () => {
+    const previous = process.env.TZ;
+    process.env.TZ = "Pacific/Honolulu"; // UTC-10: a local reading of UTC midnight is the day before
+    try {
+      expect(formatShortDate("2026-01-01", "pt")).toBe("01/01/2026");
+    } finally {
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
+    }
   });
 });

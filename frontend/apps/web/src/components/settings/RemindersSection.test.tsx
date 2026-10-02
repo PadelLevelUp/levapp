@@ -124,4 +124,34 @@ describe("RemindersSection saves once per edit (PAD-478)", () => {
 
     expect(perStudent().getByText("2")).toBeTruthy();
   });
+
+  it("closing the section with no session (sign-out) sends nothing", () => {
+    const onChange = vi.fn();
+    const { unmount } = render(
+      <RemindersSection reminderTiming={HOURS} onChange={onChange} flushOnClose={() => false} />,
+    );
+    fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
+
+    unmount();
+    vi.advanceTimersByTime(600);
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("a tab that is hidden sends what is still inside the pause", () => {
+    const onChange = vi.fn();
+    render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
+    fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
+    expect(onChange).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    try {
+      document.dispatchEvent(new Event("visibilitychange"));
+    } finally {
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    }
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0].reminderCount).toBe(3);
+  });
 });
