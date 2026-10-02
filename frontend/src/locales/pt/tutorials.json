@@ -87,7 +87,9 @@
         "equal_or_above_class": "nível igual ou superior ao da aula",
         "equal_or_below_class": "nível igual ou inferior ao da aula",
         "one_below_or_above_class": "até um nível de diferença",
-        "within_n_of_class": "até {{value}} níveis de diferença"
+        "within_n_of_class": "até {{value}} níveis de diferença",
+        "within_n_above_class": "até {{value}} níveis acima (inclui o nível da aula)",
+        "within_n_below_class": "até {{value}} níveis abaixo (inclui o nível da aula)"
       },
       "side": {
         "same_as_vacancy": "mesmo lado que a vaga",
@@ -131,6 +133,7 @@
       "classHasNoLevel": "a aula não tem nível definido, por isso nenhuma regra de nível pode ser cumprida",
       "studentHasNoLevel": "o aluno não tem nível atribuído",
       "levelNotInLadder": "o nível do aluno não está na tua escada de níveis",
+      "unknownOperation": "a fasquia usa uma regra de nível que o servidor não reconhece, por isso ninguém a cumpre",
       "absencesOver": "acima do limite de faltas injustificadas ({{actual}}, limite {{threshold}})",
       "justifiedAbsences": "faltas justificadas fora do limite ({{actual}}, limite {{threshold}})",
       "attendanceUnder": "assiduidade fora do limite ({{actual}}%, limite {{threshold}}%)",

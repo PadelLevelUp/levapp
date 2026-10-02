@@ -1704,7 +1704,7 @@ export function ClassDetailSheet({
                 <X className="w-4 h-4 mr-2" />
                 {t("common.cancel")}
               </Button>
-              <Button className="flex-1" onClick={saveEdit} disabled={saving}>
+              <Button className="flex-1" onClick={saveEdit} disabled={saving} data-testid="class-edit-save">
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 {saving ? t("calendar.detail.saving") : t("common.save")}
               </Button>

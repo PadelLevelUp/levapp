@@ -153,6 +153,69 @@ def get_config_dict(coach_id: int) -> dict:
     }
 
 
+#: eligibility.rules rule 6 — the class-anchored level operations a bar may hold
+#: (PAD-128; the two one-way `within_n_*` forms are PAD-481).
+ELIGIBILITY_LEVEL_OPERATIONS = frozenset({
+    "same_as_class",
+    "equal_or_above_class",
+    "equal_or_below_class",
+    "one_below_or_above_class",
+    "within_n_of_class",
+    "within_n_above_class",
+    "within_n_below_class",
+})
+
+
+def unknown_eligibility_level_operations(rules) -> list:
+    """The level operations in an eligibility bar that rule 6 does not define.
+
+    Saving refuses them (`eligibilityRules` → 400). Every operation a client can
+    post is in the set — including one it only round-trips unchanged — so a
+    client that does not know an operation can still save the list back.
+    """
+    return _level_operations_outside(rules, ELIGIBILITY_LEVEL_OPERATIONS)
+
+
+# An invitation group's level rule is anchored to the VACANCY (eligibility.rules
+# rule 6); the class operations belong to the eligibility bar only.
+INVITATION_GROUP_LEVEL_OPERATIONS = frozenset({
+    "same_as_vacancy",
+    "one_above_vacancy",
+    "one_below_vacancy",
+    "all_above_vacancy",
+    "all_below_vacancy",
+})
+
+
+def unknown_invitation_group_level_operations(groups) -> list:
+    """The level operations in invitation groups outside the five vacancy ones.
+
+    Saving refuses them (`invitationGroups` → 400). Shapes the evaluator already
+    tolerates (a non-list, a group without rules) are left to it.
+    """
+    if not isinstance(groups, list):
+        return []
+    return [
+        op
+        for group in groups
+        if isinstance(group, dict)
+        for op in _level_operations_outside(
+            group.get("rules"), INVITATION_GROUP_LEVEL_OPERATIONS)
+    ]
+
+
+def _level_operations_outside(rules, known) -> list:
+    if not isinstance(rules, list):
+        return []
+    return [
+        rule.get("operation")
+        for rule in rules
+        if isinstance(rule, dict)
+        and rule.get("attribute") == "level"
+        and rule.get("operation") not in known
+    ]
+
+
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
 
@@ -182,6 +245,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.invitation_start_timing = data["invitationStartTiming"]
         timing_changed = True
     if "invitationGroups" in data:
+        unknown = unknown_invitation_group_level_operations(data["invitationGroups"])
+        if unknown:
+            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            from flask import abort
+            abort(400, f"invitationGroups: unknown level operation {unknown[0]!r}")
         config.invitation_groups = data["invitationGroups"]
     if "tiebreakers" in data:
         config.tiebreakers = data["tiebreakers"]
@@ -193,6 +261,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         if rules is not None and not isinstance(rules, list):
             from flask import abort
             abort(400, "eligibilityRules must be a list or null")
+        unknown = unknown_eligibility_level_operations(rules)
+        if unknown:
+            # eligibility.rules rule 6 (PAD-481): abort before save(), so nothing is stored.
+            from flask import abort
+            abort(400, f"eligibilityRules: unknown level operation {unknown[0]!r}")
         config.eligibility_rules = rules
     if "openSpotsVisible" in data:
         config.open_spots_visible = bool(data["openSpotsVisible"])
@@ -940,6 +1013,8 @@ def _group_rule_failures(
                 "equal_or_below_class",
                 "one_below_or_above_class",
                 "within_n_of_class",
+                "within_n_above_class",
+                "within_n_below_class",
             ):
                 ladder = get_level_ladder(coach_id)
                 vd = ladder_index(ladder, vacancy_level_id)
@@ -964,7 +1039,9 @@ def _group_rule_failures(
                 elif op == "one_below_or_above_class":
                     limit = 1
                     breached = abs(distance) > 1
-                elif op == "within_n_of_class":
+                elif op in ("within_n_of_class", "within_n_above_class", "within_n_below_class"):
+                    # within_n_of_class (both ways) and, PAD-481, its two
+                    # one-way forms. Both include the class's own level.
                     try:
                         allowed = int(val)
                     except (TypeError, ValueError):
@@ -972,7 +1049,22 @@ def _group_rule_failures(
                         # into "any level"; treat it as the strictest reading.
                         allowed = 0
                     limit = max(0, allowed)
-                    breached = abs(distance) > limit
+                    if op == "within_n_above_class":
+                        # Stronger = a LOWER index: 0 <= class - student <= N.
+                        breached = distance > 0 or -distance > limit
+                    elif op == "within_n_below_class":
+                        # Weaker = a HIGHER index: 0 <= student - class <= N.
+                        breached = distance < 0 or distance > limit
+                    else:
+                        breached = abs(distance) > limit
+                else:
+                    # Listed above but given no branch: fail closed (B-257).
+                    if fail(
+                        attr, op, actual=student_code, threshold=class_code,
+                        reason="unknown_operation",
+                    ):
+                        return failures
+                    continue
                 if breached:
                     if fail(
                         attr, op, actual=student_code,
@@ -980,6 +1072,16 @@ def _group_rule_failures(
                         ladder_distance=distance,
                     ):
                         return failures
+
+            else:
+                # B-257: a level operation this evaluator does not know used to
+                # match no branch and pass everyone — a bar the coach set that
+                # bounded nothing. Fail closed, and say why.
+                if fail(
+                    attr, op, actual=student_code, threshold=class_code,
+                    reason="unknown_operation",
+                ):
+                    return failures
 
         elif attr == "side":
             # PAD-128: side is a WAVE criterion only, never an eligibility one
