@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, time
 import json
+import re
 
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
@@ -1000,7 +1001,8 @@ def add_class_service(data, coach, club, *, notify_students=True):
     reach the NOT NULL column (an IntegrityError) or a KeyError — a 500 either way.
     """
     refused = _refused_class_fields(
-        {"title": data.get("name"), "max_players": data.get("maxPlayers")}, recurring=False,
+        {"title": data.get("name"), "max_players": data.get("maxPlayers"),
+         "start_time": data.get("startTime"), "end_time": data.get("endTime")}, recurring=False,
     )
     if refused:
         raise NotNullableFieldError(refused)
@@ -1267,7 +1269,19 @@ def _refused_class_fields(payload, *, recurring):
         refused.append("max_players")
     if recurring and "recurrence_end" in payload and payload["recurrence_end"] in (None, ""):
         refused.append("recurrence_end")
+    # B-275 (PAD-508): a time is a real HH:MM. The web sheet's native input reads "" once a segment is
+    # cleared, and `build_datetime` raised on it — a 500 where a 400 belongs.
+    for column in ("start_time", "end_time"):
+        if column in payload and not _is_hh_mm(payload[column]):
+            refused.append(column)
     return refused
+
+
+_HH_MM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def _is_hh_mm(value):
+    return isinstance(value, str) and _HH_MM.match(value) is not None
 
 
 def edit_class_service(data):

@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, errorStatusOf } from "@levelup/config";
+import { classEvaluationsAction, errorStatusOf, isHhMm } from "@levelup/config";
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -529,6 +529,15 @@ export function ClassDetailSheet({
   };
 
   const saveEdit = () => {
+    // B-275 (PAD-508): a cleared native time input reads ""; never send it (the server would refuse it).
+    if (draft && (!isHhMm(draft.startTime) || !isHhMm(draft.endTime))) {
+      toast({
+        variant: "destructive",
+        title: t("calendar.addClass.missingFieldsTitle"),
+        description: t("calendar.addClass.missingFieldsDescription", { fields: t("calendar.addClass.fieldTime") }),
+      });
+      return;
+    }
     // PAD-99: warn (non-blocking) when the edited date/time overlaps another
     // event on the same day. Only check when the timing actually changed, so
     // editing a name/participants on an already-overlapping class doesn't nag.
@@ -953,6 +962,7 @@ export function ClassDetailSheet({
                 <div className="space-y-1">
                   <Input
                     type="time"
+                    data-testid="class-detail-start-time"
                     value={active.startTime}
                     className="h-8 text-sm"
                     onChange={(e) =>
@@ -961,6 +971,7 @@ export function ClassDetailSheet({
                   />
                   <Input
                     type="time"
+                    data-testid="class-detail-end-time"
                     value={active.endTime}
                     className="h-8 text-sm"
                     onChange={(e) =>

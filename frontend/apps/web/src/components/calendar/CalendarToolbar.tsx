@@ -53,7 +53,7 @@ export function CalendarToolbar({
           </Button>
         )}
         {onAddClass && (
-          <Button onClick={onAddClass} className="gap-2">
+          <Button onClick={onAddClass} className="gap-2" data-testid="calendar-toolbar-add-class">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">{t("calendar.toolbar.addClass")}</span>
           </Button>
