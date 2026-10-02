@@ -97,9 +97,18 @@ def save_config():
     # PAD-478 (rule 10f): the classes whose reminder time is already past under what was
     # just saved. The save sends nothing for them; the form asks the coach.
     if "reminderTiming" in data:
-        from padel_app.services.past_due_service import past_due
+        # The configuration is already committed: a listing that fails must not answer 500
+        # for a save that happened. The form is told the check could not be made.
+        from padel_app.services import past_due_service
 
-        payload["pastDue"] = past_due(coach.id)
+        try:
+            payload["pastDue"] = past_due_service.past_due(coach.id)
+        except Exception as exc:  # noqa: BLE001 — logged; the save itself succeeded
+            from padel_app.sql_db import db
+
+            db.session.rollback()
+            current_app.logger.error("save_config: past-due listing failed for coach %s: %s", coach.id, exc)
+            payload["pastDueUnknown"] = True
 
     # PAD-133 / eligibility.enforcement rule 9: when the coach saves an
     # eligibility bar, report which already-enrolled students would not meet it.
@@ -284,13 +293,15 @@ def send_past_due_reminders():
     """PAD-478 (notifications.config rule 10f): the coach's explicit yes. The body names the
     classes the form listed; the server decides again which of them are past due for THIS
     coach and runs the ordinary reminder pass for those."""
-    from padel_app.services.past_due_service import send_past_due
+    from padel_app.services.past_due_service import MAX_KEYS, send_past_due
 
     coach = _current_coach()
     data = request.get_json() or {}
     keys = data.get("reminders")
     if not isinstance(keys, list):
         return jsonify({"error": "reminders must be a list of class keys"}), 400
+    if len(keys) > MAX_KEYS:
+        return jsonify({"error": f"at most {MAX_KEYS} classes per request"}), 400
     return jsonify(send_past_due(coach.id, keys))
 
 

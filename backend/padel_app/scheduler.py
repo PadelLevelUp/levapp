@@ -470,6 +470,9 @@ def _run_send_reminders(instance_id: int) -> None:
             app.logger.error("send_class_reminders(%s) failed: %s", instance_id, exc)
 
 
+PAST_DUE_GRACE_SECONDS = 6 * 3600
+
+
 def past_due_job_id(instance_id: int) -> str:
     return f"pastdue_{instance_id}"
 
@@ -490,7 +493,10 @@ def arm_past_due_pass(instance_id: int, when: datetime) -> None:
         trigger=DateTrigger(run_date=when, timezone="UTC"),
         id=past_due_job_id(instance_id),
         replace_existing=True,
-        misfire_grace_time=300,
+        # The coach said yes. If the scheduler is down when quiet hours end, the ordinary
+        # 5 minutes of grace would drop that silently; this one may run up to six hours
+        # late. The pass still refuses a class that has started.
+        misfire_grace_time=PAST_DUE_GRACE_SECONDS,
     )
 
 

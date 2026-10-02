@@ -166,7 +166,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    whose reminder time, under the SAVED configuration, is already past and who have at least one
    student a reminder pass run now would reach (not answered, under the count, not blocked). It is
    read from the saved configuration alone, not from what this save changed, so a class that was
-   already past due before the change is listed too, and one already reminded never is. For a class
+   already past due before the change is listed too. A class whose students have each had every
+   reminder the count allows, or have answered, is not listed; with a count above one, a class
+   whose student is still owed a follow-up and is outside the spacing is listed, because a pass
+   run now would send that follow-up. For a class
    not materialised yet the roster is counted as it stands, unfiltered (nothing can be checked
    per student without materialising it, and listing must not write): it is listed when its
    lesson has a roster, and the number the coach is shown can be higher than the number the
@@ -181,7 +184,14 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    (`notifications.reminders` rule 18), `pastDue.quietUntil` tells the form so before the coach
    confirms, and a class that starts before then is not listed. That armed pass is removed when a
    later save arms the class's ordinary reminder again. No, or a dismissed dialog, sends nothing.
-   Nothing here runs at startup or in the daily pass, and neither removes an armed pass.
+   Nothing here runs at startup or in the daily pass, and neither removes an armed pass. The
+   send takes at most 200 classes per request and answers with counts and with the classes it
+   acted on; a class it skipped is counted, never named back. A listing that fails does not fail
+   the save: the configuration is saved and the response says the check could not be made
+   (`pastDueUnknown`). Known limits: an armed pass is not moved when the coach widens their
+   quiet hours afterwards (the pass itself does not look at quiet hours); and an armed pass
+   that the scheduler could not run within six hours of its time is dropped (an ordinary
+   reminder job: five minutes).
 11. `cancellation_deadline_hours` (default 24; on the wire `restrictions.cancellationDeadlineHours`): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
 
 12. **Typed storage, stable wire shape (PAD-279, audit M21).** Every scalar setting lives in its own

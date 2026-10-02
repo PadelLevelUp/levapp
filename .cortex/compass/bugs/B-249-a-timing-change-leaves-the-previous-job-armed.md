@@ -55,3 +55,6 @@ The first version of the fix derived a class's jobs from whichever coach trigger
 - Creating a class and a same-lesson "this and all future" edit called the derivation unguarded after committing: a lock timeout would have answered 500 for a saved change. Both now log and let the daily pass derive the jobs.
 - Behaviour change, stated in rule 10b: a class with no coach row of its own now gets follow-ups. Prod, read-only, run by the coordinator on 2026-10-02 11:03 UTC: 5 future instances, 0 future instances without an own coach row, 0 instances of any date without one, 0 active lessons without a coach. No class in prod changes behaviour on deploy.
 
+### Part 2 (PR #499): the coach is asked before past-due reminders are sent
+Owner's decision, 2026-10-02: option (b), behind an explicit confirmation. Rule 10f. Known limits recorded there: an armed end-of-quiet-hours pass is not moved when the coach widens quiet hours afterwards; it is dropped if the scheduler cannot run it within six hours of its time (raised from the ordinary five minutes, because it carries the coach's explicit yes).
+

@@ -2653,7 +2653,7 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
-def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool):
+def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
 
     The one place that decides it. The pass sends to exactly these; PAD-478's "is this class
@@ -2707,7 +2707,12 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         # Count reminders already sent to THIS player for THIS instance —
         # notifications.reminders rule 14 (PAD-207): the reminder_attempts
         # table is the source of truth, not a scan of the conversation.
-        sent_count = attempts.count_attempts(instance.id, player_id)
+        # (`sent_counts`: the same count, read for many classes at once by the past-due
+        # listing — `count_attempts_bulk`. The pass itself always counts here, under its lock.)
+        sent_count = (
+            sent_counts.get((instance.id, player_id), 0) if sent_counts is not None
+            else attempts.count_attempts(instance.id, player_id)
+        )
 
         if sent_count >= reminder_count:
             continue

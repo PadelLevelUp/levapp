@@ -133,9 +133,14 @@ def test_a_class_not_materialised_yet_is_listed_when_its_lesson_has_a_roster(kla
     db.session.commit()
     _save(klass["coach"], PAST)
 
+    from padel_app.models.lesson_instances import LessonInstance
+
+    jobs_before = sorted(j.id for j in klass["sched"].get_jobs())
     keys = sorted(c["key"] for c in _listed(klass["coach"])["reminders"])
 
     assert keys == sorted([klass["key"], f"o:{lesson.id}:2027-07-11"])
+    assert LessonInstance.query.filter_by(lesson_id=lesson.id).count() == 0, "listing must not materialise the class"
+    assert sorted(j.id for j in klass["sched"].get_jobs()) == jobs_before, "nor arm or remove a job"
 
 
 def test_the_save_response_carries_the_list(app, klass, client):
@@ -152,6 +157,33 @@ def test_the_save_response_carries_the_list(app, klass, client):
     assert _attempts(klass) == 0
 
 
+def test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error(app, klass, client, monkeypatch, caplog):
+    """The configuration is committed before the listing runs. A listing that raises must
+    not answer 500 for a save that happened: the form is told the check could not be made."""
+    import logging
+
+    from flask_jwt_extended import create_access_token
+
+    from padel_app.models.coaches import Coach
+    from padel_app.services import past_due_service
+
+    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+    headers = {"Authorization": f"Bearer {create_access_token(identity=str(Coach.query.get(klass['coach']).user_id))}"}
+
+    def boom(_coach_id, **_kwargs):
+        raise RuntimeError("listing broke")
+
+    monkeypatch.setattr(past_due_service, "past_due", boom)
+    with caplog.at_level(logging.ERROR):
+        response = client.post("/api/app/notify/config", json={"reminderTiming": {"firstReminder": PAST}}, headers=headers)
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["reminderTiming"]["firstReminder"] == PAST
+    assert "pastDue" not in body and body["pastDueUnknown"] is True
+    assert any("listing broke" in r.getMessage() and f"coach {klass['coach']}" in r.getMessage() for r in caplog.records)
+
+
 # ── the explicit yes ────────────────────────────────────────────────────────
 
 def test_yes_sends_one_reminder_through_the_ordinary_pass_and_arms_the_follow_up(klass, monkeypatch):
@@ -159,7 +191,7 @@ def test_yes_sends_one_reminder_through_the_ordinary_pass_and_arms_the_follow_up
 
     result = _send(klass["coach"], klass["key"])
 
-    assert result["sent"] == 1 and result["scheduledFor"] is None and result["skipped"] == []
+    assert result["sent"] == 1 and result["scheduledFor"] is None and result["skipped"] == 0
     assert _attempts(klass) == 1
     follow_ups = [j.trigger.run_date.replace(tzinfo=None) for j in klass["sched"].get_jobs() if "_retry_" in j.id]
     assert follow_ups == [datetime(2027, 7, 10, 13, 0)]            # now + the coach's 3 h
@@ -187,7 +219,8 @@ def test_a_class_that_is_another_coachs_is_skipped(klass):
     result = _send(other, klass["key"])
 
     assert result["sent"] == 0
-    assert result["skipped"] == [{"key": klass["key"], "reason": "not_past_due"}]
+    assert result["skipped"] == 1 and result["classes"] == []
+    assert klass["key"] not in str(result), "a class that is not the caller's is not named back"
     assert _attempts(klass) == 0
 
 
@@ -198,7 +231,7 @@ def test_a_class_that_is_no_longer_past_due_is_skipped(klass):
     result = _send(klass["coach"], klass["key"], "i:999999", "garbage")
 
     assert result["sent"] == 0
-    assert sorted(s["key"] for s in result["skipped"]) == sorted([klass["key"], "i:999999", "garbage"])
+    assert result["skipped"] == 3
     assert _attempts(klass) == 0
 
 
@@ -255,6 +288,9 @@ def test_inside_quiet_hours_nothing_is_sent_at_once_and_one_pass_is_armed_for_th
     assert _attempts(klass) == 0
     armed = [j for j in klass["sched"].get_jobs() if j.id.startswith("pastdue_")]
     assert [j.trigger.run_date.replace(tzinfo=None) for j in armed] == [datetime(2027, 7, 11, 6, 0)]
+    # The coach said yes. A scheduler that is down for a while when quiet hours end must not
+    # drop that silently: this job may run up to six hours late (an ordinary one: 5 minutes).
+    assert armed[0].misfire_grace_time == 6 * 3600
 
     pin_clock(monkeypatch, datetime(2027, 7, 11, 6, 0))
     armed[0].func(*armed[0].args)
@@ -364,20 +400,39 @@ from padel_app.tests.test_pad407_reminder_double_send import POSTGRES_ONLY  # no
 
 
 @POSTGRES_ONLY
-@pytest.mark.parametrize("materialised", [True, False])
 @pytest.mark.parametrize("reminder_count", [1, 3])
-def test_two_yeses_at_once_remind_each_student_once(app, monkeypatch, live_scheduler, materialised, reminder_count):
+def test_two_yeses_at_once_remind_each_student_once(app, monkeypatch, live_scheduler, reminder_count):
     """Two requests for the same class at the same moment (a double click, a retried
     request). PAD-407's forced interleave holds both at their first count; the per-class
     lock lets one pass through, and the other finds every student at their count or inside
-    the spacing."""
+    the spacing. Its teeth: `test_without_the_class_lock_the_same_two_yeses_double_send`."""
     from padel_app.services.past_due_service import send_past_due
     from padel_app.tests.test_pad407_reminder_double_send import _forced_interleave, _io_patched, _race
 
-    ids = _past_due_407(app, materialised=materialised, reminder_count=reminder_count)
+    ids = _past_due_407(app, materialised=True, reminder_count=reminder_count)
     with _io_patched(), _forced_interleave(monkeypatch):
         _race(app, [lambda: send_past_due(ids["coach_id"], [ids["key"]])] * 2)
 
+    assert _all_attempts(app) == {(pid, 1): 1 for pid in ids["player_ids"]}
+
+
+@POSTGRES_ONLY
+@pytest.mark.parametrize("reminder_count", [1, 3])
+def test_two_yeses_at_once_for_a_class_not_materialised_end_with_one_reminder_each(app, monkeypatch, live_scheduler, reminder_count):
+    """The OUTCOME for a class that both requests have to materialise first: one class, one
+    reminder per student. This does NOT show which guard did it: it stays green with
+    PAD-407's lock removed, because materialisation is itself serialised per lesson
+    (PAD-261's row lock) and the two requests no longer meet at the count."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.past_due_service import send_past_due
+    from padel_app.tests.test_pad407_reminder_double_send import _forced_interleave, _io_patched, _race
+
+    ids = _past_due_407(app, materialised=False, reminder_count=reminder_count)
+    with _io_patched(), _forced_interleave(monkeypatch):
+        _race(app, [lambda: send_past_due(ids["coach_id"], [ids["key"]])] * 2)
+
+    with app.app_context():
+        assert LessonInstance.query.filter_by(lesson_id=ids["lesson_id"]).count() == 1
     assert _all_attempts(app) == {(pid, 1): 1 for pid in ids["player_ids"]}
 
 
@@ -399,8 +454,13 @@ def test_the_endpoint_only_acts_for_the_calling_coach(app, klass, client):
     theirs = client.post("/api/app/notify/past_due/send", json={"reminders": [klass["key"]]}, headers=as_coach(other))
     assert theirs.status_code == 200
     assert theirs.get_json()["sent"] == 0
-    assert theirs.get_json()["skipped"] == [{"key": klass["key"], "reason": "not_past_due"}]
+    assert theirs.get_json()["skipped"] == 1
+    assert klass["key"] not in theirs.get_data(as_text=True)
     assert _attempts(klass) == 0
+
+    too_many = client.post("/api/app/notify/past_due/send", json={"reminders": [f"i:{n}" for n in range(201)]},
+                           headers=as_coach(klass["coach"]))
+    assert too_many.status_code == 400
 
     assert client.post("/api/app/notify/past_due/send", json={"reminders": "all"}, headers=as_coach(klass["coach"])).status_code == 400
     assert client.post("/api/app/notify/past_due/send", json={"reminders": [klass["key"]]}).status_code == 401

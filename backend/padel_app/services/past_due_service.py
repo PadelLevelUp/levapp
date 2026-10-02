@@ -21,9 +21,18 @@ from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
 # module is imported lazily, and a module first imported while a test has the clock pinned
 # would otherwise keep that test's frozen time for the rest of the session.
 
-# How far ahead a class can be and still have a reminder time in the past: the form allows
-# at most 30 days (days before) or 168 hours (hours before).
-_LOOKAHEAD = timedelta(days=32)
+MAX_KEYS = 200
+
+
+def _lookahead(timing: dict) -> timedelta:
+    """How far ahead a class can start and still have its reminder time in the past: the
+    timing's own offset. A class further away than that cannot be past due, so it is never
+    loaded."""
+    if timing.get("type") == "hours_before":
+        return timedelta(hours=int(timing.get("value", 24)))
+    if timing.get("type") in ("days_before", "days_before_at_time"):
+        return timedelta(days=int(timing.get("days", 1)) + 1)
+    return timedelta(0)
 
 
 def _saved_config(coach_id: int):
@@ -52,11 +61,18 @@ def _iso_utc(when: datetime) -> str:
 
 
 def _candidates(coach_id: int, now: datetime) -> list[dict]:
-    """Every class the coach could be asked about, with what a yes would do."""
+    """Every class the coach could be asked about, with what a yes would do.
+
+    Cost (review of #499): only classes that start inside the timing's own offset are loaded
+    (never a lesson's past instances), the primary coach of every loaded class comes from two
+    queries in all, and the per-student questions are asked only for a class whose reminder
+    time really is past.
+    """
+    from sqlalchemy import and_, or_
+
     from padel_app.models import Association_CoachLesson, Association_CoachLessonInstance
     from padel_app.models.coaches import Coach
-    from padel_app.scheduler import _fire_time_utc, _lesson_primary_coach_id
-    from padel_app.services.lesson_service import primary_coach
+    from padel_app.scheduler import _fire_time_utc
     from padel_app.services.notification_service import _reminder_recipients
     from padel_app.sql_db import db
 
@@ -67,30 +83,96 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
     timing = config.get_reminder_timing()
     restrictions = config.get_restrictions()
     wall_now = utc_to_wall_naive(now)
-    found: list[dict] = []
-    seen_instances: set[int] = set()
+    window_end = wall_now + _lookahead(timing)
+    if window_end <= wall_now:
+        return []
 
-    def consider_instance(instance) -> None:
-        if instance.id in seen_instances:
-            return
-        seen_instances.add(instance.id)
+    # The coach's lessons (one query), then every class in the window that is theirs through
+    # its own coach row or through one of those lessons (one query).
+    lesson_rows = (
+        db.session.query(Association_CoachLesson.lesson_id)
+        .filter(Association_CoachLesson.coach_id == coach_id)
+        .all()
+    )
+    lesson_ids = [row.lesson_id for row in lesson_rows]
+    own_instance_ids = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
+        Association_CoachLessonInstance.coach_id == coach_id
+    )
+    in_window = or_(
+        and_(LessonInstance.start_datetime > wall_now, LessonInstance.start_datetime <= window_end),
+        and_(LessonInstance.original_lesson_occurence_date >= wall_now.date(),
+             LessonInstance.original_lesson_occurence_date <= window_end.date()),
+    )
+    reach = [LessonInstance.id.in_(own_instance_ids)]
+    if lesson_ids:
+        reach.append(LessonInstance.lesson_id.in_(lesson_ids))
+    instances = LessonInstance.query.filter(in_window, or_(*reach)).all()
+
+    # Primary coach of each: its own first coach row, else its lesson's first (two queries).
+    own_primary: dict[int, int] = {}
+    if instances:
+        for row in (
+            db.session.query(Association_CoachLessonInstance)
+            .filter(Association_CoachLessonInstance.lesson_instance_id.in_([i.id for i in instances]))
+            .order_by(Association_CoachLessonInstance.id.asc())
+        ):
+            own_primary.setdefault(row.lesson_instance_id, row.coach_id)
+    lesson_primary: dict[int, int] = {}
+    wanted_lessons = set(lesson_ids) | {i.lesson_id for i in instances}
+    if wanted_lessons:
+        for row in (
+            db.session.query(Association_CoachLesson)
+            .filter(Association_CoachLesson.lesson_id.in_(wanted_lessons))
+            .order_by(Association_CoachLesson.id.asc())
+        ):
+            lesson_primary.setdefault(row.lesson_id, row.coach_id)
+
+    # What the per-student questions need, read once for every class in the window instead of
+    # once per student: the counted attempts, and the students themselves (loaded into the
+    # session, so the per-class code finds them there).
+    from sqlalchemy.orm import joinedload
+
+    from padel_app.models import Player
+    from padel_app.models.presences import Presence
+    from padel_app.services import reminder_attempt_service as attempts
+
+    instance_ids = [i.id for i in instances]
+    sent_counts = attempts.count_attempts_bulk(instance_ids)
+    if instance_ids:
+        player_ids = {
+            row.player_id
+            for row in db.session.query(Presence.player_id).filter(Presence.lesson_instance_id.in_(instance_ids))
+        }
+        if player_ids:
+            _held = Player.query.options(joinedload(Player.user)).filter(Player.id.in_(player_ids)).all()  # noqa: F841 — kept alive for the identity map
+
+    found: list[dict] = []
+    materialised: dict[tuple[int, object], LessonInstance] = {}
+    for instance in instances:
+        key = instance.original_lesson_occurence_date or (
+            instance.start_datetime.date() if instance.start_datetime else None
+        )
+        if key is not None:
+            materialised[(instance.lesson_id, key)] = instance
+
         if instance.status in ("canceled", "completed") or instance.start_datetime is None:
-            return
+            continue
         if instance.start_datetime <= wall_now:
-            return
-        primary = primary_coach(instance)
-        if primary is None or primary.id != coach_id:
-            return
+            continue
+        if own_primary.get(instance.id, lesson_primary.get(instance.lesson_id)) != coach_id:
+            continue
         fire = _fire_time_utc(instance.start_datetime, timing)
         if fire is None or fire > now:
-            return
+            continue
         when = _send_time(instance.start_datetime, restrictions, now)
         if when is None:
-            return
+            continue
         # The same list the pass itself sends to, judged at the moment it would run.
-        due, _blocked = _reminder_recipients(instance, config, coach.user_id, when, scheduled=True)
+        due, _blocked = _reminder_recipients(
+            instance, config, coach.user_id, when, scheduled=True, sent_counts=sent_counts,
+        )
         if not due:
-            return
+            continue
         found.append({
             "key": f"i:{instance.id}",
             "title": instance.lesson.title if instance.lesson else "",
@@ -100,51 +182,27 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
             "_instance_id": instance.id,
         })
 
-    # Materialised classes: the coach's own rows, and the instances of their lessons.
-    own = (
-        LessonInstance.query
-        .join(Association_CoachLessonInstance,
-              LessonInstance.id == Association_CoachLessonInstance.lesson_instance_id)
-        .filter(Association_CoachLessonInstance.coach_id == coach_id,
-                LessonInstance.start_datetime > wall_now,
-                LessonInstance.start_datetime <= wall_now + _LOOKAHEAD)
-        .all()
-    )
-    for instance in own:
-        consider_instance(instance)
-
-    lessons = (
-        Lesson.query
-        .join(Association_CoachLesson, Lesson.id == Association_CoachLesson.lesson_id)
-        .filter(Association_CoachLesson.coach_id == coach_id, Lesson.status == "active")
-        .all()
-    )
+    # Classes not materialised yet: nobody can have been reminded, and listing must not
+    # write. Past due when the lesson's primary coach is this coach, the time is past, and
+    # there is a roster to remind.
+    my_lessons = [lid for lid in lesson_ids if lesson_primary.get(lid) == coach_id]
+    lessons = Lesson.query.filter(Lesson.id.in_(my_lessons), Lesson.status == "active").all() if my_lessons else []
     for lesson in lessons:
-        materialised = {}
-        for inst in LessonInstance.query.filter_by(lesson_id=lesson.id).all():
-            key = inst.original_lesson_occurence_date or (
-                inst.start_datetime.date() if inst.start_datetime else None
-            )
-            if key is not None:
-                materialised[key] = inst
-        for occ in lesson.occurrences_between(wall_now, wall_now + _LOOKAHEAD):
+        roster = None
+        for occ in lesson.occurrences_between(wall_now, window_end):
             occ_wall = occ.replace(tzinfo=None) if occ.tzinfo else occ
-            instance = materialised.get(occ_wall.date())
-            if instance is not None:
-                consider_instance(instance)
-                continue
-            # Not materialised yet: nobody can have been reminded, and listing must not
-            # write. It is past due when the lesson's primary coach is this coach, the time
-            # is past, and there is a roster to remind.
-            if _lesson_primary_coach_id(lesson.id) != coach_id or occ_wall <= wall_now:
+            if (lesson.id, occ_wall.date()) in materialised or occ_wall <= wall_now:
                 continue
             fire = _fire_time_utc(occ_wall, timing)
             if fire is None or fire > now:
                 continue
             when = _send_time(occ_wall, restrictions, now)
-            roster = len(list(lesson.players_relations))
-            if when is None or roster == 0:
+            if when is None:
                 continue
+            if roster is None:
+                roster = len(list(lesson.players_relations))
+            if roster == 0:
+                break
             found.append({
                 "key": f"o:{lesson.id}:{occ_wall.date().isoformat()}",
                 "title": lesson.title,
@@ -188,12 +246,14 @@ def send_past_due(coach_id: int, keys, *, now: datetime | None = None) -> dict:
     sent = 0
     scheduled_for: datetime | None = None
     classes: list[dict] = []
-    skipped: list[dict] = []
+    # A count, never the keys: a class that is not the caller's, or does not exist, is not
+    # named back, and every reason for skipping looks the same from outside.
+    skipped = 0
 
     for key in dict.fromkeys(str(k) for k in (keys or [])):
         candidate = by_key.get(key)
         if candidate is None:
-            skipped.append({"key": key, "reason": "not_past_due"})
+            skipped += 1
             continue
 
         instance_id = candidate.get("_instance_id")
