@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvaluationScale } from "@levelup/types";
 
@@ -62,7 +62,62 @@ describe("Escala de avaliações", () => {
 
     fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-100"));
 
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-error")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-sign")).toHaveAttribute("data-state", "failed"));
     expect(screen.getByTestId("settings-evaluation-scale-option-20")).toBeChecked();
+  });
+
+  it("rule 3: one save in flight — the second waits for the first answer, then the latest is sent", async () => {
+    open({ scaleMax: 5 });
+    let okY!: (v: unknown) => void;
+    api.putEvaluationScale.mockImplementationOnce(() => new Promise((res) => { okY = res; }));
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20"));
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-100"));
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
+    await act(async () => { okY({ scaleMax: 10 }); });
+
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
+    expect(api.putEvaluationScale).toHaveBeenLastCalledWith({ scaleMax: 100 });
+    expect(screen.getByTestId("settings-evaluation-scale-option-100")).toBeChecked();
+  });
+
+  it("rule 3: two saves both fail — back to the confirmed scale, not the one the last started from", async () => {
+    open({ scaleMax: 5 });
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationScale
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10")); // Y, sent
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20")); // Z, waits; started from 10
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
+    await act(async () => { failY(new Error("y")); });
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
+    await act(async () => { failZ(new Error("z")); });
+
+    expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked();
+  });
+
+  it("rule 3: the first is confirmed, the waiting newer one fails — shows the confirmed first", async () => {
+    open({ scaleMax: 5 });
+    let okY!: (v: unknown) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationScale
+      .mockImplementationOnce(() => new Promise((res) => { okY = res; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10")); // Y
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20")); // Z, waits
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
+    await act(async () => { okY({ scaleMax: 10 }); });
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
+    await act(async () => { failZ(new Error("z")); });
+
+    expect(screen.getByTestId("settings-evaluation-scale-option-10")).toBeChecked();
   });
 });
