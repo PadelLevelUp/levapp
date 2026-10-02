@@ -31,21 +31,42 @@ vi.mock("@levelup/api", () => ({
   },
 }));
 
-const queryClient = vi.hoisted(() => ({ setQueryData: vi.fn(), cancelQueries: vi.fn(async () => undefined) }));
+// A react-query stand-in with a real store: setQueryData changes what useQuery returns and re-renders
+// its readers, so a test sees what the cache holds after each save (review #497: a plain mock hid
+// the iOS rollback defects).
+const store = vi.hoisted(() => ({ data: new Map<string, unknown>(), subs: new Set<() => void>() }));
 vi.mock("@tanstack/react-query", async () => {
   const React = await import("react");
+  const keyOf = (k: unknown) => JSON.stringify(k);
+  const notify = () => store.subs.forEach((f) => f());
+  const client = {
+    getQueryData: (k: unknown) => store.data.get(keyOf(k)),
+    setQueryData: (k: unknown, v: unknown) => {
+      const key = keyOf(k);
+      const next = typeof v === "function" ? (v as (cur: unknown) => unknown)(store.data.get(key)) : v;
+      store.data.set(key, next);
+      notify();
+      return next;
+    },
+    cancelQueries: async () => undefined,
+  };
   return {
-    useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
-      const [data, setData] = React.useState<unknown>(undefined);
+    useQueryClient: () => client,
+    useQuery: ({ queryKey, queryFn }: { queryKey: unknown; queryFn: () => Promise<unknown> }) => {
+      const [, force] = React.useReducer((x: number) => x + 1, 0);
       React.useEffect(() => {
-        let alive = true;
-        queryFn().then((d) => { if (alive) setData(d); });
-        return () => { alive = false; };
+        store.subs.add(force);
+        const key = keyOf(queryKey);
+        if (!store.data.has(key)) {
+          void queryFn().then((d) => {
+            if (!store.data.has(key)) { store.data.set(key, d); notify(); }
+          });
+        }
+        return () => { store.subs.delete(force); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
-      return { data };
+      return { data: store.data.get(keyOf(queryKey)) };
     },
-    useQueryClient: () => queryClient,
   };
 });
 
@@ -73,6 +94,7 @@ vi.mock("@/components/ui/select", async () => {
 import { PreferencesSection } from "./preferences-section";
 
 const ME = { language: "en", requestAlerts: true, roles: ["player"] };
+const on = (n: Awaited<ReturnType<typeof renderNative>>) => n.byTestId("settings-request-alerts").props.accessibilityState?.checked ?? n.byTestId("settings-request-alerts").props.checked;
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 const texts = (n: Awaited<ReturnType<typeof renderNative>>, id: string) =>
   n.byTestId(id).findAll((x) => typeof x.props.children === "string").map((x) => x.props.children).join("");
@@ -81,7 +103,8 @@ beforeEach(() => {
   getMe.mockReset().mockResolvedValue(ME);
   updateMe.mockReset().mockImplementation(async (patch: object) => ({ ...ME, ...patch }));
   changeLanguage.mockReset();
-  queryClient.setQueryData.mockReset();
+  store.data.clear();
+  store.subs.clear();
   __resetReactNativeMock();
 });
 afterEach(() => vi.useRealTimers());
@@ -131,6 +154,49 @@ describe("iOS Preferences save on change (settings.save-on-change)", () => {
     await n.toggle("settings-request-alerts");
     await n.flush();
     expect(texts(n, "settings-request-alerts-sign")).toContain("settings.saveSign.failed");
-    expect(queryClient.setQueryData).toHaveBeenLastCalledWith(["auth-me"], ME);
+    expect(on(n)).toBe(false); // back to what the server confirmed (off, from the first save)
+  });
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: Error) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  it("review #497: request alerts — off (A) then on (B), both fail: the switch shows on, what the server holds", async () => {
+    const n = await open();
+    expect(on(n)).toBe(true);
+    const a = deferred<unknown>();
+    const b = deferred<unknown>();
+    updateMe.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+
+    await n.toggle("settings-request-alerts"); // A: off
+    await n.flush();
+    await n.toggle("settings-request-alerts"); // B: on, started from off
+    await n.flush();
+    await act(async () => { a.reject(new Error("a")); });
+    await act(async () => { b.reject(new Error("b")); });
+    await n.flush();
+
+    expect(on(n)).toBe(true);
+  });
+
+  it("review #497: language — an older save confirmed while the newest is out, then the newest fails: shows the confirmed language", async () => {
+    const n = await open();
+    const a = deferred<unknown>();
+    const b = deferred<unknown>();
+    updateMe.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+
+    await n.press("settings-language-pt"); // A
+    await n.flush();
+    await n.press("settings-language-en"); // B, the newest
+    await n.flush();
+    await act(async () => { a.resolve({ ...ME, language: "pt" }); }); // the server now holds pt
+    await n.flush();
+    await act(async () => { b.reject(new Error("b")); });
+    await n.flush();
+
+    expect(n.byTestId("settings-language-select").props.accessibilityValue.text).toBe("pt");
   });
 });

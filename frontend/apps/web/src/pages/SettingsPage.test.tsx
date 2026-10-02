@@ -12,7 +12,7 @@
  * mobile-width back button, beforeunload), not each section's own save logic.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -31,7 +31,8 @@ vi.mock("next-themes", () => ({
   useTheme: () => ({ theme: "system", setTheme: vi.fn() }),
 }));
 
-vi.mock("@/i18n", () => ({ default: { changeLanguage: vi.fn() } }));
+// `language` is what AuthContext applied from the stored profile before the page mounts (B-184).
+vi.mock("@/i18n", () => ({ default: { changeLanguage: vi.fn(), language: "en" } }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -133,7 +134,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   getMe.mockReset().mockResolvedValue(ME);
-  updateMe.mockReset().mockResolvedValue(ME);
+  // The real endpoint answers with the profile as stored: the patch applied.
+  updateMe.mockReset().mockImplementation(async (patch: object) => ({ ...ME, ...patch }));
   getCoachWorkingHours.mockReset().mockResolvedValue({ workingHours: null });
   putCoachWorkingHours.mockReset();
 });
@@ -462,5 +464,79 @@ describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", (
     fireEvent.click(screen.getByTestId("settings-nav-calendar"));
     await screen.findByTestId("working-hours-works-sun");
     expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
+  });
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: Error) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+  const shownLanguage = () => screen.getByLabelText("settings.language").getAttribute("data-value");
+
+  it("rule 3 / review #497: a late opening read does not replace a confirmed language", async () => {
+    const read = deferred<typeof ME>();
+    getMe.mockReset().mockReturnValueOnce(read.promise);
+    updateMe.mockImplementationOnce(async () => ({ ...ME, language: "pt" }));
+    goto("/settings?tab=preferences");
+    renderSettings();
+
+    await chooseLanguage("pt");
+    await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1));
+    await act(async () => { read.resolve(ME); }); // the read started before the PATCH: it says en
+    await waitFor(() => expect(shownLanguage()).toBe("pt"));
+
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+    await chooseLanguage("en");
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
+    expect(shownLanguage()).toBe("pt");
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("pt");
+  });
+
+  it("rule 3 / review #497: a language save failing before the opening read lands returns to the language shown", async () => {
+    getMe.mockReset().mockReturnValueOnce(new Promise(() => undefined));
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+    goto("/settings?tab=preferences");
+    renderSettings();
+
+    await chooseLanguage("pt");
+    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
+    expect(shownLanguage()).toBe("en");
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
+  });
+
+  it("rule 3: two held language saves both fail — back to the confirmed language, not the one the last started from", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(getMe).toHaveBeenCalled());
+    await waitFor(() => expect(shownLanguage()).toBe("en"));
+    const y = deferred<typeof ME>();
+    const z = deferred<typeof ME>();
+    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
+
+    await chooseLanguage("pt"); // Y
+    await chooseLanguage("en"); // Z, started from pt
+    await act(async () => { y.reject(new Error("y")); });
+    await act(async () => { z.reject(new Error("z")); });
+
+    expect(shownLanguage()).toBe("en");
+    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
+  });
+
+  it("rule 3: request alerts — two held saves both fail, back to the confirmed value", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+    const y = deferred<typeof ME>();
+    const z = deferred<typeof ME>();
+    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
+
+    fireEvent.click(toggle); // Y: off
+    fireEvent.click(toggle); // Z: on, started from off
+    await act(async () => { y.reject(new Error("y")); });
+    await act(async () => { z.reject(new Error("z")); });
+
+    expect(toggle).toHaveAttribute("data-state", "checked");
   });
 });

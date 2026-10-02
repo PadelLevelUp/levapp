@@ -25,6 +25,7 @@ import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { EvaluationSettingsGroup } from "@/features/evaluations/evaluation-settings-group";
 import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
+import { SaveLedger } from "@levelup/config";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -59,11 +60,13 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const [language, setLanguage] = React.useState<Language>(
     user?.language ?? "pt"
   );
-  // settings.save-on-change (PAD-473): language and request alerts sign their saves; a failed save
-  // returns the control to the last value the server confirmed, and only the newest save decides.
+  // settings.save-on-change (PAD-473): language and request alerts sign their saves. What they show
+  // after a failure comes from the shared SaveLedger (rule 3), seeded from the cached profile — which
+  // never replaces a field a save has touched. Both controls display the cache, so every rollback is a
+  // cache write.
   const sign = useSaveSign();
-  const languageSeq = React.useRef(0);
-  const requestAlertsSeq = React.useRef(0);
+  const ledger = React.useRef<SaveLedger<{ language: Language; requestAlerts: boolean }> | null>(null);
+  if (!ledger.current) ledger.current = new SaveLedger();
 
   // Same key the Settings screen uses, so this is served from cache rather
   // than refetched — and it stays reactive when the screen's copy resolves.
@@ -74,38 +77,67 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   React.useEffect(() => {
     if (me?.language) setLanguage(me.language);
   }, [me?.language]);
+  React.useEffect(() => {
+    if (!me) return;
+    ledger.current!.seed({
+      ...(me.language ? { language: me.language as Language } : {}),
+      requestAlerts: me.requestAlerts !== false,
+    });
+  }, [me]);
 
   // PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
   // Server value wins; an explicit `false` is the only "off".
   const requestAlerts = me?.requestAlerts !== false;
+  type Me = NonNullable<typeof me>;
+  type Shown = Partial<{ language: Language; requestAlerts: boolean }>;
+
   const handleRequestAlertsChange = async (checked: boolean) => {
-    const seq = ++requestAlertsSeq.current;
-    const previous = me;
+    const token = ledger.current!.begin({ requestAlerts: checked });
     // B-185 (C's #430 review): an in-flight read landing mid-save would flicker the toggle back.
     await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
     queryClient.setQueryData(["auth-me"], (cur: typeof me) =>
       cur ? { ...cur, requestAlerts: checked } : cur
     );
-    try {
-      const updated = await sign.track("requestAlerts", authApi.updateMe({ requestAlerts: checked }));
-      await writeAuthMe(queryClient, updated);
-    } catch {
-      // Back to what the server last confirmed — unless a newer change is already on its way.
-      if (seq === requestAlertsSeq.current) queryClient.setQueryData(["auth-me"], previous);
-    }
+    await sign.track("requestAlerts", authApi.updateMe({ requestAlerts: checked })).then(
+      (answer) => writeAnswer(answer, ledger.current!.confirm(token, { requestAlerts: answer.requestAlerts !== false }).show),
+      () => showInCache(ledger.current!.fail(token)),
+    );
   };
 
   const handleLanguageChange = async (value: Language) => {
-    const seq = ++languageSeq.current;
+    const token = ledger.current!.begin({ language: value });
     setLanguage(value);
-    try {
-      const updated = await sign.track("language", authApi.updateMe({ language: value }));
-      await writeAuthMe(queryClient, updated);
-      void i18n.changeLanguage(value);
-    } catch {
-      // Back to the language the server holds (the cached profile), unless a newer choice is pending.
-      if (seq === languageSeq.current) setLanguage((me?.language as Language | undefined) ?? language);
-    }
+    await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
+    queryClient.setQueryData(["auth-me"], (cur: typeof me) => (cur ? { ...cur, language: value } : cur));
+    await sign.track("language", authApi.updateMe({ language: value })).then(
+      async (answer) => {
+        const { advanced, show } = ledger.current!.confirm(token, { language: (answer.language ?? value) as Language });
+        await writeAnswer(answer, show);
+        if (show.language) setLanguage(show.language);
+        const applied = show.language ?? (advanced.language === language ? advanced.language : undefined);
+        void i18n.changeLanguage(applied ?? value);
+      },
+      () => showInCache(ledger.current!.fail(token)),
+    );
+  };
+
+  // The save's answer is the newest profile (B-185, writeAuthMe), except for the two save-on-change
+  // fields: they keep what the screen shows — a newer save's value — unless the ledger says otherwise.
+  const writeAnswer = async (answer: Me, show: Shown) => {
+    const cur = queryClient.getQueryData<Me>(AUTH_ME_KEY);
+    const updated = {
+      ...answer,
+      ...(cur ? { language: cur.language, requestAlerts: cur.requestAlerts } : {}),
+      ...show,
+    };
+    await writeAuthMe(queryClient, updated);
+  };
+  const showInCache = (show: Shown) => {
+    if (Object.keys(show).length === 0) return;
+    queryClient.setQueryData(AUTH_ME_KEY, (cur: typeof me) => (cur ? { ...cur, ...show } : cur));
+    // The select also holds the language locally; a rollback batched with the optimistic write
+    // leaves the cached language unchanged between renders, so its effect would not fire.
+    if (show.language) setLanguage(show.language);
   };
 
   return (

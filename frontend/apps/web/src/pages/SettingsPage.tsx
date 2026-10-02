@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
+import { SaveLedger } from "@levelup/config";
 import { SettingsUnsavedContext } from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
 import {
@@ -306,13 +307,15 @@ export default function SettingsPage() {
   // before the server value lands.
   const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
   // settings.save-on-change (PAD-473): language and request alerts save on change, with the sign
-  // beside each. A failed save returns the control to the last value the server confirmed, and
-  // only the newest save of a control decides that (rule 3).
+  // beside each. What they show after a failure comes from the shared SaveLedger (rule 3): seeded with
+  // the language the app already shows, then with the profile read — which never replaces a field a
+  // save has touched.
   const sign = useSaveSign();
-  const confirmedLanguage = useRef<AppLanguage | null>(null);
-  const confirmedRequestAlerts = useRef<boolean | undefined>(undefined);
-  const languageSeq = useRef(0);
-  const requestAlertsSeq = useRef(0);
+  const ledger = useRef<SaveLedger<{ language: AppLanguage; requestAlerts: boolean }> | null>(null);
+  if (!ledger.current) {
+    ledger.current = new SaveLedger();
+    ledger.current.seed({ language });
+  }
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -405,8 +408,10 @@ export default function SettingsPage() {
     getMe()
       .then((me) => {
         if (!active) return;
-        confirmedLanguage.current = (me.language ?? "pt") as AppLanguage;
-        confirmedRequestAlerts.current = me.requestAlerts !== false;
+        ledger.current?.seed({
+          language: (me.language ?? "pt") as AppLanguage,
+          requestAlerts: me.requestAlerts !== false,
+        });
         if (!languageDirty.current) {
           const lang = (me.language ?? "pt") as AppLanguage;
           setLanguage(lang);
@@ -432,14 +437,16 @@ export default function SettingsPage() {
   }, []);
 
   const handleRequestAlertsChange = (checked: boolean) => {
-    const seq = ++requestAlertsSeq.current;
+    const token = ledger.current!.begin({ requestAlerts: checked });
     setRequestAlerts(checked);
     void sign.track("requestAlerts", updateMe({ requestAlerts: checked })).then(
-      () => {
-        confirmedRequestAlerts.current = checked;
+      (me) => {
+        const { show } = ledger.current!.confirm(token, { requestAlerts: me.requestAlerts !== false });
+        if (show.requestAlerts !== undefined) setRequestAlerts(show.requestAlerts);
       },
       () => {
-        if (seq === requestAlertsSeq.current) setRequestAlerts(confirmedRequestAlerts.current);
+        const back = ledger.current!.fail(token).requestAlerts;
+        if (back !== undefined) setRequestAlerts(back);
       },
     );
   };
@@ -447,20 +454,18 @@ export default function SettingsPage() {
   // B-244: the language is stored as soon as it is chosen, as on iOS; the page shows it at once, so
   // its sign appears in the new language (settings.save-on-change rule 5).
   const handleLanguageChange = (lang: AppLanguage) => {
-    const seq = ++languageSeq.current;
+    const token = ledger.current!.begin({ language: lang });
     languageDirty.current = true;
     setLanguage(lang);
     i18n.changeLanguage(lang);
+    const showLanguage = (shown: AppLanguage | undefined) => {
+      if (!shown) return;
+      setLanguage(shown);
+      i18n.changeLanguage(shown);
+    };
     void sign.track("language", updateMe({ language: lang })).then(
-      () => {
-        confirmedLanguage.current = lang;
-      },
-      () => {
-        const back = confirmedLanguage.current;
-        if (seq !== languageSeq.current || !back) return;
-        setLanguage(back);
-        i18n.changeLanguage(back);
-      },
+      (me) => showLanguage(ledger.current!.confirm(token, { language: (me.language ?? lang) as AppLanguage }).show.language),
+      () => showLanguage(ledger.current!.fail(token).language),
     );
   };
 
