@@ -87,4 +87,11 @@ describe("SignUpScreen — the Terms must be accepted (PAD-485, auth.register ru
     await n.flush();
     expect(n.queryByTestId("signup-error-terms")).not.toBeNull();
   });
+
+  it("one owner of the toggle: the box inside the Pressable takes no touches (#517 review)", async () => {
+    const n = await renderNative(createElement(SignUpScreen));
+    const box = n.byTestId("signup-terms");
+    const inert = box.findAll((node) => node.props.pointerEvents === "none");
+    expect(inert.length).toBeGreaterThan(0);
+  });
 });

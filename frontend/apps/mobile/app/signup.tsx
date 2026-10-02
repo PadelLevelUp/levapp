@@ -393,15 +393,16 @@ export default function SignUpScreen() {
                     setErrors((e) => ({ ...e, terms: undefined }));
                   }}
                 >
-                  <Checkbox
-                    checked={termsAccepted}
-                    onCheckedChange={(next) => {
-                      setTermsAccepted(next === true);
-                      setErrors((e) => ({ ...e, terms: undefined }));
-                    }}
-                    disabled={loading}
-                    className={errors.terms ? "border-destructive" : undefined}
-                  />
+                  {/* One owner of the toggle (#517 review): the box only shows the state; the Pressable
+                      around it takes the tap, so a tap can never toggle twice and cancel itself. */}
+                  <View pointerEvents="none">
+                    <Checkbox
+                      checked={termsAccepted}
+                      onCheckedChange={() => undefined}
+                      disabled={loading}
+                      className={errors.terms ? "border-destructive" : undefined}
+                    />
+                  </View>
                 </Pressable>
                 <View className="flex-1 flex-row flex-wrap items-center gap-x-1">
                   <Text className="text-sm">{t("auth.signup.termsAcceptPrefix")}</Text>
