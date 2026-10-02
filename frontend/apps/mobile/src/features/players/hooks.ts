@@ -23,10 +23,13 @@ const COACH_PLAYERS_PAGINATED_PREFIX = ["coach-players-paginated"] as const;
 export const coachPlayersKey = ["coach-players"] as const;
 
 /** Full (unpaginated) roster — used by the detail screen to find one player. */
-export function useCoachPlayers() {
+export function useCoachPlayers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: coachPlayersKey,
     queryFn: playersApi.getCoachPlayers,
+    // PAD-474: the class screen asks only while a coach is editing, so a
+    // student opening a class never requests the coach's roster.
+    enabled: options?.enabled ?? true,
   });
 }
 

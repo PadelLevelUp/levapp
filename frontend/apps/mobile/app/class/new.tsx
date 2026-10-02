@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import {
   CLASS_COLOR_SWATCHES,
   clubTodayISO,
@@ -45,6 +46,14 @@ import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
+import { PlayerSelector } from "@/features/calendar/player-selector";
+import { togglePlayerId } from "@/features/calendar/player-selector-logic";
+import { createClassCreateFlow } from "@/features/calendar/class-save-flow";
+import {
+  UnavailableStudentDialog,
+  type BlockedStudentLike,
+} from "@/features/calendar/unavailable-student-dialog";
+import { useCoachPlayers } from "@/features/players/hooks";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
@@ -123,6 +132,18 @@ export default function NewClassScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
+  // classes.create rule 10 (PAD-474): the students chosen for the class.
+  const { data: coachPlayers, isPending: coachPlayersLoading } = useCoachPlayers();
+  const [selectedPlayers, setSelectedPlayers] = React.useState<string[]>([]);
+  // PAD-107 (calendar.student-blockers rule 9), as web's AddClassSheet: chosen
+  // students who marked this slot unavailable, and whether the coach already
+  // confirmed booking them anyway.
+  const [unavailableStudents, setUnavailableStudents] = React.useState<BlockedStudentLike[]>([]);
+  const [unavailableAcknowledged, setUnavailableAcknowledged] = React.useState(false);
+  // A confirmation only covers the slot and roster it was given for.
+  React.useEffect(() => {
+    setUnavailableAcknowledged(false);
+  }, [date, startTime, endTime, selectedPlayers]);
   // Set when the backend rejected the create for a reason the coach can fix
   // here. The screen stays put and explains it beside the toggle instead of
   // navigating back over a class that was never created.
@@ -230,75 +251,81 @@ export default function NewClassScreen() {
     return Object.values(next).every((value) => !value);
   };
 
+  // classes.create rule 10 (PAD-474): the save sequence lives in
+  // createClassCreateFlow — the overlap warning (PAD-159), then the
+  // unavailable-student warning (PAD-107), then save, as web's AddClassSheet.
+  // This screen validates, answers the flow's questions, and saves only when
+  // the flow calls `save`.
+  const saveFlow = createClassCreateFlow({
+    // For a recurring class only the first occurrence is checked, as on web.
+    hasConflict: () =>
+      Boolean(findOverlappingEvent({ date, startTime, endTime }, dayEvents ?? [])),
+    slot: () => (date && startTime && endTime ? { date, startTime, endTime } : null),
+    playerIds: () => selectedPlayers,
+    acknowledged: () => unavailableAcknowledged,
+    api: notificationEngineApi,
+    ui: {
+      askOverlap: () => setOverlapOpen(true),
+      askUnavailable: (students) => setUnavailableStudents(students),
+      acknowledgeUnavailable: () => setUnavailableAcknowledged(true),
+    },
+    save: async () => {
+      setOverlapOpen(false);
+      setUnavailableStudents([]);
+
+      const computedEndDate = isRecurring
+        ? (endChoice.ok ? endChoice.endDate : null) ??
+          (endMode === "season" ? null : format(addMonths(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd"))
+        : null;
+
+      const data = {
+        coachId: user?.coachId ?? "1",
+        classType: (classType?.value ?? "academy") as string,
+        isRecurring,
+        name,
+        date,
+        startTime,
+        endTime,
+        maxPlayers: Number(maxPlayers),
+        color,
+        levelId: levelOption?.value || null,
+        courtId: courtOption?.value ? Number(courtOption.value) : null,
+        playerIds: selectedPlayers,
+        notificationsEnabled: false,
+        recurrenceRule: isRecurring
+          ? { frequency: "weekly", daysOfWeek: selectedDays }
+          : null,
+        // PAD-170 C7, matching web's payload: the flag only travels for a
+        // recurring class, and it replaces the end date rather than joining it —
+        // sending both would let a manual date silently win over the season.
+        recursUntilSeasonEnd: isRecurring ? recursUntilSeasonEnd : false,
+        endDate: recursUntilSeasonEnd ? null : computedEndDate,
+      };
+
+      try {
+        await addClass.mutateAsync(data);
+        router.back();
+      } catch (err) {
+        // PAD-170 C7: a rejection the coach can fix on this screen keeps them on
+        // it, with every field intact, and is explained beside the toggle that
+        // caused it. Navigating back over a class that was never created is how
+        // the failure went unnoticed.
+        const code = (err as { response?: { data?: { code?: string } } })?.response
+          ?.data?.code;
+        if (code === NO_SEASON_COVERS_DATE) {
+          setRejection(NO_SEASON_COVERS_DATE);
+          return;
+        }
+        setFormError(t("classDetail.new.createFailed"));
+      }
+    },
+  });
+
   const handleSave = async () => {
     setFormError(null);
     setRejection(null);
     if (!validate()) return;
-
-    // PAD-159, mirroring web's AddClassSheet: a non-blocking warning. For a
-    // recurring class only the first occurrence is checked, which is the scope
-    // web uses too. The coach may genuinely want two things at once, so this
-    // asks rather than refuses.
-    const conflict = findOverlappingEvent(
-      { date, startTime, endTime },
-      dayEvents ?? []
-    );
-    if (conflict) {
-      setOverlapOpen(true);
-      return;
-    }
-
-    await proceedSave();
-  };
-
-  const proceedSave = async () => {
-    setOverlapOpen(false);
-
-    const computedEndDate = isRecurring
-      ? (endChoice.ok ? endChoice.endDate : null) ??
-        (endMode === "season" ? null : format(addMonths(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd"))
-      : null;
-
-    const data = {
-      coachId: user?.coachId ?? "1",
-      classType: (classType?.value ?? "academy") as string,
-      isRecurring,
-      name,
-      date,
-      startTime,
-      endTime,
-      maxPlayers: Number(maxPlayers),
-      color,
-      levelId: levelOption?.value || null,
-      courtId: courtOption?.value ? Number(courtOption.value) : null,
-      playerIds: [] as string[],
-      notificationsEnabled: false,
-      recurrenceRule: isRecurring
-        ? { frequency: "weekly", daysOfWeek: selectedDays }
-        : null,
-      // PAD-170 C7, matching web's payload: the flag only travels for a
-      // recurring class, and it replaces the end date rather than joining it —
-      // sending both would let a manual date silently win over the season.
-      recursUntilSeasonEnd: isRecurring ? recursUntilSeasonEnd : false,
-      endDate: recursUntilSeasonEnd ? null : computedEndDate,
-    };
-
-    try {
-      await addClass.mutateAsync(data);
-      router.back();
-    } catch (err) {
-      // PAD-170 C7: a rejection the coach can fix on this screen keeps them on
-      // it, with every field intact, and is explained beside the toggle that
-      // caused it. Navigating back over a class that was never created is how
-      // the failure went unnoticed.
-      const code = (err as { response?: { data?: { code?: string } } })?.response
-        ?.data?.code;
-      if (code === NO_SEASON_COVERS_DATE) {
-        setRejection(NO_SEASON_COVERS_DATE);
-        return;
-      }
-      setFormError(t("classDetail.new.createFailed"));
-    }
+    await saveFlow.start();
   };
 
   return (
@@ -613,6 +640,21 @@ export default function NewClassScreen() {
             ) : null}
           </View>
 
+          {/* classes.create rule 10 (PAD-474): the class's students, as on web. */}
+          <View className="gap-2">
+            <Label>{t("calendar.addClass.participants")}</Label>
+            <PlayerSelector
+              players={coachPlayers ?? []}
+              levels={levels ?? []}
+              selectedPlayerIds={selectedPlayers}
+              classLevelId={levelOption?.value ?? null}
+              loading={coachPlayersLoading}
+              onToggle={(playerId) =>
+                setSelectedPlayers((prev) => togglePlayerId(prev, playerId))
+              }
+            />
+          </View>
+
           {formError ? (
             <Text className="text-center text-sm text-destructive">
               {formError}
@@ -640,7 +682,16 @@ export default function NewClassScreen() {
       <OverlapConfirmDialog
         open={overlapOpen}
         onCancel={() => setOverlapOpen(false)}
-        onConfirm={() => void proceedSave()}
+        onConfirm={() => {
+          setOverlapOpen(false);
+          void saveFlow.afterOverlap();
+        }}
+      />
+      <UnavailableStudentDialog
+        open={unavailableStudents.length > 0}
+        students={unavailableStudents}
+        onCancel={() => setUnavailableStudents([])}
+        onConfirm={() => void saveFlow.confirmUnavailable()}
       />
     </Screen>
   );

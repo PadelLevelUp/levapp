@@ -1,0 +1,150 @@
+# PAD-474 — classes.create rule 10 on iOS/Android: the coach chooses a student while creating a class.
+#
+# Mirrors: web AddClassSheet's PlayerSelector (the picker) and
+# src/features/calendar/class-participants-wiring.test.ts (the screen sends what was chosen).
+# The coach creates "Maestro PAD-474 Create" two days out, ticks E2E Student on the picker's
+# "Todos" tab, sees them on the "Participantes" tab, and saves. The API then reads the class back:
+# E2E Student must be on it.
+#
+# Setup and teardown through the API (R-040): any class left with this title by an earlier run
+# is removed first, and onFlowComplete removes the one created here, even when a step fails. Rows are matched by id
+# (player-selector-row-<playerId>), never by rendered copy. Flow number 125 is from Session-B's
+# reserved block (125–127, coordinator 2026-10-01).
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad474-class-clear.js
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'Maestro PAD-474 Create'}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.s1 = String(json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student'; })[0].playerId)}"
+- evalScript: "${output.findEvent = function () { var evs = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); return evs.filter(function (e) { return e.type === 'class' && e.title === output.title; })[0]; }}"
+- runScript: ../scripts/pad474-class-clear.js
+
+# ── The coach opens the day and adds a class (flow 110's walk) ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- tapOn:
+    id: "calendar-add-class"
+- extendedWaitUntil:
+    visible:
+      id: "class-name"
+    timeout: 15000
+- tapOn:
+    id: "class-name"
+- inputText: "${output.title}"
+# Close the keyboard with Enter (memory: maestro-ios-swipe-from-element-and-keyboard).
+- pressKey: Enter
+
+# ── classes.create rule 10: choose E2E Student on "Todos" ──
+- scrollUntilVisible:
+    element:
+      id: "player-selector-tab-all"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-tab-all"
+# The list scrolls inside a 260 pt box; a search brings the row into it whatever the roster size.
+- scrollUntilVisible:
+    element:
+      id: "player-selector-search"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-search"
+- inputText: "E2E Student"
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "player-selector-row-${output.s1}"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "player-selector-row-${output.s1}"
+# The "Participantes" tab lists only chosen students, so seeing the row there proves the tick.
+- tapOn:
+    id: "player-selector-tab-participants"
+- assertVisible:
+    id: "player-selector-row-${output.s1}"
+
+# ── Save; answer the overlap and unavailable-student warnings if they appear ──
+- scrollUntilVisible:
+    element:
+      id: "class-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-save"
+- extendedWaitUntil:
+    visible:
+      id: "overlap-confirm"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "overlap-confirm"
+    commands:
+      - tapOn:
+          id: "overlap-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "unavailable-confirm"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "unavailable-confirm"
+    commands:
+      - tapOn:
+          id: "unavailable-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 20000
+
+# ── The server has the class with E2E Student on it ──
+- evalScript: "${output.ev = output.findEvent()}"
+- assertTrue: "${output.ev != null}"
+- evalScript: "${output.cls = json(http.post(output.api + '/api/app/class_instance?model=' + output.ev.model + '&id=' + output.ev.originalId + '&date=' + output.day, { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).body)}"
+- assertTrue: "${output.cls.participants.map(function (p) { return String(p.id); }).indexOf(output.s1) >= 0}"
+
+# ── Done; onFlowComplete removes the class ──
+- runFlow: ../subflows/logout.yaml

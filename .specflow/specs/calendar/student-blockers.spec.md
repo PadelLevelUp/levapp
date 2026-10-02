@@ -15,16 +15,16 @@ engine does NOT send them AUTOMATIC class invitations during times they are unav
 Reuses the existing CalendarBlock model (type `unavailable`, `blocks_auto_invitations=true`)
 rather than a separate table.
 
-### Status correction (2026-08-07)
-Only the **PAD-28** half of this spec is implemented: blocker CRUD (rules 1–3) and eligibility-time
+### Status (corrected 2026-10-01)
+The **PAD-28** half of this spec is implemented: blocker CRUD (rules 1–3) and eligibility-time
 filtering of automatic invitation candidates (rule 5, `filter_blocked_coach_players`).
 
-The **PAD-107** half — rules 4, 8, 9, 10 and 11 — is **specced but never landed**. There are no
-`PAD-107` references anywhere in the backend, no `POST /api/app/notify/availability_conflicts`
-endpoint, no blocked-student skip in `/notify/manual` or `/notify/send_reminders`, and no
-blocker backstop in `_send_system_message` (which guards only against empty message text). Those
-rules describe intended behaviour, not shipped behaviour, and any spec that leans on them — notably
-`notifications.student-block-preferences` — inherits the gap.
+The **PAD-107** half (rules 4, 8, 9, 10 and 11) is also shipped (`de39e76b6`, 2026-08-04). The 2026-08-07
+note that it "never landed" was wrong (corrected 2026-10-01, PAD-474):
+`POST /api/app/notify/availability_conflicts` is at `notification_engine_api.py:294`; `/notify/manual` skips
+blocked students (`notification_engine_api.py:253-269`); the delivery backstop
+`instance_window_is_blocked_for_user` guards `notification_service.py:1744`; and the reminder
+fan-out reads `blocked_players_for_instance` (`notification_service.py:2754`).
 
 ### Entities
 - **CalendarBlock** (reused): student blockers are rows with type `unavailable` and `blocks_auto_invitations=true`.

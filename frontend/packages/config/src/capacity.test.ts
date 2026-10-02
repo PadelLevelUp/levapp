@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveFilledSpots } from "./capacity";
+import { effectiveFilledSpots, effectiveFilledSpotsOf } from "./capacity";
 
 describe("effectiveFilledSpots (PAD-71)", () => {
   it("subtracts declined students from the enrolment count", () => {
@@ -35,5 +35,29 @@ describe("effectiveFilledSpots (PAD-71)", () => {
     expect(
       effectiveFilledSpots(1, [{ status: "absent" }, { status: "absent" }])
     ).toBe(0);
+  });
+});
+
+describe("effectiveFilledSpotsOf (calendar.event-detail rule 5, B-240)", () => {
+  // Saved roster: Ana declined, Bruno coming.
+  const presences = [
+    { playerId: 1, status: "absent" },
+    { playerId: 2, status: null },
+  ];
+
+  it("counts the same as effectiveFilledSpots when the list and the presences agree", () => {
+    expect(effectiveFilledSpotsOf([{ id: "1" }, { id: "2" }], presences)).toBe(1);
+  });
+
+  it("does not subtract a declined student who is no longer listed (an edit's unticked student)", () => {
+    expect(effectiveFilledSpotsOf([{ id: "2" }], presences)).toBe(1);
+  });
+
+  it("a newly ticked student with no presence row fills a spot", () => {
+    expect(effectiveFilledSpotsOf([{ id: "2" }, { id: "3" }], presences)).toBe(2);
+  });
+
+  it("matches ids across number and string", () => {
+    expect(effectiveFilledSpotsOf([{ id: 2 }], [{ playerId: "2", status: "absent" }])).toBe(0);
   });
 });

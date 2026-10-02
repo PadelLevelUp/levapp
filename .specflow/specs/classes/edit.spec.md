@@ -44,7 +44,33 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    (`calendar_tools.WEEKDAY_MAP`, date-fns `getDay`), never ISO. Sunday is the day the two
    conventions disagree on, so moving onto a Sunday adds 0 and moving off a Sunday removes 0.
 
+9. **The coach adds and removes students when editing a class, on web and in the mobile app (iOS
+   and Android) (PAD-474, B-239).** In edit mode both shells replace the participant list with the
+   picker of `classes.create` rule 10, seeded with the class's current participants. The change is
+   sent as `updates.addPlayers` / `updates.removePlayers`, the ids added and removed; unticking a
+   student and ticking them again sends nothing. It applies at the scope the coach picks (rule 3):
+   `single` changes this occurrence (`classes.instance-enrollment` rule 4), `future` changes the
+   series roster. Adding students runs the eligibility warning first (`eligibility.enforcement`
+   rule 7d). An edit that changes only the participants is an edit, never dropped as "no changes".
+   The picker applies no cap at `maxPlayers`; it shows the count.
+
 ### Acceptance Criteria
+
+#### The coach adds and removes students in an edit (rule 9, PAD-474)
+- **Given** a class with Ana
+- **When** the coach edits it on the mobile app to add Bruno and remove Ana
+- **Then** the save sends `addPlayers` `[Bruno]` and `removePlayers` `[Ana]`, and nothing else
+- **Given** an edit that touches only the participants
+- **Then** the change set is not empty and the save is sent
+- **Given** an added student who fails the class's bar
+- **Then** the eligibility warning names them before the save
+
+#### A participant edit lands at the chosen scope (rule 9)
+- **Given** a recurring class whose roster is Ana, and a materialised occurrence of it
+- **When** the coach adds Bruno with scope `single`
+- **Then** only that occurrence has Bruno, and the series roster is unchanged
+- **When** the coach adds Bruno with scope `future`
+- **Then** the series roster has Bruno
 
 #### Moving onto or off a Sunday keeps the series' weekdays right (rule 8, PAD-464)
 - **Given** a class recurring Monday and Wednesday (`daysOfWeek` `[1, 3]`)

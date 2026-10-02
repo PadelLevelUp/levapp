@@ -7,6 +7,7 @@ implemented_by:
   - ../../specs/auth/email-verification.spec.md
   - ../../specs/auth/password-recovery.spec.md
   - ../../specs/clubs/join-request.spec.md
+  - ../../specs/auth/coach-crm-sync.spec.md
 ---
 
 # Newcomer signs up on their own
@@ -90,6 +91,11 @@ without their knowledge (that case is picked up in
 - Joining an existing club always needs a current member's approval; nobody can walk into a
   club's roster and message its students just by knowing the club's name.
 - The signup form links to the Privacy Policy and Terms, on both platforms.
+- A coach who signs up on their own appears in the sales CRM within a minute, marked as an inbound
+  lead from the app, and the CRM keeps their account status (pending, approved, rejected) current;
+  a deal already open for them moves to "Em teste". Only the coach's own name, email, phone and
+  account status are shared — never anything about their students. If the CRM is down, signing up
+  and the admin's decisions work exactly the same (PAD-471).
 - The email on the account is the recovery channel for both the password and the username. A
   recovery request never confirms or denies that an email has an account.
 
