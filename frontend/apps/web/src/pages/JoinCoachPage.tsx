@@ -186,7 +186,7 @@ const JoinCoachPage = () => {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <CheckCircle2 className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl font-bold">{t("players.joinCoach.successTitle")}</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t("players.joinCoach.successTitle", { coach: result.coachName })}</CardTitle>
           <CardDescription>
             {result.alreadyMember
               ? t("players.joinCoach.alreadyMember", { coach: result.coachName })
