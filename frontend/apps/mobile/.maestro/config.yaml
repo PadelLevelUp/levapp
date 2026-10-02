@@ -272,9 +272,11 @@ executionOrder:
     # added and removed through the API).
     - 133-settings-eligibility-direction
     - 134-class-override-eligibility-direction
-    # 139 (PAD-488, classes.class-requests rule 19): the coach accepts a request in the chat and the
-    # still-mounted calendar tab drops the hold. onFlowComplete removes the class and the request.
-    - 139-calendar-follows-accept-in-chat
+    # 139/140 (PAD-488, classes.class-requests rule 19): with the calendar tab open, a request is
+    # accepted on another device (139, the realtime path) or in the chat (140, back in-app), and the
+    # still-mounted tab drops the hold. onFlowComplete removes the class and the request.
+    - 139-calendar-follows-accept-on-another-device
+    - 140-calendar-follows-accept-in-chat
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

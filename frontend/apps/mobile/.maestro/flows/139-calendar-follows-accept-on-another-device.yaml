@@ -1,0 +1,89 @@
+# PAD-488 / classes.class-requests rule 19 (B-264) on iOS: the realtime path. The coach's
+# calendar tab is open on a day holding a student's request ("pedido de aula"). The coach's
+# OTHER device accepts it (an API call here). The open tab must drop the hold and show the class
+# within 15 s, with no navigation, no app resume and no logout. Before the fix nothing refreshed
+# it: the server told only the student, and the tabs' class_request_changed handler refreshed
+# the request lists only.
+#
+# Setup through the API (R-040): e2e-student asks e2e-coach for the first free hour two days
+# out. onFlowComplete (scripts/pad488-clear.js) removes the class and the request even when a
+# step fails. Assertions by testID and server values only (`calendar-event-<feed id>`).
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Flows 139/140 are from Session-D's
+# reserved block (139-141, coordinator 2026-10-02).
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad488-clear.js
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.plus60 = function (t) { var p = t.split(':'), m = Number(p[0]) * 60 + Number(p[1]) + 60, h = Math.floor(m / 60), mm = m % 60; return (h < 10 ? '0' + h : '' + h) + ':' + (mm < 10 ? '0' + mm : '' + mm); }}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.studentUserId = String(json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).id)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.slot = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).filter(function (b) { return b.date === output.day && output.plus60(b.startTime) <= b.endTime; })[0]}"
+- assertTrue: "${output.slot != null}"
+- evalScript: "${output.start = output.slot.startTime}"
+- evalScript: "${output.rid = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: Number(output.coachId), date: output.day, startTime: output.start, endTime: output.plus60(output.start) }) }).body).id}"
+- assertTrue: "${output.rid != null}"
+- evalScript: "${output.feed = function () { return json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); }}"
+- evalScript: "${output.re = function (s) { return s.replace(/[.+()]/g, function (c) { return '\\\\' + c; }); }}"
+# Maestro matches `id` as a regex; feed ids carry a timestamp ("block-8-2026-10-04 08:00:00+00:00").
+- evalScript: "${output.holdId = output.re(String(output.feed().filter(function (e) { return e.requestHoldOf === output.rid; })[0].id))}"
+
+# ── The coach's calendar tab, on that day, shows the hold ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 2
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- scrollUntilVisible:
+    element:
+      id: "calendar-event-${output.holdId}"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+
+# ── Another device accepts; this one does nothing ──
+- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.rid + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
+- assertTrue: "${output.accepted == true}"
+- extendedWaitUntil:
+    notVisible:
+      id: "calendar-event-${output.holdId}"
+    timeout: 15000
+- evalScript: "${output.classId = output.re(String(output.feed().filter(function (e) { return e.type === 'class' && e.startTime === output.start && e.classType === 'private'; })[0].id))}"
+- scrollUntilVisible:
+    element:
+      id: "calendar-event-${output.classId}"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
