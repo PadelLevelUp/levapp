@@ -9,6 +9,8 @@ import {
   CATALOGUE_ORDER,
   categorySections,
   moveTargets,
+  strandedSubs,
+  suggestConversion,
   competencyKind,
   legacyScaleLabel,
   managerSections,
@@ -296,3 +298,60 @@ describe("moveTargets (rule 15 \"Moving\", PAD-480)", () => {
   });
 });
 
+
+describe("converting a legacy category (rule 18, PAD-480)", () => {
+  const legacy = (id: number, name: string) => competency({ id, name, group: null });
+  const tecnica = legacy(5, "Técnica ");
+  const tactica = legacy(6, "Tactica ");
+  const consistencia = legacy(7, "Consistencia ");
+  const bandeja = competency({ id: 8, key: "bandeja", name: "Bandeja", group: "technique", parentId: null, isActive: false });
+  const servico = competency({ id: 9, key: "serve", name: "Serviço", group: "technique", parentId: null, isActive: false });
+  const coach2 = (extra: EvaluationCompetency[] = []): EvaluationCompetencies => ({
+    competencies: [tecnica, tactica, consistencia, bandeja, servico, ...extra],
+    catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }, { key: "smash", group: "technique" }],
+  });
+
+  it("each alias suggests its default, after trimming, case and accents (prod's names carry a trailing space)", () => {
+    const cases: [string, string][] = [
+      ["Técnica ", "technique"], ["tecnica", "technique"], ["Technique", "technique"],
+      ["Tática", "tactics"], ["Tactica ", "tactics"], ["Táctica", "tactics"], ["TACTICS", "tactics"],
+      ["Consistência", "consistency"], ["Consistencia ", "consistency"], ["consistency", "consistency"],
+    ];
+    for (const [name, key] of cases) {
+      expect(suggestConversion({ competencies: [legacy(1, name)], catalogue: [] }, legacy(1, name))?.suggested, name).toBe(key);
+    }
+  });
+
+  it("a near miss suggests nothing", () => {
+    for (const name of ["Tática avançada", "Tacticas", "Tecnico", "Técnica 2", "Consistente"]) {
+      expect(suggestConversion({ competencies: [legacy(1, name)], catalogue: [] }, legacy(1, name)), name).toBeNull();
+    }
+  });
+
+  it("the targets are every default the coach does not hold, the suggested one among them", () => {
+    expect(suggestConversion(coach2(), tactica)).toEqual({ suggested: "tactics", targets: ["technique", "tactics", "consistency"] });
+    const held = competency({ id: 20, key: "technique", name: "Técnica", group: "general", parentId: null });
+    expect(suggestConversion(coach2([held]), tactica)).toEqual({ suggested: "tactics", targets: ["tactics", "consistency"] });
+  });
+
+  it("no offer for a held default, or for a row that is not legacy", () => {
+    const tatica = competency({ id: 21, key: "tactics", name: "Tática", group: "general", parentId: null });
+    expect(suggestConversion(coach2([tatica]), tactica)).toBeNull();
+    expect(suggestConversion(coach2(), competency({ id: 22, name: "Tactica", group: "custom" }))).toBeNull();
+  });
+
+  it("the manager offers the conversion, not the add, for a default a legacy row suggests", () => {
+    const ids = categorySections(coach2()).map((s) => s.id);
+    expect(ids).not.toContain("key-tactics");
+    expect(ids).not.toContain("key-consistency");
+    // A default nothing suggests is still offered as an add.
+    const plain = categorySections({ competencies: [legacy(1, "Volley")], catalogue: [{ key: "tactics", group: "general" }] });
+    expect(plain.map((s) => s.id)).toContain("key-tactics");
+  });
+
+  it("the strays a conversion offers to move are the top-level catalogue rows of that group", () => {
+    expect(strandedSubs(coach2(), "technique")).toEqual([bandeja, servico]);
+    expect(strandedSubs(coach2(), "tactics")).toEqual([]);
+    expect(strandedSubs(coach2(), "consistency")).toEqual([]);
+  });
+});

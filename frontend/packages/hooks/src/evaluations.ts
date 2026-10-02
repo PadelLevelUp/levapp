@@ -219,6 +219,36 @@ export function useUpdateEvaluationCompetency() {
   });
 }
 
+/**
+ * PAD-480 (rule 18): converts a legacy row into a default category, then moves each of `moveIds` (the
+ * default's strays the coach left checked) under it, one PATCH each (rule 15 "Moving"). The conversion
+ * failing rejects; a move failing does not — it is reported in `notMoved`, so the dialog can say which
+ * rows stayed where they were. Never a silent partial result.
+ */
+export function useConvertEvaluationCompetency() {
+  const cache = useCompetencyCache();
+  return useMutation<
+    { competency: EvaluationCompetency; notMoved: number[] },
+    unknown,
+    { id: number; catalogueKey: string; moveIds: number[] }
+  >({
+    mutationFn: async ({ id, catalogueKey, moveIds }) => {
+      const competency = await evaluationRecordsApi.convertEvaluationCompetency(id, catalogueKey);
+      cache.put(competency);
+      const notMoved: number[] = [];
+      for (const moveId of moveIds) {
+        try {
+          cache.put(await evaluationRecordsApi.updateEvaluationCompetency(moveId, { parentId: competency.id }));
+        } catch {
+          notMoved.push(moveId);
+        }
+      }
+      return { competency, notMoved };
+    },
+    onSettled: cache.relist,
+  });
+}
+
 /** Rule 9: custom and legacy only; a catalogue competency answers 409 `catalogue_competency`. */
 export function useDeleteEvaluationCompetency() {
   const cache = useCompetencyCache();
