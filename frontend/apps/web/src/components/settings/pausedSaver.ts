@@ -14,7 +14,7 @@
  * value left waiting here would go out AFTER whatever the reopened form sends (review of #496).
  *
  * The value still inside the pause is NOT in the serial saver yet, so sign-out does not
- * reach it: the owner calls `dispose()` instead of `flush()` when there is no session.
+ * reach it: when the owner goes away with no session it calls `dispose()`, not `close()`.
  *
  * The backend does not depend on any of this (rule 10e: any sequence of saves gives the
  * same jobs); it spares it a reschedule of every future job per keystroke.
