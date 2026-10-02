@@ -46,13 +46,14 @@ onFlowComplete:
     timeout: 15000
 - tapOn:
     id: "settings-profile-save"
+# The code screen (as flow 44 drives it: the real input is an invisible overlay, rule 8b).
 - extendedWaitUntil:
     visible:
-      id: "verify-email-code"
+      id: "verify-email"
     timeout: 15000
 - evalScript: "${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=e2e-coach@test.com').body).code}"
 - tapOn:
-    id: "verify-email-code"
+    id: "verify-email-cell-0"
 - inputText: "${output.code}"
 
 # The server holds the address, verified (read until the confirm lands, up to ~10 s).
