@@ -264,6 +264,9 @@ executionOrder:
     # 130 (PAD-480): a sub-category is moved under another category from the manager; the server holds
     # the new parent. onFlowComplete deletes the two categories it made.
     - 130-competency-move
+    # 131 (PAD-480): a legacy category named like a default is converted into it, and its stray sub-category
+    # moves under it; the server holds both.
+    - 131-competency-convert
     # 133/134 (PAD-481, eligibility.rules rule 6): "within N levels" has a direction — in Settings
     # (133; teardown restores the coach's bar) and on a class's own override (134; the class is
     # added and removed through the API).

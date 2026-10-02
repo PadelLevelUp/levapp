@@ -43,6 +43,13 @@ export async function updateEvaluationCompetency(
   return res.data;
 }
 
+/** PAD-480 (rule 18): turns a legacy row into the default `catalogueKey` (technique, tactics,
+ *  consistency). 400 `not_legacy` / `catalogue_key_invalid`, 409 `default_held` / `name_taken`. */
+export async function convertEvaluationCompetency(id: number, catalogueKey: string): Promise<EvaluationCompetency> {
+  const res = await getApi().post(`/app/evaluation_competency/${id}/convert`, { catalogueKey });
+  return res.data;
+}
+
 export async function getEvaluationCompetencyImpact(id: number): Promise<EvaluationCategoryImpact> {
   const res = await getApi().get(`/app/evaluation_competency/${id}/impact`);
   return res.data;
