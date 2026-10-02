@@ -110,3 +110,16 @@ includes the retry. `clubs.coach-invitation` rule 4 gains the same guarantee and
     with a docstring saying it covers the early case only;
   - a test that the helper still commits outside a unit (a rollback after the call keeps the
     levels). Mutant "the helper always flushes" turns it red.
+
+### Follow-ups (not fixed in PAD-476)
+
+- **The invitation accept's new-user branch has no duplicate-email check** (found by #495's
+  independent review). It checks only the username (`abort(409, "Username already taken")`), so an
+  email already registered reaches the unique constraint as an IntegrityError: a 500, not sign-up's
+  409 with `field: "email"`. Since PAD-476 that 500 rolls back cleanly and leaves nothing.
+  It belongs to **PAD-477** (an invited coach's email is never verified), which will touch this
+  code; the coordinator is adding it to that ticket.
+- Added after the review, at its request: a failure at the sign-up unit's own
+  commit sends no code, admin notice or sync (mutant "admin notice inside the unit" turns it red),
+  and a failure while writing the invited coach's Coach row leaves no account and a pending
+  invitation (mutant "commit after the User flush" turns 4 tests red).

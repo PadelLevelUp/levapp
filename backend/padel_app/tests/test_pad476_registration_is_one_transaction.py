@@ -78,6 +78,30 @@ def test_a_failed_coach_signup_sends_no_mail_no_admin_notice_and_no_sync(client,
     assert sent == []
 
 
+def test_a_coach_signup_failing_at_its_commit_sends_nothing(client, app, monkeypatch):
+    """The latest failure point inside the unit: its own commit. An admin notice (or code, or
+    sync) moved inside the unit would already have gone out by then; it must not have."""
+    from padel_app.models import Coach, User
+    from padel_app.services import coach_approval_service, email_verification_service, hubspot_sync
+
+    sent = []
+    monkeypatch.setattr(email_verification_service, "begin_verification", lambda user: sent.append("mail"))
+    monkeypatch.setattr(coach_approval_service, "notify_admin_of_pending_coach", lambda coach: sent.append("admin"))
+    monkeypatch.setattr(hubspot_sync, "sync_coach_signup", lambda user, coach: sent.append("sync"))
+    monkeypatch.setattr("padel_app.services.app_settings_service.coach_approval_required", lambda: True)
+
+    def fail_commit():
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db.session, "commit", fail_commit)
+    res = client.post("/api/auth/register", json=_coach())
+    monkeypatch.undo()
+
+    assert res.status_code == 500
+    assert sent == []
+    assert (_count(app, User), _count(app, Coach)) == (0, 0)
+
+
 def test_a_successful_coach_signup_sends_them_after_the_commit(client, app, monkeypatch):
     """The other half: the same spies see all three on a good sign-up, so the test above is not
     green because the spies are wired wrong. (That they run after the commit is pinned by
@@ -158,6 +182,31 @@ def test_invited_coach_failing_at_the_club_link_leaves_no_account(client, app, m
     assert res.status_code == 500
     with app.app_context():
         assert User.query.filter_by(username="new_coach").count() == 0
+        assert _inv(token).one().status == "pending"
+
+
+def test_invited_coach_failing_while_writing_the_coach_leaves_no_account(client, app, monkeypatch):
+    """clubs.coach-invitation rule 4, "a failure at any step": here the Coach row's write fails,
+    after the User was flushed."""
+    from padel_app.models import Coach, User
+
+    _, coach_id, club_id = _make_coach_with_club(app)
+    token = _make_invitation(app, club_id, coach_id)
+    real_flush = db.session.flush
+
+    def flush_unless_new_coach(*a, **k):
+        if any(isinstance(o, Coach) for o in db.session.new):
+            raise RuntimeError("coach write failed")
+        return real_flush(*a, **k)
+
+    monkeypatch.setattr(db.session, "flush", flush_unless_new_coach)
+    res = client.post(f"/api/app/coach-invitations/{token}/accept", json=_accept_body())
+    monkeypatch.setattr(db.session, "flush", real_flush)
+
+    assert res.status_code == 500
+    with app.app_context():
+        assert User.query.filter_by(username="new_coach").count() == 0
+        assert Coach.query.count() == 1  # the inviter's
         assert _inv(token).one().status == "pending"
 
 
