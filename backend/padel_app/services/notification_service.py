@@ -1199,13 +1199,13 @@ CANDIDATE_STAGES = (
     "already_enrolled",
     "declined_this_class",  # PAD-497 (rule 18): said "no" to an invitation for this class
     "already_invited",
-    "offered_another_spot",  # PAD-497 / PAD-494 (rule 18): a live offer for another spot of it
     "eligibility",
     "excluded_by_coach",
     "inactive_account",
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
+    "offered_another_spot",  # PAD-497 / PAD-494 (rule 18): would be asked, but holds another spot's offer
     "invited",
 )
 
@@ -1365,9 +1365,6 @@ def evaluate_candidates(
         if pid in active_invite_ids:
             verdicts.append(CandidateVerdict(cp, "already_invited"))
             continue
-        if pid in offered_elsewhere_ids:
-            verdicts.append(CandidateVerdict(cp, "offered_another_spot"))
-            continue
         if explain:
             failures = eligibility_failures(cp, instance, coach_id, eligibility_rules)
             if failures:
@@ -1405,6 +1402,15 @@ def evaluate_candidates(
         )
         if failures:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
+            continue
+        # PAD-497 / PAD-494 (rule 18), last on purpose (#513 review F1): a student holding a live
+        # invitation for another spot of the class (a manual invitation included) is skipped only
+        # here, after every other stage has passed, so `offered_another_spot` means "this round
+        # would ask them but for that offer". A holder the round would never ask (excluded,
+        # ineligible, unavailable, outside the round's rules) gets that reason instead, and does not
+        # hold the spot (_send_invitation_batch waits only on `offered_another_spot`).
+        if pid in offered_elsewhere_ids:
+            verdicts.append(CandidateVerdict(cp, "offered_another_spot"))
             continue
         verdicts.append(CandidateVerdict(cp, "invited"))
 
@@ -3978,9 +3984,10 @@ def _send_invitation_batch(
             round_number=vacancy.current_round_number,
             status="sent",
         )
-        # PAD-495 item 8: flushed, not committed — the id is needed for the message's metadata,
-        # and the message's own create commits both, so a failed message rolls its invitation
-        # back instead of leaving a live invitation the student never received.
+        # PAD-495 item 8, landed with PAD-497 (#513 review F2): flushed, not committed — the id is
+        # needed for the message's metadata, and the message's own create commits both, so a
+        # failed message rolls its invitation back instead of leaving a live invitation the
+        # student never received (under rule 18 it would hold them out of the whole class).
         db.session.add(event)
         db.session.flush()
 
@@ -4566,7 +4573,10 @@ def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = 
     """
     if event.vacancy_id is not None:
         Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
-    NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    else:
+        # A manual invitation has no vacancy to lock (#513 review F3): lock the invitation itself.
+        NotificationEvent.query.filter_by(id=event.id).with_for_update().populate_existing().one()
     if action == "no" and event.status == "confirmed":
         # PAD-495 item 5: the student holds the spot; say so (both clients show Accepted).
         db.session.commit()  # release the lock; nothing was written
@@ -4714,6 +4724,11 @@ def respond_to_notification(
         if event.status == "confirmed":
             db.session.commit()  # release the lock; nothing was written
             return {"action": "confirmed"}
+        if event.answer == "no":
+            # PAD-497 (#513 review F3): a "no" on this invitation landed between this answer's
+            # first commit and the lock; it is final (rule 18).
+            db.session.commit()  # release the lock; nothing was written
+            return {"action": "declined"}
 
         # Check vacancy status first
         if vacancy and vacancy.status != "open":

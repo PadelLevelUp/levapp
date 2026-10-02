@@ -60,10 +60,13 @@ def test_upgrade_adds_the_column_and_backfills_only_future_noes():
 
 
 def test_a_second_upgrade_changes_nothing():
+    """The row that matters (#513 review F6): its message says "no" but the answer was since
+    recorded "yes" — a coach's yes writes the answer, never the message. A second run must leave it."""
     conn = _scratch()
     _run(conn, "upgrade")
-    conn.exec_driver_sql("UPDATE notification_events SET answer = 'yes' WHERE id = 101")
+    conn.exec_driver_sql("UPDATE notification_events SET answer = 'yes' WHERE id = 100")
     before = _answers(conn)
+    assert before[100] == "yes"
     _run(conn, "upgrade")
     assert _answers(conn) == before
 
@@ -76,3 +79,48 @@ def test_a_hand_applied_column_is_left_alone_and_downgrade_removes_it():
     _run(conn, "downgrade")
     assert "answer" not in {c["name"] for c in sa.inspect(conn).get_columns("notification_events")}
     _run(conn, "downgrade")  # guarded both ways
+
+
+import os
+
+import pytest
+
+
+@pytest.mark.skipif(os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+                    reason="the Postgres dialect of the backfill (->> on json, now() at UTC)")
+def test_on_postgres_the_backfill_touches_only_future_noes_and_runs_once(app):
+    """#513 review F6: the same three cases on Postgres, in a scratch schema of the test database."""
+    from padel_app.sql_db import db
+
+    with app.app_context():
+        conn = db.engine.connect()
+        try:
+            conn.exec_driver_sql("DROP SCHEMA IF EXISTS pad497_mig CASCADE")
+            conn.exec_driver_sql("CREATE SCHEMA pad497_mig")
+            conn.exec_driver_sql("SET search_path TO pad497_mig")
+            for ddl in (
+                "CREATE TABLE lesson_instances (id INTEGER PRIMARY KEY, start_datetime TIMESTAMP)",
+                "CREATE TABLE messages (id INTEGER PRIMARY KEY, msg_metadata JSON)",
+                "CREATE TABLE notification_events (id INTEGER PRIMARY KEY, lesson_instance_id INTEGER,"
+                " message_id INTEGER, status VARCHAR(16))",
+                "INSERT INTO lesson_instances VALUES (1, (now() AT TIME ZONE 'UTC') + interval '2 days'),"
+                " (2, (now() AT TIME ZONE 'UTC') - interval '2 days')",
+                """INSERT INTO messages VALUES (10, '{"responded": true, "response": "no"}'),
+                                               (11, '{"responded": true, "response": "yes"}'),
+                                               (12, '{"responded": true, "response": "no"}'),
+                                               (13, '{"responded": false}')""",
+                "INSERT INTO notification_events VALUES (100, 1, 10, 'expired'), (101, 1, 11, 'confirmed'),"
+                " (102, 2, 12, 'expired'), (103, 1, 13, 'sent'), (104, 1, NULL, 'sent')",
+            ):
+                conn.exec_driver_sql(ddl)
+            _run(conn, "upgrade")
+            assert _answers(conn) == {100: "no", 101: None, 102: None, 103: None, 104: None}
+            conn.exec_driver_sql("UPDATE notification_events SET answer = 'yes' WHERE id = 100")
+            _run(conn, "upgrade")
+            assert _answers(conn)[100] == "yes"
+            _run(conn, "downgrade")
+            _run(conn, "downgrade")
+        finally:
+            conn.exec_driver_sql("RESET search_path")   # the connection goes back to the pool
+            conn.exec_driver_sql("DROP SCHEMA IF EXISTS pad497_mig CASCADE")
+            conn.close()

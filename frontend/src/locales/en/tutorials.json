@@ -75,7 +75,8 @@
       "unavailable": "Marked themselves unavailable at this class's time.",
       "auto_invites_off": "Switched automatic invitations off.",
       "no_round_matched": "Matches no round's criteria:",
-      "invited": "Would be invited."
+      "invited": "Would be invited.",
+      "unknown": "Not invited this time."
     },
     "rules": {
       "level": {
