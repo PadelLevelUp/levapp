@@ -386,7 +386,9 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
   const TECHNIQUE = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
   const BANDEJA = competency({ id: 12, key: "bandeja", name: "Bandeja", group: "technique", parentId: 1 });
   const SAQUE = competency({ id: 13, name: "Saque cruzado", group: "custom", parentId: null });
-  const DATA: EvaluationCompetencies = { competencies: [TECHNIQUE, BANDEJA, FOREHAND, SAQUE], catalogue: [] };
+  // A custom sub-category: the only kind that may go to the top level.
+  const LIFT = competency({ id: 14, name: "Saque liftado", group: "custom", parentId: 13 });
+  const DATA: EvaluationCompetencies = { competencies: [TECHNIQUE, BANDEJA, FOREHAND, SAQUE, LIFT], catalogue: [] };
   const rowOf = (c: EvaluationCompetency, rowKind: "catalogue" | "custom" | "legacy") =>
     createElement(CompetencyRow, { row: { kind: "existing", competency: c, rowKind }, onDelete: () => {}, level: "sub" });
 
@@ -395,14 +397,14 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
     api.updateEvaluationCompetency.mockReset();
   });
 
-  it("a sub-category offers the other categories and the top level; picking one sends parentId", async () => {
+  it("a catalogue sub-category offers the other categories, never the top level; picking one sends parentId", async () => {
     api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
     const n = await renderNative(rowOf(BANDEJA, "catalogue"));
     await n.flush();
 
     await n.press("competency-move-key-bandeja");
     expect(n.queryByTestId("competency-move-to-key-bandeja-13")).not.toBeNull();
-    expect(n.queryByTestId("competency-move-to-key-bandeja-top")).not.toBeNull();
+    expect(n.queryByTestId("competency-move-to-key-bandeja-top")).toBeNull(); // it would be a stray (B-255)
     expect(n.queryByTestId("competency-move-to-key-bandeja-7")).toBeNull(); // legacy: never a target
     expect(n.queryByTestId("competency-move-to-key-bandeja-1")).toBeNull(); // its current category
 
@@ -411,6 +413,18 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
 
     expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: 13 });
     expect(n.queryByTestId("competency-move-panel-key-bandeja")).toBeNull();
+  });
+
+  it("a custom sub-category may go to the top level, which sends parentId null", async () => {
+    api.updateEvaluationCompetency.mockResolvedValue({ ...LIFT, parentId: null, sortOrder: null });
+    const n = await renderNative(rowOf(LIFT, "custom"));
+    await n.flush();
+
+    await n.press("competency-move-id-14");
+    await n.press("competency-move-to-id-14-top");
+    await n.flush();
+
+    expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(14, { parentId: null });
   });
 
   it("a legacy row and a default category offer no move", async () => {
@@ -428,7 +442,7 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
     await n.flush();
 
     await n.press("competency-move-key-bandeja");
-    await n.press("competency-move-to-key-bandeja-top");
+    await n.press("competency-move-to-key-bandeja-13");
     await n.flush();
 
     expect(n.queryByTestId("competency-error-key-bandeja")).not.toBeNull();

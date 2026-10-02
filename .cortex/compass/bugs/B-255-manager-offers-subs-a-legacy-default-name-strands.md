@@ -51,7 +51,13 @@ default's name, but not what the manager offers in that case. Type 2, incomplete
   that default's sub-categories. The API path is unchanged.
 - **Code:** `categorySections` (`packages/config/src/competency-manager.ts`) offers a default's
   sub-level entries only when the default is held or available. Both clients build their sections
-  from it.
+  from it, so web and iOS from PAD-480 on no longer offer those entries.
+- **What remains, on purpose:** the server path stays. `POST {catalogueKey}` for a sub-level entry
+  with no `parentId`, while a legacy row holds the default's name, still creates the entry as a
+  category (rule 15 "Creating"). iOS builds that predate PAD-480 still offer it: 1.2.0 (27) and
+  1.2.1 (28, cut from 1cc9db7c5; the coordinator ruled 2026-10-02 that 28 does not go to the App
+  Store). The move PR also stops new strays by hand: a catalogue sub-category cannot be sent to the
+  top level, and a stray cannot become a parent.
 - **Test:** the shared builder test that expected the offer ("a default the coach cannot be offered
   … still lists its sub-categories") encoded this bug. It is rewritten as "B-255: … offers none",
   with a legacy " Técnica " held.

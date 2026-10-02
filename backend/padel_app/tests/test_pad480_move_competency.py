@@ -66,6 +66,18 @@ def _tree(app, client):
     return ids, grit["id"], rec["id"], bandeja["id"], bandeja["parentId"]
 
 
+def _stray(app, ids):
+    """A sub-level catalogue row at the top level, as the PAD-431 migration left coach 2's Serviço."""
+    from padel_app.models import EvaluationCategory
+
+    with app.app_context():
+        row = EvaluationCategory(coach_id=ids["coach_id"], name="Serviço", scale_min=1, scale_max=5,
+                                 catalogue_key="serve", competency_group="technique", is_active=False)
+        db.session.add(row)
+        db.session.commit()
+        return row.id
+
+
 def test_a_row_moves_under_another_category_and_back(app, client):
     """Criterion "A row moves under another category, and back"."""
     from padel_app.models import EvaluationEntry
@@ -85,32 +97,56 @@ def test_a_row_moves_under_another_category_and_back(app, client):
     with app.app_context():
         assert EvaluationEntry.query.filter_by(category_id=bandeja).count() == 1
 
-    back = _patch(app, client, ids, bandeja, {"parentId": None})
+    back = _patch(app, client, ids, bandeja, {"parentId": technique})
 
-    assert back.status_code == 200 and back.get_json()["parentId"] is None
-    assert _row(app, bandeja)["parent_id"] is None
-    assert _row(app, technique) is not None  # the old parent is untouched
+    assert back.status_code == 200 and back.get_json()["parentId"] == technique
+    assert _row(app, grit) is not None  # the old parent is untouched
+
+
+def test_a_custom_sub_category_can_become_a_category(app, client):
+    ids, _grit, rec, _bandeja, _technique = _tree(app, client)
+
+    res = _patch(app, client, ids, rec, {"parentId": None})
+
+    assert res.status_code == 200 and res.get_json()["parentId"] is None
+    assert _row(app, rec)["parent_id"] is None
+
+
+def test_a_stray_moves_under_its_default(app, client):
+    ids, _grit, _rec, _bandeja, technique = _tree(app, client)
+    stray = _stray(app, ids)
+
+    res = _patch(app, client, ids, stray, {"parentId": technique})
+
+    assert res.status_code == 200 and _row(app, stray)["parent_id"] == technique
 
 
 @pytest.mark.parametrize("case", [
     "legacy row", "legacy target", "default category as the row", "row with sub-categories",
     "sub-category as the target", "itself", "parentId not an int", "parentId a bool", "no such target",
+    "a stray as the target", "a catalogue sub-category to the top level",
 ])
 def test_a_move_that_breaks_two_levels_or_r047_is_refused_and_nothing_changes(app, client, case):
     """Criterion "A move that breaks the two levels or R-047 is refused, and nothing changes"."""
     ids, grit, rec, bandeja, technique = _tree(app, client)
+    stray = _stray(app, ids)
+    garra = _post(app, client, ids, {"name": "Garra"})["id"]  # top-level, no sub-categories
     row, target = {
         "legacy row": (ids["forehand_id"], grit),
         "legacy target": (bandeja, ids["forehand_id"]),
         "default category as the row": (technique, grit),
         "row with sub-categories": (grit, technique),
         "sub-category as the target": (bandeja, rec),
-        "itself": (bandeja, bandeja),
+        "itself": (garra, garra),  # a top-level row _parent would accept: only the self check refuses it
         "parentId not an int": (bandeja, str(grit)),
         "parentId a bool": (bandeja, True),
         "no such target": (bandeja, 999999),
+        # F1: a stray holding a sub-category could no longer be moved itself.
+        "a stray as the target": (garra, stray),
+        # F2: a catalogue sub-category at the top level is a stray (B-255); only a custom one may go there.
+        "a catalogue sub-category to the top level": (bandeja, None),
     }[case]
-    before = {cid: _row(app, cid) for cid in (ids["forehand_id"], grit, rec, bandeja, technique)}
+    before = {cid: _row(app, cid) for cid in (ids["forehand_id"], grit, rec, bandeja, technique, stray, garra)}
 
     res = _patch(app, client, ids, row, {"parentId": target})
 
@@ -175,3 +211,24 @@ def test_deleting_the_new_parent_takes_the_moved_row_with_it(app, client):
     assert _row(app, bandeja) is None and _row(app, rec) is None
     with app.app_context():
         assert EvaluationEntry.query.filter_by(category_id=bandeja).count() == 0
+
+
+def test_a_move_and_a_create_under_a_parent_take_the_coachs_tree_lock_before_checking(app, client, monkeypatch):
+    """Rule 15: "X under Y" and "Y under Z" at once could each pass the two-level check and leave three
+    levels. Both paths hold the coach row (`_lock_tree`, SELECT … FOR UPDATE) before they read the
+    tree; the lock itself only exists on Postgres, so this pins that it is taken, and taken first."""
+    from padel_app.services import evaluation_api_service as service
+
+    ids, grit, rec, bandeja, technique = _tree(app, client)
+
+    def locked(coach):
+        raise service.ApiError(423, "locked")
+
+    monkeypatch.setattr(service, "_lock_tree", locked)
+
+    moved = _patch(app, client, ids, bandeja, {"parentId": grit})
+    created = client.post(f"{BASE}/evaluation_competency", json={"name": "Lob", "parentId": grit},
+                          headers=_coach_headers(app, ids))
+
+    assert (moved.status_code, created.status_code) == (423, 423)
+    assert _row(app, bandeja)["parent_id"] == technique

@@ -211,17 +211,30 @@ def _name_taken(coach, name, *, except_id=None) -> bool:
 SUB_LEVEL_GROUPS = ("technique", "tactics")
 
 
+def _lock_tree(coach):
+    """Rule 15: serialises one coach's tree changes. Two requests that each pass the two-level check
+    ("X under Y" and "Y under Z") could otherwise leave three levels; holding the coach row until the
+    commit makes the second read what the first wrote. A no-op on SQLite."""
+    from padel_app.models.coaches import Coach
+
+    db.session.query(Coach.id).filter(Coach.id == coach.id).with_for_update().first()
+
+
 def _parent(coach, value) -> EvaluationCategory:
     """Rule 15: a parent is one of the coach's own non-legacy categories — never a sub-category,
-    never a legacy row (R-047). Another coach's → 403; anything else → 400."""
+    never a legacy row (R-047), never a sub-level catalogue row left at the top level (a stray: it
+    could then not be moved under its default). Another coach's → 403; anything else → 400."""
     if isinstance(value, bool) or not isinstance(value, int):
         raise ApiError(400, "parent_invalid")
-    parent = db.session.get(EvaluationCategory, value)
+    _lock_tree(coach)
+    parent = db.session.get(EvaluationCategory, value, populate_existing=True)
     if parent is None:
         raise ApiError(400, "parent_invalid")
     if parent.coach_id != coach.id:
         raise ApiError(403, "not_your_competency")
     if parent.parent_id is not None or parent.competency_group is None:
+        raise ApiError(400, "parent_invalid")
+    if parent.catalogue_key is not None and parent.competency_group in SUB_LEVEL_GROUPS:
         raise ApiError(400, "parent_invalid")
     return parent
 
@@ -347,14 +360,19 @@ def _move(coach, category, target) -> dict:
     """PAD-480 (rule 15 "Moving"): under one of the coach's own non-legacy categories, or back to the
     top level with `None`. A move to the current parent changes nothing. Refused, 400, before anything is
     written: a legacy row or target (R-047), a default category as the row, a row holding sub-categories,
-    a sub-category as the target, the row itself. A moved row goes after its new siblings' ordered rows."""
+    a sub-category or a stray as the target, the row itself, a catalogue sub-category to the top level
+    (it would be a stray, B-255). A moved row goes after its new siblings' ordered rows."""
     from padel_app.models import EvaluationCategory
 
     if target is not None and (isinstance(target, bool) or not isinstance(target, int)):
         raise ApiError(400, "parent_invalid")
+    _lock_tree(coach)
+    db.session.refresh(category)
     if target == category.parent_id:
         return {}
     if category.competency_group in (None, "general"):
+        raise ApiError(400, "parent_invalid")
+    if target is None and category.catalogue_key is not None:
         raise ApiError(400, "parent_invalid")
     if EvaluationCategory.query.filter_by(parent_id=category.id).first() is not None:
         raise ApiError(400, "parent_invalid")

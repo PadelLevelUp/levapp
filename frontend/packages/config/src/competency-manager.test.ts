@@ -256,31 +256,43 @@ describe("categorySections (PAD-431)", () => {
 
 describe("moveTargets (rule 15 \"Moving\", PAD-480)", () => {
   const technique = competency({ id: 1, key: "technique", name: "Técnica", group: "general", parentId: null });
+  // A default with no sub-categories (F4): still a default, so it never moves.
+  const consistency = competency({ id: 3, key: "consistency", name: "Consistência", group: "general", parentId: null });
   const grit = competency({ id: 5, key: null, name: "Grit", group: "custom", parentId: null });
   const rec = competency({ id: 6, key: null, name: "Recuperação", group: "custom", parentId: 5 });
+  const garra = competency({ id: 7, key: null, name: "Garra", group: "custom", parentId: null });
   const smash = competency({ id: 2, key: "smash", group: "technique", parentId: 1 });
   const bandejaTop = competency({ id: 12, key: "bandeja", group: "technique", parentId: null });
-  const data = { competencies: [FOREHAND_LEGACY, technique, grit, rec, smash, bandejaTop], catalogue: [] };
+  const data = {
+    competencies: [FOREHAND_LEGACY, technique, consistency, grit, rec, garra, smash, bandejaTop],
+    catalogue: [],
+  };
 
-  it("a sub-category can go under another non-legacy category, or to the top level", () => {
-    expect(moveTargets(data, smash)).toEqual({ categories: [grit, bandejaTop], topLevel: true });
+  it("a catalogue sub-category goes under another category, never to the top level (it would be a stray)", () => {
+    expect(moveTargets(data, smash)).toEqual({ categories: [consistency, grit, garra], topLevel: false });
   });
 
-  it("a top-level row with no sub-categories can go under any other non-legacy category, not to where it is", () => {
-    expect(moveTargets(data, bandejaTop)).toEqual({ categories: [technique, grit], topLevel: false });
+  it("a custom sub-category may also go to the top level", () => {
+    expect(moveTargets(data, rec)).toEqual({ categories: [technique, consistency, garra], topLevel: true });
   });
 
-  it("a legacy row, a default category and a row holding sub-categories cannot move", () => {
+  it("a top-level row with no sub-categories can go under any other category, not under itself", () => {
+    expect(moveTargets(data, bandejaTop)).toEqual({ categories: [technique, consistency, grit, garra], topLevel: false });
+    expect(moveTargets(data, garra)).toEqual({ categories: [technique, consistency, grit], topLevel: false });
+  });
+
+  it("a legacy row, a default category (with or without sub-categories) and a row holding sub-categories cannot move", () => {
     expect(moveTargets(data, FOREHAND_LEGACY)).toBeNull();
     expect(moveTargets(data, technique)).toBeNull();
+    expect(moveTargets(data, consistency)).toBeNull();
     expect(moveTargets(data, grit)).toBeNull();
   });
 
-  it("legacy rows and sub-categories are never offered as a target", () => {
-    const targets = moveTargets(data, rec)!.categories.map((c) => c.id);
+  it("legacy rows, sub-categories and stranded catalogue sub-categories are never offered as a target", () => {
+    const targets = moveTargets(data, garra)!.categories.map((c) => c.id);
     expect(targets).not.toContain(FOREHAND_LEGACY.id);
     expect(targets).not.toContain(smash.id);
-    expect(targets).toEqual([1, 12]);
+    expect(targets).not.toContain(bandejaTop.id);
   });
 });
 

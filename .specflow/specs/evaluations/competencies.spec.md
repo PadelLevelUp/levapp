@@ -167,18 +167,22 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
       sub-category never has sub-categories.
     - **Moving (PAD-480, reverses D150's "moving is not offered").** A non-legacy row that is not a
       default category and holds no sub-categories can be moved under any of the coach's own
-      non-legacy categories, or back to the top level. `PATCH /evaluation_competency/<id>`
-      `{parentId: <id>}` moves it under that category; `{parentId: null}` makes it a category; an
+      non-legacy categories; a custom one can also go to the top level. `PATCH /evaluation_competency/<id>`
+      `{parentId: <id>}` moves it under that category; `{parentId: null}` makes a custom row a category; an
       absent `parentId` changes nothing (rule 10), so a client that sends only `name`, `isActive` or
       `sortOrder` (every build before PAD-480) never detaches a row. A move to the parent the row
       already has is a no-op (200). Refused, 400 `parent_invalid`, nothing written: a legacy row or a
       legacy target (R-047); a default category (`general`) as the row; a row with sub-categories; a
-      target that is itself a sub-category; the row itself. Another coach's row or target → 403. A
+      target that is itself a sub-category, or a sub-level catalogue row at the top level (a stray: it
+      could then not be moved under its default); the row itself; `{parentId: null}` for a catalogue
+      row (it would be a stray, B-255). Another coach's row or target → 403. A
       move keeps the row's id, name, flag, scores and each score's scale, and sets its `sortOrder` to
       `null`, so it sorts after its new siblings' ordered rows, by name (rule 8). Rule 16 then decides
       afresh what is scored for the old and the new category, and rule 9's cascade and impact follow
-      the new parent. The manager offers the move as a row action, "Mover para…", listing the eligible
-      categories and "Sem categoria".
+      the new parent. A move, and a create with `parentId`, hold the coach's row (`SELECT … FOR
+      UPDATE`) before reading the tree, so two at once cannot leave three levels. The manager offers
+      the move as a row action, "Mover para…", listing the eligible categories and, for a custom row,
+      "Sem categoria".
     - **No new strays (PAD-480, B-255).** Where a legacy row holds a default category's name, the
       manager does not offer that default's sub-categories: they could not belong to it (the next
       bullet's API path would create each as a category of its own). The API path stays.

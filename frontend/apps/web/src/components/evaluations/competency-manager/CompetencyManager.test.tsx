@@ -442,14 +442,18 @@ describe("presentation (rule 14)", () => {
 });
 
 describe("moving a row (rule 15 \"Moving\", PAD-480)", () => {
-  it("a sub-category offers the other categories and the top level; picking one sends parentId", async () => {
+  // A custom sub-category: the only kind that may go to the top level.
+  const LIFT = competency({ id: 14, name: "Saque liftado", group: "custom", parentId: 13 });
+  const WITH_LIFT: EvaluationCompetencies = { ...ANA, competencies: [...ANA.competencies, LIFT] };
+
+  it("a catalogue sub-category offers the other categories, never the top level; picking one sends parentId", async () => {
     open();
     api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
 
     fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
     const panel = screen.getByTestId("competency-move-panel-key-bandeja");
     expect(within(panel).getByTestId("competency-move-to-key-bandeja-13")).toBeInTheDocument();
-    expect(within(panel).getByTestId("competency-move-to-key-bandeja-top")).toBeInTheDocument();
+    expect(within(panel).queryByTestId("competency-move-to-key-bandeja-top")).toBeNull(); // it would be a stray (B-255)
     expect(within(panel).queryByTestId("competency-move-to-key-bandeja-7")).toBeNull(); // legacy: never a target
     expect(within(panel).queryByTestId("competency-move-to-key-bandeja-1")).toBeNull(); // its current category
 
@@ -459,14 +463,14 @@ describe("moving a row (rule 15 \"Moving\", PAD-480)", () => {
     await waitFor(() => expect(screen.queryByTestId("competency-move-panel-key-bandeja")).toBeNull());
   });
 
-  it("to the top level sends parentId null", async () => {
-    open();
-    api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: null, sortOrder: null });
+  it("a custom sub-category may go to the top level, which sends parentId null", async () => {
+    open(WITH_LIFT);
+    api.updateEvaluationCompetency.mockResolvedValue({ ...LIFT, parentId: null, sortOrder: null });
 
-    fireEvent.click(await screen.findByTestId("competency-move-key-bandeja"));
-    fireEvent.click(screen.getByTestId("competency-move-to-key-bandeja-top"));
+    fireEvent.click(await screen.findByTestId("competency-move-id-14"));
+    fireEvent.click(screen.getByTestId("competency-move-to-id-14-top"));
 
-    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(12, { parentId: null }));
+    await waitFor(() => expect(api.updateEvaluationCompetency).toHaveBeenCalledWith(14, { parentId: null }));
   });
 
   it("a legacy row and a default category offer no move", async () => {

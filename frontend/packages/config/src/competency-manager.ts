@@ -200,10 +200,15 @@ export function categorySections(data: EvaluationCompetencies): CategorySection[
 
 /**
  * PAD-480 (evaluations.competencies rule 15 "Moving"): where a row can be moved — under one of the
- * coach's own non-legacy categories other than its current one, and to the top level when it has a
- * parent. `null` when the row cannot move: a legacy row (R-047), a default category, or a category
+ * coach's own non-legacy categories other than its current one and a stray, and to the top level when
+ * it is a custom sub-category. `null` when the row cannot move: a legacy row (R-047), a default category, or a category
  * holding sub-categories (two levels only). The server refuses the same cases.
  */
+/** A sub-level catalogue row at the top level (a Bandeja the migration left there): never a parent. */
+function isStray(c: EvaluationCompetency): boolean {
+  return c.parentId == null && c.key !== null && SUB_LEVEL.includes(c.group ?? "");
+}
+
 export function moveTargets(
   data: EvaluationCompetencies,
   row: EvaluationCompetency,
@@ -211,7 +216,8 @@ export function moveTargets(
   if (row.group === null || row.group === "general") return null;
   if (data.competencies.some((c) => c.parentId === row.id)) return null;
   const categories = data.competencies.filter(
-    (c) => c.parentId == null && c.group !== null && c.id !== row.id && c.id !== row.parentId,
+    (c) => c.parentId == null && c.group !== null && !isStray(c) && c.id !== row.id && c.id !== row.parentId,
   );
-  return { categories, topLevel: row.parentId != null };
+  // A catalogue sub-category at the top level would be a stray (B-255): only a custom one may go there.
+  return { categories, topLevel: row.parentId != null && row.key === null };
 }
