@@ -121,6 +121,9 @@ DEFAULT_INVITATION_GROUPS = [
     {"id": "3", "rules": []},
 ]
 
+#: notifications.config rule 14: the floor of maxInactiveTime, the same as the clients' stepper.
+MIN_INACTIVE_MINUTES = 15
+
 DEFAULT_TIEBREAKERS = [
     {"id": "unjustified_absences", "label": "Fewest unjustified absences", "enabled": True},
     {"id": "justified_absences", "label": "Most justified absences", "enabled": True},
@@ -360,6 +363,10 @@ class NotificationConfig(db.Model, model.Model):
             sub = sub if isinstance(sub, dict) else {}
             setattr(self, enabled_col, _bool_or(sub.get("enabled"), DEFAULT_RESTRICTIONS[key]["enabled"]))
             setattr(self, value_col, _int_or(sub.get("value"), DEFAULT_RESTRICTIONS[key]["value"]))
+        # PAD-495 item 11 (rule 14): the clients bound maxInactiveTime to 15–1440 minutes; any other
+        # caller is held to the same floor, so the timer never acts on a start still in progress.
+        if self.max_inactive_time_value is not None and self.max_inactive_time_value < MIN_INACTIVE_MINUTES:
+            self.max_inactive_time_value = MIN_INACTIVE_MINUTES
         quiet = data.get("quietHours")
         self.quiet_hours_enabled = _bool_or(quiet.get("enabled"), False) if isinstance(quiet, dict) else False
         # PAD-451 compat: a quietHours object without start/end (an app from before PAD-451) keeps
