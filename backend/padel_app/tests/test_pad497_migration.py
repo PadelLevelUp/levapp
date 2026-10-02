@@ -104,17 +104,23 @@ def test_on_postgres_the_backfill_touches_only_future_noes_and_runs_once(app):
                 "CREATE TABLE notification_events (id INTEGER PRIMARY KEY, lesson_instance_id INTEGER,"
                 " message_id INTEGER, status VARCHAR(16))",
                 "INSERT INTO lesson_instances VALUES (1, (now() AT TIME ZONE 'UTC') + interval '2 days'),"
-                " (2, (now() AT TIME ZONE 'UTC') - interval '2 days')",
+                " (2, (now() AT TIME ZONE 'UTC') - interval '2 days'),"
+                # Started 30 minutes ago on the club's clock but still "ahead" in UTC (Lisbon is
+                # UTC+0/+1): a past class, which only the club-time comparison sees as past.
+                " (3, (now() AT TIME ZONE 'Europe/Lisbon') - interval '30 minutes')",
                 """INSERT INTO messages VALUES (10, '{"responded": true, "response": "no"}'),
                                                (11, '{"responded": true, "response": "yes"}'),
                                                (12, '{"responded": true, "response": "no"}'),
-                                               (13, '{"responded": false}')""",
+                                               (13, '{"responded": false}'),
+                                               (15, '{"responded": true, "response": "no"}')""",
                 "INSERT INTO notification_events VALUES (100, 1, 10, 'expired'), (101, 1, 11, 'confirmed'),"
-                " (102, 2, 12, 'expired'), (103, 1, 13, 'sent'), (104, 1, NULL, 'sent')",
+                " (102, 2, 12, 'expired'), (103, 1, 13, 'sent'), (104, 1, NULL, 'sent'),"
+                " (105, 3, 15, 'expired')",
             ):
                 conn.exec_driver_sql(ddl)
             _run(conn, "upgrade")
-            assert _answers(conn) == {100: "no", 101: None, 102: None, 103: None, 104: None}
+            # 105 is in the offset hour: past on the club's clock, so not backfilled.
+            assert _answers(conn) == {100: "no", 101: None, 102: None, 103: None, 104: None, 105: None}
             conn.exec_driver_sql("UPDATE notification_events SET answer = 'yes' WHERE id = 100")
             _run(conn, "upgrade")
             assert _answers(conn)[100] == "yes"

@@ -242,7 +242,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 17. **The same answer twice is answered once (PAD-493, ledger B-260).** A second "no" on an
     invitation that is no longer live, and a second "yes" on one already `confirmed`, change nothing
     and send nothing: no second decline message, no next invitation, no `spot_filled` to the student
-    who holds the spot. The check runs on the invitation re-read after the vacancy lock (rule 10),
+    who holds the spot. The check runs on the invitation re-read under a lock — the vacancy's
+    (rule 10's order) for an automatic invitation, the invitation row itself for a manual one,
+    which has no vacancy —
     and the answer is recorded before the lock can end: a "no" marks the invitation `expired`
     before anything commits, and a "yes" marks it `confirmed` before the spot is closed (closing
     retires the other invitations, and that commits). So a double tap racing itself is answered
@@ -274,9 +276,11 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     "another offer" for that skip — the student already has an offer for this class and is not
     sent an automatic one on top — but, like any offer, holds a spot only for a student the round
     would otherwise ask, so a student the coach excluded never holds a spot with a manual
-    invitation. No invitation is ever left live without its message (it commits with the message,
-    PAD-495 item 8, landed here), so a student cannot hold a spot with an invitation they never
-    received.
+    invitation. No invitation, automatic or manual, is ever left live without its message: it is
+    committed together with the message (PAD-495 item 8, landed here), and one whose message a
+    backstop withholds (an empty body, PAD-67; availability, PAD-107; block-all, PAD-112) or that has
+    no account to message is discarded — so a student cannot hold a spot with an invitation they
+    never received.
     **Rounds.** A round whose candidates all hold another spot's offer moves on, like an empty
     round (one round per tick, PAD-87), whatever `maxInactiveTime` is: a starved spot reaches its
     last round within (groups − 1) ticks, asking on the way any student a later group admits. Only
@@ -293,9 +297,14 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     enrolled or free), a new candidate becomes eligible, capacity closes the spot (rule 13), or the
     class starts (PAD-68). An offer nobody answers keeps it waiting until the class starts, exactly
     as that offer keeps its own spot holding (rule 16).
-    **Reach.** With these rules a spot never sits with a free place and an uninvited student the
-    round would ask: compared with before, the same students are reached as fast or faster, each
-    with one invitation per class instead of one per spot.
+    **Reach.** A spot never sits with a free place and an uninvited student its current round would
+    ask, and each student holds one invitation per class instead of one per spot. With invitation
+    groups nested widest-last (the default groups), the same students are reached as fast or faster
+    than before. When the last group is NOT the widest — any group a student could match earlier but
+    not last, such as a ladder ending on `one_below_vacancy` — a spot can step past a student who is
+    holding a sibling's offer and reach its last round without them; if that offer is later retired
+    (someone else took that spot), the student is not asked for this spot, where before PAD-497 they
+    would have been asked for both spots at once.
     **Known side effect until PAD-495 lands:** a started spot whose batch the daily per-student limit
     skipped entirely is re-examined every tick and, until PAD-495 item 9, advances its batch counter
     and `last_activity_at` each time without sending anything (nothing reaches anyone).
@@ -589,6 +598,26 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** a student whose invitation was retired (spot filled by someone else) without an answer
 - **When** another spot of the same class invites
 - **Then** the student may be invited for it
+
+#### Only the last round waits; an earlier round moves on (PAD-497, rule 18)
+- **Given** two spots and invitation groups "same side" then "everyone", with the same-side students all holding the first spot's offers
+- **When** the second spot's round 1 finds nobody it can ask
+- **Then** it moves to round 2 on the next tick and asks a student only round 2 admits; only a last round in that state waits
+
+#### A holder the round would never ask does not hold a spot (PAD-497, rule 18)
+- **Given** a student the coach excluded from automatic invitations, holding the coach's manual invitation for the class
+- **When** a spot's round has nobody else to ask
+- **Then** the spot moves on (an earlier round) or expires (the last round) — it does not wait on that student
+
+#### A manual invitation counts for the one-offer skip (PAD-497, rule 18)
+- **Given** a student holding the coach's live manual invitation for the class
+- **When** the engine starts a spot of that class
+- **Then** it sends that student no automatic invitation on top
+
+#### No invitation is left without its message (PAD-497, rule 18)
+- **Given** an automatic or manual invitation whose message fails to send, or is withheld by a backstop
+- **When** the send returns or raises
+- **Then** no live invitation without a message remains for that student
 
 #### Only one open vacancy per departing player per occurrence (PAD-303)
 - **Given** an open vacancy on instance 10 for player 7

@@ -40,6 +40,8 @@ def _backfill() -> None:
         now = "(now() AT TIME ZONE 'Europe/Lisbon')"
     else:
         response = "json_extract(m.msg_metadata, '$.response')"
+        # SQLite runs only in tests: it has no zone database, so this compares in UTC — up to an
+        # hour off the club's clock, which no test relies on.
         now = "datetime('now')"
     bind.execute(sa.text(f"""
         UPDATE notification_events SET answer = 'no'

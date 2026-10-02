@@ -4046,11 +4046,16 @@ def _send_invitation_batch(
                 "responded": False,
             },
         )
-        # _send_system_message returns None only if the body came out empty
-        # (PAD-67 backstop); the event still exists, just without a chat message.
-        if msg is not None:
-            event.message_id = msg.id
-            event.save()
+        # _send_system_message returns None, without raising, when a backstop withholds the
+        # message (an empty body, PAD-67; availability, PAD-107; block-all, PAD-112). The
+        # invitation was only flushed: discard it, so no live invitation exists without its
+        # message (#513 re-review; rule 18).
+        if msg is None:
+            db.session.delete(event)
+            db.session.flush()
+            continue
+        event.message_id = msg.id
+        event.save()
 
         notified.append({"id": str(cp.player_id), "name": player_name})
 
@@ -4982,6 +4987,8 @@ def send_manual_notifications(
             continue
 
         player_user_id = _user_id_for_player(player_id)
+        if not coach_user_id or not player_user_id:
+            continue  # nobody to message: no invitation either (rule 18: none without its message)
 
         event = NotificationEvent(
             coach_id=coach_id,
@@ -4991,38 +4998,43 @@ def send_manual_notifications(
             round_number=1,
             status="sent",
         )
-        event.create()
+        # #513 re-review item 1: flushed, not committed — it commits with its message, so a failed
+        # or withheld message leaves no live invitation behind (as in _send_invitation_batch).
+        db.session.add(event)
+        db.session.flush()
 
-        if coach_user_id and player_user_id:
-            player = Player.query.get(player_id)
-            player_name = (player.user.name if player and player.user else "there").split()[0]
-            level_code = effective_level_code(instance)
-            weekday = _format_weekday(instance.start_datetime, locale)
-            time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
+        player = Player.query.get(player_id)
+        player_name = (player.user.name if player and player.user else "there").split()[0]
+        level_code = effective_level_code(instance)
+        weekday = _format_weekday(instance.start_datetime, locale)
+        time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
 
-            text = _format_template(
-                resolve_message_template(templates, "invite", locale),
-                name=player_name,
-                level=level_code,
-                weekday=weekday,
-                time=time_str,
-                **class_placeholders(instance, locale),
-            )
+        text = _format_template(
+            resolve_message_template(templates, "invite", locale),
+            name=player_name,
+            level=level_code,
+            weekday=weekday,
+            time=time_str,
+            **class_placeholders(instance, locale),
+        )
 
-            msg = _send_system_message(
-                coach_user_id=coach_user_id,
-                player_user_id=player_user_id,
-                text=text,
-                message_type="notification_invite",
-                msg_metadata={
-                    "notificationEventId": event.id,
-                    "lessonInstanceId": instance_id,
-                    "responded": False,
-                },
-            )
-            if msg is not None:
-                event.message_id = msg.id
-                event.save()
+        msg = _send_system_message(
+            coach_user_id=coach_user_id,
+            player_user_id=player_user_id,
+            text=text,
+            message_type="notification_invite",
+            msg_metadata={
+                "notificationEventId": event.id,
+                "lessonInstanceId": instance_id,
+                "responded": False,
+            },
+        )
+        if msg is None:
+            db.session.delete(event)
+            db.session.flush()
+            continue
+        event.message_id = msg.id
+        event.save()
 
         events.append(event)
 
