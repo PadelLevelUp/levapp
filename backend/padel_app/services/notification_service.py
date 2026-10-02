@@ -3947,9 +3947,16 @@ def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> l
         for v in Vacancy.query.filter_by(lesson_instance_id=instance.id).all()
         if v.original_player_id is not None
     }
+    # Only as many as the absences free: an absence on an over-full roster frees no place, and a
+    # vacancy for it would be open (and startable by a concurrent tick) until reconciled.
+    room = max(
+        0,
+        (instance.effective_max_players or 0) - _effective_filled_spots(instance)
+        - Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").count(),
+    )
     created = [
         _create_vacancy_for_absent_player(instance, coach_id, player_id)
-        for player_id in absent_ids - existing_vacancy_player_ids
+        for player_id in sorted(absent_ids - existing_vacancy_player_ids)[:room]
     ]
     if not any_open:
         created.extend(_create_structural_vacancies(instance, coach_id))
@@ -3960,6 +3967,41 @@ def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> l
         .order_by(Vacancy.id.asc())
         .all()
     )
+
+
+#: PAD-493 (rule 1b): how long a start claim holds before it lapses. A claim that never sent
+#: anything (the process died between the claim's commit and the batch) is retried after this;
+#: it is far longer than any batch takes, so a live sender is never raced.
+START_CLAIM_LEASE = timedelta(minutes=10)
+
+
+def _claim_lapsed(vacancy: Vacancy, now: datetime) -> bool:
+    """True for an open vacancy that was claimed but never sent (round 1, batch 0, no invitation
+    for it) longer than `START_CLAIM_LEASE` ago. A round deferral moves the round, a batch moves
+    the counter and a send writes an invitation, so only an abandoned claim looks like this."""
+    return (
+        vacancy.status == "open"
+        and vacancy.last_activity_at is not None
+        and vacancy.current_batch_number == 0
+        and vacancy.current_round_number == 1
+        and now - vacancy.last_activity_at >= START_CLAIM_LEASE
+        and NotificationEvent.query.filter_by(vacancy_id=vacancy.id).count() == 0
+    )
+
+
+def _give_back_claim(vacancy_id: int, stamp: datetime, batch: int, round_no: int) -> None:
+    """Undo a start claim that sent nothing, under the lock and only if nothing has moved since."""
+    locked = (
+        Vacancy.query.filter_by(id=vacancy_id).with_for_update().populate_existing().one()
+    )
+    if (
+        locked.status == "open"
+        and locked.last_activity_at == stamp
+        and locked.current_batch_number == batch
+        and locked.current_round_number == round_no
+    ):
+        locked.last_activity_at = None
+    db.session.commit()  # the give-back, and the end of the lock
 
 
 def _start_vacancy(
@@ -3974,11 +4016,12 @@ def _start_vacancy(
 
     The start is claimed in its own short transaction: the row is locked
     (``SELECT … FOR UPDATE``) and re-read, and only an open vacancy that has never started
-    (``last_activity_at`` null) is claimed, by stamping ``last_activity_at`` and committing. A
-    second caller waiting on the lock then reads the stamp and sends nothing. The batch goes out
-    after that commit, outside the lock, so no push or live event is sent for a row a rollback
-    could still undo. A batch that sent nothing and advanced no round (``maxTotal`` used up)
-    gives the claim back, so the next tick tries again.
+    (``last_activity_at`` null, or a claim that lapsed without sending, `_claim_lapsed`) is
+    claimed, by stamping ``last_activity_at`` and committing. A second caller waiting on the lock
+    then reads the stamp and sends nothing. The batch goes out after that commit, outside the lock,
+    so no push or live event is sent for a row a rollback could still undo. A batch that sent
+    nothing and advanced no round (``maxTotal`` used up), or that raised, gives the claim back, so
+    the next tick tries again.
     """
     locked = (
         Vacancy.query.filter_by(id=vacancy.id)
@@ -3986,22 +4029,23 @@ def _start_vacancy(
         .populate_existing()
         .one()
     )
-    if locked.status != "open" or locked.last_activity_at is not None:
+    if locked.status != "open" or not (
+        locked.last_activity_at is None or _claim_lapsed(locked, now)
+    ):
         db.session.commit()  # release the lock; nothing was written
         return []
     locked.last_activity_at = now
     db.session.commit()  # the claim, and the end of the lock
 
-    batch, round_no = locked.current_batch_number, locked.current_round_number
-    sent = _send_invitation_batch(locked, instance, config, coach_id, now=now)
-    if (
-        not sent
-        and locked.status == "open"
-        and locked.current_batch_number == batch
-        and locked.current_round_number == round_no
-    ):
-        locked.last_activity_at = None
-        locked.save()
+    vacancy_id, batch, round_no = locked.id, locked.current_batch_number, locked.current_round_number
+    try:
+        sent = _send_invitation_batch(locked, instance, config, coach_id, now=now)
+    except Exception:
+        db.session.rollback()
+        _give_back_claim(vacancy_id, now, batch, round_no)
+        raise
+    if not sent:
+        _give_back_claim(vacancy_id, now, batch, round_no)
     return sent
 
 
@@ -4256,7 +4300,7 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 
         # Fresh vacancy (no batch sent yet) — start it, through the same claim as
         # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
-        if last is None:
+        if last is None or _claim_lapsed(vacancy, _now):
             _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue

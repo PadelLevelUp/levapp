@@ -101,9 +101,12 @@ cross-spot split out as PAD-494).
     (`maxTotal` used up) clears the stamp, so the next tick retries. Review of #507 found the
     first version (one unit of work around claim and batch) left such a vacancy waiting
     `maxInactiveTime`, or never retried with it off, and submitted pushes before the commit.
+    Second review: a batch that raised, or a process that died after the claim, left the same
+    stall. A raise now gives the claim back (re-locked, only if unchanged), and an abandoned
+    claim lapses after `START_CLAIM_LEASE` (10 minutes).
   - `_find_or_create_open_vacancies` creates a vacancy for each absent student without one even
-    while another vacancy of the class is open (never-filled places unchanged), then reconciles to
-    capacity. Review of #507: a student marked absent while another spot held got no vacancy;
+    while another vacancy of the class is open (never-filled places unchanged), only as many as
+    the absences free: an absence on an over-full roster creates none. Review of #507: a student marked absent while another spot held got no vacancy;
     the gap existed before but the hold widened it.
   - `_defer_next_round` holds a vacancy on its last round while `_has_live_offers` is true,
     instead of expiring it.

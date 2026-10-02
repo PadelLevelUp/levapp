@@ -32,11 +32,15 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    make a second caller wait and then see the committed stamp, so two concurrent callers — two
    triggers, or a trigger and the tick's fresh-vacancy branch — cannot both start one vacancy;
    sending after the commit means no push goes out for a claim a rollback could undo. A batch that
-   sent nothing and advanced no round (`maxTotal` used up) gives the claim back, so the vacancy is
-   retried on the next tick like any never-started one. A decline's follow-up invitation (one
+   sent nothing and advanced no round (`maxTotal` used up), or that raised, gives the claim back
+   (under the lock, only if nothing has moved since), so the vacancy is retried on the next tick
+   like any never-started one. A claim whose process died before the batch (round 1, batch 0, no
+   invitation) lapses after `START_CLAIM_LEASE` (10 minutes) and is started again by the next
+   caller or tick, whatever `maxInactiveTime` is. A decline's follow-up invitation (one
    more, to the next candidate) is not a start and is unchanged. Every call also creates a
    vacancy for each absent student who has none, even while another vacancy of the class is open,
-   bounded by capacity (rule 13); never-filled places get theirs, as before, when the class has no
+   but only as many as the absences free (places minus filled spots minus open vacancies): an
+   absence on an over-full roster creates none (rule 13); never-filled places get theirs, as before, when the class has no
    open vacancy.
 2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
 2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When

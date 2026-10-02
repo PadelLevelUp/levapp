@@ -483,3 +483,82 @@ def test_a_student_marked_absent_while_another_spot_holds_gets_a_vacancy(app, mo
         theirs = Vacancy.query.filter_by(lesson_instance_id=instance_id, original_player_id=enrolled_player.id).all()
         assert len(theirs) == 1 and theirs[0].status == "open"
         assert theirs[0].current_batch_number == 1                          # started by that call
+
+
+# ── second review of #507: a claim whose batch never ran is not a stall ──────────────────────
+
+@pytest.mark.parametrize("max_inactive", [True, False])
+def test_a_claim_whose_batch_raised_is_retried_on_the_next_tick(app, monkeypatch, max_inactive):
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=4, max_players=1, max_inactive=max_inactive)
+        real = ns._send_invitation_batch
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("send failed")
+
+        monkeypatch.setattr(ns, "_send_invitation_batch", boom)
+        with pytest.raises(RuntimeError):
+            ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        monkeypatch.setattr(ns, "_send_invitation_batch", real)
+        assert _state(instance_id) == ([(1, "open", 1, 0)], [])
+
+        tick = pin_clock(monkeypatch, NOW + timedelta(minutes=2))
+        ns.process_invitation_batches(now=tick)
+        vacancies, events = _state(instance_id)
+        assert vacancies == [(1, "open", 1, 1)] and len(events) == 3
+
+
+@pytest.mark.parametrize("max_inactive", [True, False])
+def test_a_claim_left_by_a_dead_process_lapses_and_is_retried(app, monkeypatch, max_inactive):
+    """The process died between the claim's commit and the batch: stamped, nothing sent. Not
+    re-started while another caller could still be sending it; started once the claim lapses."""
+    from sqlalchemy import text
+
+    from padel_app.services.notification_service import process_invitation_batches
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=4, max_players=1, max_inactive=max_inactive)
+        db.session.add(__import__("padel_app.models.vacancy", fromlist=["Vacancy"]).Vacancy(
+            lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+            current_round_number=1, current_batch_number=0))
+        db.session.commit()
+        db.session.execute(text("UPDATE vacancies SET last_activity_at = :t"), {"t": NOW})
+        db.session.commit()
+
+        soon = pin_clock(monkeypatch, NOW + timedelta(minutes=4))
+        process_invitation_batches(now=soon)
+        assert _state(instance_id) == ([(1, "open", 1, 0)], [])
+
+        later = pin_clock(monkeypatch, NOW + timedelta(minutes=12))
+        process_invitation_batches(now=later)
+        vacancies, events = _state(instance_id)
+        assert vacancies == [(1, "open", 1, 1)] and len(events) == 3
+
+
+def test_an_absence_that_frees_no_place_creates_no_vacancy(app, monkeypatch):
+    """Prod class 367's shape: more on the roster than places, so one absence frees nothing. No
+    vacancy is created (not even one closed a moment later), and nobody is invited."""
+    from padel_app.models.players import Player
+    from padel_app.models.presences import Presence
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, enrolled_users, _ = _seed(enrolled=3, candidates=2, max_players=2)
+        player = Player.query.filter_by(user_id=enrolled_users[0]).one()
+        presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=player.id).one()
+        presence.status = "absent"
+        presence.confirmed = True
+        db.session.commit()
+
+        assert trigger_invitations(_instance(instance_id), coach_id, now=NOW) == []
+        assert Vacancy.query.filter_by(lesson_instance_id=instance_id).count() == 0
+        assert _live_events(instance_id) == []
