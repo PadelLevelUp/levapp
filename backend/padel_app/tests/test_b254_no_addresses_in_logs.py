@@ -208,3 +208,49 @@ def test_the_not_allowed_exception_names_no_address(app):
             send_email("x", [ADDRESS], body="y")
 
     assert ADDRESS not in str(caught.value).lower()
+
+
+# --- Part two (coordinator, 2026-10-02): raw LLM output and whole device tokens ---------------
+
+
+def test_bad_llm_json_logs_its_length_and_error_class_not_the_content(caplog):
+    """helpers/llm.py parse_json logged up to 500 chars of the raw output: in the roster and
+    evaluation import that is players' names and coaching notes."""
+    from padel_app.helpers.llm import parse_json
+
+    caplog.set_level(logging.WARNING)
+    raw = "Players: Ana Silva (backhand weak), Bruno Costa — this is not JSON"
+    with pytest.raises(ValueError):
+        parse_json(raw, label="roster")
+
+    records = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("bad JSON" in m and str(len(raw)) in m and "JSONDecodeError" in m for m in records), records
+    assert not any("Ana Silva" in m or "Bruno Costa" in m for m in (r.getMessage() for r in caplog.records))
+
+
+TOKEN = "ExponentPushToken[abcdefghijklmnop]"
+
+
+@pytest.mark.parametrize("receipt", [
+    {"status": "error", "message": f'"{TOKEN}" is not a registered push notification recipient',
+     "details": {"error": "DeviceNotRegistered"}},
+    {"status": "error", "message": f'Message to "{TOKEN}" is too big', "details": {"error": "MessageTooBig"}},
+])
+def test_expo_receipts_log_a_token_tail_never_the_token(app, caplog, receipt):
+    """utils/expo_push.py logged whole device tokens (and :125 the whole receipt, whose message quotes
+    the token). A short tail keeps two devices apart in a log (PAD-118's diagnosability)."""
+    from unittest.mock import patch
+
+    from padel_app.tests.test_native_push import _mock_response
+    from padel_app.utils.expo_push import send_expo_push
+
+    caplog.set_level(logging.WARNING)
+    with app.app_context():
+        with patch("padel_app.utils.expo_push.requests.post") as mock_post:
+            mock_post.return_value = _mock_response({"data": [receipt]})
+            send_expo_push([TOKEN], "Title", "Body", {})
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("klmnop" in m for m in messages if "token" in m.lower()), messages
+    assert not any(TOKEN in m or "abcdefghij" in m for m in messages), messages
+    assert any(receipt["details"]["error"] in m for m in messages), messages

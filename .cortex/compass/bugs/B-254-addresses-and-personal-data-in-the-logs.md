@@ -3,7 +3,8 @@ id: B-254
 title: "A failing send wrote the recipient's email address to the logs; so did the allowlist guard and the exception it raises"
 type: missing-criterion
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-10-02T13:10:20Z
 affects:
   - backend/padel_app/services/email_verification_service.py
   - backend/padel_app/services/password_recovery_service.py
@@ -74,4 +75,11 @@ address-bearing by construction. Those messages are what make a production failu
 
 ### Resolution
 
-(Filled in when the PR lands.)
+- Commit 1: the nine mail-path sites log the user id, or a recipient count, and the exception class.
+  `MailRecipientNotAllowed`'s message is a count.
+- Commit 2: `llm.py` logs the output's length and the parse error's class. `expo_push.py` logs
+  `…` plus the token's last 6 characters (`_token_tail`), and for an error receipt its status and
+  Expo's error code. Not the receipt's message, which quotes the whole token.
+- Tests: `test_b254_no_addresses_in_logs.py`, 12. All were red first, with the leak shown verbatim.
+  Each asserts the warning was logged, so a silenced logger fails the test, and that the address,
+  names or token are absent.
