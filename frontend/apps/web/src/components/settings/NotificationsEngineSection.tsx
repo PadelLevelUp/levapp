@@ -244,6 +244,8 @@ export function NotificationsEngineSection() {
                 ...config.reminderTiming,
               }}
               onChange={(reminderTiming) => save({ reminderTiming }, "reminders")}
+              // Read from storage at the moment the section closes, not from the auth hook:
+              // sign-out is what unmounts it, so a render-time value would still say "signed in".
               flushOnClose={() => localStorage.getItem("accessToken") !== null}
               disabled={disabled}
             />
