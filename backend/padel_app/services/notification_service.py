@@ -3055,13 +3055,17 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
             )
 
 
-def _retire_invite_message(event: NotificationEvent) -> None:
+def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> None:
     """Flag the conversation message that delivered ``event`` as no longer live.
 
     PAD-68: reuses the ``responded`` flag the invite bubble already keys off, so
     the Yes/No buttons stop rendering on both web and mobile with no client
     change. ``response`` is set to ``"expired"`` — neither "yes" nor "no" — which
     both clients already fall through to a neutral non-actionable badge.
+
+    ``defer`` (PAD-499, ledger B-261): flush the edit instead of committing it, and publish nothing;
+    the caller commits and then calls `_publish_retired`. `_close_vacancy` always defers, so the
+    close, the winner's confirmation and their enrolment land in ONE commit under rule 10's lock.
     """
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
@@ -3074,11 +3078,29 @@ def _retire_invite_message(event: NotificationEvent) -> None:
     if msg.msg_metadata.get("responded"):
         return
     msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "expired"}
+    if defer:
+        db.session.flush()
+        return
     msg.save()
     publish(
         {"type": "message_edited", "payload": serialize_message(msg, None)},
         message_recipient_ids(msg),
     )
+
+
+def _publish_retired(events: list) -> None:
+    """PAD-499: tell the clients about the invite messages `_close_vacancy` retired, once the
+    caller's commit has made them real (a rollback must not leave a published edit behind)."""
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
+
+    for event in events:
+        msg = Message.query.get(event.message_id) if event.message_id else None
+        if msg is not None:
+            publish(
+                {"type": "message_edited", "payload": serialize_message(msg, None)},
+                message_recipient_ids(msg),
+            )
 
 
 def _expire_stale_invitations(instance: LessonInstance) -> int:
@@ -3426,6 +3448,7 @@ def respond_to_reminder(
         )
 
     if action == "yes":
+        retired_on_return = []
         if presence:
             # PAD-313 (B-073): a "yes" must undo what a previous "no" wrote.
             # The decline path sets status=absent/justification=justified and the
@@ -3451,12 +3474,13 @@ def respond_to_reminder(
                 # offering the seat its owner just re-took.
                 own = _open_vacancy_for(instance.id, player.id)
                 if own is not None:
-                    _close_vacancy(own, player.id)
+                    retired_on_return = _close_vacancy(own, player.id)
             presence.confirmed = True
             # status is not set to "present": only the coach marks attendance.
             # PAD-271 M5: the answer as one field (attendance.presence rule 7).
             record_response(presence, "confirmed", when=now)
             presence.save()
+            _publish_retired(retired_on_return)  # PAD-499: after the commit
         if coach_user_id:
             _send_system_message(
                 coach_user_id,
@@ -4410,8 +4434,11 @@ def _close_vacancy(
         if except_event_id is not None and event.id == except_event_id:
             continue  # the winner's own invitation; its caller marks it confirmed
         event.status = "expired"
-        _retire_invite_message(event)
+        # PAD-499 (B-261): flushed, never committed here — a commit would end the caller's rule-10
+        # lock before the winner is enrolled. The caller commits and calls `_publish_retired`.
+        _retire_invite_message(event, defer=True)
         retired.append(event)
+    db.session.flush()
     return retired
 
 
@@ -4433,12 +4460,19 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         return []
     db.session.expire(instance, ["presences"])
     open_spots = max(0, (instance.effective_max_players or 0) - _effective_filled_spots(instance))
+    # PAD-499 (B-261): the accept paths now hold rule 10's vacancy and class locks until the
+    # enrolment's commit, and that enrolment reconciles. Closing ANOTHER vacancy of the class here
+    # would wait on an answer that is deciding on it — which in turn waits for this class lock: a
+    # deadlock. So the vacancies to close are locked without waiting, and one that another answer
+    # holds is skipped: that answer finds the class full and refuses, and the tick reconciles it.
     open_vacancies = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
         .order_by(Vacancy.id.asc())
+        .with_for_update(skip_locked=True)
         .all()
     )
     closed = []
+    retired = []
     while len(open_vacancies) > open_spots:
         pick = next(
             (v for v in open_vacancies
@@ -4447,10 +4481,11 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
           or open_vacancies[0]
         open_vacancies.remove(pick)
-        _close_vacancy(pick, filled_by_player_id)
+        retired.extend(_close_vacancy(pick, filled_by_player_id))
         closed.append(pick)
     if closed:
         commit_or_flush()
+        _publish_retired(retired)
     return closed
 
 
@@ -4793,8 +4828,9 @@ def respond_to_notification(
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
-        _add_player_to_instance(event.player_id, instance)
+        _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
+        _publish_retired(retired)
 
         if coach_user_id:
             _send_system_message(
@@ -4885,13 +4921,15 @@ def coach_respond_to_notification(
         # that used to follow, which matched `sent` only and — alone among the
         # closers — never retired the invite MESSAGES, so the candidates' bubbles
         # kept live Yes/No buttons on an invitation that was already dead.
+        retired = []
         if vacancy:
-            _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
-        _add_player_to_instance(event.player_id, instance)
+            retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         event.status = "confirmed"
+        _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
         if vacancy:
             vacancy.save()
+        _publish_retired(retired)
 
         return {"action": "confirmed"}
 
@@ -5392,9 +5430,10 @@ def _fill_from_waiting_list(
     # It retires silently, like reconcile_vacancies: this path has never sent the
     # candidates user-visible mail, and starting would be a product change rather
     # than the closing of a hole.
-    _close_vacancy(vacancy, entry.player_id)
-    _add_player_to_instance(entry.player_id, instance)
+    retired = _close_vacancy(vacancy, entry.player_id)
+    _add_player_to_instance(entry.player_id, instance)  # the ONE commit (PAD-499)
     vacancy.save()
+    _publish_retired(retired)
 
     entry.is_active = False
     entry.save()

@@ -140,14 +140,16 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # whose premise — that they left — is void, and which capacity alone
         # would not close while the class has spare room.
         from padel_app.services.notification_service import (
-            _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+            _close_vacancy, _open_vacancy_for, _publish_retired, reconcile_vacancies,
         )
 
+        retired = []
         if returning:
             own = _open_vacancy_for(instance.id, player_id)
             if own is not None:
-                _close_vacancy(own, player_id)
+                retired = _close_vacancy(own, player_id)
         reconcile_vacancies(instance, filled_by_player_id=player_id)
+        _publish_retired(retired)  # PAD-499: after reconcile's commit (a flush inside a unit of work)
 
         # PAD-330: the coach's own hand on ONE occurrence — an instance-level add
         # or putting back someone who had cancelled — tells the student. Only
@@ -717,13 +719,13 @@ def add_presences(lesson_instance, payload):
         # what makes it stale, not the arithmetic.
         if was_absent and presence_obj.status != "absent":
             from padel_app.services.notification_service import (
-                _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+                _close_vacancy, _open_vacancy_for, _publish_retired, reconcile_vacancies,
             )
 
             own = _open_vacancy_for(lesson_instance.id, player_id)
-            if own is not None:
-                _close_vacancy(own, player_id)
+            retired = _close_vacancy(own, player_id) if own is not None else []
             reconcile_vacancies(lesson_instance, filled_by_player_id=player_id)
+            _publish_retired(retired)  # PAD-499: after reconcile's commit
 
         created_presences.append(presence_obj)
 

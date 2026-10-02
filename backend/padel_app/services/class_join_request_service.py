@@ -258,6 +258,7 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         _add_player_to_instance,
         _broadcast_spot_filled,
         _close_vacancy,
+        _publish_retired,
         _deactivate_standing_entry,
         _send_system_message,
         _user_id_for_coach,
@@ -368,6 +369,7 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
     row.decided_at = now
     row.decided_by_coach_id = coach.id
     db.session.commit()
+    _publish_retired(retired)  # PAD-499: the retired invitations' edits, after the commit
 
     if coach_user_id and player_user_id:
         _send_system_message(
