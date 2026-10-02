@@ -94,3 +94,16 @@ unchanged by decision; a server test pins what it does today.
   produces.
 - **Follow-up (separate ticket, the coordinator files it):** a coach with no email (legacy-path
   accounts) is asked for one in Settings on a build that can. Today they cannot recover a password.
+- **Noted, pre-existing (from #500's independent review), not fixed here:**
+  - two accepts of the same invitation at once: there is no row lock on the invitation, so both
+    could pass the pending check;
+  - two accepts racing with the same email: the second meets the unique constraint as a 500, the
+    same as two sign-ups racing.
+- **#500 review round, applied:**
+  - the accept is under sign-up's rate limiter (`register` scope);
+  - an error body carries `code` only when there is one;
+  - a failure in `begin_verification` after the commit answers with the session and is logged;
+  - rule 9's legacy-path sentence now says what the code does;
+  - four mutants that survived (code sent at the end of the unit, legacy path using the
+    invitation's email, case-sensitive uniqueness, email checked before birthDate) are now red;
+  - E2E `clubs/coach-invitation.spec.ts` US-CI-2 fills the email and completes the code.

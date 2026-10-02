@@ -186,7 +186,15 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     if email:
         from padel_app.services.email_verification_service import begin_verification
 
-        begin_verification(user)
+        try:
+            begin_verification(user)
+        except Exception as exc:  # noqa: BLE001
+            # The account exists and the invitation is used: answer with the session. The verify
+            # screen's "Send a new code" recovers, as it does for a mail failure (rule 6).
+            from flask import current_app
+
+            current_app.logger.warning("verification code for invited coach %s failed: %s", user.id, exc)
+            db.session.rollback()
     return user
 
 

@@ -215,3 +215,125 @@ def test_pad477_capability_spelling_matches_both_shells():
     for shell in ("apps/web/src/api/client.ts", "apps/mobile/src/lib/api.ts"):
         source = (frontend / shell).read_text()
         assert f'"{COACH_INVITE_EMAIL}"' in source, f"{shell} does not declare {COACH_INVITE_EMAIL}"
+
+
+# --- #500 independent review ------------------------------------------------------------
+
+
+def test_the_code_is_mailed_with_no_unit_of_work_open(client, app, monkeypatch):
+    """Rule 4/9: the code goes out AFTER the unit has committed, not at its end inside it."""
+    from padel_app.tools import email_tools, unit_of_work
+
+    at_send = []
+    monkeypatch.setattr(
+        email_tools, "send_email",
+        lambda subject, recipients, body=None, html=None: at_send.append(unit_of_work.active()) or "Sent",
+    )
+    token, _ = _invitation(app)
+
+    assert _accept(client, token).status_code == 200
+    assert at_send == [False]
+
+
+def test_the_legacy_path_ignores_the_invitations_own_email(client, app, outbox):
+    """Rule 9: the invitation's optional email is not used for the account, legacy path included."""
+    from padel_app.models import User
+
+    _, coach_id, club_id = _make_coach_with_club(app)
+    token = _make_invitation(app, club_id, coach_id, email="typed-by-inviter@example.com")
+    body = _body()
+    del body["email"]
+    res = client.post(f"/api/app/coach-invitations/{token}/accept", json=body)
+
+    assert res.status_code == 200, res.get_json()
+    assert outbox == []
+    with app.app_context():
+        assert User.query.filter_by(username="rita_coach").one().email is None
+
+
+def test_a_stored_mixed_case_email_is_still_taken(client, app, outbox):
+    from padel_app.models import User
+
+    with app.app_context():
+        db.session.add(User(name="Owner", username="owner", password="pw", status="active", email="Rita@Example.com"))
+        db.session.commit()
+    token, _ = _invitation(app)
+    res = _accept(client, token, email="rita@example.com")
+
+    assert res.status_code == 409, res.get_json()
+    assert res.get_json()["field"] == "email"
+
+
+def test_the_birth_date_is_judged_before_the_email(client, app, outbox):
+    """Order of checks: birthDate (PAD-457), then email. An underage capable client with no email
+    hears about its age, not its email."""
+    token, _ = _invitation(app)
+    body = _body(birthDate="2015-01-01")
+    del body["email"]
+    res = client.post(f"/api/app/coach-invitations/{token}/accept", json=body, headers=CAPABLE)
+
+    assert res.status_code == 400
+    assert res.get_json()["field"] == "birthDate"
+    assert res.get_json()["code"] == "UNDERAGE"
+
+
+def test_a_failure_after_the_commit_still_answers_with_the_session(client, app, monkeypatch):
+    """The account exists and the invitation is used, so the answer is the success; the failure is
+    logged and Settings / the verify screen can send a new code (as for a mail failure)."""
+    from padel_app.models import User
+    from padel_app.services import email_verification_service
+
+    def broken(user, now=None):
+        raise RuntimeError("code issue failed")
+
+    monkeypatch.setattr(email_verification_service, "begin_verification", broken)
+    token, _ = _invitation(app)
+    res = _accept(client, token)
+
+    assert res.status_code == 200, res.get_json()
+    assert res.get_json()["accessToken"]
+    with app.app_context():
+        assert User.query.filter_by(username="rita_coach").count() == 1
+        assert _inv(token).one().status == "accepted"
+
+
+def test_an_error_without_a_code_carries_no_code_key(client, app):
+    """As sign-up's errors: `code` only when there is one."""
+    with app.app_context():
+        from padel_app.models import User
+
+        db.session.add(User(name="Owner", username="owner", password="pw", status="active", email="rita@example.com"))
+        db.session.commit()
+    token, _ = _invitation(app)
+    res = _accept(client, token)
+
+    assert res.status_code == 409
+    assert "code" not in res.get_json()
+
+
+def test_the_accept_is_throttled_like_sign_up(client, app):
+    """A 409 does not use the invitation, so without a throttle a pending link would answer "does
+    this email have an account" for a week. The accept shares sign-up's limiter."""
+    from padel_app.models import User
+    from padel_app.utils.rate_limit import limiter_for
+
+    app.config["AUTH_RATE_LIMIT_ENABLED"] = True
+    app.config["AUTH_RATE_LIMIT_REGISTER"] = "2/600"
+    limiter_for(app).clock = lambda: 1000
+    with app.app_context():
+        db.session.add(User(name="Owner", username="owner", password="pw", status="active", email="rita@example.com"))
+        db.session.commit()
+    token, _ = _invitation(app)
+
+    def probe(ip):
+        return client.post(
+            f"/api/app/coach-invitations/{token}/accept", json=_body(), headers=CAPABLE,
+            environ_base={"REMOTE_ADDR": ip},
+        )
+
+    assert probe("203.0.113.7").status_code == 409
+    assert probe("203.0.113.7").status_code == 409
+    third = probe("203.0.113.7")
+    assert third.status_code == 429
+    assert third.get_json()["error"] == "RATE_LIMITED"
+    assert probe("203.0.113.8").status_code == 409

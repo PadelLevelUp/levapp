@@ -40,8 +40,11 @@ A coach who belongs to a club can invite another coach to join that club via a s
      `400 {"field": "email", "code": "EMAIL_REQUIRED"}`, and nothing is written. The web bundle and iOS
      builds from 29 on declare it, and their accept forms always ask for the email.
    - **Legacy path.** A request that does NOT declare it and sends no email (iOS 1.2.0 (27) and
-     1.2.1 (28), whose accept screen predates the field) is accepted as before PAD-477: the account is
-     created without an email, no code is sent, and its state is `"unverified"` (never held). Remove
+     1.2.1 (28), whose accept screen predates the field) is accepted without an email: the account is
+     created with no email (the invitation's own is not used either), no code is sent, and its state
+     is `"unverified"` (never held). Before PAD-477 the account took `data.get("email") or
+     invitation.email`; no client creates an invitation with an email, so for real clients the
+     result is the same. Remove
      this path, and the token's gate, once no build older than the first declaring one is in use. That
      is a compat-audit question at each promotion. It is countable: the query in B-241 counts coaches
      whose email is neither verified nor required to be, and those with no email at all.
@@ -69,6 +72,10 @@ A coach who belongs to a club can invite another coach to join that club via a s
 #### Accepting leads to the verify screen (rule 9, web and iOS)
 - **Given** a new user accepts an invitation on web or iOS
 - **Then** the next screen is Verify your email
+- **Test mapping:** web renders the page (`CoachInvitePage.test.tsx`). The iOS screen cannot be
+  mounted in the unit harness (its `Screen` wrapper reaches native code), so iOS is covered by the
+  pure decision `coachInviteLanding` (`account-setup.test.ts`); the screen passes it
+  `refreshUser()`'s result.
 
 #### A failed new-user accept leaves nothing and can be accepted again (rule 4, PAD-476)
 - **Given** a pending invitation
