@@ -513,3 +513,88 @@ def test_f2_a_failed_send_leaves_no_phantom_to_hold_the_class(app, monkeypatch):
             NotificationEvent.status.in_(("sent", "queued")),
             NotificationEvent.message_id.is_(None),
         ).count() == 0
+
+
+# ── #513 re-review: no invitation without its message, on every path ────────────────────────
+
+def _live_without_message(instance_id):
+    from padel_app.models.notification_event import NotificationEvent
+
+    return NotificationEvent.query.filter(
+        NotificationEvent.lesson_instance_id == instance_id,
+        NotificationEvent.status.in_(("sent", "queued")),
+        NotificationEvent.message_id.is_(None),
+    ).count()
+
+
+def test_r1_a_manual_invitation_whose_message_fails_leaves_nothing_behind(app, monkeypatch):
+    """Re-review item 1: the coach's manual invitation is committed with its message, never before
+    it, so a failed send cannot leave a live invitation that holds the student (and a spot)."""
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (b,) = _seed(enrolled=0, candidates=1, max_players=1)
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("send failed")
+
+        monkeypatch.setattr(ns, "_send_system_message", boom)
+        with pytest.raises(RuntimeError):
+            ns.send_manual_notifications(instance_id, [b], coach_id)
+        db.session.rollback()
+        assert _live_without_message(instance_id) == 0
+
+
+def test_r2_an_automatic_invitation_whose_message_is_withheld_is_discarded(app, monkeypatch):
+    """Re-review item 2: `_send_system_message` returns None without raising when a backstop
+    withholds the message (empty body PAD-67, availability PAD-107, block-all PAD-112). The
+    invitation must then be discarded, not committed by the next student's message."""
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=1)
+        real = ns._send_system_message
+        calls = {"n": 0}
+
+        def withheld_once(*args, **kwargs):
+            if kwargs.get("message_type") == "notification_invite":
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    return None          # a backstop withheld the first student's message
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(ns, "_send_system_message", withheld_once)
+        ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert _live_without_message(instance_id) == 0
+        assert len(_live_events(instance_id)) == 2
+
+
+def test_r2_an_empty_invitation_body_sends_nothing_and_leaves_nothing(app, monkeypatch):
+    """The PAD-67 backstop for real: a template that renders to nothing withholds the message."""
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=2, max_players=1)
+        monkeypatch.setattr(ns, "_format_template", lambda *a, **k: "")
+        ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert _live_without_message(instance_id) == 0
+
+
+def test_r3_a_manual_invitation_counts_for_the_skip(app, monkeypatch):
+    """Re-review item 3 (mutant M4): a student already holding the coach's manual invitation for
+    the class is not sent an automatic one on top."""
+    from padel_app.services.notification_service import send_manual_notifications, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (b,) = _seed(enrolled=0, candidates=1, max_players=1)
+        send_manual_notifications(instance_id, [b], coach_id)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert [v for v, _p in _live_events(instance_id)] == [None]
