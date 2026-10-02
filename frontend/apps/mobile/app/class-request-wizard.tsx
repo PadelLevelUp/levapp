@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { queryKeys } from "@levelup/hooks";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import { Text } from "@/components/ui/text";
-import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
+import { keyboardAvoidingBehavior, useNativeHeaderKeyboardOffset } from "@/lib/keyboard-avoiding";
 import { AcademyClassStep } from "@/features/class-requests/wizard/AcademyClassStep";
 import { CoachStep } from "@/features/class-requests/wizard/CoachStep";
 import { KindStep, type ClassRequestKind } from "@/features/class-requests/wizard/KindStep";
@@ -56,10 +56,16 @@ export default function ClassRequestWizardScreen() {
     else if (step === "kind" && (coaches?.length ?? 0) > 1) setStep("coach");
   };
   const coach = coaches?.find((c) => c.id === coachId) ?? null;
+  const keyboardOffset = useNativeHeaderKeyboardOffset();
   const finish = () => router.back();
 
   return (
-    <KeyboardAvoidingView className="flex-1 bg-background" behavior={keyboardAvoidingBehavior()}>
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={keyboardAvoidingBehavior()}
+      // PAD-487: the native header sits above this view; without its height the note is covered.
+      keyboardVerticalOffset={keyboardOffset}
+    >
       {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
       <StatusBar style="light" />
       <Stack.Screen
