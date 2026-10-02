@@ -24,7 +24,8 @@ import { Text } from "@/components/ui/text";
 import { useMessageableUsers } from "@/features/messages/hooks";
 import { initialsOf, normalizeId } from "@/features/messages/utils";
 import { describeApiError } from "@/lib/apiError";
-import { keyboardAvoidingBehavior, useNativeHeaderKeyboardOffset } from "@/lib/keyboard-avoiding";
+import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
+import { useNativeHeaderKeyboardOffset } from "@/lib/native-header-offset";
 
 const HEADER_OPTIONS = {
   headerShown: true,

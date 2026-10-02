@@ -8,7 +8,7 @@ affects:
   - .specflow/specs/mobile/android-runtime.spec.md
   - frontend/apps/mobile/app/class-request-wizard.tsx
   - frontend/apps/mobile/app/conversation/new.tsx
-  - frontend/apps/mobile/src/lib/keyboard-avoiding.ts
+  - frontend/apps/mobile/src/lib/native-header-offset.ts
 proposed_fix: "Screens under a native stack header pass the header's height as keyboardVerticalOffset (useNativeHeaderKeyboardOffset)."
 opened: 2026-10-02T18:21:05Z
 ---

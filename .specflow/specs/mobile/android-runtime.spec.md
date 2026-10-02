@@ -40,8 +40,8 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    ever needs a different value, that one function changes, not ten screens.
    `useKeyboardVisible` keeps `keyboardDid*` on Android (there are no `will` events there).
    **A screen under a native stack header passes the header's height as
-   `keyboardVerticalOffset` (PAD-487, B-265)**, through `useNativeHeaderKeyboardOffset()` in the
-   same file. The view pads by its own frame, which `onLayout` reports relative to its parent;
+   `keyboardVerticalOffset` (PAD-487, B-265)**, through `useNativeHeaderKeyboardOffset()`
+   (`src/lib/native-header-offset.ts`). The view pads by its own frame, which `onLayout` reports relative to its parent;
    under a native header that frame starts the header's height below the window's top, so with
    no offset the view shrinks too little and the bottom of the form stays under the keyboard.
    Today that is the class-request wizard and the new-conversation screen; screens that draw
