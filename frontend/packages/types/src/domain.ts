@@ -848,7 +848,9 @@ export type DashboardBlock =
   | DashboardNeedsYouBlock
   | DashboardSchedule7dBlock
   | DashboardWeekPulseBlock
-  | DashboardEvaluationsBlock;
+  | DashboardEvaluationsBlock
+  | DashboardIncompletePlayersBlock
+  | DashboardProfileIncompleteBlock;
 
 /** Payload ids — the client's switch between the two homes. */
 export const COACH_DASHBOARD_ID = "coach_default_v1";
@@ -1732,6 +1734,38 @@ export interface DashboardEvaluationsBlock {
   data: {
     cards: EvaluationCard[];
     href: string;
+  };
+}
+
+/** dashboard.profile-completeness: what a coach-student link lacks. */
+export type ProfileMissing = "level" | "side";
+
+/**
+ * dashboard.profile-completeness rule 3 (PAD-486): the coach's students whose link has no
+ * level or no side. Omitted entirely when there is none. A top-level block, so old builds
+ * (which skip unknown top-level types) are unaffected.
+ */
+export interface DashboardIncompletePlayersBlock {
+  id: string;
+  type: "incomplete_players";
+  data: {
+    count: number;
+    missingLevel: number;
+    missingSide: number;
+    players: { playerId: number; name: string; missing: ProfileMissing[]; href: string }[];
+    seeAllHref: string;
+  };
+}
+
+/**
+ * dashboard.profile-completeness rule 4 (PAD-490): the student's coaches whose link to them is
+ * incomplete. Omitted entirely when there is none.
+ */
+export interface DashboardProfileIncompleteBlock {
+  id: string;
+  type: "profile_incomplete";
+  data: {
+    coaches: { coachId: number; coachName: string; missing: ProfileMissing[]; remindedToday: boolean }[];
   };
 }
 

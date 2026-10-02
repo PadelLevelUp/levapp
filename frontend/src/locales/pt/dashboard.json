@@ -124,6 +124,19 @@
       "spotFilled": "Essa vaga acabou de ser ocupada.",
       "joinedWaitingList": "Estás na lista de espera.",
       "offerDeclined": "Anotado — não ficas na lista."
+    },
+    "profileCompleteness": {
+      "coachTitle": "Alunos com o perfil incompleto",
+      "coachBody": "Sem nível não recebem convites para aulas com nível; sem lado ficam fora das vagas de um lado.",
+      "noLevel": "sem nível",
+      "noSide": "sem lado",
+      "seeAll": "Ver todos",
+      "studentTitle": "O teu treinador ainda não completou o teu perfil",
+      "studentBody": "Enquanto o teu nível e lado não estiverem definidos, não recebes convites para aulas com nível nem as podes pedir. Podes sempre pedir uma aula privada.",
+      "studentCoach": "Treinador: {{name}}",
+      "remind": "Lembrar treinador",
+      "reminded": "Lembrete enviado hoje",
+      "remindFailed": "Não foi possível enviar o lembrete. Tenta novamente."
     }
   }
 }

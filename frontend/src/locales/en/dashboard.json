@@ -124,6 +124,19 @@
       "spotFilled": "Sorry, that spot was just filled.",
       "joinedWaitingList": "You're on the waiting list.",
       "offerDeclined": "Noted — you're not on the list."
+    },
+    "profileCompleteness": {
+      "coachTitle": "Students with an incomplete profile",
+      "coachBody": "Without a level they get no invitations to classes with a level; without a side they miss one-side spots.",
+      "noLevel": "no level",
+      "noSide": "no side",
+      "seeAll": "See all",
+      "studentTitle": "Your coach hasn't finished your profile yet",
+      "studentBody": "Until your level and side are set, you won't be invited to, or able to request, classes that have a level. You can always request a private class.",
+      "studentCoach": "Coach: {{name}}",
+      "remind": "Remind my coach",
+      "reminded": "Reminder sent today",
+      "remindFailed": "Couldn't send the reminder. Please try again."
     }
   }
 }

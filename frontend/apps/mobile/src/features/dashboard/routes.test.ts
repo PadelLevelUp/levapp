@@ -63,3 +63,25 @@ describe("PAD-327: the request alerts' destinations", () => {
     expect(nativeRouteForWebPath("/nowhere")).toBeNull();
   });
 });
+
+describe("PAD-486: the incomplete-profiles block's destinations", () => {
+  it("a player's href opens that player", () => {
+    expect(nativeRouteForWebPath("/players/42")).toEqual({
+      pathname: "/player/[playerId]",
+      params: { playerId: "42" },
+    });
+  });
+  it("'See all' keeps the missing-level or missing-side filter", () => {
+    expect(nativeRouteForWebPath("/players?missing_level=true")).toEqual({
+      pathname: "/(tabs)/players",
+      params: { missing_level: "true" },
+    });
+    expect(nativeRouteForWebPath("/players?missing_side=true")).toEqual({
+      pathname: "/(tabs)/players",
+      params: { missing_side: "true" },
+    });
+  });
+  it("the bare Players path is unchanged", () => {
+    expect(nativeRouteForWebPath("/players")).toEqual({ pathname: "/(tabs)/players" });
+  });
+});

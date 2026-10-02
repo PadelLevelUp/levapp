@@ -59,7 +59,11 @@ export default function PlayersScreen() {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
   // PAD-287: Settings → My connections lands here with `addByQr=1`.
-  const { addByQr } = useLocalSearchParams<{ addByQr?: string }>();
+  const { addByQr, missing_level, missing_side } = useLocalSearchParams<{
+    addByQr?: string;
+    missing_level?: string;
+    missing_side?: string;
+  }>();
   const [qrOpen, setQrOpen] = React.useState(addByQr === "1");
   React.useEffect(() => {
     if (addByQr === "1") setQrOpen(true);
@@ -75,8 +79,14 @@ export default function PlayersScreen() {
   );
   const sortOption: Option =
     sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];
-  const [missingLevelFilter, setMissingLevelFilter] = React.useState(false);
-  const [missingSideFilter, setMissingSideFilter] = React.useState(false);
+  const [missingLevelFilter, setMissingLevelFilter] = React.useState(missing_level === "true");
+  const [missingSideFilter, setMissingSideFilter] = React.useState(missing_side === "true");
+  // PAD-486: the dashboard's "See all" lands here with the filter on. The tab stays
+  // mounted, so a later arrival with the param is applied too.
+  React.useEffect(() => {
+    if (missing_level === "true") setMissingLevelFilter(true);
+    if (missing_side === "true") setMissingSideFilter(true);
+  }, [missing_level, missing_side]);
 
   // Debounce search — reset to page 1 on a new query (mirrors web, 300ms).
   React.useEffect(() => {

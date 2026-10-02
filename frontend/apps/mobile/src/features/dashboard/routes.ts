@@ -23,7 +23,8 @@ export type DashboardRoute =
   | { pathname: "/(tabs)/calendar" }
   | { pathname: "/(tabs)/messages" }
   | { pathname: "/conversation/[id]"; params: { id: string } }
-  | { pathname: "/(tabs)/players" }
+  | { pathname: "/(tabs)/players"; params?: { missing_level?: string; missing_side?: string } }
+  | { pathname: "/player/[playerId]"; params: { playerId: string } }
   | { pathname: "/(tabs)/presences"; params: { week: string; validate?: string } }
   | { pathname: "/attendance" }
   | { pathname: "/absences" }
@@ -63,7 +64,15 @@ export function nativeRouteForWebPath(
     if (id) return { pathname: "/conversation/[id]", params: { id } };
     return { pathname: "/(tabs)/messages" };
   }
-  if (href.startsWith("/players")) return { pathname: "/(tabs)/players" };
+  if (href.startsWith("/players")) {
+    // PAD-486: a player's href opens THAT player; "See all" keeps its missing-level/side filter.
+    const id = href.split("?")[0].split("/")[2] ?? "";
+    if (/^\d+$/.test(id)) return { pathname: "/player/[playerId]", params: { playerId: id } };
+    const params = query(href);
+    if (params.get("missing_level") === "true") return { pathname: "/(tabs)/players", params: { missing_level: "true" } };
+    if (params.get("missing_side") === "true") return { pathname: "/(tabs)/players", params: { missing_side: "true" } };
+    return { pathname: "/(tabs)/players" };
+  }
   if (href.startsWith("/presences")) {
     // PAD-201: on the week the card counted; PAD-283: with the validate view open.
     const params = query(href);

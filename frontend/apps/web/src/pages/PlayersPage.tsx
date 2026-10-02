@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { CoachPlayer, CoachLevel } from "@/types";
 import { SIDE_LABEL_KEYS } from "@/types";
@@ -43,8 +43,10 @@ export default function PlayersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [sortOption, setSortOption] = useState<SortOption>("name-asc");
-  const [missingLevelFilter, setMissingLevelFilter] = useState(false);
-  const [missingSideFilter, setMissingSideFilter] = useState(false);
+  // PAD-486: the dashboard's "See all" opens /players?missing_level=true (or missing_side).
+  const [searchParams] = useSearchParams();
+  const [missingLevelFilter, setMissingLevelFilter] = useState(searchParams.get("missing_level") === "true");
+  const [missingSideFilter, setMissingSideFilter] = useState(searchParams.get("missing_side") === "true");
   const [alertCounts, setAlertCounts] = useState({ missingLevel: 0, missingSide: 0 });
   const { user } = useAuth();
   const { toast } = useToast();
