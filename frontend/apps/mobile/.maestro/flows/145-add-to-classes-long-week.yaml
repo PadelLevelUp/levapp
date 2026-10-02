@@ -1,0 +1,85 @@
+# PAD-496 (players.profile rule 5c on the app): in a week with many classes the "Add to classes"
+# picker's list scrolls under a finger between a fixed header (title, week arrows) and a fixed
+# footer (Cancel / Add), and the LAST class of the week can be chosen.
+#
+# Reaching is proved by choosing: Maestro counts a row that sits behind the footer as visible,
+# so the flow taps the last class and reads the Add button, which is disabled until a class is
+# selected. A row hidden behind the footer would put the tap on the footer and leave it disabled.
+#
+# The week is made by the setup script (fourteen classes, two a day) and removed again from
+# onFlowComplete; the flow itself saves nothing. By test id only.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad496-class-clear.js
+  - runScript: ../scripts/pad496-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad496-class-clear.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-add-to-classes"
+    timeout: 15000
+- tapOn:
+    id: "player-add-to-classes"
+- extendedWaitUntil:
+    visible:
+      id: "add-to-classes-dialog"
+    timeout: 15000
+- tapOn:
+    id: "add-to-classes-week-next"
+- extendedWaitUntil:
+    visible:
+      id: "add-to-classes-class-.*"
+    timeout: 15000
+
+# Nothing chosen yet: Add is disabled. Header and footer are on screen before any scrolling.
+- assertVisible:
+    id: "add-to-classes-save"
+    enabled: false
+- assertVisible:
+    id: "add-to-classes-week-prev"
+
+# A finger on the list, until the week's last class is in it.
+- scrollUntilVisible:
+    element:
+      id: "add-to-classes-class-${output.pad496Last}"
+    direction: DOWN
+    timeout: 60000
+    speed: 40
+    visibilityPercentage: 100
+
+# Header and footer did not move away.
+- assertVisible:
+    id: "add-to-classes-week-next"
+- assertVisible:
+    id: "add-to-classes-save"
+
+# The last class can be chosen: Add becomes enabled.
+- tapOn:
+    id: "add-to-classes-class-${output.pad496Last}"
+- assertVisible:
+    id: "add-to-classes-save"
+    enabled: true
+
+# Leave without saving.
+- tapOn:
+    id: "dialog-close"
+- assertNotVisible:
+    id: "add-to-classes-dialog"

@@ -58,6 +58,13 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    top and Cancel/Add at the bottom; a long week scrolls in between by wheel or trackpad, on a
    short laptop screen too. Web uses a native `overflow-y: auto` list: Radix ScrollArea inside the
    Dialog did not receive wheel scrolling. iOS already uses a ScrollView.
+   **On a phone (PAD-496, B-270).** On every surface (web, a phone's browser, iOS, Android) the
+   picker is never taller than the visible window: when the week is long the list gets the
+   space that is left and scrolls under a finger; the header and the footer never leave the
+   screen. In a phone-width browser the picker takes the screen's height less a small margin
+   (`dvh` where the browser has it, so the browser's own toolbars are not counted as space). On
+   the app the shared dialog is bound to the window minus the safe areas, and the list has no
+   fixed height. The picker has no text field, so the keyboard does not come into it.
 6. Client calls to `/api/app/lesson_instances` must use the HTTP verb the route exposes (`GET`).
    A verb mismatch fails the request and renders as an empty picker with no error surfaced
 7. `GET /api/app/player_profile/{playerId}` is **coach-only**: it resolves the acting coach with
@@ -102,6 +109,14 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
   Tuesday recurring class — B-193)
 - **When** the coach scrolls the class list with the mouse wheel
 - **Then** the last class comes into view above the Cancel/Add footer, where it can be selected
+
+#### A long week on a phone (PAD-496, B-270)
+- **Given** a 360×560 phone browser and a week of 45 classes
+- **When** the coach opens the picker from the player's actions menu and drags the list with a finger
+- **Then** the picker is on screen and at least 536 px tall, the week's last class ends above the Cancel/Add footer, the week arrows are still on screen, and that class can be chosen
+- **Given** the app and a week of fourteen classes
+- **When** the coach swipes the list to the week's last class and taps it
+- **Then** the Add button, disabled until then, is enabled, and the week arrows and the footer never left the screen
 
 #### The profile opens beside the roster on a wide screen (PAD-410)
 - **Given** a coach on a 1280px-wide browser with players "João Silva" and "Pedro Costa"

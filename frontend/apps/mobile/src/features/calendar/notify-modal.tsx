@@ -219,7 +219,13 @@ export function NotifyModal({
           <DialogTitle>{t("calendar.notify.title")}</DialogTitle>
         </DialogHeader>
 
-        <ScrollView className="max-h-96" keyboardShouldPersistTaps="handled">
+        {/* PAD-496: no fixed height. The dialog is bound to the window (ui/dialog.tsx); the list
+            takes what its rows need and shrinks, never the header or the footer. flexGrow 0:
+            a ScrollView grows by default, which would stretch a short list to full height. */}
+        <ScrollView
+          style={{ flexGrow: 0, flexShrink: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="gap-3 p-1">
             {loadingGroups ? (
               <Text className="py-2 text-center text-xs text-muted-foreground">

@@ -295,7 +295,13 @@ export function AddToClassesDialog({
           </Pressable>
         </View>
 
-        <ScrollView className="max-h-96" keyboardShouldPersistTaps="handled">
+        {/* PAD-496: no fixed height. The dialog is bound to the window (ui/dialog.tsx); the list
+            takes what its rows need and shrinks, never the header or the footer. flexGrow 0:
+            a ScrollView grows by default, which would stretch a short list to full height. */}
+        <ScrollView testID="add-to-classes-list"
+          style={{ flexGrow: 0, flexShrink: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
           {isPending ? (
             <View className="gap-3 py-2">
               <Skeleton className="h-16 w-full rounded-lg" />

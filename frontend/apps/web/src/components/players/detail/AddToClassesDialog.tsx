@@ -178,7 +178,14 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   return (
     <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col" data-testid="add-to-classes-dialog">
+      {/* PAD-496: on a phone the picker takes the screen's height (all but a small margin), so
+          the list is more than a two-row slit under the title, the week row and the buttons.
+          dvh, where the browser has it: `vh` is measured as if a phone browser's toolbars were
+          hidden, so a height in vh can reach behind them when they are showing. */}
+      <DialogContent
+        className="sm:max-w-lg max-h-[85vh] supports-[height:100dvh]:max-h-[calc(100dvh-1rem)] sm:supports-[height:100dvh]:max-h-[85dvh] flex flex-col"
+        data-testid="add-to-classes-dialog"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-primary" />
@@ -258,6 +265,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
                             type="button"
                             data-testid={`add-to-classes-class-${cls.id}`}
                             disabled={isFull}
+                            aria-pressed={isSelected}
                             onClick={() => toggleClass(cls.id)}
                             className={cn(
                               "w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
