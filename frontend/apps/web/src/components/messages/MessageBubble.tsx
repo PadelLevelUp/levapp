@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@levelup/hooks';
+import { queryKeys, refreshAfterRequestChange } from '@levelup/hooks';
 import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest } from '@/api/classJoinRequests';
@@ -130,7 +130,8 @@ export function MessageBubble({
       toast.error(refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong"));
     } finally {
       setResponding(false);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      // classes.class-requests rule 19 (PAD-488): the calendar follows the answer.
+      await refreshAfterRequestChange(queryClient);
     }
   };
 

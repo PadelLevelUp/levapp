@@ -10,7 +10,7 @@ import {
   ENABLED_VIEW_MODES,
   MobileCalendar,
 } from "@/components/calendar/mobile/MobileCalendar";
-import type { CalendarViewMode } from "@levelup/hooks";
+import { isRequestEvent, type CalendarViewMode } from "@levelup/hooks";
 import { CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +32,7 @@ import { LoadingCalendar } from "@/components/ui/loading-skeleton";
 import { removeClass, editClass, addClass } from "@/api/classes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/auth/AuthContext";
+import { subscribeAppEvents } from "@/api/events";
 import { RescheduleDialog } from "@/components/calendar/RescheduleDialog";
 import type { ApplyScope } from "@/components/calendar/ClassScopeDialog";
 
@@ -82,7 +83,7 @@ function writeStoredViewMode(mode: CalendarViewMode) {
 export default function CalendarPage() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Frozen at first render: the calendar must open on the deep-linked week straight
@@ -145,6 +146,18 @@ export default function CalendarPage() {
 
     loadEvents();
   }, [fetchFrom, fetchTo]);
+
+  // classes.class-requests rule 19 (PAD-488, B-264): a request changed on this device, the
+  // other person's or another of mine — the hold moved or went and a class may have taken its
+  // place, so the open calendar refetches its range. It keeps local state, not a query, so
+  // the shared invalidation does not reach it.
+  useEffect(() => {
+    if (!token) return;
+    return subscribeAppEvents(token, (data) => {
+      if (!isRequestEvent(data.type)) return;
+      getCalendarEvents(fetchFrom, fetchTo).then(setAllEvents).catch(() => {});
+    });
+  }, [token, fetchFrom, fetchTo]);
 
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.

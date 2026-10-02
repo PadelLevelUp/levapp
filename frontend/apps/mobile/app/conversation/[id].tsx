@@ -5,6 +5,7 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
   queryKeys,
+  refreshAfterRequestChange,
   shouldShowJumpToBottom,
   openingTarget,
   canRetryThreadLoad,
@@ -1001,7 +1002,8 @@ export default function ConversationScreen() {
       );
     } finally {
       setRespondingClassRequestId(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      // classes.class-requests rule 19 (PAD-488): the calendar follows the answer.
+      void refreshAfterRequestChange(queryClient);
     }
   };
   const handleCounterClassRequest = (message: Message) => {

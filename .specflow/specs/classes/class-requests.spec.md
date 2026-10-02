@@ -245,6 +245,13 @@ held on the coach's calendar while the request is open.
       has passed keeps its hold — there is no expiry; also with the owner.
     - **No client change (web and iOS).** Both already render `withdrawn` and `declined`; nothing
       new reaches a screen, so PAD-360 ships backend-only.
+19. **An open calendar follows the request (PAD-488, B-264).** Every transition that changes a
+    calendar — `accept`, `accept-proposal`, `decline`, `decline-proposal`, `withdraw`, `propose`,
+    `counter-proposal` — publishes `class_request_changed` to the coach **and** the student, the
+    one who acted included (their other devices). Every client that receives it refreshes its
+    calendar data together with the request lists, and the client that performed the action
+    refreshes them as well. A calendar already open on web or iOS therefore shows the class, the
+    moved hold or no hold without a reload or a fresh login.
 
 ### Acceptance Criteria
 
@@ -310,6 +317,17 @@ held on the coach's calendar while the request is open.
 - **Then** Bruno's request message offers Accept, Decline and Propose another time
 - **When** Ana accepts from the bubble
 - **Then** the request is `accepted` at 18:00–19:00, the bubble shows the outcome, and Bruno's own copy of the message never offered actions
+
+#### An open calendar drops the hold when the request is accepted elsewhere (PAD-488)
+- **Given** a pending request and the coach's calendar open on its week, showing the hold
+- **When** the coach accepts it on another device
+- **Then** the open calendar shows no hold for it without a reload
+- **And** the class is on the coach's calendar at that slot
+
+#### An open calendar drops the hold when the student withdraws (PAD-488)
+- **Given** a pending request and the coach's calendar open on its week, showing the hold
+- **When** the student withdraws it
+- **Then** the coach's open calendar shows no hold for it without a reload
 
 #### Decline and withdraw release the hold
 - **Given** a pending request
