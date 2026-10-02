@@ -134,3 +134,33 @@ def test_item_10_the_retry_after_a_failed_send_keeps_to_max_simultaneous(app, mo
         process_invitation_batches(now=tick)
         spot = _vacancies(instance_id)[0][0]
         assert len([e for e in _live_events(instance_id) if e[0] == spot]) <= 3
+
+
+def test_item_9_a_batch_the_daily_limit_skipped_entirely_is_not_counted(app, monkeypatch):
+    """Every candidate has used today's invitation allowance, so the batch sends nothing. It must
+    not count as a batch: the spot stays unstarted (batch 0, no claim), so it is tried again on later
+    ticks."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services.notification_service import process_invitation_batches, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, others = _seed(enrolled=0, candidates=2, max_players=1)
+        cfg = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+        cfg.restrictions = {**cfg.get_restrictions(),
+                            "maxInvitesPerStudentPerDay": {"enabled": True, "value": 1}}
+        for pid in others:   # each already had today's one invitation (another class, unanswered)
+            db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id, player_id=pid,
+                                             type="manual", round_number=1, status="expired"))
+        db.session.commit()
+
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert _vacancies(instance_id) == [(1, "open", 1, 0)]
+        tick = pin_clock(monkeypatch, NOW + timedelta(minutes=2))
+        process_invitation_batches(now=tick)
+        assert _vacancies(instance_id) == [(1, "open", 1, 0)]
+        from padel_app.models.vacancy import Vacancy
+
+        assert Vacancy.query.one().last_activity_at is None
