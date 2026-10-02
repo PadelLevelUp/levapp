@@ -172,4 +172,20 @@ describe("iOS engine card (settings.save-on-change, B-243)", () => {
 
     expect(n.byTestId("stub-restrictions-value").props.children).toContain('"cancellationDeadlineHours":13');
   });
+
+  it("rule 3: one engine save in flight — a change made meanwhile waits and is sent when it returns", async () => {
+    const n = await mount();
+    const first = deferred<unknown>();
+    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
+
+    await n.toggle("settings-auto-invite-toggle"); // off — sent
+    await n.toggle("open-spots-visible"); // waits
+    await n.flush();
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
+    await act(async () => { first.resolve({ ...CONFIG, autoNotifyEnabled: false }); });
+    await n.flush();
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ openSpotsVisible: true });
+  });
 });

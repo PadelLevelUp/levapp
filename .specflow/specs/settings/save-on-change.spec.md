@@ -52,7 +52,13 @@ toast; every save-on-change control, on both clients, converges on it.
    settings never replaces a value a save has touched (B-184's guard, for this record). The failure
    stays until the coach changes that control again. Only the newest save of a control decides its
    sign: an older save that fails after a newer one was confirmed shows nothing. Every save-on-change
-   control keeps this record the same way, through the shared `SaveLedger` (`@levelup/config`). The
+   control keeps this record the same way, through the shared `SaveLedger` (`@levelup/config`).
+   **The server ends in sending order** because a control never has two saves of one setting in flight:
+   while one is out, a newer change waits (the latest replaces an older waiting one; engine patches
+   merge) and is sent when the answer comes — `createSerialSaver` (`@levelup/config`). Two exceptions,
+   named: the engine's reminders subsection keeps its own requests until PAD-478 (#496 puts it on the
+   same helper), and web's keepalive send when the page goes away goes at once, since a queued request
+   would die with the page. The
    coach is never left believing a setting saved when it did not.
 4. **Where a Save button appears.** Web's page-header "Guardar alterações" appears only on a tab that
    holds explicit-save fields (today: Perfil), because a Save button must save what is on the screen in
@@ -100,6 +106,8 @@ toast; every save-on-change control, on both clients, converges on it.
 - **Then** it shows no sign and saves exactly as before
 
 ### Tests
+- One save in flight: `packages/config/src/serial-saver.test.ts`, and per family "a change made meanwhile
+  waits and is sent when it returns" (web scale, engine; iOS scale, request alerts, engine).
 - The record: `packages/config/src/save-ledger.test.ts` (newest only, both held saves failing, recovery after
   the newest failed, sending order, answer over patch, independent fields, a read never replaces a saved
   field).

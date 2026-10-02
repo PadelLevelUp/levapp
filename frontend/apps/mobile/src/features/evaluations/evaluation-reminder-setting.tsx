@@ -9,7 +9,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 
 import { useFlushOnBackground } from "./use-flush-on-background";
 
@@ -75,6 +75,11 @@ export function EvaluationReminderSetting() {
   // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger — the
   // setting the server last confirmed, decided only by the newest save.
   const ledger = React.useRef(new SaveLedger<{ setting: Shown }>());
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const sendSetting = React.useRef(save.mutateAsync);
+  sendSetting.current = save.mutateAsync;
+  const [saveSetting] = React.useState(() => createSerialSaver((body: EvaluationSettings) => sendSetting.current(body)));
   const hydrated = React.useRef(false);
   // B-242: the custom number last sent (so a blur right after the delayed save sends nothing
   // twice), the field's latest text, and the timer of a save still waiting for typing to stop.
@@ -110,7 +115,7 @@ export function EvaluationReminderSetting() {
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
     const body = bodyForOption(next, everyN);
-    void sign.track("reminder", save.mutateAsync(body)).then(
+    void sign.track("reminder", saveSetting(body)).then(
       () => {
         const shown = ledger.current.confirm(token).show.setting;
         if (shown) display(shown);

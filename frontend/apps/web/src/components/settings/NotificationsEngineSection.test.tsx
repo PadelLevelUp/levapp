@@ -147,19 +147,18 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":24');
   });
 
-  it("overlapping saves: an older save failing after a newer one was confirmed keeps the newer value", async () => {
+  it("rule 3: one engine save in flight — a change made meanwhile waits and is sent when it returns", async () => {
     await mount();
-    const older = deferred<NotificationConfig>();
-    api.updateNotificationConfig
-      .mockImplementationOnce(() => older.promise)
-      .mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch }));
+    const first = deferred<NotificationConfig>();
+    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
 
-    fireEvent.click(toggle()); // off — save A, held
-    await waitFor(() => expect(toggle()).toHaveAttribute("data-state", "unchecked"));
-    fireEvent.click(toggle()); // on — save B, confirmed
+    fireEvent.click(toggle()); // off — sent
+    fireEvent.click(toggle()); // on — waits
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
+    await act(async () => { first.reject(new Error("late")); });
+
     await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
-    await act(async () => { older.reject(new Error("late")); });
-
+    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ autoNotifyEnabled: true });
     expect(toggle()).toHaveAttribute("data-state", "checked");
     await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
   });
@@ -182,19 +181,19 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "failed"));
   });
 
-  it("a late failure does not undo a newer confirmed change of another control (no stale copy)", async () => {
+  it("a failure does not undo a newer confirmed change of another control (no stale copy)", async () => {
     await mount();
     await openSection("settings.engine.eligibility");
     const spots = deferred<NotificationConfig>();
     api.updateNotificationConfig
-      .mockImplementationOnce(() => spots.promise) // open spots on: held, fails later
-      .mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch })); // master off: ok
+      .mockImplementationOnce(() => spots.promise) // open spots on: out, fails
+      .mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch })); // master off: waits, then ok
 
     fireEvent.click(screen.getByTestId("open-spots-visible"));
     await waitFor(() => expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "checked"));
     fireEvent.click(toggle());
-    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
     await act(async () => { spots.reject(new Error("offline")); });
+    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
 
     expect(toggle()).toHaveAttribute("data-state", "unchecked");
     expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "unchecked");

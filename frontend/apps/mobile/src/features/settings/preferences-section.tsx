@@ -25,7 +25,7 @@ import { CoachLevelsSection } from "@/features/settings/coach-levels-section";
 import { EvaluationSettingsGroup } from "@/features/evaluations/evaluation-settings-group";
 import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -67,6 +67,10 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const sign = useSaveSign();
   const ledger = React.useRef<SaveLedger<{ language: Language; requestAlerts: boolean }> | null>(null);
   if (!ledger.current) ledger.current = new SaveLedger();
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const [saveLanguage] = React.useState(() => createSerialSaver((value: Language) => authApi.updateMe({ language: value })));
+  const [saveRequestAlerts] = React.useState(() => createSerialSaver((on: boolean) => authApi.updateMe({ requestAlerts: on })));
 
   // Same key the Settings screen uses, so this is served from cache rather
   // than refetched — and it stays reactive when the screen's copy resolves.
@@ -98,7 +102,7 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
     queryClient.setQueryData(["auth-me"], (cur: typeof me) =>
       cur ? { ...cur, requestAlerts: checked } : cur
     );
-    await sign.track("requestAlerts", authApi.updateMe({ requestAlerts: checked })).then(
+    await sign.track("requestAlerts", saveRequestAlerts(checked)).then(
       (answer) => writeAnswer(answer, ledger.current!.confirm(token, { requestAlerts: answer.requestAlerts !== false }).show),
       () => showInCache(ledger.current!.fail(token)),
     );
@@ -109,7 +113,7 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
     setLanguage(value);
     await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
     queryClient.setQueryData(["auth-me"], (cur: typeof me) => (cur ? { ...cur, language: value } : cur));
-    await sign.track("language", authApi.updateMe({ language: value })).then(
+    await sign.track("language", saveLanguage(value)).then(
       async (answer) => {
         const { advanced, show } = ledger.current!.confirm(token, { language: (answer.language ?? value) as Language });
         await writeAnswer(answer, show);

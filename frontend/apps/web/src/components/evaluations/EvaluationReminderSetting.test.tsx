@@ -282,7 +282,7 @@ describe("review #497", () => {
     expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
   });
 
-  it("rule 3: two held frequency saves both fail — back to the confirmed frequency, not the one the last started from", async () => {
+  it("rule 3: two frequency saves both fail — back to the confirmed frequency, not the one the last started from", async () => {
     vi.useRealTimers();
     api.putEvaluationSettings.mockReset();
     let failY!: (e: Error) => void;
@@ -293,10 +293,11 @@ describe("review #497", () => {
     open({ reminder: "never" });
     await waitFor(() => expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked());
 
-    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly")); // Y
-    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-every_2")); // Z, started from monthly
-    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly")); // Y, sent
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-every_2")); // Z, waits; started from monthly
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1));
     await act(async () => { failY(new Error("y")); });
+    await waitFor(() => expect(api.putEvaluationSettings).toHaveBeenCalledTimes(2));
     await act(async () => { failZ(new Error("z")); });
 
     expect(screen.getByTestId("settings-evaluation-reminder-option-never")).toBeChecked();

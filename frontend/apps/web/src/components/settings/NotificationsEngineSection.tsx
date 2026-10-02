@@ -23,7 +23,7 @@ import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
 import { SaveSign, useSaveSign } from "./SaveSign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 
 type SectionKey = "reminders" | "eligibility" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
@@ -41,6 +41,15 @@ export function NotificationsEngineSection() {
   // last confirmed, decided only by that field's newest save.
   const sign = useSaveSign();
   const ledger = useRef(new SaveLedger<NotificationConfig>());
+  // settings.save-on-change rule 3: one engine save in flight at a time; patches waiting meanwhile are
+  // merged and sent next, so the server ends in the order the saves were sent. The reminders sub-panel
+  // (no sign key) goes direct, as before, until PAD-478.
+  const [saveEngine] = useState(() =>
+    createSerialSaver(
+      (patch: Partial<NotificationConfig>) => updateNotificationConfig(patch),
+      (pending, next) => ({ ...pending, ...next }),
+    ),
+  );
 
   useEffect(() => {
     getNotificationConfig()
@@ -60,7 +69,7 @@ export function NotificationsEngineSection() {
     if (!config) return;
     const token = ledger.current.begin(patch);
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
-    const request = updateNotificationConfig(patch);
+    const request = signKey ? saveEngine(patch) : updateNotificationConfig(patch);
     const show = (values: Partial<NotificationConfig>) => {
       if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
     };

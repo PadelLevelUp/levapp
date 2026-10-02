@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 import { useFlushOnPageHide } from "./useFlushOnPageHide";
 
 /**
@@ -70,6 +70,11 @@ export function EvaluationReminderSetting() {
   // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger — the
   // setting the server last confirmed, decided only by the newest save.
   const ledger = React.useRef(new SaveLedger<{ setting: Shown }>());
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const sendSetting = React.useRef(save.mutateAsync);
+  sendSetting.current = save.mutateAsync;
+  const [saveSetting] = React.useState(() => createSerialSaver((body: EvaluationSettings) => sendSetting.current(body)));
   // The server value hydrates local state once — after that, every change here is
   // this control's own (a selection or a saved custom number), never overwritten
   // by a background refetch, so a coach never sees their own pick flicker back.
@@ -108,7 +113,8 @@ export function EvaluationReminderSetting() {
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
     const body = bodyForOption(next, everyN);
-    void sign.track("reminder", save.mutateAsync(keepalive ? { ...body, keepalive } : body)).then(
+    // A keepalive flush goes at once: a request queued behind another would die with the page.
+    void sign.track("reminder", keepalive ? save.mutateAsync({ ...body, keepalive }) : saveSetting(body)).then(
       () => {
         const shown = ledger.current.confirm(token).show.setting;
         if (shown) display(shown);

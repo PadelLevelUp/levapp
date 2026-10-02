@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(__dirname, "..", "..", "..");
 const SAVE_ON_CHANGE_CALL = /updateNotificationConfig\(|updateMe\(|useSaveEvaluationSettings\(|useSaveEvaluationScale\(/;
 const SIGN_IMPORT = /from "(?:@\/features\/settings\/save-sign|\.\/save-sign)"/;
-const SAVE_CALL_SITE = /\b(?:updateMe|updateNotificationConfig|save\.mutateAsync)\(/g;
+const SAVE_CALL_SITE = /\b(?:updateMe|updateNotificationConfig|save\.mutateAsync|saveScale|saveSetting|saveLanguage|saveRequestAlerts|saveEngine)\(/g;
 const TRACK_KEY = /track\(\s*"([^"]+)"/g;
 const ENGINE_SAVE_KEY = /\bsave\(\{[^}]*\},\s*"([^"]+)"\)/g;
 const STATUS_KEY = /status\(\s*"([^"]+)"\s*\)/g;
@@ -78,8 +78,11 @@ describe("save-on-change guard (settings.save-on-change rule 1)", () => {
         const at = m.index ?? 0;
         const before = f.text.slice(Math.max(0, at - 160), at);
         const inTrack = /track\(\s*[^;]*$/.test(before) && !/\)\s*;\s*$/.test(before);
+        // A call made by a serial saver's `send` (settings.save-on-change rule 3): the saver's own calls are
+        // the ones that must sit inside track(), which the line above checks where they are made.
+        const inSerialSaver = /createSerialSaver\(\s*[^;]*$/.test(before);
         const allowed = (UNTRACKED_CALLS[f.rel] ?? []).some((c) => f.text.startsWith(c, at));
-        if (!inTrack && !allowed) bad.push(`${f.rel}: ${f.text.slice(at, at + 50).split("\n")[0]}`);
+        if (!inTrack && !inSerialSaver && !allowed) bad.push(`${f.rel}: ${f.text.slice(at, at + 50).split("\n")[0]}`);
       }
     }
     expect(bad).toEqual([]);

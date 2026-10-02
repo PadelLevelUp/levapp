@@ -216,4 +216,21 @@ describe("iOS Preferences save on change (settings.save-on-change)", () => {
 
     expect(n.byTestId("settings-language-select").props.accessibilityValue.text).toBe("en");
   });
+
+  it("rule 3: one request-alerts save in flight — a change made meanwhile is sent when it returns", async () => {
+    const n = await open();
+    const a = deferred<unknown>();
+    updateMe.mockReturnValueOnce(a.promise);
+
+    await n.toggle("settings-request-alerts"); // off — sent
+    await n.flush();
+    await n.toggle("settings-request-alerts"); // on — waits
+    await n.flush();
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    await act(async () => { a.resolve({ ...ME, requestAlerts: false }); });
+    await n.flush();
+
+    expect(updateMe).toHaveBeenCalledTimes(2);
+    expect(updateMe).toHaveBeenLastCalledWith({ requestAlerts: true });
+  });
 });

@@ -20,7 +20,7 @@ import { EligibilitySection } from "./eligibility-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
 import { SaveSign, useSaveSign } from "./save-sign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
@@ -59,6 +59,14 @@ export function AutoInviteSection() {
   // under its own key, and what a failure puts back comes from the shared SaveLedger.
   const sign = useSaveSign();
   const ledger = React.useRef(new SaveLedger<NotificationConfig>());
+  // settings.save-on-change rule 3: one engine save in flight at a time; patches waiting meanwhile are
+  // merged and sent next, so the server ends in the order the saves were sent.
+  const [saveEngine] = React.useState(() =>
+    createSerialSaver(
+      (patch: Partial<NotificationConfig>) => notificationEngineApi.updateNotificationConfig(patch),
+      (pending, next) => ({ ...pending, ...next }),
+    ),
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -94,7 +102,7 @@ export function AutoInviteSection() {
       if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
     };
     try {
-      const saved = await sign.track(signKey, notificationEngineApi.updateNotificationConfig(patch));
+      const saved = await sign.track(signKey, saveEngine(patch));
       show(ledger.current.confirm(token, saved).show);
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);

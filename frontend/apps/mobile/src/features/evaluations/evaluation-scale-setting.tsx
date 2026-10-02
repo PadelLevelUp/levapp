@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 
 /**
  * evaluations.scale rules 1 and 8 (PAD-423) — the iOS twin of web's `EvaluationScaleSetting`,
@@ -27,6 +27,11 @@ export function EvaluationScaleSetting() {
   const sign = useSaveSign();
   // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger.
   const ledger = React.useRef(new SaveLedger<{ scaleMax: EvaluationScaleMax }>());
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const sendScale = React.useRef(save.mutateAsync);
+  sendScale.current = save.mutateAsync;
+  const [saveScale] = React.useState(() => createSerialSaver((body: { scaleMax: EvaluationScaleMax }) => sendScale.current(body)));
   const hydrated = React.useRef(false);
 
   React.useEffect(() => {
@@ -40,7 +45,7 @@ export function EvaluationScaleSetting() {
     if (isLoading) return;
     const token = ledger.current.begin({ scaleMax: next });
     setChoice(next);
-    void sign.track("scale", save.mutateAsync({ scaleMax: next })).then(
+    void sign.track("scale", saveScale({ scaleMax: next })).then(
       (answer) => {
         const shown = ledger.current.confirm(token, answer).show.scaleMax;
         if (shown !== undefined) setChoice(shown);

@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 import { SettingsUnsavedContext } from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
 import {
@@ -316,6 +316,10 @@ export default function SettingsPage() {
     ledger.current = new SaveLedger();
     ledger.current.seed({ language });
   }
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const [saveLanguage] = useState(() => createSerialSaver((lang: AppLanguage) => updateMe({ language: lang })));
+  const [saveRequestAlerts] = useState(() => createSerialSaver((on: boolean) => updateMe({ requestAlerts: on })));
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -439,7 +443,7 @@ export default function SettingsPage() {
   const handleRequestAlertsChange = (checked: boolean) => {
     const token = ledger.current!.begin({ requestAlerts: checked });
     setRequestAlerts(checked);
-    void sign.track("requestAlerts", updateMe({ requestAlerts: checked })).then(
+    void sign.track("requestAlerts", saveRequestAlerts(checked)).then(
       (me) => {
         const { show } = ledger.current!.confirm(token, { requestAlerts: me.requestAlerts !== false });
         if (show.requestAlerts !== undefined) setRequestAlerts(show.requestAlerts);
@@ -463,7 +467,7 @@ export default function SettingsPage() {
       setLanguage(shown);
       i18n.changeLanguage(shown);
     };
-    void sign.track("language", updateMe({ language: lang })).then(
+    void sign.track("language", saveLanguage(lang)).then(
       (me) => showLanguage(ledger.current!.confirm(token, { language: (me.language ?? lang) as AppLanguage }).show.language),
       () => showLanguage(ledger.current!.fail(token).language),
     );

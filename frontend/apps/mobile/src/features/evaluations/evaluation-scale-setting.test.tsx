@@ -97,7 +97,7 @@ describe("Escala de avaliações (iOS)", () => {
     expect(checked(n, 5)).toBe(true);
   });
 
-  it("rule 3: the newest fails, then an older save is confirmed — shows the confirmed scale", async () => {
+  it("rule 3: the first is confirmed, the waiting newer one fails — shows the confirmed first; one save in flight", async () => {
     hooks.data = { scaleMax: 5 };
     let okY!: (v: unknown) => void;
     let failZ!: (e: Error) => void;
@@ -106,10 +106,13 @@ describe("Escala de avaliações (iOS)", () => {
       .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
     const n = await renderNative(<EvaluationScaleSetting />);
 
-    await n.press("settings-evaluation-scale-option-10");
-    await n.press("settings-evaluation-scale-option-20");
-    await act(async () => { failZ(new Error("z")); });
+    await n.press("settings-evaluation-scale-option-10"); // Y
+    await n.press("settings-evaluation-scale-option-20"); // Z, waits
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
     await act(async () => { okY({ scaleMax: 10 }); });
+    await n.flush();
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    await act(async () => { failZ(new Error("z")); });
     await n.flush();
 
     expect(checked(n, 10)).toBe(true);

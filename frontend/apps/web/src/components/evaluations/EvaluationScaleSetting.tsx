@@ -5,7 +5,7 @@ import type { EvaluationScaleMax } from "@levelup/types";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
-import { SaveLedger } from "@levelup/config";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
 
 /**
  * evaluations.scale rules 1 and 8 (PAD-423) — "Escala de avaliações" on web, beside the
@@ -24,6 +24,11 @@ export function EvaluationScaleSetting() {
   const sign = useSaveSign();
   // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger.
   const ledger = React.useRef(new SaveLedger<{ scaleMax: EvaluationScaleMax }>());
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const sendScale = React.useRef(save.mutateAsync);
+  sendScale.current = save.mutateAsync;
+  const [saveScale] = React.useState(() => createSerialSaver((body: { scaleMax: EvaluationScaleMax }) => sendScale.current(body)));
   // The server value hydrates local state once; after that every change is this control's own,
   // so a background refetch never flicks the coach's pick back.
   const hydrated = React.useRef(false);
@@ -39,7 +44,7 @@ export function EvaluationScaleSetting() {
     const next = Number(value) as EvaluationScaleMax;
     const token = ledger.current.begin({ scaleMax: next });
     setChoice(next);
-    void sign.track("scale", save.mutateAsync({ scaleMax: next })).then(
+    void sign.track("scale", saveScale({ scaleMax: next })).then(
       (answer) => {
         const shown = ledger.current.confirm(token, answer).show.scaleMax;
         if (shown !== undefined) setChoice(shown);
