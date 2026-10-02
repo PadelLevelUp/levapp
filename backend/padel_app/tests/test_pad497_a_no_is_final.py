@@ -303,3 +303,39 @@ def test_a_started_spot_waiting_on_a_sibling_offer_is_asked_again_on_the_next_ti
 
         _tick(monkeypatch, 4)
         assert _live_events(instance_id) == [(second, a)]
+
+
+def test_a_spot_held_up_in_an_early_round_moves_on_to_the_next_group(app, monkeypatch):
+    """Rule 18's wait must not hold a spot in an early invitation group: students who only a later
+    group admits would never be asked while the early group's candidates sit on another spot's
+    unanswered offers. Two left-side spots; three left-side students and one right-side student;
+    round 1 requires the spot's side, round 2 is open. The first spot asks the three left players;
+    the second, finding them all on the first spot's offers, moves to round 2 and asks the right
+    player on the next tick."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (a, b, c, d) = _seed(enrolled=0, candidates=4, max_players=2, groups=2)
+        cfg = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+        cfg.invitation_groups = [
+            {"id": "1", "rules": [{"attribute": "side", "operation": "same_as_vacancy"}]},
+            {"id": "2", "rules": []},
+        ]
+        for pid, side in ((a, "left"), (b, "left"), (c, "left"), (d, "right")):
+            Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=pid).one().side = side
+        spots = [Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open", side="left",
+                         current_round_number=1, current_batch_number=0) for _ in range(2)]
+        db.session.add_all(spots)
+        db.session.commit()
+        first, second = (v.id for v in spots)
+
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert sorted(p for v, p in _live_events(instance_id) if v == first) == sorted([a, b, c])
+        _tick(monkeypatch, 2)
+        _tick(monkeypatch, 4)
+        assert [p for v, p in _live_events(instance_id) if v == second] == [d]

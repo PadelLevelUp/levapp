@@ -3893,11 +3893,16 @@ def _send_invitation_batch(
     )
     eligible = _rank_invited(verdicts, config, vacancy)
 
-    if not eligible and any(v.stage == "offered_another_spot" for v in verdicts):
-        # PAD-497 / PAD-494 (rule 18): the round is empty only because students hold an offer for
-        # another spot of the class. Wait for those offers to resolve instead of moving on: a
+    if (
+        not eligible
+        and vacancy.current_round_number >= _round_max_count(config)
+        and any(v.stage == "offered_another_spot" for v in verdicts)
+    ):
+        # PAD-497 / PAD-494 (rule 18): the LAST round is empty only because students hold an offer
+        # for another spot of the class. Wait for those offers to resolve instead of expiring: a
         # sibling spot's pending offer must not starve this one (a never-started vacancy gives its
-        # claim back and is retried on the next tick).
+        # claim back and is retried on the next tick). An earlier round moves on as usual, so the
+        # students only a later invitation group admits are still asked.
         return []
 
     if not eligible:

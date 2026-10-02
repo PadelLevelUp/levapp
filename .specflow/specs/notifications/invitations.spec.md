@@ -259,8 +259,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
-    A spot whose round is empty only because its remaining candidates hold an offer for another
-    spot **waits** rather than moving to the next round or expiring. It is looked at again on every
+    A spot whose **last** round is empty only because its remaining candidates hold an offer for
+    another spot **waits** rather than expiring; an earlier round in that state moves on as usual, so
+    students only a later invitation group admits are still asked. It is looked at again on every
     tick (a never-started spot gives its claim back; a started one with no invitation of its own out
     is not paced by `maxInactiveTime`), so the wait ends on the first tick after any of: the sibling
     offer is declined (that student is out; the round moves on or the spot expires as usual), is
