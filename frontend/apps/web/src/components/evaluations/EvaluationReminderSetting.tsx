@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
+import { SaveLedger } from "@levelup/config";
 import { useFlushOnPageHide } from "./useFlushOnPageHide";
 
 /**
@@ -30,6 +31,8 @@ function validCustomN(raw: string): number | null {
   const n = Number(raw);
   return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
 }
+
+type Shown = { option: ReminderOption | ""; custom: string };
 
 function optionFromSettings(settings: EvaluationSettings | undefined): ReminderOption | "" {
   if (!settings) return "";
@@ -64,10 +67,9 @@ export function EvaluationReminderSetting() {
   const [customValue, setCustomValue] = React.useState(DEFAULT_CUSTOM_N);
   const [errorKey, setErrorKey] = React.useState<string | null>(null);
   const sign = useSaveSign();
-  // settings.save-on-change rule 3: what the server last confirmed, and which save is newest —
-  // only the newest save's failure puts the control back, to the confirmed value.
-  const confirmed = React.useRef<{ option: ReminderOption | ""; custom: string }>({ option: "", custom: DEFAULT_CUSTOM_N });
-  const saveSeq = React.useRef(0);
+  // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger — the
+  // setting the server last confirmed, decided only by the newest save.
+  const ledger = React.useRef(new SaveLedger<{ setting: Shown }>());
   // The server value hydrates local state once — after that, every change here is
   // this control's own (a selection or a saved custom number), never overwritten
   // by a background refetch, so a coach never sees their own pick flicker back.
@@ -87,28 +89,38 @@ export function EvaluationReminderSetting() {
     setCustomValue(custom);
     latestCustom.current = custom;
     sentCustomN.current = opt === "custom" ? data.everyN ?? null : null;
-    confirmed.current = { option: opt, custom };
+    ledger.current.seed({ setting: { option: opt, custom } });
   }, [data]);
+
+  const display = (shown: Shown) => {
+    setOption(shown.option);
+    setCustomValue(shown.custom);
+    latestCustom.current = shown.custom;
+  };
 
   // Every change is saved at once and signed (settings.save-on-change): a refused or failed save
   // says so and puts the control back to the last value the server confirmed.
   const persist = (next: ReminderOption, everyN: number, keepalive = false) => {
-    const seq = ++saveSeq.current;
+    const token = ledger.current.begin({
+      setting: { option: next, custom: next === "custom" ? String(everyN) : latestCustom.current },
+    });
     setErrorKey(null);
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
     const body = bodyForOption(next, everyN);
     void sign.track("reminder", save.mutateAsync(keepalive ? { ...body, keepalive } : body)).then(
       () => {
-        confirmed.current = { option: next, custom: next === "custom" ? String(everyN) : confirmed.current.custom };
+        const shown = ledger.current.confirm(token).show.setting;
+        if (shown) display(shown);
       },
       () => {
-        if (seq !== saveSeq.current) return;
-        const back = confirmed.current;
-        setOption(back.option);
-        setCustomValue(back.custom);
-        latestCustom.current = back.custom;
+        const back = ledger.current.fail(token).setting;
+        if (!back) return;
+        // Nothing was stored: the confirmed number is what a later save is compared with.
         sentCustomN.current = back.option === "custom" ? Number(back.custom) : null;
+        // Review #497: a newer number the coach is still typing decides; do not reset it under them.
+        if (pendingSave.current) return;
+        display(back);
       },
     );
   };

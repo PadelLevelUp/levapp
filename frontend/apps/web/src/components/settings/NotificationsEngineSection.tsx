@@ -23,6 +23,7 @@ import { NotificationGroupsSection } from "./NotificationGroupsSection";
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
 import { StandingWaitingListSection } from "./StandingWaitingListSection";
 import { SaveSign, useSaveSign } from "./SaveSign";
+import { SaveLedger } from "@levelup/config";
 
 type SectionKey = "reminders" | "eligibility" | "groups" | "tiebreakers" | "restrictions" | "notifyGroups" | "standingList" | "templates";
 
@@ -36,12 +37,10 @@ export function NotificationsEngineSection() {
   // saved yet this visit. Stored as data, never as translated text.
   const [eligibilityImpact, setEligibilityImpact] = useState<EligibilityImpactEntry[] | null>(null);
   // settings.save-on-change rules 2-3 / B-243 (PAD-473): each control signs its save under its own
-  // key; `confirmed` is what the server last confirmed (the loaded config, then each successful
-  // patch in the order the answers arrive), and `newestSave` numbers each field's saves so only a
-  // field whose NEWEST save failed is put back.
+  // key, and what a failure puts back comes from the shared SaveLedger: per field, the value the server
+  // last confirmed, decided only by that field's newest save.
   const sign = useSaveSign();
-  const confirmed = useRef<NotificationConfig | null>(null);
-  const newestSave = useRef<Record<string, number>>({});
+  const ledger = useRef(new SaveLedger<NotificationConfig>());
 
   useEffect(() => {
     getNotificationConfig()
@@ -49,7 +48,7 @@ export function NotificationsEngineSection() {
       // RadioGroup is fully controlled and never fires a spurious change.
       .then((cfg) => {
         const loaded = { ...cfg, invitationMode: cfg.invitationMode ?? "automatic" };
-        confirmed.current = loaded;
+        ledger.current.seed(loaded);
         setConfig(loaded);
       })
       .finally(() => setLoading(false));
@@ -59,26 +58,21 @@ export function NotificationsEngineSection() {
   // PAD-478 (settings.save-on-change rule 1).
   const save = async (patch: Partial<NotificationConfig>, signKey?: string) => {
     if (!config) return;
-    const fields = Object.keys(patch) as (keyof NotificationConfig)[];
-    const mine: Record<string, number> = {};
-    for (const f of fields) mine[f] = newestSave.current[f] = (newestSave.current[f] ?? 0) + 1;
+    const token = ledger.current.begin(patch);
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
     const request = updateNotificationConfig(patch);
+    const show = (values: Partial<NotificationConfig>) => {
+      if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
+    };
     try {
       const saved = await (signKey ? sign.track(signKey, request) : request);
-      if (confirmed.current) confirmed.current = { ...confirmed.current, ...patch };
+      show(ledger.current.confirm(token, saved).show);
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
     } catch {
       // Back to the confirmed value, for the fields whose newest save this was (B-243).
-      const back: Partial<NotificationConfig> = {};
-      for (const f of fields) {
-        if (newestSave.current[f] === mine[f] && confirmed.current) {
-          (back as Record<string, unknown>)[f] = confirmed.current[f];
-        }
-      }
-      if (Object.keys(back).length > 0) setConfig((prev) => (prev ? { ...prev, ...back } : prev));
+      show(ledger.current.fail(token));
     }
   };
 

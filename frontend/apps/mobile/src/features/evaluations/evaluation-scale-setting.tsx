@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
+import { SaveLedger } from "@levelup/config";
 
 /**
  * evaluations.scale rules 1 and 8 (PAD-423) — the iOS twin of web's `EvaluationScaleSetting`,
@@ -24,28 +25,29 @@ export function EvaluationScaleSetting() {
 
   const [choice, setChoice] = React.useState<EvaluationScaleMax | null>(null);
   const sign = useSaveSign();
-  // settings.save-on-change rule 3: the scale the server last confirmed, and which save is newest.
-  const confirmed = React.useRef<EvaluationScaleMax | null>(null);
-  const saveSeq = React.useRef(0);
+  // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger.
+  const ledger = React.useRef(new SaveLedger<{ scaleMax: EvaluationScaleMax }>());
   const hydrated = React.useRef(false);
 
   React.useEffect(() => {
     if (!data || hydrated.current) return;
     hydrated.current = true;
     setChoice(data.scaleMax);
-    confirmed.current = data.scaleMax;
+    ledger.current.seed({ scaleMax: data.scaleMax });
   }, [data]);
 
   const handleSelect = (next: EvaluationScaleMax) => {
     if (isLoading) return;
-    const seq = ++saveSeq.current;
+    const token = ledger.current.begin({ scaleMax: next });
     setChoice(next);
     void sign.track("scale", save.mutateAsync({ scaleMax: next })).then(
-      () => {
-        confirmed.current = next;
+      (answer) => {
+        const shown = ledger.current.confirm(token, answer).show.scaleMax;
+        if (shown !== undefined) setChoice(shown);
       },
       () => {
-        if (seq === saveSeq.current) setChoice(confirmed.current);
+        const back = ledger.current.fail(token).scaleMax;
+        if (back !== undefined) setChoice(back);
       },
     );
   };

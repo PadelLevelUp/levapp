@@ -142,4 +142,19 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     expect(n.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
     expect(hooks.mutateAsync).not.toHaveBeenCalled();
   });
+
+  it("review #497 item 7: a failure landing while a newer number is being typed does not reset it; the newer number is saved", async () => {
+    const n = await openCustom(7);
+    let fail8!: (e: Error) => void;
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise((_r, rej) => { fail8 = rej; }));
+
+    await n.changeText(FIELD, "8");
+    await waitPastDelay(); // 8 sent, held
+    await n.changeText(FIELD, "9"); // waiting for its delay
+    await act(async () => { fail8(new Error("offline")); });
+    expect(n.byTestId(FIELD).props.value).toBe("9");
+
+    await waitPastDelay();
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
 });

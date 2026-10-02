@@ -234,4 +234,47 @@ describe("a failed save is never silent (rule 3, B-243)", () => {
     expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":14');
     await waitFor(() => expect(sign("restrictions")).toHaveAttribute("data-state", "saved"));
   });
+
+  it("rule 3: two held saves both fail — back to the value confirmed before them, not the one the last started from", async () => {
+    await mount();
+    await openSection("settings.engine.restrictions");
+    const y = deferred<NotificationConfig>();
+    const z = deferred<NotificationConfig>();
+    api.updateNotificationConfig.mockImplementationOnce(() => y.promise).mockImplementationOnce(() => z.promise);
+
+    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // Y: 13
+    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // Z: 14, started from 13
+    await act(async () => { y.reject(new Error("y")); });
+    await act(async () => { z.reject(new Error("z")); });
+
+    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":24');
+    await waitFor(() => expect(sign("restrictions")).toHaveAttribute("data-state", "failed"));
+  });
+
+  it("rule 3: the newest fails, then an older save is confirmed — the panel shows what the server confirmed", async () => {
+    await mount();
+    await openSection("settings.engine.restrictions");
+    const y = deferred<NotificationConfig>();
+    const z = deferred<NotificationConfig>();
+    api.updateNotificationConfig.mockImplementationOnce(() => y.promise).mockImplementationOnce(() => z.promise);
+
+    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // Y: 13
+    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // Z: 14
+    await act(async () => { z.reject(new Error("z")); });
+    await act(async () => { y.resolve({ ...CONFIG, restrictions: { cancellationDeadlineHours: 13 } } as unknown as NotificationConfig); });
+
+    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":13');
+  });
+
+  it("PAD-478 exception, stated precisely: the reminders request is unchanged and has no sign; its failure returns it to the confirmed value", async () => {
+    await mount();
+    await openSection("settings.engine.reminders");
+    api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
+
+    fireEvent.click(await screen.findByTestId("stub-reminders-change"));
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledWith({ reminderTiming: { reminderCount: 3 } });
+    expect(screen.queryByTestId("notification-engine-reminders-sign")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("stub-reminders-value")).not.toHaveTextContent('"reminderCount":3'));
+  });
 });

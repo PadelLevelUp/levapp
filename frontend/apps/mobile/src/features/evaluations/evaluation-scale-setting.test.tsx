@@ -78,4 +78,40 @@ describe("Escala de avaliações (iOS)", () => {
     expect(checked(n, 100)).toBe(true);
     expect(n.byTestId("settings-evaluation-scale-sign").findAll((x) => x.props.children === "settings.saveSign.failed")).toHaveLength(0);
   });
+
+  it("rule 3: two held saves both fail — back to the confirmed scale", async () => {
+    hooks.data = { scaleMax: 5 };
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10");
+    await n.press("settings-evaluation-scale-option-20");
+    await act(async () => { failY(new Error("y")); });
+    await act(async () => { failZ(new Error("z")); });
+    await n.flush();
+
+    expect(checked(n, 5)).toBe(true);
+  });
+
+  it("rule 3: the newest fails, then an older save is confirmed — shows the confirmed scale", async () => {
+    hooks.data = { scaleMax: 5 };
+    let okY!: (v: unknown) => void;
+    let failZ!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((res) => { okY = res; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10");
+    await n.press("settings-evaluation-scale-option-20");
+    await act(async () => { failZ(new Error("z")); });
+    await act(async () => { okY({ scaleMax: 10 }); });
+    await n.flush();
+
+    expect(checked(n, 10)).toBe(true);
+  });
 });

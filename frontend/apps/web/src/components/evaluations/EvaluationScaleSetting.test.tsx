@@ -82,4 +82,40 @@ describe("Escala de avaliações", () => {
     expect(screen.getByTestId("settings-evaluation-scale-option-100")).toBeChecked();
     expect(screen.getByTestId("settings-evaluation-scale-sign")).not.toHaveAttribute("data-state", "failed");
   });
+
+  it("rule 3: two held saves both fail — back to the confirmed scale, not the one the last started from", async () => {
+    open({ scaleMax: 5 });
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationScale
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10")); // Y
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20")); // Z, started from 10
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
+    await act(async () => { failY(new Error("y")); });
+    await act(async () => { failZ(new Error("z")); });
+
+    expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked();
+  });
+
+  it("rule 3: the newest fails, then an older save is confirmed — shows the confirmed scale", async () => {
+    open({ scaleMax: 5 });
+    let okY!: (v: unknown) => void;
+    let failZ!: (e: Error) => void;
+    api.putEvaluationScale
+      .mockImplementationOnce(() => new Promise((res) => { okY = res; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10")); // Y
+    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20")); // Z
+    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
+    await act(async () => { failZ(new Error("z")); });
+    await act(async () => { okY({ scaleMax: 10 }); });
+
+    expect(screen.getByTestId("settings-evaluation-scale-option-10")).toBeChecked();
+  });
 });

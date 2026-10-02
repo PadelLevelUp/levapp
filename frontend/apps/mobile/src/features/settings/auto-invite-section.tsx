@@ -20,6 +20,7 @@ import { EligibilitySection } from "./eligibility-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
 import { SaveSign, useSaveSign } from "./save-sign";
+import { SaveLedger } from "@levelup/config";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
@@ -55,11 +56,9 @@ export function AutoInviteSection() {
   const [config, setConfig] = React.useState<NotificationConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
   // settings.save-on-change rules 2-3 / B-243 (PAD-473), as web's card: each control signs its save
-  // under its own key; `confirmed` is what the server last confirmed (the loaded config, then each
-  // successful patch as answers arrive), and only a field whose NEWEST save failed is put back.
+  // under its own key, and what a failure puts back comes from the shared SaveLedger.
   const sign = useSaveSign();
-  const confirmed = React.useRef<NotificationConfig | null>(null);
-  const newestSave = React.useRef<Record<string, number>>({});
+  const ledger = React.useRef(new SaveLedger<NotificationConfig>());
 
   React.useEffect(() => {
     let cancelled = false;
@@ -70,7 +69,7 @@ export function AutoInviteSection() {
         // Normalize like web: invitationMode always concrete so the control
         // below is fully controlled and never fires a spurious change.
         const loaded = { ...cfg, invitationMode: cfg.invitationMode ?? "automatic" };
-        confirmed.current = loaded;
+        ledger.current.seed(loaded);
         setConfig(loaded);
       })
       .finally(() => {
@@ -89,25 +88,20 @@ export function AutoInviteSection() {
 
   const save = async (patch: Partial<NotificationConfig>, signKey: string) => {
     if (!config) return;
-    const fields = Object.keys(patch) as (keyof NotificationConfig)[];
-    const mine: Record<string, number> = {};
-    for (const f of fields) mine[f] = newestSave.current[f] = (newestSave.current[f] ?? 0) + 1;
+    const token = ledger.current.begin(patch);
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
+    const show = (values: Partial<NotificationConfig>) => {
+      if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
+    };
     try {
       const saved = await sign.track(signKey, notificationEngineApi.updateNotificationConfig(patch));
-      if (confirmed.current) confirmed.current = { ...confirmed.current, ...patch };
+      show(ledger.current.confirm(token, saved).show);
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
     } catch {
       // Back to the confirmed value, for the fields whose newest save this was (B-243).
-      const back: Partial<NotificationConfig> = {};
-      for (const f of fields) {
-        if (newestSave.current[f] === mine[f] && confirmed.current) {
-          (back as Record<string, unknown>)[f] = confirmed.current[f];
-        }
-      }
-      if (Object.keys(back).length > 0) setConfig((prev) => (prev ? { ...prev, ...back } : prev));
+      show(ledger.current.fail(token));
     }
   };
 

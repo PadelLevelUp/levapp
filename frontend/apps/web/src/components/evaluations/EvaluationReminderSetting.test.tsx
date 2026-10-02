@@ -253,4 +253,48 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
 
     expect(api.putEvaluationSettings).not.toHaveBeenCalled();
   });
+
+describe("review #497", () => {
+  const pastDelay = CUSTOM_SAVE_DELAY_MS + 50;
+  afterEach(() => vi.useRealTimers());
+
+  async function field(stored = 7) {
+    api.putEvaluationSettings.mockImplementation(async (body: EvaluationSettings) => body);
+    open({ reminder: "every_n_classes", everyN: stored });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+    vi.useFakeTimers();
+    return input;
+  }
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it("item 7: a failure landing while a newer number is being typed does not reset it; the newer number is saved", async () => {
+    const input = await field(7);
+    let fail8!: (e: Error) => void;
+    api.putEvaluationSettings.mockImplementationOnce(() => new Promise((_r, rej) => { fail8 = rej; }));
+
+    fireEvent.change(input, { target: { value: "8" } });
+    await advance(pastDelay); // 8 sent, held
+    fireEvent.change(input, { target: { value: "9" } }); // waiting for its delay
+    await act(async () => { fail8(new Error("offline")); });
+    expect(input).toHaveValue(9);
+
+    await advance(pastDelay);
+    expect(api.putEvaluationSettings).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
+
+  it("rule 2: typing gives one sign, after typing stops (counted by signs shown)", async () => {
+    const input = await field(7);
+    const states: string[] = [];
+    const sample = () => states.push(screen.getByTestId("settings-evaluation-reminder-sign").getAttribute("data-state") ?? "");
+
+    fireEvent.change(input, { target: { value: "1" } });
+    for (let i = 0; i < 3; i++) { await advance(100); sample(); }
+    fireEvent.change(input, { target: { value: "12" } });
+    for (let i = 0; i < 40; i++) { await advance(100); sample(); }
+
+    const rises = states.filter((st, i) => st === "saved" && states[i - 1] !== "saved").length;
+    expect(rises).toBe(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+  });
+});
 });
