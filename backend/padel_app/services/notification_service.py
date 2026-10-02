@@ -4007,6 +4007,18 @@ def _send_invitation_batch(
         if not coach_user_id or not player_user_id:
             continue
 
+        # PAD-495 item 3(a): the decision for THIS student is taken under the vacancy lock, held
+        # until their invitation commits with its message. A batch commits once per student, so a
+        # lock taken only once at its start would end after the first one; another sender (a
+        # decline's follow-up, the tick) could then pick a student this batch was about to invite.
+        Vacancy.query.filter_by(id=vacancy.id).with_for_update().one()
+        if NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.player_id == cp.player_id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        ).first() is not None:
+            continue  # another sender invited them meanwhile
+
         player = Player.query.get(cp.player_id)
         player_name = (player.user.name if player and player.user else "Player").split()[0]
 
@@ -4161,6 +4173,33 @@ def _advance_round(
         _send_invitation_batch(vacancy, instance, config, coach_id)
 
 
+def _send_batch_locked(
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    config: NotificationConfig,
+    coach_id: int,
+    *,
+    max_sim_override: int | None = None,
+    now: datetime | None = None,
+) -> list[dict]:
+    """PAD-495 item 3 (and 3a): send a STARTED vacancy's next invitation(s) deciding who on the
+    vacancy row locked and re-read, so two senders on the same spot — a decline's follow-up and the
+    tick's next batch, or two declines — wait for each other and never pick the same student. The
+    lock ends at the first commit (an invitation with its message), before any push, or at the
+    final commit when nothing was sent. Across two spots of a class this is PAD-509."""
+    locked = (
+        Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
+    )
+    if locked.status != "open":
+        db.session.commit()  # release the lock; nothing was written
+        return []
+    sent = _send_invitation_batch(
+        locked, instance, config, coach_id, max_sim_override=max_sim_override, now=now
+    )
+    db.session.commit()  # the end of the lock when the batch sent (and so committed) nothing
+    return sent
+
+
 def _send_next_on_decline(
     vacancy: Vacancy,
     instance: LessonInstance,
@@ -4174,15 +4213,8 @@ def _send_next_on_decline(
         return
     # PAD-495 item 3: two declines at once each invite "the next student"; deciding who that is
     # on the vacancy row locked and re-read means the second waits for the first's invitation to
-    # commit (with its message) and then sees it. The lock ends at that commit, before any push.
-    vacancy = (
-        Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
-    )
-    if vacancy.status != "open":
-        db.session.commit()  # release the lock; nothing was written
-        return
-    _send_invitation_batch(vacancy, instance, config, coach_id, max_sim_override=1)
-    db.session.commit()  # the end of the lock when the batch sent (and so committed) nothing
+    # commit (with its message) and then sees it.
+    _send_batch_locked(vacancy, instance, config, coach_id, max_sim_override=1)
 
 
 # ---------------------------------------------------------------------------
@@ -4573,7 +4605,7 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         # now — one round per tick — regardless of maxInactiveTime, which waits
         # for invited students to answer and an empty round invited nobody.
         if _round_pending(vacancy):
-            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue
 
@@ -4581,7 +4613,7 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
         # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
         if _nothing_out(vacancy):
-            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
             processed += 1
             continue
 
@@ -4590,7 +4622,7 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         if max_inactive.get("enabled"):
             threshold = timedelta(minutes=max_inactive["value"])
             if _now - last >= threshold:
-                _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+                _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
                 processed += 1
 
     return processed
