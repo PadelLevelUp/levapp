@@ -1,3 +1,4 @@
+# confirmed — Session-C, iPhone 17 Pro simulator, fix/b242-custom-frequency @ dae954372, 2026-10-02 08:26Z and 08:31Z: green ×2; red on staging 439ae2088 at afterBackground == 7 (2026-10-01)
 # B-242 / PAD-473 / evaluations.reminders rule 1 — a number typed into "Personalizado" is saved
 # however the coach leaves, not only when the field blurs. The field uses the number pad, which
 # has no Return key, so before the fix a number typed and then left behind by sending the app to

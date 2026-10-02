@@ -3,12 +3,13 @@ id: B-242
 title: "iOS 'Personalizado' evaluation frequency: a typed number is lost when the coach leaves without blurring the field"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - evaluations.reminders
   - frontend/apps/mobile/src/features/evaluations/evaluation-reminder-setting.tsx
 proposed_fix: "evaluations.reminders rule 1 says when a typed number is saved; iOS also commits a pending valid number on unmount and when the app leaves the foreground."
 opened: 2026-10-01T18:32:34Z
+resolved: 2026-10-02T08:31:32Z
 ---
 
 # B-242: iOS "Personalizado" drops a typed number unless the field blurs
@@ -93,5 +94,6 @@ number the coach typed is never dropped (B-242). An invalid one is not sent."
 - Code changes: both twins save a valid typed number 600 ms after typing stops, flush it on
   blur/submit and on unmount; iOS also through the existing `useFlushOnBackground` (PAD-396). A
   number already sent is not sent twice; a failed save clears that, so the same number retries.
-- Open: flow 128 green on the simulator (it was red before the fix; the simulator went to other
-  sessions). Status moves to `resolved` once it passes.
+- Flow 128 green on the fix, twice (2026-10-02 08:26Z and 08:31Z, iPhone 17 Pro simulator, Metro
+  from `fix/b242-custom-frequency` after merging staging 9fe5fefa9); flow 97 green alongside.
+- Resolved: 2026-10-02.
