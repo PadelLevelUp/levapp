@@ -224,3 +224,51 @@ def test_item_11_the_server_keeps_max_inactive_time_at_15_minutes_or_more(app):
         assert cfg.get_restrictions()["maxInactiveTime"] == {"enabled": True, "value": 15}
         cfg.restrictions = {"maxInactiveTime": {"enabled": True, "value": 45}}
         assert cfg.get_restrictions()["maxInactiveTime"]["value"] == 45
+
+
+@pytest.mark.skipif(
+    __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="a lock is only visible with two real connections",
+)
+def test_item_3a_a_tick_and_a_decline_follow_up_on_one_spot_invite_different_students(app, monkeypatch):
+    """PAD-495 item 3(a): the tick's next batch and a decline's follow-up, on the SAME spot at the same
+    moment, must not both pick the same student (forced: both enter the batch before either sends).
+    Across two spots of a class this is PAD-509."""
+    import threading
+
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import (
+        process_invitation_batches,
+        respond_to_notification,
+        trigger_invitations,
+    )
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (a, b, c, d) = _seed(enrolled=0, candidates=4, max_players=1, max_sim=2)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert sorted(p for _, p in _live_events(instance_id)) == sorted([a, b])
+        event_a, user_a = _event_for(instance_id, a).id, _user(a)
+
+    later = pin_clock(monkeypatch, NOW + timedelta(minutes=121))   # past maxInactiveTime: the tick sends
+    real = ns._send_invitation_batch
+    gate = threading.Barrier(2)
+
+    def gated(*args, **kwargs):
+        try:
+            gate.wait(timeout=1.5)
+        except threading.BrokenBarrierError:
+            pass
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(ns, "_send_invitation_batch", gated)
+    with _io():
+        _race(app, [
+            lambda: respond_to_notification(event_a, "no", user_a, now=later),
+            lambda: process_invitation_batches(now=later),
+        ])
+    with app.app_context():
+        live = [p for _, p in _live_events(instance_id)]
+        assert len(live) == len(set(live)), f"a student holds two invitations for one spot: {live}"

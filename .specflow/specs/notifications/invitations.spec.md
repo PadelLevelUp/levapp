@@ -275,6 +275,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
+      This is checked by reading the class's live invitations, not under a lock: two senders
+      choosing at the same moment for two spots of one class can still both pick the same free
+      student (PAD-509, a class-level lock while choosing). Within ONE spot every sender — the tick's
+      next batch, a decline's follow-up — decides each student under that vacancy's row lock, held
+      until the student's invitation commits with its message, so two senders on the same spot never
+      invite the same student (PAD-495).
     **Who counts as holding a spot (#513 review).** `offered_another_spot` is decided LAST, after
     every other check of the round (eligibility, the coach's exclusions, inactive accounts,
     unavailability, the student's own opt-out, the round's rules): it means "this round would ask
