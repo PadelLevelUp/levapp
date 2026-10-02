@@ -210,3 +210,17 @@ def test_item_3_two_declines_at_once_invite_two_different_students(app, monkeypa
     with app.app_context():
         live = [p for _, p in _live_events(instance_id)]
         assert sorted(live) == sorted([c, d])
+
+
+def test_item_11_the_server_keeps_max_inactive_time_at_15_minutes_or_more(app):
+    """notifications.config rule 14: the clients bound maxInactiveTime to 15–1440; a config saved
+    by any other caller is clamped to the same floor, so the timer can never act on a start that is
+    still in progress (rule 1b)."""
+    from padel_app.models.notification_config import NotificationConfig
+
+    with app.app_context():
+        cfg = NotificationConfig(coach_id=1)
+        cfg.restrictions = {"maxInactiveTime": {"enabled": True, "value": 5}}
+        assert cfg.get_restrictions()["maxInactiveTime"] == {"enabled": True, "value": 15}
+        cfg.restrictions = {"maxInactiveTime": {"enabled": True, "value": 45}}
+        assert cfg.get_restrictions()["maxInactiveTime"]["value"] == 45
