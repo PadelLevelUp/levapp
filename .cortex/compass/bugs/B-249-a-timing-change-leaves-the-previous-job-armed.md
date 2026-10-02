@@ -49,3 +49,9 @@ The first version of the fix derived a class's jobs from whichever coach trigger
 - `_maybe_rearm_reminder` read the occurrence's own coach rows only, unordered. A class coached through its lesson therefore never had a follow-up armed (red test: first reminder sent, no retry job). It now uses `primary_coach`.
 - Invitations: `trigger_invitations` reads its whole configuration from the coach id in the job's args. The derivation now always arms `invite_start_<id>` with the primary coach, where before the last coach to reach a co-coached class won. For such a class the mode, groups, eligibility and auto-notify can therefore change coach at the first startup after deploy. Prod, read-only, run by the coordinator on 2026-10-02 10:43 UTC: 3 coaches, 0 lessons with two or more coaches, 0 future instances with two or more coaches, 0 future instances whose coach differs from the lesson's, 3 notification configs. Nothing changes on deploy today.
 - Rule 10e: the lock was per triggering coach and the passes took none. Every derivation now holds the class's primary coach's lock and reads the configuration again inside it, without creating one.
+
+### Third review (opus, at 039e92da3): approved, with these closed in the same PR
+- The startup and daily passes stopped at the first coach whose derivation failed; the bounded lock added a new way to fail. They now go coach by coach.
+- Creating a class and a same-lesson "this and all future" edit called the derivation unguarded after committing: a lock timeout would have answered 500 for a saved change. Both now log and let the daily pass derive the jobs.
+- Behaviour change, stated in rule 10b: a class with no coach row of its own now gets follow-ups. Prod, read-only, run by the coordinator on 2026-10-02 11:03 UTC: 5 future instances, 0 future instances without an own coach row, 0 instances of any date without one, 0 active lessons without a coach. No class in prod changes behaviour on deploy.
+

@@ -509,8 +509,12 @@ def _run_extend_schedule_window() -> None:
         try:
             from padel_app.models import Coach
             total = 0
-            for coach in Coach.query.all():
-                total += _schedule_lesson_occurrences_for_coach(coach.id)
+            # PAD-478: per coach, so one failure does not end the pass for everyone after.
+            for coach_id in [coach.id for coach in Coach.query.all()]:
+                try:
+                    total += _schedule_lesson_occurrences_for_coach(coach_id)
+                except Exception as exc:  # noqa: BLE001 — logged; tomorrow's pass derives again
+                    app.logger.error("extend_schedule_window failed for coach %s: %s", coach_id, exc)
             app.logger.info(
                 "extend_schedule_window: scheduled %d lesson occurrence reminder jobs",
                 total,
@@ -646,9 +650,18 @@ def _startup_reschedule(app) -> None:
             from padel_app.models import Coach
             instance_total = 0
             lesson_total = 0
-            for coach in Coach.query.all():
-                instance_total += _reschedule_for_coach(coach.id)
-                lesson_total += _schedule_lesson_occurrences_for_coach(coach.id)
+            # PAD-478: one coach's failure (a derivation lock that timed out, a broken row)
+            # must not cost the coaches after it their re-arm.
+            for coach_id in [coach.id for coach in Coach.query.all()]:
+                try:
+                    instance_total += _reschedule_for_coach(coach_id)
+                    lesson_total += _schedule_lesson_occurrences_for_coach(coach_id)
+                except Exception as exc:  # noqa: BLE001 — logged; the daily pass derives again
+                    app.logger.warning(
+                        "APScheduler startup rescheduling failed for coach %s: %s", coach_id, exc,
+                    )
+                    if test_mode:
+                        raise
             app.logger.info(
                 "APScheduler started — rescheduled %d instance jobs + %d lesson occurrence jobs across all coaches.",
                 instance_total,
@@ -1217,6 +1230,23 @@ def _maybe_schedule_instance(instance) -> None:
                 "_maybe_schedule_instance(%s) failed: %s",
                 getattr(instance, "id", "?"),
                 exc,
+            )
+
+
+def _maybe_schedule_lesson(lesson_id: int, coach_id: int) -> None:
+    """Derive a lesson's occurrence jobs after the lesson was created or edited.
+
+    The class is already committed when this runs, so a failure here (PAD-478: the
+    derivation lock can time out) must not turn a saved change into an error response. It
+    is logged, and the daily window pass derives the jobs again (rule 10c).
+    """
+    try:
+        schedule_lesson_reminder_jobs(lesson_id, coach_id)
+    except Exception as exc:  # noqa: BLE001 — logged; the change itself is saved
+        if _app:
+            _app.logger.error(
+                "_maybe_schedule_lesson(lesson=%s, coach=%s) failed: %s — the daily pass will derive its jobs",
+                lesson_id, coach_id, exc,
             )
 
 

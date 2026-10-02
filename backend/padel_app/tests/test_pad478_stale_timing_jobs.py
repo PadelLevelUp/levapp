@@ -23,24 +23,7 @@ from padel_app.tests.helpers import pin_clock
 from padel_app.tests.test_pad256_reminder_clock import _seed
 
 
-@pytest.fixture(autouse=True)
-def _no_test_may_hang():
-    """These tests take locks. A regression that waits for one for ever (the bound removed,
-    a lock never released) must FAIL, not hang CI: each test gets 60 s, then an alarm raises
-    in it. (pytest-timeout is not installed; a blocking lock acquire is interrupted by a
-    signal on POSIX.)"""
-    import signal
-
-    def too_long(_signum, _frame):
-        raise TimeoutError("a PAD-478 test ran for over 60 s: a lock was waited for without a bound")
-
-    previous = signal.signal(signal.SIGALRM, too_long)
-    signal.alarm(60)
-    try:
-        yield
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, previous)
+pytestmark = pytest.mark.usefixtures("no_test_may_hang")
 
 NOW_UTC = datetime(2027, 7, 10, 10, 0)          # Saturday 11:00 in Lisbon
 CLASS_WALL = datetime(2027, 7, 12, 18, 0)       # Monday 18:00 in Lisbon

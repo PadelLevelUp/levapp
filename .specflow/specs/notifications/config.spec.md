@@ -112,7 +112,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    job already armed at exactly the implied time is left alone, even when that time has just
    passed, so it fires or expires inside its grace time. No job armed from a previous or an
    intermediate value remains. The startup re-arm and the daily window pass use the same
-   derivation, and for them a past fire time always means no job and nothing sent. Deploying
+   derivation, and for them a past fire time always means no job and nothing sent. Both passes
+   work coach by coach: a failure for one coach is logged with that coach and the pass goes on
+   to the next. Deploying
    this rule sends nothing: the startup pass removes jobs the configuration no longer implies
    and never sends for a past time.
 10b. **A pending follow-up moves with the spacing and the count (PAD-478, B-250).** When a timing
@@ -129,14 +131,20 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    a failure. It is never left to fire at the old spacing, where
    the pass would send nothing and end the chain. A re-timed follow-up is a follow-up like any
    other: quiet hours do not defer it, as they do not defer the follow-ups a reminder pass arms
-   (only the late-arrival ask is deferred, `notifications.reminders` rule 18). Only a settings
+   (only the late-arrival ask is deferred, `notifications.reminders` rule 18). **Behaviour
+   change:** a follow-up is armed after a reminder pass for every class that has a primary
+   coach, including a class with no coach row of its own (coached through its lesson). Such a
+   class used to get its first reminder and never a follow-up. Nothing is armed retroactively
+   for a reminder that went out before this rule. Only a settings
    change re-times; the startup and daily passes leave follow-ups where they are.
 10c. **A failed reschedule is reported, not swallowed (PAD-478).** The configuration is saved. The
    failure is logged with the coach, and the response carries `rescheduleFailed: true`, so the
    form can tell the coach that classes already scheduled may still use the previous timing. The
    daily window pass derives the jobs of every active lesson inside its 60-day window again with
    rule 10a's derivation, so for those a failed reschedule heals within a day. Follow-ups (rule
-   10b) are not part of that pass.
+   10b) are not part of that pass. Creating or editing a class is committed before its jobs are
+   derived: a derivation that fails there is logged and the class still answers as saved; the
+   daily pass derives its jobs.
 10d. **The web form holds a save until the coach pauses (PAD-478).** The reminders form shows
    each stepper tap and each edit of the time field at once, and sends the timing after the coach
    stops for 600 ms, and at once when the time field loses focus or the section closes. A coach
@@ -237,6 +245,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **And** an occurrence not materialised yet follows the lesson's first coach
 - **And** a class coached through its lesson, with two reminders, gets its follow-up armed at the lesson coach's spacing
 - **And** a co-coach's save creates no configuration row for a primary coach who has none
+
+#### One failure does not cost the rest (PAD-478)
+- **Given** two coaches with a class each, and a derivation that fails for the first coach
+- **When** the startup re-arm or the daily pass runs
+- **Then** the second coach's class is armed, and the failure is logged with the first coach
+- **And** creating a class, or editing a series, whose derivation fails still answers as saved
 
 #### An intermediate value leaves nothing behind (PAD-478)
 - **Given** the same class and reminder

@@ -21,6 +21,8 @@ from padel_app.sql_db import db
 from padel_app.tests.helpers import pin_clock
 from padel_app.tests.test_pad256_reminder_clock import _seed
 
+pytestmark = pytest.mark.usefixtures("no_test_may_hang")
+
 NOW_UTC = datetime(2027, 7, 10, 10, 0)          # Saturday 11:00 in Lisbon
 CLASS_WALL = datetime(2027, 7, 12, 18, 0)       # Monday 18:00 in Lisbon
 FUTURE = {"type": "days_before_at_time", "days": 1, "time": "18:00"}   # 07-11 17:00 UTC
@@ -228,7 +230,11 @@ def test_a_follow_up_is_armed_for_a_class_coached_through_its_lesson(substituted
 
 
 def test_the_follow_up_spacing_is_the_primary_coachs(co_coached, monkeypatch):
-    """A pin: with two coach rows the spacing comes from the first one assigned."""
+    """NOT discriminating, kept as a statement of the rule: with two coach rows the spacing
+    comes from the first one assigned. The old lookup (`.first()` with no order) returns the
+    lowest junction id on SQLite, which IS the primary coach, so this passes on the old code
+    too. The case that tells the two apart is a class with no coach row of its own
+    (`test_a_follow_up_is_armed_for_a_class_coached_through_its_lesson`)."""
     from padel_app.services.notification_service import get_or_create_config
 
     for coach_id, hours in ((co_coached["primary"], 2), (co_coached["second"], 5)):
@@ -302,4 +308,80 @@ def test_the_configuration_is_read_again_inside_the_lock(co_coached):
     co_coached["module"].schedule_instance_jobs(co_coached["instance"], co_coached["primary"])
 
     assert _fire_times(co_coached["sched"], co_coached["instance"])[0] == datetime(2027, 7, 11, 5, 0)
+
+
+def test_the_configuration_is_read_with_the_lock_already_held(co_coached):
+    """Reading the configuration and then taking the lock would let a save commit and
+    re-arm in between, and this derivation would then arm the older value."""
+    module = co_coached["module"]
+    _store_timing(co_coached["primary"], FUTURE)
+    held = []
+    real = module._saved_config
+
+    def spy(coach_id):
+        held.append(module._coach_reschedule_lock(coach_id).locked())
+        return real(coach_id)
+
+    import pytest as _pytest
+
+    with _pytest.MonkeyPatch.context() as patch:
+        patch.setattr(module, "_saved_config", spy)
+        module.schedule_instance_jobs(co_coached["instance"], co_coached["second"])
+        module._schedule_lesson_occurrences_for_coach(co_coached["primary"])
+        module.reschedule_all_future_jobs(co_coached["primary"])
+
+    assert held and all(held), held
+
+
+def test_a_lessons_lock_is_released_before_its_instances_are_derived(substituted, monkeypatch):
+    """The lesson's coach is L, the occurrence's is X. Deriving the instance (X's lock) while
+    still holding the lesson's (L's) would nest two coaches' locks; with the mirror-image
+    class on another thread that is a deadlock, broken only by the 30 s bound."""
+    module = substituted["module"]
+    _store_timing(substituted["primary"], FUTURE)
+    _store_timing(substituted["lesson_coach"], FUTURE)
+    lesson_lock_held = []
+    real = module.schedule_instance_jobs
+
+    def spy(instance_id, coach_id, **kwargs):
+        lesson_lock_held.append(module._coach_reschedule_lock(substituted["lesson_coach"]).locked())
+        return real(instance_id, coach_id, **kwargs)
+
+    monkeypatch.setattr(module, "schedule_instance_jobs", spy)
+    module._schedule_lesson_occurrences_for_coach(substituted["lesson_coach"])
+
+    assert lesson_lock_held == [False]
+
+
+def test_the_lesson_walk_reads_the_configuration_with_the_lock_already_held(app, live_scheduler, monkeypatch):
+    """The same order for a class that is not materialised yet (`schedule_lesson_reminder_jobs`)."""
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.clubs import Club
+    from padel_app.models.lessons import Lesson
+
+    pin_clock(monkeypatch, NOW_UTC)
+    with app.app_context():
+        coach = _new_coach("walk")
+        club = Club(name="Club walk", description="", location="Lisboa")
+        db.session.add(club)
+        db.session.flush()
+        lesson = Lesson(title="Walked", start_datetime=CLASS_WALL, end_datetime=CLASS_WALL.replace(hour=19),
+                        is_recurring=False, type="academy", max_players=4, color="#000000",
+                        status="active", club_id=club.id)
+        db.session.add(lesson)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=coach, lesson_id=lesson.id))
+        db.session.commit()
+        _store_timing(coach, FUTURE)
+        held = []
+        real = live_scheduler._saved_config
+
+        def spy(coach_id):
+            held.append(live_scheduler._coach_reschedule_lock(coach_id).locked())
+            return real(coach_id)
+
+        monkeypatch.setattr(live_scheduler, "_saved_config", spy)
+        assert live_scheduler.schedule_lesson_reminder_jobs(lesson.id, coach) == 1
+
+        assert held == [True]
 

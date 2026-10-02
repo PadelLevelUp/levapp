@@ -329,3 +329,24 @@ def live_scheduler(app):
     finally:
         real.shutdown(wait=False)
         sched._app, sched._scheduler = previous
+
+
+@pytest.fixture
+def no_test_may_hang():
+    """For tests that take locks: a regression that waits for one for ever (a bound removed,
+    a lock never released) must FAIL, not hang CI. The test gets 60 s, then an alarm raises
+    in it. (pytest-timeout is not installed; a blocking lock acquire is interrupted by a
+    signal on POSIX.) Use with `pytestmark = pytest.mark.usefixtures("no_test_may_hang")`."""
+    import signal
+
+    def too_long(_signum, _frame):
+        raise TimeoutError("this test ran for over 60 s: a lock was waited for without a bound")
+
+    previous = signal.signal(signal.SIGALRM, too_long)
+    signal.alarm(60)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
