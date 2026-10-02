@@ -124,6 +124,7 @@
     "usernamePlaceholder": "username",
     "usernameSubmit": "Start",
     "noUserWithUsername": "No user with that username",
+    "automaticMessage": "Automatic LevApp message",
     "cannotMessageUser": "You can't message this user",
     "unknownSender": {
       "title": "You don't share a club with {{name}}",
