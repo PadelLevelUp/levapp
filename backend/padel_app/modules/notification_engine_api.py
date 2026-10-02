@@ -88,9 +88,12 @@ def get_config():
 def save_config():
     coach = _current_coach()
     data = request.get_json() or {}
-    update_config(coach.id, data)
+    config = update_config(coach.id, data)
 
     payload = get_config_dict(coach.id)
+    # PAD-478 (notifications.config rule 10c): saved, but the jobs were not re-armed.
+    if getattr(config, "reschedule_failed", False):
+        payload["rescheduleFailed"] = True
 
     # PAD-133 / eligibility.enforcement rule 9: when the coach saves an
     # eligibility bar, report which already-enrolled students would not meet it.

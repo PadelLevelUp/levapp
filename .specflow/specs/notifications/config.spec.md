@@ -93,6 +93,38 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
 10. Updating timing configs reschedules all future scheduler jobs
+10a. **After a timing change, each job is the one the saved configuration implies (PAD-478, B-249).**
+   For every future class of the coach, materialised or not, the reminder job and the
+   invitation-start job are derived again from the saved configuration. A job whose new fire time
+   is in the future replaces the old one. A job whose new fire time is already past, or whose
+   timing is `none`, is removed: that class gets no automatic reminder (or no invitation start)
+   from that job. What the class then gets instead is decided in PAD-478; until then: nothing. A
+   job already armed at exactly the implied time is left alone, even when that time has just
+   passed, so it fires or expires inside its grace time. No job armed from a previous or an
+   intermediate value remains. The startup re-arm and the daily window pass use the same
+   derivation, and for them a past fire time always means no job and nothing sent. Deploying
+   this rule sends nothing: the startup pass removes jobs the configuration no longer implies
+   and never sends for a past time.
+10b. **A pending follow-up moves with the spacing and the count (PAD-478, B-250).** When a timing
+   is saved, each pending follow-up job of the coach's classes is re-timed to the newest reminder
+   sent to a student who is still owed one, plus the saved `hoursBetweenReminders`; never earlier
+   than a minute from now and never at or after the class start. It is removed when no further
+   reminder is owed (the count was lowered to or below what was sent, or everyone answered) or
+   when there is no room before the class. It is never left to fire at the old spacing, where
+   the pass would send nothing and end the chain. A re-timed follow-up is a follow-up like any
+   other: quiet hours do not defer it, as they do not defer the follow-ups a reminder pass arms
+   (only the late-arrival ask is deferred, `notifications.reminders` rule 18). Only a settings
+   change re-times; the startup and daily passes leave follow-ups where they are.
+10c. **A failed reschedule is reported, not swallowed (PAD-478).** The configuration is saved. The
+   failure is logged with the coach, and the response carries `rescheduleFailed: true`, so the
+   form can tell the coach that classes already scheduled may still use the previous timing. The
+   daily window pass derives every job again with rule 10a's derivation, so a failed reschedule
+   heals within a day. Follow-ups (rule 10b) are not part of that pass.
+10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
+   saved configuration alone, whatever sequence of saves led to it and in whatever order the
+   requests arrived: a reschedule takes no value from its request, it reads the saved
+   configuration, and one reschedule runs at a time per coach. The backend does not rely on the
+   client sending one save per edit.
 11. `cancellation_deadline_hours` (default 24; on the wire `restrictions.cancellationDeadlineHours`): hours before class start after which a student cancellation is still allowed but flagged as a "late cancellation" (see attendance.confirm). Exposed and round-tripped through `GET|POST /api/app/notify/config`
 
 12. **Typed storage, stable wire shape (PAD-279, audit M21).** Every scalar setting lives in its own
@@ -161,6 +193,46 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** POST `/api/app/notification_config` with `{"auto_notify_enabled": true, "reminder_timing": {"type": "hours_before", "value": 24}}`
 - **Then** the config is updated
 - **And** scheduler jobs are rescheduled based on new timing
+
+#### A timing moved into the past leaves no job from the old timing (PAD-478)
+- **Given** a class on Monday 18:00 (Lisbon), now Saturday 11:00, and a reminder "1 day before at 18:00", so `reminder_<id>` is armed for Sunday 18:00
+- **When** the coach saves "2 days before at 09:00", which for this class was two hours ago
+- **Then** no `reminder_<id>` job remains, and running whatever is armed sends the student nothing
+- **And** the same holds for `invite_start_<id>`, for an occurrence job `reminder_lesson_<lesson>_<date>`, and for a timing of type `none`
+
+#### An intermediate value leaves nothing behind (PAD-478)
+- **Given** the same class and reminder
+- **When** the coach saves "2 days before at 18:00" and then "2 days before at 09:00"
+- **Then** no job remains at Saturday 18:00
+
+#### The implied job is not removed when it is merely due (PAD-478)
+- **Given** `reminder_<id>` armed for Sunday 18:00 and a restart 20 seconds after that instant
+- **When** the startup re-arm runs
+- **Then** the job is still armed for Sunday 18:00
+
+#### The startup and daily passes send nothing (PAD-478)
+- **Given** a class whose reminder time is already past and whose student was never reminded
+- **When** the startup re-arm and the daily window pass run
+- **Then** no reminder is sent and no reminder job is armed for it
+
+#### A pending follow-up moves with the spacing (PAD-478)
+- **Given** two reminders 2 hours apart, the first sent at 17:00 UTC, so a follow-up is armed for 19:00
+- **When** the coach raises the spacing to 6 hours at 18:00
+- **Then** the follow-up is re-timed to 23:00 and the second reminder is sent then
+- **And** lowering the spacing to 1 hour instead re-times it to 18:01
+- **And** lowering the count to 1 instead removes it
+
+#### A failed reschedule is reported (PAD-478)
+- **Given** a scheduler whose job store cannot be reached
+- **When** the coach saves a new `reminderTiming`
+- **Then** the response is 200 with the saved configuration and `rescheduleFailed: true`, and the failure is logged with the coach
+- **And** a save whose reschedule succeeded carries no `rescheduleFailed`
+
+#### A reschedule that runs late arms what is saved (PAD-478)
+- **Given** save A then save B of one coach
+- **When** A's reschedule runs after B's
+- **Then** the jobs are B's
+- **And** the whole reschedule runs under the coach's lock
 
 #### Update invitation mode
 - **Given** an existing config with `auto_notify_enabled: true`

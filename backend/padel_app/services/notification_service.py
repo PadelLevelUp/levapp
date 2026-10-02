@@ -199,12 +199,24 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
 
     config.save()
 
+    # PAD-478 (notifications.config rule 10c): the configuration is saved whatever happens
+    # below. A reschedule that FAILS is reported, not swallowed: the jobs of classes already
+    # scheduled may still follow the previous timing until the daily pass re-derives them.
+    # (A scheduler that is simply not running — tests, the CLI — is a silent no-op inside
+    # `reschedule_all_future_jobs`, not an exception.)
+    config.reschedule_failed = False
     if timing_changed:
         try:
-            from padel_app.scheduler import reschedule_all_future_jobs
-            reschedule_all_future_jobs(coach_id)
-        except Exception:
-            pass  # scheduler may not be running (tests, etc.)
+            from padel_app import scheduler
+            scheduler.reschedule_all_future_jobs(coach_id)
+        except Exception as exc:  # noqa: BLE001 — reported to the caller and the log
+            config.reschedule_failed = True
+            db.session.rollback()
+            from flask import current_app, has_app_context
+            if has_app_context():
+                current_app.logger.error(
+                    "update_config: rescheduling the jobs of coach %s failed: %s", coach_id, exc,
+                )
 
     return config
 
