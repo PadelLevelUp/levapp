@@ -152,7 +152,13 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     waited on the lock past the start (or across a move to start now) is expired exactly as the early
     check expires it. A second "yes" for the
     same last spot waits on the lock, finds the spot taken and gets the normal spot-filled answer and
-    waiting-list offer. The lock lasts until the enrolment commits. Vacancies are created only under
+    waiting-list offer. The lock lasts until the enrolment commits: closing the vacancy, the
+    winner's confirmation and the enrolment land in ONE commit (PAD-499, ledger B-261). Retiring
+    the other candidates' invitations only flushes, and their live message edits are published
+    after that commit, so no helper can end the lock early and a failed enrolment leaves nothing
+    changed (the student can answer again). The reconcile that enrolment runs locks the other
+    vacancies it may close without waiting (`SKIP LOCKED`): one that another answer is deciding on
+    is left to that answer, which then finds the class full, and the tick reconciles it. Vacancies are created only under
     the class lock: a departing player has at most one open vacancy (a found one is returned without
     a lock; a new one is created after looking again under the lock), and structural vacancies are
     counted again under the same lock and added in one commit. Every locked section ends in a
