@@ -261,6 +261,9 @@ executionOrder:
     # 129 (PAD-473, settings.save-on-change): choosing a scale shows the save sign beside it, the server
     # holds 10, and the sign goes. onFlowComplete restores 5.
     - 129-settings-save-sign
+    # 130 (PAD-480): a sub-category is moved under another category from the manager; the server holds
+    # the new parent. onFlowComplete deletes the two categories it made.
+    - 130-competency-move
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

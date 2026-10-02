@@ -189,6 +189,7 @@ whether a failure mode has been seen before.
 - [B-249](B-249-a-timing-change-leaves-the-previous-job-armed.md) — A reminder or invitation timing changed to a time already past (or to none) leaves the previously armed job in place, and it fires (incomplete-rule, medium, resolved)
 - [B-250](B-250-raising-the-reminder-spacing-loses-a-pending-follow-up.md) — Raising hoursBetweenReminders while a follow-up is pending loses that follow-up (incomplete-rule, medium, resolved)
 - [B-253](B-253-a-skip-prepush-marker-exempts-every-push-that-contains-its-commit.md) — A [skip-prepush] line in any commit of a push skips the gate for the whole push, and for every later branch that contains that commit (incomplete-rule, medium, triaged)
+- [B-255](B-255-manager-offers-subs-a-legacy-default-name-strands.md) — Evaluation categories: sub-categories were offered under a legacy row of the default's name and each one added became a stray category (incomplete-rule, medium, resolved)
 - [B-243](B-243-engine-settings-save-failure-reverts-silently.md) — Notification-engine settings: a failed save snapped the control back silently, to a stale closure copy (incomplete-rule, medium, triaged)
 - [B-244](B-244-web-language-saved-only-by-the-header-button.md) — Web Settings: a language picked on Preferences was stored only by the page-header Save (layer-drift, medium, triaged)
 - [B-251](B-251-maestro-95-drove-a-removed-categories-editor.md) — Maestro flow 95 drove the evaluation-categories editor PAD-373 removed; it failed at its first scroll (test-defect, low, resolved)
