@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   getNotificationConfig: vi.fn(),
   updateNotificationConfig: vi.fn(),
   sendPastDueReminders: vi.fn(),
+  PAST_DUE_SEND_MAX: 200,
 }));
 const toast = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast }) }));
@@ -420,5 +421,66 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     plus(); // the next timing save makes the check: the note goes
     await waitFor(() => expect(screen.queryByTestId("notification-engine-past-due-unknown")).toBeNull(), LONG);
   });
-});
 
+  it("the 'check could not be made' note is visible with the reminders section closed", async () => {
+    await mountOpen();
+    const slow = deferred<object>();
+    api.updateNotificationConfig.mockImplementationOnce(() => slow.promise);
+
+    plus();
+    await waitFor(() => expect(sentCounts()).toEqual([2]), LONG);
+    toggleReminders(); // closed before the answer arrives
+    await waitFor(() => expect(screen.queryByTestId("reminder-per-student")).toBeNull());
+    await act(async () => {
+      slow.resolve({ ...CONFIG, reminderTiming: { ...TIMING, reminderCount: 2 }, pastDueUnknown: true });
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("notification-engine-past-due-unknown")).not.toBeNull());
+    expect(screen.queryByTestId("reminder-per-student")).toBeNull();
+  });
+
+  it("more classes than one request may carry are sent in several requests, every key once", async () => {
+    await mountOpen();
+    const many = Array.from({ length: 450 }, (_, n) => ({ ...A, key: `i:${n + 1}` }));
+    api.updateNotificationConfig.mockImplementationOnce(answering(many));
+    api.sendPastDueReminders.mockReset().mockImplementation(async (keys: string[]) => ({
+      sent: keys.length,
+      scheduledFor: null,
+      classes: keys.map((key) => ({ key, sent: 1, scheduledFor: null })),
+      skipped: 0,
+    }));
+    plus();
+    await waitFor(() => expect(dialog()).not.toBeNull(), LONG);
+
+    fireEvent.click(screen.getByTestId("past-due-send"));
+    await waitFor(() => expect(dialog()).toBeNull());
+
+    const batches = api.sendPastDueReminders.mock.calls.map(([keys]) => keys as string[]);
+    expect(batches.map((b) => b.length)).toEqual([200, 200, 50]);
+    expect(new Set(batches.flat()).size).toBe(450);
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith({ title: 'settings.engine.pastDue.sentMany {"count":450}' });
+  });
+
+  it("a request that fails part-way keeps the dialog open; trying again sends every key again", async () => {
+    await mountOpen();
+    const many = Array.from({ length: 250 }, (_, n) => ({ ...A, key: `i:${n + 1}` }));
+    api.updateNotificationConfig.mockImplementationOnce(answering(many));
+    api.sendPastDueReminders
+      .mockReset()
+      .mockResolvedValueOnce({ sent: 200, scheduledFor: null, classes: [], skipped: 0 })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ sent: 0, scheduledFor: null, classes: [], skipped: 200 });
+    plus();
+    await waitFor(() => expect(dialog()).not.toBeNull(), LONG);
+
+    fireEvent.click(screen.getByTestId("past-due-send"));
+    await screen.findByTestId("past-due-error");
+    expect(toast).not.toHaveBeenCalled();
+
+    // The server checks every class again, so sending the first 200 a second time sends nothing more.
+    fireEvent.click(screen.getByTestId("past-due-send"));
+    await waitFor(() => expect(dialog()).toBeNull());
+    expect(api.sendPastDueReminders.mock.calls.map(([keys]) => (keys as string[]).length)).toEqual([200, 50, 200, 50]);
+  });
+});

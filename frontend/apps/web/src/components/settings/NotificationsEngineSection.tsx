@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ArrowUpDown, Bell, BellRing, ChevronDown, ChevronRight, ClipboardList, Layers, Loader2, MessageSquareText, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import type { InvitationMode, NotificationConfig } from "@/types";
-import { getNotificationConfig, sendPastDueReminders, updateNotificationConfig } from "@/api/notificationEngine";
-import type { PastDue } from "@/api/notificationEngine";
+import { PAST_DUE_SEND_MAX, getNotificationConfig, sendPastDueReminders, updateNotificationConfig } from "@/api/notificationEngine";
+import type { PastDue, PastDueSendResult } from "@/api/notificationEngine";
 import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -121,7 +121,19 @@ export function NotificationsEngineSection() {
     const keys = pastDueToAsk.map((c) => c.key);
     setPastDueSend("sending");
     try {
-      const result = await sendPastDueReminders(keys);
+      // One request names at most PAST_DUE_SEND_MAX classes. A longer list goes in several, one
+      // after the other; if one fails the dialog stays open, and trying again is safe because
+      // the server checks every class again and sends nothing twice.
+      const result: PastDueSendResult = { sent: 0, scheduledFor: null, classes: [], skipped: 0 };
+      for (let from = 0; from < keys.length; from += PAST_DUE_SEND_MAX) {
+        const part = await sendPastDueReminders(keys.slice(from, from + PAST_DUE_SEND_MAX));
+        result.sent += part.sent;
+        result.skipped += part.skipped;
+        result.classes.push(...part.classes);
+        if (part.scheduledFor && (!result.scheduledFor || part.scheduledFor < result.scheduledFor)) {
+          result.scheduledFor = part.scheduledFor;
+        }
+      }
       answerPastDue();
       if (result.scheduledFor) {
         const time = new Date(result.scheduledFor).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
@@ -270,6 +282,17 @@ export function NotificationsEngineSection() {
           onOpenChange={() => toggleSection("reminders")}
         >
           <SectionHeader sectionKey="reminders" icon={Bell} label={t("settings.engine.reminders")} />
+          {pastDueUnknown && (
+            // Rule 10f: the timing IS saved; the server could not say whether a reminder is past due.
+            // Outside the collapsible content: the answer can arrive after the coach closed the section.
+            <p
+              role="status"
+              data-testid="notification-engine-past-due-unknown"
+              className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.pastDueUnknown")}
+            </p>
+          )}
           <CollapsibleContent className="pt-1 pb-1">
             <div className="mb-3 flex items-start justify-between gap-2">
               <p className="text-xs text-muted-foreground">
@@ -286,16 +309,6 @@ export function NotificationsEngineSection() {
                 className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
               >
                 {t("settings.engine.rescheduleFailed")}
-              </p>
-            )}
-            {pastDueUnknown && (
-              // Rule 10f: the timing IS saved; the server could not say whether a reminder is past due.
-              <p
-                role="status"
-                data-testid="notification-engine-past-due-unknown"
-                className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-              >
-                {t("settings.engine.pastDueUnknown")}
               </p>
             )}
             <RemindersSection

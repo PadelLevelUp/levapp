@@ -173,7 +173,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    which is where the jobs live; production runs one worker. The backend does not rely on the
    client sending one save per edit.
 10f. **The coach is asked before anything past due is sent (PAD-478; owner, 2026-10-02).** A timing
-   save answers with `pastDue.reminders`: the upcoming classes of which the coach is primary coach
+   save answers with `pastDue.reminders`: the upcoming classes, not cancelled or completed, of which the coach is primary coach
    whose reminder time, under the SAVED configuration, is already past and who have at least one
    student a reminder pass run now would reach (not answered, under the count, not blocked). It is
    read from the saved configuration alone, not from what this save changed, so a class that was
@@ -194,12 +194,18 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    The dialog belongs to the card, not to the reminders section: when the newest save's answer
    arrives after the coach has closed the section, the dialog still appears.
    A class the coach has answered for, either way, is not asked about again during the visit; a
-   class that appears later is asked about alone. Nothing about the answer is stored: a later
+   class that appears later is asked about alone. Known limit: a class is remembered by the
+   key the server gave it, and a class materialised by something else during the visit changes
+   key, so it can be asked about a second time; the send is still checked on the server. Nothing about the answer is stored: a later
    visit that saves a timing asks again. Closing the dialog is "do not send". A send that fails
    says so in the dialog, which stays open. After a yes the coach is told what happened: sent,
    scheduled for a time, or nothing left to send (the server's second check found none). When
-   the save answers `pastDueUnknown`, the form says the check could not be made and asks
-   nothing. Web only, and deliberately: the question is asked from a timing save, and iOS has no
+   the save answers `pastDueUnknown`, the card says, under the reminders heading and visible
+   with the section closed, that the check could not be made, and asks nothing; the next
+   timing save that makes the check removes it. The listing has no upper limit, and one send
+   request names at most 200 classes (more is a 400): the form sends a longer list in several
+   requests, one after the other, each key once; if one fails the dialog stays open and trying
+   again sends every key again, which the server's own check makes harmless. Web only, and deliberately: the question is asked from a timing save, and iOS has no
    control that saves a reminder timing (rule 10d), so there is nothing to ship there. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
    server checks every requested class again with the same predicate, for the calling coach only,
    and runs the ordinary reminder pass for each one it still finds past due, with all its guards
@@ -313,6 +319,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** the coach confirms and `POST /api/app/notify/past_due/send` is called with that class
 - **Then** the student gets one reminder; calling it again, or twice at once, sends nothing more
 - **And** a class that is another coach's, or that is no longer past due, is skipped and reported
+- **And** a class cancelled or completed after it was listed is no longer listed, and a send that names it sends nothing
 - **And** inside quiet hours nothing is sent at once: `quietUntil` is given, one pass is armed for that instant, and it sends when it runs; a later save that moves the reminder into the future removes that pass
 - **And** the startup and daily passes send nothing and leave an armed pass in place
 
@@ -327,6 +334,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **And** an answer that arrives while the coach is still editing, or after a newer timing save has begun, never asks
 - **And** when the newest save's answer arrives after the coach has closed the reminders section, the dialog still appears
 - **And** a send that fails says so in the dialog, which stays open
+- **And** a list of 450 classes is sent as three requests of 200, 200 and 50, and the coach is told once
 - **And** inside quiet hours the button says the time it will be sent at, not "now"
 
 #### One failure does not cost the rest (PAD-478)

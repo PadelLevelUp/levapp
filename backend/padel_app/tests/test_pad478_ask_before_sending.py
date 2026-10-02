@@ -98,6 +98,38 @@ def test_a_class_already_reminded_or_answered_is_not_listed(klass):
     assert _listed(klass["coach"])["reminders"] == [], "answered"
 
 
+@pytest.mark.parametrize("status", ["canceled", "completed"])
+def test_a_cancelled_or_completed_class_is_not_listed_nor_sent(klass, status):
+    """Review of #499: cancelling a class keeps its presences, so its students still look
+    "not reminded". The coach must not be asked about a class that will not take place."""
+    from padel_app.models.lesson_instances import LessonInstance
+
+    _save(klass["coach"], PAST)
+    assert [c["key"] for c in _listed(klass["coach"])["reminders"]] == [klass["key"]], "listed while scheduled"
+
+    db.session.get(LessonInstance, klass["instance"]).status = status
+    db.session.commit()
+
+    assert _listed(klass["coach"])["reminders"] == []
+    answer = _send(klass["coach"], klass["key"])
+    assert (answer["sent"], answer["skipped"]) == (0, 1)
+    assert _attempts(klass) == 0
+
+
+def test_the_form_never_names_more_classes_in_one_request_than_the_server_takes():
+    """The listing has no cap and the send refuses more than MAX_KEYS, so the form sends a long
+    list in several requests. Its chunk size and the server's limit are one number."""
+    import re
+    from pathlib import Path
+
+    from padel_app.services.past_due_service import MAX_KEYS
+
+    source = Path(__file__).resolve().parents[3] / "frontend/packages/api/src/resources/notificationEngine.ts"
+    declared = re.search(r"export const PAST_DUE_SEND_MAX = (\d+);", source.read_text())
+    assert declared, "PAST_DUE_SEND_MAX is no longer declared in notificationEngine.ts"
+    assert int(declared.group(1)) == MAX_KEYS
+
+
 def test_only_the_primary_coach_is_asked_about_a_class(klass):
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.tests.test_pad478_primary_coach_decides import _new_coach, _store_timing

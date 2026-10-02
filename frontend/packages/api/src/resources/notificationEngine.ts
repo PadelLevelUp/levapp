@@ -72,6 +72,11 @@ export interface PastDueSendResult {
   skipped: number;
 }
 
+/** The most classes one send request may name; the server answers 400 above it
+ *  (`MAX_KEYS` in past_due_service.py, tied by test_pad478_ask_before_sending.py). The form
+ *  sends a longer list in several requests. */
+export const PAST_DUE_SEND_MAX = 200;
+
 /**
  * The coach's explicit yes (rule 10f). The keys are a request, not an instruction: the server
  * checks each class again and runs the ordinary reminder pass for those still past due.

@@ -67,7 +67,7 @@ export function PastDueRemindersDialog({ classes, quietUntil, sending, failed, o
     >
       <AlertDialogContent data-testid="past-due-dialog">
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("settings.engine.pastDue.title")}</AlertDialogTitle>
+          <AlertDialogTitle>{t(one ? "settings.engine.pastDue.titleOne" : "settings.engine.pastDue.titleMany")}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-2 text-sm text-muted-foreground" data-testid="past-due-body">
               {one ? (

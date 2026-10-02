@@ -392,7 +392,8 @@
       "rescheduleFailed": "O horário foi guardado, mas os lembretes das aulas já agendadas podem ainda seguir o horário anterior. São atualizados automaticamente uma vez por dia. Para tentar já, altera o horário outra vez.",
       "pastDueUnknown": "O horário foi guardado, mas não foi possível verificar se há aulas cujo lembrete já devia ter saído.",
       "pastDue": {
-        "title": "A hora deste lembrete já passou",
+        "titleOne": "A hora deste lembrete já passou",
+        "titleMany": "A hora destes lembretes já passou",
         "bodyOne": "Com o horário que definiste, a hora do lembrete da aula {{class}} ({{day}}, {{time}}) já passou. Queres enviar o lembrete agora ou não enviar para esta aula?",
         "bodyOneQuiet": "Com o horário que definiste, a hora do lembrete da aula {{class}} ({{day}}, {{time}}) já passou. Estás no horário de silêncio, por isso o lembrete só sai às {{sendAt}}. Queres enviar o lembrete às {{sendAt}} ou não enviar para esta aula?",
         "introMany": "Com o horário que definiste, a hora do lembrete já passou para {{count}} aulas:",

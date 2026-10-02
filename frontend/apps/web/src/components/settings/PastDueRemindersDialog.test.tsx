@@ -23,7 +23,7 @@ describe("PastDueRemindersDialog", () => {
     render(<PastDueRemindersDialog {...base} classes={[cls(1)]} />);
     const dialog = screen.getByTestId("past-due-dialog");
 
-    expect(within(dialog).getByText("settings.engine.pastDue.title")).toBeTruthy();
+    expect(within(dialog).getByText("settings.engine.pastDue.titleOne")).toBeTruthy();
     const body = within(dialog).getByTestId("past-due-body").textContent ?? "";
     expect(body).toContain("settings.engine.pastDue.bodyOne");
     expect(body).toContain("Class 1");
@@ -40,6 +40,7 @@ describe("PastDueRemindersDialog", () => {
     const list = within(body).getByTestId("past-due-list");
 
     expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(screen.getByTestId("past-due-dialog")).getByText("settings.engine.pastDue.titleMany")).toBeTruthy();
     expect(body.textContent).toContain('settings.engine.pastDue.introMany {"count":3}');
     expect(body.lastElementChild).toHaveTextContent("settings.engine.pastDue.questionMany");
     expect(screen.getByTestId("past-due-send")).toHaveTextContent("settings.engine.pastDue.sendMany");
