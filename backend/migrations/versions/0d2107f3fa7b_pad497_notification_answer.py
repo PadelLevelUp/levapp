@@ -35,7 +35,9 @@ def _backfill() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
         response = "m.msg_metadata ->> 'response'"
-        now = "(now() AT TIME ZONE 'UTC')"
+        # Class times are club wall-clock (R-023, CLUB_TZ = Europe/Lisbon), so compare with the
+        # club's now, not UTC's (#513 review F6). SQLite (tests only) has no zone database.
+        now = "(now() AT TIME ZONE 'Europe/Lisbon')"
     else:
         response = "json_extract(m.msg_metadata, '$.response')"
         now = "datetime('now')"
