@@ -101,7 +101,9 @@ back at all.
     discards the pending code (hash, expiry, sent time, attempts), whatever path writes it — the
     profile, an activation, a claim, a deletion. It lives on the model (a `set` listener on
     `User.email`), not in each caller. Re-saving the same address in another case is not a change. A
-    recovery requested and confirmed on an unchanged address is unaffected.
+    recovery requested and confirmed on an unchanged address is unaffected. The one writer outside the
+    ORM, `backend/scripts/sync-staging-db.sh` (the bulk email rewrite on the staging copy after each
+    deploy), clears the codes in the same statement.
 
 ### Acceptance Criteria
 

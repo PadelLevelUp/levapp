@@ -123,7 +123,11 @@ pg "$TARGET_DB" "delete from push_subscriptions;" >/dev/null \
   || log "WARNING: could not clear push_subscriptions"
 pg "$TARGET_DB" "delete from device_tokens;" >/dev/null \
   || log "WARNING: could not clear device_tokens"
-pg "$TARGET_DB" "update users set email = 'user' || id || '@staging.invalid' where email is not null;" >/dev/null \
+# PAD-498 (auth.password-recovery rule 11, B-276): a recovery code belongs to the address it was mailed
+# to. This bulk UPDATE bypasses the ORM listener that discards a pending code when an email changes, so
+# the rewrite clears the codes itself: a code copied from prod must not confirm against the rewritten
+# address.
+pg "$TARGET_DB" "update users set email = 'user' || id || '@staging.invalid', password_reset_code_hash = null, password_reset_expires_at = null, password_reset_sent_at = null, password_reset_attempts = 0 where email is not null;" >/dev/null \
   || log "WARNING: could not rewrite emails"
 log "scrub done: $(pg "$TARGET_DB" 'select count(*) from push_subscriptions;' 2>/dev/null || echo '?') push subscriptions, $(pg "$TARGET_DB" 'select count(*) from device_tokens;' 2>/dev/null || echo '?') device tokens, $(pg "$TARGET_DB" "select count(*) from users where email not like '%@staging.invalid';" 2>/dev/null || echo '?') real emails left"
 # ── 6. Seed placeholder objects so staging images resolve ────────────────────
