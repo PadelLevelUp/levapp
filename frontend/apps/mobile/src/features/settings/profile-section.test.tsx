@@ -16,7 +16,7 @@
  * app's copy, matching `react-test-renderer`'s).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { renderNative } from "@/test/render-native";
 import {
   UnsavedRegistryProvider,
@@ -37,11 +37,15 @@ vi.mock("@levelup/api", () => ({
   },
 }));
 
+// A later /auth/me read (react-query refetches on focus and after a save): the test pushes it here.
+const reread = vi.hoisted(() => ({ push: (_me: unknown) => {} }));
+
 vi.mock("@tanstack/react-query", async () => {
   const React = await import("react");
   return {
     useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
       const [data, setData] = React.useState<unknown>(undefined);
+      reread.push = setData;
       React.useEffect(() => {
         let alive = true;
         queryFn().then((d) => {
@@ -90,14 +94,14 @@ function Capture({ onReady }: { onReady: (r: ReturnType<typeof useUnsavedRegistr
   return null;
 }
 
-async function mountProfile() {
+async function mountProfile(props: { focusEmail?: boolean } = {}) {
   let registry!: ReturnType<typeof useUnsavedRegistry>;
   const n = await renderNative(
     createElement(
       UnsavedRegistryProvider,
       null,
       createElement(Capture, { onReady: (r) => (registry = r) }),
-      createElement(ProfileSection)
+      createElement(ProfileSection, props)
     )
   );
   await n.flush();
@@ -151,3 +155,79 @@ describe("ProfileSection registers its unsaved state (PAD-394)", () => {
     expect(registry().hasUnsaved()).toBe(true);
   });
 });
+
+// PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" opens this section on the
+// email field (`focus=email`), and an empty field says why it matters. Same test ids as web.
+describe("a coach with no email (PAD-482)", () => {
+  it("the field is focused when asked, and the reason shows while it is empty", async () => {
+    getMe.mockResolvedValue({ ...ME, email: null, emailVerification: "unverified" });
+    const { n } = await mountProfile({ focusEmail: true });
+
+    expect(n.byTestId("settings-profile-email").props.autoFocus).toBe(true);
+    expect(n.queryByTestId("settings-profile-email-needed")).not.toBeNull();
+  });
+
+  it("a coach with an email sees no reason line, and the field is not focused by default", async () => {
+    const { n } = await mountProfile();
+
+    expect(n.byTestId("settings-profile-email").props.autoFocus).toBe(false);
+    expect(n.queryByTestId("settings-profile-email-needed")).toBeNull();
+  });
+});
+
+// B-263 (PAD-482): typing before /auth/me lands used to skip hydration for EVERY field, so a save sent
+// `name: ""` and was refused. Only the fields the coach touched keep what they typed.
+describe("typing before the profile has loaded (B-263)", () => {
+  it("the untouched fields still fill in, and the save sends only the typed one", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    updateMe.mockResolvedValue({ ...ME, email: "rui@example.com", emailVerification: "pending" });
+    const { n } = await mountProfile({ focusEmail: true });
+
+    await n.changeText("settings-profile-email", "rui@example.com");
+    land({ ...ME, email: null, emailVerification: "unverified" });
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-name").props.value).toBe(ME.name);
+    expect(n.byTestId("settings-profile-email").props.value).toBe("rui@example.com");
+    await n.press("settings-profile-save");
+    await n.flush();
+    expect(updateMe).toHaveBeenCalledWith({ email: "rui@example.com" });
+  });
+});
+
+describe("#509 review", () => {
+  it("the reason line waits for /auth/me: a coach who has an email never sees it flash", async () => {
+    getMe.mockReturnValue(new Promise(() => undefined));
+    const { n } = await mountProfile();
+    expect(n.queryByTestId("settings-profile-email-needed")).toBeNull();
+  });
+
+  it("a field typed in and emptied again before the read lands takes the loaded value", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    const { n } = await mountProfile();
+
+    await n.changeText("settings-profile-email", "x");
+    await n.changeText("settings-profile-email", "");
+    land(ME);
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-email").props.value).toBe(ME.email);
+  });
+
+  it("after a save, a later read fills the fields the coach had edited (the touched set is cleared)", async () => {
+    updateMe.mockResolvedValue({ ...ME, phone: "+351922222222" });
+    const { n } = await mountProfile();
+    await n.changeText("settings-profile-phone", "+351922222222");
+    await n.press("settings-profile-save");
+    await n.flush();
+
+    // Changed elsewhere since (another device): the next read shows it.
+    await act(async () => { reread.push({ ...ME, phone: "+351933333333" }); });
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-phone").props.value).toBe("+351933333333");
+  });
+});
+

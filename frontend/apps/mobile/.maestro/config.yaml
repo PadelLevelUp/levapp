@@ -267,6 +267,9 @@ executionOrder:
     # 131 (PAD-480): a legacy category named like a default is converted into it, and its stray sub-category
     # moves under it; the server holds both.
     - 131-competency-convert
+    # 132 (PAD-482): a coach with no email is asked for one on the home, adds it in Settings and
+    # confirms the code; onFlowComplete restores the seeded address, verified.
+    - 132-email-prompt
     # 133/134 (PAD-481, eligibility.rules rule 6): "within N levels" has a direction — in Settings
     # (133; teardown restores the coach's bar) and on a class's own override (134; the class is
     # added and removed through the API).
