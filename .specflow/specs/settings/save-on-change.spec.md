@@ -95,12 +95,14 @@ toast; every save-on-change control, on both clients, converges on it.
 - **Then** it shows no sign and saves exactly as before
 
 ### Tests
-- Web: `src/components/settings/SaveSign.test.tsx` (sign, pause, failure, live region), the twins' tests
-  for each control, `src/pages/SettingsPage` language + header tests, and the guard
-  `src/components/settings/save-on-change-guard.test.ts`.
-- iOS: `src/components/settings/save-sign.test.tsx`, each control's test, and the guard
-  `src/features/settings/save-on-change-guard.test.ts`.
-- E2E: `settings/save-on-change.spec.ts` (web); Maestro flow 129 (iOS).
+- Web: `src/components/settings/SaveSign.test.tsx` (sign, pause, failure, newest save only, live region);
+  `EvaluationReminderSetting.test.tsx` / `EvaluationScaleSetting.test.tsx`; `src/pages/SettingsPage.test.tsx`
+  ("save on change": language, request alerts, header Save); `NotificationsEngineSection.test.tsx` (signs per
+  key, B-243 rollback incl. overlapping saves, the reminders exception); the guard
+  `src/components/settings/save-on-change-guard.test.ts` (rule 1).
+- iOS: `src/features/settings/save-sign.test.tsx`; the evaluation twins' tests; `preferences-section.test.tsx`;
+  `auto-invite-section.test.tsx`; the guard `src/features/settings/save-on-change-guard.test.ts` (rule 1).
+- E2E: `e2e/settings/save-on-change.spec.ts` (web); Maestro flow 129 (iOS).
 
 ### Notes
 - The per-keystroke and per-drag saves of some engine controls (invitation-group numbers, tiebreaker
