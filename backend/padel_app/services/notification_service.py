@@ -1199,13 +1199,13 @@ CANDIDATE_STAGES = (
     "already_enrolled",
     "declined_this_class",  # PAD-497 (rule 18): said "no" to an invitation for this class
     "already_invited",
-    "offered_another_spot",  # PAD-497 / PAD-494 (rule 18): a live offer for another spot of it
     "eligibility",
     "excluded_by_coach",
     "inactive_account",
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
+    "offered_another_spot",  # PAD-497 / PAD-494 (rule 18): would be asked, but holds another spot's offer
     "invited",
 )
 
@@ -1365,9 +1365,6 @@ def evaluate_candidates(
         if pid in active_invite_ids:
             verdicts.append(CandidateVerdict(cp, "already_invited"))
             continue
-        if pid in offered_elsewhere_ids:
-            verdicts.append(CandidateVerdict(cp, "offered_another_spot"))
-            continue
         if explain:
             failures = eligibility_failures(cp, instance, coach_id, eligibility_rules)
             if failures:
@@ -1405,6 +1402,15 @@ def evaluate_candidates(
         )
         if failures:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
+            continue
+        # PAD-497 / PAD-494 (rule 18), last on purpose (#513 review F1): a student holding a live
+        # invitation for another spot of the class (a manual invitation included) is skipped only
+        # here, after every other stage has passed, so `offered_another_spot` means "this round
+        # would ask them but for that offer". A holder the round would never ask (excluded,
+        # ineligible, unavailable, outside the round's rules) gets that reason instead, and does not
+        # hold the spot (_send_invitation_batch waits only on `offered_another_spot`).
+        if pid in offered_elsewhere_ids:
+            verdicts.append(CandidateVerdict(cp, "offered_another_spot"))
             continue
         verdicts.append(CandidateVerdict(cp, "invited"))
 
