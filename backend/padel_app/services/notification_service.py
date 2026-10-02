@@ -4534,7 +4534,10 @@ def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
     """
     if event.vacancy_id is not None:
         Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
-    NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    else:
+        # A manual invitation has no vacancy to lock (#513 review F3): lock the invitation itself.
+        NotificationEvent.query.filter_by(id=event.id).with_for_update().populate_existing().one()
     if action == "no" and event.status not in LIVE_INVITATION_STATES:
         db.session.commit()  # release the lock; nothing was written
         return {"action": "declined"}
@@ -4671,6 +4674,11 @@ def respond_to_notification(
         if event.status == "confirmed":
             db.session.commit()  # release the lock; nothing was written
             return {"action": "confirmed"}
+        if event.answer == "no":
+            # PAD-497 (#513 review F3): a "no" on this invitation landed between this answer's
+            # first commit and the lock; it is final (rule 18).
+            db.session.commit()  # release the lock; nothing was written
+            return {"action": "declined"}
 
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
