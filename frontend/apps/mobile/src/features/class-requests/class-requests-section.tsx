@@ -15,6 +15,8 @@ import {
   clubTodayISO,
   lightTheme,
   mergeClassRequestRows,
+  proposalAfterStartChange,
+  requestMinutes,
   slotOptions,
   splitClassRequestRows,
   type MergedClassRequestRow,
@@ -244,7 +246,7 @@ export function ClassRequestsSection({
                 <DatePickerInput testID="class-request-proposal-date" label={t("classRequests.date")} value={proposal.date} onChange={(v) => setProposal((p) => ({ ...p, date: v }))} />
                 <View className="flex-row gap-2">
                   <View className="flex-1">
-                    <TimePickerInput testID="class-request-proposal-start" label={t("availability.startTime")} value={proposal.startTime} onChange={(v) => setProposal((p) => ({ ...p, startTime: v }))} />
+                    <TimePickerInput testID="class-request-proposal-start" label={t("availability.startTime")} value={proposal.startTime} onChange={(v) => setProposal((p) => ({ ...p, ...proposalAfterStartChange(p, v, requestMinutes(r)) }))} />
                   </View>
                   <View className="flex-1">
                     <TimePickerInput testID="class-request-proposal-end" label={t("availability.endTime")} value={proposal.endTime} onChange={(v) => setProposal((p) => ({ ...p, endTime: v }))} />

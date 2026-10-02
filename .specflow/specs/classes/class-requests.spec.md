@@ -245,6 +245,13 @@ held on the coach's calendar while the request is open.
       has passed keeps its hold — there is no expiry; also with the owner.
     - **No client change (web and iOS).** Both already render `withdrawn` and `declined`; nothing
       new reaches a screen, so PAD-360 ships backend-only.
+20. **Proposing another time keeps the length (PAD-491).** In the coach's "propose another time"
+    form (web and iOS), changing the start moves the end so that the length on the form is kept:
+    the request's own length until the coach edits the end, the coach's length afterwards.
+    Changing the end never moves the start. A form whose length is not positive (an end before the
+    start) falls back to the request's own length, and the end is never later than 23:59. The
+    student's counter-proposal picker already keeps a fixed length (rule 10) and is unchanged.
+    (Rule 19 is PAD-488's; the two land separately.)
 
 ### Acceptance Criteria
 
@@ -270,6 +277,14 @@ held on the coach's calendar while the request is open.
 - **When** the student opens "Book a class" and picks that coach
 - **Then** the date is the first later day with a free block and the slot list is not empty
 - **And** typing another date keeps the typed date
+
+#### Moving the proposed start keeps the length (PAD-491)
+- **Given** a pending request for 10:00–11:00 and the coach's "propose another time" form open
+- **When** the coach changes the start to 14:30
+- **Then** the end shows 15:30
+- **When** the coach then sets the end to 16:00 and changes the start to 15:00
+- **Then** the end shows 16:30
+- **And** changing the end alone never changes the start
 
 #### Counter-proposal round-trips
 - **Given** a pending request for 11:00–12:00

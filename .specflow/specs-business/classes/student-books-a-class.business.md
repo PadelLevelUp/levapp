@@ -63,6 +63,8 @@ Students who want a class outside the coach's published schedule, and the coach 
   another time, and the other side always gets to answer.
 - Every state change — new request, accepted, declined, counter-proposed, proposal answered,
   withdrawn — reaches the other side through the existing notification channels.
+- When the coach proposes another time, moving the start moves the end with it, so the class keeps
+  its length (the student's, or the one the coach set); the coach can still change the end (PAD-491).
 
 ## Success Metrics
 
