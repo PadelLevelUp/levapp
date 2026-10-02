@@ -1,0 +1,118 @@
+# PAD-481 / eligibility.rules rule 6 — "within N levels" has a direction on iOS. The coach's
+# bar holds within_n_of_class (both ways, N=2). In Settings → Notifications the coach picks
+# "only above", leaves Settings and comes back: the screen shows "above" and the server holds
+# within_n_above_class with N kept. Then "only below": the server holds within_n_below_class.
+#
+# Setup and teardown through the API (R-040): scripts/pad481-setup.js stores the coach's own
+# bar and sets the starting one; pad481-teardown.js restores it, even when a step fails.
+# Assertions are by testID and server values only, never rendered copy: the trigger's text is
+# folded into its a11y label, so the stored direction is read from the wrapper's testID
+# (eligibility-direction-is-<both|above|below>). Backend: -e API_BASE=http://localhost:<port>,
+# else :5001. Flow number 133 is from Session-D's reserved block (133–135, coordinator).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad481-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad481-teardown.js
+---
+- evalScript: "${output.rule = function () { return json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).eligibilityRules[0]; }}"
+- assertTrue: "${output.rule().operation === 'within_n_of_class'}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-notifications"
+
+# ── A bar set before PAD-481 reads as both ways ──
+- scrollUntilVisible:
+    element:
+      id: "eligibility-direction"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    id: "eligibility-direction-is-both"
+
+# ── Only above ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "eligibility-direction"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      - tapOn:
+          id: "eligibility-direction-above"
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            id: "eligibility-direction-is-above"
+          timeout: 5000
+# The saver writes after the pick; poll the server until it holds it.
+- retry:
+    maxRetries: 5
+    commands:
+      - waitForAnimationToEnd
+      - evalScript: "${output.r1 = output.rule()}"
+      - assertTrue: "${output.r1.operation === 'within_n_above_class' && output.r1.value == 2}"
+
+# ── Leave Settings and come back: the screen reads the server ──
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+# Under load the first tap on "Sections" can land before the screen settles; retry it.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "settings-back"
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            id: "settings-nav-notifications"
+          timeout: 10000
+- tapOn:
+    id: "settings-nav-notifications"
+- scrollUntilVisible:
+    element:
+      id: "eligibility-direction"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    id: "eligibility-direction-is-above"
+
+# ── Only below ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "eligibility-direction"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      - tapOn:
+          id: "eligibility-direction-below"
+          retryTapIfNoChange: false
+      - extendedWaitUntil:
+          visible:
+            id: "eligibility-direction-is-below"
+          timeout: 5000
+# The saver writes after the pick; poll the server until it holds it.
+- retry:
+    maxRetries: 5
+    commands:
+      - waitForAnimationToEnd
+      - evalScript: "${output.r2 = output.rule()}"
+      - assertTrue: "${output.r2.operation === 'within_n_below_class' && output.r2.value == 2}"
+
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+- tapOn:
+    id: "settings-back"

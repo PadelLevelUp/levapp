@@ -44,6 +44,9 @@ invitation engine already applies.
 
 - The bar is optional. Left unset, nothing changes — every student is eligible for every class,
   exactly as before this feature existed.
+- "Up to N levels away" can look only above the class, only below it, or both; the class's own
+  level is always included (PAD-481). A bar a coach set before this option existed keeps meaning
+  both directions.
 - The most specific bar wins outright — one occurrence's own setting beats its series, which beats
   the coach's standard. They never combine or stack; setting a bar for a class replaces the
   standard, it doesn't add to it.

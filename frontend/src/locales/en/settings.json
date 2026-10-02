@@ -390,6 +390,7 @@
       "semiAutomatic": "Semi-automatic",
       "reminders": "Reminders",
       "remindersHint": "Automatically remind students before class and ask them to confirm attendance.",
+      "rescheduleFailed": "The timing is saved, but the reminders of classes already scheduled may still follow the previous timing. They are brought up to date automatically once a day. To retry now, change the timing again.",
       "invitationGroups": "Invitation groups",
       "invitationGroupsHint": "Define who gets invited and in what order. Each group is tried in sequence — if no one accepts from Group 1, the system moves to Group 2. Used by the automatic invitation engine.",
       "settingUpGroups": "Setting up default invitation groups…",
@@ -598,6 +599,12 @@
         "atMost": "at most",
         "greaterThan": "more than",
         "atLeast": "at least"
+      },
+      "direction": "Direction",
+      "directions": {
+        "both": "above and below",
+        "above": "only above",
+        "below": "only below"
       },
       "impact": {
         "title_one": "{{count}} enrolled student no longer meets this bar",

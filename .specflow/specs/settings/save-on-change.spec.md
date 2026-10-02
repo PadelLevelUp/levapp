@@ -30,12 +30,12 @@ toast; every save-on-change control, on both clients, converges on it.
    and iOS. Today: language (web too, since PAD-473; B-244), class-request alerts, the notification
    engine's controls (on/off, invitation mode, eligibility and open spots, invitation groups,
    tiebreakers, restrictions, notify groups; web has all, iOS the subset it ports), evaluation frequency
-   and evaluation scale. **Excepted, by name:** the engine's reminders subsection (`reminderTiming`,
-   `invitationStartTiming`) shows no sign until PAD-478 (a timing save can leave a reminder armed at the
-   old time) closes — a sign there would promise more than the system keeps; its requests are sent
-   exactly as before (same bodies, same moments, not queued); what changed for it is the failure and
-   the confirmation — a failed save returns its fields to the confirmed value like every other control,
-   and a confirmation records the server's answer rather than the value sent (rule 3). Not in scope: theme (a device preference with no server write)
+   and evaluation scale. The engine's reminders subsection (`reminderTiming`,
+   `invitationStartTiming`) is one of them since PAD-478: its edits are held until the coach pauses
+   (`notifications.config` rule 10d) and are then saved through the card's one save, with the sign,
+   like every other engine control. A save the server stored but whose scheduled jobs it could not
+   re-arm is a confirmed save, and the form says so on its own line (`notifications.config` rule
+   10c). Not in scope: theme (a device preference with no server write)
    and message templates (explicit Save, `settings.unsaved-edits` rule 1). A guard per client fails when
    a Settings file saves on change without the sign (see Tests).
 2. **The sign.** When the server confirms a save, the control shows "Guardado" / "Saved" with a tick,
@@ -59,9 +59,8 @@ toast; every save-on-change control, on both clients, converges on it.
    control keeps this record the same way, through the shared `SaveLedger` (`@levelup/config`).
    **The server ends in sending order** because a control never has two saves of one setting in flight:
    while one is out, a newer change waits (the latest replaces an older waiting one; engine patches
-   merge) and is sent when the answer comes — `createSerialSaver` (`@levelup/config`). Two exceptions,
-   named: the engine's reminders subsection keeps its own requests until PAD-478 (#496 puts it on the
-   same helper); and web's keepalive send when the page goes away (closed, or hidden by a tab switch)
+   merge) and is sent when the answer comes — `createSerialSaver` (`@levelup/config`). One exception,
+   named: web's keepalive send when the page goes away (closed, or hidden by a tab switch)
    goes at once and drops any value still waiting in the queue, so nothing older follows it. It goes at
    once for a hidden tab too, not only a closing page: closing a tab (Cmd-W) fires "hidden" and
    "pagehide" in the same task, so the two cannot be told apart in time, and a request queued then would
@@ -115,9 +114,11 @@ toast; every save-on-change control, on both clients, converges on it.
 - **When** they open Perfil, then Preferências, then Notificações
 - **Then** "Guardar alterações" is visible on Perfil only
 
-#### The reminders subsection is left alone (rule 1, PAD-478)
+#### The reminders subsection saves like the other engine controls (rule 1, PAD-478)
 - **Given** the engine's reminders subsection
-- **Then** it shows no sign and saves exactly as before
+- **When** the coach changes a timing and pauses
+- **Then** one save goes through the card's save, waits its turn behind a save already out, and shows the sign
+- **And** a failed save says so and returns the controls to the confirmed value
 
 ### Tests
 - One save in flight: `packages/config/src/serial-saver.test.ts`, and per family "a change made meanwhile
@@ -130,7 +131,7 @@ toast; every save-on-change control, on both clients, converges on it.
   once", counted by signs shown, and a failure landing mid-typing); `src/pages/SettingsPage.test.tsx`
   (language, request alerts, the late read, the header Save, "frequency and scale never ask");
   `NotificationsEngineSection.test.tsx` (signs per key, B-243 rollback, both held saves failing, the
-  reminders exception); the guard `src/components/settings/save-on-change-guard.test.ts`.
+  reminders sub-panel signing and queueing since PAD-478); the guard `src/components/settings/save-on-change-guard.test.ts`.
 - iOS: `src/features/settings/save-sign.test.tsx`; the evaluation twins' tests; `preferences-section.test.tsx`
   (with a react-query stand-in that keeps a real cache); `auto-invite-section.test.tsx`; the guard
   `src/features/settings/save-on-change-guard.test.ts` (incl. rule 4's "no page-level Save on iOS").

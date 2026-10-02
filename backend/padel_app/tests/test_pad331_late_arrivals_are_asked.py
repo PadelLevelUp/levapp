@@ -12,29 +12,11 @@ called by hand — the distinction that hid this (ledger B-083).
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import pytest
 
 from padel_app.sql_db import db
 from padel_app.tests.test_notification_reminder_flow import (
     PATCHES, _seed_coach_and_student, _seed_instance,
 )
-
-
-@pytest.fixture
-def live_scheduler(app):
-    """A real APScheduler with a memory store, not started: jobs sit pending."""
-    from apscheduler.jobstores.memory import MemoryJobStore
-    from apscheduler.schedulers.background import BackgroundScheduler
-
-    from padel_app import scheduler as sched
-
-    sched._scheduler = BackgroundScheduler(jobstores={"default": MemoryJobStore()}, timezone="UTC")
-    sched._app = app
-    try:
-        yield sched
-    finally:
-        sched._scheduler = None
-        sched._app = None
 
 
 def _ask_jobs(sched, instance_id):

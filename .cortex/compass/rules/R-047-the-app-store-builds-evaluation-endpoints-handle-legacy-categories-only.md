@@ -85,3 +85,16 @@ other row — catalogue or custom — is a non-legacy competency.
    that retires this rule in the same PR. The upload-time build pins tell you what those builds
    send; they are not evidence that nobody runs them. If the logs cannot be read for a long
    enough window, the owner's decision alone retires the rule — never an inference.
+9. **A row leaves the legacy set only by the coach's explicit conversion** (owner decision
+   2026-10-02, PAD-480; `evaluations.competencies` rule 18). From that moment the five endpoints
+   treat it as any non-legacy competency, as rule 3 already says: it is not listed, its scores are
+   not returned, a score posted for it is ignored with the same 200, the upsert skips its name, and
+   the legacy delete answers 403. So it and its scores disappear from App Store 1.0 and 1.1.0, and a
+   score saved from a form those builds opened before the conversion is answered 200 and stored
+   nowhere. A 1.1.0 editor that read the list before the conversion can recreate the old name as a
+   legacy row (`evaluations.competencies` rule 18, known limit b). Nothing else converts a row: no
+   migration, no bulk update, no automatic match. Nothing ever turns a row legacy. Conversion changes
+   none of the five endpoints; their 2×2 (rule 7) stands unchanged.
+   `backend/padel_app/tests/test_pad480_convert_competency.py` checks one cell of it against a
+   converted row (an old-shaped request while non-legacy competencies exist): the list, the
+   profile, a posted score, the upsert of the new name and the legacy delete.

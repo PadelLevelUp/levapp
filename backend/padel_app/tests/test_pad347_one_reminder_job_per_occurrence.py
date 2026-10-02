@@ -13,26 +13,8 @@ Covered spec: notifications.reminders rule 20 and its three criteria.
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import pytest
 
 from padel_app.sql_db import db
-
-
-@pytest.fixture
-def live_scheduler(app):
-    from apscheduler.jobstores.memory import MemoryJobStore
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from padel_app import scheduler as sched
-
-    sched._scheduler = BackgroundScheduler(
-        jobstores={"default": MemoryJobStore()}, timezone="UTC"
-    )
-    sched._app = app
-    try:
-        yield sched
-    finally:
-        sched._scheduler = None
-        sched._app = None
 
 
 def _seed(app, *, reminder_count=1):

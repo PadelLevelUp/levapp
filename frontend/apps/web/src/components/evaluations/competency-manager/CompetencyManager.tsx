@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AddCustomCompetency } from "./AddCustomCompetency";
 import { CompetencyRow, managerRowId } from "./CompetencyRow";
+import { ConvertCompetencyDialog } from "./ConvertCompetencyDialog";
 import { DeleteCompetencyDialog } from "./DeleteCompetencyDialog";
 
 interface CompetencyManagerProps {
@@ -78,6 +79,7 @@ function CompetencyManagerBody({ enabled }: { enabled: boolean }) {
   const { t } = useTranslation();
   const competencies = useEvaluationCompetencies(enabled);
   const [deleting, setDeleting] = useState<EvaluationCompetency | null>(null);
+  const [converting, setConverting] = useState<EvaluationCompetency | null>(null);
 
   if (competencies.isError) {
     return (
@@ -97,7 +99,7 @@ function CompetencyManagerBody({ enabled }: { enabled: boolean }) {
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
       {sections.map((section) => (
-        <ManagerSectionView key={section.id} section={section} onDelete={setDeleting} />
+        <ManagerSectionView key={section.id} section={section} onDelete={setDeleting} onConvert={setConverting} />
       ))}
       {/* Below the rows, never above them: appearing above would move every switch under
           the finger the moment the last one is turned off (Session-B's review of #361). */}
@@ -112,13 +114,19 @@ function CompetencyManagerBody({ enabled }: { enabled: boolean }) {
         subNames={deleting ? subNamesOf(deleting) : []}
         onClose={() => setDeleting(null)}
       />
+      <ConvertCompetencyDialog competency={converting} onClose={() => setConverting(null)} />
     </div>
   );
 }
 
 /** One section (PAD-431, rule 15): the coach's legacy categories, or one category with its
  *  sub-categories and, when it is a row, a field to add one. */
-function ManagerSectionView({ section, onDelete }: { section: CategorySection; onDelete: (c: EvaluationCompetency) => void }) {
+function ManagerSectionView({ section, onDelete, onConvert }: {
+  section: CategorySection;
+  onDelete: (c: EvaluationCompetency) => void;
+  /** PAD-480 (rule 18): a legacy row's "Converter em categoria padrão". */
+  onConvert: (c: EvaluationCompetency) => void;
+}) {
   const { t } = useTranslation();
   if (section.kind === "legacy") {
     return (
@@ -131,7 +139,7 @@ function ManagerSectionView({ section, onDelete }: { section: CategorySection; o
           {t("evaluations.manager.legacyCaption")}
         </p>
         <ul className="divide-y">
-          {section.subs.map((row) => <CompetencyRow key={managerRowId(row)} row={row} onDelete={onDelete} />)}
+          {section.subs.map((row) => <CompetencyRow key={managerRowId(row)} row={row} onDelete={onDelete} onConvert={onConvert} />)}
         </ul>
       </section>
     );

@@ -26,26 +26,6 @@ from padel_app.tests.test_recurring_delete_exclusion import (  # noqa: F401 (fix
 
 
 
-@pytest.fixture
-def live_scheduler(app):
-    """An APScheduler with a memory job store, NOT started: jobs sit in the
-    pending list, which `get_jobs()`, `remove_job()` and `job.remove()` all
-    honour. `init_scheduler` deliberately skips tests, so this wires the module
-    globals directly and clears them afterwards."""
-    from apscheduler.jobstores.memory import MemoryJobStore
-    from apscheduler.schedulers.background import BackgroundScheduler
-
-    from padel_app import scheduler as sched
-
-    sched._scheduler = BackgroundScheduler(jobstores={"default": MemoryJobStore()}, timezone="UTC")
-    sched._app = app
-    try:
-        yield sched
-    finally:
-        sched._scheduler = None
-        sched._app = None
-
-
 def _job_ids(sched, lesson_id=None):
     prefix = "reminder_lesson_" + (f"{lesson_id}_" if lesson_id is not None else "")
     return sorted(j.id for j in sched._scheduler.get_jobs() if j.id.startswith(prefix))
