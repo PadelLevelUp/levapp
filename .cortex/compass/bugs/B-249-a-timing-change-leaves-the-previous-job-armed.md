@@ -1,0 +1,41 @@
+---
+id: B-249
+title: "A reminder or invitation timing changed to a time already past (or to none) leaves the previously armed job in place, and it fires"
+type: incomplete-rule
+severity: medium
+status: triaged
+affects:
+  - notifications.config
+  - notifications.reminders
+  - backend/padel_app/scheduler.py
+  - backend/padel_app/services/notification_service.py
+  - frontend/apps/web/src/components/settings/RemindersSection.tsx
+proposed_fix: "Re-derive each job from the saved config and REMOVE a job whose new fire time is past or none; one derivation for the settings change, the startup re-arm and the daily pass."
+opened: 2026-10-02T09:03:55Z
+---
+
+# B-249: a timing change leaves the previous job armed (PAD-478)
+
+**Source:** Session-C's code read during the PAD-473 settings survey, 2026-10-02. Reproduced by Session-A the same day.
+
+**What happens:** a coach changes `reminderTiming` or `invitationStartTiming`. `reschedule_all_future_jobs` re-arms each future class. `schedule_instance_jobs` and `schedule_lesson_reminder_jobs` replace a job only when the NEW fire time is in the future; when it is already past, or the timing is `none`, they log (or do nothing) and the job armed from the previous value stays. The web form saves per control, so a job armed from an intermediate value can be the one that stays.
+
+**Consequence (measured):** the surviving reminder job sends. `_run_send_reminders` and `send_class_reminders` do not re-check the timing. The student gets one FIRST reminder at a time the current configuration does not imply. It is not a duplicate: the per-student cap and PAD-407's spacing guard hold, and a job survives only when no new job was armed. A surviving invitation-start job fires at the old, later time; `trigger_invitations` honours `invite_not_before`, quiet hours and a class that is over, so invitations start late, not early.
+
+**What should happen:** after a timing change no job remains armed at a time the saved configuration does not imply.
+
+**Evidence:** `backend/padel_app/tests/test_pad478_stale_timing_jobs.py` on staging 80cd3b3c4, a real APScheduler (memory store, paused) and a pinned clock: a baseline with both times in the future passes; six cases fail (reminder, intermediate value, invitation start, the measured send, an occurrence job, type `none`). The observation that selects the cause is the job's `run_date` after the change: still the old instant.
+
+**Prod (read-only, run by the coordinator 2026-10-02 08:59 UTC):** 120 reminder and invitation jobs, all matching the current configs; no stale job.
+
+**Open product decision (with the owner):** what a class gets when the coach's new reminder time is already past: nothing (what a class created inside the window gets today), a reminder now, or the old-time reminder (today's accident). For invitations, whether a past start means "start now".
+
+**Affected specs:**
+- Dev: `.specflow/specs/notifications/config.spec.md` rule 10 ("Updating timing configs reschedules all future scheduler jobs") says nothing about a new time that is past.
+- Business: unchanged until the owner's decision.
+
+### Change plan
+- Spec: rules 10a, 10c, 10d and criteria (wording with the coordinator).
+- Tests: the six strict-xfail cases in `test_pad478_stale_timing_jobs.py` lose their mark.
+- Code: one derivation that arms, replaces or removes; used by the settings change, `_startup_reschedule` and the daily window pass. At startup and daily a past time means no job and nothing sent.
+- Deploy constraint: the fix must not send, re-send or suppress a reminder for an existing class as a side effect of being deployed.
