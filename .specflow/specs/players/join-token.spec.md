@@ -67,7 +67,14 @@ serves a whole class and a leaked one can be retired. This is the student-initia
    {coachName} at {clubName}" → accept (rule 5) → success state linking to the calendar. Not
    signed in → the token is remembered, the visitor is sent to `/auth` (with "Create account"
    and "Sign in"), and returned to the join page afterwards. Signed in as a coach → the page
-   explains coaches cannot join a roster.
+   explains coaches cannot join a coach's student base.
+   **(PAD-484) Wording.** The flow speaks of the coach's **base de alunos** / **student base**, never
+   "plantel" / "roster" — the join page, its success state, and the coach's join-code card. The
+   confirmation greets the student and says in one line what accepting means: "Bem-vindo! Ao
+   aceitares, passas a fazer parte da base de alunos de {coach}, que te pode adicionar às suas
+   aulas." / "Welcome! By accepting, you join {coach}'s student base, and they can add you to their
+   classes." The success title names the coach: "Estás na base de alunos de {coach}" / "You're in
+   {coach}'s student base".
 10. No in-app QR scanner in v1: the phone camera opens the universal link. Adding a scanner
     needs a camera-permission string and App Store metadata — deferred.
 11. A player who joined this way appears in `players.list` with `validated: true`,
