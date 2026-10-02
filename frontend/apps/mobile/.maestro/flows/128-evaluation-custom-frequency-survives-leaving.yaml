@@ -1,11 +1,13 @@
-# confirmed — Session-C, iPhone 17 Pro simulator, fix/b242-custom-frequency @ dae954372, 2026-10-02 08:26Z and 08:31Z: green ×2; red on staging 439ae2088 at afterBackground == 7 (2026-10-01)
+# confirmed — Session-C, iPhone 17 Pro simulator, fix/b242-custom-frequency (working tree on 37fc7ecc + review fixes), 2026-10-02 08:37:44Z: green; red on staging 439ae2088 at afterBackground == 7 (2026-10-01)
 # B-242 / PAD-473 / evaluations.reminders rule 1 — a number typed into "Personalizado" is saved
 # however the coach leaves, not only when the field blurs. The field uses the number pad, which
 # has no Return key, so before the fix a number typed and then left behind by sending the app to
 # the background, or by following a link (a notification tap), never reached the server.
 #
-# Each half types a number, proves it is in the field (`copyTextFrom`), leaves WITHOUT tapping
-# outside the field, and reads the stored value back through the API. `onFlowComplete` PUTs
+# Each half types a number and leaves at once, WITHOUT tapping outside the field and with no step
+# in between, then reads the stored value back through the API. Maestro cannot promise to leave
+# inside the 600 ms save delay, so the flow proves the number survives leaving on a device; which
+# path sent it (the delay, or the flush on background/unmount) is pinned by the unit tests. `onFlowComplete` PUTs
 # `{"reminder":"never"}` so no later flow inherits a frequency (R-040).
 appId: com.padellevelup.app
 onFlowComplete:
@@ -42,23 +44,21 @@ onFlowComplete:
     id: "settings-evaluation-reminder-n"
 - eraseText: 4
 - inputText: "7"
-- copyTextFrom:
-    id: "settings-evaluation-reminder-n"
-- assertTrue: "${maestro.copiedText == '7'}"
 - pressKey: Home
 - launchApp:
     stopApp: false
 - evalScript: "${output.afterBackground = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).everyN}"
 - assertTrue: "${output.afterBackground == 7}"
+# The field still shows what the coach typed.
+- copyTextFrom:
+    id: "settings-evaluation-reminder-n"
+- assertTrue: "${maestro.copiedText == '7'}"
 
 # ── Half 2: type 9, follow a link away ──
 - tapOn:
     id: "settings-evaluation-reminder-n"
 - eraseText: 4
 - inputText: "9"
-- copyTextFrom:
-    id: "settings-evaluation-reminder-n"
-- assertTrue: "${maestro.copiedText == '9'}"
 - openLink: levelup://players
 - extendedWaitUntil:
     visible:

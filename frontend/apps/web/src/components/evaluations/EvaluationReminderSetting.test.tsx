@@ -147,46 +147,88 @@ describe("the control never shows a choice the server does not hold", () => {
 });
 
 describe("Personalizado saves a typed number however the coach leaves it (B-242)", () => {
-  const pastDelay = () => new Promise((r) => setTimeout(r, CUSTOM_SAVE_DELAY_MS + 50));
+  // Fake timers once the field is on screen: the delay, the flush and the duplicate check are
+  // asserted at exact times, so a 0 ms delay or a save that waits for a timer cannot pass.
+  async function typedField(stored = 7) {
+    api.putEvaluationSettings.mockImplementation(async (body: EvaluationSettings) => body);
+    const view = open({ reminder: "every_n_classes", everyN: stored });
+    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+    vi.useFakeTimers();
+    return { view, input };
+  }
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+  afterEach(() => vi.useRealTimers());
 
   it("saves once, shortly after typing stops, without a blur", async () => {
-    api.putEvaluationSettings.mockResolvedValue({ reminder: "every_n_classes", everyN: 12 });
-    open({ reminder: "every_n_classes", everyN: 7 });
-    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+    const { input } = await typedField();
 
     fireEvent.change(input, { target: { value: "1" } });
+    await advance(300);
     fireEvent.change(input, { target: { value: "12" } });
+    await advance(CUSTOM_SAVE_DELAY_MS - 100);
     expect(api.putEvaluationSettings).not.toHaveBeenCalled();
 
-    await act(pastDelay);
+    await advance(150);
     expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
     expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 12 });
+  });
 
+  it("a blur after the delayed save sends nothing a second time", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "9" } });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
     fireEvent.blur(input);
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
     expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("leaving the screen sends a number still waiting for its delay", async () => {
-    api.putEvaluationSettings.mockResolvedValue({ reminder: "every_n_classes", everyN: 8 });
-    const view = open({ reminder: "every_n_classes", everyN: 7 });
-    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+  it("leaving the screen sends a number still waiting for its delay, at once", async () => {
+    const { view, input } = await typedField();
 
     fireEvent.change(input, { target: { value: "8" } });
     view.unmount();
+    await advance(0);
 
-    await waitFor(() =>
-      expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 }),
-    );
     expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 });
   });
 
-  it("an invalid number is never sent by the delay", async () => {
-    open({ reminder: "every_n_classes", everyN: 7 });
-    const input = await screen.findByTestId("settings-evaluation-reminder-n");
+  it.each(["0", "100", "1.5", ""])("%j is never sent, by the delay or by leaving", async (typed) => {
+    const { view, input } = await typedField();
+
+    fireEvent.change(input, { target: { value: typed } });
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+    view.unmount();
+    await advance(0);
+
+    expect(api.putEvaluationSettings).not.toHaveBeenCalled();
+  });
+
+  it("choosing a radio option drops a number still waiting for its delay", async () => {
+    const { input } = await typedField();
+
+    fireEvent.change(input, { target: { value: "9" } });
+    fireEvent.click(screen.getByTestId("settings-evaluation-reminder-option-monthly"));
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(api.putEvaluationSettings).toHaveBeenCalledTimes(1);
+    expect(api.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "monthly" });
+  });
+
+  it("retyping the stored number after an invalid one clears the error and sends nothing", async () => {
+    const { input } = await typedField(7);
 
     fireEvent.change(input, { target: { value: "0" } });
-    await act(pastDelay);
+    fireEvent.blur(input);
+    expect(screen.getByTestId("settings-evaluation-reminder-error")).toHaveTextContent("evaluations.reminder.invalidNumber");
 
+    fireEvent.change(input, { target: { value: "7" } });
+    fireEvent.blur(input);
+    await advance(CUSTOM_SAVE_DELAY_MS + 50);
+
+    expect(screen.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
     expect(api.putEvaluationSettings).not.toHaveBeenCalled();
   });
 });

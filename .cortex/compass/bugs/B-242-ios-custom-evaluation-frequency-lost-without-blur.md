@@ -82,6 +82,13 @@ number the coach typed is never dropped (B-242). An invalid one is not sent."
   5 forbids any scheduler job, push or e-mail. Nothing fires on an intermediate "1".
 - **Web hard reload with the field focused:** left as is, by decision. A hard reload is not in-app
   navigation, and the debounce narrows the window to 600 ms.
+- **Web tab close within 600 ms of typing:** also lost. The page's `useFlushOnPageHide` (PAD-396,
+  keepalive PUT) is not wired here, because it needs a keepalive option on the shared
+  `putEvaluationSettings` and `useSaveEvaluationSettings`. Switching tabs is safe: the page stays
+  alive and the timer fires. Declared on #494; a candidate for the save-on-change follow-up.
+- **Known limit, no ordering guard:** two saves 600 ms apart are two independent PUTs; the server
+  keeps whichever arrives last, and a late failure of an earlier one ("1") can show "saveFailed"
+  after the later one ("12") succeeded. Accepted at review (#494).
 
 ### Resolution
 
@@ -96,4 +103,8 @@ number the coach typed is never dropped (B-242). An invalid one is not sent."
   number already sent is not sent twice; a failed save clears that, so the same number retries.
 - Flow 128 green on the fix, twice (2026-10-02 08:26Z and 08:31Z, iPhone 17 Pro simulator, Metro
   from `fix/b242-custom-frequency` after merging staging 9fe5fefa9); flow 97 green alongside.
+  Reshaped after review to leave with no step after typing, and green again at 08:37Z. It still
+  cannot prove the leave beat the 600 ms delay; the unit tests pin each path (mutants of the delay,
+  the flushes, the radio cancel, the duplicate check and the 1–99 bound all go red).
+- Review fix: retyping the stored number after an invalid one now clears the "invalid" error.
 - Resolved: 2026-10-02.

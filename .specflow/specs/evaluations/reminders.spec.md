@@ -139,8 +139,10 @@ due. It is a marker inside the app, never a message to anyone.
 - **When** they type 7 and send the app to the background with the field still focused, then type
   9 and follow a link to the players list with the field still focused
 - **Then** `GET /api/app/evaluation_settings` answers `everyN` 7 after the first and 9 after the
-  second (Maestro flow 128; the web and iOS unit tests pin the delay, the flush on leaving and
-  the one-save-per-pause behaviour)
+  second. Maestro flow 128 shows the number survives leaving on a device; Maestro cannot leave
+  inside the 600 ms delay (one typed character takes ~950 ms), so which path sent it is pinned by
+  the web and iOS unit tests: the delay (not earlier, once per pause), the flush on unmount and on
+  background, a radio choice dropping a pending number, and invalid input never sent
 
 #### The reminder never leaves the app (rule 5)
 - **Given** any frequency and any due player

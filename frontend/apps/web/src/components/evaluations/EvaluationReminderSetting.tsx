@@ -121,7 +121,11 @@ export function EvaluationReminderSetting() {
       setErrorKey("invalidNumber");
       return;
     }
-    if (n === sentCustomN.current) return;
+    if (n === sentCustomN.current) {
+      // Already stored: nothing to send, but an earlier "invalid" no longer applies.
+      setErrorKey(null);
+      return;
+    }
     persist("custom", n, "custom");
   };
 

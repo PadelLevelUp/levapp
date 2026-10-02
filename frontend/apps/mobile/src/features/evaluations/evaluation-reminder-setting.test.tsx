@@ -26,7 +26,8 @@ vi.mock("@levelup/hooks", () => ({
 import { CUSTOM_SAVE_DELAY_MS, EvaluationReminderSetting } from "./evaluation-reminder-setting";
 
 const FIELD = "settings-evaluation-reminder-n";
-const waitPastDelay = () => act(async () => { await new Promise((r) => setTimeout(r, CUSTOM_SAVE_DELAY_MS + 50)); });
+const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+const waitPastDelay = () => wait(CUSTOM_SAVE_DELAY_MS + 50);
 
 afterEach(() => {
   hooks.data = undefined;
@@ -45,7 +46,9 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     const n = await openCustom();
 
     await n.changeText(FIELD, "1");
+    await wait(300);
     await n.changeText(FIELD, "12");
+    await wait(CUSTOM_SAVE_DELAY_MS - 150);
     expect(hooks.mutateAsync).not.toHaveBeenCalled();
 
     await waitPastDelay();
@@ -85,10 +88,10 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 });
   });
 
-  it("an invalid number is never sent, by the delay or by leaving", async () => {
+  it.each(["0", "100", "1.5", ""])("%j is never sent, by the delay or by leaving", async (typed) => {
     const n = await openCustom();
 
-    await n.changeText(FIELD, "0");
+    await n.changeText(FIELD, typed);
     await waitPastDelay();
     await act(async () => { __emitAppState("background"); });
     await act(async () => { n.root.unmount(); });
@@ -108,5 +111,31 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     await act(async () => { n.byTestId(FIELD).props.onBlur(); });
     expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
     expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 5 });
+  });
+
+  it("choosing a radio option drops a number still waiting for its delay", async () => {
+    const n = await openCustom();
+
+    await n.changeText(FIELD, "9");
+    await n.press("settings-evaluation-reminder-option-monthly");
+    await waitPastDelay();
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "monthly" });
+  });
+
+  it("retyping the stored number after an invalid one clears the error and sends nothing", async () => {
+    const n = await openCustom(7);
+
+    await n.changeText(FIELD, "0");
+    await act(async () => { n.byTestId(FIELD).props.onBlur(); });
+    expect(n.queryByTestId("settings-evaluation-reminder-error")).not.toBeNull();
+
+    await n.changeText(FIELD, "7");
+    await act(async () => { n.byTestId(FIELD).props.onBlur(); });
+    await waitPastDelay();
+
+    expect(n.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
+    expect(hooks.mutateAsync).not.toHaveBeenCalled();
   });
 });
