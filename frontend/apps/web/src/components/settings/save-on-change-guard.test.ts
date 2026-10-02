@@ -1,8 +1,8 @@
 /**
  * settings.save-on-change rule 1 (PAD-473), made checkable on web: a source file that saves a setting
  * through one of the save-on-change endpoints must show the shared sign (import SaveSign), unless it
- * is listed below with the reason it is not a save-on-change control. And on the engine card, the
- * only save() that names no sign is the reminders sub-panel's (the PAD-478 exception).
+ * is listed below with the reason it is not a save-on-change control. And on the engine card, no
+ * save() is unsigned (the reminders sub-panel's was the exception until PAD-478).
  */
 import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative } from "path";
@@ -65,10 +65,10 @@ describe("save-on-change guard (settings.save-on-change rule 1)", () => {
     expect(stale).toEqual([]);
   });
 
-  it("on the engine card, only the reminders sub-panel saves without a sign (PAD-478)", () => {
+  it("on the engine card, no save is unsigned (the reminders sub-panel signs too, since PAD-478)", () => {
     const card = files.find((f) => f.rel === "components/settings/NotificationsEngineSection.tsx")!.text;
     const unsigned = [...card.matchAll(/\bsave\(\{[^}]*\}\)/g)].map((m) => m[0]);
-    expect(unsigned).toEqual(["save({ reminderTiming })"]);
+    expect(unsigned).toEqual([]);
   });
 
   it("every sign key a file saves under is shown on screen, and every shown key is saved under (review #497 item 6)", () => {

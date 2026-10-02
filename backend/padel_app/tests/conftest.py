@@ -299,3 +299,54 @@ class AuthActions:
 @pytest.fixture
 def auth(client):
     return AuthActions(client)
+
+
+@pytest.fixture
+def live_scheduler(app):
+    """The scheduler module wired to a REAL APScheduler on a memory store, started PAUSED.
+
+    Paused, nothing fires by itself: a job runs only when a test calls it. Started, the job
+    store behaves as it does in the app: `add_job(replace_existing=True)` really replaces,
+    and `get_job`, `get_jobs`, `remove_job` and `reschedule_job` read and change what is
+    ARMED. A scheduler that was never started only queues jobs in a pending list, where
+    `replace_existing` is not applied and a "replaced" job sits beside its replacement
+    (PAD-478: the baseline "a future time replaces the job" fails on it). A mock scheduler
+    shows only what was called, not what remains armed. `init_scheduler` skips tests on
+    purpose, so this sets the module globals and restores them. Yields the module.
+    """
+    from apscheduler.jobstores.memory import MemoryJobStore
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+    from padel_app import scheduler as sched
+
+    previous = (sched._app, sched._scheduler)
+    real = BackgroundScheduler(jobstores={"default": MemoryJobStore()}, timezone="UTC")
+    real.start(paused=True)
+    sched._scheduler = real
+    sched._app = app
+    try:
+        yield sched
+    finally:
+        real.shutdown(wait=False)
+        sched._app, sched._scheduler = previous
+
+
+@pytest.fixture
+def no_test_may_hang():
+    """For tests that take locks: a regression that waits for one for ever (a bound removed,
+    a lock never released) must FAIL, not hang CI. The test gets 60 s, then an alarm raises
+    in it. (pytest-timeout is not installed; a blocking lock acquire is interrupted by a
+    signal on POSIX.) Use with `pytestmark = pytest.mark.usefixtures("no_test_may_hang")`."""
+    import signal
+
+    def too_long(_signum, _frame):
+        raise TimeoutError("this test ran for over 60 s: a lock was waited for without a bound")
+
+    previous = signal.signal(signal.SIGALRM, too_long)
+    signal.alarm(60)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
