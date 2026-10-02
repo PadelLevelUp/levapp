@@ -458,7 +458,9 @@ describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", (
     await screen.findByTestId("settings-request-alerts");
     expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("settings-nav-notifications"));
+    // Calendar: its sections have their own Save buttons, so the page header has nothing to save there.
+    fireEvent.click(screen.getByTestId("settings-nav-calendar"));
+    await screen.findByTestId("working-hours-works-sun");
     expect(screen.queryByRole("button", { name: "settings.saveChanges" })).not.toBeInTheDocument();
   });
 });
