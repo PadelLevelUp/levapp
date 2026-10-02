@@ -9,6 +9,14 @@
  * live. So the menu node's computed `animationName` is made live here: "enter" while
  * open, "exit" once closed. Presence then waits for an `animationend` that never fires,
  * and the closing window stays open for as long as the test needs it.
+ *
+ * B-252: nothing here waits on the clock. What made these tests take 15–45 s under machine
+ * load was floating-ui's positioning: on every update it asks each ancestor
+ * `matches(":modal")` / `matches(":popover-open")` (its top-layer check). jsdom's selector
+ * engine (nwsapi 2.2.27) answers `:modal` by re-entering its own `matches` — about
+ * 300 ms of CPU per call on a busy machine. jsdom has no top layer
+ * (no `showModal`, no popover API), so both pseudo-classes can never match here; the shim
+ * below answers them `false` directly and leaves every other selector to jsdom.
  */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +34,14 @@ if (typeof window.PointerEvent === "undefined") {
   (window as unknown as { PointerEvent: typeof MouseEvent }).PointerEvent = PointerEvent;
 }
 
+const TOP_LAYER = new Set([":modal", ":popover-open"]);
+
 beforeEach(() => {
+  const realMatches = Element.prototype.matches;
+  vi.spyOn(Element.prototype, "matches").mockImplementation(function (this: Element, selector: string) {
+    return TOP_LAYER.has(selector) ? false : realMatches.call(this, selector);
+  });
+
   const real = window.getComputedStyle.bind(window);
   vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
     const styles = real(el, pseudo);
@@ -56,7 +71,8 @@ function Menu() {
 
 const press = (el: Element) => fireEvent.pointerDown(el, { button: 0, ctrlKey: false, pointerType: "mouse" });
 
-describe("DropdownMenu reopened during its exit animation (PAD-462)", { timeout: 30_000 }, () => {
+// No per-file timeout: 18–93 ms per test at load ~400 (B-252).
+describe("DropdownMenu reopened during its exit animation (PAD-462)", () => {
   it("the closing menu lingers, so the window is real", async () => {
     render(<Menu />);
     press(screen.getByTestId("trigger"));
