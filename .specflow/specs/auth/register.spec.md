@@ -102,11 +102,15 @@ create one, or ask to join an existing one — happens right after approval (`cl
     "Para criar conta tens de aceitar…" under the box and sends nothing (rule 10). A client that
     declares the capability `terms-acceptance` (web, iOS 29+) sends `termsAccepted: true`; for such a
     client anything else answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and writes nothing. The
-    User then records `terms_accepted_at` (the request's instant, UTC) and `terms_version` (the Terms
-    page's effective date, `2026-07-14`; `TERMS_VERSION` in `registration_service.py`, tied to
-    `TermsPage.tsx`'s `EFFECTIVE_DATE` by a test — change both together). A client that does not
-    declare it (App Store 1.2.0 (27) and 1.2.1 (28)) registers exactly as before, with both columns
-    NULL; retire that path with the token. **Out of scope:** accounts that exist already (NULL, never
+    User then records `terms_accepted_at` (the request's instant, UTC), `terms_version` and
+    `privacy_version` — the two pages' effective dates (`2026-07-14`, `2026-10-02`; `TERMS_VERSION` and
+    `PRIVACY_VERSION` in `registration_service.py`, each tied to its page's `EFFECTIVE_DATE` by a test —
+    change a page and its constant together). **Any client that does not declare the capability**
+    registers exactly as before, with the three columns NULL: today that is App Store 1.2.0 (27) and
+    1.2.1 (28). **Removal:** drop that path, and the token's gate, once no App Store build older than
+    the first declaring one is in use (a compat-audit question at each promotion). A separate
+    `config.LEGAL_TERMS_VERSION` belongs to the retired guardian-consent record; the three are not
+    merged here. **Out of scope:** accounts that exist already (NULL, never
     asked); the activation of a coach-created player (`auth.activate`); the coach club-invitation accept
     (`clubs.coach-invitation`). Each can take the same field later.
 
@@ -117,7 +121,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **When** the newcomer taps Create account
 - **Then** "Para criar conta tens de aceitar…" shows under the box and no request is sent
 - **And** with the box ticked the request carries `termsAccepted: true`, and the new User has
-  `terms_accepted_at` = the request's instant and `terms_version` = `2026-07-14`
+  `terms_accepted_at` = the request's instant, `terms_version` = `2026-07-14` and `privacy_version` =
+  `2026-10-02`
 
 #### A declaring client that does not accept is refused (rule 19)
 - **Given** a request declaring `terms-acceptance` with `termsAccepted` absent, `false` or not a boolean
@@ -127,7 +132,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
 #### Older builds still register (rule 19)
 - **Given** a request from App Store 1.2.0 or 1.2.1 (no `terms-acceptance` declared, no `termsAccepted`)
 - **When** it posts `/api/auth/register`
-- **Then** it answers 201 exactly as before, and the User's `terms_accepted_at` and `terms_version` are NULL
+- **Then** it answers 201 exactly as before, and the User's `terms_accepted_at`, `terms_version` and
+  `privacy_version` are NULL
 
 #### Student signs up and is signed in
 - **Given** no user with username `ana` or email `ana@example.com`

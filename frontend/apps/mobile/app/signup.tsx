@@ -88,9 +88,11 @@ export default function SignUpScreen() {
   };
 
   const FIELD_ORDER: Field[] = ["name", "username", "email", "password", "repeatPassword", "birthDate"];
+  // The Terms box sits below the fields; when it is the only error it is the one to bring into view.
+  const termsOffset = React.useRef<number | undefined>(undefined);
   const revealFirstError = (next: FieldErrors) => {
     const first = FIELD_ORDER.find((f) => next[f]);
-    const y = first ? fieldOffsets.current[first] : undefined;
+    const y = first ? fieldOffsets.current[first] : next.terms ? termsOffset.current : undefined;
     if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
   };
 
@@ -379,7 +381,7 @@ export default function SignUpScreen() {
             </View>
 
             {/* auth.register rule 19 (PAD-485): required, with both documents a tap away. */}
-            <View className="gap-1">
+            <View className="gap-1" onLayout={(e) => { termsOffset.current = e.nativeEvent.layout.y; }}>
               <View className="flex-row items-start gap-2">
                 <Pressable
                   testID="signup-terms"

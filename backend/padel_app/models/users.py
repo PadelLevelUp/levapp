@@ -99,11 +99,12 @@ class User(db.Model, model.Model, UserMixin):
     guardian_consent_status = Column(String(16), nullable=True)
     # ── auth.register rule 19 (PAD-485) ───────────────────────────────────────
     #
-    # The Terms a self-registration accepted: when, and which version (the Terms page's effective
-    # date). Written only by `register_user_service` for a client declaring `terms-acceptance`;
-    # every other account, existing ones included, keeps NULLs.
+    # What a self-registration accepted: when, and which versions of the two documents the box names
+    # (each page's effective date). Written only by `register_user_service` for a client declaring
+    # `terms-acceptance`; every other account, existing ones included, keeps NULLs.
     terms_accepted_at = Column(DateTime, nullable=True)
     terms_version = Column(String(32), nullable=True)
+    privacy_version = Column(String(32), nullable=True)
 
     # ── PAD-112: the student's standing block preferences ────────────────────
     #

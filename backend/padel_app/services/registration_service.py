@@ -28,6 +28,9 @@ ROLES = ("coach", "student")
 # page states (`frontend/apps/web/src/pages/TermsPage.tsx` EFFECTIVE_DATE, tied by
 # test_pad485_terms_acceptance.py). Change both together when the Terms change.
 TERMS_VERSION = "2026-07-14"
+# The Privacy Policy's version, the same way (`PrivacyPolicyPage.tsx` EFFECTIVE_DATE). Not merged with
+# config.LEGAL_TERMS_VERSION (the retired guardian-consent record) on purpose; see auth.register rule 19.
+PRIVACY_VERSION = "2026-10-02"
 
 
 def validate_terms(data):
@@ -240,6 +243,7 @@ def register_user_service(data, now=None):
             country=country,
             terms_accepted_at=now if terms_accepted else None,
             terms_version=TERMS_VERSION if terms_accepted else None,
+            privacy_version=PRIVACY_VERSION if terms_accepted else None,
         )
         db.session.add(user)
         db.session.flush()

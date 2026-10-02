@@ -35,7 +35,7 @@ def _user(app, username):
 
     with app.app_context():
         u = User.query.filter_by(username=username).first()
-        return None if u is None else (u.terms_accepted_at, u.terms_version)
+        return None if u is None else (u.terms_accepted_at, u.terms_version, u.privacy_version)
 
 
 @pytest.mark.parametrize("role", ["student", "coach"])
@@ -44,7 +44,7 @@ def test_an_accepted_sign_up_records_when_and_which_terms(app, client, role):
     res = client.post("/api/auth/register", json=_body(role=role, termsAccepted=True), headers=DECLARING)
 
     assert res.status_code == 201, res.get_json()
-    assert _user(app, "ana") == (NOW, "2026-07-14")
+    assert _user(app, "ana") == (NOW, "2026-07-14", "2026-10-02")
 
 
 @pytest.mark.parametrize("terms", ["absent", False, None, "true", 1])
@@ -65,18 +65,19 @@ def test_builds_27_and_28_register_exactly_as_before(app, client, headers):
     res = client.post("/api/auth/register", json=_body(), headers=headers)
 
     assert res.status_code == 201, res.get_json()
-    assert _user(app, "ana") == (None, None)
+    assert _user(app, "ana") == (None, None, None)
     assert sorted(res.get_json()) == ["accessToken", "user"]
 
 
-def test_the_version_is_the_effective_date_the_terms_page_states():
-    """One date, two places: the server constant and TermsPage.tsx's EFFECTIVE_DATE."""
-    from padel_app.services.registration_service import TERMS_VERSION
+@pytest.mark.parametrize("page, constant", [("TermsPage.tsx", "TERMS_VERSION"), ("PrivacyPolicyPage.tsx", "PRIVACY_VERSION")])
+def test_each_version_is_the_effective_date_its_page_states(page, constant):
+    """One date, two places, per document: the server constant and the page's EFFECTIVE_DATE."""
+    from padel_app.services import registration_service
 
-    page = pathlib.Path(__file__).resolve().parents[3] / "frontend/apps/web/src/pages/TermsPage.tsx"
-    stated = re.search(r'EFFECTIVE_DATE = "([^"]+)"', page.read_text(encoding="utf-8")).group(1)
+    path = pathlib.Path(__file__).resolve().parents[3] / "frontend/apps/web/src/pages" / page
+    stated = re.search(r'EFFECTIVE_DATE = "([^"]+)"', path.read_text(encoding="utf-8")).group(1)
 
-    assert dt.datetime.strptime(stated, "%B %d, %Y").date().isoformat() == TERMS_VERSION
+    assert dt.datetime.strptime(stated, "%B %d, %Y").date().isoformat() == getattr(registration_service, constant)
 
 
 def test_the_capability_spelling_matches_both_shells():
