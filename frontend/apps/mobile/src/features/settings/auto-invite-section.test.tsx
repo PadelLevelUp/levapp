@@ -6,7 +6,7 @@
 import * as React from "react";
 import { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { __resetReactNativeMock } from "@/test/mocks/react-native";
+import { __emitAppState, __resetReactNativeMock } from "@/test/mocks/react-native";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -210,5 +210,19 @@ describe("iOS engine card (settings.save-on-change, B-243)", () => {
       autoNotifyEnabled: false,
       restrictions: { cancellationDeadlineHours: 13 },
     });
+  });
+
+  it("review #497: on leaving the foreground an engine save waiting behind one in flight is sent at once", async () => {
+    const n = await mount();
+    api.updateNotificationConfig.mockImplementationOnce(() => new Promise(() => undefined));
+
+    await n.toggle("settings-auto-invite-toggle"); // out, never answers
+    await n.toggle("open-spots-visible"); // waits
+    await n.flush();
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ openSpotsVisible: true });
   });
 });

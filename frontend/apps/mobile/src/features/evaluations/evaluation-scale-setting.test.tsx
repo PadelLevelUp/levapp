@@ -7,6 +7,7 @@ import * as React from "react";
 import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderNative } from "@/test/render-native";
+import { __emitAppState } from "@/test/mocks/react-native";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -116,5 +117,20 @@ describe("Escala de avaliações (iOS)", () => {
     await n.flush();
 
     expect(checked(n, 10)).toBe(true);
+  });
+
+  it("review #497: on leaving the foreground a scale waiting behind one in flight is sent at once", async () => {
+    hooks.data = { scaleMax: 5 };
+    hooks.mutateAsync.mockImplementation(async (body: unknown) => body);
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined));
+    const n = await renderNative(<EvaluationScaleSetting />);
+
+    await n.press("settings-evaluation-scale-option-10"); // out, never answers
+    await n.press("settings-evaluation-scale-option-20"); // waits
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ scaleMax: 20 });
   });
 });

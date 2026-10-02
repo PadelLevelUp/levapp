@@ -11,7 +11,14 @@
  * waiting to be sent (its callers' promises reject with `SaveSuperseded`): a keepalive send that goes
  * around the queue uses it so nothing older follows it.
  */
-export type SerialSaver<T, R> = ((value: T) => Promise<R>) & { busy: () => boolean; drop: () => void };
+export type SerialSaver<T, R> = ((value: T) => Promise<R>) & {
+  busy: () => boolean;
+  drop: () => void;
+  /** Send the waiting value at once, without waiting for the request in flight — for an app about to
+   * be suspended (iOS background), where a queued request may never leave. Its callers get its outcome.
+   * Limit: the request in flight may then reach the server after it. */
+  sendPendingNow: () => void;
+};
 
 /** The rejection a waiting value's callers get when it is dropped and never sent. */
 export class SaveSuperseded extends Error {
@@ -61,11 +68,28 @@ export function createSerialSaver<T, R>(
     };
     let request: Promise<R>;
     try {
-      request = send(value);
+      request = Promise.resolve(send(value));
     } catch (e) {
       request = Promise.reject(e);
     }
     request.then((r) => settle(true, r), (e) => settle(false, e));
+  };
+
+  const sendPendingNow = () => {
+    if (!pending) return;
+    const now = pending;
+    pending = null;
+    withPending.delete(drop);
+    let request: Promise<R>;
+    try {
+      request = Promise.resolve(send(now.value));
+    } catch (e) {
+      request = Promise.reject(e);
+    }
+    request.then(
+      (r) => now.waiters.forEach((w) => w.resolve(r)),
+      (e) => now.waiters.forEach((w) => w.reject(e)),
+    );
   };
 
   const save = (value: T) =>
@@ -80,5 +104,5 @@ export function createSerialSaver<T, R>(
         withPending.add(drop);
       }
     });
-  return Object.assign(save, { busy: () => inFlight || pending !== null, drop });
+  return Object.assign(save, { busy: () => inFlight || pending !== null, drop, sendPendingNow });
 }

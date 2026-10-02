@@ -176,6 +176,9 @@ export function EvaluationReminderSetting() {
   // the foreground or the screen goes away — neither blurs the field.
   const flushPendingSave = () => {
     if (pendingSave.current) commitCustom();
+    // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
+    // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
+    saveSetting.sendPendingNow();
   };
   useFlushOnBackground(flushPendingSave);
   const flushRef = React.useRef(flushPendingSave);

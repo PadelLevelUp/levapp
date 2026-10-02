@@ -8,6 +8,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
 import { SaveLedger, createSerialSaver } from "@levelup/config";
+import { useFlushOnBackground } from "./use-flush-on-background";
 
 /**
  * evaluations.scale rules 1 and 8 (PAD-423) — the iOS twin of web's `EvaluationScaleSetting`,
@@ -32,6 +33,9 @@ export function EvaluationScaleSetting() {
   const sendScale = React.useRef(save.mutateAsync);
   sendScale.current = save.mutateAsync;
   const [saveScale] = React.useState(() => createSerialSaver((body: { scaleMax: EvaluationScaleMax }) => sendScale.current(body)));
+  // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
+  // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
+  useFlushOnBackground(() => saveScale.sendPendingNow());
   const hydrated = React.useRef(false);
 
   React.useEffect(() => {

@@ -26,6 +26,7 @@ import { EvaluationSettingsGroup } from "@/features/evaluations/evaluation-setti
 import { AUTH_ME_KEY, writeAuthMe } from "@/features/settings/write-auth-me";
 import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
 import { SaveLedger, createSerialSaver } from "@levelup/config";
+import { useFlushOnBackground } from "@/features/evaluations/use-flush-on-background";
 import i18n from "@/lib/i18n";
 
 type Language = "pt" | "en";
@@ -71,6 +72,12 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   // value sent next, so the server ends in the order the saves were sent.
   const [saveLanguage] = React.useState(() => createSerialSaver((value: Language) => authApi.updateMe({ language: value })));
   const [saveRequestAlerts] = React.useState(() => createSerialSaver((on: boolean) => authApi.updateMe({ requestAlerts: on })));
+  // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
+  // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
+  useFlushOnBackground(() => {
+    saveLanguage.sendPendingNow();
+    saveRequestAlerts.sendPendingNow();
+  });
 
   // Same key the Settings screen uses, so this is served from cache rather
   // than refetched — and it stays reactive when the screen's copy resolves.

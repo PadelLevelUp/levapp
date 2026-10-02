@@ -175,4 +175,32 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
 
     expect(n.byTestId("settings-evaluation-reminder-option-never").props.accessibilityState.checked).toBe(true);
   });
+
+  it("review #497: on leaving the foreground a save waiting behind one in flight is sent at once, not queued", async () => {
+    const n = await openCustom(7);
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined)); // 8: out, never answers
+
+    await n.changeText(FIELD, "8");
+    await waitPastDelay(); // 8 out
+    await n.changeText(FIELD, "9");
+    await waitPastDelay(); // 9 waits behind 8
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
+
+  it("review #497: leaving the screen sends a save waiting behind one in flight at once", async () => {
+    const n = await openCustom(7);
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined));
+
+    await n.changeText(FIELD, "8");
+    await waitPastDelay();
+    await n.changeText(FIELD, "9"); // still being typed when the screen goes
+    await act(async () => { n.root.unmount(); });
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
 });

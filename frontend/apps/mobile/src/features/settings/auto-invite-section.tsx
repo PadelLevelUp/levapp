@@ -21,6 +21,7 @@ import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
 import { SaveSign, useSaveSign } from "./save-sign";
 import { SaveLedger, createSerialSaver } from "@levelup/config";
+import { useFlushOnBackground } from "@/features/evaluations/use-flush-on-background";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
@@ -67,6 +68,9 @@ export function AutoInviteSection() {
       (pending, next) => ({ ...pending, ...next }),
     ),
   );
+  // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
+  // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
+  useFlushOnBackground(() => saveEngine.sendPendingNow());
 
   React.useEffect(() => {
     let cancelled = false;

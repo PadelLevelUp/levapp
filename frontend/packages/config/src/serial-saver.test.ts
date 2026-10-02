@@ -124,4 +124,18 @@ describe("createSerialSaver", () => {
     one.answers[1].resolve("C1");
     await expect(later).resolves.toBe("C1");
   });
+
+  it("sendPendingNow() sends the waiting value at once (an app about to be suspended), and its caller gets that outcome", async () => {
+    const h = harness();
+    void h.save("a");
+    const b = h.save("b");
+    h.save.sendPendingNow();
+    expect(h.sent).toEqual(["a", "b"]); // b did not wait for a
+    h.answers[1].resolve("B");
+    await expect(b).resolves.toBe("B");
+    h.answers[0].resolve("A");
+    await h.tick();
+    expect(h.sent).toEqual(["a", "b"]); // nothing is sent twice
+    expect(h.save.busy()).toBe(false);
+  });
 });

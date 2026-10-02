@@ -63,7 +63,10 @@ toast; every save-on-change control, on both clients, converges on it.
    named: the engine's reminders subsection keeps its own requests until PAD-478 (#496 puts it on the
    same helper); and web's keepalive send when the page goes away (closed, or hidden by a tab switch)
    goes at once — a queued request would die with a closing page — and drops any value still waiting in
-   the queue, so nothing older follows it. **Remaining limit, named:** on a tab switch the page stays,
+   the queue, so nothing older follows it. On iOS, when the app leaves the foreground (and when the
+   evaluation frequency's screen goes away), a save waiting behind one in flight is sent at once rather
+   than queued, since a suspended app may never send it. **Remaining limits, named:** on iOS, the request
+   already in flight may reach the server after that one; and on web, on a tab switch the page stays,
    and a request already out when the keepalive one left may reach the server after it; the screen then
    shows the newer value while the server holds the older until the settings are read again (reopening
    Settings). Signing out drops every value still waiting in any queue, so a setting is never sent with

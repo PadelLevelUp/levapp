@@ -10,7 +10,7 @@
 import * as React from "react";
 import { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { __resetReactNativeMock } from "@/test/mocks/react-native";
+import { __emitAppState, __resetReactNativeMock } from "@/test/mocks/react-native";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -268,5 +268,20 @@ describe("iOS Preferences save on change (settings.save-on-change)", () => {
     await n.flush();
 
     expect(n.byTestId("settings-language-select").props.accessibilityValue.text).toBe("pt");
+  });
+
+  it("review #497: on leaving the foreground a request-alerts save waiting behind one in flight is sent at once", async () => {
+    const n = await open();
+    updateMe.mockReturnValueOnce(new Promise(() => undefined)); // off: out, never answers
+
+    await n.toggle("settings-request-alerts");
+    await n.flush();
+    await n.toggle("settings-request-alerts"); // on: waits
+    await n.flush();
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(updateMe).toHaveBeenCalledTimes(2);
+    expect(updateMe).toHaveBeenLastCalledWith({ requestAlerts: true });
   });
 });
