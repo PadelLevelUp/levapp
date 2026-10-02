@@ -40,10 +40,11 @@ export function NotificationsEngineSection() {
   // key, and what a failure puts back comes from the shared SaveLedger: per field, the value the server
   // last confirmed, decided only by that field's newest save.
   const sign = useSaveSign();
+  const [rescheduleFailed, setRescheduleFailed] = useState(false);
   const ledger = useRef(new SaveLedger<NotificationConfig>());
   // settings.save-on-change rule 3: one engine save in flight at a time; patches waiting meanwhile are
   // merged and sent next, so the server ends in the order the saves were sent. The reminders sub-panel
-  // (no sign key) goes direct, as before, until PAD-478.
+  // goes through it too (PAD-478), after its own pause (RemindersSection).
   const [saveEngine] = useState(() =>
     createSerialSaver(
       (patch: Partial<NotificationConfig>) => updateNotificationConfig(patch),
@@ -63,19 +64,22 @@ export function NotificationsEngineSection() {
       .finally(() => setLoading(false));
   }, []);
 
-  // `signKey` names the control's sign. The reminders sub-panel passes none: it keeps no sign until
-  // PAD-478 (settings.save-on-change rule 1).
-  const save = async (patch: Partial<NotificationConfig>, signKey?: string) => {
+  // `signKey` names the control's sign. Every engine control has one, the reminders sub-panel
+  // included since PAD-478 (settings.save-on-change rule 1).
+  const save = async (patch: Partial<NotificationConfig>, signKey: string) => {
     if (!config) return;
     const token = ledger.current.begin(patch);
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
-    const request = signKey ? saveEngine(patch) : updateNotificationConfig(patch);
+    const request = saveEngine(patch);
     const show = (values: Partial<NotificationConfig>) => {
       if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
     };
     try {
-      const saved = await (signKey ? sign.track(signKey, request) : request);
+      const saved = await sign.track(signKey, request);
       show(ledger.current.confirm(token, saved).show);
+      // notifications.config rule 10c (PAD-478): saved, but the scheduled jobs were not re-armed.
+      // The answer of a merged request speaks for every patch in it.
+      if ("reminderTiming" in patch) setRescheduleFailed(saved.rescheduleFailed === true);
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
@@ -214,9 +218,23 @@ export function NotificationsEngineSection() {
         >
           <SectionHeader sectionKey="reminders" icon={Bell} label={t("settings.engine.reminders")} />
           <CollapsibleContent className="pt-1 pb-1">
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("settings.engine.remindersHint")}
-            </p>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {t("settings.engine.remindersHint")}
+              </p>
+              <SaveSign status={sign.status("reminders")} testId="notification-engine-reminders-sign" />
+            </div>
+            {rescheduleFailed && (
+              // notifications.config rule 10c (PAD-478): the timing IS saved; the server could
+              // not re-arm the reminders of classes already scheduled. Not a failed save.
+              <p
+                role="status"
+                data-testid="notification-engine-reschedule-failed"
+                className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              >
+                {t("settings.engine.rescheduleFailed")}
+              </p>
+            )}
             <RemindersSection
               reminderTiming={{
                 firstReminder: { type: "hours_before", value: 48 },
@@ -225,7 +243,10 @@ export function NotificationsEngineSection() {
                 invitationStart: { type: "hours_before", value: 24 },
                 ...config.reminderTiming,
               }}
-              onChange={(reminderTiming) => save({ reminderTiming })}
+              onChange={(reminderTiming) => save({ reminderTiming }, "reminders")}
+              // Read from storage at the moment the section closes, not from the auth hook:
+              // sign-out is what unmounts it, so a render-time value would still say "signed in".
+              flushOnClose={() => localStorage.getItem("accessToken") !== null}
               disabled={disabled}
             />
           </CollapsibleContent>
