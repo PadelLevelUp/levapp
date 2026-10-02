@@ -284,4 +284,19 @@ describe("iOS Preferences save on change (settings.save-on-change)", () => {
     expect(updateMe).toHaveBeenCalledTimes(2);
     expect(updateMe).toHaveBeenLastCalledWith({ requestAlerts: true });
   });
+
+  it("review #497: on leaving the foreground a language save waiting behind one in flight is sent at once", async () => {
+    const n = await open();
+    updateMe.mockReturnValueOnce(new Promise(() => undefined)); // pt: out, never answers
+
+    await n.press("settings-language-pt");
+    await n.flush();
+    await n.press("settings-language-en"); // en: waits
+    await n.flush();
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(updateMe).toHaveBeenCalledTimes(2);
+    expect(updateMe).toHaveBeenLastCalledWith({ language: "en" });
+  });
 });

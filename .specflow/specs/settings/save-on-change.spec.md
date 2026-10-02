@@ -62,16 +62,18 @@ toast; every save-on-change control, on both clients, converges on it.
    merge) and is sent when the answer comes — `createSerialSaver` (`@levelup/config`). Two exceptions,
    named: the engine's reminders subsection keeps its own requests until PAD-478 (#496 puts it on the
    same helper); and web's keepalive send when the page goes away (closed, or hidden by a tab switch)
-   goes at once — a queued request would die with a closing page — and drops any value still waiting in
-   the queue, so nothing older follows it. On iOS, when the app leaves the foreground (and when the
-   evaluation frequency's screen goes away), a save waiting behind one in flight is sent at once rather
-   than queued, since a suspended app may never send it. **Remaining limits, named:** on iOS, the request
-   already in flight may reach the server after that one; and on web, on a tab switch the page stays,
-   and a request already out when the keepalive one left may reach the server after it; the screen then
-   shows the newer value while the server holds the older until the settings are read again (reopening
-   Settings). Signing out drops every value still waiting in any queue, so a setting is never sent with
-   the next account's session. The
-   coach is never left believing a setting saved when it did not.
+   goes at once and drops any value still waiting in the queue, so nothing older follows it. It goes at
+   once for a hidden tab too, not only a closing page: closing a tab (Cmd-W) fires "hidden" and
+   "pagehide" in the same task, so the two cannot be told apart in time, and a request queued then would
+   die with the page. On iOS, when the app leaves the foreground (and when the evaluation frequency's
+   screen goes away), a save waiting behind one in flight is sent at once rather than queued, since a
+   suspended app may never send it. **Remaining limits, named:** in each of these cases — iOS leaving the
+   foreground, a web tab closing, a web tab hidden — a request already in flight when the immediate one
+   left may reach the server after it; the screen then shows the newer value, with its sign, while the
+   server holds the older one until the settings are read again (reopening Settings). Signing out drops
+   every value still waiting in any queue, so a setting is never sent with the next account's session.
+   Outside those named limits, the sign appears only for a value the server confirmed, and a failed
+   save is always shown.
 4. **Where a Save button appears.** Web's page-header "Guardar alterações" appears only on a tab that
    holds explicit-save fields (today: Perfil), because a Save button must save what is on the screen in
    front of it. A tab where everything saves on change shows none; a new explicit-save field on such a
