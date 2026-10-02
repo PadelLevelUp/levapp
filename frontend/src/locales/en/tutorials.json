@@ -87,7 +87,9 @@
         "equal_or_above_class": "level equal to or above the class",
         "equal_or_below_class": "level equal to or below the class",
         "one_below_or_above_class": "at most one level away",
-        "within_n_of_class": "at most {{value}} levels away"
+        "within_n_of_class": "at most {{value}} levels away",
+        "within_n_above_class": "at most {{value}} levels above (the class's level included)",
+        "within_n_below_class": "at most {{value}} levels below (the class's level included)"
       },
       "side": {
         "same_as_vacancy": "same side as the spot",
@@ -131,6 +133,7 @@
       "classHasNoLevel": "the class has no level, so no level rule can be met",
       "studentHasNoLevel": "the student has no level assigned",
       "levelNotInLadder": "the student's level is not in your level ladder",
+      "unknownOperation": "the bar uses a level rule the server does not recognise, so no one passes it",
       "absencesOver": "over the unjustified-absence limit ({{actual}}, limit is {{threshold}})",
       "justifiedAbsences": "justified absences outside the limit ({{actual}}, limit is {{threshold}})",
       "attendanceUnder": "attendance outside the limit ({{actual}}%, limit is {{threshold}}%)",

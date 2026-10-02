@@ -599,6 +599,12 @@
         "greaterThan": "mais de",
         "atLeast": "pelo menos"
       },
+      "direction": "Direção",
+      "directions": {
+        "both": "acima e abaixo",
+        "above": "apenas acima",
+        "below": "apenas abaixo"
+      },
       "impact": {
         "title_one": "{{count}} aluno inscrito deixa de cumprir esta fasquia",
         "title_other": "{{count}} alunos inscritos deixam de cumprir esta fasquia",

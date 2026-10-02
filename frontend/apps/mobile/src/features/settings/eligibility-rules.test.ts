@@ -8,6 +8,7 @@ import {
   newRule,
   removeRuleAt,
   withAttribute,
+  withDirection,
   withOperation,
 } from "./eligibility-rules";
 
@@ -49,10 +50,12 @@ describe("needsValue", () => {
     expect(needsValue(findAttribute("attendance_rate")!, "greater_than")).toBe(true);
   });
 
-  it("is true for only the one level operation that carries a value", () => {
+  it("is true for only the within-N level operations, in every direction (PAD-481)", () => {
     const level = findAttribute("level")!;
 
     expect(needsValue(level, "within_n_of_class")).toBe(true);
+    expect(needsValue(level, "within_n_above_class")).toBe(true);
+    expect(needsValue(level, "within_n_below_class")).toBe(true);
     expect(needsValue(level, "same_as_class")).toBe(false);
     expect(needsValue(level, "equal_or_above_class")).toBe(false);
   });
@@ -124,6 +127,32 @@ describe("withOperation", () => {
     };
 
     expect(withOperation(rule, "within_n_of_class").value).toBe(2);
+  });
+});
+
+describe("direction of within N levels (PAD-481)", () => {
+  const above: GroupRule = { attribute: "level", operation: "within_n_above_class", value: 2 };
+
+  it("picking within N on a one-way rule keeps its direction and N", () => {
+    expect(withOperation(above, "within_n_of_class")).toEqual(above);
+  });
+
+  it("picking within N fresh starts at both ways — today's meaning", () => {
+    const same: GroupRule = { attribute: "level", operation: "same_as_class" };
+    expect(withOperation(same, "within_n_of_class").operation).toBe("within_n_of_class");
+  });
+
+  it("changing the direction changes only the operation; N is kept", () => {
+    expect(withDirection(above, "below")).toEqual({ ...above, operation: "within_n_below_class" });
+    expect(withDirection(above, "both")).toEqual({ ...above, operation: "within_n_of_class" });
+  });
+
+  it("leaving within N drops N, from any direction", () => {
+    expect(withOperation(above, "same_as_class")).toEqual({
+      attribute: "level",
+      operation: "same_as_class",
+      value: undefined,
+    });
   });
 });
 
