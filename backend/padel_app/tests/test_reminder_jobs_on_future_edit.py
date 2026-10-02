@@ -31,27 +31,10 @@ from padel_app.sql_db import db
 
 
 @pytest.fixture
-def memory_scheduler(app):
-    """Point the scheduler module at a real BackgroundScheduler with an
-    in-memory jobstore, so tests assert on the jobs actually created rather
-    than on a mock having been called.
-
-    Started paused: jobs are registered but never executed.
-    """
-    from apscheduler.jobstores.memory import MemoryJobStore
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from padel_app import scheduler as sched_mod
-
-    prev_app, prev_sched = sched_mod._app, sched_mod._scheduler
-
-    sched = BackgroundScheduler(jobstores={"default": MemoryJobStore()}, timezone="UTC")
-    sched.start(paused=True)
-    sched_mod._app, sched_mod._scheduler = app, sched
-
-    yield sched
-
-    sched.shutdown(wait=False)
-    sched_mod._app, sched_mod._scheduler = prev_app, prev_sched
+def memory_scheduler(live_scheduler):
+    """The shared real scheduler (conftest `live_scheduler`), as the APScheduler object
+    these tests read jobs from."""
+    return live_scheduler._scheduler
 
 
 @pytest.fixture

@@ -15,7 +15,12 @@ import { CompetencyRow, managerRowId } from "./competency-row";
  * categories, or one category heading its sub-categories, with a field to add one when the
  * category is a row the coach holds.
  */
-export function CategorySectionView({ section, onDelete }: { section: CategorySection; onDelete: (c: EvaluationCompetency) => void }) {
+export function CategorySectionView({ section, onDelete, onConvert }: {
+  section: CategorySection;
+  onDelete: (c: EvaluationCompetency) => void;
+  /** PAD-480 (rule 18): a legacy row's "Converter em categoria padrão". */
+  onConvert: (c: EvaluationCompetency) => void;
+}) {
   const { t } = useTranslation();
   if (section.kind === "legacy") {
     return (
@@ -27,7 +32,7 @@ export function CategorySectionView({ section, onDelete }: { section: CategorySe
         <Text testID="competency-group-legacy-caption" className="text-xs text-muted-foreground">
           {t("evaluations.manager.legacyCaption")}
         </Text>
-        {section.subs.map((row) => <CompetencyRow key={managerRowId(row)} row={row} onDelete={onDelete} />)}
+        {section.subs.map((row) => <CompetencyRow key={managerRowId(row)} row={row} onDelete={onDelete} onConvert={onConvert} />)}
       </View>
     );
   }
