@@ -12,7 +12,7 @@
  * the same authenticated request (auth.logout rule 4) — the unregister above is
  * then only the fallback. Every step is best-effort: logout always completes.
  */
-import { dropPendingSaves } from "@levelup/config";
+import { dropPendingSaves, emailPromptSession } from "@levelup/config";
 
 export const PUSH_UNREGISTER_TIMEOUT_MS = 3000;
 /** The API client has no timeout; a blackholed /auth/logout must not hold logout either. */
@@ -40,6 +40,8 @@ export async function signOut(deps: {
   // settings.save-on-change (review #497): a setting still waiting to be saved belongs to this account;
   // it must never be sent with the next account's session.
   dropPendingSaves();
+  // PAD-482 (auth.email-verification rule 14): the next sign-in asks for a missing email again.
+  emailPromptSession.reset();
   await bounded(deps.unregisterPush(), deps.unregisterTimeoutMs ?? PUSH_UNREGISTER_TIMEOUT_MS);
   await bounded(deps.revokeSession(), deps.revokeTimeoutMs ?? REVOKE_TIMEOUT_MS);
   await deps.clearToken().catch(() => undefined);

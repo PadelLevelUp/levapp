@@ -1,0 +1,68 @@
+# PAD-482 / auth.email-verification rule 14 and B-262 — on iOS a coach with no email is asked for one on
+# the coach home, adds it from Settings → Perfil, confirms the code, and the server holds it verified.
+#
+# Mirrors: apps/web/e2e/settings/pad482-email-prompt.spec.ts. The shared seeded coach's email is cleared
+# through the API (B-262: that clears its verification too) and given back through the UI.
+# `onFlowComplete` restores the address and confirms its code through the debug outbox (rule 11) if the
+# flow stopped half-way, so the coach is never left held on the code screen (R-040).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.me = (typeof output.coachTok === 'undefined') ? null : json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+  - evalScript: "${output.restored = (output.me === null || output.me.email === 'e2e-coach@test.com') ? true : http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ email: 'e2e-coach@test.com' }) }).ok}"
+  - evalScript: "${output.reverify = (output.me === null || output.me.emailVerification === 'verified') ? true : http.post(output.api + '/api/auth/email-verification/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ code: json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=e2e-coach@test.com').body).code }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.cleared = json(http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ email: '' }) }).body).emailVerification}"
+- assertTrue: "${output.cleared === 'unverified'}"
+
+- runFlow: ../subflows/login-coach.yaml
+- extendedWaitUntil:
+    visible:
+      id: "email-prompt"
+    timeout: 20000
+- tapOn:
+    id: "email-prompt-add"
+- extendedWaitUntil:
+    visible:
+      id: "settings-profile-email"
+    timeout: 15000
+- assertVisible:
+    id: "settings-profile-email-needed"
+# The form is hydrated from /auth/me before typing (the name field holds the coach's name).
+- extendedWaitUntil:
+    visible:
+      text: "E2E Coach"
+    timeout: 10000
+    optional: true
+- tapOn:
+    id: "settings-profile-email"
+- inputText: "e2e-coach@test.com"
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "settings-profile-save"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "settings-profile-save"
+- extendedWaitUntil:
+    visible:
+      id: "verify-email-code"
+    timeout: 15000
+- evalScript: "${output.code = json(http.get(output.api + '/api/auth/email-verification/debug/last-code?email=e2e-coach@test.com').body).code}"
+- tapOn:
+    id: "verify-email-code"
+- inputText: "${output.code}"
+
+# The server holds the address, verified (read until the confirm lands, up to ~10 s).
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "pad482-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.state = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+      - assertTrue: "${output.state.email === 'e2e-coach@test.com' && output.state.emailVerification === 'verified'}"

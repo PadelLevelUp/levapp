@@ -238,6 +238,10 @@ def update_own_profile_service(user_id, data):
     if "email" in data:
         email = (data.get("email") or "").strip().lower()
         if not email:
+            # B-262 (settings.profile rule 9): with no email there is nothing verified any more.
+            from padel_app.services.email_verification_service import forget_verification
+
+            forget_verification(user)
             user.email = None
         else:
             if not _EMAIL_RE.match(email):

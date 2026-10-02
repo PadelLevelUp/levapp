@@ -90,14 +90,14 @@ function Capture({ onReady }: { onReady: (r: ReturnType<typeof useUnsavedRegistr
   return null;
 }
 
-async function mountProfile() {
+async function mountProfile(props: { focusEmail?: boolean } = {}) {
   let registry!: ReturnType<typeof useUnsavedRegistry>;
   const n = await renderNative(
     createElement(
       UnsavedRegistryProvider,
       null,
       createElement(Capture, { onReady: (r) => (registry = r) }),
-      createElement(ProfileSection)
+      createElement(ProfileSection, props)
     )
   );
   await n.flush();
@@ -151,3 +151,23 @@ describe("ProfileSection registers its unsaved state (PAD-394)", () => {
     expect(registry().hasUnsaved()).toBe(true);
   });
 });
+
+// PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" opens this section on the
+// email field (`focus=email`), and an empty field says why it matters. Same test ids as web.
+describe("a coach with no email (PAD-482)", () => {
+  it("the field is focused when asked, and the reason shows while it is empty", async () => {
+    getMe.mockResolvedValue({ ...ME, email: null, emailVerification: "unverified" });
+    const { n } = await mountProfile({ focusEmail: true });
+
+    expect(n.byTestId("settings-profile-email").props.autoFocus).toBe(true);
+    expect(n.queryByTestId("settings-profile-email-needed")).not.toBeNull();
+  });
+
+  it("a coach with an email sees no reason line, and the field is not focused by default", async () => {
+    const { n } = await mountProfile();
+
+    expect(n.byTestId("settings-profile-email").props.autoFocus).toBe(false);
+    expect(n.queryByTestId("settings-profile-email-needed")).toBeNull();
+  });
+});
+

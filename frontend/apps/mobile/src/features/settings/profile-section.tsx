@@ -63,7 +63,7 @@ export function isProfileUnsaved(form: ProfileForm, saved: ProfileForm): boolean
  *
  * Every control is full-width and one per line — nothing to overflow at 390pt.
  */
-export function ProfileSection() {
+export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean }) {
   const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
@@ -227,9 +227,16 @@ export function ProfileSection() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoFocus={focusEmail}
             value={form.email}
             onChangeText={(v) => setField("email", v)}
           />
+          {/* PAD-482 (rule 14): a coach with no email cannot recover a password. */}
+          {(me ?? user)?.roles?.includes("coach") && !form.email.trim() ? (
+            <Text testID="settings-profile-email-needed" className="text-xs text-muted-foreground">
+              {t("settings.profile.emailNeeded")}
+            </Text>
+          ) : null}
         </View>
 
         <View className="gap-1.5">

@@ -276,6 +276,8 @@ export default function SettingsPage() {
   // that section; an unknown or disallowed id falls back through `activeTab`.
   // PAD-459: read through the router, like every later navigation below, not `window.location`.
   const location = useLocation();
+  // PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" lands here, on the field.
+  const focusEmail = new URLSearchParams(location.search).get("focus") === "email";
   const [tab, setTab] = useState<SettingsTab>(() => parseTab(location.search));
   // Mobile is a DRILL-IN, not a dropdown: the phone shows the list of sections
   // first and opens one on tap. Landing straight inside Preferences with a
@@ -671,10 +673,18 @@ export default function SettingsPage() {
                     </div>
                     <Input
                       id="profile-email"
+                      data-testid="settings-profile-email"
                       type="email"
+                      autoFocus={focusEmail}
                       value={profile.email}
                       onChange={(e) => setProfileField("email", e.target.value)}
                     />
+                    {/* PAD-482 (rule 14): a coach with no email cannot recover a password. */}
+                    {isCoach && !profile.email.trim() ? (
+                      <p data-testid="settings-profile-email-needed" className="text-xs text-muted-foreground">
+                        {t("settings.profile.emailNeeded")}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2">

@@ -63,7 +63,8 @@
       "email": "Email",
       "phone": "Phone (optional)",
       "bio": "Bio (optional)",
-      "bioPlaceholder": "Tell players a bit about you..."
+      "bioPlaceholder": "Tell players a bit about you...",
+      "emailNeeded": "Needed to recover your password."
     },
     "preferences": {
       "requestAlerts": "Request alerts",

@@ -264,6 +264,9 @@ executionOrder:
     # 130 (PAD-480): a sub-category is moved under another category from the manager; the server holds
     # the new parent. onFlowComplete deletes the two categories it made.
     - 130-competency-move
+    # 132 (PAD-482): a coach with no email is asked for one on the home, adds it in Settings and
+    # confirms the code; onFlowComplete restores the seeded address, verified.
+    - 132-email-prompt
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -7,7 +7,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { createSerialSaver, SaveSuperseded } from "@levelup/config";
+import { createSerialSaver, emailPromptSession, SaveSuperseded } from "@levelup/config";
 
 import { signOut } from "./sign-out";
 
@@ -114,5 +114,14 @@ describe("sign-out and settings still waiting to be saved (review #497)", () => 
     release();
     await expect(waiting).rejects.toBeInstanceOf(SaveSuperseded);
     expect(sent).toEqual(["out"]);
+  });
+});
+
+// PAD-482 (auth.email-verification rule 14): "Agora não" lasts for the session; signing out ends it.
+describe("signOut ends the email prompt's dismissal", () => {
+  it("the next sign-in asks for a missing email again", async () => {
+    emailPromptSession.dismiss(7);
+    await signOut({ unregisterPush: async () => {}, revokeSession: async () => {}, clearToken: async () => {} });
+    expect(emailPromptSession.isDismissed(7)).toBe(false);
   });
 });

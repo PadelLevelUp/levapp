@@ -34,9 +34,10 @@ own email in Settings.
    `EMAIL_VERIFICATION_REQUIRED` is off (default on), neither path sets the flag and the user
    is treated as verified at once. Every deployed environment keeps it on; the switch exists
    for a box with no sender at all.
-2. **State on `/api/auth/me`.** `emailVerification` is `"verified"` when `email_verified_at`
-   is set, `"pending"` when the user has an email, is required to verify and has not, and
-   `"unverified"` otherwise (has an email nobody asked them to verify, or no email at all).
+2. **State on `/api/auth/me`.** `emailVerification` is `"unverified"` whenever the user has no
+   email (B-262: whatever an older row still holds), else `"verified"` when `email_verified_at`
+   is set, `"pending"` when the user is required to verify and has not, and `"unverified"`
+   otherwise (an email nobody asked them to verify).
    `POST /api/auth/register` returns the same field inside `user`.
 3. **The code.** 6 digits, generated with a CSPRNG, stored only as an HMAC-SHA256 hash keyed by
    `SECRET_KEY`. Valid for 15 minutes. At most 5 wrong attempts per code; the 5th wrong attempt
@@ -111,7 +112,8 @@ own email in Settings.
    *Verified* (success tone) or *Not verified* with a **Verify** action that opens the same code
    screen (as a route on web, a modal on iOS). Saving a new email address shows the code screen
    immediately after the save succeeds (`settings.profile` rule 9).
-10. **Admin.** `GET /api/app/admin/coach-approvals` rows gain `emailVerified: bool`, and the
+10. **Admin.** `GET /api/app/admin/coach-approvals` rows gain `emailVerified: bool` (true only when
+    rule 2's state is `"verified"`, so an account with no email is never shown verified), and the
     Settings → Admin list (web and iOS) marks an unverified email so the admin does not approve a
     coach nobody can reach. The "coach waiting" admin email (`auth.coach-approval` rule 4) says
     whether the email is verified.
@@ -135,6 +137,20 @@ own email in Settings.
     and answers 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with `Retry-After`. This
     sits on top of the per-user 60-second resend cooldown (rule 4) and the per-code attempt limit
     (rule 3). The code screen shows the wait on web and iOS instead of a network error.
+14. **A coach with no email is asked for one (PAD-482).** On web and on iOS, a signed-in **coach**
+    whose `/api/auth/me` has `email: null` sees a banner at the top of the coach home (dashboard):
+    "Adiciona o teu email para poderes recuperar a palavra-passe e receber avisos." / "Add your
+    email so you can recover your password and receive notices.", with **Adicionar email** / **Add
+    email** (opens Settings → Perfil with the email field focused) and **Agora não** / **Not now**.
+    It never blocks anything: there is no hold, and nothing is gated on it. **Agora não** hides it
+    for the rest of the session only — nothing is stored, so it is back at the next sign-in or app
+    launch. While the Settings email field is empty, a line under it says "Necessário para recuperar
+    a palavra-passe." / "Needed to recover your password.". Saving an address runs
+    `settings.profile` rule 9 (a code, the code screen, then verified); the banner is gone once
+    `/auth/me` has an email. A player is never shown it: coach-created players have no email by
+    design (rule 1). Such a coach comes from the iOS 27/28 invitation accept
+    (`clubs.coach-invitation` rule 9, legacy path) or from clearing the email in Settings. Builds
+    27/28 do not show it; they can already add and verify an email in Settings.
 
 ### Acceptance Criteria
 
@@ -286,6 +302,21 @@ own email in Settings.
 - **When** one IP makes three verification calls (send or confirm) within ten minutes
 - **Then** the third is 429 `RATE_LIMITED` with `retryAfterSeconds` and a `Retry-After` header
 - **And** no code is sent and no attempt is consumed by it
+
+#### An account with no email is not verified (rule 2, B-262)
+- **Given** coach Rui verified rui@example.com
+- **When** he saves his profile with the email cleared (`""`, whitespace or `null`)
+- **Then** `/auth/me` has `email: null` and `emailVerification: "unverified"`, no code is pending,
+  and the admin approvals list shows `emailVerified: false`
+- **And** a row cleared before the fix (no email, `email_verified_at` still set) reads the same
+
+#### A coach with no email is asked for one, once per session (rule 14, PAD-482)
+- **Given** coach Rui with `email: null`
+- **When** he opens the coach home on web or iOS
+- **Then** the banner shows; **Agora não** hides it until the next sign-in or launch; **Adicionar
+  email** opens Settings → Perfil with the email field focused and the "Necessário…" line under it
+- **And** after he saves an address and confirms the code, the banner is gone
+- **And** a coach with an email, and any player, never sees it
 
 ### Notes
 - Linear: PAD-234 (this), PAD-231 (mail sender: prod already has `MAIL_USERNAME` +

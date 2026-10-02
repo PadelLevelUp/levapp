@@ -573,3 +573,25 @@ describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", (
     expect(await screen.findByTestId("working-hours-works-sun")).toBeInTheDocument();
   });
 });
+
+describe("SettingsPage — a coach with no email (PAD-482, auth.email-verification rule 14)", () => {
+  it("the coach home's link lands on Perfil with the empty email field focused and the reason under it", async () => {
+    getMe.mockResolvedValue({ ...ME, email: null, emailVerification: "unverified" });
+    goto("/settings?tab=profile&focus=email");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    expect(await screen.findByTestId("settings-profile-email-needed")).toHaveTextContent("settings.profile.emailNeeded");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("a coach with an email sees no reason line, and the field is not focused without ?focus=email", async () => {
+    goto("/settings?tab=profile");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    await waitFor(() => expect(field).toHaveValue("coach@example.com"));
+    expect(screen.queryByTestId("settings-profile-email-needed")).toBeNull();
+    expect(document.activeElement).not.toBe(field);
+  });
+});

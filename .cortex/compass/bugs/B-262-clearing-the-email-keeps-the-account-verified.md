@@ -3,7 +3,9 @@ id: B-262
 title: "Clearing the email in Settings left the account marked verified, with no email to reach it"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-10-02T15:57:48Z
+updated: 2026-10-02T15:57:48Z
 affects:
   - settings.profile
   - auth.email-verification
@@ -39,5 +41,17 @@ what the state of an account with no email is. Type 2, incomplete rule.
 - Code: `update_user_profile` clears `email_verified_at`, `email_verification_required` and the pending
   code fields when the email is cleared. Red first, the admin approvals list included.
 
-### Resolution
-_Pending (PAD-482)._
+### Resolution (PAD-482)
+
+- **Spec:** `settings.profile` rule 9 — clearing the email (`""`, whitespace or `null`) clears its
+  verification; a save that omits `email`, or re-sends the same address in any case, does not.
+  `auth.email-verification` rule 2 — with no email the state is `unverified`; rule 10 — the admin
+  list's `emailVerified` is that state.
+- **Code:** `email_verification_service.forget_verification` (no timestamp, nothing required, no
+  pending code), called by `update_user_profile` when the email is cleared; `verification_state`
+  answers `unverified` first when there is no email, so a row cleared before the fix reads right
+  without a data change; `coach_approval_service` derives `emailVerified` (and the admin mail's
+  "verified") from that state.
+- **Tests:** `test_pad482_clearing_the_email.py` — the three empty shapes, a pending code dropped, a
+  PATCH without `email`, an old build's whole-form save with the same address, adding one back, and
+  a stale row; red first, the admin approvals list included.
