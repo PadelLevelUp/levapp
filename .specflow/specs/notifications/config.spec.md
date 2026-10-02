@@ -149,6 +149,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    player the coach no longer has. The key is additive: App Store clients that do not read it are
    unaffected.
 
+15. **(PAD-473) What a saved setting shows.** Every engine control that saves on change shows the
+    sign of `settings.save-on-change` and follows its failure rule (B-243); the reminders subsection
+    (`reminderTiming`, `invitationStartTiming`) shows no sign until PAD-478.
+
 ### Acceptance Criteria
 
 #### Get or create config

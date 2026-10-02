@@ -75,7 +75,6 @@
       "hint": "A cada quantas aulas queres ser lembrado",
       "caption": "O lembrete só ajuda a manter o histórico atualizado — a avaliação continua opcional.",
       "invalidNumber": "Escreve um número inteiro entre 1 e 99.",
-      "saveFailed": "Não foi possível guardar. Tenta novamente.",
       "dueLabel": "Avaliação em falta"
     },
     "scale": {
@@ -86,8 +85,7 @@
         "20": "1–20",
         "100": "1–100"
       },
-      "caption": "As avaliações já feitas mantêm a sua escala; as novas usam a escolhida.",
-      "saveFailed": "Não foi possível guardar. Tenta novamente."
+      "caption": "As avaliações já feitas mantêm a sua escala; as novas usam a escolhida."
     },
     "settingsGroupTitle": "Avaliações"
   }

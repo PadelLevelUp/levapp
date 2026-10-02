@@ -28,8 +28,8 @@ device. The server stays the one truth; the user decides at the moment of leavin
 1. **Which sections.** Only sections whose edits wait for an explicit Save hold unsaved edits:
    profile, coach levels, seasons, working hours and the student's notification blocks, on web and
    iOS, plus web's message templates. Sections that save on every change (language, theme, class
-   request alerts, the notification engine / auto-invite toggles) have nothing unsaved and never
-   ask.
+   request alerts, the notification engine / auto-invite toggles, evaluation frequency and scale)
+   have nothing unsaved and never ask; what they show when they save is `settings.save-on-change`.
 2. **Unsaved means different from the last loaded or saved value**, compared by value, not by "was
    touched": an edit undone by hand is not unsaved. A successful Save makes the section clean; a
    failed Save leaves it unsaved.

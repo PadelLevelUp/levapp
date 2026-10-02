@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
+import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
+import { SaveLedger, createSerialSaver } from "@levelup/config";
+
 import { useFlushOnBackground } from "./use-flush-on-background";
 
 /**
@@ -33,6 +36,8 @@ function validCustomN(raw: string): number | null {
   const n = Number(raw);
   return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
 }
+
+type Shown = { option: ReminderOption | ""; custom: string };
 
 function optionFromSettings(settings: EvaluationSettings | undefined): ReminderOption | "" {
   if (!settings) return "";
@@ -66,6 +71,15 @@ export function EvaluationReminderSetting() {
   const [option, setOption] = React.useState<ReminderOption | "">("");
   const [customValue, setCustomValue] = React.useState(DEFAULT_CUSTOM_N);
   const [errorKey, setErrorKey] = React.useState<string | null>(null);
+  const sign = useSaveSign();
+  // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger — the
+  // setting the server last confirmed, decided only by the newest save.
+  const ledger = React.useRef(new SaveLedger<{ setting: Shown }>());
+  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
+  // value sent next, so the server ends in the order the saves were sent.
+  const sendSetting = React.useRef(save.mutateAsync);
+  sendSetting.current = save.mutateAsync;
+  const [saveSetting] = React.useState(() => createSerialSaver((body: EvaluationSettings) => sendSetting.current(body)));
   const hydrated = React.useRef(false);
   // B-242: the custom number last sent (so a blur right after the delayed save sends nothing
   // twice), the field's latest text, and the timer of a save still waiting for typing to stop.
@@ -82,20 +96,40 @@ export function EvaluationReminderSetting() {
     setCustomValue(custom);
     latestCustom.current = custom;
     sentCustomN.current = opt === "custom" ? data.everyN ?? null : null;
+    ledger.current.seed({ setting: { option: opt, custom } });
   }, [data]);
 
-  // Every change is saved at once, so the control never shows a choice the server does not
-  // hold: a refused or failed save puts the previous choice back and says so.
-  const persist = (next: ReminderOption, everyN: number, previous: ReminderOption | "") => {
+  const display = (shown: Shown) => {
+    setOption(shown.option);
+    setCustomValue(shown.custom);
+    latestCustom.current = shown.custom;
+  };
+
+  // Every change is saved at once and signed (settings.save-on-change): a refused or failed save
+  // says so and puts the control back to the last value the server confirmed.
+  const persist = (next: ReminderOption, everyN: number) => {
+    const token = ledger.current.begin({
+      setting: { option: next, custom: next === "custom" ? String(everyN) : latestCustom.current },
+    });
     setErrorKey(null);
     setOption(next);
     sentCustomN.current = next === "custom" ? everyN : null;
-    void save.mutateAsync(bodyForOption(next, everyN)).catch(() => {
-      setOption(previous);
-      setErrorKey("saveFailed");
-      // Nothing was stored: the same number typed again must be sent again.
-      sentCustomN.current = null;
-    });
+    const body = bodyForOption(next, everyN);
+    void sign.track("reminder", saveSetting(body)).then(
+      () => {
+        const shown = ledger.current.confirm(token).show.setting;
+        if (shown) display(shown);
+      },
+      () => {
+        const back = ledger.current.fail(token).setting;
+        if (!back) return;
+        // Nothing was stored: the confirmed number is what a later save is compared with.
+        sentCustomN.current = back.option === "custom" ? Number(back.custom) : null;
+        // Review #497: a newer number the coach is still typing decides; do not reset it under them.
+        if (pendingSave.current) return;
+        display(back);
+      },
+    );
   };
 
   const cancelPendingSave = () => {
@@ -113,7 +147,7 @@ export function EvaluationReminderSetting() {
       setCustomValue(DEFAULT_CUSTOM_N);
       latestCustom.current = DEFAULT_CUSTOM_N;
     }
-    persist(value, n, option);
+    persist(value, n);
   };
 
   const commitCustom = () => {
@@ -128,7 +162,7 @@ export function EvaluationReminderSetting() {
       setErrorKey(null);
       return;
     }
-    persist("custom", n, "custom");
+    persist("custom", n);
   };
 
   const changeCustom = (text: string) => {
@@ -142,6 +176,9 @@ export function EvaluationReminderSetting() {
   // the foreground or the screen goes away — neither blurs the field.
   const flushPendingSave = () => {
     if (pendingSave.current) commitCustom();
+    // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
+    // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
+    saveSetting.sendPendingNow();
   };
   useFlushOnBackground(flushPendingSave);
   const flushRef = React.useRef(flushPendingSave);
@@ -151,7 +188,10 @@ export function EvaluationReminderSetting() {
   return (
     <Card testID="settings-evaluation-reminder">
       <CardHeader>
-        <CardTitle>{t("evaluations.reminder.title")}</CardTitle>
+        <View className="flex-row items-center justify-between gap-2">
+          <CardTitle>{t("evaluations.reminder.title")}</CardTitle>
+          <SaveSign status={sign.status("reminder")} testID="settings-evaluation-reminder-sign" />
+        </View>
         <CardDescription>{t("evaluations.reminder.caption")}</CardDescription>
       </CardHeader>
       <CardContent className="gap-2" accessibilityRole="radiogroup">

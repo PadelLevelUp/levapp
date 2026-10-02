@@ -186,3 +186,6 @@ whether a failure mode has been seen before.
 - [B-238](B-238-a-failed-scroll-retry-reused-a-stale-index.md) — iOS thread: the failed-scroll retry reused a stale index and threw once a refetch had shrunk the list (missing-criterion, medium, resolved)
 - [B-248](B-248-a-hole-in-the-cached-thread-hides-a-push-target.md) — iOS thread: a push target missing from the middle of the cached thread is never fetched, and is marked read unseen (incomplete-rule, low, triaged)
 - [B-257](B-257-unknown-level-operation-passed-everyone.md) — An eligibility or wave level rule with an operation the evaluator did not know passed every student; it now fails closed with `unknown_operation`, and saving refuses one (incomplete-rule, medium, resolved)
+- [B-243](B-243-engine-settings-save-failure-reverts-silently.md) — Notification-engine settings: a failed save snapped the control back silently, to a stale closure copy (incomplete-rule, medium, triaged)
+- [B-244](B-244-web-language-saved-only-by-the-header-button.md) — Web Settings: a language picked on Preferences was stored only by the page-header Save (layer-drift, medium, triaged)
+- [B-251](B-251-maestro-95-drove-a-removed-categories-editor.md) — Maestro flow 95 drove the evaluation-categories editor PAD-373 removed; it failed at its first scroll (test-defect, low, resolved)
