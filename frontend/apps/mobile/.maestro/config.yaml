@@ -261,6 +261,9 @@ executionOrder:
     # 129 (PAD-473, settings.save-on-change): choosing a scale shows the save sign beside it, the server
     # holds 10, and the sign goes. onFlowComplete restores 5.
     - 129-settings-save-sign
+    # 130 (PAD-480): a sub-category is moved under another category from the manager; the server holds
+    # the new parent. onFlowComplete deletes the two categories it made.
+    - 130-competency-move
     # 133/134 (PAD-481, eligibility.rules rule 6): "within N levels" has a direction — in Settings
     # (133; teardown restores the coach's bar) and on a class's own override (134; the class is
     # added and removed through the API).

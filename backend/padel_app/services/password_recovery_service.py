@@ -120,7 +120,8 @@ def request_recovery(email, now=None):
     try:
         _deliver(user, code)
     except Exception as exc:  # noqa: BLE001 — rule 3: log, clear, still 200
-        current_app.logger.warning("recovery mail to %s failed: %s", user.email, exc)
+        # B-254: the user id and the exception class, never the address or the exception text.
+        current_app.logger.warning("recovery mail to user %s failed: %s", user.id, type(exc).__name__)
         _clear(user)
     db.session.commit()
     return standard_body()
