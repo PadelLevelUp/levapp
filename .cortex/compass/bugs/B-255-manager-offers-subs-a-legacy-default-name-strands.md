@@ -3,7 +3,9 @@ id: B-255
 title: "Evaluation categories: the manager offered a default's sub-categories under a legacy row of its name, and each one added became a stray category"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-10-02T13:33:17Z
+updated: 2026-10-02T13:33:17Z
 affects:
   - evaluations.competencies
   - frontend/packages/config/src/competency-manager.ts
@@ -42,5 +44,16 @@ default's name, but not what the manager offers in that case. Type 2, incomplete
 - Code: `categorySections` drops such a section (no head row, no available default); the shared test
   pins it. Both clients use the builder.
 
-### Resolution
-_Pending (PAD-480)._
+### Resolution (PAD-480)
+
+- **Spec:** `evaluations.competencies` rule 15 gains "No new strays": where a legacy row holds a
+  default category's name and the coach has no non-legacy row of it, the manager offers none of
+  that default's sub-categories. The API path is unchanged.
+- **Code:** `categorySections` (`packages/config/src/competency-manager.ts`) offers a default's
+  sub-level entries only when the default is held or available. Both clients build their sections
+  from it.
+- **Test:** the shared builder test that expected the offer ("a default the coach cannot be offered
+  … still lists its sub-categories") encoded this bug. It is rewritten as "B-255: … offers none",
+  with a legacy " Técnica " held.
+- **Existing strays** (prod coach 2's Bandeja and Serviço) can now be moved under a category by hand
+  (rule 15 "Moving", PAD-480). Converting the legacy row is the owner's open decision.
