@@ -151,12 +151,10 @@ export function RemindersSection({ reminderTiming: saved, onChange, disabled, fl
   if (saverRef.current === null) {
     saverRef.current = createPausedSaver<ReminderConfig>({
       delayMs: REMINDERS_SAVE_DELAY_MS,
-      send: (value) => {
-        const result = onChangeRef.current(value);
-        const bump = () => setSettled((n) => n + 1);
-        Promise.resolve(result).then(bump, bump);
-        return result;
-      },
+      send: (value) => onChangeRef.current(value),
+      // Told by the saver once it is no longer busy with that value: told any earlier (on the
+      // save's own promise), the effect below still read "editing" and kept a refused value.
+      onSettled: () => setSettled((n) => n + 1),
     });
   }
   const saver = saverRef.current;
@@ -173,13 +171,15 @@ export function RemindersSection({ reminderTiming: saved, onChange, disabled, fl
   }, [savedKey, saver, settled]);
 
   // Closing the section must not lose an edit that is still inside its pause, unless the
-  // user has signed out: then it is dropped, with whatever was waiting to be sent.
+  // user has signed out: then it is dropped, with whatever was waiting to be sent. With a
+  // session, everything this mount still holds goes to the card's save at once (its queue
+  // orders it), so a reopened section never sends a newer value BEFORE this one.
   const flushOnCloseRef = useRef(flushOnClose);
   flushOnCloseRef.current = flushOnClose;
   useEffect(
     () => () => {
       if (flushOnCloseRef.current?.() === false) saver.dispose();
-      else saver.flush();
+      else saver.close();
     },
     [saver],
   );

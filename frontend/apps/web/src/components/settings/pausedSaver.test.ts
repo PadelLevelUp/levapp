@@ -166,4 +166,93 @@ describe("createPausedSaver", () => {
 
     expect(send).toHaveBeenCalledTimes(1);
   });
+
+  // Review of #496, finding 1: the owner re-reads the saved value when a save settles. If it is told
+  // before this saver stops being busy, it reads "still editing" and keeps a value the server refused.
+  it("onSettled is called once the saver is no longer busy, also after a failure", async () => {
+    const first = deferred();
+    const busyWhenTold: boolean[] = [];
+    const saver = createPausedSaver<number>({
+      delayMs: 600,
+      send: () => first.promise,
+      onSettled: () => busyWhenTold.push(saver.busy()),
+    });
+
+    saver.push(1);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(busyWhenTold).toEqual([]);
+
+    first.reject(new Error("offline"));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(busyWhenTold).toEqual([false]);
+  });
+
+  it("onSettled is told again when the value that waited has settled too", async () => {
+    const first = deferred();
+    const second = deferred();
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const busyWhenTold: boolean[] = [];
+    const saver = createPausedSaver<number>({ delayMs: 600, send, onSettled: () => busyWhenTold.push(saver.busy()) });
+
+    saver.push(1);
+    await vi.advanceTimersByTimeAsync(600);
+    saver.push(2);
+    await vi.advanceTimersByTimeAsync(600); // 2 waits behind 1
+    first.reject(new Error("offline"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(busyWhenTold).toEqual([true]); // 2 is on its way: the owner must not re-sync yet
+
+    second.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(busyWhenTold).toEqual([true, false]);
+  });
+
+  // Review of #496, finding 2: each mount of the form has its own saver. A value left waiting in a
+  // closed mount's queue went out AFTER what the reopened form sent, so the older value won.
+  it("close hands a value waiting behind a save in flight to the owner at once", async () => {
+    const first = deferred();
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const saver = createPausedSaver<number>({ delayMs: 600, send });
+
+    saver.push(2);
+    await vi.advanceTimersByTimeAsync(600); // 2 is in flight
+    saver.push(4);
+    await vi.advanceTimersByTimeAsync(600); // 4 waits behind it
+    expect(send).toHaveBeenCalledTimes(1);
+
+    saver.close();
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenLastCalledWith(4);
+    first.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(send).toHaveBeenCalledTimes(2); // not sent a second time when the first returns
+  });
+
+  it("close hands the value still inside the pause to the owner at once, and only the newest", async () => {
+    const first = deferred();
+    const send = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
+    const saver = createPausedSaver<number>({ delayMs: 600, send });
+
+    saver.push(2);
+    await vi.advanceTimersByTimeAsync(600); // 2 is in flight
+    saver.push(3);
+    await vi.advanceTimersByTimeAsync(600); // 3 waits behind it
+    saver.push(4); // 4 is inside the pause
+
+    saver.close();
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenLastCalledWith(4);
+    first.resolve();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(send).toHaveBeenCalledTimes(2); // 3 was replaced by 4 and never goes out
+  });
+
+  it("close with nothing held sends nothing", () => {
+    const send = vi.fn();
+    createPausedSaver<number>({ delayMs: 600, send }).close();
+    expect(send).not.toHaveBeenCalled();
+  });
 });
