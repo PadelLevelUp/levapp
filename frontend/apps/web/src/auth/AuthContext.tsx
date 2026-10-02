@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
 import i18n from "@/i18n";
+import { dropPendingSaves } from "@levelup/config";
 
 // PAD-40: apply the user's persisted language globally so it drives the whole UI,
 // not just the Settings screen. Called on both silent session restore and login.
@@ -99,6 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    // settings.save-on-change (review #497): a setting still waiting to be saved belongs to this
+    // account; it must never be sent with the next account's session.
+    dropPendingSaves();
     const currentToken = localStorage.getItem("accessToken");
     if (currentToken && !USE_MOCK_DATA) {
       // Best-effort server-side invalidation — don't await to avoid blocking UI

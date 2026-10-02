@@ -28,6 +28,8 @@ import { CUSTOM_SAVE_DELAY_MS, EvaluationReminderSetting } from "./evaluation-re
 const FIELD = "settings-evaluation-reminder-n";
 const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 const waitPastDelay = () => wait(CUSTOM_SAVE_DELAY_MS + 50);
+const signText = (n: Awaited<ReturnType<typeof renderNative>>, id: string) =>
+  n.byTestId(id).findAll((x) => typeof x.props.children === "string").map((x) => x.props.children).join("");
 
 afterEach(() => {
   hooks.data = undefined;
@@ -99,15 +101,17 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
     expect(hooks.mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("after a failed save the same number is sent again on blur", async () => {
+  it("a failed save says so, returns the field to the confirmed number, and the same number can be sent again", async () => {
     const n = await openCustom();
     hooks.mutateAsync.mockRejectedValueOnce(new Error("offline"));
 
     await n.changeText(FIELD, "5");
     await waitPastDelay();
     await n.flush();
-    expect(n.queryByTestId("settings-evaluation-reminder-error")).not.toBeNull();
+    expect(signText(n, "settings-evaluation-reminder-sign")).toContain("settings.saveSign.failed");
+    expect(n.byTestId(FIELD).props.value).toBe("7");
 
+    await n.changeText(FIELD, "5");
     await act(async () => { n.byTestId(FIELD).props.onBlur(); });
     expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
     expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 5 });
@@ -137,5 +141,66 @@ describe("Personalizado saves a typed number however the coach leaves it (B-242)
 
     expect(n.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
     expect(hooks.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("review #497 item 7: a failure landing while a newer number is being typed does not reset it; the newer number is saved", async () => {
+    const n = await openCustom(7);
+    let fail8!: (e: Error) => void;
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise((_r, rej) => { fail8 = rej; }));
+
+    await n.changeText(FIELD, "8");
+    await waitPastDelay(); // 8 sent, held
+    await n.changeText(FIELD, "9"); // waiting for its delay
+    await act(async () => { fail8(new Error("offline")); });
+    expect(n.byTestId(FIELD).props.value).toBe("9");
+
+    await waitPastDelay();
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
+
+  it("rule 3: two held frequency saves both fail — back to the confirmed frequency", async () => {
+    hooks.data = { reminder: "never" };
+    let failY!: (e: Error) => void;
+    let failZ!: (e: Error) => void;
+    hooks.mutateAsync
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
+      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
+    const n = await renderNative(<EvaluationReminderSetting />);
+
+    await n.press("settings-evaluation-reminder-option-monthly"); // Y
+    await n.press("settings-evaluation-reminder-option-every_2"); // Z, started from monthly
+    await act(async () => { failY(new Error("y")); });
+    await act(async () => { failZ(new Error("z")); });
+    await n.flush();
+
+    expect(n.byTestId("settings-evaluation-reminder-option-never").props.accessibilityState.checked).toBe(true);
+  });
+
+  it("review #497: on leaving the foreground a save waiting behind one in flight is sent at once, not queued", async () => {
+    const n = await openCustom(7);
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined)); // 8: out, never answers
+
+    await n.changeText(FIELD, "8");
+    await waitPastDelay(); // 8 out
+    await n.changeText(FIELD, "9");
+    await waitPastDelay(); // 9 waits behind 8
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
+    await act(async () => { __emitAppState("background"); });
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+  });
+
+  it("review #497: leaving the screen sends a save waiting behind one in flight at once", async () => {
+    const n = await openCustom(7);
+    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined));
+
+    await n.changeText(FIELD, "8");
+    await waitPastDelay();
+    await n.changeText(FIELD, "9"); // still being typed when the screen goes
+    await act(async () => { n.root.unmount(); });
+
+    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
   });
 });

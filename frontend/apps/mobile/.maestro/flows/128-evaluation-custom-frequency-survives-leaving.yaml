@@ -1,14 +1,20 @@
-# confirmed — Session-C, iPhone 17 Pro simulator, fix/b242-custom-frequency (working tree on 37fc7ecc + review fixes), 2026-10-02 08:37:44Z: green; red on staging 439ae2088 at afterBackground == 7 (2026-10-01)
+# confirmed — Session-C, iPhone 17 Pro simulator, feature/pad-473 @ f5d3fd425, 2026-10-02 12:22Z (quiet window):
+#   first run green, load average 138.6 (Home 12:22:27.33, the 7 reached the server the same second).
+#   Red on staging 439ae2088 at afterBackground == 7 (2026-10-01).
 # B-242 / PAD-473 / evaluations.reminders rule 1 — a number typed into "Personalizado" is saved
 # however the coach leaves, not only when the field blurs. The field uses the number pad, which
 # has no Return key, so before the fix a number typed and then left behind by sending the app to
 # the background, or by following a link (a notification tap), never reached the server.
 #
 # Each half types a number and leaves at once, WITHOUT tapping outside the field and with no step
-# in between, then reads the stored value back through the API. Maestro cannot promise to leave
-# inside the 600 ms save delay, so the flow proves the number survives leaving on a device; which
-# path sent it (the delay, or the flush on background/unmount) is pinned by the unit tests. `onFlowComplete` PUTs
-# `{"reminder":"never"}` so no later flow inherits a frequency (R-040).
+# in between, then reads the stored value back through the API (retrying for up to ~10 s).
+# What it CAN show: on the simulator, a typed number survives backgrounding the app and following a
+# link with the field focused. What it CANNOT show: which path sent it (the 600 ms delay or the flush
+# on background/unmount — Maestro cannot leave inside 600 ms; the unit tests pin each path), nor a
+# device suspending JS in the background (the simulator does not). On a saturated machine (load
+# average 290-460) it failed on the old and new code alike — a keystroke dropped or the PUT seconds
+# late; read a red at that load as the machine, and re-run in a quiet window.
+# `onFlowComplete` PUTs `{"reminder":"never"}` so no later flow inherits a frequency (R-040).
 appId: com.padellevelup.app
 onFlowComplete:
   - evalScript: "${output.restore = (typeof output.coachTok === 'undefined') ? false : http.put(output.api + '/api/app/evaluation_settings', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ reminder: 'never' }) }).ok}"
@@ -47,8 +53,20 @@ onFlowComplete:
 - pressKey: Home
 - launchApp:
     stopApp: false
-- evalScript: "${output.afterBackground = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).everyN}"
-- assertTrue: "${output.afterBackground == 7}"
+# The flush on leaving the foreground sends the PUT asynchronously. Under heavy machine load (load
+# average 290-450, 2026-10-02) it reached the server 1-4 s after Home, on the pre- and post-PAD-473-PR-2
+# code alike, so a single immediate read raced it. Read until it lands, for up to ~10 s. What this
+# flow cannot show: the simulator does not suspend JS in the background as a device may.
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b242-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.afterBackground = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).everyN}"
+      - assertTrue: "${output.afterBackground == 7}"
 # The field still shows what the coach typed.
 - copyTextFrom:
     id: "settings-evaluation-reminder-n"
