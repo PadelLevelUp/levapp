@@ -185,3 +185,4 @@ whether a failure mode has been seen before.
 - [B-237](B-237-a-push-target-newer-than-the-cache-walks-older-pages.md) — iOS thread: a push target newer than the cache walked older pages and was consumed before the GET landed (incomplete-rule, low, resolved)
 - [B-238](B-238-a-failed-scroll-retry-reused-a-stale-index.md) — iOS thread: the failed-scroll retry reused a stale index and threw once a refetch had shrunk the list (missing-criterion, medium, resolved)
 - [B-248](B-248-a-hole-in-the-cached-thread-hides-a-push-target.md) — iOS thread: a push target missing from the middle of the cached thread is never fetched, and is marked read unseen (incomplete-rule, low, triaged)
+- [B-257](B-257-unknown-level-operation-passed-everyone.md) — An eligibility or wave level rule with an operation the evaluator did not know passed every student; it now fails closed with `unknown_operation`, and saving refuses one (incomplete-rule, medium, resolved)
