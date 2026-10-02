@@ -46,11 +46,9 @@ async function openRestrictions(page: import("@playwright/test").Page) {
   await page.waitForTimeout(300);
 }
 
-/** The cancellation-deadline row, located by its label heading. */
+/** The cancellation-deadline row, located by its test id. */
 function cancellationRow(page: import("@playwright/test").Page) {
-  return page
-    .getByText(/^cancellation deadline$/i)
-    .locator("xpath=ancestor::div[contains(@class, 'space-y-1')][1]");
+  return page.getByTestId("restriction-row-cancellation-deadline");
 }
 
 // US-75: Cancellation deadline control defaults to 24 hours.
