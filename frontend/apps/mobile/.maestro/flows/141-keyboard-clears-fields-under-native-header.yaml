@@ -1,0 +1,65 @@
+# PAD-487 / mobile.android-runtime rule 2 (B-265) on iOS: on the two screens under a NATIVE stack
+# header, the field at the bottom stays above the keyboard. The class-request wizard's optional
+# notes field (the reporter's case) and the new-conversation screen's "message by username" field
+# are focused and typed into, and a screenshot is taken with the keyboard up.
+#
+# Maestro cannot tell an element under the keyboard from a visible one (it counts both as
+# visible), so the evidence is the two screenshots, read by a person: on staging's code the field
+# sits behind the keyboard, on the fix it sits above it. The mechanical check is the unit test
+# src/lib/keyboard-offset-screens.test.tsx. Nothing is created; no teardown. Flow number 141 is
+# from Session-D's reserved block (139–141, coordinator 2026-10-02).
+appId: com.padellevelup.app
+---
+# ── The wizard's notes field ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- scrollUntilVisible:
+    element:
+      id: "class-request-book"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "class-request-book"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-kind"
+    timeout: 15000
+- tapOn:
+    id: "wizard-kind-private"
+- extendedWaitUntil:
+    visible:
+      id: "class-request-wizard-private"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "wizard-note"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "wizard-note"
+- inputText: "Maestro 141 nota"
+- waitForAnimationToEnd
+- takeScreenshot: pad487-wizard-note
+- runFlow: ../subflows/logout.yaml
+
+# ── The new-conversation screen's lowest field ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-messages"
+- tapOn:
+    id: "messages-new"
+- extendedWaitUntil:
+    visible:
+      id: "screen-new-conversation"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "message-by-username-input"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "message-by-username-input"
+- inputText: "maestro141"
+- waitForAnimationToEnd
+- takeScreenshot: pad487-new-conversation
