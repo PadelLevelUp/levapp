@@ -4125,7 +4125,17 @@ def _send_next_on_decline(
     # an automatic one too — none when automatic invitations are off for the class.
     if not effective_auto_invites(instance):
         return
+    # PAD-495 item 3: two declines at once each invite "the next student"; deciding who that is
+    # on the vacancy row locked and re-read means the second waits for the first's invitation to
+    # commit (with its message) and then sees it. The lock ends at that commit, before any push.
+    vacancy = (
+        Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
+    )
+    if vacancy.status != "open":
+        db.session.commit()  # release the lock; nothing was written
+        return
     _send_invitation_batch(vacancy, instance, config, coach_id, max_sim_override=1)
+    db.session.commit()  # the end of the lock when the batch sent (and so committed) nothing
 
 
 # ---------------------------------------------------------------------------
