@@ -19,7 +19,7 @@ A coach who belongs to a club can invite another coach to join that club via a s
 1. Only a coach with a `coach_in_club` association for the club can create or revoke invitations for it
 2. Each invitation has a unique single-use token, expiring after 7 days. Only its SHA-256 hash is stored (PAD-269); the token appears once, in the creation response's `inviteLink`, and links issued before PAD-269 keep working because its migration hashed the stored tokens in place.
 3. Frontend route: `/invite/coach/:token` — shows club name and accept form
-4. Accepting as a new user: registers a User + Coach with status `active`, then creates the `coach_in_club` association
+4. Accepting as a new user creates a User and Coach (status `active`), the coach's default level ladder, and the `coach_in_club` association, and marks the invitation accepted. **All of this is one transaction (PAD-476, B-246):** a failure at any step leaves no User, Coach, level or club link, the invitation stays pending, and accepting it again succeeds.
 5. Accepting while authenticated as an existing coach: only creates the `coach_in_club` association (no-op if already a member)
 6. Used, revoked, or expired tokens are rejected (410)
 7. Inviter can list and revoke pending invitations for their club. `GET /api/app/club/<clubId>/coach-invitations` returns each pending invitation's `id`, `email`, `expiresAt` and `createdAt`, never its token (PAD-269: the list used to hand every coach of the club every live link). Revoking from the list is `POST /api/app/club/<clubId>/coach-invitations/<id>/revoke` (403 for a non-member, 404 for an id outside the club, 410 unless pending). `POST /api/app/coach-invitations/<token>/revoke` still works for whoever holds the link.
@@ -31,6 +31,12 @@ A coach who belongs to a club can invite another coach to join that club via a s
    add the field.
 
 ### Acceptance Criteria
+
+#### A failed new-user accept leaves nothing and can be accepted again (rule 4, PAD-476)
+- **Given** a pending invitation
+- **When** the new-user accept fails after the default levels were written
+- **Then** the answer is 500, no account or club link exists and the invitation is still pending
+- **And** accepting it again is 200, with the coach in the club and the invitation accepted
 
 #### Create invitation
 - **Given** an authenticated coach belonging to club 1
