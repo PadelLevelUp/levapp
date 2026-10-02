@@ -598,3 +598,100 @@ def test_r3_a_manual_invitation_counts_for_the_skip(app, monkeypatch):
         send_manual_notifications(instance_id, [b], coach_id)
         trigger_invitations(_instance(instance_id), coach_id, now=NOW)
         assert [v for v, _p in _live_events(instance_id)] == [None]
+
+
+_POSTGRES_ONLY = pytest.mark.skipif(
+    __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="a lock is only visible with two real connections",
+)
+
+
+def _manual_invitation(app):
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import send_manual_notifications
+    from padel_app.tests.helpers import pin_clock  # noqa: F401
+
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (b,) = _seed(enrolled=0, candidates=1, max_players=1)
+        event = send_manual_notifications(instance_id, [b], coach_id)[0]
+        return instance_id, event.id, Player.query.get(b).user_id, b
+
+
+@_POSTGRES_ONLY
+def test_r5_a_double_no_on_a_manual_invitation_is_answered_once(app, monkeypatch):
+    """Re-review item 5 (mutant M8b): a manual invitation has no vacancy, so its answer locks the
+    invitation row. Two "no" at once: the coach is told once."""
+    import threading
+
+    from padel_app.models import Message
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, event_id, user_id, _b = _manual_invitation(app)
+    with app.app_context():
+        before = Message.query.count()
+
+    real = ns._repeated_answer
+    gate = threading.Barrier(2)
+
+    def gated(event, action, **kwargs):
+        result = real(event, action, **kwargs)
+        try:
+            gate.wait(timeout=1.5)
+        except threading.BrokenBarrierError:
+            pass
+        return result
+
+    monkeypatch.setattr(ns, "_repeated_answer", gated)
+    no = lambda: respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))  # noqa: E731
+    with _io():
+        _race(app, [no, no])
+    with app.app_context():
+        assert Message.query.count() - before == 1     # one decline message to the coach
+
+
+@_POSTGRES_ONLY
+def test_r5_a_no_landing_in_a_manual_yes_gap_wins(app, monkeypatch):
+    """F3 for a manual invitation: a "no" landing between the "yes"'s first commit and its lock
+    wins — no enrolment."""
+    import threading
+
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, event_id, user_id, b = _manual_invitation(app)
+    in_gap, no_done = threading.Event(), threading.Event()
+    real_lock = ns._lock_vacancy_and_instance
+
+    def gated_lock(vacancy, instance):
+        if threading.current_thread().name == "yes":
+            in_gap.set()
+            no_done.wait(timeout=5)
+        return real_lock(vacancy, instance)
+
+    monkeypatch.setattr(ns, "_lock_vacancy_and_instance", gated_lock)
+
+    def yes():
+        threading.current_thread().name = "yes"
+        respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
+
+    def no():
+        in_gap.wait(timeout=5)
+        try:
+            respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
+        finally:
+            no_done.set()
+
+    with _io():
+        _race(app, [yes, no])
+    with app.app_context():
+        db.session.expire_all()
+        assert b not in _instance(instance_id).enrolled_player_ids
+        assert db.session.get(NotificationEvent, event_id).answer == "no"
