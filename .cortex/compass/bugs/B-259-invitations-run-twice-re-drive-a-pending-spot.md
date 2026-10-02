@@ -94,9 +94,17 @@ cross-spot split out as PAD-494).
 - Spec: `notifications.invitations` rule 1b ("Starting is once per vacancy") and rule 16 ("A spot is
   not dropped while someone asked can still say yes"), with four criteria.
 - Code (`notification_service.py`):
-  - `_start_vacancy` locks the vacancy (`SELECT … FOR UPDATE`, re-read) and starts it only if it
-    is open and `last_activity_at` is null. It marks it started before sending, in one unit of
-    work. Both `trigger_invitations` and the tick's fresh-vacancy branch go through it.
+  - `_start_vacancy` claims the start in its own short transaction: it locks the vacancy
+    (`SELECT … FOR UPDATE`), re-reads it, stamps `last_activity_at` on an open, never-started
+    vacancy and commits; only then is the batch sent. Both `trigger_invitations` and the tick's
+    fresh-vacancy branch go through it. A batch that sent nothing and advanced no round
+    (`maxTotal` used up) clears the stamp, so the next tick retries. Review of #507 found the
+    first version (one unit of work around claim and batch) left such a vacancy waiting
+    `maxInactiveTime`, or never retried with it off, and submitted pushes before the commit.
+  - `_find_or_create_open_vacancies` creates a vacancy for each absent student without one even
+    while another vacancy of the class is open (never-filled places unchanged), then reconciles to
+    capacity. Review of #507: a student marked absent while another spot held got no vacancy;
+    the gap existed before but the hold widened it.
   - `_defer_next_round` holds a vacancy on its last round while `_has_live_offers` is true,
     instead of expiring it.
 - Tests: `test_pad493_invitations_run_twice.py` (red on `0305880a1`, green after), and

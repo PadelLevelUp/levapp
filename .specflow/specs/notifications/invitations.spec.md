@@ -26,11 +26,18 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    left to `process_invitation_batches` (rule 5), which alone sends later batches and advances
    rounds. So the function is safe to call any number of times — a second decline, a coach's
    repeated attendance confirm, a re-armed invitation-start job — and a call that starts nothing
-   sends nothing and returns an empty list. The start is claimed under a row lock
-   (`SELECT … FOR UPDATE` on the vacancy, re-read) and marked before any invitation is sent, so
-   two concurrent callers — two triggers, or a trigger and the tick's fresh-vacancy branch —
-   cannot both start one vacancy. A decline's follow-up invitation (one more, to the next
-   candidate) is not a start and is unchanged.
+   sends nothing and returns an empty list. The start is claimed in its own short transaction:
+   the vacancy row is locked (`SELECT … FOR UPDATE`) and re-read, the claim is stamped on it
+   (`last_activity_at`) and committed, and only then is the batch sent. The lock and the re-read
+   make a second caller wait and then see the committed stamp, so two concurrent callers — two
+   triggers, or a trigger and the tick's fresh-vacancy branch — cannot both start one vacancy;
+   sending after the commit means no push goes out for a claim a rollback could undo. A batch that
+   sent nothing and advanced no round (`maxTotal` used up) gives the claim back, so the vacancy is
+   retried on the next tick like any never-started one. A decline's follow-up invitation (one
+   more, to the next candidate) is not a start and is unchanged. Every call also creates a
+   vacancy for each absent student who has none, even while another vacancy of the class is open,
+   bounded by capacity (rule 13); never-filled places get theirs, as before, when the class has no
+   open vacancy.
 2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
 2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
@@ -198,24 +205,32 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     their seat went is a product question, deliberately left open here.
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
-    still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open`,
-    stays on its last round, sends nothing new for that round, and a "yes" in that window is
-    accepted as on any open vacancy. It expires when the last live invitation resolves — the
-    decline of the last one, or the class starting (PAD-68). Holding sends no message of its own,
-    and because the vacancy stays open, no second vacancy is created for the same spot while an
-    earlier one still has offers out. (Before this, the rounds could run out under live offers and
-    a "yes" was answered `spot_filled` on a spot nobody had taken.)
-17. **An answer is taken once (PAD-493, ledger B-260).** A "no" on an invitation that is no longer
-    live, and a "yes" on an invitation already `confirmed`, change nothing and send nothing: no
-    second decline message, no next invitation, no `spot_filled` to the student who holds the
-    spot. The check runs on the invitation re-read after the vacancy lock (rule 10), and the
-    answer is recorded before the lock can end: a "no" marks the invitation `expired` before
-    anything commits, and a "yes" marks it `confirmed` before the spot is closed (closing
+    still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
+    its last round, and a "yes" in that window is accepted as on any open vacancy. A held vacancy
+    is still looked at on each `maxInactiveTime` pass of the tick, so a student who has become
+    eligible meanwhile is invited; nobody already asked in that round is asked again. It expires
+    on the first pass through the round logic after its last live invitation has resolved: at once
+    when that is a student's own "no" (the decline's follow-up runs it); on the tick's next
+    `maxInactiveTime` pass when the coach records the "no"; and otherwise at the class start
+    (PAD-68). The class start is the only later point when `maxInactiveTime` is off, and while
+    automatic invitations are off for the class, which skips both the decline's follow-up and the
+    tick. Holding sends no message of its own, and because the vacancy stays open, no second vacancy is created for that same place while it holds (other places get theirs,
+    rule 1b). (Before this, the rounds could run out under live offers and a "yes" was answered
+    `spot_filled` on a spot nobody had taken.) `queued` counts as live because it is in
+    `LIVE_INVITATION_STATES` (rule 15); nothing writes it today.
+17. **The same answer twice is answered once (PAD-493, ledger B-260).** A second "no" on an
+    invitation that is no longer live, and a second "yes" on one already `confirmed`, change nothing
+    and send nothing: no second decline message, no next invitation, no `spot_filled` to the student
+    who holds the spot. The check runs on the invitation re-read after the vacancy lock (rule 10),
+    and the answer is recorded before the lock can end: a "no" marks the invitation `expired`
+    before anything commits, and a "yes" marks it `confirmed` before the spot is closed (closing
     retires the other invitations, and that commits). So a double tap racing itself is answered
-    once.
-    A "no" on an invitation already `confirmed` is the same no-op: the student keeps the spot and
-    the invitation stays `confirmed` (the answer reports `declined`, nothing else happens).
-    Leaving a class after winning it goes through the attendance cancel, not the invitation.
+    once. A "no" on an invitation already `confirmed` is the same no-op: the student keeps the spot
+    and the invitation stays `confirmed` (the answer reports `declined`). Leaving a class after
+    winning it goes through the attendance cancel, not the invitation. **Not covered here:** a "yes"
+    after the student's own "no" on the same invitation still enrols them while the spot is open
+    (decided by PAD-497: a "no" is final for that class); a student who lost the spot and answers
+    "yes" again is told `spot_filled` and offered the waiting list again each time (PAD-495).
 
 ### Acceptance Criteria
 
@@ -450,6 +465,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** a class with one open spot whose first batch has gone out and is still unanswered
 - **When** `trigger_invitations` runs again for the class — a second decline minutes later, a coach confirming attendance twice, the invitation-start job firing again
 - **Then** the started vacancy keeps its round, batch and status, gains no invitation, and the call returns an empty list
+- **And** a vacancy whose first batch `maxTotal` stopped is retried on the next tick, with `maxInactiveTime` on or off
 - **And** a vacancy opened by the second decline is started by that same call
 - **And** the next batch for the first spot still goes out from `process_invitation_batches` once `maxInactiveTime` has passed
 
@@ -462,10 +478,11 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** an open vacancy on its last round with an invitation still `sent` and nobody left to invite
 - **When** the round would advance past the last one
 - **Then** the vacancy stays `open` on its last round, and a "yes" to the live invitation enrols the student
+- **And** when the coach later marks another student absent, that place gets its own vacancy, started at once
 - **And** no second vacancy is created for the class while it holds
 - **And** when the last live invitation is declined, the vacancy expires
 
-#### An answer is taken once (PAD-493, B-260)
+#### The same answer twice is answered once (PAD-493, B-260)
 - **Given** a student who has answered an invitation
 - **When** they send the same answer again — "no" twice, or "yes" after winning the spot
 - **Then** nothing changes: no further invitation goes to anyone, the winner keeps the spot and a `confirmed` invitation, and nobody is told the spot was filled

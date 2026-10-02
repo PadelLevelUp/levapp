@@ -65,6 +65,11 @@ Fixed in PAD-493's PR, together with B-259. A "no" on a `confirmed` invitation i
 no-op (rule 17, tested). Left for PAD-495: `coach_respond_to_notification` (the coach recording
 an answer for a student) has the same shape and is not guarded here.
 
+Scope, stated exactly: the same answer given twice is answered once. Not covered: a "yes" after
+the student's own "no" on the same invitation still enrols them while the spot is open (the
+owner's decision that a "no" is final for the class is PAD-497); a student who lost the spot
+and answers "yes" again is told `spot_filled` and offered the waiting list each time (PAD-495).
+
 Seen while fixing, not fixed here: PAD-261's accept comment says the vacancy and class locks end
 at the enrolment's commit. In fact `_close_vacancy` commits earlier, through the retired
 messages' saves, so the class lock ends before the winner is enrolled. A second accept on a

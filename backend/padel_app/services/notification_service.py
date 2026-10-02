@@ -3930,31 +3930,36 @@ def _send_next_on_decline(
 # ---------------------------------------------------------------------------
 
 def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> list[Vacancy]:
-    """Find existing open vacancies for an instance or create new ones
-    (from absent presences + structural open spots)."""
-    open_vacancies = Vacancy.query.filter_by(
-        lesson_instance_id=instance.id,
-        status="open",
-    ).all()
+    """The class's open vacancies, after creating the missing ones: one per absent student who has
+    none yet and, when the class has no open vacancy, the never-filled spots.
 
-    if not open_vacancies:
-        # Create vacancies from absent presences
-        absent_ids = {
-            p.player_id for p in instance.presences if p.status == "absent"
-        }
-        # Avoid duplicates — check which absent players already have vacancies
-        existing_vacancy_player_ids = {
-            v.original_player_id
-            for v in Vacancy.query.filter_by(lesson_instance_id=instance.id).all()
-            if v.original_player_id is not None
-        }
-        for player_id in absent_ids - existing_vacancy_player_ids:
-            open_vacancies.append(_create_vacancy_for_absent_player(instance, coach_id, player_id))
-
-        # Also create structural vacancies (spots never filled)
-        open_vacancies.extend(_create_structural_vacancies(instance, coach_id))
-
-    return open_vacancies
+    PAD-493 (review of #507): absent students used to get theirs only when the class had no open
+    vacancy at all, so a student marked absent while another spot was still being filled got none;
+    rule 16's hold made that window long. Capacity still bounds the result (PAD-271, rule 13).
+    """
+    any_open = (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").first() is not None
+    )
+    absent_ids = {p.player_id for p in instance.presences if p.status == "absent"}
+    # Avoid duplicates — check which absent players already have vacancies
+    existing_vacancy_player_ids = {
+        v.original_player_id
+        for v in Vacancy.query.filter_by(lesson_instance_id=instance.id).all()
+        if v.original_player_id is not None
+    }
+    created = [
+        _create_vacancy_for_absent_player(instance, coach_id, player_id)
+        for player_id in absent_ids - existing_vacancy_player_ids
+    ]
+    if not any_open:
+        created.extend(_create_structural_vacancies(instance, coach_id))
+    if created:
+        reconcile_vacancies(instance)
+    return (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
+        .order_by(Vacancy.id.asc())
+        .all()
+    )
 
 
 def _start_vacancy(
@@ -3967,25 +3972,37 @@ def _start_vacancy(
 ) -> list[dict]:
     """PAD-493 / B-259 (invitations rule 1b): send a vacancy's first batch, once.
 
-    The start is decided on the row re-read under ``SELECT … FOR UPDATE`` and marked
-    (``last_activity_at``) before any invitation goes out, all in one unit of work, so two callers
-    racing for one vacancy — two triggers, or a trigger and the tick — start it once. A vacancy
-    that has started (a batch sent or a round deferred) is the tick's to pace: nothing is sent.
+    The start is claimed in its own short transaction: the row is locked
+    (``SELECT … FOR UPDATE``) and re-read, and only an open vacancy that has never started
+    (``last_activity_at`` null) is claimed, by stamping ``last_activity_at`` and committing. A
+    second caller waiting on the lock then reads the stamp and sends nothing. The batch goes out
+    after that commit, outside the lock, so no push or live event is sent for a row a rollback
+    could still undo. A batch that sent nothing and advanced no round (``maxTotal`` used up)
+    gives the claim back, so the next tick tries again.
     """
-    from padel_app.tools.unit_of_work import unit_of_work
+    locked = (
+        Vacancy.query.filter_by(id=vacancy.id)
+        .with_for_update()
+        .populate_existing()
+        .one()
+    )
+    if locked.status != "open" or locked.last_activity_at is not None:
+        db.session.commit()  # release the lock; nothing was written
+        return []
+    locked.last_activity_at = now
+    db.session.commit()  # the claim, and the end of the lock
 
-    with unit_of_work():
-        locked = (
-            Vacancy.query.filter_by(id=vacancy.id)
-            .with_for_update()
-            .populate_existing()
-            .one()
-        )
-        if locked.status != "open" or locked.last_activity_at is not None:
-            return []
-        locked.last_activity_at = now
-        db.session.flush()
-        return _send_invitation_batch(locked, instance, config, coach_id, now=now)
+    batch, round_no = locked.current_batch_number, locked.current_round_number
+    sent = _send_invitation_batch(locked, instance, config, coach_id, now=now)
+    if (
+        not sent
+        and locked.status == "open"
+        and locked.current_batch_number == batch
+        and locked.current_round_number == round_no
+    ):
+        locked.last_activity_at = None
+        locked.save()
+    return sent
 
 
 def trigger_invitations(

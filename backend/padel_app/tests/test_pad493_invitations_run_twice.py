@@ -25,7 +25,8 @@ NOW = datetime(2026, 6, 10, 14, 0)           # 15:00 Lisbon; class tomorrow 09:0
 START = datetime(2026, 6, 11, 9, 0)
 
 
-def _seed(*, enrolled: int, candidates: int, max_players: int, quiet: bool = False, semi: bool = False):
+def _seed(*, enrolled: int, candidates: int, max_players: int, quiet: bool = False, semi: bool = False,
+          max_total: int | None = None, max_inactive: bool = True):
     """A coach, one level, `enrolled` students on the class and `candidates` eligible others.
     One invitation round (no rules), batches of 3, 120 min between batches, no total cap; quiet
     hours (22:00-07:00 Lisbon) only with `quiet`, approval before sending only with `semi`."""
@@ -84,8 +85,8 @@ def _seed(*, enrolled: int, candidates: int, max_players: int, quiet: bool = Fal
         invitation_mode="semi_automatic" if semi else "automatic",
         restrictions={"quietHours": {"enabled": quiet},
                       "maxSimultaneous": {"enabled": True, "value": 3},
-                      "maxInactiveTime": {"enabled": True, "value": 120},
-                      "maxTotal": {"enabled": False, "value": 10}},
+                      "maxInactiveTime": {"enabled": max_inactive, "value": 120},
+                      "maxTotal": {"enabled": max_total is not None, "value": max_total or 10}},
     ))
     db.session.commit()
     return instance.id, coach.id, [s.user_id for s in students], [o.id for o in others]
