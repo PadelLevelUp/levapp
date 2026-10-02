@@ -302,3 +302,41 @@ def test_an_expo_error_receipt_without_details_still_logs_only_the_tail(app, cap
 
     assert "...klmnop" in caplog.text
     assert TOKEN not in caplog.text and "abcdefghij" not in caplog.text
+
+
+# --- Coordinator, after the independent check: web-push endpoints ------------------------------
+
+ENDPOINT = "https://fcm.googleapis.com/fcm/send/cap-abcdef0123456789"
+
+
+@pytest.mark.parametrize("kind", ["webpush", "unexpected"])
+def test_a_failed_web_push_logs_the_class_and_status_never_the_endpoint(app, monkeypatch, caplog, kind):
+    """utils/push_notifications.py logged the pywebpush exception text, which quotes the subscription
+    endpoint: a URL that works as a capability for that browser."""
+    import json
+    from types import SimpleNamespace
+
+    from pywebpush import WebPushException
+
+    from padel_app.utils import push_notifications
+
+    def failing(**kwargs):
+        if kind == "webpush":
+            raise WebPushException(f"Push failed: 500 Server Error for {ENDPOINT}",
+                                   response=SimpleNamespace(status_code=500))
+        raise RuntimeError(f"connection reset talking to {ENDPOINT}")
+
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(push_notifications, "webpush", failing)
+    with app.app_context():
+        ok = push_notifications._deliver_web_push(
+            7, 1, json.dumps({"endpoint": ENDPOINT, "keys": {}}), "{}", "key", {"sub": "mailto:x@y"}
+        )
+
+    assert ok is False
+    messages = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    expected = "WebPushException" if kind == "webpush" else "RuntimeError"
+    assert any("user_id=7" in m and expected in m for m in messages), messages
+    if kind == "webpush":
+        assert any("500" in m for m in messages), messages
+    assert "cap-abcdef0123456789" not in caplog.text and "fcm.googleapis.com" not in caplog.text

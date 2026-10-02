@@ -14,6 +14,7 @@ affects:
   - backend/padel_app/tools/email_tools.py
   - backend/padel_app/helpers/llm.py
   - backend/padel_app/utils/expo_push.py
+  - backend/padel_app/utils/push_notifications.py
 proposed_fix: "Log the user id (or a recipient count) and the exception CLASS, never an address or the exception text; MailRecipientNotAllowed's message becomes a count; the raw LLM output and whole Expo tokens leave the logs."
 opened: 2026-10-02T13:10:20Z
 ---
@@ -47,8 +48,7 @@ This is a missing criterion across the mail paths rather than a single wrong lin
 calls were read argument by argument (a haiku agent; every hit re-read by Session-B).
 
 **Looked at and left as they are** (coordinator, 2026-10-02): exception text on non-mail paths. These
-are `scheduler.py` (244, 318, 333, 345, 377, 516, 957), `push_sender.py:101`, `push_notifications.py`
-(88, 91), `expo_push.py` (96, 102), `llm.py:105`, `ai_service.py:927`, the `logger.exception` calls in
+are `scheduler.py` (244, 318, 333, 345, 377, 516, 957), `push_sender.py:101`, `expo_push.py` (96, 102), `llm.py:105`, `ai_service.py:927`, the `logger.exception` calls in
 `lesson_service.py` (133, 1428) and `notification_service.py:2130`, `coach_approval_service.py:199`
 and `request_alert_service.py` (115, 123). They carry database, HTTP or LLM error text, which is not
 address-bearing by construction. Those messages are what make a production failure diagnosable.
@@ -97,6 +97,9 @@ address-bearing by construction. Those messages are what make a production failu
   Assertions also check `caplog.text`, which includes tracebacks. Added: the raised `ValueError`
   carries no content (both branches); a clean send or parse logs nothing; an Expo receipt without
   `details`. The exposure note was reworded to roles only (R-036).
-- Tests: `test_b254_no_addresses_in_logs.py`, 15. All were red first, with the leak shown verbatim.
+- After the independent check (coordinator): `push_notifications.py:88` and `:91` logged the
+  pywebpush exception text, which quotes the subscription endpoint, a URL that works as a capability
+  for that browser. They now log the exception class and, for a WebPush error, the HTTP status.
+- Tests: `test_b254_no_addresses_in_logs.py`, 17. All were red first, with the leak shown verbatim.
   Each asserts the warning was logged, so a silenced logger fails the test, and that the address,
   names or token are absent.
