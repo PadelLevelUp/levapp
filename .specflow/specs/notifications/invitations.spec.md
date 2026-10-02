@@ -42,8 +42,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    batch is at most `maxSimultaneous` students, seconds of work). The window the lapse can race is
    the whole first batch, from the claim's commit to the batch counter's update: a sender that
    stalls longer than 10 minutes anywhere in it is raced by the restart, and both send. Not covered by the lapse:
-   a started vacancy (batch 1 or later) that stalls is paced by `maxInactiveTime` as before, and
-   with it off waits for the class start (PAD-495 lists the cases that are identical on staging). A decline's follow-up invitation (one
+   a started vacancy (batch 1 or later). One with an invitation of its own still out is paced by
+   `maxInactiveTime` (and with it off waits for the class start); one with nothing of its own out
+   is looked at on every tick (rule 18). A decline's follow-up invitation (one
    more, to the next candidate) is not a start and is unchanged. Every call also creates a
    vacancy for each absent student who has no vacancy of any status on the class (one whose earlier
    vacancy was filled or expired and who is marked absent again gets none, as on staging), even
@@ -259,20 +260,38 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
-    A spot whose **last** round is empty only because its remaining candidates hold an offer for
-    another spot **waits** rather than expiring; an earlier round in that state moves on as usual, so
-    students only a later invitation group admits are still asked.
-    A student freed later (their other offer retired) is judged by the round the spot is then in:
-    with the default groups the last round is the widest, but a coach whose last group is narrower
-    than an earlier one will not re-ask a freed student whom only the earlier group admitted, and the
-    spot then expires. It is looked at again on every
-    tick (a never-started spot gives its claim back; a started one with no invitation of its own out
-    is not paced by `maxInactiveTime`), so the wait ends on the first tick after any of: the sibling
-    offer is declined (that student is out; the round moves on or the spot expires as usual), is
-    accepted or retired (that student is free or enrolled), a new candidate becomes eligible,
-    capacity closes the spot (rule 13), or the class starts (PAD-68). A sibling offer nobody answers
-    keeps it waiting until the class starts, exactly as that offer keeps its own spot holding
-    (rule 16).
+    **Who counts as holding a spot (#513 review).** `offered_another_spot` is decided LAST, after
+    every other check of the round (eligibility, the coach's exclusions, inactive accounts,
+    unavailability, the student's own opt-out, the round's rules): it means "this round would ask
+    them but for that other offer". A live **manual** invitation for the occurrence counts as
+    "another offer" for that skip — the student already has an offer for this class and is not
+    sent an automatic one on top — but, like any offer, holds a spot only for a student the round
+    would otherwise ask, so a student the coach excluded never holds a spot with a manual
+    invitation. No invitation is ever left live without its message (it commits with the message,
+    PAD-495 item 8, landed here), so a student cannot hold a spot with an invitation they never
+    received.
+    **Rounds.** A round whose candidates all hold another spot's offer moves on, like an empty
+    round (one round per tick, PAD-87), whatever `maxInactiveTime` is: a starved spot reaches its
+    last round within (groups − 1) ticks, asking on the way any student a later group admits. Only
+    the **last** round (`current_round_number >= _round_max_count(config)`, the expression
+    `_defer_next_round` uses; with one invitation group that is round 1) waits instead of
+    expiring. A student freed later (their other offer retired) is judged by the round the spot is
+    then in: with the default groups the last round is the widest, but a coach whose last group is
+    narrower than an earlier one will not re-ask a freed student whom only the earlier group
+    admitted, and the spot then expires.
+    **How the wait ends.** A waiting spot is looked at again on every tick (a never-started spot
+    gives its claim back; a started one with no invitation of its own out is not paced by
+    `maxInactiveTime`), so the wait ends on the first tick after any of: the other offer is
+    declined (that student is out; the spot expires as usual), accepted or retired (that student is
+    enrolled or free), a new candidate becomes eligible, capacity closes the spot (rule 13), or the
+    class starts (PAD-68). An offer nobody answers keeps it waiting until the class starts, exactly
+    as that offer keeps its own spot holding (rule 16).
+    **Reach.** With these rules a spot never sits with a free place and an uninvited student the
+    round would ask: compared with before, the same students are reached as fast or faster, each
+    with one invitation per class instead of one per spot.
+    **Known side effect until PAD-495 lands:** a started spot whose batch the daily per-student limit
+    skipped entirely is re-examined every tick and, until PAD-495 item 9, advances its batch counter
+    and `last_activity_at` each time without sending anything (nothing reaches anyone).
     A "yes" after the student's own "no" on the same invitation changes nothing and sends
     nothing; the answer reports `declined`, so both clients keep the invitation marked
     "Declined" (they already show that badge, without buttons, once a "no" is recorded). A
@@ -280,7 +299,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     are not automatic invitations: the coach's manual invite and manual add (the manual picker
     marks the student "declined this class" but keeps them selectable), and the student's own
     class or join request. The invite explanation names both skips — `declined_this_class` and
-    `offered_another_spot` — on web and iOS.
+    `offered_another_spot` — on web and iOS (a build older than these stages shows the raw stage
+    key; builds from this change on fall back to a generic line for any stage they do not know).
+    **A coach-recorded "no"** (rule 9) is final in the same way. Its only undo is the coach
+    recording a "yes" on that invitation; removing the student and adding them back does not clear
+    it. (Until PAD-495 item 2, `coach_respond_to_notification` has no repeat guard and writes the
+    answer even on a confirmed invitation; no client calls it today.)
 
 ### Acceptance Criteria
 
