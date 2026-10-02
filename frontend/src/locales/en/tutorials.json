@@ -66,7 +66,9 @@
     "stages": {
       "departing_player": "This is the student who cancels — the spot is theirs.",
       "already_enrolled": "Already enrolled in this class.",
+      "declined_this_class": "Said no to an invitation for this class, so they are not asked again for it.",
       "already_invited": "Already has a pending invitation for this spot.",
+      "offered_another_spot": "Already has a pending invitation for another spot in this class.",
       "eligibility": "Below the eligibility bar for this class:",
       "excluded_by_coach": "You excluded this student from automatic invitations (Settings › Notifications › Restrictions).",
       "inactive_account": "The account is not active and inactive accounts are excluded.",

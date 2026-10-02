@@ -312,6 +312,7 @@
     },
     "notify": {
       "title": "Notify students",
+      "declinedThisClass": "Declined this class",
       "loadingGroups": "Loading groups…",
       "selectAllIn": "Select all in {{group}}",
       "searchPlaceholder": "Search individual students…",

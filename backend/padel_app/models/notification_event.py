@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, ForeignKey, Index, Integer
+from sqlalchemy import Column, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -37,6 +37,10 @@ class NotificationEvent(db.Model, model.Model):
     message_id = Column(Integer, ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
     # The vacancy this invitation belongs to (nullable for manual notifications and legacy rows)
     vacancy_id = Column(Integer, ForeignKey("vacancies.id", ondelete="CASCADE"), nullable=True)
+    # PAD-497 (invitations rule 18): the answer the student gave — 'yes' | 'no', NULL while
+    # unanswered or when the invitation ended without one (retired, class over). A "no" is final
+    # for the class occurrence; only this column says a "no" was given.
+    answer = Column(String(8), nullable=True)
 
     lesson_instance = relationship("LessonInstance")
     player = relationship("Player")

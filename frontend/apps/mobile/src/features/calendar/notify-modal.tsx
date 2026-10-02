@@ -81,6 +81,17 @@ export function NotifyModal({
     [existingPlayerIds]
   );
 
+  // PAD-497: the class's decliners, from the groups (search rows come from the roster list).
+  const declinedIds = React.useMemo(
+    () =>
+      new Set(
+        (groups ?? []).flatMap((g) =>
+          g.players.filter((p) => p.declinedThisClass).map((p) => p.id)
+        )
+      ),
+    [groups]
+  );
+
   const allEligible = React.useMemo(
     () => (allPlayers ?? []).filter((p) => !existingSet.has(p.playerId)),
     [allPlayers, existingSet]
@@ -183,7 +194,7 @@ export function NotifyModal({
   const GroupPlayerRow = ({
     player,
   }: {
-    player: { id: string; name: string; levelCode: string | null };
+    player: { id: string; name: string; levelCode: string | null; declinedThisClass?: boolean };
   }) => (
     <Pressable
       testID={`notify-player-${player.id}`}
@@ -206,6 +217,14 @@ export function NotifyModal({
         {player.levelCode ? (
           <Text className="text-xs text-muted-foreground">
             {player.levelCode}
+          </Text>
+        ) : null}
+        {player.declinedThisClass ? (
+          <Text
+            testID={`notify-declined-${player.id}`}
+            className="text-xs text-destructive"
+          >
+            {t("calendar.notify.declinedThisClass")}
           </Text>
         ) : null}
       </View>
@@ -299,6 +318,7 @@ export function NotifyModal({
                         id: p.playerId,
                         name: p.name,
                         levelCode: p.level?.code ?? null,
+                        declinedThisClass: declinedIds.has(p.playerId),
                       }}
                     />
                   ))

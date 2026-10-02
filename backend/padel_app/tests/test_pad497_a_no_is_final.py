@@ -232,3 +232,34 @@ def test_two_spots_a_student_whose_offer_was_retired_is_asked_for_the_other_spot
         _answer(instance_id, winner, "yes", NOW + timedelta(minutes=1))
         _tick(monkeypatch, 3)
         assert [(v, p) for v, p in _live_events(instance_id)] == [(second_spot, other)]
+
+
+# ── what the coach sees ──────────────────────────────────────────────────────────────────────
+
+def test_the_explanation_names_both_skips_and_the_picker_marks_the_decliner(app, monkeypatch):
+    """Rule 18: the invite explanation gives `declined_this_class` for the student who said no and
+    `offered_another_spot` for one holding a live offer for another spot; the manual picker marks
+    the decliner (selectable) and nobody else."""
+    from padel_app.services.invite_simulation_service import explain_player
+    from padel_app.services.notification_service import get_notification_groups, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, enrolled_users, others = _seed(enrolled=1, candidates=2, max_players=2)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)   # the open place asks both
+        decliner, holder = others
+        _answer(instance_id, decliner, "no", NOW + timedelta(minutes=1))
+
+        from padel_app.models.players import Player
+
+        departing = Player.query.filter_by(user_id=enrolled_users[0]).one().id
+        instance = _instance(instance_id)
+        assert explain_player(instance, coach_id, departing, decliner, now=NOW)["stage"] == "declined_this_class"
+        assert explain_player(instance, coach_id, departing, holder, now=NOW)["stage"] == "offered_another_spot"
+
+        flags = {p["id"]: p["declinedThisClass"]
+                 for g in get_notification_groups("LessonInstance", instance_id, None, coach_id)
+                 for p in g["players"]}
+        assert flags.get(str(decliner)) is True
+        assert all(v is False for k, v in flags.items() if k != str(decliner))
