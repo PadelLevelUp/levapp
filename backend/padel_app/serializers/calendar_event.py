@@ -56,8 +56,9 @@ def _club_ref(lesson):
     return {"id": club.id, "name": club.name} if club else None
 
 
-def _court_ref(lesson):
-    court = getattr(lesson, "court", None)
+def _court_ref(obj):
+    # clubs.courts rule 9 (PAD-513): an occurrence's own court wins over its lesson's.
+    court = getattr(obj, "effective_court", None) if obj.model_name == "LessonInstance" else getattr(obj, "court", None)
     return {"id": court.id, "name": court.name} if court else None
 
 
@@ -107,7 +108,7 @@ def serialize_calendar_event(obj, *, override_id: str | None = None, override_da
                 "isRecurring": True if lesson.recurrence_rule else False,
                 # clubs.courts rule 7 (PAD-194): the card shows club and court.
                 "club": _club_ref(lesson),
-                "court": _court_ref(lesson),
+                "court": _court_ref(obj),
             }
         )
 
