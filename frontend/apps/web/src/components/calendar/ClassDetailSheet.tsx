@@ -21,7 +21,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listCurrentClubCourts } from "@/api/courts";
+import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
 import { ClassPlanningSection } from "./ClassPlanningSection";
@@ -156,12 +156,14 @@ export function ClassDetailSheet({
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ClassInstance | null>(null);
-  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  // clubs.courts rule 7 (PAD-194; B-266): the editor offers the CLASS's club's courts — what
+  // edit_class validates against — not the coach's current club's.
   const [courts, setCourts] = useState<Court[]>([]);
+  const classClubId = classInstance?.clubId ?? null;
   useEffect(() => {
     if (!isEditing) return;
     let cancelled = false;
-    listCurrentClubCourts()
+    listCourtsForClass({ clubId: classClubId })
       .then((rows) => {
         if (!cancelled) setCourts(rows);
       })
@@ -169,7 +171,7 @@ export function ClassDetailSheet({
     return () => {
       cancelled = true;
     };
-  }, [isEditing]);
+  }, [isEditing, classClubId]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -1094,7 +1096,7 @@ export function ClassDetailSheet({
                   <SelectContent>
                     <SelectItem value="none">{t("calendar.detail.noCourt")}</SelectItem>
                     {courts.map((court) => (
-                      <SelectItem key={court.id} value={String(court.id)}>
+                      <SelectItem key={court.id} value={String(court.id)} data-testid={`class-detail-court-option-${court.id}`}>
                         {court.name}
                       </SelectItem>
                     ))}

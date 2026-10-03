@@ -210,3 +210,4 @@ whether a failure mode has been seen before.
 - [B-262](B-262-clearing-the-email-keeps-the-account-verified.md) — Settings: clearing the email left the account marked verified, with no email to reach it (incomplete-rule, medium, resolved)
 - [B-263](B-263-typing-before-the-profile-loads-empties-the-name.md) — Settings → Perfil: typing before the profile had loaded left the other fields empty and the save was refused (incomplete-rule, medium, resolved)
 - [B-271](B-271-class-picker-shows-four-students.md) — Web class sheet: the student picker showed four students and clipped the rest (Radix ScrollArea with only a max height); now a native overflow list (missing-criterion, high, resolved in PAD-502)
+- [B-266](B-266-class-editor-lists-the-wrong-clubs-courts.md) — A coach at two clubs editing a class at the older club was offered the newest club's courts, and every save got 400 court_not_in_club (wrong-rule, low, resolved)

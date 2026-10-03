@@ -1,4 +1,3 @@
-import { courtsApi, invitationsApi } from "@levelup/api";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_COLOR_SWATCHES,
@@ -82,6 +81,7 @@ import {
   hasDeclined,
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
+import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
@@ -221,13 +221,10 @@ export default function ClassDetailScreen() {
   const removeClass = useRemoveClass();
   const cancelAttendance = useCancelAttendance();
   const editClass = useEditClass();
-  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  // clubs.courts rule 7 (PAD-194; B-266): the editor offers the CLASS's club's courts — what
+  // edit_class validates against — not the coach's current club's.
   const { data: clubCourts } = useQuery({
-    queryKey: ["current-club-courts"],
-    queryFn: async () => {
-      const club = await invitationsApi.getCoachClub();
-      return club ? courtsApi.listCourts(club.id) : [];
-    },
+    ...classCourtsQuery(instance?.clubId),
     enabled: isCoach,
   });
   const courtOptions = React.useMemo<Option[]>(
