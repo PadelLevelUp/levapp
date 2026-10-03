@@ -1845,11 +1845,16 @@ def class_placeholders(source, locale) -> dict:
     ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
     locale like every other placeholder (notifications.message-templates rule 12);
     the date is ``dd/mm`` of the wall-clock start (rule 13); the court is the
-    lesson's court name, empty when it has none (rule 14).
+    class's court name — an occurrence's own court first (clubs.courts rule 9,
+    PAD-513) — empty when it has none (rule 14).
     """
-    lesson = source.lesson if isinstance(source, LessonInstance) else source
+    is_instance = isinstance(source, LessonInstance)
+    lesson = source.lesson if is_instance else source
     start = getattr(source, "start_datetime", None)
-    court = getattr(lesson, "court", None) if lesson is not None else None
+    if is_instance:
+        court = source.effective_court
+    else:
+        court = getattr(lesson, "court", None) if lesson is not None else None
     lesson_type = getattr(lesson, "type", None) if lesson is not None else None
     return {
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
