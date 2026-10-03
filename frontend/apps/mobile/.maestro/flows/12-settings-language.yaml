@@ -90,7 +90,12 @@ onFlowComplete:
       - evalScript: "${output.lang = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).language}"
       - assertTrue: "${output.lang == 'pt'}"
 
-# ── Remount Settings ──
+# ── Remount Settings ── (the Save sits at the bottom; the back row is at the top)
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+    timeout: 15000
 - tapOn:
     id: "settings-back"
 - extendedWaitUntil:

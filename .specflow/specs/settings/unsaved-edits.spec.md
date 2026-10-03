@@ -36,8 +36,8 @@ device. The server stays the one truth; the user decides at the moment of leavin
    touched": an edit undone by hand is not unsaved. A successful Save makes the section clean; a
    failed Save leaves it unsaved.
 3. **Where leaving is asked.** Web: choosing another Settings tab, and (PAD-506) following an in-app
-   link out of Settings. iOS: the section's back row (`settings-back`) and (PAD-506) the stack's back
-   button and swipe-back. With nothing unsaved, all of them leave at once, exactly as before.
+   link out of Settings. iOS: the section's back row (`settings-back`) and (PAD-506) the header's back
+   button; swipe-back is off while anything is unsaved. With nothing unsaved, all of them leave at once, exactly as before.
 4. **The question.** "Descartar alterações?" / "Discard changes?", a sentence saying the section's
    changes are not saved, and two actions: **Descartar** / Discard (leave; the edits are dropped
    and the section reloads from the server when reopened) and **Continuar a editar** / Keep

@@ -51,8 +51,9 @@ notificações", and retires `settings.save-on-change`.
 5. **Leaving asks — everywhere.** With a held edit on the tab:
    - **Web asks** on choosing another Settings tab, on following any in-app link (sidebar, avatar
      menu), and when the page is closed or reloaded (`beforeunload`).
-   - **iOS asks** on the section's back row, the stack's back button and swipe-back (the screen
-     prevents its own removal while unsaved).
+   - **iOS asks** on the section's back row and the header's back button. While anything is held
+     the header back is the app's own button (`settings-header-back`), which asks every time, and
+     swipe-back is off; any other removal of the screen is stopped and asks too.
    - **The question** is `settings.unsaved-edits` rule 4 (Descartar / Continuar a editar).
    - **The one place the browser decides:** web's own Back/Forward buttons move through the app's
      history without a page unload, so no prompt can stop them; the edits are dropped as before.
@@ -86,8 +87,8 @@ notificações", and retires `settings.save-on-change`.
 
 #### Leaving with a held edit asks (iOS)
 - **Given** a coach changed the language in Preferências and did not save
-- **When** they swipe back, or tap the stack's back button or the back row
-- **Then** "Descartar alterações?" appears and the screen stays
+- **When** they tap the header's back button or the back row — again after Continuar a editar
+- **Then** "Descartar alterações?" appears and the screen stays; swiping back does nothing meanwhile
 
 #### Changed and changed back is clean
 - **Given** a coach turned request alerts off and on again

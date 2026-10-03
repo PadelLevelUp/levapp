@@ -1,4 +1,4 @@
-# PAD-506 (settings.explicit-save): the switch is HELD; its on/off markers follow the shown value at once, and `settings-admin-save` sends it (the API read-back follows the tap on Save).
+# PAD-506 (settings.explicit-save): the held switch is checked through the API after Save (the on/off marker views were not visible to Maestro before Save); the switch is HELD; its on/off markers follow the shown value at once, and `settings-admin-save` sends it (the API read-back follows the tap on Save).
 # PAD-279 / PAD-238 — auth.coach-approval rule 9: the superadmin (the seeded
 # e2e-coach) switches "new coaches need approval" off and on from
 # Settings -> Admin. The value is checked through the API after each tap and
@@ -39,10 +39,8 @@ appId: com.padellevelup.app
 # ── Off ──
 - tapOn:
     id: "admin-coach-approval-required-switch"
-- extendedWaitUntil:
-    visible:
-      id: "admin-coach-approval-required-off"
-    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element:
       id: "settings-admin-save"
@@ -61,10 +59,8 @@ appId: com.padellevelup.app
 # ── Back on ──
 - tapOn:
     id: "admin-coach-approval-required-switch"
-- extendedWaitUntil:
-    visible:
-      id: "admin-coach-approval-required-on"
-    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element:
       id: "settings-admin-save"

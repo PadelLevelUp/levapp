@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
-import { usePreventRemove } from "@react-navigation/native";
+import { CommonActions, usePreventRemove } from "@react-navigation/native";
 import { Stack, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
 import * as React from "react";
 import { StatusBar } from "expo-status-bar";
@@ -133,8 +133,11 @@ function SettingsScreenBody() {
   // covers `calendar`'s two panels and `preferences`'s nested CoachLevelsSection alike;
   // see unsaved-registry.tsx).
   const [confirmDiscardOpen, setConfirmDiscardOpen] = React.useState(false);
-  // settings.explicit-save rule 5 (PAD-506): the stack's back button and swipe-back ask too. The
-  // navigation action they tried is kept so Discard can carry it out.
+  // settings.explicit-save rule 5 (PAD-506): leaving the screen with a held edit asks. While anything
+  // is held, the header shows our own back button (`settings-header-back`), which asks every time, and
+  // swipe-back is off: a native back that usePreventRemove has stopped once never reaches JS again
+  // (react-native-screens; found by flow 158 — the second press did nothing). usePreventRemove stays
+  // for any other removal (a push that replaces the route). The action is kept so Discard can run it.
   const navigation = useNavigation();
   const [pendingLeave, setPendingLeave] = React.useState<Parameters<typeof navigation.dispatch>[0] | null>(null);
   const hasUnsaved = unsavedRegistry.hasUnsaved();
@@ -269,6 +272,26 @@ function SettingsScreenBody() {
           headerStyle: { backgroundColor: lightTheme.sidebarBackground },
           headerTintColor: lightTheme.sidebarForeground,
           headerTitleStyle: { fontWeight: "700" },
+          gestureEnabled: !hasUnsaved,
+          ...(hasUnsaved
+            ? {
+                headerLeft: () => (
+                  <Pressable
+                    testID="settings-header-back"
+                    accessibilityLabel={t("common.back")}
+                    role="button"
+                    hitSlop={12}
+                    onPress={() => {
+                      setPendingLeave(CommonActions.goBack());
+                      setConfirmDiscardOpen(true);
+                    }}
+                    className="active:opacity-70"
+                  >
+                    <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />
+                  </Pressable>
+                ),
+              }
+            : {}),
         }}
       />
 
@@ -286,6 +309,9 @@ function SettingsScreenBody() {
       <ScrollView
         className="flex-1"
         style={{ marginBottom: insets.bottom }}
+        // PAD-506: with the number pad open, the first tap on "Guardar alterações" must save, not only
+        // dismiss the keyboard (flow 128 found the Save tap swallowed).
+        keyboardShouldPersistTaps="handled"
         contentContainerClassName="gap-4 p-4"
         contentContainerStyle={{ paddingBottom: 40 }}
       >
