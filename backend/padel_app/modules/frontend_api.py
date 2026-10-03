@@ -2134,6 +2134,19 @@ def join_class_waiting_list_route():
     return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True}), (201 if created else 200)
 
 
+@bp.get("/class-waiting-list")
+@jwt_required()
+def list_class_waiting_list_route():
+    """classes.academy-class-booking rule 11 (PAD-504): the student's waiting lists, for their
+    request history. Students only."""
+    from padel_app.services.academy_class_service import list_waiting_list_for
+
+    player = current_player()
+    if player is None or getattr(current_user(), "coach", None) is not None:
+        abort(403, "Only a student has waiting lists")
+    return jsonify(list_waiting_list_for(player))
+
+
 @bp.post("/class-waiting-list/<int:instance_id>/leave")
 @jwt_required()
 def leave_class_waiting_list_route(instance_id):

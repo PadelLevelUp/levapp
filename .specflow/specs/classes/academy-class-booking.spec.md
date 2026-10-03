@@ -93,6 +93,26 @@ point that composes them (PAD-358).
     its spots left and the request action, a full class marked with the destructive token ("in red")
     and the waiting-list action. Identifiers are stable test ids (`academy-class-*`); on iOS the state
     is part of the id (`academy-class-row-open` / `-full`) because Maestro cannot read attributes.
+11. **The student's waiting lists are in their request history (PAD-504).** `GET
+    /api/app/class-waiting-list` (students only; 403 otherwise) lists the caller's per-class
+    `WaitingListEntry` rows — those they joined from a class and those a standing list fanned out —
+    newest first, each `{kind: "waiting_list", id, lessonInstanceId, classTitle, date, startTime,
+    endTime, coachName, status, joinedAt, createdAt}` (`createdAt` = `joinedAt`, so the card sorts
+    the three kinds by one key). `status` is derived, never stored, on the club's clock:
+    - `placed` — the student holds a place in that class (a presence row), whatever the entry says;
+    - `active` — the entry is active and the class has not started and is not cancelled or completed;
+    - `canceled` — the class was cancelled while the entry was active;
+    - `passed` — the class started or completed while the entry was still active;
+    - `left` — the entry is no longer active and the student was not placed (they left, or the
+      standing list it came from was removed — which side removed it is not recorded, so the copy is
+      neutral: "you are no longer on the waiting list").
+    The Availability "Pedidos de aula" card merges these rows with private and academy requests
+    (`classes.join-requests` rule 17), newest first; an `active` row is open, the rest are history.
+    An `active` row offers "Sair da lista de espera", which asks once ("Sair da lista de espera
+    desta aula?") and calls rule 6's leave endpoint; the row then moves to history as `left`.
+    Joining or leaving publishes `waiting_list_changed` to the student and the coach, and both shells
+    refresh the card's `["class-waiting-list"]` query on it (and with the other request lists on the
+    request events). Old builds never call the endpoint; nothing existing changes (rule 8).
 
 ### Acceptance Criteria
 
@@ -140,6 +160,26 @@ point that composes them (PAD-358).
 - **Given** a student on a class's waiting list through this step
 - **When** they leave it
 - **Then** their entry is inactive and the class is listed with `onWaitingList` false
+
+#### The student sees their waiting lists with their state (rule 11, PAD-504)
+- **Given** student S on the waiting list of a full future class A, placed from the list into class B, who left the list of class C, and was still listed when class D started
+- **When** S GETs `/api/app/class-waiting-list`
+- **Then** A is `active`, B `placed`, C `left` and D `passed`, newest first, each with class title, date, times and coach name
+
+#### Only students list waiting lists (rule 11)
+- **Given** a coach
+- **When** they GET `/api/app/class-waiting-list`
+- **Then** the answer is 403
+
+#### Leaving from the history (rule 11)
+- **Given** S's `active` row for class A on the Availability card, on web or iOS
+- **When** S taps "Sair da lista de espera" and confirms
+- **Then** S is off A's waiting list and the row shows "Já não estás na lista de espera" in the history
+
+#### Joining or leaving tells the student and the coach (rule 11)
+- **Given** S joins, then leaves, A's waiting list
+- **When** each request completes
+- **Then** a `waiting_list_changed` event reaches S and A's coach
 
 ### Notes
 - **[PAD-358, 2026-09-17]** Coordinator decisions: "eligible" is the PAD-352 open-spot eligibility

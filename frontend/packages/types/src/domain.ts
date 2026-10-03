@@ -466,6 +466,25 @@ export interface ClassJoinRequestListRow extends ClassJoinRequest {
   endTime: string | null;
 }
 
+/**
+ * classes.academy-class-booking rule 11 (PAD-504): one of the student's per-class waiting-list
+ * places, for their request history (`GET /app/class-waiting-list`). `status` is derived by the
+ * server; `createdAt` equals `joinedAt` so the three kinds of row sort by one key.
+ */
+export interface ClassWaitingListRow {
+  kind: "waiting_list";
+  id: number;
+  lessonInstanceId: number;
+  classTitle: string;
+  date: string;
+  startTime: string;
+  endTime: string | null;
+  coachName: string;
+  status: "active" | "placed" | "left" | "passed" | "canceled";
+  joinedAt: string | null;
+  createdAt: string | null;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;

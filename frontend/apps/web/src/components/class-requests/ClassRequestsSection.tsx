@@ -13,7 +13,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
-import type { ClassJoinRequestListRow, ClassRequest, EligibilityCheckEntry } from "@levelup/types";
+import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import {
   CLASS_REQUEST_DURATIONS,
   clubTodayISO,
@@ -50,6 +50,7 @@ import {
   rejectClassJoinRequest,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
+import { leaveClassWaitingList, listClassWaitingList } from "@/api/academyClasses";
 
 const OPEN = new Set(["pending", "countered"]);
 
@@ -78,7 +79,17 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   // private ones above, merged newest first (`@levelup/config`, shared with iOS).
   const joinRequestsQuery = useQuery({ queryKey: queryKeys.classJoinRequests, queryFn: listClassJoinRequests });
   const joinRequests = useMemo(() => joinRequestsQuery.data ?? [], [joinRequestsQuery.data]);
-  const loading = requestsQuery.isPending || joinRequestsQuery.isPending;
+  // classes.academy-class-booking rule 11 (PAD-504): the student's waiting-list places.
+  const waitingListQuery = useQuery({
+    queryKey: queryKeys.classWaitingList,
+    queryFn: listClassWaitingList,
+    enabled: role === "student",
+  });
+  const waitingRows = useMemo(() => waitingListQuery.data ?? [], [waitingListQuery.data]);
+  const [confirmLeaveId, setConfirmLeaveId] = useState<number | null>(null);
+  const [leavingId, setLeavingId] = useState<number | null>(null);
+  const loading =
+    requestsQuery.isPending || joinRequestsQuery.isPending || (role === "student" && waitingListQuery.isPending);
   const [busyId, setBusyId] = useState<number | null>(null);
   // A separate busy key: academy join-request ids are their own id space, never
   // compared against a private request's.
@@ -105,6 +116,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
       queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList }),
       // The class sheet's own read, wherever it is cached — an academy decision
       // made from this list must not leave it stale.
       queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
@@ -212,7 +224,10 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     }
   };
 
-  const merged = useMemo(() => mergeClassRequestRows(requests, joinRequests), [requests, joinRequests]);
+  const merged = useMemo(
+    () => mergeClassRequestRows(requests, joinRequests, waitingRows),
+    [requests, joinRequests, waitingRows],
+  );
   const { open, closed } = useMemo(() => splitClassRequestRows(merged), [merged]);
 
   const renderRow = (r: ClassRequest) => {
@@ -363,7 +378,80 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     );
   };
 
-  const renderMergedRow = (row: MergedClassRequestRow) => (row.kind === "academy" ? renderAcademyRow(row) : renderRow(row));
+  // Rule 11 (PAD-504): a waiting-list place. Leaving asks once, inline, then calls rule 6's
+  // leave endpoint; the row comes back from the server as `left`.
+  const handleLeaveWaitingList = async (r: ClassWaitingListRow) => {
+    setLeavingId(r.id);
+    try {
+      await leaveClassWaitingList(r.lessonInstanceId);
+      setConfirmLeaveId(null);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
+    } catch {
+      toast({ variant: "destructive", title: t("classRequests.waitingList.leaveFailed") });
+    } finally {
+      setLeavingId(null);
+    }
+  };
+
+  const renderWaitingRow = (r: ClassWaitingListRow) => {
+    const confirming = confirmLeaveId === r.id;
+    const busy = leavingId === r.id;
+    return (
+      <div
+        key={`waiting-${r.id}`}
+        className="rounded-lg border p-3 space-y-2"
+        data-testid="class-waiting-list-row"
+        data-status={r.status}
+        data-instance-id={r.lessonInstanceId}
+        data-kind="waiting_list"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{t("classRequests.academyBadge")}</Badge>
+              <p className="font-medium">{r.classTitle}</p>
+            </div>
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Clock className="w-4 h-4 shrink-0" />
+              {r.date} · {r.startTime}{r.endTime ? `–${r.endTime}` : ""} ·{" "}
+              {t("classRequests.waitingList.withCoach", { name: r.coachName })}
+            </p>
+            {r.joinedAt && (
+              <p className="text-xs text-muted-foreground">
+                {t("classRequests.waitingList.joinedOn", { date: r.joinedAt.slice(0, 10) })}
+              </p>
+            )}
+          </div>
+          <Badge
+            variant={r.status === "placed" ? "default" : r.status === "active" ? "secondary" : "outline"}
+            data-testid="class-waiting-list-status"
+          >
+            {t(`classRequests.waitingList.status.${r.status}`)}
+          </Badge>
+        </div>
+        {r.status === "active" && !confirming && (
+          <Button size="sm" variant="ghost" onClick={() => setConfirmLeaveId(r.id)} data-testid="class-waiting-list-leave">
+            {t("classRequests.waitingList.leave")}
+          </Button>
+        )}
+        {r.status === "active" && confirming && (
+          <div className="flex flex-wrap items-center gap-2" data-testid="class-waiting-list-leave-confirm">
+            <span className="text-sm">{t("classRequests.waitingList.leaveConfirm")}</span>
+            <Button size="sm" variant="destructive" disabled={busy} onClick={() => void handleLeaveWaitingList(r)} data-testid="class-waiting-list-leave-yes">
+              {t("classRequests.waitingList.leaveYes")}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmLeaveId(null)}>
+              {t("classRequests.waitingList.cancel")}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMergedRow = (row: MergedClassRequestRow) =>
+    row.kind === "waiting_list" ? renderWaitingRow(row) : row.kind === "academy" ? renderAcademyRow(row) : renderRow(row);
 
   return (
     <>

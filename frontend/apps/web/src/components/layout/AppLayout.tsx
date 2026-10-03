@@ -216,6 +216,12 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       ) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
         void queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList });
+      }
+      // classes.academy-class-booking rule 11 (PAD-504): joining or leaving a waiting list.
+      if (data.type === "waiting_list_changed") {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList });
+        void queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
       }
     });
   }, [refreshUnreadCount, token, queryClient]);

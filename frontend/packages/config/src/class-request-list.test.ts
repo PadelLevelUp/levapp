@@ -5,7 +5,7 @@
  * proven (web's component test covers the rendering on top of it).
  */
 import { describe, expect, it } from "vitest";
-import type { ClassJoinRequestListRow, ClassRequest } from "@levelup/types";
+import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow } from "@levelup/types";
 import { isOpenClassRequestRow, mergeClassRequestRows, splitClassRequestRows } from "./class-request-list";
 
 function privateRow(overrides: Partial<ClassRequest>): ClassRequest {
@@ -102,5 +102,44 @@ describe("isOpenClassRequestRow / splitClassRequestRows (rule 17)", () => {
 
     expect(open.map((r) => r.id)).toEqual([1, 101]);
     expect(closed.map((r) => r.id)).toEqual([100]);
+  });
+});
+
+describe("PAD-504: the student's waiting lists join the same list (academy-class-booking rule 11)", () => {
+  function waitingRow(overrides: Partial<ClassWaitingListRow>): ClassWaitingListRow {
+    return {
+      kind: "waiting_list",
+      id: 9,
+      lessonInstanceId: 90,
+      classTitle: "Academia 5",
+      date: "2026-10-09",
+      startTime: "19:00",
+      endTime: "20:00",
+      coachName: "Ana",
+      status: "active",
+      joinedAt: "2026-10-02T09:00:00",
+      createdAt: "2026-10-02T09:00:00",
+      ...overrides,
+    };
+  }
+
+  it("merges waiting-list rows newest first with the other two kinds", () => {
+    const merged = mergeClassRequestRows(
+      [privateRow({ id: 1, createdAt: "2026-10-01T10:00:00Z" })],
+      [],
+      [waitingRow({ id: 9, createdAt: "2026-10-03T10:00:00Z" })],
+    );
+    expect(merged.map((r) => `${r.kind}:${r.id}`)).toEqual(["waiting_list:9", "private:1"]);
+  });
+
+  it("an active waiting-list row is open; every other state is history", () => {
+    expect(isOpenClassRequestRow(waitingRow({ status: "active" }))).toBe(true);
+    for (const status of ["placed", "left", "passed", "canceled"] as const) {
+      expect(isOpenClassRequestRow(waitingRow({ status }))).toBe(false);
+    }
+  });
+
+  it("callers that pass two lists are unchanged", () => {
+    expect(mergeClassRequestRows([privateRow({ id: 1 })], [])).toHaveLength(1);
   });
 });
