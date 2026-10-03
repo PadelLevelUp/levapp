@@ -475,3 +475,91 @@ def test_reconcile_locks_only_the_vacancy_it_closes(app, monkeypatch):
         _race(app, [reconcile, other_answer])
     assert len(closed_ids) == 1, closed_ids
     assert probe["locked"] is True, f"the reconcile held the vacancy it did not close: {probe}"
+
+
+# ── #527 review item 4: a failed single commit on the waiting-list fill and the join accept ──
+
+def _fails_once(monkeypatch):
+    from padel_app.services import notification_service as ns
+
+    real_add = ns._add_player_to_instance
+    calls = {"n": 0}
+
+    def failing(player_id, instance):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("enrolment failed")
+        return real_add(player_id, instance)
+
+    monkeypatch.setattr(ns, "_add_player_to_instance", failing)
+
+
+def test_waiting_list_a_failed_enrolment_changes_nothing_and_the_fill_can_run_again(app, monkeypatch):
+    """The fill closes the spot (retiring Caio's invitation) and enrols Bea in one commit. If the
+    enrolment raises, the spot is still open, Caio's invitation still live and Bea still waiting."""
+    from padel_app.models import LessonInstance, NotificationEvent, Vacancy, WaitingListEntry
+    from padel_app.services.notification_service import _fill_from_waiting_list, get_or_create_config
+    from padel_app.tests.test_notification_integration import PATCHES as INT_PATCHES
+    from padel_app.tests.test_pad317_one_vacancy_close import _invite, _message_is_actionable, _open_vacancy, _world
+
+    ids = _world(app)
+    _fails_once(monkeypatch)
+    with app.app_context(), patch(INT_PATCHES[0]), patch(INT_PATCHES[1]):
+        vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
+        caio = _invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent")
+        entry = WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
+                                 coach_id=ids["coach_id"], is_active=True)
+        db.session.add(entry)
+        db.session.commit()
+        entry_id = entry.id
+
+        def fill():
+            return _fill_from_waiting_list(db.session.get(WaitingListEntry, entry_id), Vacancy.query.get(vacancy_id),
+                                           LessonInstance.query.get(ids["instance_id"]), ids["coach_id"],
+                                           get_or_create_config(ids["coach_id"]))
+
+        with pytest.raises(RuntimeError):
+            fill()
+        db.session.rollback()
+        db.session.expire_all()
+        assert Vacancy.query.get(vacancy_id).status == "open"
+        assert NotificationEvent.query.get(caio).status == "sent"
+        assert _message_is_actionable(caio)
+        assert db.session.get(WaitingListEntry, entry_id).is_active is True
+        assert ids["bea"] not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+
+        assert fill() is True
+        db.session.expire_all()
+        assert ids["bea"] in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+
+
+def test_join_a_failed_enrolment_changes_nothing_and_the_coach_can_accept_again(app, monkeypatch):
+    """The join accept closes the spot (retiring the candidate's invitation) and enrols the asker in
+    one commit. If the enrolment raises, the request is still pending and the spot still open."""
+    from padel_app.models import ClassJoinRequest, LessonInstance, NotificationEvent, Vacancy
+    from padel_app.tests.test_notification_integration import PATCHES as INT_PATCHES
+    from padel_app.tests.test_pad128_eligibility import _seed as _seed128
+    from padel_app.tests.test_pad131_join_requests import _config, _decide, _request, _student
+    from padel_app.tests.test_pad317_one_vacancy_close import _invite, _message_is_actionable, _open_vacancy
+
+    ids = _seed128(app, eligibility_rules=None)
+    _config(app, ids, open_spots_visible=True)
+    asker = _student(app, ids, "asker-499b")
+    candidate = _student(app, ids, "candidate-499b")
+    with app.app_context():
+        vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"])
+        invite = _invite(ids["instance_id"], ids["coach_id"], candidate, vacancy_id, "sent")
+    request_id, _, _ = _request(app, ids, asker)
+    _fails_once(monkeypatch)
+    with patch(INT_PATCHES[0]), patch(INT_PATCHES[1]):
+        with pytest.raises(RuntimeError):
+            _decide(app, ids, request_id, accept=True)
+        with app.app_context():
+            assert db.session.get(ClassJoinRequest, request_id).status == "pending"
+            assert Vacancy.query.get(vacancy_id).status == "open"
+            assert NotificationEvent.query.get(invite).status == "sent"
+            assert _message_is_actionable(invite)
+            assert asker not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+        assert _decide(app, ids, request_id, accept=True) == "accepted"
+        with app.app_context():
+            assert asker in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
