@@ -25,6 +25,7 @@ import { useMessageableUsers } from "@/features/messages/hooks";
 import { initialsOf, normalizeId } from "@/features/messages/utils";
 import { describeApiError } from "@/lib/apiError";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
+import { useNativeHeaderKeyboardOffset } from "@/lib/native-header-offset";
 
 const HEADER_OPTIONS = {
   headerShown: true,
@@ -47,6 +48,7 @@ const HEADER_OPTIONS = {
  */
 export default function NewConversationScreen() {
   const { t } = useTranslation();
+  const keyboardOffset = useNativeHeaderKeyboardOffset();
   const { user: me } = useAuth();
   const queryClient = useQueryClient();
   const { data: users, isLoading, isError, refetch } = useMessageableUsers();
@@ -227,6 +229,8 @@ export default function NewConversationScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-background"
       behavior={keyboardAvoidingBehavior()}
+      // PAD-487: the native header sits above this view; without its height the bottom is covered.
+      keyboardVerticalOffset={keyboardOffset}
       testID="screen-new-conversation"
     >
       {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
