@@ -93,15 +93,23 @@ def compute_full_invite_queue(vacancy, instance, coach_id: int, config) -> list[
     # (notifications.invite-simulation rule 5).
     from padel_app.services.notification_service import (
         _serialize_cp_for_group,
+        _waiting_list_candidates,
         ordered_invite_rounds,
     )
 
-    queue: list[dict] = []
+    # PAD-446 (semi-auto-approval rule 5): the waiting list is group 0 and heads the queue; their
+    # offer keeps them out of every later round, so they are listed once, here.
+    queue: list[dict] = [
+        {**_serialize_cp_for_group(cp), "roundNumber": 0, "fromWaitingList": True}
+        for _entry, cp in _waiting_list_candidates(vacancy, instance, coach_id, config, dry_run=True)
+    ]
+    asked_first = {int(row["id"]) for row in queue}
     for number, _kind, _rules, cps in ordered_invite_rounds(
         vacancy, instance, coach_id, config
     ):
         for cp in cps:
-            queue.append({**_serialize_cp_for_group(cp), "roundNumber": number})
+            if cp.player_id not in asked_first:
+                queue.append({**_serialize_cp_for_group(cp), "roundNumber": number})
     return queue
 
 
@@ -128,11 +136,7 @@ def _build_prompt_text(vacancies_payload: list[dict]) -> str:
             part += f" Invite queue: {queue_names}."
         else:
             part += " No eligible replacements found."
-        if v.get("waitingListPlayerName"):
-            part += (
-                f" {v['waitingListPlayerName']} from the waiting list"
-                " will be added directly to the class."
-            )
+        # PAD-446: nobody is added directly any more; the waiting list heads the queue above.
         parts.append(part)
     parts.append("Send replacement invitations?")
     return " ".join(parts)
@@ -158,7 +162,6 @@ def create_approval_prompts(
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
     from padel_app.scheduler import _compute_invite_start_dt
     from padel_app.serializers.message import serialize_message
-    from padel_app.services.notification_service import _check_waiting_list
 
     existing_prompts = []
     new_vacancies = []
@@ -193,10 +196,9 @@ def create_approval_prompts(
     for vacancy in new_vacancies:
         queue = compute_full_invite_queue(vacancy, instance, coach_id, config)
 
-        wl_entry = _check_waiting_list(
-            vacancy, instance, coach_id, config, vacancy.current_round_number
-        )
-        wl_player_id = wl_entry.player_id if wl_entry else None
+        # PAD-446 (rule 5): nobody is placed without an invitation any more; the waiting list is in
+        # the queue (fromWaitingList). Null tells older builds "no disclosure".
+        wl_player_id = None
 
         prompt = ReplacementApprovalPrompt(
             coach_id=coach_id,

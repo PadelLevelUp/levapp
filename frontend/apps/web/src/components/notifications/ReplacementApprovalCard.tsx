@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
 import { respondToApproval } from "@/api/notificationEngine";
-import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+import { lisbonNowMs, queueBadgeLabel, wallClockISOMs } from "@levelup/config";
 
 function formatWindowOpen(iso: string): string {
   const date = new Date(iso);
@@ -70,18 +70,10 @@ export function ReplacementApprovalCard({
     }
   };
 
-  const renderQueueBadge = (player: {
-    roundNumber?: number;
-    groupIndex?: number;
-    groupLabel?: string;
-  }) => {
-    const label =
-      player.groupLabel ??
-      (player.roundNumber != null
-        ? t("notificationsUi.replacementApproval.round", { number: player.roundNumber })
-        : player.groupIndex != null
-          ? t("notificationsUi.replacementApproval.group", { index: player.groupIndex })
-          : null);
+  const renderQueueBadge = (player: Parameters<typeof queueBadgeLabel>[0]) => {
+    // PAD-446: one rule for web and iOS (@levelup/config) — a waiting-list student is marked first.
+    const badge = queueBadgeLabel(player);
+    const label = !badge ? null : "text" in badge ? badge.text : t(badge.key, badge.params);
     if (!label) return null;
     return (
       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
@@ -140,13 +132,6 @@ export function ReplacementApprovalCard({
               <span className="font-semibold">{vacancy.declinedPlayerName}</span>{" "}
               {t("notificationsUi.replacementApproval.confirmedWontAttend")}
             </p>
-
-            {vacancy.waitingListPlayerName && (
-              <p className="text-xs leading-relaxed">
-                <span className="font-medium">{vacancy.waitingListPlayerName}</span>{" "}
-                {t("notificationsUi.replacementApproval.waitingListAdded")}
-              </p>
-            )}
 
             {vacancy.queue.length > 0 ? (
               <div className="space-y-1">

@@ -358,7 +358,7 @@ def test_backstop_never_cuts_the_student_off_from_their_coach(app):
         w = _world(app, "-chokeok")
         _block(w["s1"], every=True)
 
-        for message_type in ("text", "waiting_list_placed"):
+        for message_type in ("text", "system"):  # PAD-446: waiting_list_placed is retired
             msg = _send_system_message(
                 coach_user_id=w["coach_user"].id,
                 player_user_id=w["s1"].id,

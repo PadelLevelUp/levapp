@@ -32,9 +32,9 @@ Toggle notification engine on/off for a specific class.
      sends no batch, so a coach who turns it off mid-fill stops the rounds;
    - a decline does not invite the next student (`_send_next_on_decline`), so no path advances
      a round on its own;
-   - standing waiting-list PLACEMENT stops too, because it happens inside the gated trigger.
-     Offers to students who asked (their own waiting-list place) are not automatic invitations
-     and still go out;
+   - the waiting list's group-0 invitations stop too (PAD-446): they are automatic invitations,
+     sent by the same gated batch. Offers to students who asked (their own waiting-list place) are
+     not automatic invitations and still go out;
    - reminders, `send_manual_notifications` and waiting-list offers are untouched, as is
      `notifications_enabled` (rules 1–3).
    Turning it back on lets the next tick invite for the class's open vacancies.

@@ -161,16 +161,6 @@ export function ReplacementApprovalCard({
               {t("notificationsUi.replacementApproval.confirmedWontAttend")}
             </Text>
 
-            {vacancy.waitingListPlayerName ? (
-              <Text className="text-xs">
-                <Text className="text-xs font-medium">
-                  {vacancy.waitingListPlayerName}
-                </Text>
-                {" "}
-                {t("notificationsUi.replacementApproval.waitingListAdded")}
-              </Text>
-            ) : null}
-
             {vacancy.queue.length > 0 ? (
               <View className="gap-1">
                 <Text className="text-xs font-medium text-muted-foreground">

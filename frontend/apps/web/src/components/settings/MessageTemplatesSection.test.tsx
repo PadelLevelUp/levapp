@@ -37,7 +37,7 @@ const TEMPLATES: MessageTemplates = {
   reminder_confirmed: "reminder confirmed",
   reminder_declined: "reminder declined",
   waiting_list_offer: "waiting list offer",
-  waiting_list_placed: "waiting list placed",
+  waiting_list_invite: "waiting list invite {side}",
 };
 
 // Mirrors how NotificationsEngineSection wires it: `onChange` feeds back into the
@@ -105,8 +105,22 @@ describe("MessageTemplatesSection — reports unsaved by rule 2 (PAD-394)", () =
   });
 });
 
+describe("MessageTemplatesSection — the waiting-list invitation (PAD-446, message-templates rules 2, 16)", () => {
+  it("edits waiting_list_invite, offers {side} on it alone, and no longer lists waiting_list_placed", () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <Wrapper />
+      </SettingsUnsavedTestHarness>
+    );
+    expect(screen.queryByTestId("template-row-waiting_list_placed")).toBeNull();
+    const row = screen.getByTestId("template-row-waiting_list_invite");
+    expect(within(row).getByText("{side}")).toBeTruthy();
+    expect(within(screen.getByTestId("template-row-invite")).queryByText("{side}")).toBeNull();
+  });
+});
+
 describe("MessageTemplatesSection — placeholder hints (PAD-430, message-templates rule 3)", () => {
-  const CLASS_KEYS = ["invite", "reminder", "reminder_followup", "waiting_list_placed"] as const;
+  const CLASS_KEYS = ["invite", "reminder", "reminder_followup", "waiting_list_invite"] as const;
   const EXPECTED = ["{name}", "{level}", "{weekday}", "{time}", "{type}", "{date}", "{court}"];
 
   it.each(CLASS_KEYS)("offers all seven placeholders on %s", (key) => {

@@ -23,7 +23,8 @@ const VARIABLE_HINTS: Partial<Record<keyof MessageTemplates, string[]>> = {
   invite: CLASS_VARIABLES,
   reminder: CLASS_VARIABLES,
   reminder_followup: CLASS_VARIABLES,
-  waiting_list_placed: CLASS_VARIABLES,
+  // PAD-446 (message-templates rule 16): {side} names the spot's side, on this template only.
+  waiting_list_invite: [...CLASS_VARIABLES, "{side}"],
   added_to_class: ADDED_VARIABLES,
   added_to_class_coming: ADDED_VARIABLES,
 };
@@ -38,7 +39,7 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   reminder_confirmed: "settings.templates.labels.reminderConfirmed",
   reminder_declined: "settings.templates.labels.reminderDeclined",
   waiting_list_offer: "settings.templates.labels.waitingListOffer",
-  waiting_list_placed: "settings.templates.labels.waitingListPlaced",
+  waiting_list_invite: "settings.templates.labels.waitingListInvite",
   added_to_class: "settings.templates.labels.addedToClass",
   added_to_class_coming: "settings.templates.labels.addedToClassComing",
 };
@@ -53,7 +54,7 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   reminder_confirmed: "settings.templates.descriptions.reminderConfirmed",
   reminder_declined: "settings.templates.descriptions.reminderDeclined",
   waiting_list_offer: "settings.templates.descriptions.waitingListOffer",
-  waiting_list_placed: "settings.templates.descriptions.waitingListPlaced",
+  waiting_list_invite: "settings.templates.descriptions.waitingListInvite",
   added_to_class: "settings.templates.descriptions.addedToClass",
   added_to_class_coming: "settings.templates.descriptions.addedToClassComing",
 };
@@ -69,7 +70,7 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
   },
   {
     labelKey: "settings.templates.groups.waitingList",
-    keys: ["waiting_list_offer", "waiting_list_placed"],
+    keys: ["waiting_list_offer", "waiting_list_invite"],
   },
   {
     // PAD-489: editable like the others; the "counted as coming" one is sent for a class

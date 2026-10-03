@@ -37,8 +37,8 @@ that what the tutorial shows and what the engine does can never disagree.
    coach's roster is a 404.
 3. **No writes.** The simulation creates no `Vacancy` row, no `NotificationEvent`, no `Message`,
    no `ReplacementApprovalPrompt`, consumes no waiting-list credit and sends nothing. It also does
-   **not** run the lazy deactivation of expired standing entries that `_check_waiting_list`
-   performs on the real path: on this path an expired entry is skipped, not deactivated. The
+   **not** run the lazy deactivation of expired standing entries that the waiting-list candidate
+   list performs on the real path: on this path an expired entry is skipped, not deactivated. The
    hypothetical vacancy is an unsaved in-memory `Vacancy` whose `id` is `None`, and every query
    keyed on `vacancy_id` must treat a `None` id as "no events" rather than letting SQLAlchemy match
    the NULL-vacancy rows that manual notifications leave behind.
@@ -90,12 +90,14 @@ that what the tutorial shows and what the engine does can never disagree.
 7. `approvalRequired` is `true` when `invitation_mode` is `semi_automatic`: the coach would first
    receive the approval prompt carrying this same list (rule 5 makes that literal, not
    approximate).
-8. `waitingListPlacement` is `{playerId, name, standing}` when an active waiting-list entry for
-   the class passes the bar and the unconditional guards (`notifications.waiting-list` rules
-   4a–4c) — that student is placed directly and no invitation goes out for this spot — and `null`
-   otherwise. When a placement is reported the queue is still returned — it is what happens if
-   the placement does not go through — but the placed student is **not** listed in any round:
-   they are placed, never invited.
+8. **Group 0, the waiting list (PAD-446).** `waitingList` is the ordered list
+   `[{playerId, name, standing, joinedAt}]` of the class's waiting-list students the engine would
+   ask first (`notifications.invitations` rule 8a), in its order (join time) and under the same
+   rules (`notifications.waiting-list` rules 4–4c), `[]` when there are none. Those students appear in
+   no round: the engine asks them in group 0 and their offer keeps them out of later rounds. The
+   agreement invariant of rule 5 covers `waitingList` followed by the rounds. `waitingListPlacement`
+   stays in the response, always `null`: older builds read it, and showing nothing there is
+   honest, where showing a placement would not be.
 9. `spot` is `{side, levelId, levelCode, levelSource}` snapshotted exactly as
    `notifications.invitations` rules 2 and 2a: side from the departing player; level from the
    departing player (`levelSource: "player"`), falling back to the class's effective level
@@ -188,13 +190,13 @@ that what the tutorial shows and what the engine does can never disagree.
 - **And** the ordered candidates equal what `compute_full_invite_queue` returns for a real vacancy
   of the same class and departing player
 
-#### A waiting-list member who passes the bar is placed, not invited
+#### A waiting-list member who passes the bar is asked first (PAD-446)
 - **Given** a coach with `eligibility_rules` `[{level, same_as_class}]`
 - **And** a class at level `5` with an active waiting-list entry for Dora (level `5`) linked to a
-  standing entry
+  standing entry, and one for Eva (level `5`, her own entry) who joined earlier
 - **When** the simulation is run
-- **Then** `waitingListPlacement` is `{playerId: Dora, standing: true}`
-- **And** Dora appears in no round
+- **Then** `waitingList` is `[Eva, Dora]` with `standing` false and true
+- **And** neither appears in any round, and `waitingListPlacement` is `null`
 
 #### Explain names the eligibility rule, in PAD-133's records
 - **Given** a coach with `eligibility_rules` `[{level, within_n_of_class, value: 1}]` and a

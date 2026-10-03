@@ -65,8 +65,8 @@ Not yet measured.
 
 - Time-window availability blockers on the calendar (a student saying "not available Tuesday
   evenings") — a separate, unrelated mechanism in the `calendar` domain.
-- Being added to a class outright from the waiting list without being asked first — that enrolment
-  path isn't gated by these preferences at all.
+- (No longer applies since PAD-446: nobody is added to a class from the waiting list without being
+  asked. Waiting-list invitations are automatic invitations and follow these preferences.)
 
 ## Notes
 

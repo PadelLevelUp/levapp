@@ -39,7 +39,7 @@ ALL_TEMPLATE_KEYS = [
     "reminder_declined",
     "waiting_list_offer",
     "waiting_list_confirm",
-    "waiting_list_placed",
+    "waiting_list_invite",
 ]
 
 

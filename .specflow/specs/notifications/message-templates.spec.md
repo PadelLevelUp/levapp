@@ -14,8 +14,8 @@ Customize the text of notification messages sent to players.
 
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
-2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_placed. Since PAD-501, `spot_filled` is sent only to a student whose pending join request was closed because the class filled (`classes.join-requests` rule 10); see rule 15
-3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_placed, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones
+2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_invite. (PAD-446: `waiting_list_invite` replaces `waiting_list_placed`; a stored `waiting_list_placed` text is ignored.) Since PAD-501, `spot_filled` is sent only to a student whose pending join request was closed because the class filled (`classes.join-requests` rule 10); see rule 15
+3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_invite, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones
 4. Updated via `POST /api/app/notify/config`
 5. Placeholders must render fully substituted with concrete values — a rendered message never contains a raw placeholder token (`{level}`, `{weekday}`, etc.) or a filler artifact such as the literal word "this" in a placeholder slot
 6. The `{weekday}`, date, and time placeholders render in the **recipient coach's locale** (see settings.language), formatted via Flask-Babel — e.g. `pt` → "quarta-feira", `en` → "Wednesday". Never manually string-built from English day/month names. Fallback locale is Portuguese
@@ -32,6 +32,12 @@ Customize the text of notification messages sent to players.
     - to a student whose "yes" arrived after the spot went: the answer reports `spot_filled` / `spot_filled_waiting_list_offered`, both shells show it, and the bubble records it; the waiting-list offer is still sent;
     - to a student whose come-back is refused because the class is full (`attendance.confirm` rule 26): the screen that sent it shows the refusal.
     It is still sent when a pending join request is closed because the class filled (`classes.join-requests` rule 10): the request card's "superseded" is a passive signal and the requester gets nothing else. The web settings editor describes the template that way. iOS has no template settings.
+16. `{side}` (PAD-446; numbering unconfirmed) is filled only in `waiting_list_invite`: when the
+    vacancy's side is `left` or `right` it renders ` (left side)` / ` (right side)` in the coach's
+    locale (pt ` (lado esquerdo)` / ` (lado direito)`), leading space and brackets included; for a
+    `both` or empty side it renders as nothing. The default texts put it right after the time, so a
+    spot without a side reads as an ordinary sentence. In any other template `{side}` renders as
+    nothing.
 
 ### Acceptance Criteria
 
@@ -43,7 +49,7 @@ Customize the text of notification messages sent to players.
 
 #### Blank templates fall back for every message type
 - **Given** a coach whose `message_templates` has *all* keys saved as empty strings
-- **When** any template-driven automatic message is sent (invite, confirm, decline, spot_filled for a join request closed by a full class, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_confirm, waiting_list_placed)
+- **When** any template-driven automatic message is sent (invite, confirm, decline, spot_filled for a join request closed by a full class, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_confirm, waiting_list_invite)
 - **Then** each message body is the built-in default for that key in the coach's locale, never blank
 
 #### Weekday and level render in the coach locale with no artifacts
@@ -68,7 +74,7 @@ Customize the text of notification messages sent to players.
 
 #### The settings editor offers the new placeholders
 - **Given** a coach on the web settings page, Message templates section
-- **When** they open the invite, reminder, reminder follow-up or waiting-list-placed template
+- **When** they open the invite, reminder, reminder follow-up or waiting-list invitation template
 - **Then** the placeholder hints list `{type}`, `{date}` and `{court}` besides `{name}`, `{level}`, `{weekday}` and `{time}`
 
 ### Notes
