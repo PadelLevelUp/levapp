@@ -215,3 +215,4 @@ whether a failure mode has been seen before.
 - [B-285](B-285-occurrence-court-accepted-and-dropped.md) — Classes: a court chosen for one occurrence, or in a one-off class's editor, was answered 200 and dropped; occurrences now have their own court (incomplete-rule, medium, resolved)
 - [B-271](B-271-class-picker-shows-four-students.md) — Web class sheet: the student picker showed four students and clipped the rest (Radix ScrollArea with only a max height); now a native overflow list (missing-criterion, high, resolved in PAD-502)
 - [B-266](B-266-class-editor-lists-the-wrong-clubs-courts.md) — A coach at two clubs editing a class at the older club was offered the newest club's courts, and every save got 400 court_not_in_club (wrong-rule, low, resolved)
+- [B-293](B-293-standing-entry-queues-past-its-end.md) — Standing waiting list: an entry queued its player for classes after its end and kept queuing once expired (incomplete-rule, medium, resolved)

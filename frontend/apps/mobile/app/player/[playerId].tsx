@@ -4,7 +4,7 @@ import { playersApi } from "@levelup/api";
 import { Platform, ScrollView, Share, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, standingEndLabel } from "@levelup/config";
 import { useCoachLevels, usePlayerEvaluations, usePlayerProfile } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -97,6 +97,7 @@ export default function PlayerDetailScreen() {
     React.useState<PlayerRemovalImpact | null>(null);
   const [removalImpactFailed, setRemovalImpactFailed] = React.useState(false);
   const [isWaitingListOpen, setIsWaitingListOpen] = React.useState(false);
+  const [isWaitingListRenewOpen, setIsWaitingListRenewOpen] = React.useState(false);
   const [isClassesOpen, setIsClassesOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -394,6 +395,23 @@ export default function PlayerDetailScreen() {
             )}
             <Text className="text-warning">
               {t("players.onWaitingList")}
+            </Text>
+          </Button>
+        ) : null}
+        {/* PAD-507: an entry runs to a date; the coach sees it and can renew (same id on web). */}
+        {standingEntry ? (
+          <Button
+            variant="outline"
+            size="sm"
+            testID="player-waiting-list-renew"
+            accessibilityLabel={t("players.renewWaitingList")}
+            onPress={() => setIsWaitingListRenewOpen(true)}
+          >
+            <Ionicons name="refresh-outline" size={16} color={lightTheme.foreground} />
+            <Text>
+              {`${t("players.renewWaitingList")} · ${t("players.waitingListUntil", {
+                date: standingEntry.expiresOn ? standingEndLabel(standingEntry.expiresOn, i18n.language) : "",
+              })}`}
             </Text>
           </Button>
         ) : (
@@ -793,6 +811,15 @@ export default function PlayerDetailScreen() {
         playerId={Number(player.playerId)}
         playerName={player.name ?? null}
       />
+      {standingEntry ? (
+        <WaitingListDialog
+          open={isWaitingListRenewOpen}
+          onClose={() => setIsWaitingListRenewOpen(false)}
+          playerId={Number(player.playerId)}
+          playerName={player.name ?? null}
+          renewing={standingEntry}
+        />
+      ) : null}
 
       <AddToClassesDialog
         open={isClassesOpen}

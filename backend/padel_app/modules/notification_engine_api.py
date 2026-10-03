@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, abort, current_app, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -27,7 +27,11 @@ from padel_app.services.notification_service import (
     respond_to_waiting_list,
     coach_respond_to_notification,
     get_standing_waiting_list,
+    InvalidStandingEndError,
     add_standing_waiting_list_entry,
+    renew_standing_waiting_list_entry,
+    standing_end_from_date,
+    standing_end_from_days,
     remove_standing_waiting_list_entry,
     eligibility_failures_for_players,
     students_failing_eligibility_bar,
@@ -538,11 +542,33 @@ def standing_waiting_list_add():
     data = request.get_json() or {}
     player_id = int(data.get("playerId"))
     credits_total = int(data.get("credits", 3))
-    duration_days = int(data.get("durationDays", 30))
-    entry = add_standing_waiting_list_entry(coach.id, player_id, credits_total, duration_days)
+    # PAD-507 (rule 2): an end date, at most 12 months ahead; old builds send a number of days.
+    try:
+        if "expiresOn" in data:
+            expires_at = standing_end_from_date(data.get("expiresOn"))
+        else:
+            expires_at = standing_end_from_days(data.get("durationDays", 30))
+    except InvalidStandingEndError as exc:
+        return jsonify({"error": "invalid_fields", "fields": [exc.field]}), 400
+    entry = add_standing_waiting_list_entry(coach.id, player_id, credits_total, expires_at=expires_at)
     entries = get_standing_waiting_list(coach.id)
     added = next((e for e in entries if e["id"] == entry.id), None)
     return jsonify(added), 201
+
+
+@bp.patch("/standing_waiting_list/<int:entry_id>")
+@jwt_required()
+def standing_waiting_list_renew(entry_id: int):
+    """PAD-507 (rule 2): renew — move the entry's end date; credits stay."""
+    coach = _current_coach()
+    data = request.get_json() or {}
+    try:
+        expires_at = standing_end_from_date(data.get("expiresOn"))
+    except InvalidStandingEndError as exc:
+        return jsonify({"error": "invalid_fields", "fields": [exc.field]}), 400
+    entry = renew_standing_waiting_list_entry(entry_id, coach.id, expires_at)
+    renewed = next((e for e in get_standing_waiting_list(coach.id) if e["id"] == entry.id), None)
+    return jsonify(renewed), 200
 
 
 @bp.delete("/standing_waiting_list/<int:entry_id>")
@@ -583,6 +609,27 @@ def _debug_endpoints_enabled():
 # creates below, shared with its cleanup counterpart so the two routes can
 # never drift apart on what "a reminder test class" means.
 REMINDER_TEST_CLASS_TITLE = "E2E Auto-Reminder Test"
+
+
+@bp.post("/debug/standing_entry_expire/<int:entry_id>")
+@jwt_required()
+def debug_standing_entry_expire(entry_id: int):
+    """E2E test helper (PAD-507) — same two gates as the routes below. Backdates one of the
+    caller's standing entries by `daysAgo` days, the expired state the PAD-110 spec shows; the
+    public routes no longer accept an end in the past.
+    """
+    if not _debug_endpoints_enabled():
+        return jsonify({"error": "Not found"}), 404
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+
+    coach = _current_coach()
+    entry = StandingWaitingListEntry.query.get(entry_id)
+    if entry is None or entry.coach_id != coach.id:
+        return jsonify({"error": "Not found"}), 404
+    days_ago = int((request.get_json() or {}).get("daysAgo", 1))
+    entry.expires_at = utcnow_naive() - timedelta(days=days_ago)
+    entry.save()
+    return jsonify({"id": entry.id, "expiresAt": entry.expires_at.isoformat()})
 
 
 @bp.post("/debug/schedule_reminder_test")

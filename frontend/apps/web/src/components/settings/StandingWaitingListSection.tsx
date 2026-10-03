@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Trash2, UserPlus } from "lucide-react";
+import { Loader2, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { standingEndLabel } from "@levelup/config";
 import { getStandingWaitingList, removeFromStandingWaitingList, searchPlayers } from "@/api/notificationEngine";
 import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
 import type { StandingWaitingListEntry } from "@/types";
 
 export function StandingWaitingListSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<StandingWaitingListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: number; name: string } | null>(null);
+  // PAD-507: the entry being renewed (its end date moves; credits stay).
+  const [renewing, setRenewing] = useState<StandingWaitingListEntry | null>(null);
 
   // Player search state
   const [query, setQuery] = useState("");
@@ -63,6 +66,7 @@ export function StandingWaitingListSection() {
       return [...filtered, entry];
     });
     setSelectedPlayer(null);
+    setRenewing(null);
   };
 
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -89,9 +93,11 @@ export function StandingWaitingListSection() {
   const parseExpiry = (iso: string) =>
     new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`);
 
-  const formatExpiry = (iso: string) => {
-    return parseExpiry(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  };
+  /** PAD-507: the date the entry runs to (inclusive) — with the year, since it can be up to 12 months out. */
+  const formatExpiry = (entry: StandingWaitingListEntry) =>
+    entry.expiresOn
+      ? standingEndLabel(entry.expiresOn, i18n.language)
+      : parseExpiry(entry.expiresAt).toLocaleDateString(i18n.language, { day: "numeric", month: "short", year: "numeric" });
 
   /**
    * `expires_at` is an instant, not a calendar date, so an entry expiring later today is not yet
@@ -174,13 +180,23 @@ export function StandingWaitingListSection() {
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    {t("settings.standingList.expires", { date: formatExpiry(entry.expiresAt) })}
+                    {t("settings.standingList.expires", { date: formatExpiry(entry) })}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {t("settings.standingList.classCount", { count: entry.activeClassCount })}
                   </span>
                 </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                data-testid="standing-wl-renew"
+                aria-label={t("settings.standingList.renew")}
+                className="shrink-0 text-muted-foreground"
+                onClick={() => setRenewing(entry)}
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -203,6 +219,16 @@ export function StandingWaitingListSection() {
           onClose={() => { setDialogOpen(false); setSelectedPlayer(null); }}
           playerId={selectedPlayer.id}
           playerName={selectedPlayer.name}
+          onAdded={handleAdded}
+        />
+      )}
+      {renewing && (
+        <AddToStandingWaitingListDialog
+          open
+          onClose={() => setRenewing(null)}
+          playerId={renewing.playerId}
+          playerName={renewing.playerName}
+          renewing={renewing}
           onAdded={handleAdded}
         />
       )}
