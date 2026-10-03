@@ -291,3 +291,70 @@ def test_the_templates_carry_waiting_list_invite_with_side_and_no_placement():
     for templates in (DEFAULT_MESSAGE_TEMPLATES, DEFAULT_MESSAGE_TEMPLATES_PT):
         assert "{side}" in templates["waiting_list_invite"]
         assert "waiting_list_placed" not in templates
+
+
+@pytest.mark.skipif(
+    __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="a lock is only visible with two real connections",
+)
+def test_a_waiting_list_yes_and_a_group_yes_on_two_spots_cannot_overfill(app, monkeypatch):
+    """Postgres, forced (the PAD-499 cell (a) shape): one place left, two open spots. X answers yes
+    to a group-0 (waiting-list) invitation for V1 and pauses after closing it; Y answers yes to a
+    group-1 invitation for V2. One of them gets the place, never both, and X's entry closes only if
+    X got it."""
+    import threading
+
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+    from padel_app.tests.test_pad499_accept_lock_ends_early import _enrolled as _filled, _two_open_spots_for_one_place
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, y, _z) = _two_open_spots_for_one_place(app)
+    with app.app_context():
+        NotificationEvent.query.get(ids[x][0]).round_number = 0
+        coach_id = NotificationEvent.query.get(ids[x][0]).coach_id
+        entry = WaitingListEntry(lesson_instance_id=instance_id, player_id=x, coach_id=coach_id, is_active=True)
+        db.session.add(entry)
+        db.session.commit()
+        entry_id = entry.id
+
+    closed, second_done = threading.Event(), threading.Event()
+    real_close, real_add = ns._close_vacancy, ns._add_player_to_instance
+
+    def close(vacancy, filled_by_player_id, **kwargs):
+        retired = real_close(vacancy, filled_by_player_id, **kwargs)
+        if filled_by_player_id == x:
+            closed.set()
+        return retired
+
+    def add(player_id, instance):
+        if player_id == x:
+            second_done.wait(timeout=5)
+        return real_add(player_id, instance)
+
+    monkeypatch.setattr(ns, "_close_vacancy", close)
+    monkeypatch.setattr(ns, "_add_player_to_instance", add)
+    results = {}
+
+    def first():
+        results["x"] = ns.respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=1))
+
+    def second():
+        closed.wait(timeout=5)
+        try:
+            results["y"] = ns.respond_to_notification(ids[y][0], "yes", ids[y][1], now=NOW + timedelta(minutes=1))
+        finally:
+            second_done.set()
+
+    with _io():
+        _race(app, [first, second])
+    filled, places = _filled(app, instance_id)
+    assert filled <= places, f"class overfilled: {filled} on {places} places ({results})"
+    with app.app_context():
+        db.session.expire_all()
+        x_in = x in _enrolled(instance_id)
+        assert db.session.get(WaitingListEntry, entry_id).is_active is (not x_in)
+        assert [results["x"]["action"], results["y"]["action"]].count("confirmed") == 1, results
