@@ -447,3 +447,37 @@ def test_the_english_side_phrase():
 
     assert (_side_phrase("left", "en"), _side_phrase("right", "en"), _side_phrase("both", "en")) == (
         " (left side)", " (right side)", "")
+
+
+def test_a_student_answers_one_waiting_list_offer_before_the_next_spot_asks_them(app, monkeypatch):
+    """The volume cap (coordinator default 2026-10-03, the owner may reverse it; waiting-list rule 4):
+    one live group-0 offer per student per coach at a time. Bea is on the waiting list of classes A
+    and B; while A's offer is live, B's spot asks its group instead, and asks Bea once A's resolves."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.notification_service import process_invitation_batches, respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        a_id, coach_id, _, (r0, bea) = _seed(enrolled=0, candidates=2, max_players=1, max_sim=1)
+        a = LessonInstance.query.get(a_id)
+        b = LessonInstance(lesson_id=a.lesson_id, start_datetime=START + timedelta(days=1),
+                           end_datetime=START + timedelta(days=1, hours=1), max_players=1,
+                           status="scheduled", level_id=a.level_id, notifications_enabled=True)
+        db.session.add(b)
+        db.session.flush()
+        from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+        db.session.add(Association_CoachLessonInstance(coach_id=coach_id, lesson_instance_id=b.id))
+        db.session.commit()
+        b_id = b.id
+        _entry(a_id, coach_id, bea, NOW - timedelta(hours=2))
+        _entry(b_id, coach_id, bea, NOW - timedelta(hours=2))
+
+        _trigger(a_id, coach_id)
+        assert _invites(a_id) == [(bea, 0)]
+        _trigger(b_id, coach_id)
+        assert _invites(b_id) == [(r0, 1)], "B asked Bea while her offer for A was still live"
+
+        respond_to_notification(_event(a_id, bea).id, "no", _user_of(bea), now=NOW + timedelta(minutes=1))
+        process_invitation_batches(now=NOW + timedelta(minutes=125))
+        assert (bea, 0) in _invites(b_id), _invites(b_id)
