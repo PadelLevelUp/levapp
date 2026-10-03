@@ -191,6 +191,36 @@ def test_only_the_entrys_coach_renews_it(app, client):
     assert client.patch(f"{URL}/999999", json={"expiresOn": end}, headers=w["h"]).status_code == 404
 
 
+def test_a_removed_entry_cannot_be_renewed_and_queues_nobody(app, client):
+    """#548 review F1: renewing a deactivated entry is 404 — its fan-out would queue the player again."""
+    w = _seed(app, class_in_days=(3,))
+    entry_id = _add(client, w, _today() + timedelta(days=5))
+    assert client.delete(f"{URL}/{entry_id}", headers=w["h"]).status_code == 200
+    assert _rows(app, w["instances"][0], w["player_id"]) == [False]
+
+    res = client.patch(f"{URL}/{entry_id}", json={"expiresOn": (_today() + timedelta(days=30)).isoformat()}, headers=w["h"])
+    assert res.status_code == 404
+    assert _rows(app, w["instances"][0], w["player_id"]) == [False]
+    assert [active for active, _exp, _used in _entries(app, w["coach_id"])] == [False]
+
+
+def test_today_is_the_club_day_not_the_utc_day(app, client, monkeypatch):
+    """#548 review F3: at 23:30 UTC on 14 July it is already 15 July in Lisbon (UTC+1): the 14th is the
+    past, the 15th is today, and twelve months ahead is 15 July next year."""
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, datetime(2026, 7, 14, 23, 30))
+    w = _seed(app, class_in_days=())
+
+    def post(day):
+        return client.post(URL, json={"playerId": w["player_id"], "credits": 3, "expiresOn": day}, headers=w["h"])
+
+    assert post("2026-07-14").status_code == 400
+    assert post("2027-07-16").status_code == 400
+    assert post("2027-07-15").status_code == 201
+    assert post("2026-07-15").status_code == 201
+
+
 # --- B-293: the end bounds the fan-out -----------------------------------------------------------
 
 def _rows(app, instance_id, player_id):

@@ -60,7 +60,9 @@ Players can join a waiting list for full classes. Standing waiting list entries 
      6 months, 12 months, counted from today) fills it, or any date. It must lie between today and
      12 calendar months ahead on the club's calendar; there is no "no end date". The entry expires
      at the start of the next club day (`expires_at` = that instant in UTC). The list and each
-     entry carry `expiresOn`, that date.
+     entry carry `expiresOn`, that date. "Today" is the club's day (Lisbon): the apps offer dates
+     from the device's day, so near midnight in another time zone a date at either end of the
+     window can be refused; the dialog then says it could not save and stays open.
    - **Renewable:** the coach can move an active entry's end date — expired or not — to any date in
      the same window; the credits stay as they are. Classes the new end no longer covers lose the
      rows this entry queued there; classes it now covers gain one (rule 10).

@@ -12,6 +12,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { addToStandingWaitingList, renewStandingWaitingListEntry } from "@/api/notificationEngine";
 import type { StandingWaitingListEntry } from "@/types";
 
@@ -32,6 +33,7 @@ interface Props {
  */
 export function AddToStandingWaitingListDialog({ open, onClose, playerId, playerName, onAdded, renewing }: Props) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [today, setToday] = useState(() => new Date());
   const [expiresOn, setExpiresOn] = useState(() => standingEndFor(DEFAULT_STANDING_PRESET, new Date()));
   const [credits, setCredits] = useState(3);
@@ -57,6 +59,10 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
         : await addToStandingWaitingList(playerId, credits, expiresOn);
       onAdded?.(entry);
       onClose();
+    } catch {
+      // #548 review F2: refused (e.g. a date the server's club calendar puts out of bounds near
+      // midnight in another zone) or offline — said, as on iOS; the dialog stays open.
+      toast({ variant: "destructive", title: t("common.somethingWentWrong") });
     } finally {
       setLoading(false);
     }
