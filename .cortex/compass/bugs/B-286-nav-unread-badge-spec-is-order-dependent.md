@@ -6,7 +6,7 @@ severity: medium
 status: open
 affects:
   - frontend/apps/web/e2e/messaging/nav-unread-badge.spec.ts
-proposed_fix: "Not decided: find what an earlier spec leaves behind that keeps the badge up (separate ticket). Type is provisional until then."
+proposed_fix: "PAD-514: find what an earlier spec leaves behind that keeps the badge up, then fix the spec setup or the app. Type is provisional until then."
 opened: 2026-10-03T11:15:00Z
 ---
 
@@ -37,8 +37,13 @@ type is provisional: if the investigation finds the app's badge failing to clear
 an earlier spec leaves (for example a second unread conversation), it is a product defect and the
 type changes.
 
-**Effect on PAD-511:** recorded as a phase-0 finding on #534. Until fixed it is a candidate for
-`e2e/pr-subset/quarantine.txt` before the subset can be a required check.
+**Effect on PAD-511:** recorded as a phase-0 finding on #534. Quarantined in
+`e2e/pr-subset/quarantine.txt` (PAD-511 phase 1) until PAD-514 fixes it; that PR removes the line.
+
+**Second run (37119848269, at 519829503):** subset #528 was red here again (green alone, 18.9 s).
+The other red in that job, `messaging/conversation-open-anchor.spec.ts`, was the job's own timeout,
+not this bug: phase 0's 60 s `--timeout` also bounds hooks, and that spec's 200-message `beforeAll`
+needs longer. Phase 1 replaced the timeout with `--retries=0`.
 
 ### Resolution
 

@@ -241,8 +241,10 @@ def _request_for(app, ids, *, hours_ahead, invitees=()):
     from padel_app.models import Player
     from padel_app.services.class_request_service import create_class_request_service
 
+    from padel_app.utils import dates  # read at call time, so pin_clock reaches it
+
     with app.app_context():
-        start = (utc_to_wall_naive(utcnow_naive()) + timedelta(hours=hours_ahead)).replace(second=0, microsecond=0)
+        start = (utc_to_wall_naive(dates.utcnow_naive()) + timedelta(hours=hours_ahead)).replace(second=0, microsecond=0)
         row = create_class_request_service(
             db.session.get(Player, ids["student_id"]),
             {"coachId": ids["coach_id"], "date": start.date().isoformat(), "startTime": start.strftime("%H:%M"),
@@ -264,8 +266,21 @@ def _accept(app, ids, rid):
             return db.session.get(ClassRequest, rid).lesson_id
 
 
-def test_a_request_accepted_late_through_the_real_path_counts_the_requester(app, live_scheduler):
+# The two request-path tests book "six hours from now". test_pad104's coach is free 16:00-22:00, so
+# on the real clock the slot fitted only when the test ran between about 10:00 and 15:00 Lisbon and
+# was refused as slot_taken otherwise: red on CI from mid-afternoon (staging 71981fb80,
+# 2026-10-03). "Now" is pinned to 11:00 on a weekday, so the slot is 17:00-18:00, inside that
+# window, and its reminder time (24 h before) has already passed, which is what they test.
+# _request_for reads the clock through `dates`: pytest imports this module outside `padel_app.*`,
+# where pin_clock does not rebind a name imported at the top.
+REQUEST_NOW = datetime(2026, 11, 10, 11, 0)  # a Tuesday; Lisbon is UTC+0 in November
+
+
+def test_a_request_accepted_late_through_the_real_path_counts_the_requester(app, live_scheduler, monkeypatch):
     """Review of #535, finding 1: the request path, not add_class_service by hand."""
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, REQUEST_NOW)
     ids = _request_world(app)
     rid = _request_for(app, ids, hours_ahead=6)
 
@@ -277,12 +292,14 @@ def test_a_request_accepted_late_through_the_real_path_counts_the_requester(app,
     assert _added_messages(app, ids["student_user_id"]) == [], "the acceptance message is the whole story"
 
 
-def test_an_invitee_of_a_request_accepted_late_is_asked_not_counted(app, live_scheduler):
+def test_an_invitee_of_a_request_accepted_late_is_asked_not_counted(app, live_scheduler, monkeypatch):
     """Review of #535, finding 1 (coordinator's decision): the invitee did not ask for the class.
     They are told (rule 14's added message) and asked (rule 18), as before."""
+    from padel_app.tests.helpers import pin_clock
     from padel_app.tests.test_pad128_eligibility import _add_student
     from padel_app.tests.test_pad330_the_student_is_told import _student_user_id
 
+    pin_clock(monkeypatch, REQUEST_NOW)
     ids = _request_world(app)
     with app.app_context():
         carla = _add_student(ids["coach_id"], "carla", level_id=ids["level_ids"]["5"])

@@ -10,7 +10,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsCoach, loginAsStudent } from "../helpers/auth";
 import { API_APP, API_AUTH } from "../helpers/api";
-import { removeClassesOnDay } from "../helpers/cleanup";
+import { dayEvents, removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { goToPreviousWeek } from "../helpers/calendar-navigation";
 
@@ -100,6 +100,12 @@ test("US-376a: the coach rates a participant from today's class; the record carr
   const title = `E2E Eval Class ${Date.now()}`;
   const cls = await makeClass(request, coachTok, isoDaysFromToday(0), title, playerId);
   made.push(cls);
+  // The panel's classRef is the occurrence the calendar shows when the coach opens it, read
+  // before the rating (a rating materialises a virtual occurrence). Since PAD-489
+  // (notifications.reminders rule 22) a class created after its reminder time is materialised at
+  // creation, so for a class added today that is the LessonInstance, not add_class's Lesson (B-287).
+  const shown = (await dayEvents(request, bearer(coachTok), cls.day)).find((e) => e.type === "class" && e.title === title);
+  expect(shown, "the class is on the coach's calendar").toBeTruthy();
 
   await loginAsCoach(page);
   await openClassDetail(page, title);
@@ -122,7 +128,10 @@ test("US-376a: the coach rates a participant from today's class; the record carr
   recordIds.push(record.id);
   expect(record.classInstanceId, "the record carries the class").not.toBeNull();
   expect(record.className).toBe(title);
-  expect(JSON.parse(response.request().postData() ?? "{}").classRef).toMatchObject({ model: cls.model, id: cls.id });
+  expect(JSON.parse(response.request().postData() ?? "{}").classRef).toMatchObject({
+    model: shown!.model,
+    id: Number(shown!.originalId ?? shown!.id),
+  });
 
   // The summary follows the write, on the server's read.
   await expect(row.getByTestId(`class-eval-summary-${playerId}`)).toHaveAttribute("data-rated", "1");
