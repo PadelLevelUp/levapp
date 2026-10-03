@@ -43,6 +43,14 @@ def _fk_on_delete():
     )).scalar()
 
 
+def _fk_count():
+    return db.session.execute(text(
+        "SELECT count(*) FROM pg_constraint c "
+        "JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey) "
+        "WHERE c.contype = 'f' AND c.conrelid = 'lesson_instances'::regclass AND a.attname = 'court_id'"
+    )).scalar()
+
+
 def test_the_occurrence_court_migration_walks_both_ways_and_is_idempotent(app):
     from flask_migrate import downgrade, upgrade
 
@@ -63,6 +71,18 @@ def test_the_occurrence_court_migration_walks_both_ways_and_is_idempotent(app):
             _release()
             upgrade(directory=MIGRATIONS_DIR)
             assert _has_column() and _fk_on_delete() == "n"
+            _release()
+
+            # A drifted database whose column already has a SET NULL key under the Postgres default
+            # name: the upgrade adds no second key, and the downgrade removes it with the column.
+            downgrade(directory=MIGRATIONS_DIR, revision=PARENT)
+            db.session.execute(text(
+                "ALTER TABLE lesson_instances ADD COLUMN court_id INTEGER "
+                "CONSTRAINT lesson_instances_court_id_fkey REFERENCES courts(id) ON DELETE SET NULL"
+            ))
+            _release()
+            upgrade(directory=MIGRATIONS_DIR)
+            assert _fk_count() == 1 and _fk_on_delete() == "n"
             _release()
 
             # And the downgrade from a database that never got the column changes nothing.

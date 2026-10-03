@@ -25,21 +25,27 @@ def _columns(bind, table):
     return {c["name"] for c in sa.inspect(bind).get_columns(table)}
 
 
-def _foreign_keys(bind, table):
-    return {fk["name"] for fk in sa.inspect(bind).get_foreign_keys(table)}
+def _court_fks(bind):
+    """Names of the foreign keys on lesson_instances.court_id, whatever they are called
+    (a drifted database may carry one under the Postgres default name)."""
+    return [
+        fk["name"]
+        for fk in sa.inspect(bind).get_foreign_keys("lesson_instances")
+        if fk.get("constrained_columns") == ["court_id"]
+    ]
 
 
 def upgrade():
     bind = op.get_bind()
     if "court_id" not in _columns(bind, "lesson_instances"):
         op.add_column("lesson_instances", sa.Column("court_id", sa.Integer(), nullable=True))
-    if FK not in _foreign_keys(bind, "lesson_instances"):
+    if not _court_fks(bind):
         op.create_foreign_key(FK, "lesson_instances", "courts", ["court_id"], ["id"], ondelete="SET NULL")
 
 
 def downgrade():
     bind = op.get_bind()
-    if FK in _foreign_keys(bind, "lesson_instances"):
-        op.drop_constraint(FK, "lesson_instances", type_="foreignkey")
+    for name in _court_fks(bind):
+        op.drop_constraint(name, "lesson_instances", type_="foreignkey")
     if "court_id" in _columns(bind, "lesson_instances"):
         op.drop_column("lesson_instances", "court_id")

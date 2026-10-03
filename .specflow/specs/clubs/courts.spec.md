@@ -21,7 +21,8 @@ accepted and dropped (B-285).
 
 **Courts are display-only.** No overlap, blocker, availability or booking check reads a court: two
 classes on the same court at the same time are not a conflict anywhere in the platform. The court is
-shown on the card and the detail, and nothing else.
+shown on the card and the detail, and named by the `{court}` message placeholder
+(`notifications.message-templates` rule 14); nothing else reads it.
 
 ### Entities
 - **Court** (`courts`): `id`, `club_id` (FK → `clubs.id`, ON DELETE CASCADE), `name` (String(80),
@@ -67,11 +68,13 @@ shown on the card and the detail, and nothing else.
    `courtId` (validated as in rule 6) stores the court on the occurrence, following the override
    pattern of `classes.edit` rule 4: a court equal to the series' court clears the override (NULL
    inherits). The calendar event and the class detail of an occurrence read its own court first,
-   then the lesson's (`LessonInstance.effective_court`). `courtId: null` for one occurrence of a
+   then the lesson's (`LessonInstance.effective_court`), and so does the `{court}` message
+   placeholder (`notifications.message-templates` rule 14). `courtId: null` for one occurrence of a
    series that has a court is answered `400 {"error": "invalid_fields", "fields": ["courtId"]}`
    (NULL inherits, so "no court" for one occurrence cannot be stored), and nothing is written. A
    class that does not recur is edited with scope `single` by both editors; there the court is the
-   class's own (null clears it). A "this and future" edit that sends `courtId` clears every
+   class's own (null clears it), written in the same commit as the occurrence, so an edit that fails
+   leaves it unchanged. A "this and future" edit that sends `courtId` clears every
    occurrence's own court from the boundary on, so the series' new court reaches them; an edit
    without `courtId` leaves them. The migration adds the column and its foreign key only if absent
    and drops them only if present.
@@ -132,6 +135,7 @@ shown on the card and the detail, and nothing else.
 - **Given** occurrences of 2026-10-12 and 2026-10-26, both on "Campo 2" of their own
 - **When** the coach edits the series from 2026-10-19 on with `courtId` "Campo 3"
 - **Then** the 2026-10-12 occurrence keeps "Campo 2" and the 2026-10-26 one shows "Campo 3"
+- **And** a reminder for the 2026-10-12 occurrence names "Campo 2" in `{court}`
 - **When** a "this and future" edit does not send `courtId`
 - **Then** the occurrences keep their own courts
 
@@ -149,7 +153,9 @@ shown on the card and the detail, and nothing else.
 - **Given** the migration source
 - **Then** `courts` is created only if absent and `lessons.court_id` is added only if absent
 - **And** `lesson_instances.court_id` and its SET NULL foreign key are added only if absent and
-  dropped only if present; on Postgres the walk down, up, up over a bare column, and down passes
+  dropped only if present, the key found by its column whatever its name; on Postgres the walk
+  down, up, up over a bare column, up over a column already keyed under the default name, and
+  down passes
 
 #### The coach manages courts in Settings on web
 - **Given** the seeded coach on Settings → Club

@@ -234,3 +234,86 @@ def test_a_one_off_class_edited_from_the_editor_sets_and_clears_its_court(client
         res = client.post("/api/app/edit_class", json=payload, headers=h)
         assert res.status_code in (200, 201), res.get_json()
         assert shown() == court_id
+
+
+# ---------------------------------------------------------------------------
+# Strict forms of the two decision-neutral tests above, now that the decision
+# is taken (clubs.courts rule 9), and the readers beyond the card and detail.
+# ---------------------------------------------------------------------------
+
+def _occurrence_of(client, lesson_id, day=OCCURRENCE):
+    from padel_app.models import LessonInstance
+
+    with client.application.app_context():
+        return LessonInstance.query.filter_by(
+            lesson_id=lesson_id, original_lesson_occurence_date=date.fromisoformat(day)
+        ).one().id
+
+
+def test_one_occurrence_on_its_own_court_leaves_the_series_and_its_other_occurrences(client, world):
+    from padel_app.models import Lesson
+    from padel_app.serializers.calendar_event import serialize_calendar_event
+
+    event, court1, court2 = _series_with_court(client, world)
+    _lesson_id, other = _materialise(client, "Series", "2026-10-19")
+    _lesson_id, instance_id = _materialise(client, "Series", OCCURRENCE)
+    res = _edit_single(client, world, event, instance_id, OCCURRENCE, court2)
+    assert res.status_code == 200, res.get_json()
+    assert _shown(client, instance_id) == court2
+    assert _shown(client, other) == court1
+    with client.application.app_context():
+        lesson = Lesson.query.filter_by(title="Series").one()
+        assert lesson.court_id == court1
+        assert serialize_calendar_event(lesson)["court"]["id"] == court1
+
+
+def test_before_materialisation_the_court_is_stored_cleared_and_refused_the_same_way(client, world):
+    from padel_app.models import Lesson
+
+    event, court1, court2 = _series_with_court(client, world)
+    with client.application.app_context():
+        lesson_id = Lesson.query.filter_by(title="Series").one().id
+    h = world["a"]
+    lesson_event = {**event, "date": OCCURRENCE}
+
+    res = client.post("/api/app/edit_class", json={"event": lesson_event, "scope": "single", "updates": {"courtId": court2}}, headers=h)
+    assert res.status_code in (200, 201), res.get_json()
+    instance_id = _occurrence_of(client, lesson_id)
+    assert _override(client, instance_id) == court2 and _shown(client, instance_id) == court2
+
+    # The Lesson event again (the web sheet keeps model "Lesson"): equal to the series clears.
+    res = client.post("/api/app/edit_class", json={"event": lesson_event, "scope": "single", "updates": {"courtId": court1}}, headers=h)
+    assert res.status_code == 200, res.get_json()
+    assert _override(client, instance_id) is None and _shown(client, instance_id) == court1
+
+    res = client.post("/api/app/edit_class", json={"event": lesson_event, "scope": "single", "updates": {"courtId": None}}, headers=h)
+    assert res.status_code == 400 and res.get_json()["fields"] == ["courtId"]
+
+
+def test_message_placeholders_name_the_occurrence_court(client, world):
+    """notifications.message-templates rule 14: {court} is the court the class is on."""
+    from padel_app.models import LessonInstance
+    from padel_app.services.notification_service import class_placeholders
+
+    event, _court1, court2 = _series_with_court(client, world)
+    _lesson_id, instance_id = _materialise(client, "Series", OCCURRENCE)
+    assert _edit_single(client, world, event, instance_id, OCCURRENCE, court2).status_code == 200
+    with client.application.app_context():
+        assert class_placeholders(LessonInstance.query.get(instance_id), "pt")["court"] == "Campo 2"
+
+
+def test_a_one_off_edit_that_fails_leaves_the_court_alone(client, world):
+    from padel_app.models import Lesson
+
+    c1, h = world["club1"], world["a"]
+    court1 = client.post(f"/api/app/club/{c1}/courts", json={"name": "Campo 1"}, headers=h).get_json()["id"]
+    court2 = client.post(f"/api/app/club/{c1}/courts", json={"name": "Campo 2"}, headers=h).get_json()["id"]
+    event = client.post("/api/app/add_class", json=_class_payload(name="One-off", courtId=court1), headers=h).get_json()
+    payload = {"event": event, "scope": "single", "updates": {"courtId": court2, "startTime": "99:99"}}
+    try:
+        res = client.post("/api/app/edit_class", json=payload, headers=h)
+        assert res.status_code >= 400
+    except ValueError:
+        pass  # the test client propagates the unhandled error; what matters is what was written
+    with client.application.app_context():
+        assert Lesson.query.filter_by(title="One-off").one().court_id == court1

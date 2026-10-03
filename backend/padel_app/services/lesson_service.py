@@ -1373,8 +1373,9 @@ def edit_class_service(data):
         # occurrence of a series, "no court" cannot be stored (NULL inherits the
         # series' court) — refused, never dropped.
         if scope == "single" and not target.recurrence_rule:
+            # Not committed here: the occurrence's save below commits it, so an
+            # edit that fails on the way writes nothing.
             target.court_id = payload["court"]
-            target.save()
         elif scope == "single" and court is None and target.court_id is not None:
             return {"error": "invalid_fields", "fields": ["courtId"]}, 400
 
