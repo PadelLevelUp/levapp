@@ -5626,6 +5626,16 @@ def _fill_from_waiting_list(
     if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.effective_max_players:
         db.session.commit()  # release the lock; nothing was written
         return False
+    # #527 final read item 5: the entry was picked before the lock. Read the student again under it:
+    # still on the list, not in the class, and no "no" to this class meanwhile (rule 18).
+    WaitingListEntry.query.filter_by(id=entry.id).populate_existing().one()
+    if (
+        not entry.is_active
+        or entry.player_id in set(instance.enrolled_player_ids)
+        or entry.player_id in _declined_player_ids(instance.id)
+    ):
+        db.session.commit()  # release the lock; nothing was written
+        return False
 
     # PAD-317: through the one routine. This path retired NOTHING, so a
     # waiting-list placement left every live invitation for the seat in the
