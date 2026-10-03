@@ -1178,6 +1178,23 @@ def _passes_group_rules(
 # player with the first stage that dropped them; the engine keeps the
 # survivors, the simulation keeps everything.
 
+def _still_invitable(cp: Association_CoachPlayer, instance: LessonInstance, coach_id: int,
+                     config: NotificationConfig) -> bool:
+    """#526 review item 3: the class-level checks of rule 18, read again under the per-student lock
+    just before an invitation is created (the wave's verdict may be minutes old)."""
+    from sqlalchemy import or_
+
+    if cp.player_id in set(instance.enrolled_player_ids):
+        return False
+    if NotificationEvent.query.filter(
+        _same_class(instance.id),
+        NotificationEvent.player_id == cp.player_id,
+        or_(NotificationEvent.status.in_(LIVE_INVITATION_STATES), NotificationEvent.answer == "no"),
+    ).first() is not None:
+        return False
+    return passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config))
+
+
 def _same_class(instance_id: int):
     """PAD-497 (invitations rule 18): the one place "that class" is keyed for a student's "no" and
     for one-live-offer-per-class — the single occurrence. A series-wide reading would change only
@@ -3975,6 +3992,7 @@ def _send_invitation_batch(
 
     # Determine batch size
     first_batch_already_full = False
+    first_batch_cap = None  # PAD-495 item 10 / #526 item 7: maxSimultaneous, re-counted under the lock
     if max_sim_override is not None:
         batch_size = max_sim_override
     else:
@@ -3993,6 +4011,7 @@ def _send_invitation_batch(
             ).count()
             batch_size = max(0, batch_size - already_out)
             first_batch_already_full = batch_size == 0
+            first_batch_cap = max_sim["value"]
 
     # Respect maxTotal across ALL vacancies for this instance
     max_total = restrictions.get("maxTotal", {})
@@ -4015,32 +4034,50 @@ def _send_invitation_batch(
     time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
 
     notified = []
-    for cp in eligible[:batch_size]:
+    for cp in eligible:
+        # #526 review: count the students actually SENT — one with no account to message, or at
+        # today's limit, no longer uses up a slot of the batch.
+        if len(notified) >= batch_size:
+            break
         if not _check_per_student_daily_limit(cp.player_id, coach_id, restrictions):
             continue
         player_user_id = _user_id_for_player(cp.player_id)
         if not coach_user_id or not player_user_id:
             continue
 
-        # PAD-495 item 3(a): the decision for THIS student is taken under the vacancy lock, held
-        # until their invitation commits with its message. A batch commits once per student, so a
-        # lock taken only once at its start would end after the first one; another sender (a
-        # decline's follow-up, the tick) could then pick a student this batch was about to invite.
-        Vacancy.query.filter_by(id=vacancy.id).with_for_update().one()
-        if NotificationEvent.query.filter(
-            NotificationEvent.vacancy_id == vacancy.id,
-            NotificationEvent.player_id == cp.player_id,
-            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
-        ).first() is not None:
-            continue  # another sender invited them meanwhile
-
         player = Player.query.get(cp.player_id)
         player_name = (player.user.name if player and player.user else "Player").split()[0]
 
-        # PAD-497 (#526 review item 1): the conversation first — getting or creating it commits —
-        # so nothing below commits until the invitation, its message and the link between them
-        # can commit together.
+        # PAD-497 (#526 review item 1): the conversation first — getting or creating it commits,
+        # so it must happen before the lock below, which that commit would end.
         conversation = _get_or_create_direct_conversation(coach_user_id, player_user_id)
+
+        # PAD-495 item 3(a) and #526 review items 2, 3, 7: the decision for THIS student is taken
+        # under the vacancy lock, held until their invitation commits with its message (a batch
+        # commits once per student, so a lock taken once at its start would end after the first).
+        # Under it, everything another sender or an answer may have changed meanwhile is read
+        # again: the spot (still open?), the class (still room?), and this student (no live offer
+        # for the class, no "no" for it, not enrolled, still over the eligibility bar).
+        locked = (
+            Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
+        )
+        db.session.expire(instance, ["presences"])
+        if locked.status != "open" or (
+            instance.effective_max_players is not None
+            and _effective_filled_spots(instance) >= instance.effective_max_players
+        ):
+            db.session.commit()  # release the lock: the spot is gone, invite nobody more
+            break
+        if first_batch_cap is not None and NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        ).count() >= first_batch_cap:
+            db.session.commit()  # release the lock: the first batch is already full
+            break
+        if not _still_invitable(cp, instance, coach_id, config):
+            db.session.commit()  # release the lock; nothing was written
+            continue
+
         event = NotificationEvent(
             coach_id=coach_id,
             lesson_instance_id=instance.id,
