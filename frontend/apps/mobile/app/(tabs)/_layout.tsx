@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme, validationTier } from "@levelup/config";
-import { queryKeys, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
+import { isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
@@ -85,15 +85,8 @@ export default function TabsLayout() {
         // one section now, so a private OR an academy event refreshes both —
         // "both lists refresh on join_request_created, join_requests_superseded
         // and on a decision, the same way they refresh on class_request_changed".
-        if (
-          evt.type === "class_request_changed" ||
-          evt.type === "join_request_created" ||
-          evt.type === "join_requests_superseded"
-        ) {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
-          void queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests });
-          void queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList });
-        }
+        // classes.class-requests rule 19 (PAD-488): and the calendar with them.
+        if (isRequestEvent(evt.type)) void refreshAfterRequestChange(queryClient);
         // classes.academy-class-booking rule 11 (PAD-504): joining or leaving a waiting list.
         if (evt.type === "waiting_list_changed") {
           void queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList });

@@ -69,10 +69,13 @@ def rename_court(court, data):
 def delete_court(court):
     """Rule 4: classes on the court keep running with no court (FK SET NULL is
     also applied explicitly, for SQLite in tests)."""
-    from padel_app.models import Lesson
+    from padel_app.models import Lesson, LessonInstance
 
     for lesson in Lesson.query.filter_by(court_id=court.id).all():
         lesson.court_id = None
+    # Rule 9 (PAD-513): an occurrence on that court falls back to its lesson's.
+    for instance in LessonInstance.query.filter_by(court_id=court.id).all():
+        instance.court_id = None
     db.session.delete(court)
     db.session.commit()
 

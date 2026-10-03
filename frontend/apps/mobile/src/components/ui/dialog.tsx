@@ -3,11 +3,13 @@ import { lightTheme } from "@levelup/config";
 import * as DialogPrimitive from "@rn-primitives/dialog";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
 import { useAndroidBack } from "@/lib/android-back";
 import { dialogEntering, dialogExiting } from "@/lib/dialog-motion";
+import { dialogMaxHeight } from "@/lib/dialog-size";
 import { cn } from "@/lib/utils";
 
 type ViewProps = React.ComponentProps<typeof View>;
@@ -75,6 +77,11 @@ function DialogContent({
   // Android back closes the dialog (mobile.android-runtime rule 3).
   const { open, onOpenChange } = DialogPrimitive.useRootContext();
   useAndroidBack(open, () => onOpenChange(false));
+  // PAD-496: never taller than the visible window. A plain style, not a className: see the
+  // note on the Animated.View above about measured classes on this subtree. A dialog whose
+  // list may shrink (`flexShrink: 1`) then keeps its header and footer on a short screen.
+  const { height: windowHeight } = useWindowDimensions();
+  const maxHeight = dialogMaxHeight(windowHeight, useSafeAreaInsets());
   return (
     <DialogPortal hostName={portalHost}>
       <DialogOverlay>
@@ -84,6 +91,7 @@ function DialogContent({
             className
           )}
           {...props}
+          style={[{ maxHeight }, props.style]}
         >
           {children}
           <DialogPrimitive.Close

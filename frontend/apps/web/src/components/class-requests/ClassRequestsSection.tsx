@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@levelup/hooks";
+import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import {
@@ -19,6 +19,8 @@ import {
   clubDateOfInstant,
   clubTodayISO,
   mergeClassRequestRows,
+  proposalAfterStartChange,
+  requestMinutes,
   slotOptions,
   splitClassRequestRows,
   type MergedClassRequestRow,
@@ -114,14 +116,10 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const [booking, setBooking] = useState(false);
 
   const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList }),
-      // The class sheet's own read, wherever it is cached — an academy decision
-      // made from this list must not leave it stale.
-      queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
-    ]);
+    // The request lists, the class sheet's own read wherever it is cached (an academy
+    // decision made from this list must not leave it stale) and, rule 19 (PAD-488),
+    // the calendar.
+    await refreshAfterRequestChange(queryClient);
   };
 
   useEffect(() => {
@@ -312,11 +310,20 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t("availability.startTime")}</Label>
-                  <Input type="time" value={proposal.startTime} onChange={(e) => setProposal((p) => ({ ...p, startTime: e.target.value }))} />
+                  <Input
+                    type="time"
+                    value={proposal.startTime}
+                    data-testid="class-request-proposal-start"
+                    // Rule 20 (PAD-491): the end moves with the start, keeping the form's length.
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setProposal((p) => ({ ...p, ...proposalAfterStartChange(p, next, requestMinutes(r)) }));
+                    }}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t("availability.endTime")}</Label>
-                  <Input type="time" value={proposal.endTime} onChange={(e) => setProposal((p) => ({ ...p, endTime: e.target.value }))} />
+                  <Input type="time" value={proposal.endTime} data-testid="class-request-proposal-end" onChange={(e) => setProposal((p) => ({ ...p, endTime: e.target.value }))} />
                 </div>
                 <Button size="sm" disabled={busy || !proposal.date} onClick={() => act(r.id, () => proposeClassRequest(r.id, proposal), "classRequests.proposed")} data-testid="class-request-propose-send">
                   {t("classRequests.proposeSend")}

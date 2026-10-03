@@ -16,11 +16,16 @@ import { Badge } from "@/components/ui/badge";
 // takes the same vocabulary. {type}, {date} (dd/mm) and {court} are PAD-430's.
 const CLASS_VARIABLES = ["{name}", "{level}", "{weekday}", "{time}", "{type}", "{date}", "{court}"];
 
+// PAD-489: the two "added to class" messages also take {class} (the title) and {when}.
+const ADDED_VARIABLES = [...CLASS_VARIABLES, "{class}", "{when}"];
+
 const VARIABLE_HINTS: Partial<Record<keyof MessageTemplates, string[]>> = {
   invite: CLASS_VARIABLES,
   reminder: CLASS_VARIABLES,
   reminder_followup: CLASS_VARIABLES,
   waiting_list_placed: CLASS_VARIABLES,
+  added_to_class: ADDED_VARIABLES,
+  added_to_class_coming: ADDED_VARIABLES,
 };
 
 const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
@@ -34,6 +39,8 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   reminder_declined: "settings.templates.labels.reminderDeclined",
   waiting_list_offer: "settings.templates.labels.waitingListOffer",
   waiting_list_placed: "settings.templates.labels.waitingListPlaced",
+  added_to_class: "settings.templates.labels.addedToClass",
+  added_to_class_coming: "settings.templates.labels.addedToClassComing",
 };
 
 const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
@@ -47,6 +54,8 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   reminder_declined: "settings.templates.descriptions.reminderDeclined",
   waiting_list_offer: "settings.templates.descriptions.waitingListOffer",
   waiting_list_placed: "settings.templates.descriptions.waitingListPlaced",
+  added_to_class: "settings.templates.descriptions.addedToClass",
+  added_to_class_coming: "settings.templates.descriptions.addedToClassComing",
 };
 
 const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
@@ -61,6 +70,12 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
   {
     labelKey: "settings.templates.groups.waitingList",
     keys: ["waiting_list_offer", "waiting_list_placed"],
+  },
+  {
+    // PAD-489: editable like the others; the "counted as coming" one is sent for a class
+    // created after its reminder time (notifications.reminders rule 22).
+    labelKey: "settings.templates.groups.addedToClass",
+    keys: ["added_to_class", "added_to_class_coming"],
   },
 ];
 
@@ -97,9 +112,11 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
   const insertVariable = (key: keyof MessageTemplates, variable: string) => {
     const textarea = textareaRefs.current[key];
     if (!textarea) return;
-    const start = textarea.selectionStart ?? local[key].length;
-    const end = textarea.selectionEnd ?? local[key].length;
-    const newValue = local[key].slice(0, start) + variable + local[key].slice(end);
+    // PAD-489: a key a config from before it may not hold; the server answers its default then.
+    const current = local[key] ?? "";
+    const start = textarea.selectionStart ?? current.length;
+    const end = textarea.selectionEnd ?? current.length;
+    const newValue = current.slice(0, start) + variable + current.slice(end);
     setLocal((prev) => ({ ...prev, [key]: newValue }));
     requestAnimationFrame(() => {
       textarea.focus();
@@ -123,7 +140,7 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
                 <p className="text-xs text-muted-foreground mt-0.5">{t(DESCRIPTION_KEYS[key])}</p>
                 <Textarea
                   ref={(el) => { textareaRefs.current[key] = el; }}
-                  value={local[key]}
+                  value={local[key] ?? ""}
                   onChange={(e) => setLocal((prev) => ({ ...prev, [key]: e.target.value }))}
                   rows={2}
                   className="text-sm resize-none"

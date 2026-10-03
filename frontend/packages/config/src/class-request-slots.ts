@@ -49,3 +49,33 @@ export function firstFreeDay(blocks: ReadonlyArray<{ date: string }>, today: str
   }
   return best ?? today;
 }
+
+const LAST_MINUTE = 23 * 60 + 59;
+const HHMM = /^\d{2}:\d{2}$/;
+
+/**
+ * classes.class-requests rule 20 (PAD-491): the coach's "propose another time" form moves the end
+ * with the start. The kept length is the one on the form (end − start) — the request's own
+ * duration until the coach edits the end, theirs afterwards. A form whose length is not positive
+ * falls back to the request's duration; the end never runs past 23:59. Changing the end never
+ * moves the start (the form does not call this for it).
+ */
+export function proposalAfterStartChange(
+  current: { startTime: string; endTime: string },
+  nextStart: string,
+  requestDurationMin: number,
+): { startTime: string; endTime: string } {
+  if (!HHMM.test(nextStart)) return { startTime: nextStart, endTime: current.endTime };
+  const formLength =
+    HHMM.test(current.startTime) && HHMM.test(current.endTime)
+      ? minutesOf(current.endTime) - minutesOf(current.startTime)
+      : 0;
+  const length = formLength > 0 ? formLength : requestDurationMin;
+  const end = Math.min(minutesOf(nextStart) + length, LAST_MINUTE);
+  return { startTime: nextStart, endTime: hhmmOf(end) };
+}
+
+/** A request's own length in minutes (the fallback for rule 20). */
+export function requestMinutes(r: { startTime: string; endTime: string }): number {
+  return minutesOf(r.endTime) - minutesOf(r.startTime);
+}

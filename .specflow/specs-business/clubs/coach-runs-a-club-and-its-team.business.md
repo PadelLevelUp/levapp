@@ -48,7 +48,8 @@ action of their own.
    club).
 8. The club's coaches list the club's courts in Settings → Club ("Campo 1", "Campo 2", in the
    order they want them). When scheduling or editing a class, the coach can say which court it is
-   on, and everyone sees the club and the court on the class card and its detail.
+   on — for the whole series or for one day only — and everyone sees the club and the court on the
+   class card and its detail.
 
 ## Business Rules
 

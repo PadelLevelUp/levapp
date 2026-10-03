@@ -124,6 +124,11 @@
       "spotFilled": "Essa vaga acabou de ser ocupada.",
       "joinedWaitingList": "Estás na lista de espera.",
       "offerDeclined": "Anotado — não ficas na lista."
+    },
+    "emailPrompt": {
+      "text": "Adiciona o teu email para poderes recuperar a palavra-passe e receber avisos.",
+      "add": "Adicionar email",
+      "dismiss": "Agora não"
     }
   }
 }

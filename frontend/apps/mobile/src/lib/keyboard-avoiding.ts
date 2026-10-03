@@ -14,3 +14,4 @@ import type { KeyboardAvoidingViewProps } from "react-native";
 export function keyboardAvoidingBehavior(): KeyboardAvoidingViewProps["behavior"] {
   return Platform.OS === "ios" || Platform.OS === "android" ? "padding" : undefined;
 }
+

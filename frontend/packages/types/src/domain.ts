@@ -505,7 +505,8 @@ export interface ClassInstance {
   name?: string;
   color?: string;
   levelId?: string;
-  /** clubs.courts rule 7 (PAD-194). */
+  /** clubs.courts rule 7 (PAD-194). B-266: the class's own club, whose courts the editor lists. */
+  clubId?: number | null;
   clubName?: string | null;
   courtId?: number | null;
   courtName?: string | null;
@@ -740,6 +741,11 @@ export interface Message {
    * per conversation page; absent from older servers, so treat as false.
    */
   classDeleted?: boolean;
+  /**
+   * messaging.messages rule 6 (PAD-492): the app wrote this message (a reminder, an
+   * invitation, a notice), not a person. Absent from older servers, so treat as false.
+   */
+  isAutomatic?: boolean;
   reactions?: { emoji: string; userId: string | number }[];
   actions?: MessageAction[];
   messageType?: string;
@@ -1226,6 +1232,10 @@ export interface MessageTemplates {
   reminder_declined: string;
   waiting_list_offer: string;
   waiting_list_placed: string;
+  /** PAD-330 / PAD-489: the coach put the student in a class. Optional: older configs lack them
+   *  and the server falls back to its defaults. */
+  added_to_class?: string;
+  added_to_class_coming?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────

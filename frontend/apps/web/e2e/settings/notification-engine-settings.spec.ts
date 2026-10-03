@@ -25,11 +25,10 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
  * missing-players alerts, validation reminders, send via email).
  */
 function autoNotifySwitch(page: import("@playwright/test").Page) {
-  return page
-    .getByText(/^automatic notifications$/i)
-    .locator("xpath=ancestor::div[contains(@class, 'flex')][1]")
-    .locator('[role="switch"]')
-    .first();
+  // B-282: by its test id. The old locator climbed from the label's English text to the nearest
+  // ancestor div with "flex" in its class; a wrapper added around the label and its save sign
+  // (PAD-473) became that ancestor, and the switch is not inside it.
+  return page.getByTestId("notification-engine-auto-notify-toggle");
 }
 
 /**
@@ -162,8 +161,8 @@ test("US-71: hours-between-reminders field appears only when reminder count > 1"
   if (!defaultVisible) {
     // Increment reminder count to 2 by clicking the + button in the "Reminders per student" stepper.
     // Structure: <p>Reminders per student</p> <p>helper</p> <div class="flex gap-1"><btn>-</btn><span>N</span><btn>+</btn></div>
-    // Walk up to the wrapper div (space-y-1.5), then find the stepper row and click the + button.
-    const row = page.getByText(/^reminders per student$/i).locator("xpath=ancestor::div[contains(@class, 'space-y-1.5')][1]");
+    // Find the stepper row by its test id and click the + button.
+    const row = page.getByTestId("reminder-per-student");
     await row.getByRole("button").last().click();
     await expect(page.getByTestId("reminder-hours-between")).toBeVisible({ timeout: 3000 });
   }
@@ -217,12 +216,9 @@ test("US-72: level attribute shows level-specific operations", async ({ page }) 
   await openNotificationsTab(page);
   await ensureDefaultInvitationGroups(page);
 
-  // Scope the combobox lookup to the Group 1 card so we don't hit the (closed)
+  // Scope the combobox lookup to the first group's card so we don't hit the (closed)
   // Reminders section's comboboxes.
-  const group1 = page
-    .getByText(/^group 1$/i)
-    .first()
-    .locator("xpath=ancestor::div[contains(@class, 'rounded') or contains(@class, 'border')][1]");
+  const group1 = page.getByTestId("invitation-group-0");
 
   // Open the attribute selector in the first rule of group 1
   const firstRuleAttrSelect = group1.locator('[role="combobox"]').first();

@@ -71,9 +71,7 @@ test("PAD-109: a searched student can be added to the standing waiting list", as
   await expect(page.getByText(/0\/3 credits/i).first()).toBeVisible();
 
   // Clean up so the shared seed DB is left as we found it.
-  const row = entryName.locator(
-    "xpath=ancestor::div[contains(@class, 'justify-between')][1]"
-  );
+  const row = page.getByTestId("standing-wl-entry").filter({ has: entryName });
   await row.getByRole("button").click();
   await expect(entryName).toBeHidden({ timeout: 5000 });
 });
