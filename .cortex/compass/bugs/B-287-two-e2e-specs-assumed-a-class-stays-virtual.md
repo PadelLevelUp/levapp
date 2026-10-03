@@ -52,6 +52,15 @@ before the panel opens, and both columns are green.
 - `settings/season-definition.spec.ts`: 3 passed (32.8 s). Its `:98` case failed in the gate's
   shard 4 at `pick` (`:39`). That makes it load-sensitive; no new id.
 
+**Related, fixed in the same PR (#542), no id of its own:** two of PAD-489's own backend tests
+(`test_pad489_counted_as_coming.py`, the request-path pair) were red on every CI run from
+mid-afternoon, on staging itself (#542's Postgres lane, run 37126782284; locally at 14:49Z on a
+clean 71981fb80). They book "six hours from now", and test_pad104's coach is free only 16:00-22:00,
+so the slot fitted only between about 10:00 and 15:00 Lisbon. Their "now" was also unpinnable:
+pytest imports test modules outside `padel_app.*`, so `pin_clock` never rebinds a name they
+imported at the top. Fix: `_request_for` reads `dates.utcnow_naive()` at call time and both tests
+pin 11:00 (slot 17:00-18:00): 14 passed. With the pin moved to 16:30 (slot 22:30), the same two fail.
+
 ### Resolution
 - Tests: the two specs above, plus the backend test's comment.
 - Spec: `attendance.confirm` (two criteria).
