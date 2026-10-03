@@ -1297,6 +1297,8 @@ export interface ApprovalQueuePlayer {
   roundNumber?: number;
   groupIndex?: number;
   groupLabel?: string;
+  /** PAD-446: a waiting-list student, asked first (round 0). */
+  fromWaitingList?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1419,12 +1421,26 @@ export interface InviteSimulationRound {
   candidates: InviteSimulationCandidate[];
 }
 
+export interface InviteSimulationWaitingListEntry {
+  playerId: string;
+  name: string | null;
+  standing: boolean;
+  /** naive-UTC ISO instant the student joined the list (a standing entry's creation time) */
+  joinedAt: string | null;
+}
+
 export interface InviteSimulation {
   /** naive-UTC ISO instant the answer was evaluated at */
   evaluatedAt: string;
   approvalRequired: boolean;
   gates: InviteSimulationGate[];
+  /** Always null since PAD-446 (nobody is placed); kept because older builds read it. */
   waitingListPlacement: { playerId: string; name: string | null; standing: boolean } | null;
+  /**
+   * PAD-446 (notifications.invite-simulation rule 8): group 0, the class's waiting-list students
+   * the engine would ask first, in its order. Absent from servers older than PAD-446.
+   */
+  waitingList?: InviteSimulationWaitingListEntry[];
   spot: InviteSimulationSpot;
   rounds: InviteSimulationRound[];
 }
