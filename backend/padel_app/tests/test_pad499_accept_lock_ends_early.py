@@ -512,11 +512,12 @@ def _fails_once(monkeypatch):
     monkeypatch.setattr(ns, "_add_player_to_instance", failing)
 
 
-def test_waiting_list_a_failed_enrolment_changes_nothing_and_the_fill_can_run_again(app, monkeypatch):
-    """The fill closes the spot (retiring Caio's invitation) and enrols Bea in one commit. If the
-    enrolment raises, the spot is still open, Caio's invitation still live and Bea still waiting."""
+def test_waiting_list_a_failed_enrolment_changes_nothing_and_the_yes_can_be_given_again(app, monkeypatch):
+    """PAD-446: a waiting-list student's yes to their group-0 invitation closes the spot (retiring
+    Caio's invitation), settles the entry and enrols Bea in one commit. If the enrolment raises, the
+    spot is still open, Caio's invitation still live and Bea still on the list; her yes then works."""
     from padel_app.models import LessonInstance, NotificationEvent, Vacancy, WaitingListEntry
-    from padel_app.services.notification_service import _fill_from_waiting_list, get_or_create_config
+    from padel_app.services.notification_service import respond_to_notification
     from padel_app.tests.test_notification_integration import PATCHES as INT_PATCHES
     from padel_app.tests.test_pad317_one_vacancy_close import _invite, _message_is_actionable, _open_vacancy, _world
 
@@ -525,19 +526,16 @@ def test_waiting_list_a_failed_enrolment_changes_nothing_and_the_fill_can_run_ag
     with app.app_context(), patch(INT_PATCHES[0]), patch(INT_PATCHES[1]):
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
         caio = _invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent")
+        bea = _invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "sent")
+        NotificationEvent.query.get(bea).round_number = 0  # group 0
         entry = WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
                                  coach_id=ids["coach_id"], is_active=True)
         db.session.add(entry)
         db.session.commit()
         entry_id = entry.id
 
-        def fill():
-            return _fill_from_waiting_list(db.session.get(WaitingListEntry, entry_id), Vacancy.query.get(vacancy_id),
-                                           LessonInstance.query.get(ids["instance_id"]), ids["coach_id"],
-                                           get_or_create_config(ids["coach_id"]))
-
         with pytest.raises(RuntimeError):
-            fill()
+            respond_to_notification(bea, "yes", ids["bea_user_id"])
         db.session.rollback()
         db.session.expire_all()
         assert Vacancy.query.get(vacancy_id).status == "open"
@@ -546,9 +544,10 @@ def test_waiting_list_a_failed_enrolment_changes_nothing_and_the_fill_can_run_ag
         assert db.session.get(WaitingListEntry, entry_id).is_active is True
         assert ids["bea"] not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
 
-        assert fill() is True
+        assert respond_to_notification(bea, "yes", ids["bea_user_id"])["action"] == "confirmed"
         db.session.expire_all()
         assert ids["bea"] in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+        assert db.session.get(WaitingListEntry, entry_id).is_active is False
 
 
 def test_join_a_failed_enrolment_changes_nothing_and_the_coach_can_accept_again(app, monkeypatch):
@@ -586,10 +585,11 @@ def test_join_a_failed_enrolment_changes_nothing_and_the_coach_can_accept_again(
 # ── #527 final read item 5: the waiting-list fill re-checks the student under its lock ──────
 
 @pytest.mark.parametrize("meanwhile", ["declined", "left_the_list", "enrolled"])
-def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch, meanwhile):
-    """`_check_waiting_list` picks the entry before the lock. A "no" to this class (rule 18), the
-    student leaving the waiting list, or the student being enrolled by another path, landing between
-    the pick and the lock must stop the placement. The change is written by ANOTHER connection, as a
+def test_waiting_list_invitation_rechecks_the_student_under_its_lock(app, monkeypatch, meanwhile):
+    """PAD-446 (waiting-list rule 13): the batch picks the waiting list (`_waiting_list_candidates`)
+    before the per-student vacancy lock. A "no" to this class (rule 18), the student leaving the
+    waiting list, or the student being enrolled by another path, landing between the pick and the
+    lock must stop the invitation. The change is written by ANOTHER connection, as a
     concurrent request would: a commit in this session would expire and reload `entry` by itself
     and hide a missing re-read (final read of #527, F1)."""
     from padel_app.models import LessonInstance, NotificationEvent, Vacancy, WaitingListEntry
@@ -605,10 +605,10 @@ def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch,
         db.session.add(entry)
         db.session.commit()
         entry_id = entry.id
-        real_lock = ns._lock_vacancy_and_instance
+        real_conversation = ns._get_or_create_direct_conversation
 
-        def lock(vacancy, instance):
-            # what another request committed, on its own connection, while this fill was on its way
+        def conversation(coach_user_id, player_user_id):
+            # just before the per-student lock: what another request committed, on its own connection
             from sqlalchemy.orm import Session as OtherSession
 
             from padel_app.models.presences import Presence
@@ -623,14 +623,15 @@ def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch,
                 else:
                     other.add(Presence(player_id=ids["bea"], lesson_instance_id=ids["instance_id"]))
                 other.commit()
-            return real_lock(vacancy, instance)
+            return real_conversation(coach_user_id, player_user_id)
 
-        monkeypatch.setattr(ns, "_lock_vacancy_and_instance", lock)
-        placed = ns._fill_from_waiting_list(
-            db.session.get(WaitingListEntry, entry_id), Vacancy.query.get(vacancy_id),
-            LessonInstance.query.get(ids["instance_id"]), ids["coach_id"], ns.get_or_create_config(ids["coach_id"]))
+        monkeypatch.setattr(ns, "_get_or_create_direct_conversation", conversation)
+        sent = ns._send_invitation_batch(
+            Vacancy.query.get(vacancy_id), LessonInstance.query.get(ids["instance_id"]),
+            ns.get_or_create_config(ids["coach_id"]), ids["coach_id"])
         db.session.expire_all()
-        assert placed is False
+        assert str(ids["bea"]) not in [row["id"] for row in sent]
+        assert NotificationEvent.query.filter_by(player_id=ids["bea"], round_number=0).count() == 0
         if meanwhile != "enrolled":
             assert ids["bea"] not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
         assert Vacancy.query.get(vacancy_id).status == "open"

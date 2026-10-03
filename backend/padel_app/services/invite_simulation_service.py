@@ -193,21 +193,28 @@ def _gates(instance, config, now: datetime) -> list[dict]:
     ]
 
 
-def _waiting_list_placement(vacancy, instance, coach_id: int, config) -> dict | None:
-    """Who the engine would place directly from the waiting list before
-    inviting anyone (notifications.waiting-list rules 4a–4d), read-only."""
+def _waiting_list_asked_first(vacancy, instance, coach_id: int, config) -> list[dict]:
+    """PAD-446 (rule 8): group 0 — the waiting-list students the engine would ask first, in its
+    order, read-only (an expired standing entry is skipped, not deactivated)."""
     from padel_app.models import Player
-    from padel_app.services.notification_service import _check_waiting_list
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+    from padel_app.services.notification_service import _waiting_list_candidates
 
-    entry = _check_waiting_list(vacancy, instance, coach_id, config, 1, dry_run=True)
-    if entry is None:
-        return None
-    player = Player.query.get(entry.player_id)
-    return {
-        "playerId": str(entry.player_id),
-        "name": player.user.name if player and player.user else None,
-        "standing": entry.standing_entry_id is not None,
-    }
+    asked = []
+    for entry, _cp in _waiting_list_candidates(vacancy, instance, coach_id, config, dry_run=True):
+        player = Player.query.get(entry.player_id)
+        standing = (
+            StandingWaitingListEntry.query.get(entry.standing_entry_id)
+            if entry.standing_entry_id else None
+        )
+        joined = standing.created_at if standing is not None else entry.joined_at
+        asked.append({
+            "playerId": str(entry.player_id),
+            "name": player.user.name if player and player.user else None,
+            "standing": standing is not None,
+            "joinedAt": joined.isoformat() if joined else None,
+        })
+    return asked
 
 
 def _spot(vacancy, level_source: str) -> dict:
@@ -345,15 +352,13 @@ def simulate_vacancy(instance, coach_id: int, departing_player_id: int, *, now: 
     vacancy, level_source = _hypothetical_vacancy(instance, coach_id, departing_player_id)
 
     rounds = ordered_invite_rounds(vacancy, instance, coach_id, config)
-    placement = _waiting_list_placement(vacancy, instance, coach_id, config)
-    if placement is not None:
-        # The placed student is placed, not invited: they never appear in a
-        # round (rule 8 / AC "A waiting-list member who passes the bar is
-        # placed, not invited"). The rest of the queue is still shown — it is
-        # what happens if the placement does not go through.
-        placed_id = int(placement["playerId"])
+    waiting_list = _waiting_list_asked_first(vacancy, instance, coach_id, config)
+    if waiting_list:
+        # PAD-446 (rule 8): group 0 is asked first, and the offer it holds keeps a waiting-list
+        # student out of every later round — so they appear in no round here.
+        asked_first = {int(w["playerId"]) for w in waiting_list}
         rounds = [
-            (number, kind, rules, [cp for cp in cps if cp.player_id != placed_id])
+            (number, kind, rules, [cp for cp in cps if cp.player_id not in asked_first])
             for number, kind, rules, cps in rounds
         ]
 
@@ -361,7 +366,9 @@ def simulate_vacancy(instance, coach_id: int, departing_player_id: int, *, now: 
         "evaluatedAt": _now.isoformat(),
         "approvalRequired": bool(_is_semi_auto(config)),
         "gates": _gates(instance, config, _now),
-        "waitingListPlacement": placement,
+        # Always null since PAD-446 (nobody is placed); older builds read the field.
+        "waitingListPlacement": None,
+        "waitingList": waiting_list,
         "spot": _spot(vacancy, level_source),
         "rounds": _serialize_rounds(rounds, vacancy, instance, coach_id, config, _now),
     }

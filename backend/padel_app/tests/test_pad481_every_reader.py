@@ -115,13 +115,13 @@ def test_invitation_recipients_evaluate_candidates_tags_weaker_ineligible(app):
         assert verdicts[weak].stage == "eligibility"
 
 
-def test_waiting_list_fill_places_stronger_not_weaker(app):
-    """Reader: waiting-list fill, `_check_waiting_list`.
+def test_waiting_list_asks_stronger_not_weaker(app):
+    """Reader: the waiting list's group 0, `_waiting_list_candidates` (PAD-446).
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.services.notification_service import _check_waiting_list
+    from padel_app.services.notification_service import _waiting_list_candidates
 
     ids = _seed(app, eligibility_rules=BAR)
     with app.app_context():
@@ -137,16 +137,16 @@ def test_waiting_list_fill_places_stronger_not_weaker(app):
         config = NotificationConfig.query.filter_by(coach_id=ids["coach_id"]).first()
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance.id).first()
 
-        # (b) only the weaker student is waiting: nobody is placed.
-        assert _check_waiting_list(vacancy, instance, ids["coach_id"], config, 1) is None
+        # (b) only the weaker student is waiting: nobody is asked from the list.
+        assert _waiting_list_candidates(vacancy, instance, ids["coach_id"], config) == []
 
-        # (a) the stronger student joins the list and is the one placed.
+        # (a) the stronger student joins the list and is the one asked.
         db.session.add(WaitingListEntry(
             lesson_instance_id=instance.id, player_id=strong,
             coach_id=ids["coach_id"], is_active=True))
         db.session.commit()
-        picked = _check_waiting_list(vacancy, instance, ids["coach_id"], config, 1)
-        assert picked is not None and picked.player_id == strong
+        picked = [entry.player_id for entry, _ in _waiting_list_candidates(vacancy, instance, ids["coach_id"], config)]
+        assert picked == [strong]
 
 
 def test_open_spot_calendar_shows_stronger_not_weaker(app):
