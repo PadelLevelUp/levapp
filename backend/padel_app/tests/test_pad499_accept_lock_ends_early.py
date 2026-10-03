@@ -303,3 +303,55 @@ def test_coach_a_coach_yes_and_a_student_yes_on_two_spots_cannot_overfill(app, m
     assert filled <= places, f"class overfilled: {filled} on {places} places"
     assert results["coach"]["action"] == "confirmed"
     assert results["student"]["action"] == "spot_filled_waiting_list_offered"
+
+
+@POSTGRES_ONLY
+def test_join_an_accepted_join_request_and_a_student_yes_cannot_overfill(app, monkeypatch):
+    """#527 review item 2: the coach accepts Z's join request while Y answers yes on V2, one place
+    left. Forced: the join path pauses before enrolling until Y's answer has finished. With rule 10's
+    lock in the join accept, Y waits on the class lock and then finds the class full."""
+    from padel_app.models import Coach
+    from padel_app.models.class_join_request import ClassJoinRequest
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.services.class_join_request_service import decide_join_request_service
+    from padel_app.services.notification_service import respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, y, z) = _two_open_spots_for_one_place(app)
+    with app.app_context():
+        coach_id = db.session.get(NotificationEvent, ids[x][0]).coach_id
+        row = ClassJoinRequest(lesson_instance_id=instance_id, player_id=z, coach_id=coach_id, status="pending")
+        db.session.add(row)
+        db.session.commit()
+        request_id = row.id
+    reached, second_done = threading.Event(), threading.Event()
+    real_add = ns._add_player_to_instance
+
+    def add(player_id, instance):
+        if player_id == z:
+            reached.set()
+            second_done.wait(timeout=5)
+        return real_add(player_id, instance)
+
+    monkeypatch.setattr(ns, "_add_player_to_instance", add)
+    results = {}
+
+    def join():
+        coach = Coach.query.get(coach_id)
+        results["join"] = decide_join_request_service(request_id, coach, accept=True, confirm=True, now=NOW)
+
+    def student():
+        reached.wait(timeout=5)
+        try:
+            results["student"] = respond_to_notification(ids[y][0], "yes", ids[y][1], now=NOW + timedelta(minutes=1))
+        finally:
+            second_done.set()
+
+    with _io():
+        _race(app, [join, student])
+    filled, places = _enrolled(app, instance_id)
+    assert filled <= places, f"class overfilled: {filled} on {places} places"
+    assert results["student"]["action"] == "spot_filled_waiting_list_offered"
