@@ -2162,7 +2162,7 @@ def _format_class_when(instance: LessonInstance, locale: str = "en") -> str:
     return _format_when(getattr(instance, "start_datetime", None), locale)
 
 
-def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=None):
+def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=None, counted_as_coming=False):
     """Tell a student their coach has placed them in a class (PAD-330).
 
     Enrolment was silent on every coach-initiated path: creating a class with
@@ -2181,6 +2181,10 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
 
     Best-effort by design: a messaging failure must never fail the enrolment that
     triggered it, so everything here is contained and logged.
+
+    ``counted_as_coming`` (PAD-489, notifications.reminders rule 22): the class was created
+    after its reminder time and the student's presence is already answered yes; the
+    ``added_to_class_coming`` template says so and asks nothing.
 
     Returns the Message, or ``None`` when nothing was sent.
     """
@@ -2215,7 +2219,9 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
         )
         started_at = getattr(source, "start_datetime", None)
         text = _format_template(
-            resolve_message_template(templates, "added_to_class", locale),
+            resolve_message_template(
+                templates, "added_to_class_coming" if counted_as_coming else "added_to_class", locale,
+            ),
             **{
                 "name": first_name,
                 # `class` is a keyword, so the placeholder is passed by name.
@@ -2233,6 +2239,8 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
             },
         )
         metadata = {"addedToClass": True}
+        if counted_as_coming:
+            metadata["countedAsComing"] = True
         if instance is not None:
             metadata["lessonInstanceId"] = instance.id
         return _send_system_message(
