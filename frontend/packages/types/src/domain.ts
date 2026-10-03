@@ -1215,6 +1215,10 @@ export interface MessageTemplates {
   reminder_declined: string;
   waiting_list_offer: string;
   waiting_list_placed: string;
+  /** PAD-330 / PAD-489: the coach put the student in a class. Optional: older configs lack them
+   *  and the server falls back to its defaults. */
+  added_to_class?: string;
+  added_to_class_coming?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────
