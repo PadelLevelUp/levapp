@@ -33,6 +33,7 @@ from padel_app import create_app
 from padel_app.models import User
 from padel_app.sql_db import db, init_db
 from padel_app.tests.git_env import GIT_LOCAL_ENV_VARS
+from padel_app.tests.helpers import heal_clock_bindings
 
 # B-173: a suite started from a git hook inherits GIT_DIR & co.; a test's `git init <scratch>`
 # then re-initialised the shared repository as bare. No test ever needs them — drop them first.
@@ -350,3 +351,12 @@ def no_test_may_hang():
         signal.alarm(0)
         signal.signal(signal.SIGALRM, previous)
 
+
+
+@pytest.fixture(autouse=True)
+def _heal_pinned_clock():
+    """#523: a module first imported while a test pinned the clock keeps that test's fake.
+    Autouse fixtures are set up first and torn down last, so this runs after monkeypatch's
+    undo and puts the genuine clock back wherever a fake is left."""
+    yield
+    heal_clock_bindings()
