@@ -37,12 +37,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
+  failedPartText,
   SettingsSaveContext,
   SettingsUnsavedContext,
   type RegisterSaver,
   type TabSaver,
 } from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
+import { setLeaveGuard } from "@/lib/leave-guard";
 import {
   Bell,
   BellOff,
@@ -397,6 +399,7 @@ export default function SettingsPage() {
   };
   const keepEditing = () => {
     setPendingHref(null);
+    setPendingLeave(null);
     if (pendingTab?.fromUrl) {
       // Only `tab` changes: the URL's other params (the competency manager's `competencies=open`) stay.
       const params = new URLSearchParams(location.search);
@@ -543,8 +546,8 @@ export default function SettingsPage() {
         if (!saver) continue;
         try {
           await saver.save();
-        } catch {
-          failed.push(saver.label);
+        } catch (error) {
+          failed.push(failedPartText(saver.label, error));
         }
       }
     } finally {
@@ -553,7 +556,7 @@ export default function SettingsPage() {
     if (failed.length > 0) {
       toast({
         title: t("settings.toast.couldNotSaveTitle"),
-        description: t("settings.toast.couldNotSaveParts", { parts: failed.join(", ") }),
+        description: t("settings.toast.couldNotSaveParts", { parts: failed.join("; ") }),
         variant: "destructive",
       });
       return;
@@ -579,6 +582,16 @@ export default function SettingsPage() {
   // settings.explicit-save rule 5: an in-app link out of Settings (sidebar, avatar menu) asks first while
   // anything is unsaved. Captured before React Router's own handler; Discard then follows the link.
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  // #550 review F3: leaving through code (the avatar menu's sign-out) asks the same question.
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    setLeaveGuard((proceed) => {
+      setPendingLeave(() => proceed);
+      return true;
+    });
+    return () => setLeaveGuard(null);
+  }, [hasUnsaved]);
   useEffect(() => {
     if (!hasUnsaved) return;
     const onClick = (e: MouseEvent) => {
@@ -1010,11 +1023,12 @@ export default function SettingsPage() {
       {/* The URL revert lives on the two "keep" gestures, not on onOpenChange: Radix also closes
           through onOpenChange on Discard, which must leave the URL on the new section (PAD-459). */}
       <AlertDialog
-        open={pendingTab !== null || pendingHref !== null}
+        open={pendingTab !== null || pendingHref !== null || pendingLeave !== null}
         onOpenChange={(open) => {
           if (open) return;
           setPendingTab(null);
           setPendingHref(null);
+          setPendingLeave(null);
         }}
       >
         <AlertDialogContent data-testid="settings-unsaved-dialog" onEscapeKeyDown={keepEditing}>
@@ -1029,6 +1043,15 @@ export default function SettingsPage() {
             <AlertDialogAction
               data-testid="settings-unsaved-discard"
               onClick={() => {
+                if (pendingLeave) {
+                  // Discard, then leave the way the coach asked (e.g. sign out).
+                  const leave = pendingLeave;
+                  discardPageDrafts();
+                  setPendingLeave(null);
+                  setLeaveGuard(null);
+                  leave();
+                  return;
+                }
                 if (pendingHref) {
                   // settings.explicit-save rule 5: Discard follows the link the coach clicked.
                   const href = pendingHref;

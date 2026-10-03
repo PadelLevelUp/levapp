@@ -47,7 +47,10 @@ device. The server stays the one truth; the user decides at the moment of leavin
    leave-page prompt (`beforeunload`); the browser owns its wording.
 6. **Limit, named.** Web's browser Back/Forward buttons move through the app's history without a
    page unload, so no prompt can stop them (`settings.explicit-save` rule 5); they drop unsaved edits as
-   before. The app's own links and iOS's back and swipe ask since PAD-506.
+   before. The one in-app limit is a programmatic `navigate()` elsewhere in the web app (not a link
+   click, not the avatar menu's sign-out): it does not ask and drops the edits
+   (`settings.explicit-save` rule 5). The app's own links, the avatar menu's sign-out (#550) and iOS's
+   back and swipe ask since PAD-506.
 
 ### Acceptance Criteria
 

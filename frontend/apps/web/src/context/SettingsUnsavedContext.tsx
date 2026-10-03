@@ -91,3 +91,20 @@ export function useTabSave(sectionId: string, unsaved: boolean, saver: TabSaver)
     return () => registerRef.current?.(sectionId, null);
   }, [sectionId]);
 }
+
+/**
+ * #550 review F2: a saver that refuses for a reason the coach must read (an invalid level, a level that
+ * cannot be deleted) throws this, and the page's one failure toast names the part WITH the reason — the
+ * toaster shows one toast at a time, so a section's own toast would be replaced before it was read.
+ */
+export class TabSaveError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = "TabSaveError";
+  }
+}
+
+/** How a failed part is named in the page's toast: "Níveis — Preenche o código e o nome." or just "Níveis". */
+export function failedPartText(label: string, error: unknown): string {
+  return error instanceof TabSaveError ? `${label} — ${error.reason}` : label;
+}
