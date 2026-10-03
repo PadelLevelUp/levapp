@@ -4733,6 +4733,25 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
 
+def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
+    """PAD-499 (#527 review item 3): record a student's "yes" — the answer, and the invite bubble's
+    state — under rule 10's lock, flushed into the commit that decides it, so a failed commit leaves
+    the bubble unanswered (the buttons back) rather than "Accepted" on a spot they do not hold.
+    ``response`` is what the bubble shows: "yes" (Accepted) or "spot_filled" when the yes was
+    refused. The bubble's live edit is published after that commit."""
+    from padel_app.serializers.message import serialize_message
+    from padel_app.tools.after_commit import on_commit
+
+    event.answer = "yes"
+    if invite_msg is not None and invite_msg.msg_metadata is not None:
+        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": response}
+    db.session.flush()
+    if invite_msg is not None:
+        payload = {"type": "message_edited", "payload": serialize_message(invite_msg, None)}
+        recipients = list(message_recipient_ids(invite_msg))
+        on_commit(lambda: publish(payload, recipients))
+
+
 def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = False) -> dict | None:
     """B-260 (invitations rule 17): the response for an answer already given, else None.
 
@@ -4809,13 +4828,14 @@ def respond_to_notification(
     repeat = _repeated_answer(event, action)
     if repeat is not None:
         return repeat
-    if action in ("yes", "no"):
-        event.answer = action  # PAD-497 (rule 18): the answer itself, not only the status
     if action == "no":
-        # Claimed while the vacancy lock is still held: the invite message's save below commits
-        # and releases it, and a second "no" waiting on that lock must already see this one.
+        # PAD-497 (rule 18): the answer itself, not only the status. Claimed while the vacancy lock
+        # is still held: the invite message's save below commits and releases it, and a second
+        # "no" waiting on that lock must already see this one. A "yes" records its answer under
+        # rule 10's lock instead, inside the single commit (PAD-499, #527 review item 3).
+        event.answer = "no"
         event.status = "expired"
-    db.session.flush()
+        db.session.flush()
 
     config = get_or_create_config(event.coach_id)
 
@@ -4825,21 +4845,15 @@ def respond_to_notification(
     coach_user_id = coach.user_id if coach else None
     player_user_id = acting_user_id
 
-    invite_msg = None
-    # Mark original invite message as responded
-    if event.message_id:
-        invite_msg = Message.query.get(event.message_id)
-        if invite_msg and invite_msg.msg_metadata is not None:
-            invite_msg.msg_metadata = {
-                **invite_msg.msg_metadata,
-                "responded": True,
-                "response": action,
-            }
-            invite_msg.save()
-            publish(
-                {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
-                message_recipient_ids(invite_msg),
-            )
+    invite_msg = Message.query.get(event.message_id) if event.message_id else None
+    if action == "no" and invite_msg is not None and invite_msg.msg_metadata is not None:
+        # Mark the invite message as answered (a "yes" does this under the lock, below).
+        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": "no"}
+        invite_msg.save()
+        publish(
+            {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
+            message_recipient_ids(invite_msg),
+        )
 
     instance = event.lesson_instance
     vacancy = event.vacancy
@@ -4905,6 +4919,7 @@ def respond_to_notification(
 
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
+            _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
             if coach_user_id:
@@ -4930,6 +4945,7 @@ def respond_to_notification(
 
         # Re-check capacity
         if _effective_filled_spots(instance) >= instance.effective_max_players:
+            _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
             if coach_user_id:
@@ -4961,6 +4977,7 @@ def respond_to_notification(
         # B-260: the answer is confirmed before anything here commits (retiring the other
         # invitations saves their messages, which commits and ends the lock), so a second "yes"
         # waiting on the lock finds it confirmed rather than a filled vacancy and a `sent` invitation.
+        _record_yes(event, invite_msg, "yes")
         event.status = "confirmed"
         db.session.flush()
         retired = []
