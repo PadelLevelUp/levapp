@@ -282,11 +282,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     "another offer" for that skip — the student already has an offer for this class and is not
     sent an automatic one on top — but, like any offer, holds a spot only for a student the round
     would otherwise ask, so a student the coach excluded never holds a spot with a manual
-    invitation. No invitation, automatic or manual, is ever left live without its message: it is
-    committed together with the message (PAD-495 item 8, landed here), and one whose message a
-    backstop withholds (an empty body, PAD-67; availability, PAD-107; block-all, PAD-112) or that has
-    no account to message is discarded — so a student cannot hold a spot with an invitation they
-    never received.
+    invitation. An invitation, automatic or manual, its message and the link between them
+    (`message_id`) land in ONE commit: the conversation is fetched first (getting or creating it
+    commits), the invitation is flushed, and the message's commit carries all three; delivery (the
+    live event, the push) comes after it. A message that fails rolls its invitation back; one a
+    backstop withholds (an empty body, PAD-67; availability, PAD-107; block-all, PAD-112), or a
+    student with no account to message, leaves no invitation; a delivery that fails after the commit
+    leaves the invitation pointing at its message. Tested at those commit points (#526 review).
     **Rounds.** A round whose candidates all hold another spot's offer moves on, like an empty
     round (one round per tick, PAD-87), whatever `maxInactiveTime` is: a starved spot reaches its
     last round within (groups − 1) ticks, asking on the way any student a later group admits. Only
