@@ -204,3 +204,102 @@ def test_cell_b2_a_failed_single_commit_changes_nothing_the_student_can_see(app,
         db.session.expire_all()
         assert db.session.get(NotificationEvent, ids[x][0]).status == "confirmed"
         assert x in db.session.get(LessonInstance, instance_id).enrolled_player_ids
+
+
+# ── #527 review item 2 / #526 review items 4, 5: the coach accept ───────────────────────────
+
+def test_coach_a_refused_coach_yes_keeps_the_students_own_no(app, monkeypatch):
+    """#526 review item 4: B said no; A took the spot; the coach then records yes on B's invitation.
+    It is refused (spot filled) and must not overwrite B's "no" — rule 18 would re-admit B."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services.notification_service import coach_respond_to_notification, respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, y, z) = _two_open_spots_for_one_place(app)
+    with app.app_context(), _io():
+        respond_to_notification(ids[z][0], "no", ids[z][1], now=NOW + timedelta(minutes=1))
+        respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=2))
+        event = db.session.get(NotificationEvent, ids[z][0])
+        result = coach_respond_to_notification(ids[z][0], "yes", event.coach_id, now=NOW + timedelta(minutes=3))
+        db.session.expire_all()
+        assert result["action"] in ("spot_filled", "declined")
+        assert db.session.get(NotificationEvent, ids[z][0]).answer == "no"
+
+
+def test_coach_a_failed_enrolment_changes_nothing_and_the_coach_can_retry(app, monkeypatch):
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, _y, _z) = _two_open_spots_for_one_place(app)
+    real_add = ns._add_player_to_instance
+    calls = {"n": 0}
+
+    def failing(player_id, instance):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("enrolment failed")
+        return real_add(player_id, instance)
+
+    monkeypatch.setattr(ns, "_add_player_to_instance", failing)
+    with app.app_context(), _io():
+        coach_id = db.session.get(NotificationEvent, ids[x][0]).coach_id
+        with pytest.raises(RuntimeError):
+            ns.coach_respond_to_notification(ids[x][0], "yes", coach_id, now=NOW + timedelta(minutes=1))
+        db.session.rollback()
+        db.session.expire_all()
+        event = db.session.get(NotificationEvent, ids[x][0])
+        assert (event.status, event.answer) == ("sent", None)
+        assert db.session.get(Vacancy, event.vacancy_id).status == "open"
+        assert ns.coach_respond_to_notification(ids[x][0], "yes", coach_id, now=NOW + timedelta(minutes=2))["action"] == "confirmed"
+        db.session.expire_all()
+        assert x in db.session.get(LessonInstance, instance_id).enrolled_player_ids
+
+
+@POSTGRES_ONLY
+def test_coach_a_coach_yes_and_a_student_yes_on_two_spots_cannot_overfill(app, monkeypatch):
+    """#527 review item 2: the coach records X's yes on V1 while Y answers yes on V2, one place left.
+    Forced: the coach pauses before enrolling until Y's answer has finished. With the class lock in
+    the coach path Y waits on it and then finds the class full."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import coach_respond_to_notification, respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, y, _z) = _two_open_spots_for_one_place(app)
+    with app.app_context():
+        coach_id = db.session.get(NotificationEvent, ids[x][0]).coach_id
+    reached, second_done = threading.Event(), threading.Event()
+    real_add = ns._add_player_to_instance
+
+    def add(player_id, instance):
+        if player_id == x:
+            reached.set()
+            second_done.wait(timeout=5)
+        return real_add(player_id, instance)
+
+    monkeypatch.setattr(ns, "_add_player_to_instance", add)
+    results = {}
+
+    def coach():
+        results["coach"] = coach_respond_to_notification(ids[x][0], "yes", coach_id, now=NOW + timedelta(minutes=1))
+
+    def student():
+        reached.wait(timeout=5)
+        try:
+            results["student"] = respond_to_notification(ids[y][0], "yes", ids[y][1], now=NOW + timedelta(minutes=1))
+        finally:
+            second_done.set()
+
+    with _io():
+        _race(app, [coach, student])
+    filled, places = _enrolled(app, instance_id)
+    assert filled <= places, f"class overfilled: {filled} on {places} places"
+    assert results["coach"]["action"] == "confirmed"
+    assert results["student"]["action"] == "spot_filled_waiting_list_offered"
