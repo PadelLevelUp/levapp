@@ -197,9 +197,11 @@ def test_reconcile_publishes_at_its_commit(app, trail):
         _published_at_the_closing_commit(trail, retired_message)
 
 
-def test_the_coach_putting_a_returner_back_publishes_at_its_commit(app, monkeypatch, trail):
-    """A guard, not a red cell: here the reconcile closes nothing and so commits nothing, and the
-    old order (queue after the reconcile) published at the same commit as the new one."""
+@pytest.mark.parametrize("stale_spot", [False, True])
+def test_the_coach_putting_a_returner_back_publishes_at_its_commit(app, monkeypatch, trail, stale_spot):
+    """enrol's return. Without a stale spot the reconcile closes nothing and commits nothing, and
+    either order publishes at the same commit (a guard). With one, the reconcile closes it and
+    commits: the returner's own retired edit must go out with that commit (#527 final read 6)."""
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.players import Player
     from padel_app.services.lesson_service import enrol
@@ -209,10 +211,18 @@ def test_the_coach_putting_a_returner_back_publishes_at_its_commit(app, monkeypa
     pin_clock(monkeypatch, NOW)
     instance_id, r_user, invite_id, _i_user = _cancelled_then_back(app)
     with app.app_context(), patch(PATCHES[1]):
+        if stale_spot:
+            from padel_app.models.vacancy import Vacancy
+
+            coach_id = Vacancy.query.filter_by(lesson_instance_id=instance_id).first().coach_id
+            db.session.add(Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                                   current_round_number=1, current_batch_number=1, last_activity_at=NOW))
+            db.session.commit()
         retired_message = _message_of(invite_id)
         r_player = Player.query.filter_by(user_id=r_user).one().id
         trail.clear()
         enrol(r_player, LessonInstance.query.get(instance_id), "coach")
+        assert trail.count("close") == (2 if stale_spot else 1), trail
         _published_at_the_closing_commit(trail, retired_message)
 
 
@@ -282,3 +292,32 @@ def test_the_queue_waits_through_a_savepoint_release_and_survives_its_rollback(a
         db.session.rollback()
         db.session.commit()
         assert ran == ["a"]
+
+
+def test_the_coach_marking_a_returner_present_publishes_at_its_commit(app, monkeypatch, trail):
+    """#527 final read item 6 (add_presences). R cancelled (R's spot V_R invites I); the class also
+    carries a stale open V_X. The coach marks R present: R's own V_R closes (retiring I's
+    invitation), and the reconcile then closes V_X — and commits. I's retired edit must go out with
+    that commit; queued after the reconcile it would wait for a later, unrelated one."""
+    from padel_app.models import Coach
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.players import Player
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.lesson_service import add_presences
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad499_accept_lock_ends_early import _cancelled_then_back
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, r_user, invite_id, _i_user = _cancelled_then_back(app)
+    with app.app_context(), patch(PATCHES[1]):
+        instance = LessonInstance.query.get(instance_id)
+        coach_id = Vacancy.query.filter_by(lesson_instance_id=instance_id).first().coach_id
+        db.session.add(Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, status="open",
+                               current_round_number=1, current_batch_number=1, last_activity_at=NOW))
+        db.session.commit()
+        retired_message = _message_of(invite_id)
+        r_player = Player.query.filter_by(user_id=r_user).one().id
+        trail.clear()
+        add_presences(instance, [{"playerId": r_player, "status": "present"}])
+        assert trail.count("close") == 2, trail  # R's own spot, then the stale one
+        _published_at_the_closing_commit(trail, retired_message)
