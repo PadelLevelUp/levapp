@@ -105,13 +105,15 @@ def test_cell_a_a_second_yes_on_another_spot_cannot_overfill_the_class(app, monk
     monkeypatch.setattr(ns, "_close_vacancy", close)
     monkeypatch.setattr(ns, "_add_player_to_instance", add)
 
+    results = {}
+
     def first():
-        respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=1))
+        results["x"] = respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=1))
 
     def second():
         closed.wait(timeout=5)
         try:
-            respond_to_notification(ids[y][0], "yes", ids[y][1], now=NOW + timedelta(minutes=1))
+            results["y"] = respond_to_notification(ids[y][0], "yes", ids[y][1], now=NOW + timedelta(minutes=1))
         finally:
             second_done.set()
 
@@ -119,6 +121,22 @@ def test_cell_a_a_second_yes_on_another_spot_cannot_overfill_the_class(app, monk
         _race(app, [first, second])
     filled, places = _enrolled(app, instance_id)
     assert filled <= places, f"class overfilled: {filled} on {places} places"
+    # #527 item 8: who got what, and the second spot's end state.
+    assert results["x"]["action"] == "confirmed", results
+    assert results["y"]["action"] == "spot_filled_waiting_list_offered", results
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.vacancy import Vacancy
+
+    with app.app_context(), _io():
+        v2_id = db.session.get(NotificationEvent, ids[y][0]).vacancy_id
+        invitations = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count()
+        # Y held V2 while X's enrolment reconciled, so that reconcile passed it over (rule 10); Y then
+        # found the class full. The next tick reconciles it, and invites nobody for a full class.
+        assert db.session.get(Vacancy, v2_id).status == "open"
+        ns.process_invitation_batches(now=NOW + timedelta(minutes=3))
+        db.session.expire_all()
+        assert db.session.get(Vacancy, v2_id).status != "open"
+        assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == invitations
 
 
 def test_cell_b_an_enrolment_that_raises_after_the_close_leaves_no_confirmed_but_absent_winner(app, monkeypatch):
