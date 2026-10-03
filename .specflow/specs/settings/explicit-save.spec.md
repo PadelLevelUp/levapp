@@ -142,6 +142,12 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 - **Known limit of the tests:** iOS's screen-level Save and back logic (run every held part, keep the
   failed ones, ask on back) is covered end to end only by Maestro (flows 95, 128, 158 and the converted
   flows); the unit `SectionSaveProbe` re-implements the loop rather than mounting the screen.
+- **Known limit:** iOS has no Maestro flow for the student's "As minhas notificações" blocks; they are
+  covered by unit tests only.
+- **Known limit:** no test drives the Calendário tab's mixed result — seasons failing while working
+  hours save; the mixed result is tested on Preferências and Notificações.
+- **Known limit:** on iOS a refused season shows its reason inline under the fields; the screen's
+  failure toast names only the part ("Época"), not the reason (web's toast carries it, #550 F2).
 - PR 2 removed the PAD-473 machinery: the sign, the serial saver, `SaveLedger`, the keepalive and
   background flushes, the reminders form's 600 ms pause (`notifications.config` rule 10d), and the
   spec `settings.save-on-change`. Ledger entries that cite it (B-242, B-243, B-244) are history.
