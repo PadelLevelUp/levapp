@@ -5564,6 +5564,25 @@ def _waiting_list_candidates(
     if not keyed:
         return []
 
+    # The volume cap (coordinator default 2026-10-03; the owner may reverse it): one live
+    # waiting-list offer per student per coach at a time. A standing entry fans out to every class,
+    # so without it one opened spot per class would each ask the same student at once. A student
+    # answers one list offer before the next spot asks them from its list (rule 4); the spots'
+    # own groups are not affected. (One live offer per CLASS is rule 18's, in evaluate_candidates.)
+    asked_elsewhere = {
+        e.player_id
+        for e in NotificationEvent.query.filter(
+            NotificationEvent.coach_id == coach_id,
+            NotificationEvent.round_number == 0,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            NotificationEvent.lesson_instance_id != instance.id,
+            NotificationEvent.player_id.in_([entry.player_id for _, entry in keyed]),
+        ).all()
+    }
+    keyed = [(key, entry) for key, entry in keyed if entry.player_id not in asked_elsewhere]
+    if not keyed:
+        return []
+
     verdicts = evaluate_candidates(
         vacancy, instance, coach_id, config, wave=("waiting_list", 0),
         only_player_ids={entry.player_id for _, entry in keyed},

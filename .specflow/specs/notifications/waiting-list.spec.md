@@ -84,6 +84,10 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
    - **Who is left out:** a student already invited for this spot (any answer), one holding a live
      invitation for another spot of the class or who said "no" to the class (`notifications.invitations`
      rule 18), and every exclusion of rules 4a–4c.
+   - **One list offer at a time (coordinator default 2026-10-03, the owner may reverse it):** a
+     student answers one waiting-list offer before the next spot asks them from its list — a student
+     holding a live group-0 invitation for any class of the coach is left out of every other class's
+     group 0 until it resolves. The spots' own invitation groups are unaffected.
 4a. **Waiting-list invitations are gated by eligibility.** A waiting-list student is invited only if
    they pass `effective_eligibility()` for that class (`eligibility.cascade`). The side rules of the
    coach's invitation groups do **not** apply to group 0: the invitation names the spot's side
@@ -270,6 +274,12 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **Then** only Bea is invited, and nobody is enrolled
 - **And** after `maxInactiveTime` with no answer, Ana is invited next, then Caio
 - **And** only when no waiting-list student is left to ask does the coach's first group get an invitation
+
+#### A student answers one waiting-list offer before the next spot asks them (PAD-446, coordinator default)
+- **Given** a student on the waiting list of classes A and B of one coach, and an open spot in each
+- **When** A's spot asks them first and B's spot then sends
+- **Then** B's spot asks its own group, not them, while A's offer is live
+- **And** once they answer A's offer (or it is retired), B's next batch asks them from its list
 
 #### Several on the list are asked together up to maxSimultaneous (PAD-446)
 - **Given** a spot, `maxSimultaneous` 3, and two waiting-list students
