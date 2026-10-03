@@ -14,9 +14,9 @@ const TEMPLATE = readFileSync(join(__dirname, "__fixtures__", "sdk54-template.Po
 
 describe("pod deployment floor (PAD-467)", () => {
   it("lifts pods below the floor, as the last step of post_install, and changes nothing else", () => {
-    const out = applyPodDeploymentFloor(TEMPLATE);
+    const out: string = applyPodDeploymentFloor(TEMPLATE);
     expect(FLOOR).toBe("15.1");
-    const lines = out.split("\n");
+    const lines: string[] = out.split("\n");
     const at = lines.findIndex((l) => l.includes("post_install do |installer|"));
     const rn = lines.findIndex((l, i) => i > at && l.includes("react_native_post_install("));
     const begin = lines.findIndex((l) => l.includes(BEGIN));
@@ -35,7 +35,7 @@ describe("pod deployment floor (PAD-467)", () => {
   });
 
   it("is idempotent: a second prebuild adds nothing", () => {
-    const once = applyPodDeploymentFloor(TEMPLATE);
+    const once: string = applyPodDeploymentFloor(TEMPLATE);
     expect(applyPodDeploymentFloor(once)).toBe(once);
     expect(once.split(BEGIN).length - 1).toBe(1);
   });
