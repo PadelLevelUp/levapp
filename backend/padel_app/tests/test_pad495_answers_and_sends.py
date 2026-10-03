@@ -253,17 +253,25 @@ def test_item_3a_a_tick_and_a_decline_follow_up_on_one_spot_invite_different_stu
         event_a, user_a = _event_for(instance_id, a).id, _user(a)
 
     later = pin_clock(monkeypatch, NOW + timedelta(minutes=121))   # past maxInactiveTime: the tick sends
-    real = ns._send_invitation_batch
+    # Forced (#526 review): each sender pauses right after its under-lock re-check of its FIRST
+    # student, before it inserts, until the other has reached the same point. With the per-student
+    # lock the second is still waiting on the lock, so the pause times out and they go one after
+    # the other; without it both pass the re-check for the same student and both insert.
+    real = ns._still_invitable
     gate = threading.Barrier(2)
+    seen = threading.local()
 
     def gated(*args, **kwargs):
-        try:
-            gate.wait(timeout=1.5)
-        except threading.BrokenBarrierError:
-            pass
-        return real(*args, **kwargs)
+        result = real(*args, **kwargs)
+        if not getattr(seen, "done", False):
+            seen.done = True
+            try:
+                gate.wait(timeout=1.5)
+            except threading.BrokenBarrierError:
+                pass
+        return result
 
-    monkeypatch.setattr(ns, "_send_invitation_batch", gated)
+    monkeypatch.setattr(ns, "_still_invitable", gated)
     with _io():
         _race(app, [
             lambda: respond_to_notification(event_a, "no", user_a, now=later),
@@ -272,3 +280,119 @@ def test_item_3a_a_tick_and_a_decline_follow_up_on_one_spot_invite_different_stu
     with app.app_context():
         live = [p for _, p in _live_events(instance_id)]
         assert len(live) == len(set(live)), f"a student holds two invitations for one spot: {live}"
+
+
+# ── #526 review items 2, 3, 7: the batch re-decides each student under the lock ──────────────
+
+def _after_first_invite(monkeypatch, action):
+    """Run `action()` right after the batch's first invitation message is sent: what a concurrent
+    actor (a yes, a coach add, a decline elsewhere) would do between two students of one batch."""
+    from padel_app.services import notification_service as ns
+
+    real = ns._send_system_message
+    calls = {"n": 0}
+
+    def wrapper(*args, **kwargs):
+        msg = real(*args, **kwargs)
+        if kwargs.get("message_type") == "notification_invite":
+            calls["n"] += 1
+            if calls["n"] == 1:
+                action()
+        return msg
+
+    monkeypatch.setattr(ns, "_send_system_message", wrapper)
+
+
+def test_r2_the_batch_stops_when_the_spot_is_taken_mid_batch(app, monkeypatch):
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=1)
+
+        def spot_taken():
+            v = Vacancy.query.filter_by(lesson_instance_id=instance_id).one()
+            v.status = "filled"
+            db.session.commit()
+
+        _after_first_invite(monkeypatch, spot_taken)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert len(_live_events(instance_id)) == 1, "invitations went out for a spot already taken"
+
+
+def test_r3_a_student_who_said_no_meanwhile_is_not_invited_by_the_batch(app, monkeypatch):
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (a, b, c) = _seed(enrolled=0, candidates=3, max_players=1)
+
+        def said_no_meanwhile():   # another sender's invitation to B, already declined
+            for pid in (b, c):
+                db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id,
+                                                 player_id=pid, type="manual", round_number=1,
+                                                 status="expired", answer="no"))
+            db.session.commit()
+
+        _after_first_invite(monkeypatch, said_no_meanwhile)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        assert [p for _, p in _live_events(instance_id)] == [a]
+
+
+def test_r7_the_first_batch_recounts_live_invitations_under_the_lock(app, monkeypatch):
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, players = _seed(enrolled=0, candidates=6, max_players=1)
+
+        def another_sender_filled_the_batch():
+            v = Vacancy.query.filter_by(lesson_instance_id=instance_id).one()
+            for pid in players[4:6]:
+                db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id,
+                                                 player_id=pid, vacancy_id=v.id, type="auto",
+                                                 round_number=1, status="sent"))
+            db.session.commit()
+
+        _after_first_invite(monkeypatch, another_sender_filled_the_batch)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        spot = _vacancies(instance_id)[0][0]
+        assert len([e for e in _live_events(instance_id) if e[0] == spot]) <= 3
+
+
+def test_r6_one_vacancy_failing_does_not_skip_the_rest_of_the_tick(app, monkeypatch):
+    """#526 review item 6: a failure on one vacancy (a Postgres abort, a raise) rolls back its own
+    work, is logged, and the tick still serves the other vacancies."""
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        first_id, coach_a, _, _ = _seed(enrolled=0, candidates=2, max_players=2)
+        from padel_app.models.vacancy import Vacancy
+
+        ids = []
+        for _ in range(2):
+            v = Vacancy(lesson_instance_id=first_id, coach_id=coach_a, status="open",
+                        current_round_number=1, current_batch_number=0)
+            db.session.add(v)
+            db.session.flush()
+            ids.append(v.id)
+        db.session.commit()
+        real = ns._start_vacancy
+
+        def flaky(vacancy, *args, **kwargs):
+            if vacancy.id == ids[0]:
+                raise RuntimeError("deadlock detected")
+            return real(vacancy, *args, **kwargs)
+
+        monkeypatch.setattr(ns, "_start_vacancy", flaky)
+        ns.process_invitation_batches(now=NOW)
+        assert db.session.get(Vacancy, ids[1]).current_batch_number == 1
