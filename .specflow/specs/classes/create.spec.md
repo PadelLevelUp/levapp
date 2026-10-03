@@ -35,6 +35,14 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    a KeyError — a 500. The check parses exactly as the write does: an integer string ("6") is the
    number; "6.0" is refused, never a 500. The same check guards
    `POST /edit_class` (`classes.edit` rule 7).
+8a. **A class time is a real HH:MM (PAD-508, B-275).** `startTime` and `endTime` are `HH:MM`
+   (00:00–23:59). Anything else — an empty or blank string, null, an absent key, one digit, "25:00",
+   "09:60", seconds — is refused before anything is written with the same `400 {"error":
+   "invalid_fields", "fields": [...]}` naming `start_time` / `end_time`; it used to raise inside
+   `build_datetime` — a 500. The web sheet never sends one: its native time input reads `""` once a
+   segment is cleared, so the sheet flags the time box and lists "Hora" in the missing-fields
+   message instead of sending. iOS's picker always holds a value. The same check guards
+   `POST /api/app/edit_class` (`classes.edit` rule 7).
 9. **How a recurring series ends: a date, a number of classes, or the season (PAD-463, D151).**
    Class creation on web (add-class sheet) and iOS (new class) offers one choice of three, the
    first selected by default:
@@ -61,12 +69,23 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
     search, a filter by level, and a mark on any student outside the class's level. A chosen student
     is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
-    tells them. The picker applies no cap at `maxPlayers`; it shows the count. When students are
+    tells them. The picker applies no cap at `maxPlayers`; it shows the count. **Every student
+    in the list can be reached (PAD-502, B-271):** the list has a fixed height and scrolls inside
+    it, by wheel, trackpad or finger, whatever its length and whichever filter is on; the picker
+    shows no "first N". Web uses a native `overflow-y: auto` list (a Radix ScrollArea with only a
+    max height showed four rows and clipped the rest); the mobile app uses a ScrollView. When students are
     chosen, the PAD-107 warning (`calendar.student-blockers` rule 9) runs before saving, after the
     overlap warning; if that lookup fails, the class still saves. Create runs no eligibility check
     (`eligibility.enforcement` rule 7d covers an edit that adds students).
 
 ### Acceptance Criteria
+
+#### A cleared time is flagged, never sent, and refused by the server (rule 8a, B-275)
+- **Given** the web new-class sheet with a name, and the start time's hour cleared (it reads `""`)
+- **When** the coach presses Create class
+- **Then** the time box is flagged, "Hora" is named in the missing-fields message, and no request is sent
+- **And** `POST /api/app/add_class` or `/edit_class` with `startTime: ""` (or null, absent, "9",
+  "25:00") answers 400 naming `start_time`, and nothing is written
 
 #### The coach chooses students when creating a class (rule 10, PAD-474)
 - **Given** a coach on the mobile app with students Ana and Bruno
@@ -87,6 +106,11 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **When** they choose "Termina ao fim de 6 aulas"
 - **Then** the form notes that the last class, 2027-08-09, falls after the season's end, and saving
   still creates 6 classes
+
+#### Every student of a level can be reached in the picker (PAD-502, B-271)
+- **Given** a coach with twenty students at one level, in the web add-class sheet's picker on the "all students" tab
+- **When** the coach picks that level and scrolls the list with the mouse wheel
+- **Then** the last of the twenty comes into view inside the list and can be ticked
 
 #### Create one-off class
 - **Given** an authenticated coach in club 1

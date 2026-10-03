@@ -486,7 +486,8 @@ export interface ClassInstance {
   name?: string;
   color?: string;
   levelId?: string;
-  /** clubs.courts rule 7 (PAD-194). */
+  /** clubs.courts rule 7 (PAD-194). B-266: the class's own club, whose courts the editor lists. */
+  clubId?: number | null;
   clubName?: string | null;
   courtId?: number | null;
   courtName?: string | null;

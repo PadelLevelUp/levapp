@@ -22,7 +22,7 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    it must belong to the class's club (`clubs.courts` rule 6). A "this and future" split copies the court.
    One occurrence of a series may have a court of its own (`clubs.courts` rule 9, PAD-513).
 
-7. **What was sent is what is written (PAD-387, B-136).** `POST /api/app/edit_class` writes only the
+7. **What was sent is what is written (PAD-387, B-136; times PAD-508, B-275).** `POST /api/app/edit_class` writes only the
    keys present in `updates`; an omitted key — `isRecurring` and `recursUntilSeasonEnd` included — is
    left alone. What a present `null` or `""` does depends on the column, decided per key:
    - **Series scopes (`future`, `all`, and a `Lesson` event):** `levelId` clears to "all levels";

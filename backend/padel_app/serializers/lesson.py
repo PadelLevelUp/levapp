@@ -225,7 +225,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         # PAD-429 (toggle-class rule 7): this tier's own automatic-invitations value.
         "autoInvites": obj.auto_invites if isinstance(getattr(obj, "auto_invites", None), bool) else None,
         **_eligibility_provenance(obj, coach_id),
-        # clubs.courts rule 7 (PAD-194): the detail shows club and court.
+        # clubs.courts rule 7 (PAD-194): the detail shows club and court. B-266: the club's id
+        # too, so the edit form lists THIS club's courts, not the coach's current club's.
+        "clubId": lesson.club_id,
         "clubName": lesson.club.name if lesson.club else None,
         # clubs.courts rule 9 (PAD-513): an occurrence's own court wins over its lesson's.
         "courtId": _court.id if _court else None,

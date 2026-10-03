@@ -51,15 +51,18 @@ shown on the card and the detail, and named by the `{court}` message placeholder
    the list must contain exactly the club's court ids, else 400 `invalid_court`.
 6. **A class may carry a court.** `POST /app/add_class` and `POST /app/edit_class` accept an
    optional `courtId` (null clears it). The court must belong to the class's club, else 400
-   `{"error": …, "code": "court_not_in_club"}` and nothing is written. An edit that omits
+   `{"error": …, "code": "court_not_in_club", "fields": ["courtId"]}` and nothing is written. An edit that omits
    `courtId` leaves the court as it is. Splitting a series ("this and future") copies the court
    onto the new series.
 7. **Cards and details show club and court.** Calendar events (`serialize_calendar_event`, Lesson
    and LessonInstance) carry `club: {"id", "name"}` and `court: {"id", "name"} | null`; the class
-   detail payload carries `clubName`, `courtId` and `courtName`. Web and iOS event cards render a
-   "Club · Court" line under the title (club alone when there is no court) and the class detail
-   shows the same pair; the class create and edit forms on both shells offer a **Court** select
-   listing the coach's current club's courts, with "No court" as the first option.
+   detail payload carries `clubId`, `clubName`, `courtId` and `courtName`. Web and iOS event cards
+   render a "Club · Court" line under the title (club alone when there is no court) and the class
+   detail shows the same pair. The class forms on both shells offer a **Court** select with "No
+   court" as the first option. The **create** form lists the coach's current club's courts (the
+   club a new class gets). The **edit** form lists **the class's own club's courts**
+   (`clubId`), so a coach at two clubs editing a class at the older one is offered courts the
+   server accepts (B-266).
 8. **Settings → Club (web and iOS, R-024).** The Club section gains a **Courts** block: the ordered
    list with rename, move up/down and delete, an input plus **Add court**, and an empty line that
    says the club has no courts yet. Validation errors are shown inline.
@@ -114,6 +117,14 @@ shown on the card and the detail, and named by the `{court}` message placeholder
 - **Then** the response is 400 `court_not_in_club` and no lesson exists
 - **When** A edits the class with `updates: {"courtId": null}` (scope all)
 - **Then** the event's `court` is null; an edit without `courtId` leaves it null
+
+#### Editing a class offers its own club's courts (B-266)
+- **Given** a coach at two clubs whose newest club has court "N", and a class at the older club,
+  which has court "O"
+- **When** the coach edits that class on web or iOS
+- **Then** the court select offers "O" and not "N"
+- **And** saving "O" is accepted (not refused with `court_not_in_club`)
+- **And** a court of another club is refused with 400 `court_not_in_club` naming `courtId`
 
 #### Deleting a court keeps its classes
 - **Given** a class on "Campo 1"

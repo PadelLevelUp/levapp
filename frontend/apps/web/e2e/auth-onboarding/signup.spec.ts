@@ -30,6 +30,8 @@ async function signUp(page: Page, role: "coach" | "student", username: string, v
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
   // PAD-198: birth date is required at sign-up; an adult in Portugal (the default country).
   await page.locator("#signup-birthDate").fill("2000-01-01");
+  // PAD-485 (auth.register rule 19): the Terms box is required.
+  await page.getByTestId("signup-terms").click();
   await page.getByTestId("signup-submit").click();
   if (verify) await completeEmailVerification(page);
 }
@@ -72,6 +74,8 @@ test("US-225: a too-short username is reported under its field before any reques
   await page.locator("#signup-repeatPassword").fill(PASSWORD);
   // PAD-198: birth date is required at sign-up; an adult in Portugal (the default country).
   await page.locator("#signup-birthDate").fill("2000-01-01");
+  // PAD-485 (auth.register rule 19): the Terms box is required.
+  await page.getByTestId("signup-terms").click();
   await page.getByTestId("signup-submit").click();
 
   await expect(page.getByTestId("signup-username-error")).toContainText(/3 characters|3 caracteres/i);
@@ -130,4 +134,39 @@ test("US-210: a non-superadmin never sees the Admin section", async ({ page }) =
   await page.goto("/settings");
   await expect(page.getByTestId("settings-nav-preferences")).toBeVisible();
   await expect(page.getByTestId("settings-nav-admin")).toHaveCount(0);
+});
+
+// PAD-485 (auth.register rule 19): the Terms box is required; unticked, nothing is sent; ticked, the
+// request says so, and the declared capability makes the server hold the client to it.
+test("PAD-485: a sign-up cannot be sent until the Terms are accepted", async ({ page }) => {
+  const username = `e2e-terms-${stamp()}`;
+  let registerCalls = 0;
+  page.on("request", (req) => {
+    if (/\/api\/auth\/register$/.test(req.url()) && req.method() === "POST") registerCalls += 1;
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/signup");
+  await page.getByTestId("signup-role-student").click();
+  await page.locator("#signup-name").fill("E2E Terms");
+  await page.locator("#signup-username").fill(username);
+  await page.locator("#signup-email").fill(`${username}@example.com`);
+  await page.locator("#signup-password").fill(PASSWORD);
+  await page.locator("#signup-repeatPassword").fill(PASSWORD);
+  await page.locator("#signup-birthDate").fill("2000-01-01");
+  await expect(page.locator('label[for="signup-terms"] a[href="/privacy"]')).toBeVisible();
+  await expect(page.locator('label[for="signup-terms"] a[href="/terms"]')).toBeVisible();
+
+  await page.getByTestId("signup-submit").click();
+  await expect(page.getByTestId("signup-terms-error")).toBeVisible();
+  expect(registerCalls).toBe(0);
+
+  await page.getByTestId("signup-terms").click();
+  await expect(page.getByTestId("signup-terms-error")).toBeHidden();
+  const sent = page.waitForRequest((r) => /\/api\/auth\/register$/.test(r.url()) && r.method() === "POST");
+  await page.getByTestId("signup-submit").click();
+  const request = await sent;
+  expect(request.postDataJSON()).toMatchObject({ termsAccepted: true });
+  expect(request.headers()["x-levapp-capabilities"]).toContain("terms-acceptance");
+  expect((await request.response())?.status()).toBe(201);
+  await completeEmailVerification(page);
 });

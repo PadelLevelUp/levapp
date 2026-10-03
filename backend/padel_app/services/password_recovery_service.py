@@ -61,9 +61,13 @@ def _clean_email(value):
     return (value or "").strip().lower() if isinstance(value, str) else ""
 
 
-def _hash(code):
+def _hash(code, address):
+    """PAD-498 (rule 11): the code is bound to the address it was mailed to — the address is part of
+    the HMAC input, so the code confirms only while the account still has that address, whatever order
+    an email change and the code's own commit land in."""
     key = (current_app.config.get("SECRET_KEY") or "dev-secret-key").encode()
-    return hmac.new(key, code.encode(), sha256).hexdigest()
+    bound = f"{(address or '').strip().lower()}\n{code}"
+    return hmac.new(key, bound.encode(), sha256).hexdigest()
 
 
 def _generate_code():
@@ -113,7 +117,8 @@ def request_recovery(email, now=None):
         return standard_body()
 
     code = _generate_code()
-    user.password_reset_code_hash = _hash(code)
+    # Bound to the address the mail goes to (`_deliver` sends to this same `user.email`).
+    user.password_reset_code_hash = _hash(code, user.email)
     user.password_reset_expires_at = now + CODE_TTL
     user.password_reset_sent_at = now
     user.password_reset_attempts = 0
@@ -164,7 +169,8 @@ def confirm_recovery(email, code, new_password, now=None):
     if expired:
         raise PasswordRecoveryError("CODE_EXPIRED", 410)
 
-    if hmac.compare_digest(user.password_reset_code_hash, _hash(raw)):
+    # Checked against the account's address NOW: a code issued for another address does not match.
+    if hmac.compare_digest(user.password_reset_code_hash, _hash(raw, user.email)):
         user.password = generate_password_hash(password)
         _clear(user)
         if user.email_verified_at is None:

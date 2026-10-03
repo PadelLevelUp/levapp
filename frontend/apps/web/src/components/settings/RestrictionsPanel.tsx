@@ -116,7 +116,7 @@ function ScalarStepperRow({
   onDecrement,
 }: ScalarStepperRowProps) {
   return (
-    <div className={`space-y-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+    <div className={`space-y-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`} data-testid="restriction-row-cancellation-deadline">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">{label}</p>
