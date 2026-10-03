@@ -99,8 +99,22 @@ test("PAD-508: editing a class sets its time from the list and by typing; the en
     await page.getByTestId("class-detail-start-time-list").getByText("11:00", { exact: true }).click();
     await expect(start).toHaveValue("11:00");
     await expect(end).toHaveValue("12:00"); // the end reached by the start keeps the hour (rule 7b)
+    // An end typed before the start is never sent (rule 7b).
+    let early = 0;
+    const countEdits = (r: { method(): string; url(): string }) => {
+      if (r.method() === "POST" && /\/api\/app\/edit_class$/.test(r.url())) early += 1;
+    };
+    page.on("request", countEdits);
+    await end.fill("1030");
+    await end.press("Tab"); // leaving the field commits it
+    await expect(end).toHaveValue("10:30");
+    await save.click();
+    await page.waitForTimeout(1000); // a request, if one were sent, would have left by now
+    expect(early).toBe(0);
+    page.off("request", countEdits);
+
     await end.fill("1215");
-    await end.press("Enter");
+    await end.press("Tab");
     await expect(end).toHaveValue("12:15");
 
     const saved = page.waitForRequest((r) => r.method() === "POST" && /\/api\/app\/edit_class$/.test(r.url()));

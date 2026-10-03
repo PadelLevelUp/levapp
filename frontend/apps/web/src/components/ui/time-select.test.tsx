@@ -4,13 +4,12 @@
  * 15-minute list, and takes free typing.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { TimeSelect, endAfterStartMove, parseTime } from "./time-select";
 
 afterEach(() => {
   cleanup();
-  vi.useRealTimers();
 });
 
 function Harness({ initial = "09:00", from, onChange }: { initial?: string; from?: string; onChange?: (v: string) => void }) {
@@ -41,19 +40,28 @@ describe("parseTime", () => {
 });
 
 describe("the time never empties and never falls back to zero (PAD-508 criterion)", () => {
-  it("a cleared field left alone keeps nothing it was not given, then shows the last valid time again", () => {
-    vi.useFakeTimers();
+  it("a cleared field puts the last valid time back when the coach leaves it", () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     fireEvent.change(field(), { target: { value: "" } });
-    act(() => {
-      vi.advanceTimersByTime(5 * 60 * 1000); // five minutes without touching it
-    });
     fireEvent.blur(field());
-    fireEvent.keyDown(field(), { key: "Enter" });
     expect(field().value).toBe("09:00");
     expect(onChange).not.toHaveBeenCalledWith("");
     expect(onChange).not.toHaveBeenCalledWith("00:00");
+  });
+
+  it("typing with the list closed, then leaving the field, saves the typed time", () => {
+    // #544 review: after Escape (or Enter, or a pick) the list is closed and the field keeps focus;
+    // typing and then Tab or a click elsewhere must still commit.
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.click(field());
+    fireEvent.keyDown(field(), { key: "Escape" });
+    expect(screen.queryByTestId("t-list")).toBeNull();
+    fireEvent.change(field(), { target: { value: "1930" } });
+    fireEvent.blur(field());
+    expect(onChange).toHaveBeenLastCalledWith("19:30");
+    expect(field().value).toBe("19:30");
   });
 
   it("text that is not a time goes back to the last valid one", () => {

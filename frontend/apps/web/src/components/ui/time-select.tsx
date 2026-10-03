@@ -93,6 +93,7 @@ export function TimeSelect({ value, onChange, from, ...rest }: TimeSelectProps) 
             value={draft}
             onFocus={() => setOpen(true)}
             onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit} // leaving the field commits, list open or not (#544 review)
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault(); // commits the field; never submits a surrounding form

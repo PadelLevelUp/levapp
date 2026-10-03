@@ -89,7 +89,8 @@
       "endCountInvalid": "Choose between 1 and 52 classes.",
       "fieldTime": "Time",
       "timeStart": "Start time",
-      "timeEnd": "End time"
+      "timeEnd": "End time",
+      "endBeforeStart": "The end time must be after the start time."
     },
     "overlap": {
       "title": "Overlapping event",

@@ -51,16 +51,22 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    - **List:** a click opens every quarter hour from 06:00 to 23:45, scrolled to the current time.
      Choosing one sets it and closes the list.
    - **End:** its list starts after the start time and shows each option's class length beside it
-     ("19:00 · 1 h", "19:30 · 1 h 30 min"). When the start reaches or passes the end, the end moves
-     (rule 8b keeps create's existing behaviour: start plus the default length).
+     ("19:00 · 1 h", "19:30 · 1 h 30 min"); from a 23:45 start the list is empty and the end is
+     typed. When the start reaches or passes the end, the end moves (create keeps its existing
+     behaviour: start plus the default length). An end typed at or before the start is flagged and
+     nothing is sent ("A hora de fim tem de ser depois da hora de início"), as iOS's new-class
+     screen already does.
    - **Never empty, never zero:** text that is not a time — an emptied field included, however
-     long it is left — puts the last valid time back. This replaces the browser's native time
+     long it is left — puts the last valid time back. Leaving the field (Tab, a click elsewhere)
+     commits what was typed, whether or not the list is open. This replaces the browser's native time
      input, whose cleared segment read as empty and fell back to "zero" (the report behind PAD-508
      and B-275).
    - **Web only, with the reason:** iOS keeps its native time wheel (`classes.create` rule 10's
      sheet), which always holds a value and already reads as the platform's time control; the
      native picker is the better phone control and has none of the desktop field's problem. The
      other web time fields (events, blockers, working hours) are unchanged.
+   - **Not this ticket:** moving through the list with the arrow keys (the list is pointer and
+     typing only).
 9. **How a recurring series ends: a date, a number of classes, or the season (PAD-463, D151).**
    Class creation on web (add-class sheet) and iOS (new class) offers one choice of three, the
    first selected by default:

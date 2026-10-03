@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, errorStatusOf, isHhMm } from "@levelup/config";
+import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@levelup/config";
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -538,6 +538,15 @@ export function ClassDetailSheet({
         variant: "destructive",
         title: t("calendar.addClass.missingFieldsTitle"),
         description: t("calendar.addClass.missingFieldsDescription", { fields: t("calendar.addClass.fieldTime") }),
+      });
+      return;
+    }
+    // PAD-508 (classes.edit rule 7b): a typed end at or before the start is never sent.
+    if (draft && !endsAfterStart(draft.startTime, draft.endTime)) {
+      toast({
+        variant: "destructive",
+        title: t("calendar.addClass.missingFieldsTitle"),
+        description: t("calendar.addClass.endBeforeStart"),
       });
       return;
     }

@@ -37,6 +37,7 @@ import {
   MAX_REQUEST_CLASSES,
   countPassesSeasonEnd,
   findOverlappingEvent,
+  endsAfterStart,
   isHhMm,
   recurrenceEndPayload,
   type RecurrenceEndMode,
@@ -238,6 +239,12 @@ export function AddClassSheet({
     if (!date) newErrors.date = true;
     // B-275 (PAD-508): a cleared native time input reads ""; never send it (the server would refuse it).
     if (!isHhMm(startTime) || !isHhMm(endTime)) newErrors.time = true;
+    // PAD-508 (rule 8b): a typed end at or before the start is flagged, never sent.
+    if (isHhMm(startTime) && isHhMm(endTime) && !endsAfterStart(startTime, endTime)) {
+      setErrors({ ...newErrors, time: true });
+      toast({ variant: 'destructive', title: t('calendar.addClass.missingFieldsTitle'), description: t('calendar.addClass.endBeforeStart') });
+      return;
+    }
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
     if (isRecurring && 'field' in endChoice) newErrors[endChoice.field] = true;
 
