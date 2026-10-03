@@ -202,3 +202,4 @@ whether a failure mode has been seen before.
 - [B-282](B-282-engine-toggle-locator-broken-by-a-wrapper.md) — E2E: the engine's master toggle was found by English text plus an ancestor xpath; PAD-473's wrapper around the label broke it and two gate tests failed; now by test id (test-defect, high, resolved)
 - [B-262](B-262-clearing-the-email-keeps-the-account-verified.md) — Settings: clearing the email left the account marked verified, with no email to reach it (incomplete-rule, medium, resolved)
 - [B-263](B-263-typing-before-the-profile-loads-empties-the-name.md) — Settings → Perfil: typing before the profile had loaded left the other fields empty and the save was refused (incomplete-rule, medium, resolved)
+- [B-285](B-285-occurrence-court-accepted-and-dropped.md) — Classes: a court chosen for one occurrence, or in a one-off class's editor, was answered 200 and dropped; occurrences now have their own court (incomplete-rule, medium, resolved)
