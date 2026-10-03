@@ -355,3 +355,69 @@ def test_join_an_accepted_join_request_and_a_student_yes_cannot_overfill(app, mo
     filled, places = _enrolled(app, instance_id)
     assert filled <= places, f"class overfilled: {filled} on {places} places"
     assert results["student"]["action"] == "spot_filled_waiting_list_offered"
+
+
+# ── #527 review item 1 (B-284): the reminder return ─────────────────────────────────────────
+
+def _cancelled_then_back(app):
+    """A full class (2 places, R and S enrolled) and one other student I. R cancels from the class
+    screen: R's reminder is answered, R is absent, R's vacancy opens and I is invited for it. R's
+    later "yes" (on the reminder, from a stale screen or the class page) takes the place back — the
+    return path. (A pending reminder on an absent student has no real path: the "no" and the
+    cancellation both answer it, and a re-add clears "absent".)"""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import cancel_attendance, send_class_reminders
+
+    with app.app_context(), _io():
+        instance_id, coach_id, (r_user, _s_user), (i,) = _seed(enrolled=2, candidates=1, max_players=2)
+        send_class_reminders(instance_id, now=NOW)
+        cancel_attendance(r_user, lesson_instance_id=instance_id, now=NOW + timedelta(minutes=1))
+        invite = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=i).one()
+        return instance_id, r_user, invite.id, Player.query.get(i).user_id
+
+
+@POSTGRES_ONLY
+def test_return_and_an_invitees_yes_on_the_returners_spot_neither_deadlocks_nor_overfills(app, monkeypatch):
+    """B-284: R takes the place back while I answers yes to the invitation for R's own spot. The
+    return locked the class and then wrote R's vacancy; I's yes locks that vacancy and then the
+    class — the opposite order. Forced: R pauses holding its first lock until I's answer is under
+    way. Same order (vacancy, then class) on both: one waits for the other, no deadlock, one seat."""
+    import time
+
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification, respond_to_reminder
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, r_user, invite_id, i_user = _cancelled_then_back(app)
+    held, invitee_started = threading.Event(), threading.Event()
+    real_lock = ns._lock_instance
+
+    def lock(instance):
+        locked = real_lock(instance)
+        if threading.current_thread().name == "return" and not held.is_set():
+            held.set()
+            invitee_started.wait(timeout=5)
+            time.sleep(0.5)  # let I take what it can and block on the rest
+        return locked
+
+    monkeypatch.setattr(ns, "_lock_instance", lock)
+    results = {}
+
+    def back():
+        threading.current_thread().name = "return"
+        results["return"] = respond_to_reminder(instance_id, "yes", r_user, now=NOW + timedelta(minutes=2))
+
+    def invitee():
+        held.wait(timeout=5)
+        invitee_started.set()
+        results["invitee"] = respond_to_notification(invite_id, "yes", i_user, now=NOW + timedelta(minutes=2))
+
+    with _io():
+        _race(app, [back, invitee])
+    filled, places = _enrolled(app, instance_id)
+    assert filled <= places, f"class overfilled: {filled} on {places} places ({results})"
+    assert results["return"]["action"] == "confirmed"
+    assert results["invitee"]["action"] != "confirmed", results
