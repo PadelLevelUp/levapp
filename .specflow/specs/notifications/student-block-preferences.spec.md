@@ -71,8 +71,10 @@ cut a student off from their coach.
    recipient has blocked all notifications. Neither the chat message nor the web/Expo push is
    created. The backstop is a safety net, not the primary enforcement — the earlier filters in
    rules 5–7 are what prevent orphan events and lying counts.
-9. Message types outside that set are unaffected: plain chat (`text`), class-cancellation notices
-   and `waiting_list_placed` confirmations are still delivered to a student who blocked everything.
+9. Message types outside that set are unaffected: plain chat (`text`) and class-cancellation
+   notices are still delivered to a student who blocked everything. (The `waiting_list_placed`
+   confirmation that was listed here is gone with PAD-446: a waiting-list student is invited, not
+   placed.)
 10. **Coach visibility.** The coach-facing player payload
     (`_serialize_coach_player_relation`, and the identical dict returned by
     `Player.coach_player_info` used by `add_player`/`edit_player`) carries
@@ -214,8 +216,8 @@ cut a student off from their coach.
   regardless of when the class is. The two compose additively at every enforcement point.
 - The reason field's coach-visibility is a deliberate product decision from the ticket Q&A, and is
   the opposite of the privacy posture of availability blockers. The two must not share a code path.
-- Out of scope, and pre-existing: the waiting-list auto-enrolment path (`_fill_from_waiting_list`)
-  adds a student to a class outright without soliciting them, so it is an enrolment decision, not
-  a notification. It is not gated by these preferences (nor by `calendar.student-blockers`). The
-  `waiting_list_offer` message, which IS a solicitation, is gated.
+- **PAD-446:** the waiting-list auto-enrolment path is gone. A waiting-list student is now asked
+  with an automatic invitation (group 0, `notifications.invitations` rule 8a), so a block on
+  automatic invitations, or on everything, keeps them from being asked from the list, and so does
+  `calendar.student-blockers`. The `waiting_list_offer` message was already gated.
 - Direct messages / DMs are explicitly out of the initial scope per the ticket Q&A.

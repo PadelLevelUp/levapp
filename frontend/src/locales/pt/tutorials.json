@@ -20,7 +20,7 @@
       "blockedTitle": "Neste momento o motor não convidaria ninguém",
       "clearTitle": "Nada impede o envio neste momento",
       "approvalRequired": "Estás em modo semi-automático: antes de qualquer envio, ser-te-ia pedido para aprovares esta lista.",
-      "waitingList": "{{name}} seria colocado(a) diretamente a partir da lista de espera — ninguém é convidado para esta vaga.",
+      "waitingList": "Perguntados primeiro, da lista de espera (pela ordem em que entraram):",
       "waitingListStanding": "(inscrição permanente)",
       "spot": "Vaga de lado {{side}}, nível {{level}} — {{source}}",
       "spotNoLevel": "Vaga de lado {{side}}, sem nível — {{source}}",

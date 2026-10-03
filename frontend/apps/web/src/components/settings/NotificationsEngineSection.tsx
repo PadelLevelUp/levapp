@@ -46,7 +46,7 @@ const TEMPLATE_BLANKS = {
   reminder_confirmed: "",
   reminder_declined: "",
   waiting_list_offer: "",
-  waiting_list_placed: "",
+  waiting_list_invite: "",
 };
 
 function pickEngineFields(cfg: Partial<NotificationConfig>): Partial<NotificationConfig> {

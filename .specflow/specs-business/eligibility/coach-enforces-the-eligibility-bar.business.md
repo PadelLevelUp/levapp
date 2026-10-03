@@ -38,22 +38,22 @@ keeping full control to make an exception themselves.
 
 ## Business Rules
 
-- Automatic invitation rounds and waiting-list placement are hard-gated by the bar; a coach acting
+- Automatic invitation rounds and waiting-list invitations are hard-gated by the bar; a coach acting
   by hand is only warned, never blocked — enrolment is always the coach's call.
 - The warning names every rule a student fails, in concrete terms ("2 levels below this class",
   "4 unjustified absences, limit is 2") — never a bare "not eligible" with no explanation.
 - The same check that decides pass/fail is the one that generates the warning text — they can never
   disagree, so a coach is never warned about a student who then gets silently enrolled, or the
   reverse.
-- A student is never placed back into the exact spot their own cancellation just created, and never
-  placed into a class they're already in.
-- Waiting-list placement, manual invitations and the automatic engine all honor the same exclusion
+- A student is never offered, from the waiting list, the exact spot their own cancellation just
+  created, nor a class they're already in.
+- Waiting-list invitations, manual invitations and the automatic engine all honor the same exclusion
   and restriction settings (excluded players, inactive-account exclusion, calendar
   availability blockers) regardless of whether a bar is even defined.
 - Tightening a bar is informational only — it reports who would now fail it among enrolled
   students, but removes nobody and notifies nobody. Membership, once granted, isn't retroactively
   revoked by a stricter rule.
-- With no bar defined, automatic placement stays exactly as unfiltered as it's always been — that's
+- With no bar defined, automatic invitations stay exactly as unfiltered as they've always been — that's
   the coach's choice by omission, not a decision the engine makes for them.
 
 ## Success Metrics

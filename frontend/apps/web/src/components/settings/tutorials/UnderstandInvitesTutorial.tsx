@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
-import { describeGate, describePriority, describeRules, describeSendStatus, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates } from "@levelup/config";
+import { describeGate, describePriority, describeRules, describeSendStatus, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
 
 import type {
   CalendarEvent,
@@ -321,14 +321,19 @@ function SimulationResults({
         </Alert>
       )}
 
-      {simulation.waitingListPlacement && (
+      {waitingListAskedFirst(simulation).length > 0 && (
+        // PAD-446 (settings.tutorials rule 4.3): the waiting list is asked first, never placed.
         <Alert data-testid="tutorial-waiting-list">
           <AlertDescription>
-            {t("tutorials.understandInvites.waitingList", {
-              name: simulation.waitingListPlacement.name ?? "",
-            })}{" "}
-            {simulation.waitingListPlacement.standing &&
-              t("tutorials.understandInvites.waitingListStanding")}
+            {t("tutorials.understandInvites.waitingList")}
+            <ol className="mt-1 list-decimal pl-5">
+              {waitingListAskedFirst(simulation).map((entry) => (
+                <li key={entry.playerId} data-testid={`tutorial-waiting-list-${entry.playerId}`}>
+                  {entry.name ?? ""}
+                  {entry.standing ? ` ${t("tutorials.understandInvites.waitingListStanding")}` : ""}
+                </li>
+              ))}
+            </ol>
           </AlertDescription>
         </Alert>
       )}

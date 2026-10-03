@@ -167,21 +167,20 @@ def test_the_coach_accept_retires_the_events_and_their_messages(app):
         assert not _message_is_actionable(other)
 
 
-# --- caller 3: a waiting-list placement ------------------------------------
+# --- caller 3: a waiting-list student's yes (PAD-446: group 0, no placement) --
 
-def test_the_waiting_list_placement_retires_the_invitations_it_outran(app):
+def test_a_waiting_list_yes_retires_the_invitations_it_outran(app):
+    """PAD-446: the waiting list is invitation group 0, so its door is the student accept — and it
+    closes the spot through the same routine, retiring every other live invitation."""
     ids = _world(app)
     with app.app_context():
-        from padel_app.models import LessonInstance, NotificationEvent, Vacancy, WaitingListEntry
-        from padel_app.services.notification_service import (
-            _fill_from_waiting_list,
-            get_or_create_config,
-        )
+        from padel_app.models import NotificationEvent, Vacancy, WaitingListEntry
+        from padel_app.services.notification_service import respond_to_notification
 
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
         sent = _invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent")
-        queued = _invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "queued")
-
+        bea_invite = _invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "sent")
+        NotificationEvent.query.get(bea_invite).round_number = 0  # group 0
         entry = WaitingListEntry(
             lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
             coach_id=ids["coach_id"], is_active=True,
@@ -190,22 +189,14 @@ def test_the_waiting_list_placement_retires_the_invitations_it_outran(app):
         db.session.commit()
 
         with patch(PATCHES[0]), patch(PATCHES[1]):
-            placed = _fill_from_waiting_list(
-                entry,
-                Vacancy.query.get(vacancy_id),
-                LessonInstance.query.get(ids["instance_id"]),
-                ids["coach_id"],
-                get_or_create_config(ids["coach_id"]),
-            )
+            result = respond_to_notification(bea_invite, "yes", ids["bea_user_id"])
 
-        assert placed is True
+        assert result["action"] == "confirmed"
         assert Vacancy.query.get(vacancy_id).status == "filled"
-        # This path retired nothing at all: both of these used to stay live.
         assert _live_events(vacancy_id) == []
         assert NotificationEvent.query.get(sent).status == "expired"
-        assert NotificationEvent.query.get(queued).status == "expired"
         assert not _message_is_actionable(sent)
-        assert not _message_is_actionable(queued)
+        assert WaitingListEntry.query.get(entry.id).is_active is False
 
 
 # --- the routine's own contract --------------------------------------------

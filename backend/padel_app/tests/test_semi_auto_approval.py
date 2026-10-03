@@ -679,7 +679,11 @@ class TestStale:
 
 class TestWaitingListGating:
 
-    def test_waiting_list_disclosed_and_gated_until_approval(self, app):
+    def test_waiting_list_heads_the_queue_and_waits_for_approval(self, app):
+        """PAD-446 (semi-auto-approval rules 5 and 10): the waiting-list student opens the prompt's
+        queue, marked as such, with no "added directly" disclosure; nothing goes out before the
+        approval, and after it they are invited first — never enrolled without a yes."""
+        from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.presences import Presence
         from padel_app.models.vacancy import Vacancy
         from padel_app.models.waiting_list_entry import WaitingListEntry
@@ -700,31 +704,24 @@ class TestWaitingListGating:
 
             vacancy, prompt, bundle = _create_pending_prompt(world, decl_player)
 
-            # Disclosure in the prompt
-            assert prompt.waiting_list_player_id == wl_player.id
-            v_meta = bundle["vacancies"][0]
-            assert v_meta["waitingListPlayerId"] == wl_player.id
-            assert v_meta["waitingListPlayerName"] == "Waitlisted wl"
+            assert prompt.waiting_list_player_id is None
+            assert bundle["vacancies"][0]["waitingListPlayerId"] is None
+            head = prompt.queue_snapshot[0]
+            assert (head["id"], head["roundNumber"], head["fromWaitingList"]) == (str(wl_player.id), 0, True)
 
-            # While pending: the standing entry does NOT auto-fill the spot
             now = datetime.utcnow()
             with _patched_io():
                 process_invitation_batches(now=now)
-            assert Vacancy.query.get(vacancy.id).status == "open"
-            assert Presence.query.filter_by(
-                player_id=wl_player.id, lesson_instance_id=instance.id
-            ).first() is None
+            assert NotificationEvent.query.filter_by(player_id=wl_player.id).count() == 0
+            assert Presence.query.filter_by(player_id=wl_player.id, lesson_instance_id=instance.id).first() is None
 
-            # After approval: waiting-list fill proceeds normally
             with _patched_io():
                 respond_to_approval(bundle["bundleId"], "yes_now", coach.id, now=now)
 
-            v = Vacancy.query.get(vacancy.id)
-            assert v.status == "filled"
-            assert v.filled_by_player_id == wl_player.id
-            assert Presence.query.filter_by(
-                player_id=wl_player.id, lesson_instance_id=instance.id
-            ).first() is not None
+            first = NotificationEvent.query.filter_by(vacancy_id=vacancy.id).order_by(NotificationEvent.id).first()
+            assert (first.player_id, first.round_number) == (wl_player.id, 0)
+            assert Vacancy.query.get(vacancy.id).status == "open"
+            assert Presence.query.filter_by(player_id=wl_player.id, lesson_instance_id=instance.id).first() is None
 
 
 # ---------------------------------------------------------------------------

@@ -145,6 +145,18 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    still-open invitation all count. The next round applies its own criteria (B-056), within the
    class-wide exclusions of rule 18: a student who said "no" is never asked again for the class,
    in any round.
+8a. **The waiting list is group 0 (PAD-446; numbering unconfirmed).** Every batch for a vacancy
+   first asks the class's waiting-list students who have not yet been invited for it, in the order
+   they joined, up to the batch size (`notifications.waiting-list` rules 4–4c, 16). Their
+   invitations carry `round_number = 0` and use the `waiting_list_invite` template; the vacancy's
+   own round counter does not move for them. Only when no waiting-list student is left to ask
+   **today** — one at `maxInvitesPerStudentPerDay` is not, so they never hold the spot from the
+   groups for the rest of the club day — does the batch go to the vacancy's current invitation group, so rounds, pacing (`maxSimultaneous`,
+   `maxInactiveTime`), the start-once claim (rule 1b), the hold (rule 16) and rule 18 work as before,
+   with group-0 invitations counted like any other. A student who joins the list while the rounds
+   run is asked on the next batch, ahead of the group. A group-0 invitation is answered through the
+   same paths (rules 9, 10, 17, 18); its yes and its no also settle the waiting-list entry
+   (`notifications.waiting-list` rule 15).
 9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
 10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
@@ -159,7 +171,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     rollback inside it does neither), so no helper can end the lock early and a
     failed enrolment leaves nothing changed (the student can answer again). Every path that seats a
     student on a vacancy decides the same way and in the same order (vacancy, then class): the
-    student's yes, the coach's recorded yes, the waiting-list fill, the join-request accept, and a
+    student's yes (a waiting-list student's included, rule 8a), the coach's recorded yes, the join-request accept, and a
     student taking back the place they had given up (the reminder return, ledger B-284). **This is
     the engine's one lock order (PAD-509, ledger B-300): a vacancy, then its class.** A sender
     choosing whom to invite takes it too: its spot's lock and then the class lock, per student,
@@ -233,8 +245,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     `NotificationEvent` for that vacancy whose status is still non-terminal —
     `LIVE_INVITATION_STATES`, today `sent` and `queued` — and retires each one's invitation
     message so its Yes/No buttons stop rendering. All five closing paths go through it: the
-    student accept, the coach accept on the student's behalf, the waiting-list placement, the
-    accepted join request, and capacity reconciliation (rule 13). `except_event_id` spares the
+    student accept (a waiting-list student's group-0 invitation included), the coach accept on the
+    student's behalf, the accepted join request, and capacity reconciliation (rule 13). (The
+    waiting-list placement that was a fifth path is gone with PAD-446.) `except_event_id` spares the
     winner's own invitation, which its caller marks `confirmed`. The routine returns the events
     it retired, because a caller that still has to tell those candidates cannot find them again
     afterwards — a query for live invitations returns nothing once they are expired.
@@ -283,8 +296,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     "no": an invitation retired because someone else took the spot, expired with the class, or
     never answered is not one. Then, for every automatic path of that occurrence:
     - a student who answered "no" to any of its invitations is never invited again — not in a
-      later round, not for another spot, not by a re-created vacancy — and is skipped by its
-      automatic waiting-list fill;
+      later round, not for another spot, not by a re-created vacancy, not as a waiting-list
+      student (group 0, rule 8a), and their waiting-list entry for the class closes
+      (`notifications.waiting-list` rule 15);
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
@@ -572,7 +586,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 
 #### A filled vacancy stops inviting, whichever door filled it (PAD-317)
 - **Given** an open vacancy with one `sent` invitation and one `queued` invitation out for it
-- **When** the spot is filled by any path — a student accepting, a coach accepting for them, a waiting-list placement, an accepted join request, or capacity reconciliation
+- **When** the spot is filled by any path — a student accepting (a waiting-list student's group-0 invitation included), a coach accepting for them, an accepted join request, or capacity reconciliation
 - **Then** the vacancy is `filled` and neither invitation is left in a live state
 - **And** neither candidate's invitation message stays actionable
 - **And** the winner's own invitation is untouched by the close, and is marked `confirmed` by the path that accepted it
@@ -607,7 +621,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 
 #### A "no" is final for that class (PAD-497)
 - **Given** a class with an open spot and a student who answered "no" to its invitation
-- **When** the spot reaches a later round, a second spot of the class opens, the spot is re-created, or the class's waiting list is filled automatically
+- **When** the spot reaches a later round, a second spot of the class opens, the spot is re-created, or the class's waiting list is asked first (group 0)
 - **Then** the student is not invited and not placed, and the invite explanation gives `declined_this_class`
 - **And** the same holds when the coach recorded the "no" for them
 - **And** a "yes" from that student on the same invitation enrols nobody and reports `declined`

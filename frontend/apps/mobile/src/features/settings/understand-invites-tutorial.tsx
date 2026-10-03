@@ -8,6 +8,7 @@ import {
   formatClubTime,
   resolveText,
   sortGates,
+  waitingListAskedFirst,
 } from "@levelup/config";
 import type {
   CalendarEvent,
@@ -289,16 +290,16 @@ function SimulationResults({
         </View>
       )}
 
-      {simulation.waitingListPlacement && (
+      {waitingListAskedFirst(simulation).length > 0 && (
+        // PAD-446 (settings.tutorials rule 4.3): the waiting list is asked first, never placed.
         <View className="rounded-lg border border-border p-3" testID="tutorial-waiting-list">
-          <Text className="text-sm">
-            {t("tutorials.understandInvites.waitingList", {
-              name: simulation.waitingListPlacement.name ?? "",
-            })}
-            {simulation.waitingListPlacement.standing
-              ? ` ${t("tutorials.understandInvites.waitingListStanding")}`
-              : ""}
-          </Text>
+          <Text className="text-sm">{t("tutorials.understandInvites.waitingList")}</Text>
+          {waitingListAskedFirst(simulation).map((entry, index) => (
+            <Text key={entry.playerId} className="text-sm" testID={`tutorial-waiting-list-${entry.playerId}`}>
+              {`${index + 1}. ${entry.name ?? ""}`}
+              {entry.standing ? ` ${t("tutorials.understandInvites.waitingListStanding")}` : ""}
+            </Text>
+          ))}
         </View>
       )}
 

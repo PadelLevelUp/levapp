@@ -39,7 +39,7 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    - reminders stop as a consequence: they go to an instance's enrolled players;
    - every standing waiting-list entry and every active per-class entry (including the ones a
      standing entry fanned out) is deactivated in the same transaction as the rest of the cascade,
-     so no credit is spent and no placement picks them;
+     so no credit is spent and no waiting-list invitation picks them;
    - every open class request they sent (`pending` or `countered`) closes as `withdrawn` /
      `decided_by: student` and its hold leaves the coach's calendar, and they are taken off the
      invitee list of other people's open requests — silently: no notification in either direction
