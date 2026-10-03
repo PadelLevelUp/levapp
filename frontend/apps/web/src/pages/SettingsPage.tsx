@@ -231,6 +231,15 @@ export function parseTab(search: string): SettingsTab {
   return wanted && SETTINGS_TABS.some((it) => it.id === wanted) ? (wanted as SettingsTab) : "preferences";
 }
 
+/** B-263: the loaded profile, keeping what the coach already typed into the fields they touched. A field
+ *  touched but left empty before the read lands takes the loaded value (#509 review): otherwise typing
+ *  then deleting there would save "" and, for the email, clear it and its verification. */
+function hydrateUntouched(loaded: ProfileForm, current: ProfileForm, touched: Set<keyof ProfileForm>): ProfileForm {
+  const next = { ...loaded };
+  for (const field of touched) if (current[field].trim()) next[field] = current[field];
+  return next;
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -276,6 +285,8 @@ export default function SettingsPage() {
   // that section; an unknown or disallowed id falls back through `activeTab`.
   // PAD-459: read through the router, like every later navigation below, not `window.location`.
   const location = useLocation();
+  // PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" lands here, on the field.
+  const focusEmail = new URLSearchParams(location.search).get("focus") === "email";
   const [tab, setTab] = useState<SettingsTab>(() => parseTab(location.search));
   // Mobile is a DRILL-IN, not a dropdown: the phone shows the list of sections
   // first and opens one on tap. Landing straight inside Preferences with a
@@ -294,9 +305,13 @@ export default function SettingsPage() {
   const [emailState, setEmailState] = useState<EmailVerificationState | undefined>(undefined);
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
-  // Set as soon as the coach edits a field, so a late `getMe()` response can
-  // refresh the "what's on the server" baseline without wiping what they typed.
-  const profileDirty = useRef(false);
+  // The fields the coach has edited, so a late `getMe()` response refreshes the "what's on the server"
+  // baseline and fills every OTHER field without wiping what they typed. B-263: one flag for the whole
+  // form left an untouched name empty, and the save then sent `name: ""` and was refused.
+  const profileTouched = useRef(new Set<keyof ProfileForm>());
+  // PAD-482 (#509 review): the "needed to recover" line waits for the read, or it flashes for a coach who
+  // has an email.
+  const [profileLoaded, setProfileLoaded] = useState(false);
   // B-184: the same guard for the language. Once the user has chosen one, the mount-time
   // profile read (which can land later) must not put the stored language back.
   const languageDirty = useRef(false);
@@ -430,7 +445,8 @@ export default function SettingsPage() {
         setSavedProfile(loaded);
         setEmailState(me.emailVerification);
         setRequestAlerts(me.requestAlerts !== false);
-        if (!profileDirty.current) setProfile(loaded);
+        setProfile((current) => hydrateUntouched(loaded, current, profileTouched.current));
+        setProfileLoaded(true);
       })
       .catch(() => {
         // ignore — keep default language
@@ -474,7 +490,7 @@ export default function SettingsPage() {
   };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
-    profileDirty.current = true;
+    profileTouched.current.add(field);
     setProfile((p) => ({ ...p, [field]: value }));
   };
 
@@ -517,7 +533,7 @@ export default function SettingsPage() {
     setProfile(confirmed);
     setSavedProfile(confirmed);
     setEmailState(updated.emailVerification);
-    profileDirty.current = false;
+    profileTouched.current.clear();
 
     toast({
       title: t("settings.toast.settingsSavedTitle"),
@@ -671,10 +687,18 @@ export default function SettingsPage() {
                     </div>
                     <Input
                       id="profile-email"
+                      data-testid="settings-profile-email"
                       type="email"
+                      autoFocus={focusEmail}
                       value={profile.email}
                       onChange={(e) => setProfileField("email", e.target.value)}
                     />
+                    {/* PAD-482 (rule 14): a coach with no email cannot recover a password. */}
+                    {isCoach && profileLoaded && !profile.email.trim() ? (
+                      <p data-testid="settings-profile-email-needed" className="text-xs text-muted-foreground">
+                        {t("settings.profile.emailNeeded")}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2">

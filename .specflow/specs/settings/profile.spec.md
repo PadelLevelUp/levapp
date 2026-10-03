@@ -44,12 +44,17 @@ out of scope (no backend support exists for them).
 7. The success notification is only shown **after** the API confirms the write. A failed request shows an
    error notification and never a success one — no optimistic success toast.
 8. After a successful save, a reload of the Settings screen shows the newly saved values (the form is
-   hydrated from `GET /api/auth/me`, not from local defaults).
+   hydrated from `GET /api/auth/me`, not from local defaults). A field the user edits before that
+   read lands keeps what they typed; every other field is still filled from it (B-263), so a save never
+   sends a field the user did not touch. A field typed in and left empty before the read lands counts as
+   untouched and takes the loaded value, so a save can never clear it by accident.
 9. Saving an `email` that differs from the stored one (case-insensitively) clears `email_verified_at`,
    marks the account as needing verification and mails a 6-digit code to the new address, best-effort
    (`auth.email-verification` rules 1, 3 and 6). The response's `emailVerification` is `"pending"`
-   and the client opens the code screen right after the save. Saving the same address, or clearing it,
-   does not touch the verification state. The state is shown next to the field on web and iOS
+   and the client opens the code screen right after the save. Saving the same address (any case) does
+   not touch the verification state; neither does a save that omits `email`. Clearing it (`""`,
+   whitespace or `null`) also clears the verification — no timestamp, nothing required, no pending
+   code — so the account reads `unverified` (B-262). The state is shown next to the field on web and iOS
    (`auth.email-verification` rule 9).
 
 ### Acceptance Criteria
@@ -89,6 +94,18 @@ out of scope (no backend support exists for them).
 - **When** they PATCH `/api/auth/me` with `{"email": "ana.silva@example.com"}`
 - **Then** the response is 200 with `emailVerification: "pending"` and a code is mailed to `ana.silva@example.com`
 - **And** PATCHing `{"email": "ANA.silva@example.com"}` afterwards leaves the state `"pending"` and sends no second mail
+
+#### Clearing the email clears its verification (rule 9, B-262)
+- **Given** an authenticated coach whose email `rui@example.com` is verified
+- **When** they PATCH `/api/auth/me` with `{"email": ""}` (or whitespace, or `null`)
+- **Then** the response is 200 with `emailVerification: "unverified"` and no code is pending
+- **And** a PATCH that omits `email`, or one that re-sends the same address in another case
+  (`"RUI@example.com"`, any client), leaves a verified email verified and mails nothing
+
+#### Typing before the profile has loaded keeps the other fields (rule 8, B-263)
+- **Given** a coach opens Perfil and types `rui@example.com` into the email field before `GET /api/auth/me` answers
+- **When** the read answers with name "Rui Costa", and the coach saves
+- **Then** the name field shows "Rui Costa", the email keeps what was typed, and the save sends `{"email": "rui@example.com"}` only
 
 #### Abbreviation falls back to initials
 - **Given** an authenticated coach named "Ana Beatriz Costa" with no stored abbreviation

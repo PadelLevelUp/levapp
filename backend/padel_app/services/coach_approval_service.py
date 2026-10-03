@@ -11,6 +11,7 @@ from werkzeug.security import check_password_hash
 from padel_app.models import Coach, User
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
+from padel_app.services.email_verification_service import verification_state
 
 
 def list_pending_coaches_service():
@@ -32,7 +33,8 @@ def serialize_pending_coach(coach):
         "email": user.email if user else None,
         # auth.email-verification rule 10: the admin should not approve a
         # coach nobody can reach.
-        "emailVerified": bool(user and user.email_verified_at is not None),
+        # B-262: the derived state, so an account with no email is never shown as verified.
+        "emailVerified": bool(user and verification_state(user) == "verified"),
         "requestedAt": coach.created_at.isoformat() + "+00:00" if coach.created_at else None,
     }
 
@@ -166,7 +168,7 @@ def notify_admin_of_pending_coach(coach):
     to = current_app.config.get("ADMIN_NOTIFY_EMAIL")
     if not to:
         return
-    verified = "yes" if user.email_verified_at is not None else "no"
+    verified = "yes" if verification_state(user) == "verified" else "no"
     body = (
         f"A coach is waiting for approval.\n\n"
         f"Name: {user.name}\nUsername: {user.username}\nEmail: {user.email}\n"

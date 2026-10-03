@@ -394,6 +394,19 @@ export function MessageBubble({
               {message.content}
             </Text>
 
+            {/* messaging.conversation-detail rule 16 (PAD-492): the time's size and colour. */}
+            {message.isAutomatic ? (
+              <Text
+                testID={`message-automatic-note-${message.id}`}
+                className={cn(
+                  "mt-0.5 text-[11px]",
+                  own ? "text-primary-foreground opacity-70" : "text-muted-foreground"
+                )}
+              >
+                {t("messages.automaticMessage")}
+              </Text>
+            ) : null}
+
             <View className="mt-0.5 flex-row items-center gap-1 self-end">
               <Text
                 className={cn(
