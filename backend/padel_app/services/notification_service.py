@@ -5048,10 +5048,9 @@ def coach_respond_to_notification(
 
     instance = event.lesson_instance
     vacancy = event.vacancy
-    if action in ("yes", "no"):
-        event.answer = action  # PAD-497 (rule 18): the coach records the student's answer
 
     if action == "no":
+        event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
         event.status = "expired"
         event.save()
         if vacancy:
@@ -5060,6 +5059,16 @@ def coach_respond_to_notification(
         return {"action": "declined"}
 
     elif action == "yes":
+        # PAD-499 (#527 review item 2): rule 10's lock, vacancy then class, as the student accept —
+        # decided on re-read rows, so a student's yes on another spot of the class cannot slip in
+        # between this check and the enrolment and overfill it.
+        vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        if event.status == "confirmed":
+            db.session.commit()  # release the lock; nothing was written (#526 review item 5)
+            return {"action": "confirmed"}
+        # A refused yes writes no answer (#526 review item 4): the student's own "no", if any,
+        # stands (rule 18).
         if vacancy and vacancy.status != "open":
             event.status = "expired"
             event.save()
@@ -5072,14 +5081,16 @@ def coach_respond_to_notification(
 
         # PAD-271: the vacancy is marked BEFORE the enrolment so enrol()'s
         # reconciliation finds it already closed and closes nothing else.
-        # PAD-317: through the one routine. It replaces the hand-rolled expiry
-        # that used to follow, which matched `sent` only and — alone among the
-        # closers — never retired the invite MESSAGES, so the candidates' bubbles
-        # kept live Yes/No buttons on an invitation that was already dead.
+        # PAD-317: through the one routine, which also retires the invite messages.
+        # PAD-499: the answer and the confirmation are flushed first and land with the close and
+        # the enrolment in ONE commit; a second coach yes waiting on the lock then finds it
+        # confirmed.
+        event.answer = "yes"
+        event.status = "confirmed"
+        db.session.flush()
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
-        event.status = "confirmed"
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
         if vacancy:
