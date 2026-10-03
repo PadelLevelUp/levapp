@@ -20,7 +20,7 @@ import { Loader2, Trash2, CalendarRange } from "lucide-react";
 import { clubTodayISO, nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
 import type { SeasonDefinition } from "@/types";
 import { deleteSeason, getSeason, saveSeason } from "@/api/seasons";
-import { useTabSave } from "@/context/SettingsUnsavedContext";
+import { TabSaveError, useTabSave } from "@/context/SettingsUnsavedContext";
 
 /**
  * calendar.seasons rule 12 (PAD-82) — Settings → Calendar: the coach's ONE
@@ -138,7 +138,7 @@ export function SeasonsSection() {
     const problem = localProblem();
     if (problem) {
       setError(problem);
-      throw new Error(problem);
+      throw new TabSaveError(problem);
     }
     setError(null);
     try {
@@ -155,12 +155,11 @@ export function SeasonsSection() {
       setEditing(true);
     } catch (err) {
       const data = (err as ApiError).response?.data;
-      if ((err as ApiError).response?.status === 400 && data?.code === "invalid_season") {
-        setError(t("settings.seasons.invalidDay"));
-      } else {
-        setError(t("settings.seasons.saveFailed"));
-      }
-      throw err;
+      const reason = (err as ApiError).response?.status === 400 && data?.code === "invalid_season"
+        ? t("settings.seasons.invalidDay")
+        : t("settings.seasons.saveFailed");
+      setError(reason);
+      throw new TabSaveError(reason);
     }
   };
   useTabSave("seasons", unsaved, { label: t("settings.seasons.title"), save: handleSave });

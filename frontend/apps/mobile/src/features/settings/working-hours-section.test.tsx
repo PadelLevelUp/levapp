@@ -12,6 +12,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderNative } from "@/test/render-native";
+import { SectionSaveProbe } from "@/test/section-save-probe";
 
 const getCoachWorkingHours = vi.fn();
 const putCoachWorkingHours = vi.fn();
@@ -121,56 +122,91 @@ describe("weeksEqual (settings.unsaved-edits rule 2)", () => {
   });
 });
 
-describe("WorkingHoursSection registers its unsaved state (PAD-394)", () => {
-  it("toggling a day -> unsaved; toggling back -> clean; a successful save -> clean", async () => {
+const STORED = { mon: [["09:00", "13:00"]], tue: [], wed: [["08:00", "22:00"]], thu: [["08:00", "22:00"]], fri: [["08:00", "22:00"]], sat: [["08:00", "22:00"]], sun: [["08:00", "22:00"]] };
+
+async function mountWithRegistry() {
+  let registry!: ReturnType<typeof useUnsavedRegistry>;
+  function Capture() {
+    registry = useUnsavedRegistry();
+    return null;
+  }
+  const n = await renderNative(
+    <UnsavedRegistryProvider>
+      <Capture />
+      <WorkingHoursSection />
+      <SectionSaveProbe testID="settings-working-hours-save" />
+    </UnsavedRegistryProvider>
+  );
+  await n.flush();
+  return { n, registry: () => registry };
+}
+
+describe("WorkingHoursSection waits for the screen's Save (settings.explicit-save, PAD-506)", () => {
+  it("toggling a day -> unsaved and nothing sent; toggling back -> clean; Save sends the week and reads clean", async () => {
     putCoachWorkingHours.mockImplementation((value: unknown) =>
       Promise.resolve({ workingHours: value })
     );
-    let registry!: ReturnType<typeof useUnsavedRegistry>;
-    function Capture() {
-      registry = useUnsavedRegistry();
-      return null;
-    }
-    const n = await renderNative(
-      <UnsavedRegistryProvider>
-        <Capture />
-        <WorkingHoursSection />
-      </UnsavedRegistryProvider>
-    );
+    const { n, registry } = await mountWithRegistry();
+    expect(registry().hasUnsaved()).toBe(false);
+
+    await n.toggle("working-hours-works-sun");
+    expect(registry().hasUnsaved()).toBe(true);
+    expect(putCoachWorkingHours).not.toHaveBeenCalled();
+
+    await n.toggle("working-hours-works-sun");
+    expect(registry().hasUnsaved()).toBe(false);
+
+    await n.toggle("working-hours-works-sun");
+    expect(registry().hasUnsaved()).toBe(true);
+    await n.press("settings-working-hours-save");
     await n.flush();
-    expect(registry.hasUnsaved()).toBe(false);
-
-    await n.toggle("working-hours-works-sun");
-    expect(registry.hasUnsaved()).toBe(true);
-
-    await n.toggle("working-hours-works-sun");
-    expect(registry.hasUnsaved()).toBe(false);
-
-    await n.toggle("working-hours-works-sun");
-    expect(registry.hasUnsaved()).toBe(true);
-    await n.press("working-hours-save");
-    await n.flush();
-    expect(registry.hasUnsaved()).toBe(false);
+    expect(putCoachWorkingHours).toHaveBeenCalledTimes(1);
+    const sent = putCoachWorkingHours.mock.calls[0][0] as Record<string, unknown>;
+    expect(sent.sun).toEqual([]);
+    expect(Object.keys(sent)).toEqual(WORKING_DAY_KEYS);
+    expect(registry().hasUnsaved()).toBe(false);
+    expect(sundayState(n)).toBe("off");
   });
 
   it("a failed save leaves the section unsaved", async () => {
     putCoachWorkingHours.mockRejectedValue(new Error("network"));
-    let registry!: ReturnType<typeof useUnsavedRegistry>;
-    function Capture() {
-      registry = useUnsavedRegistry();
-      return null;
-    }
-    const n = await renderNative(
-      <UnsavedRegistryProvider>
-        <Capture />
-        <WorkingHoursSection />
-      </UnsavedRegistryProvider>
-    );
-    await n.flush();
+    const { n, registry } = await mountWithRegistry();
 
     await n.toggle("working-hours-works-sun");
-    await n.press("working-hours-save");
+    await n.press("settings-working-hours-save");
     await n.flush();
-    expect(registry.hasUnsaved()).toBe(true);
+    expect(putCoachWorkingHours).toHaveBeenCalledTimes(1);
+    expect(registry().hasUnsaved()).toBe(true);
+    expect(sundayState(n)).toBe("off");
+  });
+
+  it("a refusal naming a day shows that day's error and stays unsaved", async () => {
+    putCoachWorkingHours.mockRejectedValue({ response: { data: { code: "INVALID_WORKING_HOURS", day: "mon" } } });
+    const { n, registry } = await mountWithRegistry();
+
+    await n.toggle("working-hours-works-sun");
+    await n.press("settings-working-hours-save");
+    await n.flush();
+    expect(n.queryByTestId("working-hours-error-mon")).not.toBeNull();
+    expect(registry().hasUnsaved()).toBe(true);
+  });
+
+  it("clear is held: it is unsaved, sends nothing, and Save stores no working hours (null)", async () => {
+    getCoachWorkingHours.mockResolvedValue({ workingHours: STORED });
+    putCoachWorkingHours.mockResolvedValue({ workingHours: null });
+    const { n, registry } = await mountWithRegistry();
+    expect(registry().hasUnsaved()).toBe(false);
+    expect(n.queryByTestId("working-hours-set")).not.toBeNull();
+
+    await n.press("working-hours-clear");
+    await n.flush();
+    expect(registry().hasUnsaved()).toBe(true);
+    expect(putCoachWorkingHours).not.toHaveBeenCalled();
+
+    await n.press("settings-working-hours-save");
+    await n.flush();
+    expect(putCoachWorkingHours).toHaveBeenCalledWith(null);
+    expect(registry().hasUnsaved()).toBe(false);
+    expect(n.queryByTestId("working-hours-default")).not.toBeNull();
   });
 });

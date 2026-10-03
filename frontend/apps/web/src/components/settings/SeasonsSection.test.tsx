@@ -75,7 +75,10 @@ describe("SeasonsSection — a late load never replaces the form (PAD-392)", () 
   });
 });
 
-/** settings.unsaved-edits rule 2 (PAD-394, ledger B-157). */
+/**
+ * settings.unsaved-edits rule 2 (PAD-394, ledger B-157) + settings.explicit-save (PAD-506): the
+ * form is held and sent only by the tab's one Save (the harness's `harness-save`).
+ */
 describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
   const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
 
@@ -106,9 +109,11 @@ describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
     fireEvent.change(label(), { target: { value: "Epoca nova" } });
     expect(unsavedIds()).toBe("seasons");
 
-    fireEvent.click(screen.getByTestId("season-save"));
+    expect(saveSeason).not.toHaveBeenCalled(); // held until the Save
+    fireEvent.click(screen.getByTestId("harness-save"));
     await waitFor(() => expect(saveSeason).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(unsavedIds()).toBe(""));
+    expect(screen.getByTestId("save-failed")).toHaveTextContent("");
   });
 
   it("stays unsaved after a failed save", async () => {
@@ -122,8 +127,39 @@ describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
     fireEvent.change(label(), { target: { value: "Epoca nova" } });
     expect(unsavedIds()).toBe("seasons");
 
-    fireEvent.click(screen.getByTestId("season-save"));
+    fireEvent.click(screen.getByTestId("harness-save"));
     await waitFor(() => expect(saveSeason).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId("save-failed")).toHaveTextContent("seasons — settings.seasons.saveFailed")
+    );
     expect(unsavedIds()).toBe("seasons");
+    expect(screen.getByTestId("season-error")).toHaveTextContent("settings.seasons.saveFailed");
+  });
+
+  it("a server refusal (invalid_season) is listed with its reason and stays unsaved", async () => {
+    saveSeason.mockRejectedValue({ response: { status: 400, data: { code: "invalid_season" } } });
+    render(
+      <SettingsUnsavedTestHarness>
+        <SeasonsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("season-label");
+    fireEvent.change(label(), { target: { value: "Epoca nova" } });
+
+    fireEvent.click(screen.getByTestId("harness-save"));
+    await waitFor(() =>
+      expect(screen.getByTestId("save-failed")).toHaveTextContent("seasons — settings.seasons.invalidDay")
+    );
+    expect(unsavedIds()).toBe("seasons");
+  });
+
+  it("there is no section Save button any more", async () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <SeasonsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("season-label");
+    expect(screen.queryByTestId("season-save")).toBeNull();
   });
 });
