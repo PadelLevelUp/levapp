@@ -10,7 +10,7 @@ affects:
   - backend/padel_app/services/notification_service.py
   - backend/padel_app/services/class_join_request_service.py
   - backend/padel_app/services/lesson_service.py
-proposed_fix: "Close the vacancy, confirm the winner and enrol them in ONE commit: _close_vacancy retires invitations with flushes and the retired messages' edits are published after the commit; the reconcile run by the enrolment locks the vacancies it may close with SKIP LOCKED."
+proposed_fix: "Close the vacancy, confirm the winner and enrol them in ONE commit: _close_vacancy retires invitations with flushes and the retired messages' edits are queued before that commit and sent by it; the reconcile run by the enrolment counts every open vacancy and locks only the one it closes, with SKIP LOCKED."
 opened: 2026-10-02T18:08:30Z
 ---
 
@@ -49,16 +49,41 @@ one commit and the code did not keep that promise. Incomplete rule.
 - **Code:**
   - `_retire_invite_message(defer=True)` flushes and publishes nothing.
   - `_close_vacancy` always defers.
-  - `_publish_retired(events)` sends the edits after the caller's commit. Its callers: the student
-    accept, the coach accept, `_fill_from_waiting_list`, the join-request accept, the reminder
-    return, the coach add / attendance return, and `reconcile_vacancies`.
+  - `_publish_retired(events)` builds the edits from the flushed state and queues them on the
+    session (`padel_app/tools/after_commit.py`). The queue runs right after the next commit and is
+    dropped by a rollback. So each caller queues BEFORE its own commit: the student accept, the
+    coach accept, `_fill_from_waiting_list`, the join-request accept, the reminder return, `enrol`'s
+    return, the coach's attendance return, and `reconcile_vacancies`. (Queued after a commit, an
+    edit waited for whatever committed next, or was never sent. The first version did that on the
+    coach accept and the reconcile; `test_pad499_publish_after_commit.py` keys each path's edit to
+    the commit that closed the spot.)
 - **Found while fixing:** holding the lock through the enrolment made PAD-495 item 7's inferred
   deadlock real. The enrolment's `reconcile_vacancies` updated another vacancy that a concurrent
   answer had locked while that answer waited for the class lock. The reconcile now selects the
   vacancies it may close `FOR UPDATE SKIP LOCKED`. One that another answer holds is left to it; that
-  answer finds the class full and refuses, and the tick reconciles it.
-- **Tests:** cells (a) and (b), red on `0ae8b0ade`, green after (3/3 runs on Postgres). A commit
-  put back inside `_close_vacancy` turns both red.
+  answer finds the class full and refuses, and the tick reconciles it. (#527 item 5.) It counts
+  every open vacancy but locks only each one it is about to close. A pick another answer holds is
+  passed over for the next. Locking them all had held spots it would not close, and counting only
+  the ones it got left a stale vacancy behind once the held one was filled.
+- **Tests:** cells (a) and (b), red on `0ae8b0ade`, green after (3/3 runs on Postgres).
+
+### What is one commit, and what is not
+
+The spot's close, the winner's confirmation and their enrolment are one commit on every accept
+path. What follows that commit is bookkeeping in commits of its own, and is not covered:
+
+- **Waiting-list fill:** the entry's `is_active = False` and the standing credit
+  (`_fill_from_waiting_list`).
+- **Join accept:** the request's `accepted` status, the standing credit, and the messages to the
+  candidates.
+
+If one of these later commits fails, the student keeps the place and the bookkeeping is stale.
+For example, a waiting-list entry stays active for a student who is already enrolled.
+
+**Duplicate edits on the join accept (read in the code, not run):** `_broadcast_spot_filled` edits
+each retired candidate's bubble again (response `spot_filled`) and publishes it, after the queued
+edit from the close. Each candidate's client receives two `message_edited` events for one bubble,
+and the second one carries the final state. The student accept uses the same broadcast.
 
 ### Resolution
 
