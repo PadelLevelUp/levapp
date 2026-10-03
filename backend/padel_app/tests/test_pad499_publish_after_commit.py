@@ -262,6 +262,8 @@ def test_a_failed_single_commit_publishes_nothing(app, monkeypatch, trail, where
 def test_the_queue_waits_through_a_savepoint_release_and_survives_its_rollback(app):
     """padel_app.tools.after_commit: a SAVEPOINT is not the transaction. Its release must not run
     the queue, and its rollback must not drop it; the real commit runs it, a real rollback drops it."""
+    from sqlalchemy import text
+
     from padel_app.tools.after_commit import on_commit
 
     ran = []
@@ -275,6 +277,7 @@ def test_the_queue_waits_through_a_savepoint_release_and_survives_its_rollback(a
         db.session.commit()
         assert ran == ["a"]
 
+        db.session.execute(text("SELECT 1"))       # a transaction is open, as after any flush
         on_commit(lambda: ran.append("b"))
         db.session.rollback()
         db.session.commit()
