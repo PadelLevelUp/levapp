@@ -573,3 +573,78 @@ describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", (
     expect(await screen.findByTestId("working-hours-works-sun")).toBeInTheDocument();
   });
 });
+
+describe("SettingsPage — a coach with no email (PAD-482, auth.email-verification rule 14)", () => {
+  it("the coach home's link lands on Perfil with the empty email field focused and the reason under it", async () => {
+    getMe.mockResolvedValue({ ...ME, email: null, emailVerification: "unverified" });
+    goto("/settings?tab=profile&focus=email");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    expect(await screen.findByTestId("settings-profile-email-needed")).toHaveTextContent("settings.profile.emailNeeded");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("a coach with an email sees no reason line, and the field is not focused without ?focus=email", async () => {
+    goto("/settings?tab=profile");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    await waitFor(() => expect(field).toHaveValue("coach@example.com"));
+    expect(screen.queryByTestId("settings-profile-email-needed")).toBeNull();
+    expect(document.activeElement).not.toBe(field);
+  });
+});
+
+// B-263 (PAD-482): typing before /auth/me lands used to skip hydration for EVERY field, so a save sent
+// `name: ""` and was refused. Only the fields the coach touched keep what they typed.
+describe("SettingsPage — typing before the profile has loaded (B-263)", () => {
+  it("the untouched fields still fill in, and the save sends only the typed one", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    goto("/settings?tab=profile&focus=email");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    fireEvent.change(field, { target: { value: "rui@example.com" } });
+    await act(async () => { land({ ...ME, email: null, emailVerification: "unverified" }); });
+
+    await waitFor(() => expect(document.getElementById("profile-name")).toHaveValue("Coach"));
+    expect(field).toHaveValue("rui@example.com");
+    fireEvent.click(screen.getByTestId("settings-header-save"));
+    await waitFor(() => expect(updateMe).toHaveBeenCalled());
+    const payload = updateMe.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload.email).toBe("rui@example.com");
+    expect(payload).not.toHaveProperty("name");
+  });
+});
+
+describe("SettingsPage — #509 review", () => {
+  it("the reason line waits for the profile: a coach who has an email never sees it flash", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    goto("/settings?tab=profile");
+    renderSettings();
+
+    await screen.findByTestId("settings-profile-email");
+    expect(screen.queryByTestId("settings-profile-email-needed")).toBeNull();
+    await act(async () => { land(ME); });
+    await waitFor(() => expect(screen.getByTestId("settings-profile-email")).toHaveValue("coach@example.com"));
+    expect(screen.queryByTestId("settings-profile-email-needed")).toBeNull();
+  });
+
+  it("a field typed in and emptied again before the read lands takes the loaded value, so nothing is cleared", async () => {
+    let land!: (me: object) => void;
+    getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
+    goto("/settings?tab=profile");
+    renderSettings();
+
+    const field = await screen.findByTestId("settings-profile-email");
+    fireEvent.change(field, { target: { value: "x" } });
+    fireEvent.change(field, { target: { value: "" } });
+    await act(async () => { land(ME); });
+
+    await waitFor(() => expect(field).toHaveValue("coach@example.com"));
+  });
+});
+

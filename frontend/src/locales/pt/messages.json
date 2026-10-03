@@ -124,6 +124,7 @@
     "usernamePlaceholder": "username",
     "usernameSubmit": "Iniciar",
     "noUserWithUsername": "Não existe nenhum utilizador com esse username",
+    "automaticMessage": "Mensagem automática LevApp",
     "cannotMessageUser": "Não podes enviar mensagens a este utilizador",
     "unknownSender": {
       "title": "Não partilhas nenhum clube com {{name}}",
