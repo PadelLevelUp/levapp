@@ -7,11 +7,14 @@ import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
+import { useAuth } from "@/auth/AuthContext";
 import { CoachDashboard } from "@/features/dashboard/CoachDashboard";
+import { EmailPromptBanner } from "@/features/dashboard/email-prompt-banner";
 import { StudentDashboard } from "@/features/dashboard/StudentDashboard";
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   // Same window the web dashboard uses: now → +30 days. Computed once so the
   // query key stays stable across renders.
   const [range] = React.useState(() => ({
@@ -59,7 +62,11 @@ export default function DashboardScreen() {
         ) : data?.id === COACH_DASHBOARD_ID ? (
           // The payload id is the switch (dashboard.blocks rule 3b): both
           // homes share block types, so sniffing them would be a guess.
-          <CoachDashboard blocks={data.blocks} />
+          <>
+            {/* PAD-482 (auth.email-verification rule 14): above the coach home, never a hold. */}
+            <EmailPromptBanner user={user} />
+            <CoachDashboard blocks={data.blocks} />
+          </>
         ) : (
           <StudentDashboard blocks={data?.blocks ?? []} />
         )}

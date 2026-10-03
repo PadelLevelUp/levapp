@@ -63,7 +63,7 @@ export function isProfileUnsaved(form: ProfileForm, saved: ProfileForm): boolean
  *
  * Every control is full-width and one per line — nothing to overflow at 390pt.
  */
-export function ProfileSection() {
+export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean }) {
   const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
@@ -77,9 +77,10 @@ export function ProfileSection() {
   const [saved, setSaved] = React.useState<ProfileForm>(EMPTY_PROFILE);
   const [isSaving, setIsSaving] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
-  // Set on the first keystroke so a late /auth/me can refresh the "what the
-  // server has" baseline without wiping what the coach typed.
-  const dirtyRef = React.useRef(false);
+  // The fields the coach has edited, so a late /auth/me refreshes the "what the server has" baseline
+  // and fills every OTHER field without wiping what they typed. B-263: one flag for the whole form
+  // left an untouched name empty, and the save then sent `name: ""` and was refused.
+  const touchedRef = React.useRef(new Set<keyof ProfileForm>());
 
   React.useEffect(() => {
     if (!me) return;
@@ -90,13 +91,18 @@ export function ProfileSection() {
       phone: me.phone ?? "",
     };
     setSaved(loaded);
-    if (!dirtyRef.current) setForm(loaded);
+    setForm((current) => {
+      const next = { ...loaded };
+      // #509 review: a field touched but left empty before the read lands takes the loaded value.
+      for (const field of touchedRef.current) if (current[field].trim()) next[field] = current[field];
+      return next;
+    });
   }, [me]);
 
   useUnsavedReporter("profile", isProfileUnsaved(form, saved));
 
   const setField = (field: keyof ProfileForm, value: string) => {
-    dirtyRef.current = true;
+    touchedRef.current.add(field);
     setStatus(null);
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -124,7 +130,7 @@ export function ProfileSection() {
       };
       setForm(confirmed);
       setSaved(confirmed);
-      dirtyRef.current = false;
+      touchedRef.current.clear();
       setStatus(t("settings.mobile.profileSaved"));
       // settings.profile rule 9: a new address is verified right away.
       if (payload.email !== undefined && updated.emailVerification === "pending") {
@@ -227,9 +233,17 @@ export function ProfileSection() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoFocus={focusEmail}
             value={form.email}
             onChangeText={(v) => setField("email", v)}
           />
+          {/* PAD-482 (rule 14): a coach with no email cannot recover a password. */}
+          {/* Only once /auth/me has answered, or it flashes for a coach who has an email (#509 review). */}
+          {me?.roles?.includes("coach") && !form.email.trim() ? (
+            <Text testID="settings-profile-email-needed" className="text-xs text-muted-foreground">
+              {t("settings.profile.emailNeeded")}
+            </Text>
+          ) : null}
         </View>
 
         <View className="gap-1.5">
