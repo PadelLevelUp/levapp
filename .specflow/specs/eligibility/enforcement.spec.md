@@ -18,18 +18,19 @@ a coach acts by hand. The coach's roster always wins.
    `notifications.invitations` keep working exactly as they do today; the final, widest wave becomes
    "everyone **eligible**" instead of "everyone". Eligibility is applied first, wave criteria second,
    priority criteria and tiebreakers third. No candidate above the last wave was ever below the bar.
-2. **Waiting-list placement is hard-gated.** `_check_waiting_list` admits only candidates who pass
-   `effective_eligibility()` for that class. Waiting-list candidates are **not** subject to wave
-   criteria — they are not being invited in rounds, they are being placed — so they are filtered by
-   eligibility and ranked by the configured priority criteria.
+2. **Waiting-list invitations are hard-gated.** Since PAD-446 the waiting list is invitation group 0
+   (`notifications.invitations` rule 8a): it asks only students who pass `effective_eligibility()`
+   for that class. They are **not** subject to the coach's wave criteria (group 0 has none; the
+   invitation names the spot's side and the student decides) and they are ordered by join time
+   (`notifications.waiting-list` rule 4), not by the priority criteria.
 3. **Adding a student to the standing waiting list is a coach action and is warn-only** (rule 6).
-   Automatic *placement* from that list is hard-gated (rule 2). These are different moments and must
+   Being *invited* from that list is hard-gated (rule 2). These are different moments and must
    not be conflated.
-4. **A student is never placed into a class they are already in.** The waiting-list fill excludes any
-   candidate who already has an enrolment association for that instance, **or** a presence for it
-   with status `absent`. Without the second exclusion the student whose cancellation created the
-   vacancy is placed straight back into it — see the acceptance criteria below.
-5. **The waiting-list fill honours the same restrictions the invitation path honours**:
+4. **A student is never invited from the waiting list into a class they are already in.** Group 0
+   leaves out any student with a presence for that instance, `absent` included. Without the second
+   case the student whose cancellation created the vacancy is offered it straight back — see the
+   acceptance criteria below.
+5. **Waiting-list invitations honour the same restrictions every invitation honours**:
    `restrictions.excludedPlayers`, `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), and the student
    availability-blocker filter (`calendar.student-blockers`).
 6. **Manual add warns, it does not block.** When a coach adds an ineligible student to a class by
@@ -87,9 +88,9 @@ a coach acts by hand. The coach's roster always wins.
     the failed rules through the same renderer as 7d. It has no action button, it never blocks,
     and it clears when the bar is next saved with nobody affected. It is derived from the save
     response only; the client never re-evaluates the bar itself.
-10. **With an unset bar, automatic placement is unfiltered — and that is the coach's choice, not an
-    engine decision.** Rule 2 gates on eligibility, so a coach who has defined no bar will still see
-    waiting-list students placed into any of their classes. Rules 4 and 5 apply regardless of whether
+10. **With an unset bar, waiting-list invitations are unfiltered by level — and that is the coach's
+    choice, not an engine decision.** Rule 2 gates on eligibility, so a coach who has defined no bar
+    will still see waiting-list students invited to any of their classes. Rules 4 and 5 apply regardless of whether
     a bar is defined; they are unconditional correctness fixes.
 
 ### Acceptance Criteria
@@ -142,25 +143,25 @@ a coach acts by hand. The coach's roster always wins.
 - **Then** only students within one ladder step of the class are invited
 - **And** students further away are not invited in any wave
 
-#### Waiting-list placement respects the bar
+#### Waiting-list invitations respect the bar
 - **Given** a coach whose eligibility is `[{level, same_as_class}]`
 - **And** a student with an active standing waiting-list entry whose level does not match a class
 - **When** a vacancy opens in that class
-- **Then** that student is not placed
+- **Then** that student is not invited
 - **And** no credit is consumed
 - **And** the vacancy proceeds to normal invitations
 
-#### A student is never placed into the spot their own cancellation created
+#### A student is never offered the spot their own cancellation created
 - **Given** a student enrolled in a class who also has an active standing waiting-list entry
 - **When** they cancel their attendance and the vacancy is processed
-- **Then** they are not placed back into that class
+- **Then** they are not invited back into that class
 - **And** no credit is consumed
 - **And** the vacancy is offered to other students
 
-#### An enrolled student is never placed into their own class
+#### An enrolled student is never invited from the waiting list into their own class
 - **Given** a student already enrolled in a class who has an active standing waiting-list entry
 - **When** another student's cancellation opens a vacancy in that class
-- **Then** the enrolled student is not a placement candidate
+- **Then** the enrolled student is not a waiting-list candidate
 - **And** the vacancy is offered to students who are not already in the class
 
 #### Manual add of an ineligible student warns with a reason and proceeds

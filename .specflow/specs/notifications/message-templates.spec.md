@@ -14,8 +14,8 @@ Customize the text of notification messages sent to players.
 
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
-2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_placed
-3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_placed, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones
+2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_invite. (PAD-446: `waiting_list_invite` replaces `waiting_list_placed`; a stored `waiting_list_placed` text is ignored.)
+3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_invite, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones
 4. Updated via `POST /api/app/notify/config`
 5. Placeholders must render fully substituted with concrete values — a rendered message never contains a raw placeholder token (`{level}`, `{weekday}`, etc.) or a filler artifact such as the literal word "this" in a placeholder slot
 6. The `{weekday}`, date, and time placeholders render in the **recipient coach's locale** (see settings.language), formatted via Flask-Babel — e.g. `pt` → "quarta-feira", `en` → "Wednesday". Never manually string-built from English day/month names. Fallback locale is Portuguese
@@ -27,6 +27,12 @@ Customize the text of notification messages sent to players.
 12. `{type}` renders the class's type (`lessons.type`) as one word in the **coach's** locale, like every other placeholder (rule 6): `academy` → "academia" / "academy", `private` → "privada" / "private". The coach writes the template in one language, so the type word follows the template's language, not the recipient's (PAD-430 decision; the ticket's "recipient language" is met for every recipient who shares the coach's language, which is the only case a single-language template can serve)
 13. `{date}` renders the class's start date as `dd/mm` (zero-padded day and month, no year, e.g. "23/02"), from the same wall-clock start the `{weekday}` and `{time}` placeholders use; it is locale-independent
 14. `{court}` renders the name of the class's court (`lessons.court`, clubs.courts rule 6; for an occurrence, its own court first, clubs.courts rule 9, PAD-513) and is empty when the class has no court. An empty `{court}` leaves no broken text: the placeholder renders empty and the connector directly before it goes with it — rule 7's genitives plus the locative prepositions `em`, `no`, `na`, `in`, `on`, `at` — then an empty pair of brackets, `()` or `[]`, is removed and rule 7's space/punctuation collapse runs; a message the empty placeholder left starting on punctuation ("No {court}, às {time}.") loses it and its first letter is capitalised ("Às 19:00."). A template the coach opened on punctuation ("- Lembrete: …") keeps it as written. So "aula às {time} no {court}." reads "aula às 19:00." and "aula ({court})" reads "aula". Any other word before it is left as the coach wrote it. None of the built-in defaults use `{type}`, `{date}` or `{court}`; they are opt-in for the coach
+15. `{side}` (PAD-446; numbering unconfirmed) is filled only in `waiting_list_invite`: when the
+    vacancy's side is `left` or `right` it renders ` (left side)` / ` (right side)` in the coach's
+    locale (pt ` (lado esquerdo)` / ` (lado direito)`), leading space and brackets included; for a
+    `both` or empty side it renders as nothing. The default texts put it right after the time, so a
+    spot without a side reads as an ordinary sentence. In any other template `{side}` renders as
+    nothing.
 
 ### Acceptance Criteria
 
@@ -38,7 +44,7 @@ Customize the text of notification messages sent to players.
 
 #### Blank templates fall back for every message type
 - **Given** a coach whose `message_templates` has *all* keys saved as empty strings
-- **When** any template-driven automatic message is sent (invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_confirm, waiting_list_placed)
+- **When** any template-driven automatic message is sent (invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_confirm, waiting_list_invite)
 - **Then** each message body is the built-in default for that key in the coach's locale, never blank
 
 #### Weekday and level render in the coach locale with no artifacts
@@ -63,7 +69,7 @@ Customize the text of notification messages sent to players.
 
 #### The settings editor offers the new placeholders
 - **Given** a coach on the web settings page, Message templates section
-- **When** they open the invite, reminder, reminder follow-up or waiting-list-placed template
+- **When** they open the invite, reminder, reminder follow-up or waiting-list invitation template
 - **Then** the placeholder hints list `{type}`, `{date}` and `{court}` besides `{name}`, `{level}`, `{weekday}` and `{time}`
 
 ### Notes

@@ -32,8 +32,8 @@ act unsupervised — particularly one running a smaller or more relationship-dri
 5. The coach taps "Yes, right now" to send invitations immediately, "Yes, at [time]" to let them go
    out when the normal invitation window opens, or "No" to decline — in which case the spot stays
    open but the engine leaves it alone, and the coach can still notify people manually.
-6. If a standing waiting-list student would be placed directly (no invitation needed), the coach
-   sees that called out in the prompt before they decide.
+6. Students on the class's waiting list head the list the coach approves, marked as coming from the
+   waiting list: they would be asked first.
 
 ## Business Rules
 
@@ -49,8 +49,8 @@ act unsupervised — particularly one running a smaller or more relationship-dri
   a new one or invite manually.
 - Saying no doesn't close the spot. It just means the engine stays out of it; the coach keeps every
   other tool (manual invitations, waiting list) available.
-- A standing waiting-list placement also waits for the coach's approval in this mode — it never
-  places a student behind the coach's back just because it wouldn't have needed to "ask" them.
+- Waiting-list students are asked like everyone else in this mode: nothing goes out to them, or to
+  anyone, before the coach approves.
 
 ## Success Metrics
 

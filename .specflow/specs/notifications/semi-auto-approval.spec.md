@@ -13,7 +13,7 @@ governed_by: []
 In semi-automatic mode, the invitation engine asks the coach for approval before sending replacement invitations. Each vacancy produces a replacement approval prompt showing who declined and the full ordered invite queue; the coach approves (now or at the invitation window), or dismisses and falls back to the manual flow.
 
 ### Entities
-- **ReplacementApprovalPrompt**: coach_id, vacancy_id (unique — one prompt per vacancy), declined player info, full ordered invite queue (all eligible candidates across all rounds/groups, in invite order, at prompt-creation time), waiting-list disclosure (if a standing waiting-list match exists), status (pending|approved|dismissed), bundle reference (groups prompts created by a single presence confirmation), created_at, decided_at
+- **ReplacementApprovalPrompt**: coach_id, vacancy_id (unique — one prompt per vacancy), declined player info, full ordered invite queue (all eligible candidates across all rounds/groups, in invite order, at prompt-creation time), waiting-list disclosure (`waiting_list_player_id`; always null since PAD-446, the waiting list is in the queue), status (pending|approved|dismissed), bundle reference (groups prompts created by a single presence confirmation), created_at, decided_at
 - **Assistant conversation**: a system conversation between the platform assistant and the coach (new concept — today conversations exist only between users). One per coach; reuses the existing conversation/message machinery (SSE delivery, push notifications, unread counts). Approval prompts are delivered as messages with coach action buttons
 - **Vacancy.approval_status** (defined in notifications.invitations): not_required | pending | approved | dismissed
 
@@ -22,7 +22,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 2. In semi-automatic mode, every vacancy-creation path sets approval_status "pending" and creates a replacement approval prompt instead of sending invitations: player declines via reminder response, coach confirms presences marking players absent, and the `invite_start` scheduler job
 3. One prompt per vacancy (idempotent): re-triggering invitations for a vacancy that already has a prompt does not create a duplicate
 4. The prompt shows which student(s) declined and the FULL ordered invite queue — all eligible candidates across all rounds/groups, in the exact order the engine would invite them, computed at prompt-creation time. Exactness principle: the list shown to the coach is exactly the set of players who may receive invitations — the engine may never invite anyone not on the shown list. Eligibility is recomputed at send time using the same rules, which may shrink or reorder the list; a player who wasn't shown may be invited only because their eligibility changed between prompt creation and send time
-5. If a standing waiting-list match exists for the vacancy, the prompt discloses it explicitly (e.g. "Player X from the waiting list will be added directly to the class"), since waiting-list fills place the player without an invitation
+5. **The waiting list heads the queue (PAD-446).** The class's waiting-list students the engine would ask first (`notifications.invitations` rule 8a) open the queue, in their order, each entry marked `fromWaitingList: true`; clients tag them "from the waiting list". Nobody is placed without an invitation any more, so the old disclosure ("Player X from the waiting list will be added directly to the class") is never made: `waiting_list_player_id` is stored null, which older builds read as "no disclosure"
 6. Every prompt is persisted as a message in the coach's Assistant conversation — the source of truth — regardless of which surface triggered it
 7. Presence-confirmation surface: when confirming presences creates N vacancies, the frontend immediately shows one inline approval card bundling all N vacancies (declined players + invite queues concatenated). One decision applies to the whole bundle; the same bundle is also persisted in the Assistant conversation
 8. Coach actions (three):
@@ -31,7 +31,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    - **"No"** → approval_status "dismissed"; the prompt is closed. The vacancy REMAINS OPEN (Vacancy.status unchanged) but the engine never sends invitations for it; the coach can still use the manual invitation flow (notifications.manual). Dismissal is terminal — the prompt cannot be re-approved
    When the invitation window is already open, only **"Yes, right now"** and **"No"** are offered (the scheduled option is meaningless)
 9. Gating: `process_invitation_batches()` and the `invite_start` scheduler job skip vacancies with approval_status "pending" or "dismissed"; only "not_required" and "approved" vacancies are processed
-10. Waiting-list auto-fill is also gated: in semi-automatic mode, standing waiting-list fills (`_check_waiting_list()`) do not run for a vacancy until it is approved, since they add a player without coach consent. Dismissed vacancies are never auto-filled from the waiting list
+10. The waiting list waits for approval like everyone else: its group-0 invitations are invitations, so rule 9's gate holds them until the coach approves, and a dismissed vacancy never invites from the waiting list either
 11. If a vacancy is filled or expired before the coach decides (e.g. via the manual flow), the pending prompt becomes stale and any decision on it is a no-op
 
 ### Acceptance Criteria
@@ -97,13 +97,13 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **When** a vacancy is created on any path
 - **Then** it gets approval_status "not_required", no prompt is created, and invitations are sent exactly as before
 
-#### Waiting-list match disclosed in prompt
-- **Given** semi-automatic mode and a vacancy for which player Carol has a standing waiting-list match
+#### The waiting list heads the prompt's queue (PAD-446)
+- **Given** semi-automatic mode and a vacancy for which player Carol is on the class's waiting list
 - **When** the replacement approval prompt is created
-- **Then** the prompt explicitly discloses the match (e.g. "Carol from the waiting list will be added directly to the class")
+- **Then** Carol is first in the queue, marked `fromWaitingList: true`, and `waiting_list_player_id` is null
 
-#### Waiting-list fill waits for approval
+#### The waiting list waits for approval (PAD-446)
 - **Given** semi-automatic mode, a pending vacancy, and a player with an active standing waiting-list entry
 - **When** the engine processes the vacancy
-- **Then** the standing entry does NOT auto-fill the spot
-- **And** after the coach approves, the waiting-list fill proceeds normally
+- **Then** nobody is invited or enrolled, the waiting-list student included
+- **And** after the coach approves, the waiting-list student is invited first

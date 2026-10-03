@@ -59,8 +59,8 @@ point that composes them (PAD-358).
    coach is told exactly as a join request tells them: a message in the coach ↔ student
    conversation, a web push and an iOS push that open that thread, and a realtime
    `waiting_list_joined` event to the coach.
-   Placement from the list stays `notifications.waiting-list` rules 4–4d and 13 — this rule adds an
-   entry, it never places anyone.
+   What the list then does is `notifications.waiting-list` rules 4–4c and 13: when a spot opens the
+   student is invited first (PAD-446) — this rule adds an entry, it never enrols anyone.
 7. **Each class shows what the student already did**: their latest join request for it (and its
    status) and whether they are on its waiting list. A class they have a pending request for, or are
    on the waiting list of, shows that status instead of the action. **Every place the list reports,
@@ -163,7 +163,7 @@ point that composes them (PAD-358).
 - **Then** their entry is inactive and the class is listed with `onWaitingList` false
 
 #### The student sees their waiting lists with their state (rule 11, PAD-504)
-- **Given** student S on the waiting list of a full future class A, placed from the list into class B, who left the list of class C, and was still listed when class D started
+- **Given** student S on the waiting list of a full future class A, who got a place in class B from the list (said yes to its waiting-list invitation), who left the list of class C, and was still listed when class D started
 - **When** S GETs `/api/app/class-waiting-list`
 - **Then** A is `active`, B `placed`, C `left` and D `passed`, newest first, each with class title, date, times and coach name
 

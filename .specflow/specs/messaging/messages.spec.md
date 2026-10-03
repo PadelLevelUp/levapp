@@ -33,7 +33,7 @@ Send, edit, and delete messages within conversations, with support for replies a
     fail because the image cannot be signed. The storage client is created once per process,
     not once per image.
 6. **Automatic messages are told apart from typed ones (PAD-492).** A message the app generated
-   (reminder, vacancy invitation, waiting-list offer or placement, class added/cancelled notice,
+   (reminder, vacancy invitation — a waiting-list one included —, waiting-list offer, class added/cancelled notice,
    join- and class-request notices and replies, spot-filled/confirm/decline replies, replacement
    approval, shared evaluation) is written with a `message_type` other than `"text"` or with a
    non-null `msg_metadata` — `_send_system_message` always writes `msg_metadata or {}`, and every
