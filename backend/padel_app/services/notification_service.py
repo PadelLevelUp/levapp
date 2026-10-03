@@ -4609,17 +4609,19 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
     # PAD-499 (B-261): the accept paths now hold rule 10's vacancy and class locks until the
     # enrolment's commit, and that enrolment reconciles. Closing ANOTHER vacancy of the class here
     # would wait on an answer that is deciding on it — which in turn waits for this class lock: a
-    # deadlock. So the vacancies to close are locked without waiting, and one that another answer
-    # holds is skipped: that answer finds the class full and refuses, and the tick reconciles it.
+    # deadlock. So every open vacancy is COUNTED, but only the one about to be closed is locked,
+    # without waiting (#527 item 5). One that another answer holds is passed over for the next
+    # candidate: that answer either fills it (so it was not stale) or finds the class full and
+    # refuses, and the tick reconciles it.
     open_vacancies = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
         .order_by(Vacancy.id.asc())
-        .with_for_update(skip_locked=True)
         .all()
     )
+    to_close = len(open_vacancies) - open_spots
     closed = []
     retired = []
-    while len(open_vacancies) > open_spots:
+    while to_close > 0 and open_vacancies:
         pick = next(
             (v for v in open_vacancies
              if filled_by_player_id is not None and v.original_player_id == filled_by_player_id),
@@ -4627,8 +4629,17 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
           or open_vacancies[0]
         open_vacancies.remove(pick)
-        retired.extend(_close_vacancy(pick, filled_by_player_id))
-        closed.append(pick)
+        locked = (
+            Vacancy.query.filter_by(id=pick.id, status="open")
+            .with_for_update(skip_locked=True)
+            .populate_existing()
+            .first()
+        )
+        if locked is None:
+            continue
+        retired.extend(_close_vacancy(locked, filled_by_player_id))
+        closed.append(locked)
+        to_close -= 1
     if closed:
         _publish_retired(retired)  # PAD-499: queued now, sent by this commit (or the enclosing one)
         commit_or_flush()
