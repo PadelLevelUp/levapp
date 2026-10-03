@@ -358,3 +358,39 @@ def test_a_waiting_list_yes_and_a_group_yes_on_two_spots_cannot_overfill(app, mo
         x_in = x in _enrolled(instance_id)
         assert db.session.get(WaitingListEntry, entry_id).is_active is (not x_in)
         assert [results["x"]["action"], results["y"]["action"]].count("confirmed") == 1, results
+
+
+def test_a_crash_right_after_the_accepts_commit_leaves_the_entry_settled(app, monkeypatch):
+    """Rule 15: the entry and the credit are written IN the accept's single commit, not after it. A
+    crash right after that commit (here: in the next save) must find the student enrolled AND the
+    entry closed with the credit spent — never enrolled with a live entry and an unspent credit."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (bea,) = _seed(enrolled=0, candidates=1, max_players=1, max_sim=1)
+        standing = _standing(coach_id, bea, NOW - timedelta(days=1))
+        standing_id = standing.id
+        entry_id = _entry(instance_id, coach_id, bea, NOW - timedelta(hours=1), standing=standing)
+        _trigger(instance_id, coach_id)
+        event_id = _event(instance_id, bea).id
+
+        real_add = ns._add_player_to_instance
+
+        def add_then_crash(player_id, instance):
+            result = real_add(player_id, instance)  # the accept's commit happens in here
+            monkeypatch.setattr(NotificationEvent, "save", lambda self: (_ for _ in ()).throw(RuntimeError("crash")))
+            return result
+
+        monkeypatch.setattr(ns, "_add_player_to_instance", add_then_crash)
+        with pytest.raises(RuntimeError):
+            ns.respond_to_notification(event_id, "yes", _user_of(bea), now=NOW + timedelta(minutes=1))
+        db.session.rollback()
+        db.session.expire_all()
+        assert bea in _enrolled(instance_id)
+        assert db.session.get(WaitingListEntry, entry_id).is_active is False
+        assert db.session.get(StandingWaitingListEntry, standing_id).credits_used == 1
