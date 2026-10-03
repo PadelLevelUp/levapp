@@ -42,7 +42,14 @@ It also makes the target visible inside the app.
    version it cannot read (exit 3). A build linked against the iOS 27 SDK crashes at launch,
    because the app has not adopted the UIScene lifecycle (PAD-467). The refusal names the way
    out: `DEVELOPER_DIR` pointing at an Xcode 26.x. `LEVAPP_ALLOW_XCODE_27=1` lets a build
-   through with a warning, for PAD-467's own work. This rule is retired when PAD-467 lands.
+   through with a warning, for PAD-467's own work. This rule is retired when the app adopts the
+   UIScene lifecycle (the Expo SDK upgrade that follows PAD-467).
+3b. **No pod targets below the app's minimum (PAD-467).** The config plugin
+   `plugins/with-pod-deployment-floor.js` adds a block at the top of the Podfile's `post_install`
+   that lifts every pod build configuration whose `IPHONEOS_DEPLOYMENT_TARGET` is below 15.1 (the
+   app's own minimum) to 15.1. Xcode 27 rejects a pod below 15 (ReachabilitySwift at 12.0 via
+   expo-updates, RNSVG at 12.4, on 2026-09-29). Under Xcode 26.6 only those targets' settings move.
+   A Podfile with no `post_install` makes the prebuild fail rather than skip the floor.
 
 #### The finished bundle is checked
 4. **Before export, the archived bundle must match its target.** `scripts/verify-release-bundle.mjs`
@@ -121,6 +128,13 @@ It also makes the target visible inside the app.
 - Then it exits 3 before editing `app.json` or prebuilding, naming PAD-467 and `DEVELOPER_DIR`
 - And with `Xcode 26.6` the check passes, and with `LEVAPP_ALLOW_XCODE_27=1` Xcode 27 passes with a warning
 - And an unreadable version is refused
+
+#### Pods below the app's minimum are lifted to it (PAD-467)
+- Given the Expo SDK 54 template Podfile
+- When the prebuild runs the pod-deployment-floor plugin
+- Then `post_install` starts with the floor block (15.1), added once however many prebuilds run
+- And the rest of the Podfile is unchanged byte for byte
+- And a Podfile without `post_install` is refused
 
 #### A tester sees the server in Settings
 - Given the debug build signed in as `e2e-coach`
