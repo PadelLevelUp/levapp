@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
+import { classTimes } from "../helpers/class-time";
 
 /**
  * PAD-106 — click-and-drag slot selection on the desktop weekly calendar.
@@ -78,10 +79,10 @@ test.describe("PAD-106: click-and-drag slot selection to create a class", () => 
     await expect(sheet.locator('input[type="date"]').first()).toHaveValue(
       expectedDate
     );
-    const times = sheet.locator('input[type="time"]');
-    await expect(times.nth(0)).toHaveValue("08:00");
+    const times = classTimes(sheet);
+    await expect(times.start).toHaveValue("08:00");
     // End is the LAST covered slot's start + 30 min, so 09:30 → 10:00.
-    await expect(times.nth(1)).toHaveValue("10:00");
+    await expect(times.end).toHaveValue("10:00");
   });
 
   test("dragging upward normalises to the same range", async ({ page }) => {
@@ -93,9 +94,9 @@ test.describe("PAD-106: click-and-drag slot selection to create a class", () => 
     const sheet = page.getByRole("dialog");
     await expect(sheet).toBeVisible({ timeout: 5000 });
 
-    const times = sheet.locator('input[type="time"]');
-    await expect(times.nth(0)).toHaveValue("08:00");
-    await expect(times.nth(1)).toHaveValue("10:00");
+    const times = classTimes(sheet);
+    await expect(times.start).toHaveValue("08:00");
+    await expect(times.end).toHaveValue("10:00");
   });
 
   test("a single click still opens the sheet with the old defaults", async ({
@@ -112,10 +113,10 @@ test.describe("PAD-106: click-and-drag slot selection to create a class", () => 
     await expect(sheet.locator('input[type="date"]').first()).toHaveValue(
       expectedDate
     );
-    const times = sheet.locator('input[type="time"]');
-    await expect(times.nth(0)).toHaveValue("08:00");
+    const times = classTimes(sheet);
+    await expect(times.start).toHaveValue("08:00");
     // Unchanged single-click behaviour: end time is start + 90 min, NOT +30.
-    await expect(times.nth(1)).toHaveValue("09:30");
+    await expect(times.end).toHaveValue("09:30");
   });
 
   test("Escape mid-drag cancels the selection", async ({ page }) => {
@@ -151,9 +152,9 @@ test.describe("PAD-106: click-and-drag slot selection to create a class", () => 
     const sheet = page.getByRole("dialog");
     await expect(sheet).toBeVisible({ timeout: 5000 });
 
-    const times = sheet.locator('input[type="time"]');
-    await expect(times.nth(0)).toHaveValue("08:00");
-    await expect(times.nth(1)).toHaveValue("09:30");
+    const times = classTimes(sheet);
+    await expect(times.start).toHaveValue("08:00");
+    await expect(times.end).toHaveValue("09:30");
 
     await expect(page.locator("[data-slot-selection]")).toHaveCount(0);
   });

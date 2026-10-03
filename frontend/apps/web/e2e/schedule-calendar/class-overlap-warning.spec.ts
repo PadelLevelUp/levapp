@@ -3,6 +3,7 @@ import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 import { ui } from "../helpers/i18n";
+import { setClassTime } from "../helpers/class-time";
 
 /**
  * PAD-99: warn the coach (non-blocking) when a class is scheduled at a time
@@ -55,9 +56,8 @@ async function fillClassForm(
     .first()
     .fill(name);
   await sheet.locator('input[type="date"]').first().fill(dateISO);
-  const times = sheet.locator('input[type="time"]');
-  await times.nth(0).fill(start);
-  await times.nth(1).fill(end);
+  await setClassTime(sheet.getByTestId("add-class-start-time"), start);
+  await setClassTime(sheet.getByTestId("add-class-end-time"), end);
 }
 
 test.beforeEach(async ({ page }) => {
