@@ -225,7 +225,7 @@ jobs:
               stats = data.get("stats", {})
           setup, run = ts - t0, tr - ts
           lines = [
-              "", "#### Phase 0 timing",
+              "", "#### Timing",
               f"- setup (checkout to browsers ready): **{setup} s**",
               f"- subset run: **{run} s** for {len(specs)} spec files, **{run / max(len(specs), 1):.0f} s per spec** on average",
               f"- setup + subset: {setup + run} s",
@@ -276,5 +276,12 @@ jobs:
         env:
           RUN_OUTCOME: ${{ steps.run.outcome }}
         run: |
-          if [ "$RUN_OUTCOME" = "failure" ]; then echo "::error::the subset has red specs (see the summary)"; exit 1; fi
+          if [ "$RUN_OUTCOME" = "failure" ]; then
+            # No results file: Playwright never wrote one, so the 20-minute cap (rule 8) cut the run
+            # or the stack failed to start. Either way the tests did not fail.
+            if [ ! -f "$RUNNER_TEMP/results.json" ]; then
+              echo "::error::cap hit (20 min) or setup failure, not a test failure (see the log)"; exit 1
+            fi
+            echo "::error::the subset has red specs (see the summary)"; exit 1
+          fi
           echo "subset green (or empty)"
