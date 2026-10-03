@@ -772,3 +772,38 @@ def test_a2_a_publish_failing_after_the_commit_leaves_the_invitation_with_its_me
             ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
         db.session.rollback()
         assert _live_without_message(instance_id) == 0
+
+
+@pytest.mark.parametrize("failing", [1, 2])
+def test_a3_a_failed_message_step_in_a_first_batch_gives_the_start_claim_back(app, monkeypatch, failing):
+    """Coordinator's check on #526 item 1: each student's invitation now commits on its own, before
+    the batch counts. When a message step then fails, that commit must not keep the start claim:
+    the give-back sees the batch counter unmoved and returns the claim (rule 1b), and the next tick
+    starts the spot again. A student whose invitation did commit keeps it, with its message, and is
+    not asked twice."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=1)
+        _message_factory_failing_on(monkeypatch, failing)
+        with pytest.raises(RuntimeError):
+            ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        db.session.rollback()
+        db.session.expire_all()
+        vacancy = Vacancy.query.filter_by(lesson_instance_id=instance_id).one()
+        assert (vacancy.last_activity_at, vacancy.current_batch_number) == (None, 0)
+        live = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, status="sent").all()
+        assert len(live) == failing - 1 and all(e.message_id for e in live)
+        assert _live_without_message(instance_id) == 0
+
+        monkeypatch.undo()
+        pin_clock(monkeypatch, NOW)
+        ns.process_invitation_batches(now=NOW + timedelta(minutes=2))
+        db.session.expire_all()
+        players = [e.player_id for e in NotificationEvent.query.filter_by(lesson_instance_id=instance_id)]
+        assert len(players) == len(set(players)), f"a student was asked twice: {players}"
+        assert Vacancy.query.filter_by(lesson_instance_id=instance_id).one().current_batch_number == 1
