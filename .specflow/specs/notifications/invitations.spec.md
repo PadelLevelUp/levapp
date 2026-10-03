@@ -41,9 +41,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    invitations they hold count toward `maxSimultaneous`, so the restart tops the first batch up
    instead of sending a full one on top (PAD-495). Only the first batch is capped this way: an
    invitation does not expire before the class starts, so counting every live one would stop all
-   later batches; later batches are paced by `maxInactiveTime` alone. Each invitation is committed
-   together with its message, never before it, so a message that fails to send leaves no live
-   invitation behind (PAD-495).
+   later batches; later batches are paced by `maxInactiveTime` alone. An invitation, its message and
+   its `message_id` land in one commit (rule 18), so a message that fails leaves no live invitation
+   behind.
    **Assumption, not a guarantee:** a live sender completes its first batch inside the lease (a
    batch is at most `maxSimultaneous` students, seconds of work). The window the lapse can race is
    the whole first batch, from the claim's commit to the batch counter's update: a sender that
@@ -252,9 +252,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     and the invitation stays `confirmed`, and the answer reports `confirmed`, so both clients show
     the Accepted badge (PAD-495). Leaving a class after
     winning it goes through the attendance cancel, not the invitation. A "yes" after the
-    student's own "no" on the same invitation is the same no-op too (rule 18). **Not covered
-    here:** a student who lost the spot and answers "yes" again is told `spot_filled` and offered
-    the waiting list again each time (PAD-495).
+    student's own "no" on the same invitation is the same no-op too (rule 18), and so is a "yes"
+    repeated by a student who lost the spot: they were told `spot_filled` and offered the waiting
+    list once, and the repeat answers the same and sends nothing (PAD-495).
 18. **A student's "no" is final for that class; one live offer per student per class (PAD-497,
     absorbing PAD-494; owner, 2026-10-02: "a student no means I dont want a spot in this class.
     He should never be invited to that class again").** "That class" is the single occurrence
@@ -313,9 +313,10 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     holding a sibling's offer and reach its last round without them; if that offer is later retired
     (someone else took that spot), the student is not asked for this spot, where before PAD-497 they
     would have been asked for both spots at once.
-    **Known side effect until PAD-495 lands:** a started spot whose batch the daily per-student limit
-    skipped entirely is re-examined every tick and, until PAD-495 item 9, advances its batch counter
-    and `last_activity_at` each time without sending anything (nothing reaches anyone).
+    A started spot whose batch the daily per-student limit skipped entirely is re-examined every
+    tick; such a batch does not count (PAD-495 item 9): the batch counter does not move, a first
+    batch's start claim is taken and given back (two writes to the vacancy per tick), and nothing
+    reaches anyone.
     A "yes" after the student's own "no" on the same invitation changes nothing and sends
     nothing; the answer reports `declined`, so both clients keep the invitation marked
     "Declined" (they already show that badge, without buttons, once a "no" is recorded). A
@@ -327,8 +328,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     key; builds from this change on fall back to a generic line for any stage they do not know).
     **A coach-recorded "no"** (rule 9) is final in the same way. Its only undo is the coach
     recording a "yes" on that invitation; removing the student and adding them back does not clear
-    it. (Until PAD-495 item 2, `coach_respond_to_notification` has no repeat guard and writes the
-    answer even on a confirmed invitation; no client calls it today.)
+    it. The coach recording the same answer twice changes nothing (rule 17).
 
 ### Acceptance Criteria
 
