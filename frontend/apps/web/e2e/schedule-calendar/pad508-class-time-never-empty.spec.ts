@@ -34,9 +34,7 @@ test("PAD-508: a cleared time left alone comes back, and the class is created wi
   await setClassTime(end, "19:30");
 
   // Clear the start time and leave it alone, as in the report.
-  await start.click();
-  await page.keyboard.press("ControlOrMeta+a");
-  await page.keyboard.press("Backspace");
+  await start.fill(""); // empties the old native input and the new field alike
   await expect(start).toHaveValue("");
   await page.waitForTimeout(3000);
   await page.keyboard.press("Tab");
