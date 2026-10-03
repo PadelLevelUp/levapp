@@ -6,16 +6,13 @@ import { Pressable, View } from "react-native";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
-import { SaveSign, useSaveSign } from "@/features/settings/save-sign";
-import { SaveLedger, createSerialSaver } from "@levelup/config";
-import { useFlushOnBackground } from "./use-flush-on-background";
+import { useSectionSave } from "@/features/settings/unsaved-registry";
 
 /**
  * evaluations.scale rules 1 and 8 (PAD-423) — the iOS twin of web's `EvaluationScaleSetting`,
  * beside the evaluation frequency. The four scales are Pressable rows with
  * `accessibilityRole="radio"`, as the frequency's are (no radio-group primitive is installed).
- * Saves `{scaleMax}` on change with the sign of settings.save-on-change; a failed save says so and
- * returns to the scale the server confirmed.
+ * settings.explicit-save (PAD-506): a choice is held until the screen's one "Guardar alterações".
  */
 const SCALES: EvaluationScaleMax[] = [5, 10, 20, 100];
 
@@ -25,49 +22,38 @@ export function EvaluationScaleSetting() {
   const save = useSaveEvaluationScale();
 
   const [choice, setChoice] = React.useState<EvaluationScaleMax | null>(null);
-  const sign = useSaveSign();
-  // settings.save-on-change rule 3: what a failure puts back comes from the shared SaveLedger.
-  const ledger = React.useRef(new SaveLedger<{ scaleMax: EvaluationScaleMax }>());
-  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
-  // value sent next, so the server ends in the order the saves were sent.
-  const sendScale = React.useRef(save.mutateAsync);
-  sendScale.current = save.mutateAsync;
-  const [saveScale] = React.useState(() => createSerialSaver((body: { scaleMax: EvaluationScaleMax }) => sendScale.current(body)));
-  // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
-  // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
-  useFlushOnBackground(() => saveScale.sendPendingNow());
+  // The scale as the server last confirmed it: what "unsaved" is measured against.
+  const [stored, setStored] = React.useState<EvaluationScaleMax | null>(null);
   const hydrated = React.useRef(false);
 
   React.useEffect(() => {
     if (!data || hydrated.current) return;
     hydrated.current = true;
     setChoice(data.scaleMax);
-    ledger.current.seed({ scaleMax: data.scaleMax });
+    setStored(data.scaleMax);
   }, [data]);
+
+  // settings.explicit-save rule 3: this control's part of the one Save.
+  useSectionSave("evaluationScale", choice !== null && stored !== null && choice !== stored, {
+    label: t("evaluations.scale.title"),
+    save: async () => {
+      if (choice === null) return;
+      const answer = await save.mutateAsync({ scaleMax: choice });
+      const confirmed = answer?.scaleMax ?? choice;
+      setStored(confirmed);
+      setChoice(confirmed);
+    },
+  });
 
   const handleSelect = (next: EvaluationScaleMax) => {
     if (isLoading) return;
-    const token = ledger.current.begin({ scaleMax: next });
     setChoice(next);
-    void sign.track("scale", saveScale({ scaleMax: next })).then(
-      (answer) => {
-        const shown = ledger.current.confirm(token, answer).show.scaleMax;
-        if (shown !== undefined) setChoice(shown);
-      },
-      () => {
-        const back = ledger.current.fail(token).scaleMax;
-        if (back !== undefined) setChoice(back);
-      },
-    );
   };
 
   return (
     <Card testID="settings-evaluation-scale">
       <CardHeader>
-        <View className="flex-row items-center justify-between gap-2">
-          <CardTitle>{t("evaluations.scale.title")}</CardTitle>
-          <SaveSign status={sign.status("scale")} testID="settings-evaluation-scale-sign" />
-        </View>
+        <CardTitle>{t("evaluations.scale.title")}</CardTitle>
         <CardDescription>{t("evaluations.scale.caption")}</CardDescription>
       </CardHeader>
       <CardContent className="gap-2" accessibilityRole="radiogroup">

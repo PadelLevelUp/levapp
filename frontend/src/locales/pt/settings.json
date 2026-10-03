@@ -33,6 +33,7 @@
     "toast": {
       "couldNotSaveTitle": "Não foi possível guardar as definições",
       "couldNotSaveDescription": "Tenta novamente.",
+      "couldNotSaveParts": "Não foi guardado: {{parts}}. O resto ficou guardado; tenta guardar de novo.",
       "settingsSavedTitle": "Definições guardadas",
       "settingsSavedWithAvatar": "Definições guardadas. (O carregamento do avatar está pronto a ligar.)",
       "settingsSavedDescription": "As tuas preferências foram atualizadas.",
@@ -356,6 +357,7 @@
       "deleteFailed": "Não foi possível remover a época"
     },
     "coachLevels": {
+      "remove": "Remover nível",
       "title": "Níveis do treinador",
       "description": "Define os níveis de competência dos teus jogadores. Arrasta para reordenar.",
       "highestLevel": "Mais alto",

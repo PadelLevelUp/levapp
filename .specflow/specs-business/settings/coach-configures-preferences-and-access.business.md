@@ -9,6 +9,7 @@ implemented_by:
   - ../../specs/settings/coach-working-hours.spec.md
   - ../../specs/settings/unsaved-edits.spec.md
   - ../../specs/settings/save-on-change.spec.md
+  - ../../specs/settings/explicit-save.spec.md
 ---
 
 # Coach configures preferences and access
@@ -59,7 +60,10 @@ managing only their own personal profile and preferences.
   panel in the interface is never treated as the real security boundary; every coach-only action is
   independently checked on the server.
 - An edit is never lost without a word: leaving a Settings section that has changes not yet saved
-  asks whether to discard them or keep editing (PAD-394). Sections that save on every change never ask.
+  asks whether to discard them or keep editing (PAD-394).
+- Nothing in Settings is saved until the coach presses "Save changes" — one button per tab, for every
+  edit on it — and leaving with unsaved edits asks first, on web and in the app (PAD-506, owner
+  decision 2026-10-03). Commands such as approving a join request or adding a court act at once.
 - A blank name is never accepted; an email must be valid and not already used by someone else; those
   values are trimmed before checking.
 - An abbreviation (a short badge shown next to the user's name) defaults to the first letters of the

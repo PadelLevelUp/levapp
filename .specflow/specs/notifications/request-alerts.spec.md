@@ -106,7 +106,7 @@ with a per-user opt-out (PAD-232).
 
 #### The switch persists
 - **Given** a signed-in coach on Settings → Preferences (web or iOS)
-- **When** they switch "Request alerts" off and reload
+- **When** they switch "Request alerts" off, press Save (PAD-506, `settings.explicit-save`) and reload
 - **Then** the switch stays off and `GET /api/auth/me` returns `requestAlerts: false`
 
 ### Notes

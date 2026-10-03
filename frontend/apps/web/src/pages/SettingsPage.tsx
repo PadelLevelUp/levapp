@@ -36,10 +36,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { SaveSign, useSaveSign } from "@/components/settings/SaveSign";
-import { SaveLedger, createSerialSaver } from "@levelup/config";
-import { SettingsUnsavedContext } from "@/context/SettingsUnsavedContext";
+import {
+  failedPartText,
+  SettingsSaveContext,
+  SettingsUnsavedContext,
+  type RegisterSaver,
+  type TabSaver,
+} from "@/context/SettingsUnsavedContext";
 import { cn } from "@/lib/utils";
+import { setLeaveGuard } from "@/lib/leave-guard";
 import {
   Bell,
   BellOff,
@@ -321,20 +326,9 @@ export default function SettingsPage() {
   // `undefined` until /me answers, so the switch never flashes the default
   // before the server value lands.
   const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
-  // settings.save-on-change (PAD-473): language and request alerts save on change, with the sign
-  // beside each. What they show after a failure comes from the shared SaveLedger (rule 3): seeded with
-  // the language the app already shows, then with the profile read — which never replaces a field a
-  // save has touched.
-  const sign = useSaveSign();
-  const ledger = useRef<SaveLedger<{ language: AppLanguage; requestAlerts: boolean }> | null>(null);
-  if (!ledger.current) {
-    ledger.current = new SaveLedger();
-    ledger.current.seed({ language });
-  }
-  // settings.save-on-change rule 3: one save of this field in flight at a time, the latest pending
-  // value sent next, so the server ends in the order the saves were sent.
-  const [saveLanguage] = useState(() => createSerialSaver((lang: AppLanguage) => updateMe({ language: lang })));
-  const [saveRequestAlerts] = useState(() => createSerialSaver((on: boolean) => updateMe({ requestAlerts: on })));
+  // settings.explicit-save (PAD-506): language and request alerts are held until the tab's Save.
+  // `storedPrefs` is what the server last confirmed (the profile read, then each Save's answer).
+  const [storedPrefs, setStoredPrefs] = useState<{ language: AppLanguage; requestAlerts: boolean } | null>(null);
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -366,6 +360,22 @@ export default function SettingsPage() {
   useEffect(() => {
     setUnsaved("profile", profileUnsaved);
   }, [profileUnsaved, setUnsaved]);
+  const preferencesUnsaved =
+    storedPrefs !== null &&
+    (language !== storedPrefs.language ||
+      (requestAlerts !== undefined && requestAlerts !== storedPrefs.requestAlerts));
+  useEffect(() => {
+    setUnsaved("preferences", preferencesUnsaved);
+  }, [preferencesUnsaved, setUnsaved]);
+
+  // settings.explicit-save rule 3 (PAD-506): what each unsaved section's part of the tab's one Save
+  // does. Sections below the page register through SettingsSaveContext; the page's own two (Perfil's
+  // form, Preferências' language and alerts) are added here.
+  const savers = useRef(new Map<string, TabSaver>());
+  const registerSaver = useCallback<RegisterSaver>((sectionId, saver) => {
+    if (saver) savers.current.set(sectionId, saver);
+    else savers.current.delete(sectionId);
+  }, []);
 
   const hasUnsaved = unsavedSections.size > 0;
 
@@ -388,6 +398,8 @@ export default function SettingsPage() {
     setPendingTab({ id, openMobile, fromUrl });
   };
   const keepEditing = () => {
+    setPendingHref(null);
+    setPendingLeave(null);
     if (pendingTab?.fromUrl) {
       // Only `tab` changes: the URL's other params (the competency manager's `competencies=open`) stay.
       const params = new URLSearchParams(location.search);
@@ -427,7 +439,7 @@ export default function SettingsPage() {
     getMe()
       .then((me) => {
         if (!active) return;
-        ledger.current?.seed({
+        setStoredPrefs({
           language: (me.language ?? "pt") as AppLanguage,
           requestAlerts: me.requestAlerts !== false,
         });
@@ -456,37 +468,30 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const handleRequestAlertsChange = (checked: boolean) => {
-    const token = ledger.current!.begin({ requestAlerts: checked });
-    setRequestAlerts(checked);
-    void sign.track("requestAlerts", saveRequestAlerts(checked)).then(
-      (me) => {
-        const { show } = ledger.current!.confirm(token, { requestAlerts: me.requestAlerts !== false });
-        if (show.requestAlerts !== undefined) setRequestAlerts(show.requestAlerts);
-      },
-      () => {
-        const back = ledger.current!.fail(token).requestAlerts;
-        if (back !== undefined) setRequestAlerts(back);
-      },
-    );
-  };
-
-  // B-244: the language is stored as soon as it is chosen, as on iOS; the page shows it at once, so
-  // its sign appears in the new language (settings.save-on-change rule 5).
+  // settings.explicit-save rule 2: held — the app keeps its language until the Save is confirmed.
+  const handleRequestAlertsChange = (checked: boolean) => setRequestAlerts(checked);
   const handleLanguageChange = (lang: AppLanguage) => {
-    const token = ledger.current!.begin({ language: lang });
     languageDirty.current = true;
     setLanguage(lang);
-    i18n.changeLanguage(lang);
-    const showLanguage = (shown: AppLanguage | undefined) => {
-      if (!shown) return;
-      setLanguage(shown);
-      i18n.changeLanguage(shown);
+  };
+
+  // Preferências' part of the tab's Save: one PATCH /auth/me with what changed.
+  const savePreferences = async () => {
+    if (!storedPrefs) return;
+    const payload: UpdateMePayload = {};
+    if (language !== storedPrefs.language) payload.language = language;
+    if (requestAlerts !== undefined && requestAlerts !== storedPrefs.requestAlerts) payload.requestAlerts = requestAlerts;
+    if (Object.keys(payload).length === 0) return;
+    const me = await updateMe(payload);
+    const confirmed = {
+      language: (me.language ?? language) as AppLanguage,
+      requestAlerts: me.requestAlerts !== false,
     };
-    void sign.track("language", saveLanguage(lang)).then(
-      (me) => showLanguage(ledger.current!.confirm(token, { language: (me.language ?? lang) as AppLanguage }).show.language),
-      () => showLanguage(ledger.current!.fail(token).language),
-    );
+    setStoredPrefs(confirmed);
+    setLanguage(confirmed.language);
+    setRequestAlerts(confirmed.requestAlerts);
+    // Rule 2: the app re-renders in the language once the server has it.
+    void i18n.changeLanguage(confirmed.language);
   };
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
@@ -494,33 +499,17 @@ export default function SettingsPage() {
     setProfile((p) => ({ ...p, [field]: value }));
   };
 
-  const handleSave = async () => {
-    // PAD-81: send only the fields that actually changed, so saving language
-    // from the Preferences tab doesn't re-submit (and re-validate) the profile.
-    const payload: UpdateMePayload = { language };
+  // Perfil's part of the tab's Save. PAD-81: send only the fields that actually changed.
+  const saveProfile = async () => {
+    const payload: UpdateMePayload = {};
     if (profile.name !== savedProfile.name) payload.name = profile.name;
     if (profile.abbreviation !== savedProfile.abbreviation)
       payload.abbreviation = profile.abbreviation;
     if (profile.email !== savedProfile.email) payload.email = profile.email;
     if (profile.phone !== savedProfile.phone) payload.phone = profile.phone;
-
-    setIsSaving(true);
-    let updated: MeResponse;
-    try {
-      // PAD-81: the success toast fires only once the API confirms the write —
-      // it used to be shown unconditionally while nothing was ever persisted.
-      updated = await updateMe(payload);
-      i18n.changeLanguage(language);
-    } catch (e) {
-      toast({
-        title: t("settings.toast.couldNotSaveTitle"),
-        description: t("settings.toast.couldNotSaveDescription"),
-        variant: "destructive",
-      });
-      return;
-    } finally {
-      setIsSaving(false);
-    }
+    if (Object.keys(payload).length === 0) return;
+    // PAD-81: the success toast fires only once the API confirms the write.
+    const updated: MeResponse = await updateMe(payload);
 
     // Re-hydrate from the server response so the form shows exactly what was
     // stored (trimmed name, uppercased abbreviation, derived abbreviation…).
@@ -535,11 +524,6 @@ export default function SettingsPage() {
     setEmailState(updated.emailVerification);
     profileTouched.current.clear();
 
-    toast({
-      title: t("settings.toast.settingsSavedTitle"),
-      description: t("settings.toast.settingsSavedDescription"),
-    });
-
     // settings.profile rule 9: a new address is verified right away.
     if (payload.email !== undefined && updated.emailVerification === "pending") {
       // B-050: the verify screen reads the signed-in user; refresh it first, or a
@@ -548,9 +532,88 @@ export default function SettingsPage() {
       navigate("/verify-email?next=/settings");
     }
   };
+  savers.current.set("profile", { label: t("settings.profile.title"), save: saveProfile });
+  savers.current.set("preferences", { label: t("settings.preferences.title"), save: savePreferences });
+
+  // settings.explicit-save rule 3: the tab's one Save runs every unsaved section's part, in turn. A
+  // part that fails stays unsaved (its section keeps its draft) and is named; the rest are clean.
+  const handleSave = async () => {
+    setIsSaving(true);
+    const failed: string[] = [];
+    try {
+      for (const sectionId of [...unsavedSections]) {
+        const saver = savers.current.get(sectionId);
+        if (!saver) continue;
+        try {
+          await saver.save();
+        } catch (error) {
+          failed.push(failedPartText(saver.label, error));
+        }
+      }
+    } finally {
+      setIsSaving(false);
+    }
+    if (failed.length > 0) {
+      toast({
+        title: t("settings.toast.couldNotSaveTitle"),
+        description: t("settings.toast.couldNotSaveParts", { parts: failed.join("; ") }),
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: t("settings.toast.settingsSavedTitle"),
+      description: t("settings.toast.settingsSavedDescription"),
+    });
+  };
+
+  // Discarding a tab drops the page's own drafts too (Perfil's form, Preferências' language and alerts);
+  // sections below the page drop theirs by unmounting.
+  const discardPageDrafts = () => {
+    setProfile(savedProfile);
+    profileTouched.current.clear();
+    if (storedPrefs) {
+      setLanguage(storedPrefs.language);
+      setRequestAlerts(storedPrefs.requestAlerts);
+    }
+    languageDirty.current = false;
+  };
+
+  // settings.explicit-save rule 5: an in-app link out of Settings (sidebar, avatar menu) asks first while
+  // anything is unsaved. Captured before React Router's own handler; Discard then follows the link.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  // #550 review F3: leaving through code (the avatar menu's sign-out) asks the same question.
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    setLeaveGuard((proceed) => {
+      setPendingLeave(() => proceed);
+      return true;
+    });
+    return () => setLeaveGuard(null);
+  }, [hasUnsaved]);
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target === "_blank") return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === "/settings") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPendingHref(`${url.pathname}${url.search}${url.hash}`);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [hasUnsaved]);
+
+  // settings.explicit-save rule 3: the tabs PAD-506 PR 1 brought under the one Save.
+  const tabHasSave = activeTab === "profile" || activeTab === "preferences" || activeTab === "admin";
 
   return (
     <SettingsUnsavedContext.Provider value={setUnsaved}>
+    <SettingsSaveContext.Provider value={registerSaver}>
     <AppLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-start justify-between gap-4">
@@ -561,15 +624,14 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {/* settings.save-on-change rule 4: only Perfil holds fields that wait for this button —
-              every other tab saves on change or has its own Save. Nothing to save while the
-              phone is showing the section list. */}
-          {activeTab === "profile" && (
+          {/* settings.explicit-save rule 3 (PAD-506): one Save for every edit on the tab, disabled while
+              nothing on it is unsaved. Nothing to save while the phone shows the section list. */}
+          {tabHasSave && (
             <Button
               data-testid="settings-header-save"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               className={cn("gap-2", !mobileSectionOpen && "hidden lg:inline-flex")}
-              disabled={isSaving}
+              disabled={isSaving || !hasUnsaved}
             >
               <Save className="w-4 h-4" />
               {t("settings.saveChanges")}
@@ -723,10 +785,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="max-w-xs space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label htmlFor="language-select">{t("settings.language")}</Label>
-                      <SaveSign status={sign.status("language")} testId="settings-language-sign" />
-                    </div>
+                    <Label htmlFor="language-select">{t("settings.language")}</Label>
                     <Select value={language} onValueChange={(v) => handleLanguageChange(v as AppLanguage)}>
                       <SelectTrigger id="language-select" aria-label={t("settings.language")}>
                         <SelectValue placeholder={t("settings.language")} />
@@ -761,12 +820,9 @@ export default function SettingsPage() {
                       requests, an admin about approvals. */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="request-alerts-switch">
-                          {t("settings.preferences.requestAlerts")}
-                        </Label>
-                        <SaveSign status={sign.status("requestAlerts")} testId="settings-request-alerts-sign" />
-                      </div>
+                      <Label htmlFor="request-alerts-switch">
+                        {t("settings.preferences.requestAlerts")}
+                      </Label>
                       <p className="text-xs text-muted-foreground">
                         {t("settings.preferences.requestAlertsDescription")}
                       </p>
@@ -965,7 +1021,15 @@ export default function SettingsPage() {
           asks first, instead of silently discarding it (B-157). */}
       {/* The URL revert lives on the two "keep" gestures, not on onOpenChange: Radix also closes
           through onOpenChange on Discard, which must leave the URL on the new section (PAD-459). */}
-      <AlertDialog open={pendingTab !== null} onOpenChange={(open) => !open && setPendingTab(null)}>
+      <AlertDialog
+        open={pendingTab !== null || pendingHref !== null || pendingLeave !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          setPendingTab(null);
+          setPendingHref(null);
+          setPendingLeave(null);
+        }}
+      >
         <AlertDialogContent data-testid="settings-unsaved-dialog" onEscapeKeyDown={keepEditing}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("settings.unsavedChanges.title")}</AlertDialogTitle>
@@ -978,7 +1042,25 @@ export default function SettingsPage() {
             <AlertDialogAction
               data-testid="settings-unsaved-discard"
               onClick={() => {
+                if (pendingLeave) {
+                  // Discard, then leave the way the coach asked (e.g. sign out).
+                  const leave = pendingLeave;
+                  discardPageDrafts();
+                  setPendingLeave(null);
+                  setLeaveGuard(null);
+                  leave();
+                  return;
+                }
+                if (pendingHref) {
+                  // settings.explicit-save rule 5: Discard follows the link the coach clicked.
+                  const href = pendingHref;
+                  discardPageDrafts();
+                  setPendingHref(null);
+                  navigate(href);
+                  return;
+                }
                 if (!pendingTab) return;
+                discardPageDrafts();
                 setTab(pendingTab.id);
                 if (pendingTab.openMobile) setMobileSectionOpen(true);
                 setPendingTab(null);
@@ -990,6 +1072,7 @@ export default function SettingsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </AppLayout>
+    </SettingsSaveContext.Provider>
     </SettingsUnsavedContext.Provider>
   );
 }

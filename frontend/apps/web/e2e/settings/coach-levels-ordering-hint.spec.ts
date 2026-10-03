@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): no logic change needed — rows are added/edited and never saved here, and the removed "Save levels" button was never pressed.
 import { test, expect, type Locator } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";

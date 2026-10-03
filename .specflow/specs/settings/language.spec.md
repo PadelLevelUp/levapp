@@ -44,10 +44,9 @@ login (not only while the Settings screen is mounted).
    profile on mount. Until that read lands, the language select shows the language the app is
    already showing (AuthContext applied the stored one), never a hard-coded `pt`. Once the coach has
    chosen a language, a read that lands later leaves the choice alone, as it already did for the
-   profile fields. Since PAD-473 (B-244) web saves the chosen language on change, as iOS does, with the
-   sign of `settings.save-on-change`; the guard still keeps a late read from putting the stored
-   language back on screen. iOS saves the tapped value immediately, so a late read cannot change what
-   it writes; this rule is web-only.
+   profile fields. Since PAD-506 (`settings.explicit-save` rule 2) the chosen language is held until
+   the tab's Save, on web and iOS, and the app switches to it once the Save is confirmed; the guard
+   still keeps a late read from putting the stored language back on screen while it is held.
 8. **On iOS, a save's answer is the newest profile (B-185, PAD-454).** Every iOS Settings save that
    writes the profile cache (`["auth-me"]`: language, request alerts, profile, notification blocks)
    first cancels any `["auth-me"]` read still in flight, then writes the server's answer

@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): the switch is held; the header Save sends PATCH /auth/me.
 /**
  * PAD-232 — the "Request alerts" switch (notifications.request-alerts rule 6)
  * persists through PATCH /api/auth/me and survives a reload.
@@ -24,6 +25,15 @@ async function openPreferences(page: Page) {
   ).toBeVisible({ timeout: 5000 });
 }
 
+async function saveHeader(page: Page) {
+  const saved = page.waitForResponse(
+    (r) => /\/api\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200,
+    { timeout: 10_000 }
+  );
+  await page.getByTestId("settings-header-save").click();
+  await saved;
+}
+
 test("PAD-232: switching request alerts off persists and reloads off", async ({ page, request }) => {
   await loginAsCoach(page);
   await openPreferences(page);
@@ -33,14 +43,18 @@ test("PAD-232: switching request alerts off persists and reloads off", async ({ 
   await expect(toggle).toBeEnabled({ timeout: 5000 });
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
-  await Promise.all([
-    page.waitForResponse(
-      (r) => /\/api\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200,
-      { timeout: 10_000 }
-    ),
-    toggle.click(),
-  ]);
+  // PAD-506: the switch is held; nothing is sent until the header Save.
+  const sent: string[] = [];
+  page.on("request", (r) => {
+    if (/\/api\/auth\/me$/.test(r.url()) && r.method() === "PATCH") sent.push(r.url());
+  });
+  await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+  expect(sent).toHaveLength(0);
+  await saveHeader(page);
+  expect(sent).toHaveLength(1);
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 
   await page.reload();
   await openPreferences(page);
@@ -57,12 +71,7 @@ test("PAD-232: switching request alerts off persists and reloads off", async ({ 
   expect((await me.json()).requestAlerts).toBe(false);
 
   // Restore for later specs.
-  await Promise.all([
-    page.waitForResponse(
-      (r) => /\/api\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.status() === 200,
-      { timeout: 10_000 }
-    ),
-    after.click(),
-  ]);
+  await after.click();
+  await saveHeader(page);
   await expect(after).toHaveAttribute("aria-checked", "true");
 });

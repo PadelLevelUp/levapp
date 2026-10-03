@@ -33,6 +33,7 @@
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
       "couldNotSaveDescription": "Please try again.",
+      "couldNotSaveParts": "Not saved: {{parts}}. The rest was saved; try saving again.",
       "settingsSavedTitle": "Settings saved",
       "settingsSavedWithAvatar": "Settings saved. (Avatar upload hook is ready to connect.)",
       "settingsSavedDescription": "Your preferences were updated.",
@@ -356,6 +357,7 @@
       "deleteFailed": "The season could not be removed"
     },
     "coachLevels": {
+      "remove": "Remove level",
       "title": "Coach Levels",
       "description": "Define skill levels for your players. Drag to reorder.",
       "highestLevel": "Highest",
