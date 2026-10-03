@@ -394,3 +394,56 @@ def test_a_crash_right_after_the_accepts_commit_leaves_the_entry_settled(app, mo
         assert bea in _enrolled(instance_id)
         assert db.session.get(WaitingListEntry, entry_id).is_active is False
         assert db.session.get(StandingWaitingListEntry, standing_id).credits_used == 1
+
+
+def test_a_waiting_list_student_at_todays_limit_does_not_hold_the_spot_from_the_groups(app, monkeypatch):
+    """#546 review fix 1 (invitations rule 8a, "left to ask today"): group 0 is only the list members
+    who can still be sent an invitation today. With the only one at maxInvitesPerStudentPerDay, the
+    batch goes to the coach's group — it used to pick group 0, send nothing, and never reach group 1."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (r0, bea) = _seed(enrolled=0, candidates=2, max_players=1, max_sim=1)
+        config = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+        config.restrictions = {**config.restrictions, "maxInvitesPerStudentPerDay": {"enabled": True, "value": 1}}
+        db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id, player_id=bea,
+                                         type="manual", round_number=1, status="expired",
+                                         created_at=NOW - timedelta(hours=1)))  # today's one invitation
+        db.session.commit()
+        _entry(instance_id, coach_id, bea, NOW - timedelta(hours=2))
+
+        _trigger(instance_id, coach_id)
+        assert (r0, 1) in _invites(instance_id), _invites(instance_id)
+
+
+def test_the_coach_recording_a_waiting_list_no_closes_the_entry_without_spending_a_credit(app, monkeypatch):
+    """#546 review fix 2: the coach-"no" twin of the coach-"yes" test (waiting-list rule 15)."""
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services.notification_service import coach_respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (bea,) = _seed(enrolled=0, candidates=1, max_players=1, max_sim=1)
+        standing = _standing(coach_id, bea, NOW - timedelta(days=1))
+        standing_id = standing.id
+        entry_id = _entry(instance_id, coach_id, bea, NOW - timedelta(hours=1), standing=standing)
+        _trigger(instance_id, coach_id)
+
+        coach_respond_to_notification(_event(instance_id, bea).id, "no", coach_id, now=NOW + timedelta(minutes=1))
+        db.session.expire_all()
+        assert db.session.get(WaitingListEntry, entry_id).is_active is False
+        standing = db.session.get(StandingWaitingListEntry, standing_id)
+        assert (standing.is_active, standing.credits_used) == (True, 0)
+        assert bea not in _enrolled(instance_id)
+
+
+def test_the_english_side_phrase():
+    from padel_app.services.notification_service import _side_phrase
+
+    assert (_side_phrase("left", "en"), _side_phrase("right", "en"), _side_phrase("both", "en")) == (
+        " (left side)", " (right side)", "")
