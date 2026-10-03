@@ -117,6 +117,12 @@ export default function PlayerDetailScreen() {
       ) ?? null,
     [standingList, player]
   );
+  // PAD-507: "Renovar · Até 3 de out. de 2027" — the button's text and its accessibility label.
+  const renewLabel = standingEntry
+    ? `${t("players.renewWaitingList")} · ${t("players.waitingListUntil", {
+        date: standingEntry.expiresOn ? standingEndLabel(standingEntry.expiresOn, i18n.language) : "",
+      })}`
+    : "";
 
   // PAD-165: the student's own notification opt-outs (PAD-112), which web has
   // shown on player detail since it landed and iOS did not surface at all — a
@@ -404,15 +410,11 @@ export default function PlayerDetailScreen() {
             variant="outline"
             size="sm"
             testID="player-waiting-list-renew"
-            accessibilityLabel={t("players.renewWaitingList")}
+            accessibilityLabel={renewLabel}
             onPress={() => setIsWaitingListRenewOpen(true)}
           >
             <Ionicons name="refresh-outline" size={16} color={lightTheme.foreground} />
-            <Text>
-              {`${t("players.renewWaitingList")} · ${t("players.waitingListUntil", {
-                date: standingEntry.expiresOn ? standingEndLabel(standingEntry.expiresOn, i18n.language) : "",
-              })}`}
-            </Text>
+            <Text>{renewLabel}</Text>
           </Button>
         ) : (
           <Button

@@ -1,3 +1,4 @@
+# confirmed — Session-C, iPhone 17 Pro simulator, feature/pad-507, 2026-10-03 15:56Z and 15:57Z: passed twice in a row
 # PAD-507 (notifications.waiting-list rule 2): on iOS the coach adds a student to the standing
 # waiting list with an end date (default preset: 1 month), sees "Renovar · Até <date>" on the
 # player's page, and renews to the 12-month preset chip; the credits stay. The chips replace a
@@ -49,6 +50,8 @@ onFlowComplete:
     visible:
       id: "waiting-list-dialog"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible:
     id: "waiting-list-end-date"
 # B-295: the date picker opens ON TOP of this dialog, reachable (its own dialog, Cancel/Done).
@@ -81,6 +84,9 @@ onFlowComplete:
     timeout: 10000
 - assertNotVisible:
     id: "waiting-list-credits"
+# The dialog slides in; a tap during the animation can land on the overlay, which closes it.
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     id: "waiting-list-preset-12m"
 - tapOn:
