@@ -87,7 +87,7 @@ import pytest
 
 
 @pytest.mark.skipif(os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
-                    reason="the Postgres dialect of the backfill (->> on json, now() at UTC)")
+                    reason="the Postgres dialect of the backfill (->> on json, now() AT TIME ZONE 'Europe/Lisbon')")
 def test_on_postgres_the_backfill_touches_only_future_noes_and_runs_once(app):
     """#513 review F6: the same three cases on Postgres, in a scratch schema of the test database."""
     from padel_app.sql_db import db

@@ -3135,13 +3135,17 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
             )
 
 
-def _retire_invite_message(event: NotificationEvent) -> None:
+def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> None:
     """Flag the conversation message that delivered ``event`` as no longer live.
 
     PAD-68: reuses the ``responded`` flag the invite bubble already keys off, so
     the Yes/No buttons stop rendering on both web and mobile with no client
     change. ``response`` is set to ``"expired"`` — neither "yes" nor "no" — which
     both clients already fall through to a neutral non-actionable badge.
+
+    ``defer`` (PAD-499, ledger B-261): flush the edit instead of committing it, and publish nothing;
+    the caller commits and then calls `_publish_retired`. `_close_vacancy` always defers, so the
+    close, the winner's confirmation and their enrolment land in ONE commit under rule 10's lock.
     """
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
@@ -3154,11 +3158,31 @@ def _retire_invite_message(event: NotificationEvent) -> None:
     if msg.msg_metadata.get("responded"):
         return
     msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "expired"}
+    if defer:
+        db.session.flush()
+        return
     msg.save()
     publish(
         {"type": "message_edited", "payload": serialize_message(msg, None)},
         message_recipient_ids(msg),
     )
+
+
+def _publish_retired(events: list) -> None:
+    """PAD-499: tell the clients about the invite messages `_close_vacancy` retired, once the
+    caller's commit has made them real. The payloads are built now, from the flushed state that
+    commit will write (no SQL can run after a commit); the publishes are queued for after it and
+    dropped by a rollback (padel_app.tools.after_commit)."""
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
+    from padel_app.tools.after_commit import on_commit
+
+    for event in events:
+        msg = Message.query.get(event.message_id) if event.message_id else None
+        if msg is not None:
+            payload = {"type": "message_edited", "payload": serialize_message(msg, None)}
+            recipients = list(message_recipient_ids(msg))
+            on_commit(lambda payload=payload, recipients=recipients: publish(payload, recipients))
 
 
 def _expire_stale_invitations(instance: LessonInstance) -> int:
@@ -3462,8 +3486,17 @@ def respond_to_reminder(
         and presence.status == "absent"
         and not presence.validated
     )
+    own = None
     if retaking:
-        locked = _lock_instance(instance)
+        # B-284: the same lock order as every accept (rule 10) — their own vacancy, then the
+        # class. An invitee answering yes for that vacancy takes it in this order too; the
+        # return used to lock the class first and write the vacancy after, and the two
+        # deadlocked. From here to `presence.save()` nothing commits.
+        own, locked = _lock_vacancy_and_instance(
+            _open_vacancy_for(instance.id, player.id), instance
+        )
+        if own is not None and own.status != "open":
+            own = None
         # Capacity is the override, else the lesson's (PAD-275, classes.edit
         # rule 4) — never the copied column, which every sibling check already
         # stopped reading; the copy goes stale the moment the coach edits the
@@ -3489,7 +3522,9 @@ def respond_to_reminder(
 
     # Mark the reminder as responded — on its reminder_attempts row (rule 14),
     # mirrored onto the message so the frontend shows the badge on reload.
-    if reminder_msg is not None:
+    def _record_reminder_answer():
+        if reminder_msg is None:
+            return
         from padel_app.models import ReminderAttempt
         from padel_app.serializers.message import serialize_message
         from padel_app.services import reminder_attempt_service as attempts
@@ -3505,7 +3540,13 @@ def respond_to_reminder(
             message_recipient_ids(reminder_msg),
         )
 
+    # B-284: these writes commit, so a return records the answer after its own commit, never
+    # inside the lock it holds.
+    if not retaking:
+        _record_reminder_answer()
+
     if action == "yes":
+        retired_on_return = []
         if presence:
             # PAD-313 (B-073): a "yes" must undo what a previous "no" wrote.
             # The decline path sets status=absent/justification=justified and the
@@ -3529,14 +3570,17 @@ def respond_to_reminder(
                 # half-empty class has open spots to spare, so the general
                 # reconciliation leaves it standing and the engine keeps
                 # offering the seat its owner just re-took.
-                own = _open_vacancy_for(instance.id, player.id)
+                # (`own` was locked above, before the class.)
                 if own is not None:
-                    _close_vacancy(own, player.id)
+                    retired_on_return = _close_vacancy(own, player.id)
             presence.confirmed = True
             # status is not set to "present": only the coach marks attendance.
             # PAD-271 M5: the answer as one field (attendance.presence rule 7).
             record_response(presence, "confirmed", when=now)
+            _publish_retired(retired_on_return)  # PAD-499: queued now, sent by the commit below
             presence.save()
+        if retaking:
+            _record_reminder_answer()
         if coach_user_id:
             _send_system_message(
                 coach_user_id,
@@ -4549,8 +4593,11 @@ def _close_vacancy(
         if except_event_id is not None and event.id == except_event_id:
             continue  # the winner's own invitation; its caller marks it confirmed
         event.status = "expired"
-        _retire_invite_message(event)
+        # PAD-499 (B-261): flushed, never committed here — a commit would end the caller's rule-10
+        # lock before the winner is enrolled. The caller commits and calls `_publish_retired`.
+        _retire_invite_message(event, defer=True)
         retired.append(event)
+    db.session.flush()
     return retired
 
 
@@ -4572,13 +4619,22 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         return []
     db.session.expire(instance, ["presences"])
     open_spots = max(0, (instance.effective_max_players or 0) - _effective_filled_spots(instance))
+    # PAD-499 (B-261): the accept paths now hold rule 10's vacancy and class locks until the
+    # enrolment's commit, and that enrolment reconciles. Closing ANOTHER vacancy of the class here
+    # would wait on an answer that is deciding on it — which in turn waits for this class lock: a
+    # deadlock. So every open vacancy is COUNTED, but only the one about to be closed is locked,
+    # without waiting (#527 item 5). One that another answer holds is passed over for the next
+    # candidate: that answer either fills it (so it was not stale) or finds the class full and
+    # refuses, and the tick reconciles it.
     open_vacancies = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open")
         .order_by(Vacancy.id.asc())
         .all()
     )
+    to_close = len(open_vacancies) - open_spots
     closed = []
-    while len(open_vacancies) > open_spots:
+    retired = []
+    while to_close > 0 and open_vacancies:
         pick = next(
             (v for v in open_vacancies
              if filled_by_player_id is not None and v.original_player_id == filled_by_player_id),
@@ -4586,9 +4642,19 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
           or open_vacancies[0]
         open_vacancies.remove(pick)
-        _close_vacancy(pick, filled_by_player_id)
-        closed.append(pick)
+        locked = (
+            Vacancy.query.filter_by(id=pick.id, status="open")
+            .with_for_update(skip_locked=True)
+            .populate_existing()
+            .first()
+        )
+        if locked is None:
+            continue
+        retired.extend(_close_vacancy(locked, filled_by_player_id))
+        closed.append(locked)
+        to_close -= 1
     if closed:
+        _publish_retired(retired)  # PAD-499: queued now, sent by this commit (or the enclosing one)
         commit_or_flush()
     return closed
 
@@ -4709,6 +4775,25 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
 
+def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
+    """PAD-499 (#527 review item 3): record a student's "yes" — the answer, and the invite bubble's
+    state — under rule 10's lock, flushed into the commit that decides it, so a failed commit leaves
+    the bubble unanswered (the buttons back) rather than "Accepted" on a spot they do not hold.
+    ``response`` is what the bubble shows: "yes" (Accepted) or "spot_filled" when the yes was
+    refused. The bubble's live edit is published after that commit."""
+    from padel_app.serializers.message import serialize_message
+    from padel_app.tools.after_commit import on_commit
+
+    event.answer = "yes"
+    if invite_msg is not None and invite_msg.msg_metadata is not None:
+        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": response}
+    db.session.flush()
+    if invite_msg is not None:
+        payload = {"type": "message_edited", "payload": serialize_message(invite_msg, None)}
+        recipients = list(message_recipient_ids(invite_msg))
+        on_commit(lambda: publish(payload, recipients))
+
+
 def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = False) -> dict | None:
     """B-260 (invitations rule 17): the response for an answer already given, else None.
 
@@ -4785,13 +4870,14 @@ def respond_to_notification(
     repeat = _repeated_answer(event, action)
     if repeat is not None:
         return repeat
-    if action in ("yes", "no"):
-        event.answer = action  # PAD-497 (rule 18): the answer itself, not only the status
     if action == "no":
-        # Claimed while the vacancy lock is still held: the invite message's save below commits
-        # and releases it, and a second "no" waiting on that lock must already see this one.
+        # PAD-497 (rule 18): the answer itself, not only the status. Claimed while the vacancy lock
+        # is still held: the invite message's save below commits and releases it, and a second
+        # "no" waiting on that lock must already see this one. A "yes" records its answer under
+        # rule 10's lock instead, inside the single commit (PAD-499, #527 review item 3).
+        event.answer = "no"
         event.status = "expired"
-    db.session.flush()
+        db.session.flush()
 
     config = get_or_create_config(event.coach_id)
 
@@ -4801,21 +4887,15 @@ def respond_to_notification(
     coach_user_id = coach.user_id if coach else None
     player_user_id = acting_user_id
 
-    invite_msg = None
-    # Mark original invite message as responded
-    if event.message_id:
-        invite_msg = Message.query.get(event.message_id)
-        if invite_msg and invite_msg.msg_metadata is not None:
-            invite_msg.msg_metadata = {
-                **invite_msg.msg_metadata,
-                "responded": True,
-                "response": action,
-            }
-            invite_msg.save()
-            publish(
-                {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
-                message_recipient_ids(invite_msg),
-            )
+    invite_msg = Message.query.get(event.message_id) if event.message_id else None
+    if action == "no" and invite_msg is not None and invite_msg.msg_metadata is not None:
+        # Mark the invite message as answered (a "yes" does this under the lock, below).
+        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": "no"}
+        invite_msg.save()
+        publish(
+            {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
+            message_recipient_ids(invite_msg),
+        )
 
     instance = event.lesson_instance
     vacancy = event.vacancy
@@ -4881,6 +4961,7 @@ def respond_to_notification(
 
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
+            _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
             if coach_user_id:
@@ -4906,6 +4987,7 @@ def respond_to_notification(
 
         # Re-check capacity
         if _effective_filled_spots(instance) >= instance.effective_max_players:
+            _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
             if coach_user_id:
@@ -4937,12 +5019,14 @@ def respond_to_notification(
         # B-260: the answer is confirmed before anything here commits (retiring the other
         # invitations saves their messages, which commits and ends the lock), so a second "yes"
         # waiting on the lock finds it confirmed rather than a filled vacancy and a `sent` invitation.
+        _record_yes(event, invite_msg, "yes")
         event.status = "confirmed"
         db.session.flush()
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
-        _add_player_to_instance(event.player_id, instance)
+        _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
 
         if coach_user_id:
@@ -5006,10 +5090,9 @@ def coach_respond_to_notification(
 
     instance = event.lesson_instance
     vacancy = event.vacancy
-    if action in ("yes", "no"):
-        event.answer = action  # PAD-497 (rule 18): the coach records the student's answer
 
     if action == "no":
+        event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
         event.status = "expired"
         event.save()
         if vacancy:
@@ -5018,6 +5101,16 @@ def coach_respond_to_notification(
         return {"action": "declined"}
 
     elif action == "yes":
+        # PAD-499 (#527 review item 2): rule 10's lock, vacancy then class, as the student accept —
+        # decided on re-read rows, so a student's yes on another spot of the class cannot slip in
+        # between this check and the enrolment and overfill it.
+        vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        if event.status == "confirmed":
+            db.session.commit()  # release the lock; nothing was written (#526 review item 5)
+            return {"action": "confirmed"}
+        # A refused yes writes no answer (#526 review item 4): the student's own "no", if any,
+        # stands (rule 18).
         if vacancy and vacancy.status != "open":
             event.status = "expired"
             event.save()
@@ -5030,14 +5123,18 @@ def coach_respond_to_notification(
 
         # PAD-271: the vacancy is marked BEFORE the enrolment so enrol()'s
         # reconciliation finds it already closed and closes nothing else.
-        # PAD-317: through the one routine. It replaces the hand-rolled expiry
-        # that used to follow, which matched `sent` only and — alone among the
-        # closers — never retired the invite MESSAGES, so the candidates' bubbles
-        # kept live Yes/No buttons on an invitation that was already dead.
-        if vacancy:
-            _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
-        _add_player_to_instance(event.player_id, instance)
+        # PAD-317: through the one routine, which also retires the invite messages.
+        # PAD-499: the answer and the confirmation are flushed first and land with the close and
+        # the enrolment in ONE commit; a second coach yes waiting on the lock then finds it
+        # confirmed.
+        event.answer = "yes"
         event.status = "confirmed"
+        db.session.flush()
+        retired = []
+        if vacancy:
+            retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
+        _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
         if vacancy:
             vacancy.save()
@@ -5542,6 +5639,16 @@ def _fill_from_waiting_list(
     if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.effective_max_players:
         db.session.commit()  # release the lock; nothing was written
         return False
+    # #527 final read item 5: the entry was picked before the lock. Read the student again under it:
+    # still on the list, not in the class, and no "no" to this class meanwhile (rule 18).
+    WaitingListEntry.query.filter_by(id=entry.id).populate_existing().one()
+    if (
+        not entry.is_active
+        or entry.player_id in set(instance.enrolled_player_ids)
+        or entry.player_id in _declined_player_ids(instance.id)
+    ):
+        db.session.commit()  # release the lock; nothing was written
+        return False
 
     # PAD-317: through the one routine. This path retired NOTHING, so a
     # waiting-list placement left every live invitation for the seat in the
@@ -5549,8 +5656,9 @@ def _fill_from_waiting_list(
     # It retires silently, like reconcile_vacancies: this path has never sent the
     # candidates user-visible mail, and starting would be a product change rather
     # than the closing of a hole.
-    _close_vacancy(vacancy, entry.player_id)
-    _add_player_to_instance(entry.player_id, instance)
+    retired = _close_vacancy(vacancy, entry.player_id)
+    _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+    _add_player_to_instance(entry.player_id, instance)  # the ONE commit (PAD-499)
     vacancy.save()
 
     entry.is_active = False

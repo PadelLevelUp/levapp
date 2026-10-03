@@ -430,10 +430,12 @@ def test_s3_one_group_an_excluded_holder_does_not_hold_the_spot_open(app, monkey
     __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="a lock is only visible with two real connections",
 )
-def test_f3_a_no_landing_between_a_yes_and_its_lock_wins(app, monkeypatch):
-    """#513 review F3. The yes path commits (the invite message's save) before it takes rule 10's
-    lock; a "no" on the same invitation landing in that gap must win: no enrolment, no
-    confirmed invitation carrying answer "no"."""
+def test_f3_a_no_racing_a_yes_waits_for_its_lock(app, monkeypatch):
+    """#513 review F3. The yes path committed (the invite message's save) before it took rule 10's
+    lock, and a "no" landing in that gap had to win. PAD-499 closed the gap: a "yes" holds the
+    invitation's vacancy lock from its first read to its single commit, so the "no" waits and then
+    finds the spot taken (answered "confirmed", PAD-495 item 5). Never a confirmed invitation
+    carrying answer "no"; never enrolled without being confirmed."""
     import threading
 
     from padel_app.models.notification_event import NotificationEvent
@@ -458,19 +460,21 @@ def test_f3_a_no_landing_between_a_yes_and_its_lock_wins(app, monkeypatch):
     def gated_lock(vacancy, instance):
         if threading.current_thread().name == "yes":
             in_gap.set()
-            no_done.wait(timeout=5)
+            no_done.wait(timeout=1.5)  # PAD-499: the "no" is held behind this answer's lock
         return real_lock(vacancy, instance)
 
     monkeypatch.setattr(ns, "_lock_vacancy_and_instance", gated_lock)
 
+    results = {}
+
     def yes():
         threading.current_thread().name = "yes"
-        respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
+        results["yes"] = respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
 
     def no():
         in_gap.wait(timeout=5)
         try:
-            respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
+            results["no"] = respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
         finally:
             no_done.set()
 
@@ -479,8 +483,9 @@ def test_f3_a_no_landing_between_a_yes_and_its_lock_wins(app, monkeypatch):
     with app.app_context():
         db.session.expire_all()
         event = db.session.get(NotificationEvent, event_id)
-        assert student not in _instance(instance_id).enrolled_player_ids
-        assert (event.status, event.answer) == ("expired", "no")
+        assert results["no"]["action"] == "confirmed", results
+        assert student in _instance(instance_id).enrolled_player_ids
+        assert (event.status, event.answer) == ("confirmed", "yes")
 
 
 def test_f2_a_failed_send_leaves_no_phantom_to_hold_the_class(app, monkeypatch):
@@ -654,9 +659,9 @@ def test_r5_a_double_no_on_a_manual_invitation_is_answered_once(app, monkeypatch
 
 
 @_POSTGRES_ONLY
-def test_r5_a_no_landing_in_a_manual_yes_gap_wins(app, monkeypatch):
-    """F3 for a manual invitation: a "no" landing between the "yes"'s first commit and its lock
-    wins — no enrolment."""
+def test_r5_a_no_racing_a_manual_yes_waits_for_its_lock(app, monkeypatch):
+    """F3 for a manual invitation (no vacancy: the "yes" locks the invitation row itself). Since
+    PAD-499 there is no gap: the "no" waits for the "yes" and finds it confirmed."""
     import threading
 
     from padel_app.models.notification_event import NotificationEvent
@@ -673,19 +678,21 @@ def test_r5_a_no_landing_in_a_manual_yes_gap_wins(app, monkeypatch):
     def gated_lock(vacancy, instance):
         if threading.current_thread().name == "yes":
             in_gap.set()
-            no_done.wait(timeout=5)
+            no_done.wait(timeout=1.5)  # PAD-499: the "no" is held behind this answer's lock
         return real_lock(vacancy, instance)
 
     monkeypatch.setattr(ns, "_lock_vacancy_and_instance", gated_lock)
 
+    results = {}
+
     def yes():
         threading.current_thread().name = "yes"
-        respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
+        results["yes"] = respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
 
     def no():
         in_gap.wait(timeout=5)
         try:
-            respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
+            results["no"] = respond_to_notification(event_id, "no", user_id, now=NOW + timedelta(minutes=1))
         finally:
             no_done.set()
 
@@ -693,8 +700,9 @@ def test_r5_a_no_landing_in_a_manual_yes_gap_wins(app, monkeypatch):
         _race(app, [yes, no])
     with app.app_context():
         db.session.expire_all()
-        assert b not in _instance(instance_id).enrolled_player_ids
-        assert db.session.get(NotificationEvent, event_id).answer == "no"
+        assert results["no"]["action"] == "confirmed", results
+        assert b in _instance(instance_id).enrolled_player_ids
+        assert db.session.get(NotificationEvent, event_id).answer == "yes"
 
 
 # ── #526 review item 1: the invitation and its message really commit together ───────────────
