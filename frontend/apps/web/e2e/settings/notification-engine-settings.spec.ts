@@ -25,11 +25,10 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
  * missing-players alerts, validation reminders, send via email).
  */
 function autoNotifySwitch(page: import("@playwright/test").Page) {
-  return page
-    .getByText(/^automatic notifications$/i)
-    .locator("xpath=ancestor::div[contains(@class, 'flex')][1]")
-    .locator('[role="switch"]')
-    .first();
+  // B-282: by its test id. The old locator climbed from the label's English text to the nearest
+  // ancestor div with "flex" in its class; a wrapper added around the label and its save sign
+  // (PAD-473) became that ancestor, and the switch is not inside it.
+  return page.getByTestId("notification-engine-auto-notify-toggle");
 }
 
 /**

@@ -5,6 +5,7 @@ import type { DashboardDefinition } from "@/types";
 import { COACH_DASHBOARD_ID } from "@/types";
 import { CoachDashboard } from "@/components/dashboard/CoachDashboard";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
+import { EmailPromptBanner } from "@/components/dashboard/coach/EmailPromptBanner";
 import { getDashboard } from "@/api/dashboard";
 import { useAuth } from "@/auth/AuthContext";
 import { useLayout } from "@/components/layout/LayoutContext";
@@ -73,6 +74,7 @@ export default function DashboardPage() {
     <AppLayout>
       {/* No in-page "Dashboard" heading — the word belongs to the navigation
           alone. The greeting is the page's orientation instead. */}
+      {dashboard.id === COACH_DASHBOARD_ID ? <EmailPromptBanner user={user} /> : null}
       <Home blocks={dashboard.blocks} firstName={firstName} onRefresh={refresh} />
     </AppLayout>
   );

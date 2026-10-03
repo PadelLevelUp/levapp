@@ -114,6 +114,12 @@ executionOrder:
     - 25-claim-request
     - 26-message-by-username
     - 27-unknown-sender-block
+    # 142 (PAD-483, B-267) blocks a roster student as the coach and unblocks it in
+    # onFlowComplete; it picks a student with no thread, so its position is not load bearing.
+    - 142-picker-refusal-explains-itself
+    # 143 (PAD-492) shares and unshares its own evaluation and posts one message;
+    # its position is not load bearing.
+    - 143-automatic-message-note
     # 42 (PAD-282/PAD-288) books, accepts, cancels and deletes its own class, so
     # its position is not load bearing. Not yet run.
     - 42-cancel-requested-class
@@ -267,6 +273,9 @@ executionOrder:
     # 131 (PAD-480): a legacy category named like a default is converted into it, and its stray sub-category
     # moves under it; the server holds both.
     - 131-competency-convert
+    # 132 (PAD-482): a coach with no email is asked for one on the home, adds it in Settings and
+    # confirms the code; onFlowComplete restores the seeded address, verified.
+    - 132-email-prompt
     # 133/134 (PAD-481, eligibility.rules rule 6): "within N levels" has a direction — in Settings
     # (133; teardown restores the coach's bar) and on a class's own override (134; the class is
     # added and removed through the API).

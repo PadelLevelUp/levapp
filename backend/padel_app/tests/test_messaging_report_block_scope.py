@@ -35,7 +35,8 @@ def scenario(app):
     """
     Two clubs (A, B). Coach1 is in club A. Player1 is in club A (coach1's
     club). Player2 is in club B (NOT coach1's club). Coach2 exists but is
-    unrelated to any club. Student (player1) may message any coach.
+    unrelated to any club. Student (player1) may message only linked coaches
+    (coach1, through club A) — B-267.
     """
     from padel_app.models import User
     from padel_app.models.coaches import Coach
@@ -101,11 +102,19 @@ def test_coach_cannot_message_player_outside_own_club(client, app, scenario):
     assert resp.status_code == 403
 
 
-def test_student_can_message_any_coach(client, app, scenario):
+def test_student_can_message_a_linked_coach(client, app, scenario):
+    resp = _create_conversation(
+        client, app, scenario["player1_user_id"], scenario["coach1_user_id"]
+    )
+    assert resp.status_code == 201
+
+
+def test_student_cannot_message_an_unlinked_coach(client, app, scenario):
+    """B-267: coach2 shares no roster, club or class with player1."""
     resp = _create_conversation(
         client, app, scenario["player1_user_id"], scenario["coach2_user_id"]
     )
-    assert resp.status_code == 201
+    assert resp.status_code == 403
 
 
 def test_student_cannot_message_another_student(client, app, scenario):
@@ -134,7 +143,7 @@ def test_messageable_users_scoped_for_student(client, app, scenario):
     assert resp.status_code == 200
     ids = {u["id"] for u in resp.get_json()}
     assert scenario["coach1_user_id"] in ids
-    assert scenario["coach2_user_id"] in ids
+    assert scenario["coach2_user_id"] not in ids  # B-267: unlinked
     assert scenario["player2_user_id"] not in ids
 
 

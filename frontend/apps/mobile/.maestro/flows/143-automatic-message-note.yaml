@@ -1,0 +1,33 @@
+# Mirrors: apps/web/e2e/messaging/automatic-message-note.spec.ts (PAD-492,
+# messaging.messages rule 6, messaging.conversation-detail rule 16).
+# A message the app wrote (a shared evaluation) shows "Automatic LevApp message" under its
+# text (`message-automatic-note`); a message the student typed in the same thread does not.
+# By test id and by the server's own isAutomatic, never rendered copy.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad492-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad492-teardown.js
+---
+- assertTrue: "${output.autoId > 0 && output.typedId > 0 && !output.typedAutomatic}"
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-2
+      PASSWORD: E2eStudent2123!
+- openLink: "levelup://conversation/${output.conversationId}?message=${output.autoId}"
+- extendedWaitUntil:
+    visible:
+      id: "message-item-${output.autoId}"
+    timeout: 30000
+# Row children are not nested under the row in the iOS hierarchy (memory
+# maestro-ios-row-children-and-empty-views), so the note carries its message id.
+- assertVisible:
+    id: "message-automatic-note-${output.autoId}"
+- scrollUntilVisible:
+    element:
+      id: "message-item-${output.typedId}"
+    direction: UP
+    timeout: 15000
+- assertNotVisible:
+    id: "message-automatic-note-${output.typedId}"
