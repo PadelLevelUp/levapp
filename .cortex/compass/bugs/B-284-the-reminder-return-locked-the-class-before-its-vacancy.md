@@ -44,3 +44,12 @@ if a path to it appears.
 - The return calls `_lock_vacancy_and_instance(own vacancy, class)`.
 - The reminder answer (`mark_responded` commits) is recorded after the return's one commit.
 - The retired invitations' edits are queued before that commit (PAD-499's after-commit queue).
+
+### A remaining cycle, noted (the final read of #527, inferred, not reproduced)
+
+A "yes" on a MANUAL invitation has no vacancy, so it locks the invitation row and then the class. A
+vacancy-then-class accept that finds the class over runs `_expire_stale_invitations`, which updates
+the class's invitation rows, manual ones included. These two can wait on each other only at the
+class-start instant: one holds the invitation row and wants the class, the other holds the class
+and writes that row. Postgres would abort one with a deadlock error, and that answer would fail
+for a class that has just started. It is left as is, at that cost.

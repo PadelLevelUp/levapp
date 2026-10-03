@@ -155,7 +155,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     waiting-list offer. The lock lasts until the enrolment commits: closing the vacancy, the
     winner's confirmation and the enrolment land in ONE commit (PAD-499, ledger B-261). Retiring
     the other candidates' invitations only flushes, and their live message edits are queued before
-    that commit and sent by it (dropped if it rolls back), so no helper can end the lock early and a
+    that commit and sent by its real commit (dropped if it rolls back; a SAVEPOINT's release or
+    rollback inside it does neither), so no helper can end the lock early and a
     failed enrolment leaves nothing changed (the student can answer again). Every path that seats a
     student on a vacancy decides the same way and in the same order (vacancy, then class): the
     student's yes, the coach's recorded yes, the waiting-list fill, the join-request accept, and a

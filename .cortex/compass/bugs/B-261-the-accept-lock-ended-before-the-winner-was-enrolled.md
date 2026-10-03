@@ -10,7 +10,7 @@ affects:
   - backend/padel_app/services/notification_service.py
   - backend/padel_app/services/class_join_request_service.py
   - backend/padel_app/services/lesson_service.py
-proposed_fix: "Close the vacancy, confirm the winner and enrol them in ONE commit: _close_vacancy retires invitations with flushes and the retired messages' edits are queued before that commit and sent by it; the reconcile run by the enrolment counts every open vacancy and locks only the one it closes, with SKIP LOCKED."
+proposed_fix: "Close the vacancy, confirm the winner and enrol them in ONE commit: _close_vacancy retires invitations with flushes and the retired messages' edits are queued before that commit and sent by it (never by a SAVEPOINT release); the reconcile run by the enrolment counts every open vacancy and locks only the one it closes, with SKIP LOCKED."
 opened: 2026-10-02T18:08:30Z
 ---
 
@@ -50,13 +50,22 @@ one commit and the code did not keep that promise. Incomplete rule.
   - `_retire_invite_message(defer=True)` flushes and publishes nothing.
   - `_close_vacancy` always defers.
   - `_publish_retired(events)` builds the edits from the flushed state and queues them on the
-    session (`padel_app/tools/after_commit.py`). The queue runs right after the next commit and is
-    dropped by a rollback. So each caller queues BEFORE its own commit: the student accept, the
+    session (`padel_app/tools/after_commit.py`). The queue runs right after the transaction's next
+    real commit and is dropped by a real rollback. So each caller queues BEFORE its own commit: the student accept, the
     coach accept, `_fill_from_waiting_list`, the join-request accept, the reminder return, `enrol`'s
     return, the coach's attendance return, and `reconcile_vacancies`. (Queued after a commit, an
     edit waited for whatever committed next, or was never sent. The first version did that on the
     coach accept and the reconcile; `test_pad499_publish_after_commit.py` keys each path's edit to
     the commit that closed the spot.)
+  - **A SAVEPOINT is not the commit (found by the final read of #527).** SQLAlchemy 1.4 fires
+    `after_commit` on `RELEASE SAVEPOINT` and `after_rollback` on a savepoint rollback. Every new
+    enrolment releases one (`lesson_service._get_or_insert`), so the student, coach, waiting-list
+    and join paths published their edits BEFORE the real commit. With the single commit then
+    failing, the student was shown "Accepted" and the others their retired bubbles while the
+    database rolled back. A savepoint rollback (the `_get_or_insert` IntegrityError race) dropped
+    the queue although the commit then landed. Both listeners now return while the session is
+    nested. The tests count only the real commit, check what a failed commit published, and test
+    the queue itself around a savepoint.
 - **Found while fixing:** holding the lock through the enrolment made PAD-495 item 7's inferred
   deadlock real. The enrolment's `reconcile_vacancies` updated another vacancy that a concurrent
   answer had locked while that answer waited for the class lock. The reconcile now selects the
@@ -91,4 +100,6 @@ and the second one carries the final state. The student accept uses the same bro
 
 Fixed in PAD-499's PR, stacked on PAD-497 and PAD-495. If the single commit fails, the student sees
 the error, and nothing has changed: the vacancy is open, the invitation is live and they are not
-enrolled. They can answer again. Cell (b) proves this.
+enrolled. They can answer again. Cells (b) and (b2) prove the database state, and
+`test_a_failed_single_commit_publishes_nothing` proves that nothing was shown to anyone: no
+"Accepted" and no retired bubble.
