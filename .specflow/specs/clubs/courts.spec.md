@@ -176,6 +176,14 @@ shown on the card and the detail, and named by the `{court}` message placeholder
 
 ### Notes
 - Source: PAD-194 (owner decision: minimal v1, 2026-09-09).
+- Known limits of rule 9 (PAD-513, accepted 2026-10-03):
+  - The 400 for "no court" on one occurrence of a series with a court reaches the coach as the
+    editors' generic "update failed" message; neither web nor iOS explains it. It is a rare action.
+  - A "this and future" edit cannot adopt an occurrence's own court for the series: the editor
+    pre-fills that court, both clients send only what changed, so no `courtId` goes out and the
+    series keeps its court. Editing the series from a day without a court of its own does it.
+  - A "this and future" edit that also moves the date clears own courts from the new date on, as it
+    does the other overrides.
 - Out of scope, as follow-ups: court availability/booking (courts are display-only, see Intent), clubs
   managing their own courts without a coach, multiple clubs on one screen.
 - The coach's *current* club is what the class forms list courts for; a class always belongs to the
