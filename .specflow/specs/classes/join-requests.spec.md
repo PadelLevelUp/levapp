@@ -108,7 +108,7 @@ by a student's request — and whichever lands first wins.
     (`classes.detail-visibility` rule 3). A never-materialized occurrence is not covered: the read
     stays a series read until a request materializes it (rule 2). Reconciled in the 2026-09-10
     batch, where PAD-257 and PAD-131 met.
-17. **Both request lists show academy join requests (PAD-460, part 1 of PAD-427).** A join request
+17. **Both request lists show academy join requests (PAD-460, part 1 of PAD-427; the student's list also shows their waiting lists since PAD-504, `classes.academy-class-booking` rule 11).** A join request
     used to be visible only on its class. Now:
     - `GET /app/class-join-requests` lists the caller's join requests. A coach gets every request
       addressed to them (`coach_id`); a student gets their own. Anyone else gets `403`. Rows are

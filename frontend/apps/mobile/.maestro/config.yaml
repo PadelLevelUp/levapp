@@ -151,6 +151,8 @@ executionOrder:
     # class's waiting list.
     - 65-academy-class-request
     - 66-academy-class-waitlist
+    # 144 (PAD-504) creates and removes its own full class, like 66.
+    - 144-waiting-list-in-request-history
     # 67 creates its own academy class and join request through the API (PAD-358).
     - 67-coach-sees-join-note
     # 69 sets and clears the coach's working hours (PAD-357); it resets them first.

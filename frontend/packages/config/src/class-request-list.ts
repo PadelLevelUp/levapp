@@ -7,9 +7,12 @@
  * unit runner cannot mount a component) share one sort/split rule instead of
  * two that could drift apart.
  */
-import type { ClassJoinRequestListRow, ClassRequest } from "@levelup/types";
+import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow } from "@levelup/types";
 
-export type MergedClassRequestRow = ({ kind: "private" } & ClassRequest) | ClassJoinRequestListRow;
+export type MergedClassRequestRow =
+  | ({ kind: "private" } & ClassRequest)
+  | ClassJoinRequestListRow
+  | ClassWaitingListRow;
 
 // A private request is open while the coach or the student still owes an
 // answer (`pending` | `countered`); an academy request is open only while it
@@ -17,17 +20,21 @@ export type MergedClassRequestRow = ({ kind: "private" } & ClassRequest) | Class
 const PRIVATE_OPEN_STATUSES = new Set<ClassRequest["status"]>(["pending", "countered"]);
 
 export function isOpenClassRequestRow(row: MergedClassRequestRow): boolean {
+  // PAD-504 (academy-class-booking rule 11): a waiting-list place is open while it is active.
+  if (row.kind === "waiting_list") return row.status === "active";
   return row.kind === "academy" ? row.status === "pending" : PRIVATE_OPEN_STATUSES.has(row.status);
 }
 
 /** Newest first by `createdAt` (both kinds carry it); ties keep their input order. */
 export function mergeClassRequestRows(
   privateRows: ClassRequest[],
-  academyRows: ClassJoinRequestListRow[]
+  academyRows: ClassJoinRequestListRow[],
+  waitingRows: ClassWaitingListRow[] = []
 ): MergedClassRequestRow[] {
   const tagged: MergedClassRequestRow[] = [
     ...privateRows.map((r) => ({ kind: "private" as const, ...r })),
     ...academyRows,
+    ...waitingRows,
   ];
   return tagged.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }
