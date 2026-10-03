@@ -6,10 +6,6 @@
     "english": "English",
     "title": "Settings",
     "subtitle": "Manage your profile, calendar defaults, notifications, and security.",
-    "saveSign": {
-      "saved": "Saved",
-      "failed": "Couldn't save"
-    },
     "saveChanges": "Save changes",
     "sections": "Sections",
     "quickNavigation": "Quick navigation",

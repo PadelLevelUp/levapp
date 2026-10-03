@@ -300,13 +300,8 @@ export function useEvaluationSettings(enabled = true) {
  */
 export function useSaveEvaluationSettings() {
   const queryClient = useQueryClient();
-  // `keepalive` (PAD-473, web only): a save flushed while the page goes away. It is stripped here, so
-  // the body stays exactly what evaluations.reminders rule 8 expects.
-  return useMutation<EvaluationSettings, unknown, EvaluationSettings & { keepalive?: boolean }>({
-    mutationFn: ({ keepalive, ...body }) =>
-      keepalive
-        ? evaluationSettingsApi.putEvaluationSettings(body, { keepalive })
-        : evaluationSettingsApi.putEvaluationSettings(body),
+  return useMutation<EvaluationSettings, unknown, EvaluationSettings>({
+    mutationFn: (body) => evaluationSettingsApi.putEvaluationSettings(body),
     onSuccess: (saved) => queryClient.setQueryData(queryKeys.evaluationSettings, saved),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.evaluationSettings });

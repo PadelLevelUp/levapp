@@ -595,8 +595,9 @@ export default function SettingsPage() {
     return () => document.removeEventListener("click", onClick, true);
   }, [hasUnsaved]);
 
-  // settings.explicit-save rule 3: the tabs PAD-506 PR 1 brought under the one Save.
-  const tabHasSave = activeTab === "profile" || activeTab === "preferences" || activeTab === "admin";
+  // settings.explicit-save rule 3: every tab with a setting has the one Save (PAD-506).
+  const TABS_WITH_SAVE: SettingsTab[] = ["profile", "preferences", "calendar", "notifications", "myNotifications", "admin"];
+  const tabHasSave = TABS_WITH_SAVE.includes(activeTab);
 
   return (
     <SettingsUnsavedContext.Provider value={setUnsaved}>

@@ -20,7 +20,7 @@ import { Loader2, Trash2, CalendarRange } from "lucide-react";
 import { clubTodayISO, nextSeasonOccurrence, seasonOccurrenceContaining } from "@levelup/config";
 import type { SeasonDefinition } from "@/types";
 import { deleteSeason, getSeason, saveSeason } from "@/api/seasons";
-import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
+import { useTabSave } from "@/context/SettingsUnsavedContext";
 
 /**
  * calendar.seasons rule 12 (PAD-82) — Settings → Calendar: the coach's ONE
@@ -71,7 +71,6 @@ export function SeasonsSection() {
   const [baseline, setBaseline] = useState<Draft>(DEFAULT_DRAFT);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +100,7 @@ export function SeasonsSection() {
   }, []);
 
   const unsaved = JSON.stringify(draft) !== JSON.stringify(baseline);
-  useReportUnsaved("seasons", unsaved);
+
 
   const monthName = useMemo(() => {
     const fmt = new Intl.DateTimeFormat(i18n.language, { month: "long", timeZone: "UTC" });
@@ -133,13 +132,14 @@ export function SeasonsSection() {
     return null;
   };
 
+  // settings.explicit-save rule 3: this section's part of the tab's one Save; throws on a refusal.
+  // (Removing the season stays a command, asked first, outside the Save.)
   const handleSave = async () => {
     const problem = localProblem();
     if (problem) {
       setError(problem);
-      return;
+      throw new Error(problem);
     }
-    setSaving(true);
     setError(null);
     try {
       const saved = await saveSeason({
@@ -153,7 +153,6 @@ export function SeasonsSection() {
       setDraft(draftFrom(saved));
       setBaseline(draftFrom(saved)); // rule 2: a successful save is the new clean baseline
       setEditing(true);
-      toast({ title: t("settings.seasons.saved") });
     } catch (err) {
       const data = (err as ApiError).response?.data;
       if ((err as ApiError).response?.status === 400 && data?.code === "invalid_season") {
@@ -161,10 +160,10 @@ export function SeasonsSection() {
       } else {
         setError(t("settings.seasons.saveFailed"));
       }
-    } finally {
-      setSaving(false);
+      throw err;
     }
   };
+  useTabSave("seasons", unsaved, { label: t("settings.seasons.title"), save: handleSave });
 
   const handleRemove = async () => {
     setRemoving(true);
@@ -295,10 +294,6 @@ export function SeasonsSection() {
           ) : (
             <span />
           )}
-          <Button size="sm" onClick={handleSave} disabled={saving} data-testid="season-save">
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saving ? t("settings.seasons.saving") : t("settings.seasons.save")}
-          </Button>
         </div>
 
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
