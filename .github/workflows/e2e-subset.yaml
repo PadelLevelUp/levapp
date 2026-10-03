@@ -4,13 +4,15 @@ name: E2E subset
 # before the release gate (B-282 was first seen there and cost a promotion an hour).
 # Design: docs/plans/2026-10-03-pad-511-pr-e2e-subset.md (accepted 2026-10-03).
 #
-# PHASE 0 ONLY. No pull_request trigger yet: whether it runs on PRs into staging, and whether as
-# an advisory or a required check, is the owner's call after these numbers.
-#   workflow_dispatch  one run: `head` diffed against `base` (dispatchable once on main).
-#   push to this branch  the five phase-0 replays below, past PR heads from staging's history.
-# Each run reports its setup time, per-spec time and whether setup + subset fits the 20-minute
-# cap, then re-runs every red spec file alone on a freshly reset database: red in the subset and
-# green alone is an order dependency (specs share one seeded database, B-101).
+# Spec: .specflow/specs/delivery/pr-e2e-subset.spec.md (delivery.pr-e2e-subset).
+# Runs on every pull request into staging, ADVISORY: it is not a required check, a red is a
+# warning. Making it required is the owner's call (PAD-511 item 5). Never on pushes to staging or
+# main: the release gate runs the full suite on those commits.
+#   pull_request (staging)  the PR's head against its base.
+#   workflow_dispatch       any `head` against any `base` (a replay of a past PR).
+# The subset runs with --retries=0 and the shared per-test timeout, capped at 20 minutes; every red
+# file is then re-run alone on a freshly reset database: red in the subset and green alone is an
+# order dependency (specs share one seeded database, B-101), red alone too is a real failure.
 #
 # The selector (frontend/apps/web/e2e/scripts/select_pr_specs.py) and its lists come from THIS
 # commit (`tool/`); the app, specs and seed come from the commit under test (`app/`). The full
@@ -29,8 +31,8 @@ on:
         description: "Label for the summary, e.g. #497"
         required: false
         default: "dispatch"
-  push:
-    branches: [feature/pad-511]
+  pull_request:
+    branches: [staging]
 
 concurrency:
   group: e2e-subset-${{ github.ref }}
@@ -52,31 +54,25 @@ jobs:
           IN_HEAD: ${{ inputs.head }}
           IN_BASE: ${{ inputs.base }}
           IN_LABEL: ${{ inputs.label }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            [[ "$IN_HEAD" =~ ^[0-9a-f]{7,40}$ && "$IN_BASE" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::head and base must be SHAs"; exit 1; }
-            label=$(printf '%s' "$IN_LABEL" | tr -cd '#A-Za-z0-9 ._-' | cut -c1-40)
-            key=$(printf '%s' "$label" | tr -cd 'A-Za-z0-9_-'); key=${key:-dispatch}
-            printf 'runs=[{"label":"%s","key":"%s","head":"%s","base":"%s"}]\n' "$label" "$key" "$IN_HEAD" "$IN_BASE" >> "$GITHUB_OUTPUT"
-          else
-            # Phase 0: past PR heads (staging merge ^2) and their merge bases, chosen from the
-            # design's replay table for spread: 25 (truncated), 25 (truncated), 21, 19 and 1 spec.
-            echo '[
-              {"label":"#497","key":"pr497","head":"7ba256d43587646bf37c79ee9699c460d664e226","base":"882e78def8a524db0a25a154190573eaa0ee7c93"},
-              {"label":"#528","key":"pr528","head":"47a008834161349b65a20b8aafbb298b63649613","base":"de0a25482b315ef6a21c6c6215ed2595d7e7daa7"},
-              {"label":"#463","key":"pr463","head":"2582151a4783a08b70725f52ea2fab91b6c4d87f","base":"0e40e3a6835ace954d84d55791bc193399b48898"},
-              {"label":"#508","key":"pr508","head":"898307d30da71eedcfb17efb07412b523b9a3b20","base":"460b33abeeb05a76cf566837beb690c6725f3ac3"},
-              {"label":"#510","key":"pr510","head":"a0121d09aa1026afb4dcfdc1bf16240307fee8b5","base":"4a77b1134cddc5d9088a28e8ec8be6a0c783cf26"}
-            ]' | tr -d '\n ' | sed 's/^/runs=/' >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = "pull_request" ]; then
+            IN_HEAD="$PR_HEAD"; IN_BASE="$PR_BASE"; IN_LABEL="#$PR_NUMBER"
           fi
+          [[ "$IN_HEAD" =~ ^[0-9a-f]{7,40}$ && "$IN_BASE" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::head and base must be SHAs"; exit 1; }
+          label=$(printf '%s' "$IN_LABEL" | tr -cd '#A-Za-z0-9 ._-' | cut -c1-40)
+          key=$(printf '%s' "$label" | tr -cd 'A-Za-z0-9_-'); key=${key:-dispatch}
+          printf 'runs=[{"label":"%s","key":"%s","head":"%s","base":"%s"}]\n' "$label" "$key" "$IN_HEAD" "$IN_BASE" >> "$GITHUB_OUTPUT"
 
   subset:
     needs: plan
     name: subset ${{ matrix.run.label }}
     runs-on: ubuntu-latest
-    # Phase 0 measures, so the job leaves room for the isolation re-runs; the design's 20-minute
-    # cap (setup + subset) is checked and reported in the summary, not enforced here yet.
+    # The subset step is capped at 20 minutes (rule 8); the rest is setup (about 2.5 min in
+    # phase 0) and the alone re-runs of red files (rule 9).
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -103,12 +99,6 @@ jobs:
       POSTGRES_USER: padel_app_user
       POSTGRES_PW: padel_app_test
       NODE_VERSION: "24.15.0"
-      CAP_SECONDS: "1200"
-      # Per-test timeout for this job only (the shared playwright.config.ts keeps 3 min). Phase 0
-      # measured green tests at about 20 s each; a red test burned its 3 min twice under
-      # retries 1, which took a 25-spec red run (#497) to 19.7 of the 20 minutes. At 60 s a red
-      # test costs about 2 min. A spec that sets its own `test.setTimeout` keeps it.
-      TEST_TIMEOUT_MS: "60000"
     steps:
       - name: Clock in
         run: echo "T0=$(date +%s)" >> "$GITHUB_ENV"
@@ -188,19 +178,22 @@ jobs:
         if: steps.select.outputs.count != '0'
         run: echo "T_SETUP=$(date +%s)" >> "$GITHUB_ENV"
 
-      # workers 1 and file order come from the config and the selector (B-101); CI=true gives
-      # retries 1, so a spec that fails then passes is reported flaky, not red.
+      # workers 1 and file order come from the config and the selector (B-101). --retries=0 here
+      # only: the alone re-run below is the second look, so a red costs its time once. The shared
+      # per-test timeout stays: a lower --timeout also bounds hooks (it failed a 200-message
+      # beforeAll in phase 0).
       - name: Run the subset
         id: run
         if: steps.select.outputs.count != '0'
         continue-on-error: true
+        timeout-minutes: 20
         working-directory: app/frontend/apps/web
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/results.json
         run: |
           set -euo pipefail
           mapfile -t SPECS < "$RUNNER_TEMP/specs.txt"
-          npx playwright test "${SPECS[@]}" --timeout="$TEST_TIMEOUT_MS" --reporter=list,json,html
+          npx playwright test "${SPECS[@]}" --retries=0 --reporter=list,json,html
 
       - name: Clock run
         if: always() && steps.select.outputs.count != '0'
@@ -212,7 +205,6 @@ jobs:
           python3 - <<'EOF'
           import json, os
           t0, ts, tr = (int(os.environ[k]) for k in ("T0", "T_SETUP", "T_RUN"))
-          cap = int(os.environ["CAP_SECONDS"])
           specs = [l for l in open(os.path.join(os.environ["RUNNER_TEMP"], "specs.txt")) if l.strip()]
           path = os.path.join(os.environ["RUNNER_TEMP"], "results.json")
           per_file, failed, flaky = {}, set(), set()
@@ -233,10 +225,10 @@ jobs:
               stats = data.get("stats", {})
           setup, run = ts - t0, tr - ts
           lines = [
-              "", "#### Phase 0 timing",
+              "", "#### Timing",
               f"- setup (checkout to browsers ready): **{setup} s**",
               f"- subset run: **{run} s** for {len(specs)} spec files, **{run / max(len(specs), 1):.0f} s per spec** on average",
-              f"- setup + subset: {setup + run} s; within the {cap // 60}-minute cap: **{'yes' if setup + run <= cap else 'NO'}**",
+              f"- setup + subset: {setup + run} s",
               f"- tests: {stats.get('expected', '?')} passed, {stats.get('unexpected', '?')} failed, {stats.get('flaky', '?')} flaky, {stats.get('skipped', '?')} skipped",
           ]
           if per_file:
@@ -250,7 +242,7 @@ jobs:
           open(os.path.join(os.environ["RUNNER_TEMP"], "failed.txt"), "w").write("".join(f"e2e/{f}\n" for f in sorted(failed)))
           EOF
 
-      # Diagnostics for phase 0: each red file alone, after its own database reset (global-setup).
+      # Rule 9: each red file alone, after its own database reset (global-setup).
       - name: Re-run red files alone
         if: always() && steps.run.outcome == 'failure'
         working-directory: app/frontend/apps/web
@@ -260,7 +252,7 @@ jobs:
           { echo; echo "#### Red files re-run alone"; } >> "$GITHUB_STEP_SUMMARY"
           [ -s "$RUNNER_TEMP/failed.txt" ] || { echo "- none recorded (see the run log)" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
           while read -r f; do
-            if npx playwright test "$f" --timeout="$TEST_TIMEOUT_MS" --reporter=list --retries=0 > "$RUNNER_TEMP/alone-$(basename "$f").log" 2>&1; then
+            if npx playwright test "$f" --reporter=list --retries=0 > "$RUNNER_TEMP/alone-$(basename "$f").log" 2>&1; then
               echo "- \`$f\`: green alone, so **order dependency (or flake)**" >> "$GITHUB_STEP_SUMMARY"
             else
               echo "- \`$f\`: red alone too, so a real failure at this commit" >> "$GITHUB_STEP_SUMMARY"
@@ -284,5 +276,12 @@ jobs:
         env:
           RUN_OUTCOME: ${{ steps.run.outcome }}
         run: |
-          if [ "$RUN_OUTCOME" = "failure" ]; then echo "::error::the subset has red specs (see the summary)"; exit 1; fi
+          if [ "$RUN_OUTCOME" = "failure" ]; then
+            # No results file: Playwright never wrote one, so the 20-minute cap (rule 8) cut the run
+            # or the stack failed to start. Either way the tests did not fail.
+            if [ ! -f "$RUNNER_TEMP/results.json" ]; then
+              echo "::error::cap hit (20 min) or setup failure, not a test failure (see the log)"; exit 1
+            fi
+            echo "::error::the subset has red specs (see the summary)"; exit 1
+          fi
           echo "subset green (or empty)"
