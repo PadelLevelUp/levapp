@@ -33,7 +33,7 @@ initApi({
   // removes the feature, nothing crashes.
   // PAD-429 (eligibility.open-spot-visibility rule 12): `class-type-defaults` lets the server
   // send the `type` open-spots source label instead of falling it back to `coach`.
-  capabilities: ["open-spots", "evaluations", "class-type-defaults", "coach-invite-email"],
+  capabilities: ["open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance"],
 });
 
 export const api = getApi();

@@ -3,7 +3,7 @@
  * before any request, maps a server `UNDERAGE` to the same message, and never asks for a
  * guardian's email any more.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
@@ -29,7 +29,18 @@ function yearsAgo(years: number, days = 0) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function fill(birthDate: string) {
+beforeAll(() => {
+  // Radix's checkbox measures itself; jsdom has no ResizeObserver.
+  class RO {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (window as unknown as { ResizeObserver: typeof RO }).ResizeObserver = RO;
+});
+
+/** Fills the form; the Terms box is ticked unless `terms: false` (auth.register rule 19, PAD-485). */
+function fill(birthDate: string, { terms = true }: { terms?: boolean } = {}) {
   const set = (id: string, value: string) =>
     fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value } });
   set("signup-name", "Teen Silva");
@@ -38,6 +49,7 @@ function fill(birthDate: string) {
   set("signup-password", "Segura123");
   set("signup-repeatPassword", "Segura123");
   set("signup-birthDate", birthDate);
+  if (terms) fireEvent.click(screen.getByTestId("signup-terms"));
 }
 
 function mount() {
@@ -89,3 +101,42 @@ describe("SignUpPage — adults only (PAD-445, auth.register rule 18)", () => {
     expect(await screen.findByTestId("signup-birthDate-error")).toHaveTextContent("auth.signup.birthDateUnderage");
   });
 });
+
+describe("SignUpPage — the Terms must be accepted (PAD-485, auth.register rule 19)", () => {
+  it("unticked, nothing is sent and the box says why", async () => {
+    mount();
+    fill(yearsAgo(30), { terms: false });
+    fireEvent.click(screen.getByTestId("signup-submit"));
+    expect(await screen.findByTestId("signup-terms-error")).toHaveTextContent("auth.signup.termsRequired");
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it("ticking the box clears the message, and the sign-up sends termsAccepted: true", async () => {
+    register.mockResolvedValue({ accessToken: "t", user: { id: 1, role: "student" } });
+    mount();
+    fill(yearsAgo(30), { terms: false });
+    fireEvent.click(screen.getByTestId("signup-submit"));
+    await screen.findByTestId("signup-terms-error");
+
+    fireEvent.click(screen.getByTestId("signup-terms"));
+    expect(screen.queryByTestId("signup-terms-error")).toBeNull();
+    fireEvent.click(screen.getByTestId("signup-submit"));
+    await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
+    expect(register.mock.calls[0][0]).toMatchObject({ termsAccepted: true });
+  });
+
+  it("both documents are linked from the box", () => {
+    mount();
+    const label = document.querySelector('label[for="signup-terms"]') as HTMLElement;
+    expect([...label.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["/privacy", "/terms"]);
+  });
+
+  it("maps a server TERMS_REQUIRED to the same message on the box", async () => {
+    register.mockRejectedValue({ response: { status: 400, data: { field: "terms", code: "TERMS_REQUIRED", error: "…" } } });
+    mount();
+    fill(yearsAgo(30));
+    fireEvent.click(screen.getByTestId("signup-submit"));
+    expect(await screen.findByTestId("signup-terms-error")).toHaveTextContent("auth.signup.termsRequired");
+  });
+});
+

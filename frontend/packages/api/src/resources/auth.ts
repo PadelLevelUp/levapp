@@ -83,6 +83,9 @@ export type RegisterPayload = {
   birthDate: string;
   /** ISO 3166-1 alpha-2, required. */
   country: string;
+  /** auth.register rule 19 (PAD-485): the required Terms checkbox; sent by a client declaring
+   *  `terms-acceptance`, which the server then requires to be `true`. */
+  termsAccepted?: boolean;
 };
 
 /** auth.register rule 18: LevApp accepts adults only, so signup always signs in. */

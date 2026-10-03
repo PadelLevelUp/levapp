@@ -36,6 +36,12 @@ CLASS_TYPE_DEFAULTS = "class-type-defaults"
 # once no App Store build older than the first declaring one is in use.
 COACH_INVITE_EMAIL = "coach-invite-email"
 
+# PAD-485 (auth.register rule 19): the sign-up form has a required "I accept the Terms" checkbox and
+# sends `termsAccepted`. A client that declares this and does not send `true` is refused (400
+# TERMS_REQUIRED); one that does not (iOS 1.2.0 (27) and 1.2.1 (28)) registers as before, with no
+# acceptance recorded. Retire once no App Store build older than the first declaring one is in use.
+TERMS_ACCEPTANCE = "terms-acceptance"
+
 
 def declared_capabilities() -> frozenset:
     """The tokens the current request declares, lower-cased; empty outside a request."""
