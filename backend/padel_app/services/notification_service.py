@@ -4118,7 +4118,13 @@ def _send_invitation_batch(
         locked = (
             Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
         )
-        db.session.expire(instance, ["presences"])
+        # PAD-509 (B-300, rule 18): ...and then the CLASS lock, in rule 10's one order (vacancy,
+        # then class — the order every accept takes). Two senders on two spots of one class hold
+        # two different vacancy locks; only the class row makes them decide one after the other,
+        # so the second sees the first's invitation and does not offer the same student twice.
+        # Held until this student's commit, like the vacancy lock. A sender never holds the class
+        # while waiting for a spot, so it cannot deadlock against an accept.
+        instance = _lock_instance(instance)
         if locked.status != "open" or (
             instance.effective_max_players is not None
             and _effective_filled_spots(instance) >= instance.effective_max_players
@@ -4297,7 +4303,8 @@ def _send_batch_locked(
     vacancy row locked and re-read, so two senders on the same spot — a decline's follow-up and the
     tick's next batch, or two declines — wait for each other and never pick the same student. The
     lock ends at the first commit (an invitation with its message), before any push, or at the
-    final commit when nothing was sent. Across two spots of a class this is PAD-509."""
+    final commit when nothing was sent. Across two spots of a class, the per-student class lock
+    in `_send_invitation_batch` serialises the senders (PAD-509)."""
     locked = (
         Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
     )
