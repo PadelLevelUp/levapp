@@ -3,7 +3,7 @@
  *
  * Xcode 27 rejects a pod whose deployment target is below the iOS 27 SDK's range (15.0+): on
  * 2026-09-29 `ReachabilitySwift` (12.0, via expo-updates) and `RNSVG` (12.4) failed the build.
- * Xcode 26 only warned. Inside the Podfile's `post_install`, every pod build configuration below
+ * Xcode 26 only warned. At the end of the Podfile's `post_install`, every pod build configuration below
  * the app's own minimum (15.1, the Expo 54 template's `platform :ios`) is lifted to it. Nothing
  * runs below 15.1 anyway, so under Xcode 26.6 only those targets' build settings move.
  *
@@ -12,7 +12,6 @@
 const FLOOR = "15.1";
 const BEGIN = "# @levapp/pod-deployment-floor (PAD-467) begin";
 const END = "# @levapp/pod-deployment-floor (PAD-467) end";
-const POST_INSTALL = /^([ \t]*)post_install do \|installer\|[ \t]*\n/m;
 
 function block(indent, floor) {
   const i = `${indent}  `;
@@ -30,15 +29,25 @@ function block(indent, floor) {
   ].join("\n");
 }
 
-/** The Podfile with the floor block at the top of `post_install`; unchanged if already there. */
+/**
+ * The Podfile with the floor block as the LAST step of `post_install`, after React Native's own
+ * `react_native_post_install`, so nothing that runs before it can set a target back below the
+ * floor. Unchanged if the block is already there.
+ */
 function applyPodDeploymentFloor(podfile, floor = FLOOR) {
   if (podfile.includes(BEGIN)) return podfile;
-  const match = POST_INSTALL.exec(podfile);
-  if (!match) {
+  const lines = podfile.split("\n");
+  const start = lines.findIndex((l) => /^[ \t]*post_install do \|installer\|[ \t]*$/.test(l));
+  if (start === -1) {
     throw new Error("with-pod-deployment-floor: the Podfile has no `post_install do |installer|` block to extend");
   }
-  const at = match.index + match[0].length;
-  return podfile.slice(0, at) + block(match[1], floor) + "\n" + podfile.slice(at);
+  const indent = lines[start].match(/^[ \t]*/)[0];
+  const close = lines.findIndex((l, i) => i > start && l === `${indent}end`);
+  if (close === -1) {
+    throw new Error("with-pod-deployment-floor: cannot find the `end` of the Podfile's post_install block");
+  }
+  lines.splice(close, 0, block(indent, floor));
+  return lines.join("\n");
 }
 
 module.exports = { FLOOR, BEGIN, END, applyPodDeploymentFloor };

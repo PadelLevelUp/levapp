@@ -45,7 +45,8 @@ It also makes the target visible inside the app.
    through with a warning, for PAD-467's own work. This rule is retired when the app adopts the
    UIScene lifecycle (the Expo SDK upgrade that follows PAD-467).
 3b. **No pod targets below the app's minimum (PAD-467).** The config plugin
-   `plugins/with-pod-deployment-floor.js` adds a block at the top of the Podfile's `post_install`
+   `plugins/with-pod-deployment-floor.js` adds a block as the last step of the Podfile's `post_install` (after
+   `react_native_post_install`)
    that lifts every pod build configuration whose `IPHONEOS_DEPLOYMENT_TARGET` is below 15.1 (the
    app's own minimum) to 15.1. Xcode 27 rejects a pod below 15 (ReachabilitySwift at 12.0 via
    expo-updates, RNSVG at 12.4, on 2026-09-29). Under Xcode 26.6 only those targets' settings move.
@@ -132,7 +133,7 @@ It also makes the target visible inside the app.
 #### Pods below the app's minimum are lifted to it (PAD-467)
 - Given the Expo SDK 54 template Podfile
 - When the prebuild runs the pod-deployment-floor plugin
-- Then `post_install` starts with the floor block (15.1), added once however many prebuilds run
+- Then `post_install` ends with the floor block (15.1), after React Native's own step, added once however many prebuilds run
 - And the rest of the Podfile is unchanged byte for byte
 - And a Podfile without `post_install` is refused
 

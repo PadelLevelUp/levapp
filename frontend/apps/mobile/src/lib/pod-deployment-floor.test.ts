@@ -13,12 +13,17 @@ const { BEGIN, END, FLOOR, applyPodDeploymentFloor } = require("../../plugins/po
 const TEMPLATE = readFileSync(join(__dirname, "__fixtures__", "sdk54-template.Podfile"), "utf8");
 
 describe("pod deployment floor (PAD-467)", () => {
-  it("lifts pods below the floor, at the top of post_install, and changes nothing else", () => {
+  it("lifts pods below the floor, as the last step of post_install, and changes nothing else", () => {
     const out = applyPodDeploymentFloor(TEMPLATE);
     expect(FLOOR).toBe("15.1");
     const lines = out.split("\n");
     const at = lines.findIndex((l) => l.includes("post_install do |installer|"));
-    expect(lines[at + 1].trim()).toBe(BEGIN);
+    const rn = lines.findIndex((l, i) => i > at && l.includes("react_native_post_install("));
+    const begin = lines.findIndex((l) => l.includes(BEGIN));
+    const end = lines.findIndex((l) => l.includes(END));
+    // After React Native's own post-install step, and the next line closes post_install.
+    expect(begin).toBeGreaterThan(rn);
+    expect(lines[end + 1]).toBe("  end");
     const block = out.slice(out.indexOf(BEGIN), out.indexOf(END) + END.length);
     expect(block).toContain("installer.pods_project.targets.each");
     expect(block).toContain("IPHONEOS_DEPLOYMENT_TARGET");
@@ -37,5 +42,6 @@ describe("pod deployment floor (PAD-467)", () => {
 
   it("refuses a Podfile with no post_install rather than silently doing nothing", () => {
     expect(() => applyPodDeploymentFloor("platform :ios, '15.1'\n")).toThrow(/post_install/);
+    expect(() => applyPodDeploymentFloor("  post_install do |installer|\n    x\n")).toThrow(/end/);
   });
 });
