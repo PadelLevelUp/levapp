@@ -1860,9 +1860,20 @@ def _send_system_message(
     msg_metadata: dict | None = None,
     class_instance_id: int | None = None,
     push: bool = True,
+    *,
+    conversation=None,
+    before_commit=None,
 ):
-    from padel_app.models import Message
+    """Persist one coach→student message, then deliver it (live event, push).
+
+    ``conversation`` and ``before_commit`` (PAD-497, #526 review): an invitation's sender fetches
+    the conversation BEFORE it flushes the invitation (getting or creating it commits), and passes
+    ``before_commit`` to stamp the invitation's ``message_id`` — so the invitation, its message and
+    the link between them land in ONE commit, and delivery happens only after it.
+    """
+    import padel_app.models as models
     from padel_app.serializers.message import serialize_message
+    from padel_app.tools.unit_of_work import commit_or_flush
     from padel_app.utils.expo_push import send_expo_push_to_user
 
     # PAD-67 backstop: never deliver an empty message. Template resolution
@@ -1940,15 +1951,19 @@ def _send_system_message(
                 )
             return None
 
-    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
-    msg = Message(
+    conv = conversation or _get_or_create_direct_conversation(coach_user_id, player_user_id)
+    msg = models.Message(
         text=text,
         sender_id=coach_user_id,
         conversation_id=conv.id,
         message_type=message_type,
         msg_metadata=msg_metadata or {},
     )
-    msg.create()
+    db.session.add(msg)
+    db.session.flush()
+    if before_commit is not None:
+        before_commit(msg)
+    commit_or_flush()  # the message (and whatever its caller flushed with it), as create() did
 
     # The coach and the player of the direct conversation, nobody else (B-004).
     publish(
@@ -3996,6 +4011,10 @@ def _send_invitation_batch(
         player = Player.query.get(cp.player_id)
         player_name = (player.user.name if player and player.user else "Player").split()[0]
 
+        # PAD-497 (#526 review item 1): the conversation first — getting or creating it commits —
+        # so nothing below commits until the invitation, its message and the link between them
+        # can commit together.
+        conversation = _get_or_create_direct_conversation(coach_user_id, player_user_id)
         event = NotificationEvent(
             coach_id=coach_id,
             lesson_instance_id=instance.id,
@@ -4005,10 +4024,9 @@ def _send_invitation_batch(
             round_number=vacancy.current_round_number,
             status="sent",
         )
-        # PAD-495 item 8, landed with PAD-497 (#513 review F2): flushed, not committed — the id is
-        # needed for the message's metadata, and the message's own create commits both, so a
-        # failed message rolls its invitation back instead of leaving a live invitation the
-        # student never received (under rule 18 it would hold them out of the whole class).
+        # Flushed, not committed: the id goes into the message's metadata, and the message's own
+        # commit carries the invitation and its message_id (before_commit) with it. A message
+        # that fails rolls its invitation back; one a backstop withholds is discarded below.
         db.session.add(event)
         db.session.flush()
 
@@ -4031,17 +4049,16 @@ def _send_invitation_batch(
                 "vacancyId": vacancy.id,
                 "responded": False,
             },
+            conversation=conversation,
+            before_commit=lambda m, event=event: setattr(event, "message_id", m.id),
         )
         # _send_system_message returns None, without raising, when a backstop withholds the
         # message (an empty body, PAD-67; availability, PAD-107; block-all, PAD-112). The
-        # invitation was only flushed: discard it, so no live invitation exists without its
-        # message (#513 re-review; rule 18).
+        # invitation was only flushed: discard it.
         if msg is None:
             db.session.delete(event)
             db.session.flush()
             continue
-        event.message_id = msg.id
-        event.save()
 
         notified.append({"id": str(cp.player_id), "name": player_name})
 
@@ -4940,6 +4957,7 @@ def send_manual_notifications(
         if not coach_user_id or not player_user_id:
             continue  # nobody to message: no invitation either (rule 18: none without its message)
 
+        conversation = _get_or_create_direct_conversation(coach_user_id, player_user_id)
         event = NotificationEvent(
             coach_id=coach_id,
             lesson_instance_id=instance_id,
@@ -4948,8 +4966,8 @@ def send_manual_notifications(
             round_number=1,
             status="sent",
         )
-        # #513 re-review item 1: flushed, not committed — it commits with its message, so a failed
-        # or withheld message leaves no live invitation behind (as in _send_invitation_batch).
+        # As in _send_invitation_batch (#526 review item 1): the conversation first, then the
+        # invitation flushed; it commits with its message and message_id, or not at all.
         db.session.add(event)
         db.session.flush()
 
@@ -4978,13 +4996,13 @@ def send_manual_notifications(
                 "lessonInstanceId": instance_id,
                 "responded": False,
             },
+            conversation=conversation,
+            before_commit=lambda m, event=event: setattr(event, "message_id", m.id),
         )
         if msg is None:
             db.session.delete(event)
             db.session.flush()
             continue
-        event.message_id = msg.id
-        event.save()
 
         events.append(event)
 
