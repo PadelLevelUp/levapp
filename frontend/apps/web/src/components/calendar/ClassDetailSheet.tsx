@@ -987,7 +987,7 @@ export function ClassDetailSheet({
             </div>
 
             {/* Capacity */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <div data-testid="class-detail-capacity" className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.detail.capacity")}</span>
