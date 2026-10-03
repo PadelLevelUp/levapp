@@ -3473,8 +3473,17 @@ def respond_to_reminder(
         and presence.status == "absent"
         and not presence.validated
     )
+    own = None
     if retaking:
-        locked = _lock_instance(instance)
+        # B-284: the same lock order as every accept (rule 10) — their own vacancy, then the
+        # class. An invitee answering yes for that vacancy takes it in this order too; the
+        # return used to lock the class first and write the vacancy after, and the two
+        # deadlocked. From here to `presence.save()` nothing commits.
+        own, locked = _lock_vacancy_and_instance(
+            _open_vacancy_for(instance.id, player.id), instance
+        )
+        if own is not None and own.status != "open":
+            own = None
         # Capacity is the override, else the lesson's (PAD-275, classes.edit
         # rule 4) — never the copied column, which every sibling check already
         # stopped reading; the copy goes stale the moment the coach edits the
@@ -3500,7 +3509,9 @@ def respond_to_reminder(
 
     # Mark the reminder as responded — on its reminder_attempts row (rule 14),
     # mirrored onto the message so the frontend shows the badge on reload.
-    if reminder_msg is not None:
+    def _record_reminder_answer():
+        if reminder_msg is None:
+            return
         from padel_app.models import ReminderAttempt
         from padel_app.serializers.message import serialize_message
         from padel_app.services import reminder_attempt_service as attempts
@@ -3515,6 +3526,11 @@ def respond_to_reminder(
             {"type": "message_edited", "payload": serialize_message(reminder_msg, None)},
             message_recipient_ids(reminder_msg),
         )
+
+    # B-284: these writes commit, so a return records the answer after its own commit, never
+    # inside the lock it holds.
+    if not retaking:
+        _record_reminder_answer()
 
     if action == "yes":
         retired_on_return = []
@@ -3541,15 +3557,17 @@ def respond_to_reminder(
                 # half-empty class has open spots to spare, so the general
                 # reconciliation leaves it standing and the engine keeps
                 # offering the seat its owner just re-took.
-                own = _open_vacancy_for(instance.id, player.id)
+                # (`own` was locked above, before the class.)
                 if own is not None:
                     retired_on_return = _close_vacancy(own, player.id)
             presence.confirmed = True
             # status is not set to "present": only the coach marks attendance.
             # PAD-271 M5: the answer as one field (attendance.presence rule 7).
             record_response(presence, "confirmed", when=now)
+            _publish_retired(retired_on_return)  # PAD-499: queued now, sent by the commit below
             presence.save()
-            _publish_retired(retired_on_return)  # PAD-499: after the commit
+        if retaking:
+            _record_reminder_answer()
         if coach_user_id:
             _send_system_message(
                 coach_user_id,
@@ -4612,8 +4630,8 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         retired.extend(_close_vacancy(pick, filled_by_player_id))
         closed.append(pick)
     if closed:
+        _publish_retired(retired)  # PAD-499: queued now, sent by this commit (or the enclosing one)
         commit_or_flush()
-        _publish_retired(retired)
     return closed
 
 
@@ -4983,9 +5001,9 @@ def respond_to_notification(
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
+        _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
-        _publish_retired(retired)
 
         if coach_user_id:
             _send_system_message(
@@ -5091,11 +5109,11 @@ def coach_respond_to_notification(
         retired = []
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
+        _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
         if vacancy:
             vacancy.save()
-        _publish_retired(retired)
 
         return {"action": "confirmed"}
 
@@ -5605,9 +5623,9 @@ def _fill_from_waiting_list(
     # candidates user-visible mail, and starting would be a product change rather
     # than the closing of a hole.
     retired = _close_vacancy(vacancy, entry.player_id)
+    _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
     _add_player_to_instance(entry.player_id, instance)  # the ONE commit (PAD-499)
     vacancy.save()
-    _publish_retired(retired)
 
     entry.is_active = False
     entry.save()

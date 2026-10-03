@@ -349,6 +349,7 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         # prompt for this vacancy has nothing left to guard.
         if vacancy.approval_status == "pending":
             vacancy.approval_status = "approved"
+    _publish_retired(retired)  # PAD-499: queued now, sent by the enrolment's commit
     _add_player_to_instance(row.player_id, instance)
     if vacancy is not None:
         vacancy.save()
@@ -379,7 +380,6 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
     row.decided_at = now
     row.decided_by_coach_id = coach.id
     db.session.commit()
-    _publish_retired(retired)  # PAD-499: the retired invitations' edits, after the commit
 
     if coach_user_id and player_user_id:
         _send_system_message(

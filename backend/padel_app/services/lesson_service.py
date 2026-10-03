@@ -148,8 +148,8 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             own = _open_vacancy_for(instance.id, player_id)
             if own is not None:
                 retired = _close_vacancy(own, player_id)
+        _publish_retired(retired)  # PAD-499: queued now, sent by the next commit (this enrolment's)
         reconcile_vacancies(instance, filled_by_player_id=player_id)
-        _publish_retired(retired)  # PAD-499: after reconcile's commit (a flush inside a unit of work)
 
         # PAD-330: the coach's own hand on ONE occurrence — an instance-level add
         # or putting back someone who had cancelled — tells the student. Only
@@ -724,8 +724,8 @@ def add_presences(lesson_instance, payload):
 
             own = _open_vacancy_for(lesson_instance.id, player_id)
             retired = _close_vacancy(own, player_id) if own is not None else []
+            _publish_retired(retired)  # PAD-499: queued now, sent by the next commit
             reconcile_vacancies(lesson_instance, filled_by_player_id=player_id)
-            _publish_retired(retired)  # PAD-499: after reconcile's commit
 
         created_presences.append(presence_obj)
 

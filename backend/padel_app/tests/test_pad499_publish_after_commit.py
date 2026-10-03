@@ -27,7 +27,9 @@ def trail(monkeypatch):
         seen.append("commit")
 
     def fake_publish(event, user_ids):
-        seen.append(f"publish:{event.get('type')}")
+        # The message id, so the retired invitation's edit is told from the accepter's own bubble.
+        message_id = (event.get("payload") or {}).get("id") if event.get("type") == "message_edited" else None
+        seen.append(f"publish:{event.get('type')}" + (f":{message_id}" if message_id else ""))
 
     monkeypatch.setattr(ns, "publish", fake_publish)
     # First in line, so "commit" is recorded before the queued actions that commit runs.
@@ -64,11 +66,9 @@ def test_the_retired_invitations_edit_is_published_after_the_commit_that_closed_
     with app.app_context(), patch(PATCHES[1]):
         instance_id, coach_id, a, b, events = _two_invited(app)
         trail.clear()
+        retired_message = events[b].message_id
         ns.respond_to_notification(events[a].id, "yes", Player.query.get(a).user_id, now=NOW + timedelta(minutes=1))
-        i_close = trail.index("close")
-        edits = [i for i, t in enumerate(trail) if t == "publish:message_edited" and i > i_close]
-        assert edits, trail
-        assert "commit" in trail[i_close:edits[0]], f"the edit was published before a commit: {trail}"
+        _published_at_the_closing_commit(trail, retired_message)
 
 
 def test_a_rollback_drops_the_queued_publishes(app, monkeypatch, trail):
@@ -84,20 +84,28 @@ def test_a_rollback_drops_the_queued_publishes(app, monkeypatch, trail):
         ns._publish_retired(retired)          # queued for the next commit
         db.session.rollback()                 # ... which never comes for this work
         db.session.commit()                   # a later, unrelated commit
-        assert "publish:message_edited" not in trail, trail
+        assert not [t for t in trail if t.startswith("publish:message_edited")], trail
 
 
 # ── B-284 / #527 re-review: the edit goes out at the commit that closed the spot ──────────────
 # `_publish_retired` queues for the NEXT commit. Called after the caller's own commit, the edit
 # waited for whatever committed next — a later message, or nothing at all.
 
-def _published_at_the_closing_commit(trail):
+def _published_at_the_closing_commit(trail, retired_message_id):
+    """The retired invitation's edit runs in the after_commit of the first commit after the close."""
+    assert retired_message_id, "the retired invitation has no message to edit"
     assert "close" in trail, trail
-    i_close = trail.index("close")
-    i_commit = trail.index("commit", i_close)
-    assert trail[i_commit + 1:i_commit + 2] == ["publish:message_edited"], (
-        f"the retired invitation's edit did not go out with the commit that closed the spot: {trail}"
+    i_commit = trail.index("commit", trail.index("close"))
+    nxt = trail.index("commit", i_commit + 1) if "commit" in trail[i_commit + 1:] else len(trail)
+    assert f"publish:message_edited:{retired_message_id}" in trail[i_commit + 1:nxt], (
+        f"message {retired_message_id}'s edit did not go out with the commit that closed the spot: {trail}"
     )
+
+
+def _message_of(event_id):
+    from padel_app.models import NotificationEvent
+
+    return NotificationEvent.query.get(event_id).message_id
 
 
 def test_coach_accept_publishes_at_its_commit(app, trail):
@@ -109,11 +117,11 @@ def test_coach_accept_publishes_at_its_commit(app, trail):
     with app.app_context():
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
         accepted = _invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "sent")
-        _invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent")
+        retired_message = _message_of(_invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent"))
         trail.clear()
         with patch(INT_PATCHES[1]):  # push only; `publish` is the trail's
             coach_respond_to_notification(accepted, "yes", ids["coach_id"])
-        _published_at_the_closing_commit(trail)
+        _published_at_the_closing_commit(trail, retired_message)
 
 
 def test_waiting_list_fill_publishes_at_its_commit(app, trail):
@@ -125,7 +133,7 @@ def test_waiting_list_fill_publishes_at_its_commit(app, trail):
     ids = _world(app)
     with app.app_context():
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
-        _invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent")
+        retired_message = _message_of(_invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent"))
         entry = WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
                                  coach_id=ids["coach_id"], is_active=True)
         db.session.add(entry)
@@ -135,7 +143,7 @@ def test_waiting_list_fill_publishes_at_its_commit(app, trail):
             assert _fill_from_waiting_list(entry, Vacancy.query.get(vacancy_id),
                                            LessonInstance.query.get(ids["instance_id"]), ids["coach_id"],
                                            get_or_create_config(ids["coach_id"])) is True
-        _published_at_the_closing_commit(trail)
+        _published_at_the_closing_commit(trail, retired_message)
 
 
 def test_join_accept_publishes_at_its_commit(app, trail):
@@ -150,12 +158,12 @@ def test_join_accept_publishes_at_its_commit(app, trail):
     candidate = _student(app, ids, "candidate-499")
     with app.app_context():
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"])
-        _invite(ids["instance_id"], ids["coach_id"], candidate, vacancy_id, "sent")
+        retired_message = _message_of(_invite(ids["instance_id"], ids["coach_id"], candidate, vacancy_id, "sent"))
     request_id, _, _ = _request(app, ids, asker)
     trail.clear()
     with patch(INT_PATCHES[1]):  # push only; `publish` is the trail's
         assert _decide(app, ids, request_id, accept=True) == "accepted"
-    _published_at_the_closing_commit(trail)
+    _published_at_the_closing_commit(trail, retired_message)
 
 
 def test_the_return_publishes_at_its_commit(app, monkeypatch, trail):
@@ -164,11 +172,12 @@ def test_the_return_publishes_at_its_commit(app, monkeypatch, trail):
     from padel_app.tests.test_pad499_accept_lock_ends_early import _cancelled_then_back
 
     pin_clock(monkeypatch, NOW)
-    instance_id, r_user, _invite_id, _i_user = _cancelled_then_back(app)
+    instance_id, r_user, invite_id, _i_user = _cancelled_then_back(app)
     with app.app_context(), patch(PATCHES[1]):
+        retired_message = _message_of(invite_id)
         trail.clear()
         assert respond_to_reminder(instance_id, "yes", r_user, now=NOW + timedelta(minutes=2))["action"] == "confirmed"
-        _published_at_the_closing_commit(trail)
+        _published_at_the_closing_commit(trail, retired_message)
 
 
 def test_reconcile_publishes_at_its_commit(app, trail):
@@ -179,7 +188,26 @@ def test_reconcile_publishes_at_its_commit(app, trail):
     ids = _world(app, max_players=1)  # full: Ana holds the one place
     with app.app_context():
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"])
-        _invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "sent")
+        retired_message = _message_of(_invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "sent"))
         trail.clear()
         assert reconcile_vacancies(LessonInstance.query.get(ids["instance_id"]))
-        _published_at_the_closing_commit(trail)
+        _published_at_the_closing_commit(trail, retired_message)
+
+
+def test_the_coach_putting_a_returner_back_publishes_at_its_commit(app, monkeypatch, trail):
+    """A guard, not a red cell: here the reconcile closes nothing and so commits nothing, and the
+    old order (queue after the reconcile) published at the same commit as the new one."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.players import Player
+    from padel_app.services.lesson_service import enrol
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad499_accept_lock_ends_early import _cancelled_then_back
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, r_user, invite_id, _i_user = _cancelled_then_back(app)
+    with app.app_context(), patch(PATCHES[1]):
+        retired_message = _message_of(invite_id)
+        r_player = Player.query.filter_by(user_id=r_user).one().id
+        trail.clear()
+        enrol(r_player, LessonInstance.query.get(instance_id), "coach")
+        _published_at_the_closing_commit(trail, retired_message)
