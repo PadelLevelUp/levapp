@@ -488,6 +488,27 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(dialog()).toBeInTheDocument();
   });
 
+  it("a mixed result: the part that failed stays unsaved, the part that saved is clean", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(shownLanguage()).toBe("en"));
+    evaluationApi.putEvaluationScale.mockRejectedValueOnce(new Error("offline"));
+
+    await chooseLanguage("pt");
+    fireEvent.click(await screen.findByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(headerSave());
+
+    await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ language: "pt" }));
+    await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledWith({ scaleMax: 10 }));
+    // Still something to save: the scale. A second Save sends only it.
+    await waitFor(() => expect(headerSave()).toBeEnabled());
+    fireEvent.click(headerSave());
+    await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledTimes(2));
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(headerSave()).toBeDisabled());
+    evaluationApi.putEvaluationScale.mockClear();
+  });
+
   it("changed and changed back is clean: Save disabled, nothing asked", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
@@ -561,6 +582,36 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     fireEvent.click(screen.getByTestId("settings-unsaved-discard"));
     await waitFor(() => expect(screen.getByTestId("probe-path")).toHaveTextContent("/players"));
     expect(updateMe).not.toHaveBeenCalled();
+  });
+
+  it("signing out from the avatar menu asks while something is held; Discard signs out (#550 review F3)", async () => {
+    const { guardedLeave } = await import("@/lib/leave-guard");
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+    fireEvent.click(toggle);
+    const signOut = vi.fn();
+
+    act(() => guardedLeave(signOut));
+    expect(dialog()).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("settings-unsaved-discard"));
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+
+  it("with nothing held, signing out leaves at once", async () => {
+    const { guardedLeave } = await import("@/lib/leave-guard");
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await screen.findByTestId("settings-request-alerts");
+    const signOut = vi.fn();
+
+    act(() => guardedLeave(signOut));
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(dialog()).not.toBeInTheDocument();
   });
 
   it("with nothing held, an in-app link leaves at once", async () => {

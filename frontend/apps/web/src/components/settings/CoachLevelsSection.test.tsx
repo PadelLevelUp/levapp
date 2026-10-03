@@ -115,4 +115,22 @@ describe("CoachLevelsSection — reports unsaved by rule 2 (PAD-394)", () => {
     await screen.findByTestId("coach-level-row");
     expect(screen.queryByText("settings.coachLevels.saveLevels")).toBeNull();
   });
+
+  it("a row without a code is refused with the reason, nothing is sent, and it stays unsaved (#550 review F2)", async () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <CoachLevelsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("coach-level-row");
+    fireEvent.change(codeInput(), { target: { value: "" } });
+
+    fireEvent.click(screen.getByTestId("harness-save"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("save-failed")).toHaveTextContent("coachLevels — settings.coachLevels.validationErrorDescription"),
+    );
+    expect(addCoachLevel).not.toHaveBeenCalled();
+    expect(unsavedIds()).toBe("coachLevels");
+  });
 });

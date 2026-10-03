@@ -39,8 +39,9 @@ notificações", and retires `settings.save-on-change`.
      `settings-<section>-save` (`settings-profile-save`, `settings-preferences-save`,
      `settings-admin-save`).
    - **What Save does:** it sends every changed setting on the tab — one request per endpoint, one
-     `PATCH /auth/me` for profile, language and alerts together. On success it says so once ("Alterações
-     guardadas" / "Changes saved") and the tab is clean.
+     `PATCH /auth/me` for profile, language and alerts together. On success it says so once ("Definições
+     guardadas" / "Settings saved", `settings.toast.settingsSavedTitle`, both clients) and the tab is
+     clean.
    - **When a request fails:** it says which part failed, and that part stays changed and unsaved, so a
      second Save retries only what failed. Parts that succeeded are clean.
 4. **Not settings, so they stay immediate:**
@@ -50,13 +51,18 @@ notificações", and retires `settings.save-on-change`.
      Each of these acts at once and nothing is held.
 5. **Leaving asks — everywhere.** With a held edit on the tab:
    - **Web asks** on choosing another Settings tab, on following any in-app link (sidebar, avatar
-     menu), and when the page is closed or reloaded (`beforeunload`).
+     menu), on signing out from the avatar menu (Descartar signs out), and when the page is closed or
+     reloaded (`beforeunload`).
    - **iOS asks** on the section's back row and the header's back button. While anything is held
      the header back is the app's own button (`settings-header-back`), which asks every time, and
-     swipe-back is off; any other removal of the screen is stopped and asks too.
+     swipe-back is off; any other removal of the screen is stopped and asks too. iOS's sign-out lives
+     on the section list, which holds nothing: the section screen asks before the list is reached.
    - **The question** is `settings.unsaved-edits` rule 4 (Descartar / Continuar a editar).
    - **The one place the browser decides:** web's own Back/Forward buttons move through the app's
      history without a page unload, so no prompt can stop them; the edits are dropped as before.
+   - **The one in-app limit:** a programmatic `navigate()` elsewhere in the web app (code that moves
+     the router without a link click or the avatar menu's sign-out) does not ask; the edits are
+     dropped. Every link click and sign-out goes through the guard.
 6. **Unsaved** is by value, not by touch (`settings.unsaved-edits` rule 2): changing a setting and back
    leaves the tab clean and Save disabled.
 
@@ -73,7 +79,7 @@ notificações", and retires `settings.save-on-change`.
 - **Given** a coach on Preferências who turned request alerts off, renamed a level and chose scale 10
 - **When** they press Save
 - **Then** `/auth/me`, the levels route and `evaluation_scale` each receive one request, a single
-  "Changes saved" is shown, and nothing on the tab is unsaved
+  "Settings saved" is shown, and nothing on the tab is unsaved
 
 #### A failed part stays unsaved
 - **Given** the scale request fails and the others succeed
@@ -100,5 +106,8 @@ notificações", and retires `settings.save-on-change`.
 
 ### Notes
 - Ledger: none (an owner decision, not a defect).
+- **Known limit of the tests:** iOS's screen-level Save and back logic (run every held part, keep the
+  failed ones, ask on back) is covered end to end only by Maestro (flows 95, 128, 158 and the converted
+  flows); the unit `SectionSaveProbe` re-implements the loop rather than mounting the screen.
 - The PAD-473 sign, serial saver, `SaveLedger` and the keepalive / background flushes are no longer used
   by these tabs; they remain for PR 2's tabs until it lands.

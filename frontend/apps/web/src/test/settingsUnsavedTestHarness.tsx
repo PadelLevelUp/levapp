@@ -8,6 +8,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import {
+  failedPartText,
   SettingsSaveContext,
   SettingsUnsavedContext,
   type RegisterSaver,
@@ -47,8 +48,8 @@ export function SettingsUnsavedTestHarness({ children }: { children: React.React
       if (!saver) continue;
       try {
         await saver.save();
-      } catch {
-        bad.push(id);
+      } catch (error) {
+        bad.push(failedPartText(id, error));
       }
     }
     setFailed(bad);

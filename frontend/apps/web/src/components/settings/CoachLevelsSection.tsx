@@ -4,12 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, GripVertical, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
-import { useTabSave } from "@/context/SettingsUnsavedContext";
+import { TabSaveError, useTabSave } from "@/context/SettingsUnsavedContext";
 
 interface LevelDraft {
   id: string;
@@ -19,7 +18,6 @@ interface LevelDraft {
 }
 
 export function CoachLevelsSection() {
-  const { toast } = useToast();
   const { t } = useTranslation();
   const [levels, setLevels] = useState<LevelDraft[]>([]);
   // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved rows,
@@ -106,10 +104,7 @@ export function CoachLevelsSection() {
   // a refusal, so the levels stay unsaved and the next Save retries them.
   const save = async () => {
     const invalid = levels.some((l) => !l.code.trim() || !l.label.trim());
-    if (invalid) {
-      toast({ title: t("settings.coachLevels.validationErrorTitle"), description: t("settings.coachLevels.validationErrorDescription") });
-      throw new Error("invalid levels");
-    }
+    if (invalid) throw new TabSaveError(t("settings.coachLevels.validationErrorDescription"));
 
     if (USE_MOCK_DATA) {
       setBaseline(levels);
@@ -120,9 +115,8 @@ export function CoachLevelsSection() {
     for (const gone of baseline.filter((l) => !kept.has(l.id))) {
       try {
         await deleteCoachLevel(gone.id);
-      } catch (e) {
-        toast({ variant: "destructive", title: t("settings.coachLevels.deleteFailed") });
-        throw e;
+      } catch {
+        throw new TabSaveError(t("settings.coachLevels.deleteFailed"));
       }
       setBaseline((prev) => prev.filter((l) => l.id !== gone.id));
     }

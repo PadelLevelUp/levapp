@@ -35,6 +35,8 @@ import { useLayout } from "@/components/layout/LayoutContext";
 import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
 import { CompetencyManagerHost } from "@/components/evaluations/competency-manager/CompetencyManagerHost";
+import { guardedLeave } from "@/lib/leave-guard";
+
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -482,10 +484,13 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => {
-                  logout();
-                  navigate("/auth");
-                }}
+                onClick={() =>
+                  // settings.explicit-save rule 5: asks first while Settings holds an unsaved edit.
+                  guardedLeave(() => {
+                    logout();
+                    navigate("/auth");
+                  })
+                }
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 {t("nav.logout")}
