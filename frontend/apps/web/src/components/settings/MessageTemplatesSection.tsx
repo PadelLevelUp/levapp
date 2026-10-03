@@ -23,7 +23,7 @@ const VARIABLE_HINTS: Partial<Record<keyof MessageTemplates, string[]>> = {
   invite: CLASS_VARIABLES,
   reminder: CLASS_VARIABLES,
   reminder_followup: CLASS_VARIABLES,
-  // PAD-446 (message-templates rule 15): {side} names the spot's side, on this template only.
+  // PAD-446 (message-templates rule 16): {side} names the spot's side, on this template only.
   waiting_list_invite: [...CLASS_VARIABLES, "{side}"],
   added_to_class: ADDED_VARIABLES,
   added_to_class_coming: ADDED_VARIABLES,

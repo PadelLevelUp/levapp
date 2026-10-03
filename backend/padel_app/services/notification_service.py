@@ -1764,7 +1764,7 @@ _SIDE_PHRASES = {
 
 
 def _side_phrase(side: str | None, locale: str | None) -> str:
-    """PAD-446 (message-templates rule 15): the spot's side for `{side}` — only for a left/right
+    """PAD-446 (message-templates rule 16): the spot's side for `{side}` — only for a left/right
     spot, in the coach's locale; a `both` or unknown side says nothing."""
     return _SIDE_PHRASES.get("en" if locale == "en" else "pt", {}).get(side or "", "")
 
@@ -1788,7 +1788,7 @@ def _format_template(template: str, **variables) -> str:
                 flags=re.IGNORECASE,
             )
         template = template.replace("{" + key + "}", val)
-    # PAD-446 (rule 15): `{side}` is filled only for a waiting-list invitation; anywhere else (or a
+    # PAD-446 (message-templates rule 16): `{side}` is filled only for a waiting-list invitation; anywhere else (or a
     # caller that did not pass it) it renders as nothing, never as a raw token.
     template = template.replace("{side}", "")
     # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
@@ -2526,7 +2526,10 @@ def _broadcast_spot_filled(
     locale: str | None = None,
     events: list | None = None,
 ) -> None:
-    """Tell the other candidates the spot is gone, and retire their invitations.
+    """Retire the other candidates' invitations: their bubble now reads "Vaga preenchida".
+
+    PAD-501 (notifications.message-templates rule 15): that IS the telling. No `spot_filled`
+    message is sent on top of it any more; ``templates`` and ``locale`` are kept for the callers.
 
     PAD-317: a caller that closed the vacancy through ``_close_vacancy`` passes
     the events that close retired as ``events``. Those rows are already
@@ -2538,8 +2541,6 @@ def _broadcast_spot_filled(
     """
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
-
-    spot_filled_text = resolve_message_template(templates, "spot_filled", locale)
 
     if events is None:
         query = NotificationEvent.query.filter(
@@ -2573,10 +2574,6 @@ def _broadcast_spot_filled(
                     message_recipient_ids(invite_msg),
                 )
 
-        _send_system_message(
-            coach_user_id, other_player_user_id, spot_filled_text,
-            class_instance_id=instance.id,
-        )
         # Already expired when the list came from _close_vacancy; still this
         # function's job on the fallback path. Idempotent either way.
         other_event.status = "expired"
@@ -3525,13 +3522,7 @@ def respond_to_reminder(
             and _effective_filled_spots(locked) >= locked.effective_max_players
         ):
             db.session.commit()  # release the lock, change nothing
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    acting_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the screen that sent this shows the refusal.
             # The coach is the only one who can seat them by hand, and they were
             # told of the cancellation — so they hear about the attempt too.
             _notify_coach_of_refused_return(
@@ -4148,7 +4139,13 @@ def _send_invitation_batch(
         locked = (
             Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
         )
-        db.session.expire(instance, ["presences"])
+        # PAD-509 (B-300, rule 18): ...and then the CLASS lock, in rule 10's one order (vacancy,
+        # then class — the order every accept takes). Two senders on two spots of one class hold
+        # two different vacancy locks; only the class row makes them decide one after the other,
+        # so the second sees the first's invitation and does not offer the same student twice.
+        # Held until this student's commit, like the vacancy lock. A sender never holds the class
+        # while waiting for a spot, so it cannot deadlock against an accept.
+        instance = _lock_instance(instance)
         if locked.status != "open" or (
             instance.effective_max_players is not None
             and _effective_filled_spots(instance) >= instance.effective_max_players
@@ -4332,7 +4329,8 @@ def _send_batch_locked(
     vacancy row locked and re-read, so two senders on the same spot — a decline's follow-up and the
     tick's next batch, or two declines — wait for each other and never pick the same student. The
     lock ends at the first commit (an invitation with its message), before any push, or at the
-    final commit when nothing was sent. Across two spots of a class this is PAD-509."""
+    final commit when nothing was sent. Across two spots of a class, the per-student class lock
+    in `_send_invitation_batch` serialises the senders (PAD-509)."""
     locked = (
         Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
     )
@@ -5000,13 +4998,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    player_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
             publish(
                 {
@@ -5026,13 +5018,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    player_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
             publish(
                 {

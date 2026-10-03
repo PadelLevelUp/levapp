@@ -172,7 +172,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     failed enrolment leaves nothing changed (the student can answer again). Every path that seats a
     student on a vacancy decides the same way and in the same order (vacancy, then class): the
     student's yes (a waiting-list student's included, rule 8a), the coach's recorded yes, the join-request accept, and a
-    student taking back the place they had given up (the reminder return, ledger B-284). The
+    student taking back the place they had given up (the reminder return, ledger B-284). **This is
+    the engine's one lock order (PAD-509, ledger B-300): a vacancy, then its class.** A sender
+    choosing whom to invite takes it too: its spot's lock and then the class lock, per student,
+    until that student's invitation commits. No path takes the class lock and then waits for a
+    vacancy's — the reconcile, which runs under the class lock, takes vacancies only with
+    `SKIP LOCKED` — so a sender and an accept on the same spot cannot deadlock. The
     reconcile that an enrolment runs counts every open vacancy of the class but locks only the one
     it is about to close, without waiting (`SKIP LOCKED`): one that another answer is deciding on is
     passed over for the next, and that answer either fills it or finds the class full, and the tick
@@ -246,10 +251,11 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     winner's own invitation, which its caller marks `confirmed`. The routine returns the events
     it retired, because a caller that still has to tell those candidates cannot find them again
     afterwards — a query for live invitations returns nothing once they are expired.
-    **Retiring is not the same as telling.** The two accept paths and the join-request accept
-    send the other candidates the `spot_filled` message; reconciliation retires silently, as it
-    always has. Whether a candidate should be told
-    their seat went is a product question, deliberately left open here.
+    **Retiring is the telling (PAD-501).** No closing path sends the other candidates a
+    `spot_filled` message: their retired invitation shows "Vaga preenchida", and a second chat
+    message saying the same was redundant (owner: "no message when an invitation expires or the
+    spot is filled"; `notifications.message-templates` rule 15). The join-request accept still
+    tells pending join requesters whose request it closes (`classes.join-requests` rule 10).
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
     still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
@@ -278,8 +284,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     the Accepted badge (PAD-495). Leaving a class after
     winning it goes through the attendance cancel, not the invitation. A "yes" after the
     student's own "no" on the same invitation is the same no-op too (rule 18), and so is a "yes"
-    repeated by a student who lost the spot: they were told `spot_filled` and offered the waiting
-    list once, and the repeat answers the same and sends nothing (PAD-495).
+    repeated by a student who lost the spot: their answer was `spot_filled` (no message since
+    PAD-501) and they were offered the waiting list once, and the repeat answers the same and
+    sends nothing (PAD-495).
 18. **A student's "no" is final for that class; one live offer per student per class (PAD-497,
     absorbing PAD-494; owner, 2026-10-02: "a student no means I dont want a spot in this class.
     He should never be invited to that class again").** "That class" is the single occurrence
@@ -295,12 +302,11 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
-      This is checked by reading the class's live invitations, not under a lock: two senders
-      choosing at the same moment for two spots of one class can still both pick the same free
-      student (PAD-509, a class-level lock while choosing). Within ONE spot every sender — the tick's
-      next batch, a decline's follow-up — decides each student under that vacancy's row lock, held
-      until the student's invitation commits with its message, so two senders on the same spot never
-      invite the same student (PAD-495).
+      Every sender — the tick's next batch, a decline's follow-up, on any spot of the class —
+      decides each student under its spot's row lock and then the class's (rule 10's order), held
+      until the student's invitation commits with its message. Two senders on the same spot wait on
+      the spot (PAD-495); two senders on two spots of one class wait on the class (PAD-509, ledger
+      B-300), so the second sees the first's invitation and never offers the same student twice.
     **Who counts as holding a spot (#513 review).** `offered_another_spot` is decided LAST, after
     every other check of the round (eligibility, the coach's exclusions, inactive accounts,
     unavailability, the student's own opt-out, the round's rules): it means "this round would ask
@@ -658,3 +664,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** a second open vacancy on instance 10 for player 7 is inserted
 - **Then** the database refuses it (`uq_vacancies_open_original_player`)
 - **And** an expired vacancy on instance 10 for player 7 next to the open one is accepted, and two structural vacancies (no departing player) on instance 10 are accepted
+
+#### Two spots sending at once never offer one student twice (PAD-509)
+- **Given** a class with two open spots, two free students and `maxSimultaneous` 1
+- **When** both spots send their first invitation at the same moment
+- **Then** each student holds at most one live offer for the class, and each spot asks one of them
+
+#### An accept and a sender on the same spot never deadlock (PAD-509)
+- **Given** a student answering yes on spot V1 while the engine is choosing another student for V1
+- **When** the accept holds V1 and the sender reaches its lock section
+- **Then** both finish without a database deadlock: the sender waits for V1 (rule 10's order) and then finds the spot taken

@@ -40,6 +40,12 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
      which INHERITS the series level (rule 4), not "all levels". An empty `name` is refused as above;
      the title override is dropped only by resending the series title (rule 4), and it is touched
      only by an edit that sent `name`.
+7b. **The editor's time field (PAD-508).** The web class editor's start and end are the field of
+   `classes.create` rule 8b (type or pick, quarter-hour list, never empty, end list with lengths;
+   web only, for the reason given there). When the coach moves the start to or past the end, the end
+   moves with it and keeps the class's length (an hour when it had none), never past 23:59; an end
+   still after the new start is left alone. An end typed at or before the start is refused before
+   anything is sent, with the same message as the new-class sheet.
 8. **Moving an occurrence moves its weekday in the series (PAD-464, B-216).** When an edit moves a
    recurring class from `event_date` to another date, the series' `daysOfWeek` swaps the old
    weekday for the new one, in the calendar's convention: **0 = Sunday … 6 = Saturday**
@@ -81,6 +87,15 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 - **Given** a class recurring on Sundays (`[0]`)
 - **When** the coach moves its Sunday occurrence to Tuesday
 - **Then** `daysOfWeek` is `[2]` and the series no longer recurs on Sundays
+
+#### The editor sets the time from the list and by typing (rule 7b, PAD-508)
+- **Given** a one-off class at 10:00–11:00 open in the web editor
+- **When** the coach picks 11:00 as the start
+- **Then** the end reads 12:00
+- **When** they type "1030" in the end and save
+- **Then** nothing is sent and the editor says the end must be after the start
+- **When** they type "1215" in the end and save
+- **Then** `edit_class` is sent with `startTime` 11:00 and `endTime` 12:15
 
 #### Edit single instance
 - **Given** a recurring class with an instance on April 20

@@ -36,49 +36,55 @@ test("PAD-492: an automatic message carries the note and a typed one does not", 
   expect(conv.status()).toBeLessThan(400);
   const conversationId = String((await conv.json()).id);
 
-  // A typed message from the student.
-  const typedText = `PAD-492 typed ${Date.now()}`;
-  const typed = await request.post(`${API_APP}/message`, {
-    headers: student,
-    data: { conversationId, text: typedText },
-  });
-  expect(typed.status()).toBeLessThan(400);
-  const typedBody = await typed.json();
-  expect(typedBody.isAutomatic).toBe(false);
+  try {
+    // A typed message from the student.
+    const typedText = `PAD-492 typed ${Date.now()}`;
+    const typed = await request.post(`${API_APP}/message`, {
+      headers: student,
+      data: { conversationId, text: typedText },
+    });
+    expect(typed.status()).toBeLessThan(400);
+    const typedBody = await typed.json();
+    expect(typedBody.isAutomatic).toBe(false);
 
-  // An automatic message: the coach shares a rated evaluation with the student.
-  const roster = await (await request.get(`${API_APP}/coach_players`, { headers: coach })).json();
-  const players = roster.items ?? roster;
-  const studentTwo = players.find((p: { name?: string }) => p.name === "E2E Student Two");
-  expect(studentTwo, "the seed must provide E2E Student Two on the coach's roster").toBeTruthy();
-  const history = await (
-    await request.get(`${API_APP}/player/${studentTwo.playerId}/evaluations`, { headers: coach })
-  ).json();
-  const record = history.records.find((r: { ratings: unknown[] }) => r.ratings.length > 0);
-  expect(record, "the seed must provide a rated evaluation for E2E Student Two").toBeTruthy();
-  await request.delete(`${API_APP}/evaluation_record/${record.id}/share`, { headers: coach });
-  const shared = await request.post(`${API_APP}/evaluation_record/${record.id}/share`, {
-    headers: coach,
-    data: { categoryIds: [record.ratings[0].categoryId], evolution: "none", includeNote: false },
-  });
-  expect(shared.status()).toBeLessThan(400);
+    // An automatic message: the coach shares a rated evaluation with the student.
+    const roster = await (await request.get(`${API_APP}/coach_players`, { headers: coach })).json();
+    const players = roster.items ?? roster;
+    const studentTwo = players.find((p: { name?: string }) => p.name === "E2E Student Two");
+    expect(studentTwo, "the seed must provide E2E Student Two on the coach's roster").toBeTruthy();
+    const history = await (
+      await request.get(`${API_APP}/player/${studentTwo.playerId}/evaluations`, { headers: coach })
+    ).json();
+    const record = history.records.find((r: { ratings: unknown[] }) => r.ratings.length > 0);
+    expect(record, "the seed must provide a rated evaluation for E2E Student Two").toBeTruthy();
+    await request.delete(`${API_APP}/evaluation_record/${record.id}/share`, { headers: coach });
+    const shared = await request.post(`${API_APP}/evaluation_record/${record.id}/share`, {
+      headers: coach,
+      data: { categoryIds: [record.ratings[0].categoryId], evolution: "none", includeNote: false },
+    });
+    expect(shared.status()).toBeLessThan(400);
 
-  const thread = await (
-    await request.get(`${API_APP}/conversation/${conversationId}?limit=50`, { headers: student })
-  ).json();
-  const automatic = [...thread.messages].reverse().find((m: { isAutomatic?: boolean }) => m.isAutomatic);
-  expect(automatic, "the share must arrive as an automatic message").toBeTruthy();
+    const thread = await (
+      await request.get(`${API_APP}/conversation/${conversationId}?limit=50`, { headers: student })
+    ).json();
+    const automatic = [...thread.messages].reverse().find((m: { isAutomatic?: boolean }) => m.isAutomatic);
+    expect(automatic, "the share must arrive as an automatic message").toBeTruthy();
 
-  await loginAsStudent2(page);
-  await page.goto(`/messages/${conversationId}`);
+    await loginAsStudent2(page);
+    await page.goto(`/messages/${conversationId}`);
 
-  const autoRow = page.getByTestId(`message-item-${automatic.id}`);
-  await expect(autoRow).toBeVisible({ timeout: 20000 });
-  await expect(autoRow.getByTestId("message-automatic-note")).toHaveText(ui("messages.automaticMessage"));
+    const autoRow = page.getByTestId(`message-item-${automatic.id}`);
+    await expect(autoRow).toBeVisible({ timeout: 20000 });
+    await expect(autoRow.getByTestId("message-automatic-note")).toHaveText(ui("messages.automaticMessage"));
 
-  const typedRow = page.getByTestId(`message-item-${typedBody.id}`);
-  await expect(typedRow).toBeVisible();
-  await expect(typedRow.getByTestId("message-automatic-note")).toHaveCount(0);
+    const typedRow = page.getByTestId(`message-item-${typedBody.id}`);
+    await expect(typedRow).toBeVisible();
+    await expect(typedRow.getByTestId("message-automatic-note")).toHaveCount(0);
 
-  await request.delete(`${API_APP}/evaluation_record/${record.id}/share`, { headers: coach });
+    await request.delete(`${API_APP}/evaluation_record/${record.id}/share`, { headers: coach });
+  } finally {
+    // R-040: the student's typed message is unread for the coach; leaving it kept the coach's nav
+    // badge at 1 for every later spec, and nav-unread-badge failed after this one (B-286, PAD-514).
+    await request.post(`${API_APP}/conversation/${conversationId}/read`, { headers: coach });
+  }
 });

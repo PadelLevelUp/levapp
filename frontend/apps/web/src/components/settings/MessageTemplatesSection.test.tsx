@@ -105,7 +105,7 @@ describe("MessageTemplatesSection — reports unsaved by rule 2 (PAD-394)", () =
   });
 });
 
-describe("MessageTemplatesSection — the waiting-list invitation (PAD-446, message-templates rules 2, 15)", () => {
+describe("MessageTemplatesSection — the waiting-list invitation (PAD-446, message-templates rules 2, 16)", () => {
   it("edits waiting_list_invite, offers {side} on it alone, and no longer lists waiting_list_placed", () => {
     render(
       <SettingsUnsavedTestHarness>
