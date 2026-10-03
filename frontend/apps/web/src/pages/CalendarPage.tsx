@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -10,7 +10,7 @@ import {
   ENABLED_VIEW_MODES,
   MobileCalendar,
 } from "@/components/calendar/mobile/MobileCalendar";
-import type { CalendarViewMode } from "@levelup/hooks";
+import { isRequestEvent, type CalendarViewMode } from "@levelup/hooks";
 import { CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +32,7 @@ import { LoadingCalendar } from "@/components/ui/loading-skeleton";
 import { removeClass, editClass, addClass } from "@/api/classes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/auth/AuthContext";
+import { subscribeAppEvents } from "@/api/events";
 import { RescheduleDialog } from "@/components/calendar/RescheduleDialog";
 import type { ApplyScope } from "@/components/calendar/ClassScopeDialog";
 
@@ -82,7 +83,7 @@ function writeStoredViewMode(mode: CalendarViewMode) {
 export default function CalendarPage() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Frozen at first render: the calendar must open on the deep-linked week straight
@@ -129,12 +130,28 @@ export default function CalendarPage() {
     "yyyy-MM-dd'T'23:59:59"
   );
 
+  // Every read of the range goes through here, and only the newest may land (PAD-488 review):
+  // an answer for the week the coach just left, or a refetch started before a newer one, would
+  // otherwise replace the events on screen.
+  const latestRead = useRef(0);
+  const readRange = useCallback(async () => {
+    const mine = ++latestRead.current;
+    const data = await getCalendarEvents(fetchFrom, fetchTo);
+    if (mine === latestRead.current) setAllEvents(data);
+  }, [fetchFrom, fetchTo]);
+
+  // A local edit (add, delete, drop) retires any read in flight: that answer was taken before
+  // the edit and would otherwise erase it when it lands.
+  const editEvents = useCallback((update: (prev: CalendarEvent[]) => CalendarEvent[]) => {
+    latestRead.current++;
+    setAllEvents(update);
+  }, []);
+
   useEffect(() => {
     async function loadEvents() {
       setLoading(true);
       try {
-        const data = await getCalendarEvents(fetchFrom, fetchTo);
-        setAllEvents(data);
+        await readRange();
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -144,7 +161,18 @@ export default function CalendarPage() {
     }
 
     loadEvents();
-  }, [fetchFrom, fetchTo]);
+  }, [readRange]);
+
+  // classes.class-requests rule 19 (PAD-488, B-264): a request changed on this device, the
+  // other person's or another of mine — the hold moved or went and a class may have taken its
+  // place, so the open calendar refetches its range. It keeps local state, not a query, so
+  // the shared invalidation does not reach it.
+  useEffect(() => {
+    if (!token) return;
+    return subscribeAppEvents(token, (data) => {
+      if (isRequestEvent(data.type)) readRange().catch(() => {});
+    });
+  }, [token, readRange]);
 
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.
@@ -265,7 +293,7 @@ export default function CalendarPage() {
     try {
       await removeClass(event, scope);
 
-      setAllEvents(prev => prev.filter(e => e.id !== event.id));
+      editEvents(prev => prev.filter(e => e.id !== event.id));
       setSelectedClassEvent(null);
 
       toast({
@@ -324,7 +352,7 @@ export default function CalendarPage() {
     try {
       await editClass(event, updated, scope);
 
-      setAllEvents(prev =>
+      editEvents(prev =>
         prev.map(e =>
           e.id === event.id
             ? instanceToCalendarEvent(updated, e)
@@ -349,9 +377,7 @@ export default function CalendarPage() {
   };
 
 
-  const refreshEvents = async () => {
-    setAllEvents(await getCalendarEvents(fetchFrom, fetchTo));
-  };
+  const refreshEvents = readRange;
 
   const handleEventDrop = (event: CalendarEvent, newDate: string, newStartTime: string) => {
     const [sh, sm] = event.startTime.split(':').map(Number);
@@ -418,7 +444,7 @@ export default function CalendarPage() {
     try {
       const created = await addClass(data);
 
-      setAllEvents(prev => [...prev, created]);
+      editEvents(prev => [...prev, created]);
 
       toast({
         title: t("calendar.page.classCreated"),
@@ -570,7 +596,7 @@ export default function CalendarPage() {
         open={!!selectedBlockEvent}
         onClose={() => setSelectedBlockEvent(null)}
         onSaved={refreshEvents}
-        onDeleted={(event) => setAllEvents(prev => prev.filter(e => e.id !== event.id))}
+        onDeleted={(event) => editEvents(prev => prev.filter(e => e.id !== event.id))}
       />
 
       <AddEventSheet

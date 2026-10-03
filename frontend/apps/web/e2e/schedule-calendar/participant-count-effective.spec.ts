@@ -163,10 +163,8 @@ test("PAD-71: calendar count matches the class detail capacity field", async ({
   await card.click();
 
   // The detail sheet's "Capacity" tile renders the same effective value.
-  const capacityLabel = page.getByText(/^capacity$/i).first();
-  await expect(capacityLabel).toBeVisible({ timeout: 10_000 });
-
-  const capacityTile = capacityLabel.locator("xpath=ancestor::div[1]/..");
+  const capacityTile = page.getByTestId("class-detail-capacity");
+  await expect(capacityTile).toBeVisible({ timeout: 10_000 });
   await expect(capacityTile).toContainText(EXPECTED_COUNT);
 });
 

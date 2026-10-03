@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { CoachPlayer, CoachLevel } from "@/types";
@@ -82,7 +81,7 @@ export function PlayerSelector({
         <TabsTrigger value="participants">
           {t("calendar.playerSelector.participants", { count: selectedPlayerIds.length })}
         </TabsTrigger>
-        <TabsTrigger value="all">{t("calendar.playerSelector.all")}</TabsTrigger>
+        <TabsTrigger value="all" data-testid="player-selector-tab-all">{t("calendar.playerSelector.all")}</TabsTrigger>
       </TabsList>
 
       {/* Selected participants tab */}
@@ -92,13 +91,15 @@ export function PlayerSelector({
             {t("calendar.playerSelector.noParticipantsSelected")}
           </p>
         ) : (
-          <ScrollArea className="max-h-52">
+          <div className="max-h-52 overflow-y-auto overscroll-contain" data-testid="player-selector-selected-list">
+            {/* PAD-502: a native scroller, as in the list of all students below. */}
             <div className="space-y-1">
               {selectedPlayers.map((player) => {
                 const playerId = String(player.playerId);
                 return (
                   <div
                     key={playerId}
+                    data-testid={`player-selector-selected-${playerId}`}
                     onClick={() => onToggle(playerId)}
                     className="flex items-center gap-3 p-2 rounded-lg cursor-pointer bg-primary/10 hover:bg-primary/15 transition-colors"
                   >
@@ -111,7 +112,7 @@ export function PlayerSelector({
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </TabsContent>
 
@@ -134,6 +135,7 @@ export function PlayerSelector({
             {levelTabs.map((tab) => (
               <button
                 key={tab.id ?? "all"}
+                data-testid={`player-selector-level-${tab.id ?? "all"}`}
                 onClick={() => setFilterLevelId(tab.id)}
                 className={cn(
                   "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
@@ -149,7 +151,11 @@ export function PlayerSelector({
         )}
 
         {/* Player list */}
-        <ScrollArea className="max-h-52">
+        {/* PAD-502 (B-271): a native scroller, not Radix ScrollArea. With only a max height on
+            its root, ScrollArea's viewport grew to the full list and the root clipped it at 208 px:
+            four rows, and nothing to scroll. Any list longer than four was cut, which a coach met
+            as "only four players for this level". Same family as B-202 (PAD-439). */}
+        <div className="max-h-52 overflow-y-auto overscroll-contain" data-testid="player-selector-list">
           <div className="space-y-1">
             {allPlayers.length === 0 && (
               <p className="text-sm text-muted-foreground py-3 text-center">
@@ -168,6 +174,7 @@ export function PlayerSelector({
               return (
                 <div
                   key={playerId}
+                  data-testid={`player-selector-row-${playerId}`}
                   onClick={() => onToggle(playerId)}
                   className={cn(
                     "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
@@ -196,7 +203,7 @@ export function PlayerSelector({
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
       </TabsContent>
     </Tabs>
   );

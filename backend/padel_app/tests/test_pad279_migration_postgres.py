@@ -62,25 +62,28 @@ def _rows(sql):
 def test_the_migration_backfills_old_rows_once_and_downgrade_rebuilds_the_blobs(app):
     from flask_migrate import downgrade, upgrade
 
-    from padel_app.models import Coach, User
-
     with app.app_context():
         try:
             _release()
             downgrade(directory=MIGRATIONS_DIR, revision=PARENT)
 
             for i, (rt, ist, rs) in enumerate(OLD_ROWS, start=1):
-                user = User(name=f"C{i}", username=f"p279m_{i}", email=f"p279m_{i}@t.test", password="x", status="active")
-                db.session.add(user)
-                db.session.flush()
-                coach = Coach(user_id=user.id)
-                db.session.add(coach)
-                db.session.flush()
+                # Raw SQL, not the ORM: the schema is now PARENT's, and the current models may carry columns
+                # a later migration adds (PAD-485's users.terms_* did) — an ORM insert would name them.
+                user_id = db.session.execute(
+                    text("INSERT INTO users (name, username, email, password, status, is_admin, is_superadmin, created_at, updated_at) "
+                         "VALUES (:n, :u, :e, 'x', 'active', false, false, now(), now()) RETURNING id"),
+                    {"n": f"C{i}", "u": f"p279m_{i}", "e": f"p279m_{i}@t.test"},
+                ).scalar_one()
+                coach_id = db.session.execute(
+                    text("INSERT INTO coaches (user_id, created_at, updated_at) VALUES (:u, now(), now()) RETURNING id"),
+                    {"u": user_id},
+                ).scalar_one()
                 db.session.execute(
                     text("INSERT INTO notification_configs (coach_id, auto_notify_enabled, invitation_mode, "
                          "reminder_timing, invitation_start_timing, restrictions, created_at, updated_at) "
                          "VALUES (:c, false, 'automatic', CAST(:rt AS json), CAST(:ist AS json), CAST(:rs AS json), now(), now())"),
-                    {"c": coach.id, "rt": rt, "ist": ist, "rs": rs},
+                    {"c": coach_id, "rt": rt, "ist": ist, "rs": rs},
                 )
             _release()
 
@@ -120,7 +123,10 @@ def test_the_migration_backfills_old_rows_once_and_downgrade_rebuilds_the_blobs(
             assert back[4]["reminder_timing"]["firstReminder"] == {"type": "none"} and back[4]["reminder_timing"]["reminderCount"] == 2
             _release()
         finally:
-            # leave the database at head for the tests that follow
-            _release()
+            # Leave the database at head for the tests that follow — even after a failure: a session in a
+            # failed transaction cannot commit, so it is rolled back first, or the upgrade never runs and
+            # every later test meets missing tables (the #517/#525 CI run: 1 failure, 1418 errors).
+            db.session.rollback()
+            db.session.remove()
             upgrade(directory=MIGRATIONS_DIR)
             _release()

@@ -66,9 +66,12 @@ def resend_available_in(user, now=None):
     return int(left) + 1 if left > 0 else 0
 
 
-def _hash(code):
+def _hash(code, address):
+    """PAD-498: the code is bound to the address it was mailed to (part of the HMAC input), so it
+    verifies only that address, whatever order an email change and the code's own commit land in."""
     key = (current_app.config.get("SECRET_KEY") or "dev-secret-key").encode()
-    return hmac.new(key, code.encode(), sha256).hexdigest()
+    bound = f"{(address or '').strip().lower()}\n{code}"
+    return hmac.new(key, bound.encode(), sha256).hexdigest()
 
 
 def _generate_code():
@@ -83,7 +86,7 @@ def _clear_code(user):
 
 def _issue(user, now):
     code = _generate_code()
-    user.email_verification_code_hash = _hash(code)
+    user.email_verification_code_hash = _hash(code, user.email)  # the address `_deliver` mails
     user.email_verification_expires_at = now + CODE_TTL
     user.email_verification_sent_at = now
     user.email_verification_attempts = 0
@@ -188,7 +191,7 @@ def confirm_code(user, code, now=None):
     if expired:
         raise EmailVerificationError("CODE_EXPIRED", 410)
 
-    if hmac.compare_digest(stored, _hash(raw)):
+    if hmac.compare_digest(stored, _hash(raw, user.email)):  # the account's address now
         user.email_verified_at = now
         user.email_verification_required = False
         _clear_code(user)

@@ -245,6 +245,27 @@ held on the coach's calendar while the request is open.
       has passed keeps its hold — there is no expiry; also with the owner.
     - **No client change (web and iOS).** Both already render `withdrawn` and `declined`; nothing
       new reaches a screen, so PAD-360 ships backend-only.
+19. **An open calendar follows the request (PAD-488, B-264).** Every transition that changes a
+    calendar — the request's creation, `accept`, `accept-proposal`, `decline`, `decline-proposal`,
+    `withdraw`, `propose`, `counter-proposal` — publishes `class_request_changed` to the coach, the
+    requester and the people named on the request (rule 12), the one who acted included (their
+    other devices). A decision on an academy join request publishes `join_request_decided` to the
+    coach and the student. A client that receives either event refreshes its calendar and its
+    home screen (dashboard) with the request lists, and the client that performed the action
+    refreshes them as well. So a calendar or home screen already open on web or iOS shows the
+    class, the moved hold or no hold without a reload or a fresh login. A web calendar read that
+    lands after a newer read, or after a local edit, is dropped, never shown.
+    **Known limits:** installed iOS builds up to 1.2.1 refresh only the request lists on these
+    events (harmless; they follow on the next resume). An event missed while the realtime
+    connection was down is not replayed when it reconnects; that view catches up on its next
+    read (resume, range change, navigation).
+20. **Proposing another time keeps the length (PAD-491).** In the coach's "propose another time"
+    form (web and iOS), changing the start moves the end so that the length on the form is kept:
+    the request's own length until the coach edits the end, the coach's length afterwards.
+    Changing the end never moves the start. A form whose length is not positive (an end before the
+    start) falls back to the request's own length, and the end is never later than 23:59. The
+    student's counter-proposal picker already keeps a fixed length (rule 10) and is unchanged.
+    (Rule 19 is PAD-488's; the two land separately.)
 
 ### Acceptance Criteria
 
@@ -270,6 +291,14 @@ held on the coach's calendar while the request is open.
 - **When** the student opens "Book a class" and picks that coach
 - **Then** the date is the first later day with a free block and the slot list is not empty
 - **And** typing another date keeps the typed date
+
+#### Moving the proposed start keeps the length (PAD-491)
+- **Given** a pending request for 10:00–11:00 and the coach's "propose another time" form open
+- **When** the coach changes the start to 14:30
+- **Then** the end shows 15:30
+- **When** the coach then sets the end to 16:00 and changes the start to 15:00
+- **Then** the end shows 16:30
+- **And** changing the end alone never changes the start
 
 #### Counter-proposal round-trips
 - **Given** a pending request for 11:00–12:00
@@ -310,6 +339,17 @@ held on the coach's calendar while the request is open.
 - **Then** Bruno's request message offers Accept, Decline and Propose another time
 - **When** Ana accepts from the bubble
 - **Then** the request is `accepted` at 18:00–19:00, the bubble shows the outcome, and Bruno's own copy of the message never offered actions
+
+#### An open calendar drops the hold when the request is accepted elsewhere (PAD-488)
+- **Given** a pending request and the coach's calendar open on its week, showing the hold
+- **When** the coach accepts it on another device
+- **Then** the open calendar shows no hold for it without a reload
+- **And** the coach's calendar feed has the class at that slot
+
+#### An open calendar drops the hold when the student withdraws (PAD-488)
+- **Given** a pending request and the coach's calendar open on its week, showing the hold
+- **When** the student withdraws it
+- **Then** the coach's open calendar shows no hold for it without a reload
 
 #### Decline and withdraw release the hold
 - **Given** a pending request
