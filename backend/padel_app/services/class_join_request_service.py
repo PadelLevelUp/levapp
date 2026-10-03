@@ -258,6 +258,7 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
         _add_player_to_instance,
         _broadcast_spot_filled,
         _close_vacancy,
+        _lock_vacancy_and_instance,
         _publish_retired,
         _deactivate_standing_entry,
         _send_system_message,
@@ -295,6 +296,21 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
             )
         return row
 
+    # PAD-499 (#527 review item 2): rule 10's lock, vacancy then class, as every accept path. The
+    # spot to attribute is picked first and locked, then the class; closed and full are decided on
+    # the re-read class, so a yes on another spot cannot slip in before this enrolment commits. If
+    # the picked spot was closed meanwhile, the student is enrolled without one (locking another
+    # vacancy after the class would break the order) and capacity still decides.
+    vacancy = (
+        Vacancy.query
+        .filter_by(lesson_instance_id=instance.id, status="open")
+        .order_by(Vacancy.id.asc())
+        .first()
+    )
+    vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+    if vacancy is not None and vacancy.status != "open":
+        vacancy = None
+
     # Rule 14 / rule 10: a class that closed or filled meanwhile cannot be joined.
     if _is_closed(instance, now):
         row.status = "superseded"
@@ -322,12 +338,6 @@ def decide_join_request_service(request_id, coach, *, accept: bool, confirm: boo
     # Rule 6: enrol exactly as the engine does; attribute the vacancy. The
     # vacancy is marked BEFORE the enrolment (PAD-271, invitations rule 13) so
     # enrol()'s own reconciliation finds it closed and closes nothing else.
-    vacancy = (
-        Vacancy.query
-        .filter_by(lesson_instance_id=instance.id, status="open")
-        .order_by(Vacancy.id.asc())
-        .first()
-    )
     retired = []
     if vacancy is not None:
         # PAD-317: closed through the one routine, which also retires the
