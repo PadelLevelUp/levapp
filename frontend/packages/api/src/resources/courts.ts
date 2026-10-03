@@ -12,6 +12,15 @@ export async function listCourts(clubId: number): Promise<Court[]> {
   return res.data;
 }
 
+/**
+ * B-266 (clubs.courts rule 7): the courts a class's edit form offers — its OWN club's, which is
+ * what `edit_class` validates against. Not the coach's current club: a coach at two clubs editing a
+ * class at the older one would otherwise be offered courts the server refuses. No club, no courts.
+ */
+export async function listCourtsForClass(cls: { clubId?: number | null }): Promise<Court[]> {
+  return cls.clubId ? listCourts(cls.clubId) : [];
+}
+
 export async function createCourt(clubId: number, name: string): Promise<Court> {
   const res = await getApi().post<Court>(`/app/club/${clubId}/courts`, { name });
   return res.data;

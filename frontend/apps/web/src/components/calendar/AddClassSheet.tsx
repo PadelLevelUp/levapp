@@ -36,6 +36,7 @@ import {
   MAX_REQUEST_CLASSES,
   countPassesSeasonEnd,
   findOverlappingEvent,
+  isHhMm,
   recurrenceEndPayload,
   type RecurrenceEndMode,
 } from "@levelup/config";
@@ -234,6 +235,8 @@ export function AddClassSheet({
     // the sheet says so before the request instead of a generic "creation failed".
     if (!name.trim()) newErrors.name = true;
     if (!date) newErrors.date = true;
+    // B-275 (PAD-508): a cleared native time input reads ""; never send it (the server would refuse it).
+    if (!isHhMm(startTime) || !isHhMm(endTime)) newErrors.time = true;
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
     if (isRecurring && 'field' in endChoice) newErrors[endChoice.field] = true;
 
@@ -242,6 +245,7 @@ export function AddClassSheet({
       const missing = [
         newErrors.name && t('calendar.addClass.fieldName'),
         newErrors.date && t('calendar.addClass.fieldDate'),
+        newErrors.time && t('calendar.addClass.fieldTime'),
         newErrors.days && t('calendar.addClass.fieldDays'),
         newErrors.endDate && t('calendar.addClass.fieldEndDate'),
         newErrors.count && t('calendar.addClass.fieldEndCount'),
@@ -425,7 +429,7 @@ export function AddClassSheet({
             </div>
 
             {/* Time */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0">
+            <div className={cn("rounded-lg border bg-muted/30 p-3 space-y-1 min-w-0", errors.time && "ring-2 ring-destructive")}>
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.addClass.time")}</span>
@@ -433,12 +437,16 @@ export function AddClassSheet({
               <div className="space-y-1">
                 <Input
                   type="time"
+                  data-testid="add-class-start-time"
+                  aria-invalid={errors.time ? true : undefined}
                   value={startTime}
                   className="h-8 text-sm min-w-0"
                   onChange={(e) => setStartTime(e.target.value)}
                 />
                 <Input
                   type="time"
+                  data-testid="add-class-end-time"
+                  aria-invalid={errors.time ? true : undefined}
                   value={endTime}
                   className="h-8 text-sm min-w-0"
                   onChange={(e) => setEndTime(e.target.value)}
@@ -673,7 +681,7 @@ export function AddClassSheet({
 
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={handleClose} disabled={loading}>{t("common.cancel")}</Button>
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading} data-testid="add-class-create">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {loading ? t("calendar.addClass.creating") : t("calendar.addClass.createClass")}
           </Button>

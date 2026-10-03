@@ -64,7 +64,7 @@ test("PAD-53: exercise type/difficulty filters and form show localized labels, n
   await page.getByRole("button", { name: /create exercise/i }).click();
   await expect(page.getByText(/exercise created/i)).toBeVisible({ timeout: 5000 });
 
-  const card = page.locator("h3", { hasText: uniqueName }).locator("..").locator("..");
+  const card = page.getByTestId(/^exercise-card-/).filter({ hasText: uniqueName });
   await expect(card.getByText("Attack", { exact: true })).toBeVisible({ timeout: 5000 });
   await expect(card.getByText("Beginner", { exact: true })).toBeVisible();
 

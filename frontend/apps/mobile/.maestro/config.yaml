@@ -247,6 +247,9 @@ executionOrder:
     - 117-month-grid-seven-columns
     # 118 (PAD-439): the add-to-classes picker cannot step back from the current week; next week offers classes.
     - 118-add-to-classes-no-past
+    # 145 (PAD-496): a long week in the same picker: the list scrolls under a finger between a fixed
+    # header and footer, and the week's last class can be chosen. Makes and removes its own classes.
+    - 145-add-to-classes-long-week
     # 119/120 (PAD-423): the coach's evaluation scale — 1-10 gives a slider (one tap, one rating);
     # a scale change rewrites no score (4/5 stars beside 7/10 on one history card).
     - 119-evaluation-scale-slider
@@ -281,6 +284,14 @@ executionOrder:
     # added and removed through the API).
     - 133-settings-eligibility-direction
     - 134-class-override-eligibility-direction
+    # 139/140 (PAD-488, classes.class-requests rule 19): with the calendar tab open, a request is
+    # accepted on another device (139, the realtime path) or in the chat (140, back in-app), and the
+    # still-mounted tab drops the hold. onFlowComplete removes the class and the request.
+    - 139-calendar-follows-accept-on-another-device
+    - 140-calendar-follows-accept-in-chat
+    # 141 (PAD-487, mobile.android-runtime rule 2): the bottom field of the two native-header screens
+    # stays above the keyboard; evidence is the screenshots (Maestro cannot see the keyboard).
+    - 141-keyboard-clears-fields-under-native-header
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
