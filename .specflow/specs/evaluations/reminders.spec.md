@@ -40,12 +40,11 @@ due. It is a marker inside the app, never a message to anyone.
    typed number. Coach-only (`settings.role-scope` rule 3); web and iOS in the same ticket.
    The control reads back what is stored, not what was tapped: "Personalizado" with 2 or 4
    is the same setting as "A cada 2/4 aulas" and reopens as that option — intended, not a bug.
-   **(B-242, PAD-473) A typed number is never dropped.** A valid one (rule 2's 1–99) is saved
-   shortly after typing stops (600 ms today), and at once when the field loses focus or is
-   submitted, when the coach leaves the screen, or (iOS) when the app leaves the foreground —
-   the iOS number pad has no Return key, so focus alone cannot be what saves it. An invalid
-   number is never sent; it is refused in place when the field loses focus. What the control shows
-   when it saves or fails is `settings.save-on-change` (rules 2-3).
+   **(PAD-506) The choice and a typed number are held until the tab's Save**
+   (`settings.explicit-save` rules 2-3); leaving with one unsaved asks first. An invalid number is
+   never sent: it is refused in place when the field loses focus, and Save does not send it.
+   (B-242's save-after-typing, on blur and on leaving, belonged to the save-on-change model PAD-506
+   replaced.)
 2. **The endpoint.** `GET /api/app/evaluation_settings` and `PUT /api/app/evaluation_settings`
    (JWT, coach) with `{reminder: 'never' | 'monthly' | 'every_n_classes', everyN?}` → the same
    shape. `everyN` is an integer 1–99, required with `every_n_classes` (else 400) and ignored

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useTabSave } from "@/context/SettingsUnsavedContext";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,8 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
   const [reason, setReason] = useState("");
   // auth.coach-approval rule 9 (PAD-279): the approval gate is an app setting.
   const [settings, setSettings] = useState<AdminSettings | null>(null);
-  const [savingSetting, setSavingSetting] = useState(false);
+  // settings.explicit-save (PAD-506): the switch is held until the tab's "Guardar alterações".
+  const [approvalDraft, setApprovalDraft] = useState<boolean | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -56,17 +58,17 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
     }
   }, [onCountChange, t, toast]);
 
-  const handleToggleApproval = async (value: boolean) => {
-    setSavingSetting(true);
-    try {
-      setSettings(await updateAdminSettings({ coachApprovalRequired: value }));
-      toast({ title: t("settings.admin.coachApprovalSaved") });
-    } catch {
-      toast({ variant: "destructive", title: t("settings.admin.actionFailed") });
-    } finally {
-      setSavingSetting(false);
-    }
-  };
+  const shownApproval = approvalDraft ?? settings?.coachApprovalRequired ?? false;
+  const approvalUnsaved = settings !== null && approvalDraft !== null && approvalDraft !== settings.coachApprovalRequired;
+  // settings.explicit-save rule 3: this switch's part of the tab's one Save.
+  useTabSave("adminSettings", approvalUnsaved, {
+    label: t("settings.admin.coachApprovalRequired"),
+    save: async () => {
+      if (approvalDraft === null) return;
+      setSettings(await updateAdminSettings({ coachApprovalRequired: approvalDraft }));
+      setApprovalDraft(null);
+    },
+  });
 
   useEffect(() => {
     void refresh();
@@ -133,9 +135,8 @@ export function AdminSection({ onCountChange }: { onCountChange?: (n: number) =>
           <Switch
             id="admin-coach-approval-required-switch"
             data-testid="admin-coach-approval-required-switch"
-            checked={settings.coachApprovalRequired}
-            disabled={savingSetting}
-            onCheckedChange={(val) => void handleToggleApproval(val)}
+            checked={shownApproval}
+            onCheckedChange={(val) => setApprovalDraft(val)}
           />
         </div>
       )}

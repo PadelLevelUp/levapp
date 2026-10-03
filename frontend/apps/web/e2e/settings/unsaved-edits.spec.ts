@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): added a held-Preferências-edit case (tab switch and sidebar link ask; Keep/Discard); Calendar cases unchanged.
 /**
  * settings.unsaved-edits (PAD-394, ledger B-157) — web acceptance criterion
  * "Switching tab with an unsaved edit asks first": a coach on Settings › Calendar
@@ -14,6 +15,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
+import { ui } from "../helpers/i18n";
 
 /** Same reset as settings-load-does-not-undo-edits.spec.ts: a known seeded
  * state (no override) reads as every day "working", so "Sunday as seeded"
@@ -98,5 +100,37 @@ test.describe("PAD-394: Settings — switching tab with an unsaved edit asks fir
     // PAD-459: the URL follows the section still shown, not the one the menu asked for.
     await expect(page).toHaveURL(/\/settings\?tab=calendar$/);
   });
-});
 
+  test("PAD-506: a held Preferências edit asks on a tab switch and on a sidebar link; Keep keeps it, Discard drops it", async ({
+    page,
+  }) => {
+    await loginAsCoach(page);
+    await page.goto("/settings?tab=preferences");
+    const toggle = page.getByTestId("settings-request-alerts");
+    await expect(toggle).toBeEnabled({ timeout: 15_000 });
+    const before = await toggle.getAttribute("aria-checked");
+    await toggle.click();
+    await expect(toggle).not.toHaveAttribute("aria-checked", before!);
+    await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+
+    const dialogEl = page.getByTestId("settings-unsaved-dialog");
+    await page.getByTestId("settings-nav-profile").click();
+    await expect(dialogEl).toBeVisible();
+    await page.getByTestId("settings-unsaved-keep").click();
+    await expect(dialogEl).not.toBeVisible();
+    await expect(toggle).not.toHaveAttribute("aria-checked", before!);
+
+    // A link out of Settings asks the same question.
+    await page.getByRole("link", { name: ui("nav.calendar") }).first().click();
+    await expect(dialogEl).toBeVisible();
+    await page.getByTestId("settings-unsaved-keep").click();
+    await expect(dialogEl).not.toBeVisible();
+
+    // Discard on a tab switch drops the edit; coming back shows the stored value.
+    await page.getByTestId("settings-nav-profile").click();
+    await page.getByTestId("settings-unsaved-discard").click();
+    await page.getByTestId("settings-nav-preferences").click();
+    await expect(page.getByTestId("settings-request-alerts")).toHaveAttribute("aria-checked", before!);
+    await expect(dialogEl).not.toBeVisible();
+  });
+});

@@ -18,6 +18,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { renderNative } from "@/test/render-native";
+import { SectionSaveProbe } from "@/test/section-save-probe";
 import {
   UnsavedRegistryProvider,
   useUnsavedRegistry,
@@ -101,7 +102,9 @@ async function mountProfile(props: { focusEmail?: boolean } = {}) {
       UnsavedRegistryProvider,
       null,
       createElement(Capture, { onReady: (r) => (registry = r) }),
-      createElement(ProfileSection, props)
+      createElement(ProfileSection, props),
+      // settings.explicit-save (PAD-506): the screen's one Save, which keeps this test id for Perfil.
+      createElement(SectionSaveProbe, { testID: "settings-profile-save" })
     )
   );
   await n.flush();

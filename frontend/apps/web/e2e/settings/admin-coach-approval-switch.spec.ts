@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): the approval switch is held; saveAdmin presses the header Save.
 import { test, expect, type Page } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
@@ -21,6 +22,16 @@ async function adminHeaders(page: Page) {
   return { Authorization: `Bearer ${accessToken}` };
 }
 
+// PAD-506: the switch is held; the header Save sends it (admin settings PATCH/PUT).
+async function saveAdmin(page: Page) {
+  const saved = page.waitForResponse(
+    (r) => /\/api\/app\/admin\/settings$/.test(r.url()) && ["PATCH", "PUT"].includes(r.request().method()) && r.ok(),
+  );
+  await page.getByTestId("settings-header-save").click();
+  await saved;
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
+}
+
 test("US-279: admin switches the coach approval gate off, a new coach is approved at once, then back on", async ({ page }) => {
   const headers = await adminHeaders(page);
   try {
@@ -34,6 +45,7 @@ test("US-279: admin switches the coach approval gate off, a new coach is approve
 
     await sw.click();
     await expect(sw).toHaveAttribute("aria-checked", "false");
+    await saveAdmin(page);
     const off = await (await page.request.get(`${API_APP}/admin/settings`, { headers })).json();
     expect(off).toEqual({ coachApprovalRequired: false, source: "database" });
 
@@ -59,6 +71,7 @@ test("US-279: admin switches the coach approval gate off, a new coach is approve
 
     await sw.click();
     await expect(sw).toHaveAttribute("aria-checked", "true");
+    await saveAdmin(page);
     const on = await (await page.request.get(`${API_APP}/admin/settings`, { headers })).json();
     expect(on.coachApprovalRequired).toBe(true);
   } finally {

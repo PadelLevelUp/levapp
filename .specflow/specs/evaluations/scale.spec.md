@@ -64,9 +64,9 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
    once on release, like the stars' tap (`evaluations.records`'s one-request-per-input rule).
    Legacy categories keep 1–5 and their stars (every legacy category is 1–5 since PAD-403).
 8. **The setting.** In Settings → Evaluations, beside "Frequência de avaliações", on web and
-   iOS: "Escala de avaliações" with 1–5, 1–10, 1–20, 1–100. Changing it saves at once (like the
-   frequency) and says that existing evaluations keep their own scale; what it shows when it
-   saves or fails is `settings.save-on-change` (rules 2-3).
+   iOS: "Escala de avaliações" with 1–5, 1–10, 1–20, 1–100, and it says that existing evaluations
+   keep their own scale. Since PAD-506 a change is held until the tab's Save
+   (`settings.explicit-save` rules 2-3).
 9. **Old clients (compat).** App Store 1.0 and 1.1.0 call only the five frozen endpoints
    (R-047), which serve legacy categories only, so a coach's scale never reaches them. Builds
    23–25 (1.2.0) use the current endpoints and draw a competency that is not 1–5 with the

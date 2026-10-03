@@ -1,3 +1,9 @@
+# PAD-506 (settings.explicit-save): choosing a language is now HELD (no PATCH, no app-language switch)
+# until `settings-preferences-save`, and that Save also sends the held level row. The flow keeps its
+# intent on what is still drivable without saving the level: with the unsaved row in the pane, holding
+# Portuguese and holding English again must leave the row's typed text in place; nothing is sent
+# (Save is never tapped; the removed `settings-language-status` waits are gone). Not covered any more:
+# the language actually applying while a row is unsaved — that Save would also write the level.
 # PAD-392 (B-155), settings.unsaved-edits / coach-working-hours rule 7: a change of language never
 # undoes an unsaved edit.
 #
@@ -11,7 +17,7 @@
 # coach-levels editor (an explicit-save section in the same Preferences pane): add a level, type its
 # label, do not save.
 #
-# What is written: only the coach's LANGUAGE, twice (pt, then back to en); no level is saved. The end
+# What is written: nothing (the language is held pt, then en again; no level is saved). The end
 # state is asserted: the row still holds its typed label, the language is "en" again, and the server
 # holds no new level. Backend: -e API_BASE=http://localhost:<port>, else :5001.
 appId: com.padellevelup.app
@@ -56,7 +62,7 @@ onFlowComplete:
 - assertVisible:
     text: "Maestro 95"
 
-# ── Switch the language: the editor must keep the unsaved row ──
+# ── Hold another language: the editor must keep the unsaved row ──
 # Scrolled UP the select stops just under the screen's header (y≈50–92), where a tap
 # lands on the header; centring it puts it in the clear.
 - scrollUntilVisible:
@@ -76,10 +82,7 @@ onFlowComplete:
       - tapOn:
           id: "settings-language-pt"
           retryTapIfNoChange: false
-      - extendedWaitUntil:
-          visible:
-            id: "settings-language-status"
-          timeout: 15000
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       id: "${output.newLabel}"
@@ -88,7 +91,7 @@ onFlowComplete:
 - assertVisible:
     text: "Maestro 95"
 
-# ── Back to English the same way; the row survives that too ──
+# ── Hold English again (the saved value) the same way; the row survives that too ──
 # Scrolled UP the select stops just under the screen's header (y≈50–92), where a tap
 # lands on the header; centring it puts it in the clear.
 - scrollUntilVisible:
@@ -108,10 +111,7 @@ onFlowComplete:
       - tapOn:
           id: "settings-language-en"
           retryTapIfNoChange: false
-      - extendedWaitUntil:
-          visible:
-            id: "settings-language-status"
-          timeout: 15000
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       id: "${output.newLabel}"

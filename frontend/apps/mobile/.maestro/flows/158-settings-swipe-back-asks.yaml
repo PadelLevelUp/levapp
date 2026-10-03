@@ -1,0 +1,76 @@
+# PAD-506 (settings.explicit-save rule 5): on iOS, leaving Settings with a held edit asks first —
+# through the stack's back button and swipe-back too, not only the section's back row — and the
+# held edit is never sent.
+#
+# Journey: coach login → header avatar → Settings → Preferências → switch request alerts (held; the
+# footer Save `settings-preferences-save` is enabled) → swipe back from the left edge → the unsaved
+# dialog appears and Settings stays → Keep editing → swipe back again → Discard → Settings is gone
+# (the calendar tab is shown) → the server still holds the old value.
+#
+# Teardown restores nothing: discard means nothing was sent (asserted through the API). Backend:
+# -e API_BASE=http://localhost:<port>, else :5001. Flow number 158 is from Session C's range (157–160),
+# granted by the coordinator 2026-10-03.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.alertsBefore = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).requestAlerts !== false}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- extendedWaitUntil:
+    visible:
+      id: "settings-request-alerts"
+    timeout: 15000
+
+# ── A held change: nothing is sent ──
+- tapOn:
+    id: "settings-request-alerts"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# ── Swipe back: asks, and Settings stays ──
+- swipe:
+    start: 1%, 40%
+    end: 85%, 40%
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      id: "settings-unsaved-dialog"
+    timeout: 10000
+- assertVisible:
+    id: "screen-settings"
+- tapOn:
+    id: "settings-unsaved-keep"
+- extendedWaitUntil:
+    notVisible:
+      id: "settings-unsaved-dialog"
+    timeout: 10000
+- assertVisible:
+    id: "settings-request-alerts"
+
+# ── Swipe back again: Discard leaves Settings ──
+- swipe:
+    start: 1%, 40%
+    end: 85%, 40%
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      id: "settings-unsaved-dialog"
+    timeout: 10000
+- tapOn:
+    id: "settings-unsaved-discard"
+- extendedWaitUntil:
+    notVisible:
+      id: "screen-settings"
+    timeout: 15000
+
+# ── Nothing was sent ──
+- assertTrue: "${(json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).requestAlerts !== false) === output.alertsBefore}"

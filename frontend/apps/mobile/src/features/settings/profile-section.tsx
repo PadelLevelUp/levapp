@@ -5,7 +5,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
-import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
+import { useSectionSave } from "@/features/settings/unsaved-registry";
 import { writeAuthMe } from "@/features/settings/write-auth-me";
 
 type ProfileForm = {
@@ -58,8 +57,8 @@ export function isProfileUnsaved(form: ProfileForm, saved: ProfileForm): boolean
  * `MeResponse` / `UpdateMePayload` declare. So this is the real form.
  *
  * Like web, only CHANGED fields are PATCHed, so opening the pane and saving
- * never re-submits (and re-validates) untouched values. Unlike web there is no
- * page-level Save button to share, so the button lives in the pane.
+ * never re-submits (and re-validates) untouched values. settings.explicit-save (PAD-506): the
+ * screen's one "Guardar alterações" (`settings-profile-save`) saves it.
  *
  * Every control is full-width and one per line — nothing to overflow at 390pt.
  */
@@ -75,8 +74,6 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
 
   const [form, setForm] = React.useState<ProfileForm>(EMPTY_PROFILE);
   const [saved, setSaved] = React.useState<ProfileForm>(EMPTY_PROFILE);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [status, setStatus] = React.useState<string | null>(null);
   // The fields the coach has edited, so a late /auth/me refreshes the "what the server has" baseline
   // and fills every OTHER field without wiping what they typed. B-263: one flag for the whole form
   // left an untouched name empty, and the save then sent `name: ""` and was refused.
@@ -99,15 +96,13 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
     });
   }, [me]);
 
-  useUnsavedReporter("profile", isProfileUnsaved(form, saved));
-
   const setField = (field: keyof ProfileForm, value: string) => {
     touchedRef.current.add(field);
-    setStatus(null);
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
+  // settings.explicit-save rule 3: this section's part of the screen's one Save; throws on failure.
+  const save = async () => {
     const payload: authApi.UpdateMePayload = {};
     if (form.name !== saved.name) payload.name = form.name;
     if (form.abbreviation !== saved.abbreviation)
@@ -115,36 +110,29 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
     if (form.email !== saved.email) payload.email = form.email;
     if (form.phone !== saved.phone) payload.phone = form.phone;
 
-    setIsSaving(true);
-    setStatus(null);
-    try {
-      const updated = await authApi.updateMe(payload);
-      await writeAuthMe(queryClient, updated);
-      // Re-hydrate from the response so the form shows exactly what was
-      // stored (trimmed name, uppercased abbreviation, …).
-      const confirmed: ProfileForm = {
-        name: updated.name ?? "",
-        abbreviation: updated.abbreviation ?? "",
-        email: updated.email ?? "",
-        phone: updated.phone ?? "",
-      };
-      setForm(confirmed);
-      setSaved(confirmed);
-      touchedRef.current.clear();
-      setStatus(t("settings.mobile.profileSaved"));
-      // settings.profile rule 9: a new address is verified right away.
-      if (payload.email !== undefined && updated.emailVerification === "pending") {
-        // B-050: the verify screen reads the signed-in user; refresh it first, or a
-        // coach who was already verified is sent straight back here.
-        await refreshUser();
-        router.push("/verify-email?next=/settings" as never);
-      }
-    } catch {
-      setStatus(t("settings.mobile.profileSaveFailed"));
-    } finally {
-      setIsSaving(false);
+    if (Object.keys(payload).length === 0) return;
+    const updated = await authApi.updateMe(payload);
+    await writeAuthMe(queryClient, updated);
+    // Re-hydrate from the response so the form shows exactly what was
+    // stored (trimmed name, uppercased abbreviation, …).
+    const confirmed: ProfileForm = {
+      name: updated.name ?? "",
+      abbreviation: updated.abbreviation ?? "",
+      email: updated.email ?? "",
+      phone: updated.phone ?? "",
+    };
+    setForm(confirmed);
+    setSaved(confirmed);
+    touchedRef.current.clear();
+    // settings.profile rule 9: a new address is verified right away.
+    if (payload.email !== undefined && updated.emailVerification === "pending") {
+      // B-050: the verify screen reads the signed-in user; refresh it first, or a
+      // coach who was already verified is sent straight back here.
+      await refreshUser();
+      router.push("/verify-email?next=/settings" as never);
     }
   };
+  useSectionSave("profile", isProfileUnsaved(form, saved), { label: t("settings.profile.title"), save });
 
   const profile = me ?? user;
   const isCoach = profile?.roles?.includes("coach") ?? false;
@@ -259,22 +247,6 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
           />
         </View>
 
-        {status ? (
-          <Text testID="settings-profile-status" className="text-sm text-muted-foreground">
-            {status}
-          </Text>
-        ) : null}
-
-        <Button
-          testID="settings-profile-save"
-          accessibilityLabel={t("common.saveChanges")}
-          disabled={isSaving}
-          onPress={() => void handleSave()}
-        >
-          <Text>
-            {isSaving ? t("settings.mobile.saving") : t("common.saveChanges")}
-          </Text>
-        </Button>
       </CardContent>
     </Card>
   );

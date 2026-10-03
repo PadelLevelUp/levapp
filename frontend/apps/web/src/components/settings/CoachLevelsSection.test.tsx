@@ -2,7 +2,8 @@
  * settings.unsaved-edits rule 2 (PAD-394, ledger B-157): "unsaved" is whether the
  * ladder differs BY VALUE from the last loaded/saved rows — not "was a row ever
  * touched". A code edited then retyped back is clean again; a successful save is
- * the new clean baseline; a failed save stays unsaved.
+ * the new clean baseline; a failed save stays unsaved. settings.explicit-save (PAD-506): the levels
+ * are saved by the tab's one Save (the harness's `harness-save`), removed rows included.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -63,7 +64,7 @@ describe("CoachLevelsSection — reports unsaved by rule 2 (PAD-394)", () => {
     fireEvent.change(codeInput(), { target: { value: "I2" } });
     expect(unsavedIds()).toBe("coachLevels");
 
-    fireEvent.click(screen.getByText("settings.coachLevels.saveLevels"));
+    fireEvent.click(screen.getByTestId("harness-save")); // the tab's one Save (settings.explicit-save)
     await waitFor(() => expect(addCoachLevel).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
@@ -79,8 +80,39 @@ describe("CoachLevelsSection — reports unsaved by rule 2 (PAD-394)", () => {
     fireEvent.change(codeInput(), { target: { value: "I2" } });
     expect(unsavedIds()).toBe("coachLevels");
 
-    fireEvent.click(screen.getByText("settings.coachLevels.saveLevels"));
+    fireEvent.click(screen.getByTestId("harness-save")); // the tab's one Save (settings.explicit-save)
     await waitFor(() => expect(addCoachLevel).toHaveBeenCalledTimes(1));
     expect(unsavedIds()).toBe("coachLevels");
+  });
+
+  it("removing a stored row is held: nothing is deleted until the Save, which deletes it", async () => {
+    addCoachLevel.mockResolvedValue(undefined);
+    deleteCoachLevel.mockResolvedValue(undefined);
+    getCoachLevels.mockResolvedValueOnce([LEVEL]).mockResolvedValueOnce([]);
+    render(
+      <SettingsUnsavedTestHarness>
+        <CoachLevelsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("coach-level-row");
+
+    fireEvent.click(screen.getByLabelText("settings.coachLevels.remove"));
+    expect(screen.queryByTestId("coach-level-row")).toBeNull();
+    expect(deleteCoachLevel).not.toHaveBeenCalled();
+    expect(unsavedIds()).toBe("coachLevels");
+
+    fireEvent.click(screen.getByTestId("harness-save"));
+    await waitFor(() => expect(deleteCoachLevel).toHaveBeenCalledWith("1"));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("there is no section Save button any more", async () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <CoachLevelsSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("coach-level-row");
+    expect(screen.queryByText("settings.coachLevels.saveLevels")).toBeNull();
   });
 });

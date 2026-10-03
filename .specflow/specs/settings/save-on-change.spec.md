@@ -27,10 +27,11 @@ toast; every save-on-change control, on both clients, converges on it.
 
 ### Rules
 1. **Which controls.** Every Settings control that persists to the server without a Save button, on web
-   and iOS. Today: language (web too, since PAD-473; B-244), class-request alerts, the notification
-   engine's controls (on/off, invitation mode, eligibility and open spots, invitation groups,
-   tiebreakers, restrictions, notify groups; web has all, iOS the subset it ports), evaluation frequency
-   and evaluation scale. The engine's reminders subsection (`reminderTiming`,
+   and iOS. Today: the notification engine's controls (on/off, invitation mode, eligibility and open
+   spots, invitation groups, tiebreakers, restrictions, notify groups; web has all, iOS the subset it
+   ports). Since PAD-506 PR 1, language, class-request alerts, evaluation frequency and evaluation scale
+   wait for the tab's Save (`settings.explicit-save`); PR 2 moves the engine there too and retires this
+   leaf. The engine's reminders subsection (`reminderTiming`,
    `invitationStartTiming`) is one of them since PAD-478: its edits are held until the coach pauses
    (`notifications.config` rule 10d) and are then saved through the card's one save, with the sign,
    like every other engine control. A save the server stored but whose scheduled jobs it could not
@@ -73,20 +74,19 @@ toast; every save-on-change control, on both clients, converges on it.
    every value still waiting in any queue, so a setting is never sent with the next account's session.
    Outside those named limits, the sign appears only for a value the server confirmed, and a failed
    save is always shown.
-4. **Where a Save button appears.** Web's page-header "Guardar alterações" appears only on a tab that
-   holds explicit-save fields (today: Perfil), because a Save button must save what is on the screen in
-   front of it. A tab where everything saves on change shows none; a new explicit-save field on such a
-   tab brings the button back with it. iOS has no page-level button.
-5. **Language.** The page re-renders in the chosen language as it saves, so its sign appears in the new
-   language — intended. `settings.language` rule 7's late-read guard (B-184) stays as it is.
+4. **Where a Save button appears.** Superseded by `settings.explicit-save` rule 3 (PAD-506): every tab
+   with a setting has one Save. Until PR 2, the Notificações tab's engine controls still save on change.
+5. **Language.** Superseded by `settings.explicit-save` rule 2 (PAD-506): the language is held until the
+   tab's Save and the app re-renders in it once the Save is confirmed. `settings.language` rule 7's
+   late-read guard (B-184) stays as it is.
 
 ### Acceptance Criteria
 
 #### A save-on-change control signs its save once (rules 1, 2)
-- **Given** coach `e2e-coach` on Settings → Preferences
-- **When** they choose "1-10" in "Escala de avaliações"
-- **Then** "Guardado" appears beside the scale once the save is confirmed, is announced politely, and is
-  gone about 2 seconds later
+- **Given** coach `e2e-coach` on Settings → Notificações
+- **When** they switch "open spots visible" on
+- **Then** "Guardado" appears beside it once the save is confirmed, is announced politely, and is gone
+  about 2 seconds later
 
 #### Quick changes give one sign (rule 2)
 - **Given** a save-on-change control
@@ -104,15 +104,9 @@ toast; every save-on-change control, on both clients, converges on it.
 - **Then** the toggle shows on — the value B confirmed — and its sign says saved: an older save's
   answer never speaks over a newer one's
 
-#### Web language saves on change (rules 1, 4, 5; B-244)
-- **Given** a coach on `en` on Settings → Preferences on web
-- **When** they choose Português and do not press anything else
-- **Then** `PATCH /api/auth/me` stores `pt`, the sign appears in Portuguese, and a reload shows `pt`
-
-#### The header Save shows only where something waits for it (rule 4)
-- **Given** a coach on web Settings
-- **When** they open Perfil, then Preferências, then Notificações
-- **Then** "Guardar alterações" is visible on Perfil only
+(The criteria "Web language saves on change" and "The header Save shows only where something waits
+for it" were retired by PAD-506; their successors are `settings.explicit-save`'s "A language change is
+held until Save" and rule 3.)
 
 #### The reminders subsection saves like the other engine controls (rule 1, PAD-478)
 - **Given** the engine's reminders subsection

@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { useSectionSave } from "@/features/settings/unsaved-registry";
 
 /**
  * auth.coach-approval rule 7 — the LevApp admin's list of coaches waiting for
@@ -38,7 +39,8 @@ export function AdminSection() {
   const [reason, setReason] = React.useState("");
   // auth.coach-approval rule 9 (PAD-279): the approval gate is an app setting.
   const [settings, setSettings] = React.useState<adminApi.AdminSettings | null>(null);
-  const [savingSetting, setSavingSetting] = React.useState(false);
+  // settings.explicit-save (PAD-506): the switch is held until the screen's one "Guardar alterações".
+  const [approvalDraft, setApprovalDraft] = React.useState<boolean | null>(null);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -55,18 +57,20 @@ export function AdminSection() {
     }
   }, [t]);
 
-  const toggleApproval = async (value: boolean) => {
-    if (savingSetting) return;
-    setSavingSetting(true);
-    try {
-      setSettings(await adminApi.updateAdminSettings({ coachApprovalRequired: value }));
-      toast.success(t("settings.admin.coachApprovalSaved"));
-    } catch {
-      toast.error(t("settings.admin.actionFailed"));
-    } finally {
-      setSavingSetting(false);
-    }
-  };
+  const shownApproval = approvalDraft ?? settings?.coachApprovalRequired ?? false;
+  // settings.explicit-save rule 3: this switch's part of the one Save.
+  useSectionSave(
+    "adminSettings",
+    settings !== null && approvalDraft !== null && approvalDraft !== settings.coachApprovalRequired,
+    {
+      label: t("settings.admin.coachApprovalRequired"),
+      save: async () => {
+        if (approvalDraft === null) return;
+        setSettings(await adminApi.updateAdminSettings({ coachApprovalRequired: approvalDraft }));
+        setApprovalDraft(null);
+      },
+    },
+  );
 
   React.useEffect(() => {
     void refresh();
@@ -126,7 +130,7 @@ export function AdminSection() {
               {/* Maestro reads the state off these ids; the switch itself has no text. */}
               <View
                 testID={
-                  settings.coachApprovalRequired
+                  shownApproval
                     ? "admin-coach-approval-required-on"
                     : "admin-coach-approval-required-off"
                 }
@@ -135,8 +139,8 @@ export function AdminSection() {
             <Switch
               testID="admin-coach-approval-required-switch"
               accessibilityLabel={t("settings.admin.coachApprovalRequired")}
-              checked={settings.coachApprovalRequired}
-              onCheckedChange={(val: boolean) => void toggleApproval(val)}
+              checked={shownApproval}
+              onCheckedChange={(val: boolean) => setApprovalDraft(val)}
             />
           </View>
         ) : null}

@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { authApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import { useQuery } from "@tanstack/react-query";
-import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { usePreventRemove } from "@react-navigation/native";
+import { Stack, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
 import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
@@ -19,8 +20,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
 import { AccountSection } from "@/features/settings/account-section";
 import { AdminSection } from "@/features/settings/admin-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
@@ -130,6 +133,25 @@ function SettingsScreenBody() {
   // covers `calendar`'s two panels and `preferences`'s nested CoachLevelsSection alike;
   // see unsaved-registry.tsx).
   const [confirmDiscardOpen, setConfirmDiscardOpen] = React.useState(false);
+  // settings.explicit-save rule 5 (PAD-506): the stack's back button and swipe-back ask too. The
+  // navigation action they tried is kept so Discard can carry it out.
+  const navigation = useNavigation();
+  const [pendingLeave, setPendingLeave] = React.useState<Parameters<typeof navigation.dispatch>[0] | null>(null);
+  const hasUnsaved = unsavedRegistry.hasUnsaved();
+  usePreventRemove(hasUnsaved, ({ data }) => {
+    setPendingLeave(data.action);
+    setConfirmDiscardOpen(true);
+  });
+  const [isSaving, setIsSaving] = React.useState(false);
+  // Discard of a back/swipe: the stack action runs once the sections have unmounted and the registry
+  // is clean — before that, usePreventRemove would stop it again.
+  const [leaveAfterDiscard, setLeaveAfterDiscard] = React.useState<typeof pendingLeave>(null);
+  React.useEffect(() => {
+    if (leaveAfterDiscard && !hasUnsaved) {
+      setLeaveAfterDiscard(null);
+      navigation.dispatch(leaveAfterDiscard);
+    }
+  }, [leaveAfterDiscard, hasUnsaved, navigation]);
 
   // Fresh profile straight from /auth/me; `user` is the cached fallback so the
   // first frame isn't empty.
@@ -165,6 +187,33 @@ function SettingsScreenBody() {
   // Re-derived every render from the role-filtered list, so it collapses back
   // to the list the moment a section stops being allowed.
   const activeSection = sections.find((s) => s.id === openId) ?? null;
+
+  // settings.explicit-save rule 3 (PAD-506): the sections brought under the one Save (PR 1).
+  const SAVE_SECTIONS: SettingsSectionId[] = ["profile", "preferences", "admin"];
+  const sectionHasSave = activeSection !== null && SAVE_SECTIONS.includes(activeSection.id);
+  // Every unsaved part of the open section, in turn; a part that fails stays unsaved and is named.
+  const handleSave = async () => {
+    setIsSaving(true);
+    const failed: string[] = [];
+    try {
+      for (const key of unsavedRegistry.unsavedKeys()) {
+        const saver = unsavedRegistry.saverFor(key);
+        if (!saver) continue;
+        try {
+          await saver.save();
+        } catch {
+          failed.push(saver.label);
+        }
+      }
+    } finally {
+      setIsSaving(false);
+    }
+    if (failed.length > 0) {
+      toast.error(t("settings.toast.couldNotSaveParts", { parts: failed.join(", ") }));
+      return;
+    }
+    toast.success(t("settings.toast.settingsSavedTitle"));
+  };
 
   const renderSection = (id: SettingsSectionId) => {
     switch (id) {
@@ -305,6 +354,17 @@ function SettingsScreenBody() {
             </Pressable>
 
             {renderSection(activeSection.id)}
+
+            {sectionHasSave ? (
+              <Button
+                testID={`settings-${activeSection.id}-save`}
+                accessibilityLabel={t("settings.saveChanges")}
+                disabled={isSaving || !hasUnsaved}
+                onPress={() => void handleSave()}
+              >
+                <Text>{isSaving ? t("settings.mobile.saving") : t("settings.saveChanges")}</Text>
+              </Button>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -312,7 +372,13 @@ function SettingsScreenBody() {
       {/* settings.unsaved-edits rule 4: "Descartar alterações?" / "Discard changes?",
           keep editing (stay, every edit intact) or discard (leave; the section reloads
           from the server when reopened — nothing here saves anything). */}
-      <AlertDialog open={confirmDiscardOpen} onOpenChange={setConfirmDiscardOpen}>
+      <AlertDialog
+        open={confirmDiscardOpen}
+        onOpenChange={(open) => {
+          setConfirmDiscardOpen(open);
+          if (!open) setPendingLeave(null);
+        }}
+      >
         <AlertDialogContent testID="settings-unsaved-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("settings.unsavedChanges.title")}</AlertDialogTitle>
@@ -333,6 +399,14 @@ function SettingsScreenBody() {
               className="bg-destructive"
               onPress={() => {
                 setConfirmDiscardOpen(false);
+                if (pendingLeave) {
+                  // Leaving the whole screen: the sections unmount, dropping their drafts, then the
+                  // stack carries out the back or swipe the coach made.
+                  setLeaveAfterDiscard(pendingLeave);
+                  setPendingLeave(null);
+                  setOpenId(null);
+                  return;
+                }
                 setOpenId(null);
               }}
             >

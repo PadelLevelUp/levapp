@@ -25,17 +25,19 @@ device. The server stays the one truth; the user decides at the moment of leavin
   `notifications.student-block-preferences`, web's message templates).
 
 ### Rules
-1. **Which sections.** Only sections whose edits wait for an explicit Save hold unsaved edits:
-   profile, coach levels, seasons, working hours and the student's notification blocks, on web and
-   iOS, plus web's message templates. Sections that save on every change (language, theme, class
-   request alerts, the notification engine / auto-invite toggles, evaluation frequency and scale)
-   have nothing unsaved and never ask; what they show when they save is `settings.save-on-change`.
+1. **Which sections.** Every section whose edits wait for a Save holds unsaved edits: since PAD-506
+   (`settings.explicit-save`) Perfil, Preferências (language, class-request alerts, coach levels,
+   evaluation frequency and scale) and Admin wait for the tab's one Save; seasons, working hours, the
+   student's notification blocks and web's message templates wait for their own Save until PAD-506 PR 2
+   brings them under it. Controls still saved on change (the notification engine / auto-invite
+   toggles, until PR 2) have nothing unsaved and never ask (`settings.save-on-change`). Theme is a
+   device preference and never asks.
 2. **Unsaved means different from the last loaded or saved value**, compared by value, not by "was
    touched": an edit undone by hand is not unsaved. A successful Save makes the section clean; a
    failed Save leaves it unsaved.
-3. **Where leaving is asked.** Web: choosing another Settings tab. iOS: the section's back row
-   (`settings-back`), the only way from a section to the section list. With nothing unsaved, both
-   leave at once, exactly as before.
+3. **Where leaving is asked.** Web: choosing another Settings tab, and (PAD-506) following an in-app
+   link out of Settings. iOS: the section's back row (`settings-back`) and (PAD-506) the stack's back
+   button and swipe-back. With nothing unsaved, all of them leave at once, exactly as before.
 4. **The question.** "Descartar alterações?" / "Discard changes?", a sentence saying the section's
    changes are not saved, and two actions: **Descartar** / Discard (leave; the edits are dropped
    and the section reloads from the server when reopened) and **Continuar a editar** / Keep
@@ -43,10 +45,9 @@ device. The server stays the one truth; the user decides at the moment of leavin
    `settings` namespace on both shells (`settings.unsavedChanges.*`), pt and en.
 5. **Web: closing or reloading the page** while any section is unsaved triggers the browser's own
    leave-page prompt (`beforeunload`); the browser owns its wording.
-6. **Limits, named.** Not asked: leaving Settings through the app's own navigation — web's
-   `BrowserRouter` has no route blocker, and on iOS the stack's back button and swipe-back pop the
-   whole Settings screen. Both still drop unsaved edits as before. Revisit only if a data router
-   (web) or a `beforeRemove` guard (iOS) is adopted.
+6. **Limit, named.** Web's browser Back/Forward buttons move through the app's history without a
+   page unload, so no prompt can stop them (`settings.explicit-save` rule 5); they drop unsaved edits as
+   before. The app's own links and iOS's back and swipe ask since PAD-506.
 
 ### Acceptance Criteria
 
@@ -73,10 +74,15 @@ device. The server stays the one truth; the user decides at the moment of leavin
 - **When** they switch tab
 - **Then** no question appears
 
-#### A save-on-change section never asks
-- **Given** a coach changed the language, or toggled an auto-invite setting
+#### A save-on-change control never asks
+- **Given** a coach toggled an auto-invite setting (saved on change until PAD-506 PR 2)
 - **When** they leave the section
 - **Then** no question appears
+
+#### A held language asks (PAD-506)
+- **Given** a coach changed the language and did not press Save
+- **When** they leave the tab
+- **Then** "Descartar alterações?" appears
 
 #### Closing the page with an unsaved edit (web)
 - **Given** a Settings section holds an unsaved edit

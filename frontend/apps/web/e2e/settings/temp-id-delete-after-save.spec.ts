@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): levels are saved by the header Save; removing the row is held and deleted on Save.
 import { test, expect } from "@playwright/test";
 import { loginAsCoach, STUDENT_USERNAME } from "../helpers/auth";
 import { openSettings, openPlayers } from "../helpers/navigation";
@@ -39,7 +40,8 @@ test.describe("PAD-101: just-added rows are deletable without a reload", () => {
 
     // Save. Wait for the save round-trip to actually land so local state has
     // had its chance to (re)adopt the server ids.
-    await page.getByRole("button", { name: /save levels/i }).click();
+    // PAD-506: levels are saved by the page-header Save ("Save levels" is gone).
+    await page.getByTestId("settings-header-save").click();
     // The fix refetches the ladder after save and re-renders the rows with their
     // real numeric ids. The success toast is dispatched in the same tick as that
     // state update, so its appearance is a reliable signal the re-keyed rows have
@@ -54,7 +56,9 @@ test.describe("PAD-101: just-added rows are deletable without a reload", () => {
       r.url().includes("/delete/coach_level")
     );
     // Row buttons: [drag grip, delete]. The trash button is rendered last.
+    // PAD-506: removing a row is held too; the header Save sends the DELETE.
     await rows.last().getByRole("button").last().click();
+    await page.getByTestId("settings-header-save").click();
 
     expect((await deleteResp).status()).toBe(200);
     // And the just-added row is gone from the UI — back to the seeded count.

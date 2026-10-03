@@ -1,14 +1,15 @@
 /**
- * B-242 (PAD-473), evaluations.reminders rule 1 — the iOS "Personalizado" number is saved however the
- * coach leaves it, not only on blur: the number pad has no Return key, so a number left in a focused
- * field was lost when the app went to the background or a link took the coach elsewhere. The hooks
- * are shimmed (the mobile harness cannot mount react-query: two React copies).
+ * evaluations.reminders rules 1, 8 on iOS. settings.explicit-save (PAD-506): the choice and a typed
+ * "Personalizado" number are held until the screen's one Save (SectionSaveProbe), which refuses an
+ * invalid number in place. (B-242's save-after-typing / on-leave flushes belonged to the save-on-change
+ * model PAD-506 replaced.) The hooks are shimmed (the mobile harness cannot mount react-query).
  */
 import * as React from "react";
-import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { __emitAppState, __resetReactNativeMock } from "@/test/mocks/react-native";
+import { __resetReactNativeMock } from "@/test/mocks/react-native";
 import { renderNative } from "@/test/render-native";
+import { SectionSaveProbe } from "@/test/section-save-probe";
+import { UnsavedRegistryProvider, useUnsavedRegistry } from "@/features/settings/unsaved-registry";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -23,13 +24,16 @@ vi.mock("@levelup/hooks", () => ({
   useSaveEvaluationSettings: () => ({ mutateAsync: hooks.mutateAsync }),
 }));
 
-import { CUSTOM_SAVE_DELAY_MS, EvaluationReminderSetting } from "./evaluation-reminder-setting";
+import { EvaluationReminderSetting } from "./evaluation-reminder-setting";
 
 const FIELD = "settings-evaluation-reminder-n";
-const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
-const waitPastDelay = () => wait(CUSTOM_SAVE_DELAY_MS + 50);
-const signText = (n: Awaited<ReturnType<typeof renderNative>>, id: string) =>
-  n.byTestId(id).findAll((x) => typeof x.props.children === "string").map((x) => x.props.children).join("");
+const option = (o: string) => `settings-evaluation-reminder-option-${o}`;
+
+let registry!: ReturnType<typeof useUnsavedRegistry>;
+function Capture() {
+  registry = useUnsavedRegistry();
+  return null;
+}
 
 afterEach(() => {
   hooks.data = undefined;
@@ -37,170 +41,81 @@ afterEach(() => {
   __resetReactNativeMock();
 });
 
-async function openCustom(everyN = 7) {
-  hooks.data = { reminder: "every_n_classes", everyN };
+async function open(data: { reminder: string; everyN?: number }) {
+  hooks.data = data;
   hooks.mutateAsync.mockImplementation(async (body: unknown) => body);
-  return renderNative(<EvaluationReminderSetting />);
+  const n = await renderNative(
+    <UnsavedRegistryProvider>
+      <Capture />
+      <EvaluationReminderSetting />
+      <SectionSaveProbe testID="save" />
+    </UnsavedRegistryProvider>,
+  );
+  await n.flush();
+  return n;
 }
 
-describe("Personalizado saves a typed number however the coach leaves it (B-242)", () => {
-  it("saves once, shortly after typing stops, without a blur", async () => {
-    const n = await openCustom();
+describe("held until the one Save (settings.explicit-save)", () => {
+  it("choosing monthly sends nothing; the Save sends {reminder: 'monthly'} and the section is clean", async () => {
+    const n = await open({ reminder: "never" });
 
-    await n.changeText(FIELD, "1");
-    await wait(300);
-    await n.changeText(FIELD, "12");
-    await wait(CUSTOM_SAVE_DELAY_MS - 150);
-    expect(hooks.mutateAsync).not.toHaveBeenCalled();
-
-    await waitPastDelay();
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 12 });
-  });
-
-  it("a blur after the delayed save sends nothing a second time", async () => {
-    const n = await openCustom();
-
-    await n.changeText(FIELD, "9");
-    await waitPastDelay();
-    await act(async () => { n.byTestId(FIELD).props.onBlur(); });
-
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-  });
-
-  it("the app leaving the foreground sends a number still waiting for its delay", async () => {
-    const n = await openCustom();
-
-    await n.changeText(FIELD, "9");
-    await act(async () => { __emitAppState("background"); });
-
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 9 });
-    await waitPastDelay();
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-  });
-
-  it("leaving the screen sends a number still waiting for its delay", async () => {
-    const n = await openCustom();
-
-    await n.changeText(FIELD, "8");
-    await act(async () => { n.root.unmount(); });
-
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 8 });
-  });
-
-  it.each(["0", "100", "1.5", ""])("%j is never sent, by the delay or by leaving", async (typed) => {
-    const n = await openCustom();
-
-    await n.changeText(FIELD, typed);
-    await waitPastDelay();
-    await act(async () => { __emitAppState("background"); });
-    await act(async () => { n.root.unmount(); });
-
-    expect(hooks.mutateAsync).not.toHaveBeenCalled();
-  });
-
-  it("a failed save says so, returns the field to the confirmed number, and the same number can be sent again", async () => {
-    const n = await openCustom();
-    hooks.mutateAsync.mockRejectedValueOnce(new Error("offline"));
-
-    await n.changeText(FIELD, "5");
-    await waitPastDelay();
+    await n.press(option("monthly"));
     await n.flush();
-    expect(signText(n, "settings-evaluation-reminder-sign")).toContain("settings.saveSign.failed");
-    expect(n.byTestId(FIELD).props.value).toBe("7");
+    expect(n.byTestId(option("monthly")).props.accessibilityState.checked).toBe(true);
+    expect(hooks.mutateAsync).not.toHaveBeenCalled();
+    expect(registry.hasUnsaved()).toBe(true);
 
-    await n.changeText(FIELD, "5");
-    await act(async () => { n.byTestId(FIELD).props.onBlur(); });
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
-    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 5 });
+    await n.press("save");
+    await n.flush();
+    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "monthly" });
+    expect(registry.hasUnsaved()).toBe(false);
   });
 
-  it("choosing a radio option drops a number still waiting for its delay", async () => {
-    const n = await openCustom();
+  it("a typed custom number is held; the Save sends it", async () => {
+    const n = await open({ reminder: "every_n_classes", everyN: 7 });
 
     await n.changeText(FIELD, "9");
-    await n.press("settings-evaluation-reminder-option-monthly");
-    await waitPastDelay();
+    await n.flush();
+    expect(hooks.mutateAsync).not.toHaveBeenCalled();
+    expect(registry.hasUnsaved()).toBe(true);
 
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "monthly" });
+    await n.press("save");
+    await n.flush();
+    expect(hooks.mutateAsync).toHaveBeenCalledWith({ reminder: "every_n_classes", everyN: 9 });
   });
 
-  it("retyping the stored number after an invalid one clears the error and sends nothing", async () => {
-    const n = await openCustom(7);
+  it("an invalid number is refused in place by the Save, nothing is sent, and it stays unsaved", async () => {
+    const n = await open({ reminder: "every_n_classes", everyN: 7 });
 
     await n.changeText(FIELD, "0");
-    await act(async () => { n.byTestId(FIELD).props.onBlur(); });
-    expect(n.queryByTestId("settings-evaluation-reminder-error")).not.toBeNull();
-
-    await n.changeText(FIELD, "7");
-    await act(async () => { n.byTestId(FIELD).props.onBlur(); });
-    await waitPastDelay();
-
-    expect(n.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
-    expect(hooks.mutateAsync).not.toHaveBeenCalled();
-  });
-
-  it("review #497 item 7: a failure landing while a newer number is being typed does not reset it; the newer number is saved", async () => {
-    const n = await openCustom(7);
-    let fail8!: (e: Error) => void;
-    hooks.mutateAsync.mockImplementationOnce(() => new Promise((_r, rej) => { fail8 = rej; }));
-
-    await n.changeText(FIELD, "8");
-    await waitPastDelay(); // 8 sent, held
-    await n.changeText(FIELD, "9"); // waiting for its delay
-    await act(async () => { fail8(new Error("offline")); });
-    expect(n.byTestId(FIELD).props.value).toBe("9");
-
-    await waitPastDelay();
-    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
-  });
-
-  it("rule 3: two held frequency saves both fail — back to the confirmed frequency", async () => {
-    hooks.data = { reminder: "never" };
-    let failY!: (e: Error) => void;
-    let failZ!: (e: Error) => void;
-    hooks.mutateAsync
-      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
-      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
-    const n = await renderNative(<EvaluationReminderSetting />);
-
-    await n.press("settings-evaluation-reminder-option-monthly"); // Y
-    await n.press("settings-evaluation-reminder-option-every_2"); // Z, started from monthly
-    await act(async () => { failY(new Error("y")); });
-    await act(async () => { failZ(new Error("z")); });
+    await n.press("save");
     await n.flush();
 
-    expect(n.byTestId("settings-evaluation-reminder-option-never").props.accessibilityState.checked).toBe(true);
+    expect(hooks.mutateAsync).not.toHaveBeenCalled();
+    expect(n.queryByTestId("settings-evaluation-reminder-error")).not.toBeNull();
+    expect(registry.hasUnsaved()).toBe(true);
   });
 
-  it("review #497: on leaving the foreground a save waiting behind one in flight is sent at once, not queued", async () => {
-    const n = await openCustom(7);
-    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined)); // 8: out, never answers
+  it("retyping the stored number after an invalid one is clean and clears the error", async () => {
+    const n = await open({ reminder: "every_n_classes", everyN: 7 });
 
-    await n.changeText(FIELD, "8");
-    await waitPastDelay(); // 8 out
-    await n.changeText(FIELD, "9");
-    await waitPastDelay(); // 9 waits behind 8
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(1);
-    await act(async () => { __emitAppState("background"); });
+    await n.changeText(FIELD, "0");
+    await n.changeText(FIELD, "7");
+    await n.flush();
 
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
-    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+    expect(n.queryByTestId("settings-evaluation-reminder-error")).toBeNull();
+    expect(registry.hasUnsaved()).toBe(false);
   });
 
-  it("review #497: leaving the screen sends a save waiting behind one in flight at once", async () => {
-    const n = await openCustom(7);
-    hooks.mutateAsync.mockImplementationOnce(() => new Promise(() => undefined));
+  it("a failed Save keeps the choice held and unsaved", async () => {
+    const n = await open({ reminder: "never" });
+    hooks.mutateAsync.mockRejectedValue(new Error("offline"));
 
-    await n.changeText(FIELD, "8");
-    await waitPastDelay();
-    await n.changeText(FIELD, "9"); // still being typed when the screen goes
-    await act(async () => { n.root.unmount(); });
+    await n.press(option("monthly"));
+    await n.press("save");
+    await n.flush();
 
-    expect(hooks.mutateAsync).toHaveBeenCalledTimes(2);
-    expect(hooks.mutateAsync).toHaveBeenLastCalledWith({ reminder: "every_n_classes", everyN: 9 });
+    expect(n.byTestId(option("monthly")).props.accessibilityState.checked).toBe(true);
+    expect(registry.hasUnsaved()).toBe(true);
   });
 });

@@ -204,6 +204,7 @@ executionOrder:
     # edit intact, discard returns to the list. Nothing is ever PATCHed, so there is
     # nothing to restore — the server's phone is asserted unchanged instead.
     - 102-settings-unsaved-edits
+    - 158-settings-swipe-back-asks
     # 103 posts 45 messages as the student and opens conversation 1 on the 3rd (older
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.

@@ -50,3 +50,44 @@ export function useReportUnsaved(sectionId: string, unsaved: boolean): void {
     return () => setUnsavedRef.current?.(sectionIdRef.current, false);
   }, []);
 }
+
+/**
+ * settings.explicit-save (PAD-506): one Save per tab. A section on a tab registers what its part of
+ * the tab's Save does; SettingsPage's "Guardar alterações" runs the savers of every unsaved section on
+ * the active tab. `save` resolves once the server confirmed (and the section has made its own
+ * baseline the confirmed value, so it reports clean) and throws when it did not — the section then
+ * stays unsaved, so the next Save retries only what failed (rule 3). `label` names the section in a
+ * failure message.
+ */
+export interface TabSaver {
+  label: string;
+  save: () => Promise<void>;
+}
+
+export type RegisterSaver = (sectionId: string, saver: TabSaver | null) => void;
+
+export const SettingsSaveContext = createContext<RegisterSaver | undefined>(undefined);
+
+/**
+ * `useReportUnsaved` plus the section's saver. The saver is read through a ref, so a section can pass
+ * a fresh closure every render (it sees the current draft) without re-registering; it is
+ * unregistered on unmount.
+ */
+export function useTabSave(sectionId: string, unsaved: boolean, saver: TabSaver): void {
+  useReportUnsaved(sectionId, unsaved);
+  const register = useContext(SettingsSaveContext);
+  const saverRef = useRef(saver);
+  saverRef.current = saver;
+  const registerRef = useRef(register);
+  registerRef.current = register;
+
+  useEffect(() => {
+    registerRef.current?.(sectionId, {
+      get label() {
+        return saverRef.current.label;
+      },
+      save: () => saverRef.current.save(),
+    });
+    return () => registerRef.current?.(sectionId, null);
+  }, [sectionId]);
+}
