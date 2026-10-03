@@ -695,3 +695,72 @@ def test_r5_a_no_landing_in_a_manual_yes_gap_wins(app, monkeypatch):
         db.session.expire_all()
         assert b not in _instance(instance_id).enrolled_player_ids
         assert db.session.get(NotificationEvent, event_id).answer == "no"
+
+
+# ── #526 review item 1: the invitation and its message really commit together ───────────────
+
+def _message_factory_failing_on(monkeypatch, nth_invite):
+    """`Message(...)` raises for the nth invitation message — AFTER `_send_system_message` has passed
+    its conversation step, where the old code committed (the real commit point)."""
+    import padel_app.models as models
+
+    real = models.Message
+    calls = {"n": 0}
+
+    def factory(*args, **kwargs):
+        if kwargs.get("message_type") == "notification_invite":
+            calls["n"] += 1
+            if calls["n"] == nth_invite:
+                raise RuntimeError("message failed after the conversation step")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(models, "Message", factory)
+
+
+def test_a1_a_message_failing_after_the_conversation_step_leaves_no_phantom(app, monkeypatch):
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=1)
+        _message_factory_failing_on(monkeypatch, 2)
+        with pytest.raises(RuntimeError):
+            ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        db.session.rollback()
+        assert _live_without_message(instance_id) == 0
+
+
+def test_a1_a_manual_message_failing_after_the_conversation_step_leaves_no_phantom(app, monkeypatch):
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (b,) = _seed(enrolled=0, candidates=1, max_players=1)
+        _message_factory_failing_on(monkeypatch, 1)
+        with pytest.raises(RuntimeError):
+            ns.send_manual_notifications(instance_id, [b], coach_id)
+        db.session.rollback()
+        assert _live_without_message(instance_id) == 0
+
+
+def test_a2_a_publish_failing_after_the_commit_leaves_the_invitation_with_its_message_id(app, monkeypatch):
+    """The commit happened; delivery (the live event, the push) failed. The invitation must still
+    point at its message, so it can be answered and later retired."""
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[1]):
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=2, max_players=1)
+
+        def failing_publish(event, user_ids):
+            if event.get("type") == "message_created":
+                raise RuntimeError("live event failed")
+
+        monkeypatch.setattr(ns, "publish", failing_publish)
+        with pytest.raises(RuntimeError):
+            ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        db.session.rollback()
+        assert _live_without_message(instance_id) == 0
