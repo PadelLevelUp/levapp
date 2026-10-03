@@ -27,6 +27,8 @@ test("US-445: a minor cannot sign up, on the form or through the API", async ({ 
   page.on("request", (r) => {
     if (r.url().includes("/api/auth/register")) registerCalls += 1;
   });
+  // PAD-485 (auth.register rule 19): the Terms box is required.
+  await page.getByTestId("signup-terms").click();
   await page.getByTestId("signup-submit").click();
   await expect(page.getByTestId("signup-birthDate-error")).toBeVisible();
   await expect(page).toHaveURL(/\/signup$/);

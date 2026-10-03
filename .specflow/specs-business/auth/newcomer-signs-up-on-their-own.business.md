@@ -90,7 +90,9 @@ without their knowledge (that case is picked up in
   is approved or they create one.
 - Joining an existing club always needs a current member's approval; nobody can walk into a
   club's roster and message its students just by knowing the club's name.
-- The signup form links to the Privacy Policy and Terms, on both platforms.
+- The signup form links to the Privacy Policy and Terms, on both platforms, and the newcomer must tick
+  that they accept them before the account can be created; when and which version they accepted is
+  kept (PAD-485). Accounts that existed before are not asked.
 - A coach who signs up on their own appears in the sales CRM within a minute, marked as an inbound
   lead from the app, and the CRM keeps their account status (pending, approved, rejected) current;
   a deal already open for them moves to "Em teste". Only the coach's own name, email, phone and
@@ -98,6 +100,10 @@ without their knowledge (that case is picked up in
   and the admin's decisions work exactly the same (PAD-471).
 - The email on the account is the recovery channel for both the password and the username. A
   recovery request never confirms or denies that an email has an account.
+- A coach with no email on the account (one who joined by invitation from an older iPhone version, or
+  who removed it in Settings) is asked for one with a banner on their home screen, on the web and on
+  the iPhone. It never blocks them; "Agora não" hides it until they next open the app. An account
+  with no email is never shown as verified (PAD-482).
 
 ## Success Metrics
 

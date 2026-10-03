@@ -34,7 +34,7 @@ const FIRST_PAGE_SIZE = 30;
  * NOT the seeded coach↔student one. These specs post 60 messages each, and the
  * seeded conversation is where every other messaging spec looks for
  * "Welcome to the academy!" and "Thanks coach!" — burying those under a page of
- * filler breaks them. A student may message any active coach, so this
+ * filler breaks them. The student reaches that coach by exact username, so this
  * conversation is created on demand and belongs to this file alone.
  */
 const COUNTERPART_USERNAME = "e2e-coach-nolevels";
@@ -62,16 +62,11 @@ async function dedicatedConversationId(
 ): Promise<string> {
   const auth = { Authorization: `Bearer ${studentToken}` };
 
-  const usersRes = await request.get(`${API_APP}/messageable-users`, { headers: auth });
-  const users = await usersRes.json();
-  const counterpart = users.find(
-    (u: { username?: string }) => u.username === COUNTERPART_USERNAME
-  );
-  expect(counterpart, `the seed must provide ${COUNTERPART_USERNAME}`).toBeTruthy();
-
+  // B-267: the student is not linked to this coach, so the picker does not list it;
+  // the exact-username path (messaging.direct-by-username) still opens the thread.
   const created = await request.post(`${API_APP}/conversation`, {
     headers: auth,
-    data: { otherParticipants: [String(counterpart.id)] },
+    data: { otherUsername: COUNTERPART_USERNAME },
   });
   expect(created.status()).toBeLessThan(400);
   const conversation = await created.json();

@@ -21,7 +21,7 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 6. **Court (PAD-194).** `updates.courtId` sets the class's court (null clears it; omitted leaves it);
    it must belong to the class's club (`clubs.courts` rule 6). A "this and future" split copies the court.
 
-7. **What was sent is what is written (PAD-387, B-136).** `POST /api/app/edit_class` writes only the
+7. **What was sent is what is written (PAD-387, B-136; times PAD-508, B-275).** `POST /api/app/edit_class` writes only the
    keys present in `updates`; an omitted key — `isRecurring` and `recursUntilSeasonEnd` included — is
    left alone. What a present `null` or `""` does depends on the column, decided per key:
    - **Series scopes (`future`, `all`, and a `Lesson` event):** `levelId` clears to "all levels";
