@@ -1,0 +1,4 @@
+# PAD-511: changed-file glob -> spec under e2e/, for what the test-id grep cannot see
+# (a page no spec reaches by test id). Add a line when a miss is found.
+frontend/apps/web/src/pages/PrivacyPolicyPage.tsx  landing/landing-page.spec.ts
+frontend/apps/web/src/pages/PrivacyPolicyPage.tsx  landing/hubspot-consent.spec.ts

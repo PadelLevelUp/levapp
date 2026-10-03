@@ -83,7 +83,8 @@ def test_a_decline_after_the_start(app, monkeypatch, repeat):
 
     pin_clock(monkeypatch, NOW)
     with app.app_context(), _io():
-        instance_id, _, enrolled, _ = _seed(enrolled=2, candidates=5, max_players=2)
+        # 8 others: the second spot invites three who hold no offer for the first (rule 18).
+        instance_id, _, enrolled, _ = _seed(enrolled=2, candidates=8, max_players=2)
         respond_to_reminder(instance_id, "no", enrolled[0], now=NOW)
         first = _state(instance_id)
         assert first[0] == [(1, "open", 1, 1)] and len(first[1]) == 3
@@ -145,7 +146,7 @@ def test_a_semi_automatic_approval(app, monkeypatch, repeat):
 
     pin_clock(monkeypatch, NOW)
     with app.app_context(), _io(), patch("padel_app.services.replacement_approval_service.publish"):
-        instance_id, coach_id, enrolled, _ = _seed(enrolled=2, candidates=5, max_players=2, semi=True)
+        instance_id, coach_id, enrolled, _ = _seed(enrolled=2, candidates=8, max_players=2, semi=True)
         respond_to_reminder(instance_id, "no", enrolled[0], now=NOW)
         assert _state(instance_id) == ([(1, "open", 1, 0)], [])      # pending approval, nothing sent
         _approve_pending(coach_id, 1, NOW + timedelta(minutes=1))
@@ -191,14 +192,18 @@ def test_only_the_tick_sends_the_next_batch_and_only_after_the_interval(app, mon
 
 @pytest.fixture
 def locks(monkeypatch):
-    """The entity of every SELECT ... FOR UPDATE the code asks for, in order (PAD-261's spy)."""
+    """Every SELECT ... FOR UPDATE the code asks for, in order, as (entity, the function that asked)
+    (PAD-261's spy). The asking function matters: since PAD-495 the batch sender also locks the
+    vacancy per student, so "a Vacancy was locked" no longer proves the START took the lock."""
+    import sys
+
     from sqlalchemy.orm import Query
 
     seen = []
     original = Query.with_for_update
 
     def spy(self, *args, **kwargs):
-        seen.append(self.column_descriptions[0]["entity"].__name__)
+        seen.append((self.column_descriptions[0]["entity"].__name__, sys._getframe(1).f_code.co_name))
         return original(self, *args, **kwargs)
 
     monkeypatch.setattr(Query, "with_for_update", spy)
@@ -220,7 +225,7 @@ def test_the_start_locks_the_vacancy(app, monkeypatch, locks, starter):
             trigger_invitations(_instance(instance_id), coach_id, now=MORNING)
         else:
             process_invitation_batches(now=MORNING)
-        assert "Vacancy" in locks
+        assert ("Vacancy", "_start_vacancy") in locks
         assert _vacancies(instance_id) == [(1, "open", 1, 1)]
 
 
@@ -326,13 +331,19 @@ def test_two_triggers_at_once_start_the_spot_once(app, monkeypatch):
 
 @POSTGRES_ONLY
 def test_without_the_lock_the_same_race_starts_the_spot_twice(app, monkeypatch):
-    """The harness has teeth: a check-then-send with no lock and no re-read sends two batches."""
+    """The harness has teeth: with a check-then-send start (no lock, no re-read) both callers start
+    the spot and run its first batch. (PAD-495's per-student lock and first-batch cap then keep
+    that double batch from over-inviting — defence in depth that made "two batches counted"
+    timing-dependent — so the control counts the starts, which only the start's lock prevents.)"""
     from padel_app.services import notification_service as ns
     from padel_app.tests.helpers import pin_clock
+
+    starts = []
 
     def unlocked(vacancy, instance, config, coach_id, *, now):
         if vacancy.status != "open" or vacancy.last_activity_at is not None:
             return []
+        starts.append(vacancy.id)
         return ns._send_invitation_batch(vacancy, instance, config, coach_id, now=now)
 
     monkeypatch.setattr(ns, "_start_vacancy", unlocked)
@@ -340,8 +351,7 @@ def test_without_the_lock_the_same_race_starts_the_spot_twice(app, monkeypatch):
     instance_id, coach_id = _seed_one_unstarted_vacancy(app)
     with _io(), _both_loaded(monkeypatch):
         _race(app, [_trigger(instance_id, coach_id)] * 2)
-    with app.app_context():
-        assert _vacancies(instance_id)[0][3] == 2, "both callers sent a batch"
+    assert len(starts) == 2, f"both callers started the spot: {starts}"
 
 
 # ── B-260 (rule 17): a double tap racing itself is answered once (Postgres only) ─────────────
@@ -420,11 +430,49 @@ def test_a_double_no_at_once_invites_one_next_student(app, monkeypatch):
 
 @pytest.mark.parametrize("max_inactive", [True, False])
 def test_a_spot_whose_first_batch_maxtotal_stopped_is_retried_on_the_next_tick(app, monkeypatch, max_inactive):
-    """Two spots, three students, maxTotal 3: the first spot takes the whole budget and the second
-    sends nothing. A decline frees budget; the next tick must start the second spot, whether or
-    not maxInactiveTime is on (with it off, a falsely-started spot would never be retried)."""
-    from padel_app.models.notification_event import NotificationEvent
+    """Two spots, four students, maxTotal 3. One call starts both: the first spot's batch takes the
+    whole budget, so the second spot's first batch (it could ask the fourth student) sends nothing.
+    The first spot is then taken, which retires the other two offers and frees budget; the next
+    tick must start the second spot, whether or not maxInactiveTime is on (with it off, a
+    falsely-started spot would never be retried)."""
     from padel_app.models.players import Player
+    from padel_app.services.notification_service import process_invitation_batches, trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=4, max_players=2, max_total=3,
+                                            max_inactive=max_inactive)
+        # A stamp with microseconds: the give-back compares it, and must survive the round trip.
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW.replace(microsecond=123456))
+        vacancies = _vacancies(instance_id)
+        assert [v[3] for v in vacancies] == [1, 0]         # the second spot sent nothing
+        first, second = vacancies[0][0], vacancies[1][0]
+
+        from padel_app.models.notification_event import NotificationEvent
+        from padel_app.services.notification_service import respond_to_notification
+
+        winner = NotificationEvent.query.filter_by(vacancy_id=first).order_by(NotificationEvent.id).first()
+        later = pin_clock(monkeypatch, NOW + timedelta(minutes=1))
+        respond_to_notification(winner.id, "yes", Player.query.get(winner.player_id).user_id, now=later)
+
+        tick = pin_clock(monkeypatch, NOW + timedelta(minutes=4))
+        process_invitation_batches(now=tick)
+        assert next(v for v in _vacancies(instance_id) if v[0] == second)[3] == 1
+        assert len([e for e in _live_events(instance_id) if e[0] == second]) >= 1
+
+
+# ── review finding 2: a second absence while a spot holds gets its own vacancy ───────────────
+
+def test_a_student_marked_absent_while_another_spot_holds_gets_a_vacancy(app, monkeypatch):
+    """Two places, one enrolled, two other students: the never-filled place is started (both asked)
+    and, with nobody else to ask, holds while their offers are live. The coach then marks the
+    enrolled student absent: that place needs its own vacancy. It waits while both students hold
+    an offer for the first place (rule 18), and asks the one whose offer was retired once the
+    other takes the first place."""
+    from padel_app.models.players import Player
+    from padel_app.models.presences import Presence
+    from padel_app.models.vacancy import Vacancy
     from padel_app.services.notification_service import (
         process_invitation_batches,
         respond_to_notification,
@@ -434,43 +482,11 @@ def test_a_spot_whose_first_batch_maxtotal_stopped_is_retried_on_the_next_tick(a
 
     pin_clock(monkeypatch, NOW)
     with app.app_context(), _io():
-        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=2, max_total=3,
-                                            max_inactive=max_inactive)
-        # A stamp with microseconds: the give-back compares it, and must survive the round trip.
-        trigger_invitations(_instance(instance_id), coach_id, now=NOW.replace(microsecond=123456))
-        vacancies = _vacancies(instance_id)
-        assert [v[3] for v in vacancies] == [1, 0]         # the second spot sent nothing
-        second = vacancies[1][0]
-
-        event = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).order_by(NotificationEvent.id).first()
-        later = pin_clock(monkeypatch, NOW + timedelta(minutes=1))
-        respond_to_notification(event.id, "no", Player.query.get(event.player_id).user_id, now=later)
-
-        tick = pin_clock(monkeypatch, NOW + timedelta(minutes=4))
-        process_invitation_batches(now=tick)
-        assert len([e for e in _live_events(instance_id) if e[0] == second]) == 1
-        assert next(v for v in _vacancies(instance_id) if v[0] == second)[3] == 1
-
-
-# ── review finding 2: a second absence while a spot holds gets its own vacancy ───────────────
-
-def test_a_student_marked_absent_while_another_spot_holds_gets_a_vacancy(app, monkeypatch):
-    """Two places, one enrolled, one other student: the never-filled place is started and, with
-    nobody else to ask, holds while its one offer is live. The coach then marks the enrolled student
-    absent: that place needs its own vacancy, started now."""
-    from padel_app.models.presences import Presence
-    from padel_app.services.notification_service import process_invitation_batches, trigger_invitations
-    from padel_app.tests.helpers import pin_clock
-
-    pin_clock(monkeypatch, NOW)
-    with app.app_context(), _io():
-        instance_id, coach_id, enrolled_users, _ = _seed(enrolled=1, candidates=1, max_players=2)
+        instance_id, coach_id, enrolled_users, others = _seed(enrolled=1, candidates=2, max_players=2)
         trigger_invitations(_instance(instance_id), coach_id, now=NOW)
         later = pin_clock(monkeypatch, NOW + timedelta(hours=3))
         process_invitation_batches(now=later)
         assert [(v[1], v[3]) for v in _vacancies(instance_id)] == [("open", 1)]   # held
-
-        from padel_app.models.players import Player
 
         enrolled_player = Player.query.filter_by(user_id=enrolled_users[0]).one()
         presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=enrolled_player.id).one()
@@ -479,11 +495,18 @@ def test_a_student_marked_absent_while_another_spot_holds_gets_a_vacancy(app, mo
         db.session.commit()
         trigger_invitations(_instance(instance_id), coach_id, now=later)   # what confirm_presences calls
 
-        from padel_app.models.vacancy import Vacancy
-
         theirs = Vacancy.query.filter_by(lesson_instance_id=instance_id, original_player_id=enrolled_player.id).all()
         assert len(theirs) == 1 and theirs[0].status == "open"
-        assert theirs[0].current_batch_number == 1                          # started by that call
+        second = theirs[0].id
+
+        winner, other = others
+        from padel_app.models.notification_event import NotificationEvent
+
+        event = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=winner).one()
+        respond_to_notification(event.id, "yes", Player.query.get(winner).user_id, now=later + timedelta(minutes=1))
+        tick = pin_clock(monkeypatch, later + timedelta(minutes=3))
+        process_invitation_batches(now=tick)
+        assert _live_events(instance_id) == [(second, other)]
 
 
 # ── second review of #507: a claim whose batch never ran is not a stall ──────────────────────
@@ -597,7 +620,10 @@ def test_a_claim_whose_process_died_mid_send_lapses_and_is_retried(app, monkeypa
         process_invitation_batches(now=later)
         vacancies, events = _state(instance_id)
         assert vacancies == [(1, "open", 1, 1)]
-        assert sorted(p for _, p in events) == sorted(others)          # the first once, the others now
+        # The first student once; the restart tops the batch up to maxSimultaneous (3) rather than
+        # sending a full batch on top (PAD-495 item 10).
+        players = [p for _, p in events]
+        assert players.count(others[0]) == 1 and len(players) == 3 and len(set(players)) == 3
 
 
 def test_the_give_back_leaves_a_row_that_moved_alone(app, monkeypatch):

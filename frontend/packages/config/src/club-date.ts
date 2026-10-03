@@ -18,6 +18,16 @@ export function clubTodayISO(now: Date = new Date()): string {
 }
 
 /**
+ * The club's date of a naive-UTC instant from the backend (`2026-10-02T23:30:00`), as
+ * `YYYY-MM-DD`. `iso.slice(0, 10)` is the UTC date and is a day early late in a summer evening.
+ */
+export function clubDateOfInstant(iso: string): string {
+  const date = new Date(iso.endsWith("Z") || /[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  return clubTodayISO(date);
+}
+
+/**
  * The club's date anchored at UTC midnight: a calendar container for `Date.UTC`
  * arithmetic that hands back bare dates through `toISOString().slice(0, 10)`.
  */

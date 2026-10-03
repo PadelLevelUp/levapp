@@ -580,14 +580,16 @@ class TestProcessInvitationBatches:
 
         restrictions = {**DEFAULT_RESTRICTIONS, "maxInactiveTime": {"enabled": True, "value": 120}}
 
+        # PAD-495 item 3(a): a started vacancy's next batch is sent under the vacancy lock.
         with patch("padel_app.services.notification_service.Vacancy") as MockV, \
              patch("padel_app.services.notification_service.get_or_create_config") as mock_cfg, \
-             patch("padel_app.services.notification_service._send_invitation_batch") as mock_send:
+             patch("padel_app.services.notification_service._send_batch_locked") as mock_send:
             MockV.query.filter_by.return_value.all.return_value = [vacancy]
             mock_cfg.return_value.get_restrictions.return_value = restrictions
 
             count = process_invitation_batches(now=now)
             mock_send.assert_called_once()
+            assert mock_send.call_args.args[0] is vacancy
             assert count == 1
 
     def test_recently_active_does_not_trigger(self):

@@ -466,6 +466,25 @@ export interface ClassJoinRequestListRow extends ClassJoinRequest {
   endTime: string | null;
 }
 
+/**
+ * classes.academy-class-booking rule 11 (PAD-504): one of the student's per-class waiting-list
+ * places, for their request history (`GET /app/class-waiting-list`). `status` is derived by the
+ * server; `createdAt` equals `joinedAt` so the three kinds of row sort by one key.
+ */
+export interface ClassWaitingListRow {
+  kind: "waiting_list";
+  id: number;
+  lessonInstanceId: number;
+  classTitle: string;
+  date: string;
+  startTime: string;
+  endTime: string | null;
+  coachName: string;
+  status: "active" | "placed" | "left" | "passed" | "canceled";
+  joinedAt: string | null;
+  createdAt: string | null;
+}
+
 export interface ClassInvitation {
   id: number;
   playerId: string;
@@ -854,7 +873,9 @@ export type DashboardBlock =
   | DashboardNeedsYouBlock
   | DashboardSchedule7dBlock
   | DashboardWeekPulseBlock
-  | DashboardEvaluationsBlock;
+  | DashboardEvaluationsBlock
+  | DashboardIncompletePlayersBlock
+  | DashboardProfileIncompleteBlock;
 
 /** Payload ids — the client's switch between the two homes. */
 export const COACH_DASHBOARD_ID = "coach_default_v1";
@@ -1192,6 +1213,8 @@ export interface StudentGroupPlayer {
   name: string;
   levelCode: string | null;
   levelId: string | null;
+  /** PAD-497: said "no" to an invitation for this class; the coach may still invite them. Absent from older servers. */
+  declinedThisClass?: boolean;
 }
 
 export interface StudentGroup {
@@ -1213,6 +1236,10 @@ export interface MessageTemplates {
   reminder_declined: string;
   waiting_list_offer: string;
   waiting_list_placed: string;
+  /** PAD-330 / PAD-489: the coach put the student in a class. Optional: older configs lack them
+   *  and the server falls back to its defaults. */
+  added_to_class?: string;
+  added_to_class_coming?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────
@@ -1405,7 +1432,9 @@ export interface InviteSimulation {
 export type InviteExplainStage =
   | "departing_player"
   | "already_enrolled"
+  | "declined_this_class"
   | "already_invited"
+  | "offered_another_spot"
   | "eligibility"
   | "excluded_by_coach"
   | "inactive_account"
@@ -1738,6 +1767,45 @@ export interface DashboardEvaluationsBlock {
   data: {
     cards: EvaluationCard[];
     href: string;
+  };
+}
+
+/** dashboard.profile-completeness: what a coach-student link lacks. */
+export type ProfileMissing = "level" | "side";
+
+/**
+ * dashboard.profile-completeness rule 3 (PAD-486): the coach's students whose link has no
+ * level or no side. Omitted entirely when there is none. A top-level block, so old builds
+ * (which skip unknown top-level types) are unaffected.
+ */
+export interface DashboardIncompletePlayersBlock {
+  id: string;
+  type: "incomplete_players";
+  data: {
+    count: number;
+    missingLevel: number;
+    missingSide: number;
+    players: { playerId: number; name: string; missing: ProfileMissing[]; href: string }[];
+    seeAllHref: string;
+  };
+}
+
+/**
+ * dashboard.profile-completeness rule 4 (PAD-490): the student's coaches whose link to them is
+ * incomplete. Omitted entirely when there is none.
+ */
+export interface DashboardProfileIncompleteBlock {
+  id: string;
+  type: "profile_incomplete";
+  data: {
+    coaches: {
+      coachId: number;
+      coachName: string;
+      missing: ProfileMissing[];
+      remindedToday: boolean;
+      /** False for a blocked pair (either way): the card explains, but offers no button. */
+      canRemind?: boolean;
+    }[];
   };
 }
 

@@ -14,6 +14,7 @@ function seeded() {
     queryKeys.calendarEvents("2026-10-05T00:00:00", "2026-10-11T23:59:59"),
     queryKeys.classRequests,
     queryKeys.classJoinRequests,
+    queryKeys.classWaitingList,
     ["class-instance", { id: 1 }],
     queryKeys.dashboard({ from: "a", to: "b" }),
     ["unrelated"],
@@ -23,15 +24,17 @@ function seeded() {
 }
 
 describe("refreshAfterRequestChange (PAD-488)", () => {
-  it("marks the calendar, the request lists, the class sheet and the dashboard stale, nothing else", async () => {
+  it("marks the calendar, the request lists (waiting lists too, PAD-504), the class sheet and the dashboard stale, nothing else", async () => {
     const { qc, keys } = seeded();
     await refreshAfterRequestChange(qc);
     const stale = keys.map((k) => qc.getQueryState(k)?.isInvalidated ?? false);
-    expect(stale).toEqual([true, true, true, true, true, false]);
+    expect(stale).toEqual([true, true, true, true, true, true, false]);
   });
 
   it("knows the request events, and only them", () => {
     expect(["class_request_changed", "join_request_created", "join_requests_superseded", "join_request_decided"].every(isRequestEvent)).toBe(true);
     expect(isRequestEvent("message_created")).toBe(false);
+    // PAD-504: a waiting-list change has its own handler beside this one in both shells.
+    expect(isRequestEvent("waiting_list_changed")).toBe(false);
   });
 });

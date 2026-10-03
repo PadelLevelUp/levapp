@@ -111,6 +111,22 @@
       "close": "Fechar",
       "emptyNotAdvertised": "O treinador não está a aceitar pedidos para as aulas da academia."
     },
-    "cardIntro": "Pede uma aula ao teu treinador. Os teus pedidos em aberto ficam aqui até o treinador responder, e podes retirá-los a qualquer momento."
+    "cardIntro": "Pede uma aula ao teu treinador. Os teus pedidos em aberto ficam aqui até o treinador responder, e podes retirá-los a qualquer momento.",
+    "waitingList": {
+      "status": {
+        "active": "Em lista de espera",
+        "placed": "Lugar atribuído",
+        "left": "Já não estás na lista de espera",
+        "passed": "Aula já passou",
+        "canceled": "Aula cancelada"
+      },
+      "joinedOn": "Desde {{date}}",
+      "withCoach": "com {{name}}",
+      "leave": "Sair da lista de espera",
+      "leaveConfirm": "Sair da lista de espera desta aula?",
+      "leaveYes": "Sair",
+      "cancel": "Cancelar",
+      "leaveFailed": "Não foi possível sair da lista de espera. Tenta novamente."
+    }
   }
 }

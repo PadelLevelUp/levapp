@@ -153,6 +153,7 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
             raise
         return entry, False
     _tell_coach_of_waiting_list_join(player, instance, coach_id)
+    _publish_waiting_list_changed(entry)
     return entry, True
 
 
@@ -176,7 +177,80 @@ def leave_class_waiting_list_service(player, lesson_instance_id):
         abort(404, "You are not on this class's waiting list")
     entry.is_active = False
     db.session.commit()
+    _publish_waiting_list_changed(entry)
     return entry
+
+
+def _publish_waiting_list_changed(entry) -> None:
+    """Rule 11 (PAD-504): the student's request history and the coach's views refresh."""
+    from padel_app import realtime
+    from padel_app.models import Coach, Player
+
+    coach = db.session.get(Coach, entry.coach_id)
+    player = db.session.get(Player, entry.player_id)
+    recipients = [u for u in (getattr(player, "user_id", None), getattr(coach, "user_id", None)) if u]
+    if recipients:
+        realtime.publish(
+            {"type": "waiting_list_changed", "payload": {"lessonInstanceId": entry.lesson_instance_id}},
+            recipients,
+        )
+
+
+def _waiting_list_status(entry, instance, placed: bool, wall_now) -> str:
+    """Rule 11's derived state, on the club's clock (class times are wall times, R-023)."""
+    if placed:
+        return "placed"
+    if not entry.is_active:
+        return "left"
+    if instance.status == "canceled":
+        return "canceled"
+    if instance.status == "completed" or instance.start_datetime <= wall_now:
+        return "passed"
+    return "active"
+
+
+def list_waiting_list_for(player, *, now=None) -> list:
+    """Rule 11 (PAD-504): the student's per-class waiting-list entries, newest first."""
+    from padel_app.models import Coach, LessonInstance, Presence
+
+    wall_now = utc_to_wall_naive(now or utcnow_naive())
+    entries = (
+        WaitingListEntry.query.filter_by(player_id=player.id)
+        .order_by(WaitingListEntry.joined_at.desc(), WaitingListEntry.id.desc())
+        .all()
+    )
+    if not entries:
+        return []
+    instance_ids = [e.lesson_instance_id for e in entries]
+    instances = {i.id: i for i in LessonInstance.query.filter(LessonInstance.id.in_(instance_ids)).all()}
+    placed_ids = {
+        row.lesson_instance_id
+        for row in Presence.query.filter(
+            Presence.player_id == player.id, Presence.lesson_instance_id.in_(instance_ids)
+        ).all()
+    }
+    coaches = {c.id: c for c in Coach.query.filter(Coach.id.in_({e.coach_id for e in entries})).all()}
+    rows = []
+    for e in entries:
+        inst = instances.get(e.lesson_instance_id)
+        if inst is None:
+            continue
+        coach = coaches.get(e.coach_id)
+        joined = e.joined_at.isoformat() if e.joined_at else None
+        rows.append({
+            "kind": "waiting_list",
+            "id": e.id,
+            "lessonInstanceId": inst.id,
+            "classTitle": (inst.lesson.title if inst.lesson else "") or "",
+            "date": inst.start_datetime.date().isoformat(),
+            "startTime": inst.start_datetime.strftime("%H:%M"),
+            "endTime": inst.end_datetime.strftime("%H:%M") if inst.end_datetime else None,
+            "coachName": coach.user.name if coach and coach.user else "",
+            "status": _waiting_list_status(e, inst, inst.id in placed_ids, wall_now),
+            "joinedAt": joined,
+            "createdAt": joined,
+        })
+    return rows
 
 
 def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:

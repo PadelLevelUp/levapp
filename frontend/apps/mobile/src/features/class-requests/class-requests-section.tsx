@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_REQUEST_DURATIONS,
+  clubDateOfInstant,
   clubTodayISO,
   lightTheme,
   mergeClassRequestRows,
@@ -22,9 +23,10 @@ import {
   type MergedClassRequestRow,
 } from "@levelup/config";
 import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
-import type { ClassJoinRequestListRow, ClassRequest, EligibilityCheckEntry } from "@levelup/types";
+import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
+import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,6 +68,14 @@ export function ClassRequestsSection({
   // classes.join-requests rule 17 (PAD-460): academy requests, shown beside the
   // private ones above, merged newest first (`@levelup/config`, shared with web).
   const joinRequests = useQuery({ queryKey: queryKeys.classJoinRequests, queryFn: classJoinRequestsApi.listClassJoinRequests });
+  // classes.academy-class-booking rule 11 (PAD-504): the student's waiting-list places.
+  const waitingList = useQuery({
+    queryKey: queryKeys.classWaitingList,
+    queryFn: academyClassesApi.listClassWaitingList,
+    enabled: role === "student",
+  });
+  const [confirmLeaveId, setConfirmLeaveId] = React.useState<number | null>(null);
+  const [leavingId, setLeavingId] = React.useState<number | null>(null);
   // The request lists, the class detail's own read wherever it is cached (an academy
   // decision made from this list must not leave it stale) and, rule 19 (PAD-488), the calendar.
   const invalidate = () => void refreshAfterRequestChange(queryClient);
@@ -163,8 +173,8 @@ export function ClassRequestsSection({
   };
 
   const merged = React.useMemo(
-    () => mergeClassRequestRows(requests.data ?? [], joinRequests.data ?? []),
-    [requests.data, joinRequests.data]
+    () => mergeClassRequestRows(requests.data ?? [], joinRequests.data ?? [], waitingList.data ?? []),
+    [requests.data, joinRequests.data, waitingList.data]
   );
   const { open, closed } = React.useMemo(() => splitClassRequestRows(merged), [merged]);
   const [showClosed, setShowClosed] = React.useState(false);
@@ -304,9 +314,76 @@ export function ClassRequestsSection({
     );
   };
 
-  const renderMergedRow = (row: MergedClassRequestRow) => (row.kind === "academy" ? renderAcademyRow(row) : renderRow(row));
+  // Rule 11 (PAD-504), mirroring web: a waiting-list place; leaving asks once, inline. Maestro
+  // cannot read attributes, so the state and the class are part of the test ids.
+  // Either way the list is read again; a 404 means the place is already gone, so no error.
+  const handleLeaveWaitingList = async (r: ClassWaitingListRow) => {
+    setLeavingId(r.id);
+    try {
+      await academyClassesApi.leaveClassWaitingList(r.lessonInstanceId);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) toast.error(t("classRequests.waitingList.leaveFailed"));
+    }
+    setConfirmLeaveId(null);
+    invalidate();
+    void queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
+    setLeavingId(null);
+  };
 
-  const loading = requests.isPending || joinRequests.isPending;
+  const renderWaitingRow = (r: ClassWaitingListRow) => {
+    const confirming = confirmLeaveId === r.id;
+    const busy = leavingId === r.id;
+    return (
+      <View
+        key={`waiting-${r.id}`}
+        className="gap-2 rounded-lg border border-border bg-card p-3"
+        testID={`class-waiting-list-row-${r.status}-${r.lessonInstanceId}`}
+      >
+        <View className="flex-row items-start justify-between gap-2">
+          <View className="min-w-0 flex-1 gap-1">
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Badge variant="outline">
+                <Text>{t("classRequests.academyBadge")}</Text>
+              </Badge>
+              <Text className="font-medium">{r.classTitle}</Text>
+            </View>
+            <Text className="text-sm text-muted-foreground">
+              {r.date} · {r.startTime}{r.endTime ? `–${r.endTime}` : ""} · {t("classRequests.waitingList.withCoach", { name: r.coachName })}
+            </Text>
+            {r.joinedAt ? (
+              <Text className="text-xs text-muted-foreground">
+                {t("classRequests.waitingList.joinedOn", { date: clubDateOfInstant(r.joinedAt) })}
+              </Text>
+            ) : null}
+          </View>
+          <Badge variant={r.status === "placed" ? "default" : r.status === "active" ? "secondary" : "outline"}>
+            <Text>{t(`classRequests.waitingList.status.${r.status}`)}</Text>
+          </Badge>
+        </View>
+        {r.status === "active" && !confirming ? (
+          <Button size="sm" variant="ghost" onPress={() => setConfirmLeaveId(r.id)} testID={`class-waiting-list-leave-${r.lessonInstanceId}`}>
+            <Text>{t("classRequests.waitingList.leave")}</Text>
+          </Button>
+        ) : null}
+        {r.status === "active" && confirming ? (
+          <View className="flex-row flex-wrap items-center gap-2" testID={`class-waiting-list-leave-confirm-${r.lessonInstanceId}`}>
+            <Text className="text-sm">{t("classRequests.waitingList.leaveConfirm")}</Text>
+            <Button size="sm" variant="destructive" disabled={busy} onPress={() => void handleLeaveWaitingList(r)} testID={`class-waiting-list-leave-yes-${r.lessonInstanceId}`}>
+              <Text>{t("classRequests.waitingList.leaveYes")}</Text>
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onPress={() => setConfirmLeaveId(null)}>
+              <Text>{t("classRequests.waitingList.cancel")}</Text>
+            </Button>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderMergedRow = (row: MergedClassRequestRow) =>
+    row.kind === "waiting_list" ? renderWaitingRow(row) : row.kind === "academy" ? renderAcademyRow(row) : renderRow(row);
+
+  const loading = requests.isPending || joinRequests.isPending || (role === "student" && waitingList.isPending);
   const loadFailed = requests.isError || joinRequests.isError;
 
   return (

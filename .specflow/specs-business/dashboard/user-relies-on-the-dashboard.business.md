@@ -4,6 +4,7 @@ status: implemented
 implemented_by:
   - ../../specs/dashboard/blocks.spec.md
   - ../../specs/dashboard/navigation.spec.md
+  - ../../specs/dashboard/profile-completeness.spec.md
 ---
 
 # User relies on the dashboard

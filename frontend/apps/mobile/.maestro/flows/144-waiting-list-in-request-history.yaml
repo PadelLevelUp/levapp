@@ -1,0 +1,35 @@
+# Mirrors: apps/web/e2e/class-requests/pad504-waiting-list-history.spec.ts (PAD-504,
+# classes.academy-class-booking rule 11). The student's waiting-list place is in the Availability
+# request history with its state; they leave it from there (one inline confirmation) and the row
+# moves to history as `left`. State and class are part of the iOS test ids.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad504-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad504-teardown.js
+---
+- assertTrue: "${output.instanceId > 0}"
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-availability"
+- scrollUntilVisible:
+    element:
+      id: "class-waiting-list-row-active-${output.instanceId}"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "class-waiting-list-leave-${output.instanceId}"
+- tapOn:
+    id: "class-waiting-list-leave-yes-${output.instanceId}"
+- scrollUntilVisible:
+    element:
+      id: "class-requests-history-toggle"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "class-requests-history-toggle"
+- scrollUntilVisible:
+    element:
+      id: "class-waiting-list-row-left-${output.instanceId}"
+    direction: DOWN
+    timeout: 15000

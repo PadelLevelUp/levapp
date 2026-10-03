@@ -53,6 +53,9 @@ DEFAULT_MESSAGE_TEMPLATES = {
     # its own leading space (" on <weekday> at <time>") and is empty for a class
     # with no start time, which `_format_template` tidies up.
     "added_to_class": "Hi {name}, I've added you to {class}{when}. See you there! 🎾",
+    # PAD-489 (notifications.reminders rule 22): a class created after its reminder time; the
+    # student is counted as coming and told so. No question in it.
+    "added_to_class_coming": "Hi {name}, I've added you to {class}{when}. You're counted as coming. If you can't make it, tell me in the app. 🎾",
     "class_cancelled": "Hi {name}, your {level} class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
 }
 
@@ -69,6 +72,7 @@ DEFAULT_MESSAGE_TEMPLATES_PT = {
     "waiting_list_confirm": "Estás na lista de espera! Avisamos-te se abrir uma vaga.",
     "waiting_list_placed": "Boas notícias {name}! Abriu uma vaga na aula de {level} na {weekday} às {time} e foste adicionado. Até já! 🎾",
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
+    "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
     "class_cancelled": "Olá {name}, a tua aula de {level} de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
 }
 
@@ -120,6 +124,9 @@ DEFAULT_INVITATION_GROUPS = [
     },
     {"id": "3", "rules": []},
 ]
+
+#: notifications.config rule 14: the floor of maxInactiveTime, the same as the clients' stepper.
+MIN_INACTIVE_MINUTES = 15
 
 DEFAULT_TIEBREAKERS = [
     {"id": "unjustified_absences", "label": "Fewest unjustified absences", "enabled": True},
@@ -360,6 +367,10 @@ class NotificationConfig(db.Model, model.Model):
             sub = sub if isinstance(sub, dict) else {}
             setattr(self, enabled_col, _bool_or(sub.get("enabled"), DEFAULT_RESTRICTIONS[key]["enabled"]))
             setattr(self, value_col, _int_or(sub.get("value"), DEFAULT_RESTRICTIONS[key]["value"]))
+        # PAD-495 item 11 (rule 14): the clients bound maxInactiveTime to 15–1440 minutes; any other
+        # caller is held to the same floor, so the timer never acts on a start still in progress.
+        if self.max_inactive_time_value is not None and self.max_inactive_time_value < MIN_INACTIVE_MINUTES:
+            self.max_inactive_time_value = MIN_INACTIVE_MINUTES
         quiet = data.get("quietHours")
         self.quiet_hours_enabled = _bool_or(quiet.get("enabled"), False) if isinstance(quiet, dict) else False
         # PAD-451 compat: a quietHours object without start/end (an app from before PAD-451) keeps

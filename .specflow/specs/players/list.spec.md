@@ -14,10 +14,10 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 
 ### Rules
 1. `GET /api/app/coach_players` returns all coach-player pairs for the authenticated coach (with evaluations, notes)
-2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side
+2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side, incomplete
 3. Search matches against player name (case-insensitive)
 4. Sort options: name-asc, name-desc, level-asc, level-desc
-5. Filters: `missing_level=true` (players without assigned level), `missing_side=true` (players without side preference)
+5. Filters: `missing_level=true` (players without assigned level), `missing_side=true` (players without side preference), `incomplete=true` (no level OR no side — the dashboard's "see all", `dashboard.profile-completeness` rule 3; PAD-486). The three are mutually exclusive on screen; each can arrive in the Players URL
 6. Frontend uses 60-second LRU cache for paginated results, invalidated on mutations
 7. The roster endpoints — `GET /api/app/players`, `/api/app/coach_players`,
    `/api/app/coach_players_paginated` — are **coach-only**. Each resolves the acting coach with

@@ -114,6 +114,10 @@ executionOrder:
     - 25-claim-request
     - 26-message-by-username
     - 27-unknown-sender-block
+    # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in
+    # onFlowComplete, like 113; positions not load bearing.
+    - 151-coach-incomplete-players
+    - 152-student-profile-reminder
     # 142 (PAD-483, B-267) blocks a roster student as the coach and unblocks it in
     # onFlowComplete; it picks a student with no thread, so its position is not load bearing.
     - 142-picker-refusal-explains-itself
@@ -151,6 +155,8 @@ executionOrder:
     # class's waiting list.
     - 65-academy-class-request
     - 66-academy-class-waitlist
+    # 144 (PAD-504) creates and removes its own full class, like 66.
+    - 144-waiting-list-in-request-history
     # 67 creates its own academy class and join request through the API (PAD-358).
     - 67-coach-sees-join-note
     # 69 sets and clears the coach's working hours (PAD-357); it resets them first.

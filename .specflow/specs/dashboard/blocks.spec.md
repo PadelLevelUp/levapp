@@ -112,6 +112,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      filtered calendar events on `invited`/`confirmed` flags the calendar serializer does not emit
      (`helpers/dashboard/events.py`, deleted). The queue reads `Presence` directly, which is the
      same source the Invites KPI already counted, so the two can no longer disagree.
+   **(PAD-486, PAD-490)** Two more top-level types, defined in `dashboard.profile-completeness`:
+   `incomplete_players` (coach, after `needs_you`) and `profile_incomplete` (student, before the
+   hero). Each is omitted entirely when empty and is unknown to builds before them, which skip it.
 3a. **(PAD-202) Design language.** Coach and student homes are built from the SAME components on
    each shell (web `components/dashboard/coach/*`, iOS `features/dashboard/blocks.tsx`); they
    differ only in which blocks the server sends and how the desktop columns are arranged. The

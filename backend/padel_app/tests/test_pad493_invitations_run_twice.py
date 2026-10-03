@@ -26,7 +26,7 @@ START = datetime(2026, 6, 11, 9, 0)
 
 
 def _seed(*, enrolled: int, candidates: int, max_players: int, quiet: bool = False, semi: bool = False,
-          max_total: int | None = None, max_inactive: bool = True):
+          max_total: int | None = None, max_inactive: bool = True, groups: int = 1, max_sim: int = 3):
     """A coach, one level, `enrolled` students on the class and `candidates` eligible others.
     One invitation round (no rules), batches of 3, 120 min between batches, no total cap; quiet
     hours (22:00-07:00 Lisbon) only with `quiet`, approval before sending only with `semi`."""
@@ -81,10 +81,11 @@ def _seed(*, enrolled: int, candidates: int, max_players: int, quiet: bool = Fal
         db.session.add(Presence(player_id=s.id, lesson_instance_id=instance.id, invited=True,
                                 confirmed=False, enrolment_source="coach"))
     db.session.add(NotificationConfig(
-        coach_id=coach.id, auto_notify_enabled=True, invitation_groups=[{"id": "1", "rules": []}],
+        coach_id=coach.id, auto_notify_enabled=True,
+        invitation_groups=[{"id": str(i + 1), "rules": []} for i in range(groups)],
         invitation_mode="semi_automatic" if semi else "automatic",
         restrictions={"quietHours": {"enabled": quiet},
-                      "maxSimultaneous": {"enabled": True, "value": 3},
+                      "maxSimultaneous": {"enabled": True, "value": max_sim},
                       "maxInactiveTime": {"enabled": max_inactive, "value": 120},
                       "maxTotal": {"enabled": max_total is not None, "value": max_total or 10}},
     ))
@@ -304,7 +305,9 @@ def test_b260_a_no_on_a_confirmed_invitation_changes_nothing(app, monkeypatch):
 
         result = respond_to_notification(first.id, "no", winner_user_id, now=NOW + timedelta(minutes=2))
 
-        assert result["action"] == "declined"
+        # PAD-495 item 5: the answer reports what is true — the student holds the spot — so both
+        # clients show the Accepted badge, not Declined.
+        assert result["action"] == "confirmed"
         assert NotificationEvent.query.get(first.id).status == "confirmed"
         assert first.player_id in LessonInstance.query.get(instance_id).enrolled_player_ids
         assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == total

@@ -313,6 +313,7 @@
     },
     "notify": {
       "title": "Notificar alunos",
+      "declinedThisClass": "Recusou esta aula",
       "loadingGroups": "A carregar grupos…",
       "selectAllIn": "Selecionar todos em {{group}}",
       "searchPlaceholder": "Pesquisar alunos individualmente…",

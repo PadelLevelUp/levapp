@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, time
+import contextlib
+import contextvars
 import json
 import re
 
@@ -47,6 +49,25 @@ def _get_or_insert(model, build, **key):
     except IntegrityError:
         savepoint.rollback()
         return model.query.filter_by(**key).one()
+
+
+# PAD-489 (notifications.reminders rule 22): while set, a NEW enrolment is recorded as
+# answered yes by the system and no late ask is armed for it. Set only around materialising
+# the occurrences of a class CREATED after its reminder time (add_class_service); every other
+# enrolment path, a student added later included, keeps rule 18 and is asked.
+_COUNTED_AS_COMING = contextvars.ContextVar("levapp_counted_as_coming", default=frozenset())
+
+
+@contextlib.contextmanager
+def counted_as_coming(player_ids):
+    """The players (ids) whose NEW enrolments are counted while the block runs. A request's
+    invitees are left out (review of #535): they did not ask for the class, so they are told
+    and asked like anyone added to it."""
+    token = _COUNTED_AS_COMING.set(frozenset(int(p) for p in player_ids))
+    try:
+        yield
+    finally:
+        _COUNTED_AS_COMING.reset(token)
 
 
 def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
@@ -120,7 +141,17 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # be the same over-reach as `confirmed` meaning "coming".
         presence.confirmed = confirmed
 
-    if created or returning:
+    if created and player_id in _COUNTED_AS_COMING.get():
+        # PAD-489 (rule 22): the class was created after its reminder time, so there was no
+        # moment to ask; the coach arranged it with them. Answered yes by the system, told by
+        # the caller, validated after the class like everyone else (coming is not present).
+        # The vacancy reconciliation below is skipped on purpose: the occurrence was created a
+        # moment ago and holds no vacancy yet.
+        from padel_app.services.presence_response import record_response
+
+        presence.confirmed = True
+        record_response(presence, "confirmed", recorded_by="system")
+    elif created or returning:
         # PAD-331: a late arrival must actually be ASKED. The reminder chain is
         # spent once a pass reports nothing more due, so nobody who joins after
         # it is asked by anything — clearing the cap (PAD-318) removes the
@@ -141,13 +172,15 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # whose premise — that they left — is void, and which capacity alone
         # would not close while the class has spare room.
         from padel_app.services.notification_service import (
-            _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+            _close_vacancy, _open_vacancy_for, _publish_retired, reconcile_vacancies,
         )
 
+        retired = []
         if returning:
             own = _open_vacancy_for(instance.id, player_id)
             if own is not None:
-                _close_vacancy(own, player_id)
+                retired = _close_vacancy(own, player_id)
+        _publish_retired(retired)  # PAD-499: queued now, sent by the next commit (this enrolment's)
         reconcile_vacancies(instance, filled_by_player_id=player_id)
 
         # PAD-330: the coach's own hand on ONE occurrence — an instance-level add
@@ -539,6 +572,9 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    # clubs.courts rule 9 (PAD-513): the court is an override only when it
+    # differs from the lesson's; NULL inherits.
+    lesson_instance.court_id = _court_override(instance_data, parent_lesson)
     lesson_instance.create()
 
     add_ids = {
@@ -579,6 +615,12 @@ def create_lesson_instance_helper(data, parent_lesson=None):
         ).create()
 
     return lesson_instance
+
+
+def _court_override(data, lesson):
+    court = data.get('court')
+    court = int(court) if court not in (None, '') else None
+    return court if court != (lesson.court_id if lesson is not None else None) else None
 
 
 def edit_lesson_instance_helper(data, lesson_instance=None):
@@ -627,6 +669,11 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
         _lesson_cap = lesson_instance.lesson.max_players if lesson_instance.lesson else None
         lesson_instance.max_players_override = _cap if _cap != _lesson_cap else None
     lesson_instance.max_players = lesson_instance.effective_max_players
+    # clubs.courts rule 9 (PAD-513): a court equal to the lesson's clears the
+    # override — which is also how a "this and future" court edit reaches the
+    # occurrences from the boundary on (the lesson is edited first).
+    if 'court' in data:
+        lesson_instance.court_id = _court_override(data, lesson_instance.lesson)
     lesson_instance.save()
 
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
@@ -718,12 +765,12 @@ def add_presences(lesson_instance, payload):
         # what makes it stale, not the arithmetic.
         if was_absent and presence_obj.status != "absent":
             from padel_app.services.notification_service import (
-                _close_vacancy, _open_vacancy_for, reconcile_vacancies,
+                _close_vacancy, _open_vacancy_for, _publish_retired, reconcile_vacancies,
             )
 
             own = _open_vacancy_for(lesson_instance.id, player_id)
-            if own is not None:
-                _close_vacancy(own, player_id)
+            retired = _close_vacancy(own, player_id) if own is not None else []
+            _publish_retired(retired)  # PAD-499: queued now, sent by the next commit
             reconcile_vacancies(lesson_instance, filled_by_player_id=player_id)
 
         created_presences.append(presence_obj)
@@ -992,13 +1039,17 @@ def edit_lesson_from_data(lesson, data):
     return lesson
 
 
-def add_class_service(data, coach, club, *, notify_students=True):
+def add_class_service(data, coach, club, *, notify_students=True, counted_player_ids=None):
     """Builds a lesson payload from frontend add_class data and creates the lesson.
 
     PAD-390 (B-136 step 5): a missing, empty or blank name and a capacity that is
     not a positive integer (0, null, "", a fraction, text — an absent key too)
     are refused before anything is written, 400 naming the fields; both used to
     reach the NOT NULL column (an IntegrityError) or a KeyError — a 500 either way.
+
+    ``counted_player_ids`` (PAD-489, rule 22): the players counted as coming when the
+    class is created after its reminder time; ``None`` means everyone in ``playerIds``.
+    A request's accept passes the requester alone, so invitees are told and asked.
     """
     refused = _refused_class_fields(
         {"title": data.get("name"), "max_players": data.get("maxPlayers"),
@@ -1046,7 +1097,22 @@ def add_class_service(data, coach, club, *, notify_students=True):
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
 
-    lesson = create_lesson_helper(lesson_payload, notify_students=notify_students)
+    # PAD-489 (notifications.reminders rule 22): a class created after its reminder time
+    # counts its students as coming. Decided here, before anything is written, from the
+    # coach's timing as saved (a plain read: creating a class must not create settings).
+    counted = list(lesson_payload["player_ids"]) if counted_player_ids is None else [
+        p for p in lesson_payload["player_ids"] if int(p) in {int(c) for c in counted_player_ids}
+    ]
+    # A class whose notifications are off would never have asked: nothing has "passed".
+    late_dates = (
+        _occurrence_dates_past_their_reminder_time(lesson_payload, coach.id)
+        if counted and data.get("notificationsEnabled") is not False else []
+    )
+    told_as_coming = bool(late_dates) and notify_students
+
+    lesson = create_lesson_helper(
+        lesson_payload, notify_students=notify_students and not told_as_coming,
+    )
 
     if lesson_payload.get("recurs_until_season_end"):
         lesson.recurs_until_season_end = True
@@ -1067,7 +1133,63 @@ def add_class_service(data, coach, club, *, notify_students=True):
         from padel_app.scheduler import _maybe_schedule_lesson
         _maybe_schedule_lesson(lesson.id, lesson.coaches_relations[0].coach_id)
 
+    # PAD-489 (rule 22): the occurrences whose reminder time has already passed exist from
+    # now on, with their students answered yes; later occurrences get the ordinary reminder.
+    first_late = None
+    if late_dates:
+        with counted_as_coming(counted):
+            for occ_date in late_dates:
+                instance = get_or_materialize_instance(lesson, occ_date)
+                first_late = first_late or instance
+        db.session.commit()
+    if told_as_coming and first_late is not None:
+        from padel_app.services.notification_service import notify_student_added_to_class
+
+        for player_id in counted:
+            notify_student_added_to_class(coach, player_id, instance=first_late, counted_as_coming=True)
+
     return lesson
+
+
+def _occurrence_dates_past_their_reminder_time(lesson_payload, coach_id):
+    """PAD-489: the dates of the occurrences, inside the coach's reminder offset, whose
+    reminder time under the coach's saved timing is already past and that have not started.
+    Reads the coach's configuration without creating it."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.scheduler import _fire_time_utc
+    from padel_app.services.past_due_service import _lookahead
+    from padel_app.tools.calendar_tools import expand_occurrences
+    from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first() or NotificationConfig(coach_id=coach_id)
+    timing = config.get_reminder_timing()
+    now = utcnow_naive()
+    wall_now = utc_to_wall_naive(now)
+    start = lesson_payload["start_datetime"]
+    if isinstance(start, str):
+        # add_class_service builds "dd/mm/YYYY, HH:MM" for the form (build_datetime).
+        start = datetime.strptime(start, "%d/%m/%Y, %H:%M")
+    if start is None:
+        return []
+    if lesson_payload.get("is_recurring") and lesson_payload.get("recurrence_rule"):
+        window_end = wall_now + _lookahead(timing) + timedelta(days=1)
+        end = lesson_payload.get("recurrence_end")
+        if isinstance(end, str):
+            end = datetime.strptime(end, "%Y-%m-%d").date()
+        occurrences = expand_occurrences(
+            start, lesson_payload["recurrence_rule"], end, wall_now, window_end,
+        )
+    else:
+        occurrences = [start]
+    dates = []
+    for occ in occurrences:
+        occ_wall = occ.replace(tzinfo=None) if getattr(occ, "tzinfo", None) else occ
+        if occ_wall <= wall_now:
+            continue
+        fire = _fire_time_utc(occ_wall, timing)
+        if fire is not None and fire <= now:
+            dates.append(occ_wall.date())
+    return dates
 
 
 def confirm_presences_service(class_instance_data, presences_data):
@@ -1204,6 +1326,16 @@ def _edit_future_instances_for_lesson(*, lesson, from_date, payload):
         inst_payload = dict(payload)
         inst_payload["date"] = inst.start_datetime.date().strftime("%Y-%m-%d")
         edit_lesson_instance_helper(inst_payload, inst)
+
+
+def _clear_court_overrides(lesson, from_date):
+    (
+        LessonInstance.query
+        .filter(LessonInstance.lesson_id == lesson.id)
+        .filter(LessonInstance.start_datetime >= datetime.combine(from_date, time.min))
+        .update({LessonInstance.court_id: None}, synchronize_session=False)
+    )
+    db.session.commit()
 
 
 def _ensure_date(payload, date_obj):
@@ -1358,6 +1490,16 @@ def edit_class_service(data):
         target = LessonInstance.query.get_or_404(original_id).lesson if model == "LessonInstance" else Lesson.query.get_or_404(original_id)
         court = resolve_court_for_club(target.club_id, updates.get("courtId"))
         payload["court"] = court.id if court else None
+        # clubs.courts rule 9 (PAD-513). Both editors send scope "single" for a
+        # class that does not recur: its court is the class's own. For one
+        # occurrence of a series, "no court" cannot be stored (NULL inherits the
+        # series' court) — refused, never dropped.
+        if scope == "single" and not target.recurrence_rule:
+            # Not committed here: the occurrence's save below commits it, so an
+            # edit that fails on the way writes nothing.
+            target.court_id = payload["court"]
+        elif scope == "single" and court is None and target.court_id is not None:
+            return {"error": "invalid_fields", "fields": ["courtId"]}, 400
 
     if model == "LessonInstance":
         instance = LessonInstance.query.get_or_404(original_id)
@@ -1516,12 +1658,16 @@ def edit_class_service(data):
         # clears them so they are re-timed below.
         if event_date == lesson.start_datetime.date():
             cancel_lesson_reminder_jobs(lesson.id, from_date=new_date or event_date)
-        lesson_to_edit, _ = _apply_future_edit_to_lesson(
+        lesson_to_edit, from_date = _apply_future_edit_to_lesson(
             lesson=lesson,
             event_date=event_date,
             new_date=new_date,
             payload=payload,
         )
+        if "court" in payload:
+            # clubs.courts rule 9 (PAD-513): the series' new court reaches every
+            # occurrence from the boundary on, own courts included.
+            _clear_court_overrides(lesson_to_edit, from_date)
         if notifications_enabled is not None:
             lesson_to_edit.notifications_enabled = notifications_enabled
             lesson_to_edit.save()

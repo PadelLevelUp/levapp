@@ -125,6 +125,21 @@
       "joinedWaitingList": "Estás na lista de espera.",
       "offerDeclined": "Anotado — não ficas na lista."
     },
+    "profileCompleteness": {
+      "coachTitle": "Alunos com o perfil incompleto",
+      "coachBody": "Sem nível não recebem convites para aulas com regra de nível; sem lado ficam fora das vagas reservadas a um lado.",
+      "noLevel": "sem nível",
+      "noSide": "sem lado",
+      "seeAll": "Ver todos",
+      "studentTitle": "O teu treinador ainda não completou o teu perfil",
+      "studentBodyLevel": "O teu treinador ainda não definiu o teu nível. Até lá não recebes convites para aulas com regra de nível nem as podes pedir. Podes sempre pedir uma aula privada.",
+      "studentBodySide": "O teu treinador ainda não definiu o teu lado. Até lá não recebes convites para vagas reservadas a um lado. Podes sempre pedir uma aula privada.",
+      "studentBodyBoth": "O teu treinador ainda não definiu o teu nível nem o teu lado. Até lá não recebes convites para aulas com regra de nível nem para vagas reservadas a um lado, e não podes pedir aulas com regra de nível. Podes sempre pedir uma aula privada.",
+      "studentCoach": "Treinador: {{name}}",
+      "remind": "Lembrar treinador",
+      "reminded": "Lembrete enviado hoje",
+      "remindFailed": "Não foi possível enviar o lembrete. Tenta novamente."
+    },
     "emailPrompt": {
       "text": "Adiciona o teu email para poderes recuperar a palavra-passe e receber avisos.",
       "add": "Adicionar email",
