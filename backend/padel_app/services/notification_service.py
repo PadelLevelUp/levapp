@@ -3157,17 +3157,19 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> 
 
 def _publish_retired(events: list) -> None:
     """PAD-499: tell the clients about the invite messages `_close_vacancy` retired, once the
-    caller's commit has made them real (a rollback must not leave a published edit behind)."""
+    caller's commit has made them real. The payloads are built now, from the flushed state that
+    commit will write (no SQL can run after a commit); the publishes are queued for after it and
+    dropped by a rollback (padel_app.tools.after_commit)."""
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
+    from padel_app.tools.after_commit import on_commit
 
     for event in events:
         msg = Message.query.get(event.message_id) if event.message_id else None
         if msg is not None:
-            publish(
-                {"type": "message_edited", "payload": serialize_message(msg, None)},
-                message_recipient_ids(msg),
-            )
+            payload = {"type": "message_edited", "payload": serialize_message(msg, None)}
+            recipients = list(message_recipient_ids(msg))
+            on_commit(lambda payload=payload, recipients=recipients: publish(payload, recipients))
 
 
 def _expire_stale_invitations(instance: LessonInstance) -> int:
