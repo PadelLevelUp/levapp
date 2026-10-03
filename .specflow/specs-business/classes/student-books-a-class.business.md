@@ -67,6 +67,8 @@ Students who want a class outside the coach's published schedule, and the coach 
   on it see it on their calendars and home screens straight away, on every device they have open,
   with no reload and no logging out (PAD-488). A device that was offline at that moment catches up
   the next time it reloads that screen.
+- When the coach proposes another time, moving the start moves the end with it, so the class keeps
+  its length (the student's, or the one the coach set); the coach can still change the end (PAD-491).
 
 ## Success Metrics
 

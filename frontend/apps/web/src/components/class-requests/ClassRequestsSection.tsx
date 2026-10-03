@@ -18,6 +18,8 @@ import {
   CLASS_REQUEST_DURATIONS,
   clubTodayISO,
   mergeClassRequestRows,
+  proposalAfterStartChange,
+  requestMinutes,
   slotOptions,
   splitClassRequestRows,
   type MergedClassRequestRow,
@@ -293,11 +295,20 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t("availability.startTime")}</Label>
-                  <Input type="time" value={proposal.startTime} onChange={(e) => setProposal((p) => ({ ...p, startTime: e.target.value }))} />
+                  <Input
+                    type="time"
+                    value={proposal.startTime}
+                    data-testid="class-request-proposal-start"
+                    // Rule 20 (PAD-491): the end moves with the start, keeping the form's length.
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setProposal((p) => ({ ...p, ...proposalAfterStartChange(p, next, requestMinutes(r)) }));
+                    }}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t("availability.endTime")}</Label>
-                  <Input type="time" value={proposal.endTime} onChange={(e) => setProposal((p) => ({ ...p, endTime: e.target.value }))} />
+                  <Input type="time" value={proposal.endTime} data-testid="class-request-proposal-end" onChange={(e) => setProposal((p) => ({ ...p, endTime: e.target.value }))} />
                 </div>
                 <Button size="sm" disabled={busy || !proposal.date} onClick={() => act(r.id, () => proposeClassRequest(r.id, proposal), "classRequests.proposed")} data-testid="class-request-propose-send">
                   {t("classRequests.proposeSend")}
