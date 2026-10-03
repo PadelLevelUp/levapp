@@ -69,7 +69,9 @@ def test_cancel_by_model_and_date_materialises_the_requested_class(app):
 
     ids = _setup(app)
     with app.app_context():
-        tomorrow = club_now_naive().date() + timedelta(days=1)
+        # Five days out: since PAD-489 (rule 22) a request accepted inside the reminder window
+        # materialises its occurrence at once; this test is about a VIRTUAL one.
+        tomorrow = club_now_naive().date() + timedelta(days=5)
     lesson_id = _requested_class(app, ids, tomorrow)
     assert _instances(app, lesson_id) == []
     uid = _student_user_id(app, ids["player_id"])
@@ -123,7 +125,10 @@ def test_class_instance_payload_carries_deadlines_for_a_virtual_occurrence(app, 
 
     ids = _setup(app)
     with app.app_context():
-        tomorrow = club_now_naive().date() + timedelta(days=1)
+        # Five days out, not tomorrow: since PAD-489 (notifications.reminders rule 22) a
+        # request accepted inside the reminder window materialises its occurrence at once,
+        # with the student counted as coming. This test is about a VIRTUAL occurrence.
+        tomorrow = club_now_naive().date() + timedelta(days=5)
     lesson_id = _requested_class(app, ids, tomorrow)
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     uid = _student_user_id(app, ids["player_id"])
