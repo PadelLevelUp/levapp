@@ -315,7 +315,10 @@ export function MessageBubble({
   }
 
   return (
-    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}>
+    <div
+      data-testid={`message-item-${message.id}`}
+      className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}
+    >
       <motion.div
         className={`relative max-w-[80%] md:max-w-[65%] ${message.reactions?.length ? 'pb-4' : ''}`}
         drag="x"
@@ -377,6 +380,16 @@ export function MessageBubble({
           <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
             {message.content}
           </p>
+
+          {/* messaging.conversation-detail rule 16 (PAD-492): the time's size and colour. */}
+          {message.isAutomatic && (
+            <p
+              data-testid="message-automatic-note"
+              className={`text-[10px] mt-1 ${isMine ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}
+            >
+              {t('messages.automaticMessage')}
+            </p>
+          )}
 
           <div className={`flex items-center gap-1 mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
             {message.edited && (

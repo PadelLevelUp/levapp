@@ -1,0 +1,31 @@
+# Mirrors: apps/web/e2e/messaging/picker-scope-and-refusal.spec.ts (PAD-483, B-267,
+# messaging.conversations rule 7 + "The clients say why a picked person cannot be messaged").
+# A picked row the server refuses (here: a list loaded before the coach blocked that
+# student) shows "You can't message this user" in the label line and stays on the picker,
+# instead of a row that silently stops spinning. Asserted by test id, never rendered copy.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad483-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad483-teardown.js
+---
+- assertTrue: "${output.targetId > 0}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-messages"
+- tapOn:
+    id: "messages-new"
+- extendedWaitUntil:
+    visible:
+      id: "user-item-${output.targetId}"
+    timeout: 20000
+- runScript: ../scripts/pad483-block.js
+- assertTrue: "${output.blockStatus < 300}"
+- tapOn:
+    id: "user-item-${output.targetId}"
+- extendedWaitUntil:
+    visible:
+      id: "new-conversation-picker-error"
+    timeout: 15000
+- assertVisible:
+    id: "screen-new-conversation"

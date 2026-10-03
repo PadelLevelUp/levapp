@@ -44,9 +44,20 @@ Manage conversations between users (1:1 or group chats).
    `hasMore: false`, `oldestMessageId: null`
 7. A coach may start a conversation with any player on their **roster** (`coach_in_player`) or in
    any **club** they belong to (`player_in_club`) — the union of the two is the coach's
-   messageable set. Everyone else is a student and may start a conversation with any active coach.
-   The same set backs both `GET /api/app/messageable-users` (the picker) and the 403 guard on
-   `POST /api/app/conversation`. Blocks, either way, remove a user from it.
+   messageable set. Everyone else is a student and may start a conversation with an active coach
+   they are **linked** to: the coach has them on their roster (`coach_in_player`), they share a
+   club (`coach_in_club` × `player_in_club`), or the coach teaches a class they are in that is
+   **not yet over** — an occurrence (`coach_in_lesson_instance` × `presences`) that has not ended
+   and is not cancelled, or a series (`coach_in_lesson` × `player_in_lesson`) with an occurrence
+   still ahead (one-off: its end is in the future; recurring: no `recurrence_end`, or one not yet
+   passed). A past class is not a link, so removing a student from the roster drops the coach
+   once their shared classes are over. A declined ("not coming") enrolment on a future class
+   still counts: the student is still enrolled. — B-267, PAD-483. The same set backs both `GET /api/app/messageable-users` (the picker) and the 403
+   guard on `POST /api/app/conversation` with `otherParticipants`. Blocks, either way, remove a
+   user from it. What stays reachable outside the set, on purpose: any active, activated user by exact
+   username — placeholder accounts and users without a password never match
+   (`messaging.direct-by-username` rules 2–3, decision 2026-09-06 item 5) — and any automatic
+   message, which never consults the set (system sends create their own direct conversation).
 8. The scope in rule 7 governs **starting** a conversation only. It never restricts sending inside
    a conversation that already exists.
 9. A conversation and **all** of its `ConversationParticipant` rows are written in one
@@ -198,6 +209,36 @@ Manage conversations between users (1:1 or group chats).
 - **Given** an authenticated student
 - **When** they GET `/api/app/messageable-users`
 - **Then** every entry has role `coach`; no student appears
+
+#### A student's picker lists only linked coaches (B-267)
+- **Given** student S on coach A's roster, sharing a club with coach B, enrolled in a series coach
+  C teaches and in an occurrence coach D teaches, and active coach E with none of these links
+- **When** S GETs `/api/app/messageable-users`
+- **Then** the response holds A, B, C and D, and not E
+
+#### A student cannot start a conversation with an unlinked coach (B-267)
+- **Given** the same S and E
+- **When** S POSTs `/api/app/conversation` with `otherParticipants: [E]`
+- **Then** the response is 403
+- **And** POSTing `otherUsername: "<E's username>"` instead still opens the conversation
+
+#### Removing a link does not cut an existing thread (B-267, rule 8)
+- **Given** S and A have a conversation, A then removes S from the roster, and they share no class that
+  is not yet over
+- **When** S sends a message in that conversation
+- **Then** it is delivered, and A no longer appears in S's picker
+
+#### A class that is over is not a link (B-267, #514 review)
+- **Given** coach F taught S once, 90 days ago, and S is on no roster, club or current class of F's
+- **When** S GETs `/api/app/messageable-users` and POSTs `otherParticipants: [F]`
+- **Then** F is absent and the POST answers 403
+- **And** the same holds for a series whose `recurrence_end` has passed, a one-off class that has ended,
+  and a future occurrence that was cancelled; a future occurrence S declined still links
+
+#### The clients say why a picked person cannot be messaged (B-267)
+- **Given** a picker row that the server refuses with 403 (a stale list)
+- **When** the user taps it on web or on iOS
+- **Then** the screen shows "You can't message this user" and stays on the picker
 
 #### Two first messages at once make one conversation (PAD-411)
 - **Given** a coach and a student with no conversation between them
