@@ -585,10 +585,13 @@ def test_join_a_failed_enrolment_changes_nothing_and_the_coach_can_accept_again(
 
 # ── #527 final read item 5: the waiting-list fill re-checks the student under its lock ──────
 
-@pytest.mark.parametrize("meanwhile", ["declined", "left_the_list"])
+@pytest.mark.parametrize("meanwhile", ["declined", "left_the_list", "enrolled"])
 def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch, meanwhile):
-    """`_check_waiting_list` picks the entry before the lock. A "no" to this class (rule 18), or the
-    student leaving the waiting list, landing between the pick and the lock must stop the placement."""
+    """`_check_waiting_list` picks the entry before the lock. A "no" to this class (rule 18), the
+    student leaving the waiting list, or the student being enrolled by another path, landing between
+    the pick and the lock must stop the placement. The change is written by ANOTHER connection, as a
+    concurrent request would: a commit in this session would expire and reload `entry` by itself
+    and hide a missing re-read (final read of #527, F1)."""
     from padel_app.models import LessonInstance, NotificationEvent, Vacancy, WaitingListEntry
     from padel_app.services import notification_service as ns
     from padel_app.tests.test_notification_integration import PATCHES as INT_PATCHES
@@ -605,14 +608,21 @@ def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch,
         real_lock = ns._lock_vacancy_and_instance
 
         def lock(vacancy, instance):
-            # what another request committed while this fill was on its way to the lock
-            if meanwhile == "declined":
-                db.session.add(NotificationEvent(coach_id=ids["coach_id"], lesson_instance_id=ids["instance_id"],
-                                                 player_id=ids["bea"], type="manual", round_number=1,
-                                                 status="expired", answer="no"))
-            else:
-                WaitingListEntry.query.filter_by(id=entry_id).update({"is_active": False})
-            db.session.commit()
+            # what another request committed, on its own connection, while this fill was on its way
+            from sqlalchemy.orm import Session as OtherSession
+
+            from padel_app.models.presences import Presence
+
+            with OtherSession(db.engine) as other:
+                if meanwhile == "declined":
+                    other.add(NotificationEvent(coach_id=ids["coach_id"], lesson_instance_id=ids["instance_id"],
+                                                player_id=ids["bea"], type="manual", round_number=1,
+                                                status="expired", answer="no"))
+                elif meanwhile == "left_the_list":
+                    other.query(WaitingListEntry).filter_by(id=entry_id).update({"is_active": False})
+                else:
+                    other.add(Presence(player_id=ids["bea"], lesson_instance_id=ids["instance_id"]))
+                other.commit()
             return real_lock(vacancy, instance)
 
         monkeypatch.setattr(ns, "_lock_vacancy_and_instance", lock)
@@ -621,5 +631,6 @@ def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch,
             LessonInstance.query.get(ids["instance_id"]), ids["coach_id"], ns.get_or_create_config(ids["coach_id"]))
         db.session.expire_all()
         assert placed is False
-        assert ids["bea"] not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+        if meanwhile != "enrolled":
+            assert ids["bea"] not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
         assert Vacancy.query.get(vacancy_id).status == "open"

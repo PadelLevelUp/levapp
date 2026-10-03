@@ -53,3 +53,8 @@ the class's invitation rows, manual ones included. These two can wait on each ot
 class-start instant: one holds the invitation row and wants the class, the other holds the class
 and writes that row. Postgres would abort one with a deadlock error, and that answer would fail
 for a class that has just started. It is left as is, at that cost.
+
+The after-commit queue (`padel_app/tools/after_commit.py`) belongs to the TRANSACTION, not to a
+savepoint level. Work queued INSIDE a savepoint that is then rolled back still runs at the outer
+commit. No caller queues inside a savepoint today. One that does must drop its own entries when its
+savepoint rolls back.
