@@ -233,10 +233,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     winner's own invitation, which its caller marks `confirmed`. The routine returns the events
     it retired, because a caller that still has to tell those candidates cannot find them again
     afterwards â€” a query for live invitations returns nothing once they are expired.
-    **Retiring is not the same as telling.** The two accept paths and the join-request accept
-    send the other candidates the `spot_filled` message; the waiting-list placement and
-    reconciliation retire silently, as they always have. Whether a candidate should be told
-    their seat went is a product question, deliberately left open here.
+    **Retiring is the telling (PAD-501).** No closing path sends the other candidates a
+    `spot_filled` message: their retired invitation shows "Vaga preenchida", and a second chat
+    message saying the same was redundant (owner: "no message when an invitation expires or the
+    spot is filled"; `notifications.message-templates` rule 15). The join-request accept still
+    tells pending join requesters whose request it closes (`classes.join-requests` rule 10).
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
     still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
@@ -265,8 +266,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     the Accepted badge (PAD-495). Leaving a class after
     winning it goes through the attendance cancel, not the invitation. A "yes" after the
     student's own "no" on the same invitation is the same no-op too (rule 18), and so is a "yes"
-    repeated by a student who lost the spot: they were told `spot_filled` and offered the waiting
-    list once, and the repeat answers the same and sends nothing (PAD-495).
+    repeated by a student who lost the spot: their answer was `spot_filled` (no message since
+    PAD-501) and they were offered the waiting list once, and the repeat answers the same and
+    sends nothing (PAD-495).
 18. **A student's "no" is final for that class; one live offer per student per class (PAD-497,
     absorbing PAD-494; owner, 2026-10-02: "a student no means I dont want a spot in this class.
     He should never be invited to that class again").** "That class" is the single occurrence

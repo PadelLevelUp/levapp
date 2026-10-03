@@ -142,8 +142,9 @@ Players confirm or decline their attendance in response to a reminder notificati
    and `respond_to_reminder`'s retaking branch. When the row is `status=absent` and not validated,
    it locks the instance, re-checks capacity, and either re-seats the student — clearing `status`,
    `justification` and `late_cancellation` per `attendance.presence` rule 9, closing their vacancy
-   and retiring live invitations — or refuses with `{"action": "spot_filled"}`, messaging the
-   student and notifying the coach. This rule adds **only** the way in.
+   and retiring live invitations — or refuses with `{"action": "spot_filled"}` and notifies the coach. The student
+   is not sent a message: the screen that sent the request shows the refusal
+   (`notifications.message-templates` rule 15, PAD-501). This rule adds **only** the way in.
    - **Offered while `attendanceState` is `not_coming` and the class has not started.** Same gate
      shape as rule 9's cancel, and in the same place: the student's own attendance block, so a row
      still shows one state word and one action at a time (rule 25).
