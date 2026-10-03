@@ -1,7 +1,7 @@
 """PAD-513: an occurrence's own court
 
 Revision ID: 1228571ddef6
-Revises: b3a1c474d07b
+Revises: 867a814a5522
 Create Date: 2026-10-03
 
 clubs.courts rule 9. A nullable `lesson_instances.court_id` (FK -> courts.id,
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "1228571ddef6"
-down_revision = "b3a1c474d07b"
+down_revision = "867a814a5522"
 branch_labels = None
 depends_on = None
 

@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(
     reason="walks the real Alembic revision; Postgres backend only",
 )
 
-PARENT = "b3a1c474d07b"
+PARENT = "867a814a5522"  # PAD-485
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "migrations")
 
 

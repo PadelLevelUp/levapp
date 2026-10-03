@@ -34,7 +34,7 @@ resolved: 2026-10-03T02:51:53Z
 
 ### Resolution
 - Code: `LessonInstance.court_id` + `effective_court`; `_court_override` in both instance helpers (a court equal to the lesson's clears the override); `_court_ref` and the class detail read the occurrence first; a one-off class's single-scope edit writes the lesson's court; `courtId: null` for one occurrence of a series with a court is 400 `invalid_fields ["courtId"]`; a "this and future" edit that sends `courtId` clears own courts from the boundary on (`_clear_court_overrides` on the Lesson path; the LessonInstance path gets it through the instance helper); `delete_court` clears occurrences too; the `{court}` message placeholder (`class_placeholders`) reads the occurrence's court first, so a reminder names the court the card shows. The one-off court write is committed with the occurrence, so a failing edit writes nothing.
-- Migration `1228571ddef6` (parent `b3a1c474d07b`): guarded both ways; Postgres walk in `test_pad513_migration_postgres.py`.
+- Migration `1228571ddef6` (parent `867a814a5522`, PAD-485): guarded both ways; Postgres walk in `test_pad513_migration_postgres.py`.
 - Spec: `clubs.courts` rule 9 and criteria, the display-only statement in its Intent; `classes.edit` rules 6 and 7; the business spec's rule 8.
 - Found by the independent read of the first build (385d69162): the placeholder still read the lesson's court, and the one-off write committed before the edit could fail. Both fixed with a red test first.
 - Clients: no product change. Wiring tests keep `courtId` in the single-scope save (web `ClassDetailSheet.court.test.ts`, iOS `class-save-flow.test.ts`).
