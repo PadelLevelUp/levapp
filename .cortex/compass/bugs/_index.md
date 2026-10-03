@@ -202,3 +202,4 @@ whether a failure mode has been seen before.
 - [B-282](B-282-engine-toggle-locator-broken-by-a-wrapper.md) — E2E: the engine's master toggle was found by English text plus an ancestor xpath; PAD-473's wrapper around the label broke it and two gate tests failed; now by test id (test-defect, high, resolved)
 - [B-262](B-262-clearing-the-email-keeps-the-account-verified.md) — Settings: clearing the email left the account marked verified, with no email to reach it (incomplete-rule, medium, resolved)
 - [B-263](B-263-typing-before-the-profile-loads-empties-the-name.md) — Settings → Perfil: typing before the profile had loaded left the other fields empty and the save was refused (incomplete-rule, medium, resolved)
+- [B-286](B-286-nav-unread-badge-spec-is-order-dependent.md) — E2E: nav-unread-badge's PAD-149 test is red after other specs (PAD-511 subset #528, gate shard 2) and green alone; order dependency, cause not yet investigated (test-defect, medium, open)
