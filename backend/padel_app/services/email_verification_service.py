@@ -45,7 +45,10 @@ def verification_required():
 
 
 def verification_state(user):
-    """`verified` | `pending` | `unverified` — rule 2."""
+    """`verified` | `pending` | `unverified` — rule 2. With no email there is nothing verified (B-262),
+    whatever an older row still holds."""
+    if not user.email:
+        return "unverified"
     if user.email_verified_at is not None:
         return "verified"
     if user.email and user.email_verification_required:
@@ -125,6 +128,16 @@ def send_code(user, now=None):
         "expiresInSeconds": int(CODE_TTL.total_seconds()),
         "resendAvailableInSeconds": int(RESEND_COOLDOWN.total_seconds()),
     }
+
+
+def forget_verification(user):
+    """B-262 (rule 2; settings.profile rule 9): an account whose email is cleared has nothing to be
+    verified — no timestamp, nothing required, no pending code — so it reads `unverified`. Does not
+    commit: the caller's save does."""
+    user.email_verified_at = None
+    user.email_verification_required = False
+    user.email_verification_sent_at = None
+    _clear_code(user)
 
 
 def begin_verification(user, now=None):
