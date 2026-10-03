@@ -1,6 +1,7 @@
 # PAD-507 (notifications.waiting-list rule 2): on iOS the coach adds a student to the standing
 # waiting list with an end date (default preset: 1 month), sees "Renovar · Até <date>" on the
-# player's page, and renews to the 12-month preset; the credits stay.
+# player's page, and renews to the 12-month preset chip; the credits stay. The chips replace a
+# Select whose list opened behind the dialog (B-295).
 #
 # Setup and teardown through the API (R-040): Filler Player 08 starts and ends with no standing
 # entry (onFlowComplete removes it, on failure too). The player card is found by its playerId
@@ -50,6 +51,19 @@ onFlowComplete:
     timeout: 10000
 - assertVisible:
     id: "waiting-list-end-date"
+# B-295: the date picker opens ON TOP of this dialog, reachable (its own dialog, Cancel/Done).
+- tapOn:
+    id: "waiting-list-end-date"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-list-end-date-confirm"
+    timeout: 10000
+- tapOn:
+    id: "waiting-list-end-date-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "waiting-list-end-date-confirm"
+    timeout: 10000
 - tapOn:
     id: "waiting-list-save"
 - extendedWaitUntil:
@@ -67,12 +81,6 @@ onFlowComplete:
     timeout: 10000
 - assertNotVisible:
     id: "waiting-list-credits"
-- tapOn:
-    id: "waiting-list-duration"
-- extendedWaitUntil:
-    visible:
-      id: "waiting-list-preset-12m"
-    timeout: 10000
 - tapOn:
     id: "waiting-list-preset-12m"
 - tapOn:

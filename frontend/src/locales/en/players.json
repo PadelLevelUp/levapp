@@ -100,7 +100,6 @@
     "duration2Months": "2 months",
     "duration6Months": "6 months",
     "duration12Months": "12 months",
-    "endDateCustom": "Other date",
     "endDate": "Until",
     "endDateHint": "Pick a length or a date, up to 12 months from today.",
     "endDateInvalid": "Choose a date between today and 12 months from now.",

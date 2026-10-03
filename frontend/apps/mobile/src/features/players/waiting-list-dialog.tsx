@@ -20,14 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  type Option,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
@@ -36,7 +28,9 @@ import { useAddToStandingWaitingList, useRenewStandingWaitingList } from "./hook
 const DEFAULT_CREDITS = 3;
 const MIN_CREDITS = 1;
 const MAX_CREDITS = 20;
-const CUSTOM = "custom";
+/** B-295: the date picker's dialog renders inside this dialog's overlay, above it (through the
+ * root host it draws behind). */
+const DIALOG_PORTAL_HOST = "waiting-list-dialog-host";
 
 interface WaitingListDialogProps {
   open: boolean;
@@ -48,7 +42,7 @@ interface WaitingListDialogProps {
 }
 
 /** Mobile port of web's AddToStandingWaitingListDialog.tsx (notifications.waiting-list rule 2,
- * PAD-507). The end date: a preset in the Select fills it, or the date field takes any date today
+ * PAD-507). The end date: a preset chip fills it, or the date field takes any date today
  * through 12 months ahead ("Outra data"). Credits use a −/value/+ stepper mirroring web's; a
  * renewal keeps them and moves the end date only. */
 export function WaitingListDialog({
@@ -78,11 +72,6 @@ export function WaitingListDialog({
 
   const valid = isStandingEndAllowed(expiresOn, today);
   const preset = standingPresetOf(expiresOn, today);
-  const presetLabel = (key: string | null) => {
-    const found = STANDING_PRESETS.find((p) => p.key === key);
-    return found ? t(found.labelKey) : t("players.endDateCustom");
-  };
-  const presetOption: Option = { value: preset ?? CUSTOM, label: presetLabel(preset) };
 
   const handleClose = () => {
     if (pending) return;
@@ -112,7 +101,7 @@ export function WaitingListDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent testID="waiting-list-dialog">
+      <DialogContent testID="waiting-list-dialog" innerPortalHost={DIALOG_PORTAL_HOST}>
         <DialogHeader>
           <DialogTitle>
             {renewing ? t("players.renewWaitingListTitle") : t("players.addToWaitingList")}
@@ -128,34 +117,41 @@ export function WaitingListDialog({
 
           <View className="gap-2">
             <Text className="text-sm font-medium">{t("players.endDate")}</Text>
-            <Select
-              value={presetOption}
-              onValueChange={(option) => {
-                const key = STANDING_PRESETS.find((p) => p.key === option?.value)?.key;
-                if (key) setExpiresOn(standingEndFor(key, today));
-              }}
+            {/* Presets as chips, as web's pills: a Select inside a Dialog is unreachable on iOS (B-295). */}
+            <View
+              className="flex-row flex-wrap gap-2"
+              accessibilityLabel={t("players.waitingListDurationAria")}
             >
-              <SelectTrigger
-                testID="waiting-list-duration"
-                accessibilityLabel={t("players.waitingListDurationAria")}
-              >
-                <SelectValue placeholder={t("players.endDate")} />
-              </SelectTrigger>
-              <SelectContent>
-                {STANDING_PRESETS.map((opt) => (
-                  <SelectItem
+              {STANDING_PRESETS.map((opt) => {
+                const chosen = preset === opt.key;
+                return (
+                  <Pressable
                     key={opt.key}
                     testID={`waiting-list-preset-${opt.key}`}
-                    value={opt.key}
-                    label={t(opt.labelKey)}
-                  />
-                ))}
-              </SelectContent>
-            </Select>
+                    role="button"
+                    accessibilityState={{ selected: chosen }}
+                    onPress={() => setExpiresOn(standingEndFor(opt.key, today))}
+                    className="rounded-md border px-3 py-1.5"
+                    style={{
+                      backgroundColor: chosen ? lightTheme.primary : "transparent",
+                      borderColor: chosen ? lightTheme.primary : lightTheme.border,
+                    }}
+                  >
+                    <Text
+                      className="text-sm"
+                      style={{ color: chosen ? lightTheme.primaryForeground : lightTheme.foreground }}
+                    >
+                      {t(opt.labelKey)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <DatePickerInput
               testID="waiting-list-end-date"
               value={expiresOn}
               onChange={setExpiresOn}
+              portalHost={DIALOG_PORTAL_HOST}
               error={valid ? undefined : t("players.endDateInvalid")}
             />
             {valid ? (

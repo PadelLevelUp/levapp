@@ -200,6 +200,7 @@ export function StandingWaitingListSection() {
               <Button
                 variant="ghost"
                 size="icon"
+                data-testid="standing-wl-remove"
                 aria-label={t("settings.standingList.remove")}
                 className="shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => handleRemove(entry.id)}
