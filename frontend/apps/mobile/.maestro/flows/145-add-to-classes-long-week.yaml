@@ -56,14 +56,76 @@ onFlowComplete:
 - assertVisible:
     id: "add-to-classes-week-prev"
 
-# A finger on the list, until the week's last class is in it.
-- scrollUntilVisible:
-    element:
-      id: "add-to-classes-class-${output.pad496Last}"
-    direction: DOWN
-    timeout: 60000
-    speed: 40
-    visibilityPercentage: 100
+# A finger on the list, to its end. A fixed number of swipes that start and end inside the
+# list, more than the week needs: at the end of the list a swipe moves nothing. Not
+# scrollUntilVisible, and not a loop on "visible": on iOS Maestro counts a row that is in the
+# hierarchy but outside the list's window as visible, so both stopped early (2026-10-02).
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 70%
+    end: 50%, 40%
+- waitForAnimationToEnd
+- assertVisible:
+    id: "add-to-classes-class-${output.pad496Last}"
 
 # Header and footer did not move away.
 - assertVisible:
