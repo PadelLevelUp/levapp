@@ -275,12 +275,14 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Then** the request is rejected with 403
 - **And** no `Vacancy` is created and no invitation fan-out is triggered for that instance
 
-#### Student cancels a class they requested for tomorrow (PAD-282)
-- **Given** a student whose class request for tomorrow 10:00–11:00 the coach accepted, so a one-off
-  `private` lesson exists with the student on its roster, no `LessonInstance` row, and no reminder
-  job (its fire time was already past at accept)
+#### Student cancels a class they requested that is still virtual (PAD-282)
+- **Given** a student whose class request five days ahead, 10:00–11:00, the coach accepted, so a
+  one-off `private` lesson exists with the student on its roster and no `LessonInstance` row (its
+  reminder time is still ahead; a request accepted after its reminder time, tomorrow say, is
+  materialised at acceptance with the student counted as coming: `notifications.reminders` rule 22,
+  PAD-489, B-287)
 - **When** the student POSTs `/api/app/notify/cancel_attendance` with `{model: "Lesson",
-  originalId: <lesson id>, date: <tomorrow>}`
+  originalId: <lesson id>, date: <that day>}`
 - **Then** the response is 200 `{"action": "declined", "proactive": false|true}`
 - **And** exactly one `LessonInstance` now exists for that lesson and date, with the student's
   presence `status=absent, justification=justified`
@@ -299,7 +301,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 
 #### The class-detail payload offers the cancel action on a virtual occurrence
 - **Given** the PAD-282 setup above
-- **When** the student POSTs `/api/app/class_instance?model=Lesson&id=<lesson id>&date=<tomorrow>`
+- **When** the student POSTs `/api/app/class_instance?model=Lesson&id=<lesson id>&date=<that day>`
 - **Then** the payload carries `cancellationDeadline`, `cancellationDeadlineHours`,
   `proactiveDeclineDeadline` and `canDeclineProactively` computed for that date
 - **And** the web class-detail sheet and the iOS class screen both show the cancel action (rule 20)
