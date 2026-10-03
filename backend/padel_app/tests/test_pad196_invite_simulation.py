@@ -115,7 +115,15 @@ def _real_vacancy(ids, departing):
         _create_vacancy_for_absent_player,
     )
 
+    from padel_app.models.presences import Presence
+
     instance = LessonInstance.query.get(ids["instance_id"])
+    # The departure itself, as `_free_spot_for_declining_player` writes it: the seat is free. (Since
+    # PAD-495 the batch re-checks the class's room under the vacancy lock, so a vacancy on a class
+    # that is still full invites nobody.)
+    presence = Presence.query.filter_by(player_id=departing, lesson_instance_id=instance.id).one()
+    presence.confirmed, presence.status, presence.justification = True, "absent", "justified"
+    db.session.commit()
     return _create_vacancy_for_absent_player(instance, ids["coach_id"], departing)
 
 
