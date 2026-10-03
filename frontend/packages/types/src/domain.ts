@@ -1507,6 +1507,8 @@ export interface StandingWaitingListEntry {
   creditsUsed: number;
   creditsTotal: number;
   expiresAt: string;
+  /** PAD-507: the date the entry runs to, inclusive (club calendar). */
+  expiresOn: string | null;
   createdAt: string;
   activeClassCount: number;
 }

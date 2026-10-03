@@ -57,8 +57,21 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
    - `credits_total`: total credits purchased
    - `credits_used`: credits consumed — one per place the student takes by saying yes to a
      waiting-list invitation (rule 15, PAD-446)
-   - `expires_at`: expiration date
-3. When a new instance is materialized, `_sync_standing_entries_for_new_instance()` auto-creates waiting list entries for standing members
+   - `expires_at`: expiration instant (naive UTC)
+   - **An entry runs to an end date the coach picks (PAD-507, owner decision 2026-10-03).** The coach
+     chooses the date the entry runs to, inclusive — a preset (1 week, 2 weeks, 1 month, 2 months,
+     6 months, 12 months, counted from today) fills it, or any date. It must lie between today and
+     12 calendar months ahead on the club's calendar; there is no "no end date". The entry expires
+     at the start of the next club day (`expires_at` = that instant in UTC). The list and each
+     entry carry `expiresOn`, that date. "Today" is the club's day (Lisbon): the apps offer dates
+     from the device's day, so near midnight in another time zone a date at either end of the
+     window can be refused; the dialog then says it could not save and stays open.
+   - **Renewable:** the coach can move an active entry's end date — expired or not — to any date in
+     the same window; the credits stay as they are. Classes the new end no longer covers lose the
+     rows this entry queued there; classes it now covers gain one (rule 10).
+   - **Bounded fan-out (B-293):** an entry queues the player only for classes that start before its
+     end, and an expired entry queues nothing more, at add, renew and materialisation (rules 3, 10).
+3. When a new instance is materialized, `_sync_standing_entries_for_new_instance()` auto-creates waiting list entries for standing members whose entry has not expired and ends after the class starts (rule 2)
 3a. **Fan-out is not a promise of a place.** A standing entry fans out to every upcoming class of
    the coach, and matching happens when a spot opens (rule 4a), not at fan-out time — a student's
    level and absence record change over time, so a bar evaluated at fan-out would be stale by the
@@ -106,7 +119,13 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 5. `GET /api/app/waiting_list/{instance_id}` lists active entries
 6. The coach manages standing entries from Settings > Notifications > Standing waiting list:
    - `GET /api/app/notify/standing_waiting_list` lists the coach's active entries
-   - `POST /api/app/notify/standing_waiting_list` adds an entry (`playerId`, `credits`, `durationDays`)
+   - `POST /api/app/notify/standing_waiting_list` adds an entry (`playerId`, `credits`, `expiresOn`
+     — an ISO date, rule 2). Old app builds send `durationDays` instead: a whole number of days from
+     now, 1 to 366. Either out of bounds (or not a date / not a whole number) is answered `400
+     {"error": "invalid_fields", "fields": ["expiresOn"]}` (or `["durationDays"]`) and nothing is
+     written
+   - `PATCH /api/app/notify/standing_waiting_list/{entry_id}` `{"expiresOn"}` renews an active entry
+     of the caller's (200, the entry); the same bounds; another coach's or an inactive entry is 404
    - `DELETE /api/app/notify/standing_waiting_list/{entry_id}` deactivates an entry
 7. To pick the player to add, the section offers a type-ahead search backed by
    `GET /api/app/notify/player_search?q=<term>`, which returns `{ "players": [{ "id", "name" }] }`
@@ -138,6 +157,9 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
       (`text-muted-foreground`, `opacity-*`) — no new colour tokens — and shows an explicit
       localized "expired" label. The row's remove control stays at full emphasis and fully usable:
       an expired entry is precisely one the coach is likely to want to delete
+    - Each row shows the date the entry runs to with its year ("Expira a 3 de out. de 2027") and a
+      **Renew** control beside remove (PAD-507). The player's page, on web and iOS, shows
+      "Renovar · Até <date>" while the player holds an entry, opening the same dialog in renew mode
 12. **Only an offered player may answer (PAD-222, B-041).** `POST /api/app/notify/respond_waiting_list`
     is 403 unless the caller's player holds a `waiting_list_offer` message for that
     `lessonInstanceId` in their direct conversation with the class's coach (answered or not: a
@@ -234,6 +256,28 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **When** a second active entry for `maria` and `rui` is written directly
 - **Then** the database refuses it (integrity error); the inactive rows are unaffected
 - **And** `POST /api/app/notify/standing_waiting_list` for `rui` still works, because it deactivates the old entry first
+
+#### The coach picks the end date, up to 12 months (rule 2, PAD-507)
+- **Given** a coach adding a student to the standing waiting list from the student's page
+- **When** they pick a date 13 months away
+- **Then** the date is flagged and nothing can be sent; `POST` with that `expiresOn` (or yesterday,
+  or not a date) is 400 naming `expiresOn` and nothing is written
+- **When** they pick a date 40 days away and confirm
+- **Then** the entry is created with `expiresOn` that date, expiring at the start of the next club day
+- **And** an old build's `durationDays: 30` is still accepted; `0`, `-2`, `367` or `"abc"` is 400 naming `durationDays`
+
+#### The coach renews an entry (rule 2, PAD-507)
+- **Given** an entry with 2 of 3 credits used, ending in 5 days (or already expired but still listed)
+- **When** the coach renews it to the 12-month preset
+- **Then** `PATCH` sends that date, the entry ends then, and its credits are still 2 of 3
+- **And** another coach's entry, or an unknown id, is 404
+
+#### An entry queues its player only until its end (rule 2, B-293)
+- **Given** an entry ending in 5 days and the coach's classes in 3 and 10 days
+- **Then** the player is queued for the class in 3 days only
+- **When** the entry is renewed to 15 days, then back to 5
+- **Then** the class in 10 days gains the row, then loses it; the class in 3 days keeps its row
+- **And** a class materialised after the end, or for an entry that has expired, gets no row
 
 #### Standing entry auto-sync
 - **Given** a player with an active standing entry (5 credits, 2 used)

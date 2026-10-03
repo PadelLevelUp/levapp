@@ -5753,8 +5753,12 @@ def _deactivate_standing_entry(entry: StandingWaitingListEntry) -> None:
 
 
 def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
-    """Create per-class WaitingListEntry rows for all upcoming instances for this coach."""
+    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
+    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
     now = utcnow_naive()
+    if entry.expires_at <= now:
+        return
+    end_wall = utc_to_wall_naive(entry.expires_at)
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
     coach_instance_ids = _coach_instances(entry.coach_id)  # PAD-275 rule 4
@@ -5765,6 +5769,8 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
+            continue
+        if instance.start_datetime >= end_wall:  # B-293: not past the entry's end
             continue
         # PAD-109: match on the (lesson_instance_id, player_id) pair the
         # uq_waiting_session_player constraint covers — NOT on is_active, which
@@ -5795,10 +5801,67 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         ).create()
 
 
+# PAD-507 (notifications.waiting-list rule 2): an entry runs to an end date the coach picks, at most
+# STANDING_MAX_MONTHS ahead, renewable, never open-ended (owner decision 2026-10-03).
+STANDING_MAX_MONTHS = 12
+STANDING_MAX_DAYS = 366  # the legacy `durationDays` wire (old app builds): 1..366
+
+
+class InvalidStandingEndError(ValueError):
+    """An end date (or legacy number of days) the standing list does not accept; `field` names it."""
+
+    def __init__(self, field: str):
+        super().__init__(field)
+        self.field = field
+
+
+def standing_end_from_date(value) -> datetime:
+    """`expiresOn` (a club date, inclusive) → the UTC instant the entry expires: the start of the
+    next club day. Refused unless today <= date <= today + 12 months (club clock)."""
+    from datetime import date as _date
+
+    from dateutil.relativedelta import relativedelta
+
+    from padel_app.utils.dates import club_now_naive
+
+    day = None
+    if isinstance(value, str) and len(value) == 10:
+        try:
+            day = _date.fromisoformat(value)
+        except ValueError:
+            day = None
+    today = club_now_naive().date()
+    if day is None or day < today or day > today + relativedelta(months=STANDING_MAX_MONTHS):
+        raise InvalidStandingEndError("expiresOn")
+    return wall_to_utc_naive(datetime.combine(day + timedelta(days=1), time.min))
+
+
+def standing_end_from_days(value) -> datetime:
+    """The legacy `durationDays` wire: a whole number of days from now, 1..366."""
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise InvalidStandingEndError("durationDays")
+    if isinstance(value, str):
+        if not value.strip().isdigit():
+            raise InvalidStandingEndError("durationDays")
+        value = int(value)
+    if not 1 <= value <= STANDING_MAX_DAYS:
+        raise InvalidStandingEndError("durationDays")
+    return utcnow_naive() + timedelta(days=value)
+
+
+def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
+    """The club date an entry runs to, inclusive — the day its expiry instant falls in."""
+    if not entry.expires_at:
+        return None
+    return (utc_to_wall_naive(entry.expires_at) - timedelta(microseconds=1)).date().isoformat()
+
+
 def add_standing_waiting_list_entry(
-    coach_id: int, player_id: int, credits_total: int, duration_days: int
+    coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
+    *, expires_at: datetime | None = None,
 ) -> StandingWaitingListEntry:
-    """Add (or replace) a standing waiting list entry for a player."""
+    """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
+    (or, for the legacy callers, `duration_days` from now)."""
     # Deactivate any existing active entry for this coach/player pair
     existing = StandingWaitingListEntry.query.filter_by(
         coach_id=coach_id, player_id=player_id, is_active=True
@@ -5811,10 +5874,30 @@ def add_standing_waiting_list_entry(
         player_id=player_id,
         credits_total=credits_total,
         credits_used=0,
-        expires_at=utcnow_naive() + timedelta(days=duration_days),
+        expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
         is_active=True,
     )
     entry.create()
+    _fan_out_standing_entry(entry)
+    return entry
+
+
+def renew_standing_waiting_list_entry(entry_id: int, coach_id: int, expires_at: datetime) -> StandingWaitingListEntry:
+    """PAD-507 (rule 2): move an active entry's end. Credits stay as they are; classes the new end
+    no longer covers lose the rows this entry put there, and classes it now covers gain one."""
+    from flask import abort
+
+    entry = StandingWaitingListEntry.query.get(entry_id)
+    if entry is None or entry.coach_id != coach_id or not entry.is_active:
+        abort(404)
+    entry.expires_at = expires_at
+    entry.save()
+    end_wall = utc_to_wall_naive(expires_at)
+    for row in WaitingListEntry.query.filter_by(standing_entry_id=entry.id, is_active=True).all():
+        instance = LessonInstance.query.get(row.lesson_instance_id)
+        if instance is not None and instance.start_datetime >= end_wall:
+            row.is_active = False
+    db.session.commit()
     _fan_out_standing_entry(entry)
     return entry
 
@@ -5847,6 +5930,8 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "creditsUsed": e.credits_used,
             "creditsTotal": e.credits_total,
             "expiresAt": e.expires_at.isoformat() if e.expires_at else None,
+            # PAD-507: the club date the entry runs to, inclusive.
+            "expiresOn": standing_end_on(e),
             "createdAt": e.created_at.isoformat() if e.created_at else None,
             "activeClassCount": active_class_count,
         })
@@ -5868,7 +5953,11 @@ def _sync_standing_entries_for_new_instance(instance: LessonInstance, coach_id: 
     active_entries = StandingWaitingListEntry.query.filter_by(
         coach_id=coach_id, is_active=True
     ).all()
+    now = utcnow_naive()
     for entry in active_entries:
+        # B-293: an expired entry, or one that ends before this class, queues nothing.
+        if entry.expires_at <= now or instance.start_datetime >= utc_to_wall_naive(entry.expires_at):
+            continue
         existing = WaitingListEntry.query.filter_by(
             lesson_instance_id=instance.id,
             player_id=entry.player_id,

@@ -7,10 +7,11 @@
  * only enforced lazily by the invitation path. An entry can therefore be listed while already past
  * its `expires_at`, with nothing in the UI saying so.
  *
- * The test seeds its own data through the API rather than the shared seed script: the POST endpoint
- * derives `expires_at` from `durationDays` without validating the sign, so a negative value yields a
- * genuinely-expired row. Both entries are deleted in a `finally` block, which also deactivates the
- * per-class WaitingListEntry rows the add fanned out.
+ * The test seeds its own data through the API rather than the shared seed script. Since PAD-507 the
+ * public routes refuse an end in the past, so the expired row is backdated through the debug route
+ * `POST /notify/debug/standing_entry_expire/<id>` (E2E_DEBUG_ENDPOINTS only). Both entries are
+ * deleted in a `finally` block, which also deactivates the per-class WaitingListEntry rows the add
+ * fanned out.
  *
  * Run just this file:
  *   npx playwright test e2e/notification-engine/standing-waitlist-expired.spec.ts
@@ -71,18 +72,20 @@ test.describe("PAD-110: expired standing waiting list entries", () => {
     const createdIds: number[] = [];
 
     try {
-      // A negative durationDays backdates expires_at, producing a genuinely expired entry.
-      for (const [player, durationDays] of [
-        [expiredPlayer!, -2],
-        [activePlayer!, 30],
-      ] as const) {
+      // Both are added with a valid end date; the first is then backdated two days (debug route).
+      for (const player of [expiredPlayer!, activePlayer!]) {
         const res = await request.post(`${API_BASE}/notify/standing_waiting_list`, {
           headers,
-          data: { playerId: player.id, credits: 3, durationDays },
+          data: { playerId: player.id, credits: 3, durationDays: 30 },
         });
         expect(res.ok(), `adding ${player.name} to the standing waiting list`).toBe(true);
         createdIds.push(((await res.json()) as { id: number }).id);
       }
+      const backdated = await request.post(`${API_BASE}/notify/debug/standing_entry_expire/${createdIds[0]}`, {
+        headers,
+        data: { daysAgo: 2 },
+      });
+      expect(backdated.ok(), "backdating the expired entry").toBe(true);
 
       await loginAsCoach(page);
       await openStandingWaitingList(page);

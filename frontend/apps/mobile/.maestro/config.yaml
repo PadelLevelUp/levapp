@@ -118,6 +118,7 @@ executionOrder:
     # onFlowComplete, like 113; positions not load bearing.
     - 151-coach-incomplete-players
     - 152-student-profile-reminder
+    - 157-standing-waiting-list-end-date
     # 142 (PAD-483, B-267) blocks a roster student as the coach and unblocks it in
     # onFlowComplete; it picks a student with no thread, so its position is not load bearing.
     - 142-picker-refusal-explains-itself

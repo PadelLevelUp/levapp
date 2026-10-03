@@ -64,6 +64,9 @@ the waiting list.
 - A paid standing waiting-list entry spends one of its credits only when the student says yes and
   gets the place. A student who says no to a class is not asked for that class again and leaves
   its waiting list; their standing entry stays for their other classes.
+- A standing entry lasts until a date the coach chooses — at most twelve months ahead, never
+  indefinitely — and the coach can renew it before or after it runs out without losing the classes
+  already paid for (PAD-507).
 - A student is never offered, through the waiting list, a class they just left or a class they're
   already enrolled in.
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
