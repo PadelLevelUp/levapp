@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_REQUEST_DURATIONS,
+  clubDateOfInstant,
   clubTodayISO,
   lightTheme,
   mergeClassRequestRows,
@@ -319,18 +320,18 @@ export function ClassRequestsSection({
 
   // Rule 11 (PAD-504), mirroring web: a waiting-list place; leaving asks once, inline. Maestro
   // cannot read attributes, so the state and the class are part of the test ids.
+  // Either way the list is read again; a 404 means the place is already gone, so no error.
   const handleLeaveWaitingList = async (r: ClassWaitingListRow) => {
     setLeavingId(r.id);
     try {
       await academyClassesApi.leaveClassWaitingList(r.lessonInstanceId);
-      setConfirmLeaveId(null);
-      invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
-    } catch {
-      toast.error(t("classRequests.waitingList.leaveFailed"));
-    } finally {
-      setLeavingId(null);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) toast.error(t("classRequests.waitingList.leaveFailed"));
     }
+    setConfirmLeaveId(null);
+    invalidate();
+    void queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
+    setLeavingId(null);
   };
 
   const renderWaitingRow = (r: ClassWaitingListRow) => {
@@ -355,7 +356,7 @@ export function ClassRequestsSection({
             </Text>
             {r.joinedAt ? (
               <Text className="text-xs text-muted-foreground">
-                {t("classRequests.waitingList.joinedOn", { date: r.joinedAt.slice(0, 10) })}
+                {t("classRequests.waitingList.joinedOn", { date: clubDateOfInstant(r.joinedAt) })}
               </Text>
             ) : null}
           </View>

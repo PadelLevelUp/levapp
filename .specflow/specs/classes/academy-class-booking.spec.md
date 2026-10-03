@@ -94,7 +94,8 @@ point that composes them (PAD-358).
     and the waiting-list action. Identifiers are stable test ids (`academy-class-*`); on iOS the state
     is part of the id (`academy-class-row-open` / `-full`) because Maestro cannot read attributes.
 11. **The student's waiting lists are in their request history (PAD-504).** `GET
-    /api/app/class-waiting-list` (students only; 403 otherwise) lists the caller's per-class
+    /api/app/class-waiting-list` (any caller with a player profile, as join and leave — a coach
+    who is also a student lists their own; 403 for a caller with none) lists the caller's per-class
     `WaitingListEntry` rows — those they joined from a class and those a standing list fanned out —
     newest first, each `{kind: "waiting_list", id, lessonInstanceId, classTitle, date, startTime,
     endTime, coachName, status, joinedAt, createdAt}` (`createdAt` = `joinedAt`, so the card sorts
@@ -167,9 +168,14 @@ point that composes them (PAD-358).
 - **Then** A is `active`, B `placed`, C `left` and D `passed`, newest first, each with class title, date, times and coach name
 
 #### Only students list waiting lists (rule 11)
-- **Given** a coach
+- **Given** a coach with no player profile
 - **When** they GET `/api/app/class-waiting-list`
 - **Then** the answer is 403
+
+#### A coach who is also a student lists their own (rule 11, #530)
+- **Given** S above, whose account also has a coach profile
+- **When** S GETs `/api/app/class-waiting-list`
+- **Then** the answer is 200 with S's rows
 
 #### Leaving from the history (rule 11)
 - **Given** S's `active` row for class A on the Availability card, on web or iOS

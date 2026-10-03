@@ -15,7 +15,8 @@ vi.mock("react-i18next", () => ({
     t: (key: string, opts?: Record<string, unknown>) => (opts ? `${key}:${JSON.stringify(opts)}` : key),
   }),
 }));
-vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
+const toastFn = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastFn }) }));
 
 const requestsApi = vi.hoisted(() => ({
   listClassRequests: vi.fn(),
@@ -113,6 +114,46 @@ describe("ClassRequestsSection — waiting lists (PAD-504)", () => {
     const rows = await screen.findAllByTestId("class-waiting-list-row");
     expect(rows.map((r) => r.getAttribute("data-status")).sort()).toEqual(["left", "placed"]);
     for (const r of rows) expect(within(r).queryByTestId("class-waiting-list-leave")).toBeNull();
+  });
+
+  it("dates the place on the club's clock, not the UTC date of the stamp", async () => {
+    requestsApi.listClassRequests.mockResolvedValue([]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
+    academyApi.listClassWaitingList.mockResolvedValue([waitingRow({ joinedAt: "2026-10-02T23:30:00" })]);
+    renderSection("student");
+    const row = await screen.findByTestId("class-waiting-list-row");
+    expect(row.textContent).toContain('classRequests.waitingList.joinedOn:{"date":"2026-10-03"}');
+  });
+
+  it("a place already gone (404, left on another device) refetches and closes the confirm, with no error", async () => {
+    requestsApi.listClassRequests.mockResolvedValue([]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
+    academyApi.listClassWaitingList
+      .mockResolvedValueOnce([waitingRow({})])
+      .mockResolvedValue([waitingRow({ status: "left" })]);
+    academyApi.leaveClassWaitingList.mockRejectedValue({ response: { status: 404 } });
+    renderSection("student");
+
+    const row = await screen.findByTestId("class-waiting-list-row");
+    fireEvent.click(within(row).getByTestId("class-waiting-list-leave"));
+    fireEvent.click(within(row).getByTestId("class-waiting-list-leave-yes"));
+    await waitFor(() => expect(academyApi.listClassWaitingList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByTestId("class-waiting-list-leave-confirm")).toBeNull());
+    expect(toastFn).not.toHaveBeenCalled();
+  });
+
+  it("any other failure says so and still refetches", async () => {
+    requestsApi.listClassRequests.mockResolvedValue([]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([]);
+    academyApi.listClassWaitingList.mockResolvedValue([waitingRow({})]);
+    academyApi.leaveClassWaitingList.mockRejectedValue({ response: { status: 500 } });
+    renderSection("student");
+
+    const row = await screen.findByTestId("class-waiting-list-row");
+    fireEvent.click(within(row).getByTestId("class-waiting-list-leave"));
+    fireEvent.click(within(row).getByTestId("class-waiting-list-leave-yes"));
+    await waitFor(() => expect(toastFn).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" })));
+    await waitFor(() => expect(academyApi.listClassWaitingList).toHaveBeenCalledTimes(2));
   });
 
   it("a coach's section never asks for waiting lists", async () => {

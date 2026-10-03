@@ -113,6 +113,20 @@ def test_only_students_list_waiting_lists(client, app, history):
     assert _list(client, app, ids["coach_user_id"]).status_code == 403
 
 
+def test_a_coach_who_is_also_a_student_lists_their_own(client, app, history):
+    """Join and leave accept any caller with a player profile; the list does too."""
+    from padel_app.models.coaches import Coach
+
+    ids, classes = history
+    student_uid = _student_user_id(app, ids)
+    with app.app_context():
+        db.session.add(Coach(user_id=student_uid))
+        db.session.commit()
+    resp = _list(client, app, student_uid)
+    assert resp.status_code == 200, resp.get_json()
+    assert {r["lessonInstanceId"] for r in resp.get_json()} == set(classes.values())
+
+
 def test_another_students_entries_are_not_listed(client, app, history):
     from padel_app.models import User
     from padel_app.models.players import Player

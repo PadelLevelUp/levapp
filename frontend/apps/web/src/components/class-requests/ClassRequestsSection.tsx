@@ -16,6 +16,7 @@ import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import {
   CLASS_REQUEST_DURATIONS,
+  clubDateOfInstant,
   clubTodayISO,
   mergeClassRequestRows,
   slotOptions,
@@ -379,16 +380,21 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   };
 
   // Rule 11 (PAD-504): a waiting-list place. Leaving asks once, inline, then calls rule 6's
-  // leave endpoint; the row comes back from the server as `left`.
+  // leave endpoint; the row comes back from the server as `left`. Either way the list is read
+  // again: a 404 means the place is already gone (left on another device), so it is no error.
   const handleLeaveWaitingList = async (r: ClassWaitingListRow) => {
     setLeavingId(r.id);
     try {
       await leaveClassWaitingList(r.lessonInstanceId);
-      setConfirmLeaveId(null);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        toast({ variant: "destructive", title: t("classRequests.waitingList.leaveFailed") });
+      }
+    }
+    setConfirmLeaveId(null);
+    try {
       await refresh();
       await queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
-    } catch {
-      toast({ variant: "destructive", title: t("classRequests.waitingList.leaveFailed") });
     } finally {
       setLeavingId(null);
     }
@@ -419,7 +425,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
             </p>
             {r.joinedAt && (
               <p className="text-xs text-muted-foreground">
-                {t("classRequests.waitingList.joinedOn", { date: r.joinedAt.slice(0, 10) })}
+                {t("classRequests.waitingList.joinedOn", { date: clubDateOfInstant(r.joinedAt) })}
               </p>
             )}
           </div>

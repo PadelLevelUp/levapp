@@ -2138,11 +2138,11 @@ def join_class_waiting_list_route():
 @jwt_required()
 def list_class_waiting_list_route():
     """classes.academy-class-booking rule 11 (PAD-504): the student's waiting lists, for their
-    request history. Students only."""
+    request history. Any caller with a player profile, as join and leave."""
     from padel_app.services.academy_class_service import list_waiting_list_for
 
     player = current_player()
-    if player is None or getattr(current_user(), "coach", None) is not None:
+    if player is None:
         abort(403, "Only a student has waiting lists")
     return jsonify(list_waiting_list_for(player))
 
