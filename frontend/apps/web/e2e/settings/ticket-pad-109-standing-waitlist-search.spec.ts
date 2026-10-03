@@ -72,6 +72,6 @@ test("PAD-109: a searched student can be added to the standing waiting list", as
 
   // Clean up so the shared seed DB is left as we found it.
   const row = page.getByTestId("standing-wl-entry").filter({ has: entryName });
-  await row.getByRole("button").click();
+  await row.getByTestId("standing-wl-remove").click(); // PAD-507 added a Renew button beside it
   await expect(entryName).toBeHidden({ timeout: 5000 });
 });

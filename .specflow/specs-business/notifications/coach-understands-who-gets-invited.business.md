@@ -18,7 +18,7 @@ contacted in the first batch or has to wait. The coach can also ask about any sp
 is *not* on that list and get the one reason they were left out, in the same words the app already
 uses when it warns about an ineligible student.
 
-Nothing is sent, nobody is placed, no spot is opened: it is a rehearsal, and the coach can run it as
+Nothing is sent, nobody is enrolled, no spot is opened: it is a rehearsal, and the coach can run it as
 often as they like.
 
 ## Who This Is For
@@ -33,8 +33,8 @@ students — or asks themselves — "why was Maria invited and not João?".
 3. They choose which enrolled player to imagine cancelling.
 4. The app shows what would happen right now: anything that would stop the engine from contacting
    anyone at this moment (engine switched off, quiet hours, the class is too close, the invitation
-   window has not opened yet), whether the coach would first be asked to approve, whether a
-   waiting-list member would be placed directly instead, what the vacated spot looks like (side and
+   window has not opened yet), whether the coach would first be asked to approve, which
+   waiting-list members would be asked first, what the vacated spot looks like (side and
    level), and then every round in order with the students it would contact, their ranking values
    and a "first batch / waiting / over today's limit" badge.
 5. Below the list, the coach types the name of any student who is missing from it and reads the one
@@ -49,7 +49,7 @@ students — or asks themselves — "why was Maria invited and not João?".
 1. The rehearsal must show **the same answer the engine would give**: the students listed, their
    order and their round are produced by the very code that fills real spots, never by a copy of it.
 2. The rehearsal **never changes anything**: no invitation, no message, no approval request, no
-   waiting-list placement, no credit spent, no spot opened.
+   enrolment, no credit spent, no spot opened.
 3. It answers **as of right now**: the time-of-day and per-day limits are reported against the
    current moment, and the screen says when it was evaluated.
 4. The "why not" answer names **one reason** — the first thing that stopped that student — and,

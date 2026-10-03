@@ -4,12 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, GripVertical, Loader2, Plus, Trash2, GraduationCap } from "lucide-react";
+import { ChevronDown, GripVertical, Plus, Trash2, GraduationCap } from "lucide-react";
 import type { CoachLevel } from "@/types";
 import { getCoachLevels, addCoachLevel, deleteCoachLevel } from "@/api/coachLevel";
 import { USE_MOCK_DATA } from "@/config";
-import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
+import { TabSaveError, useTabSave } from "@/context/SettingsUnsavedContext";
 
 interface LevelDraft {
   id: string;
@@ -19,7 +18,6 @@ interface LevelDraft {
 }
 
 export function CoachLevelsSection() {
-  const { toast } = useToast();
   const { t } = useTranslation();
   const [levels, setLevels] = useState<LevelDraft[]>([]);
   // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved rows,
@@ -28,8 +26,6 @@ export function CoachLevelsSection() {
   const [baseline, setBaseline] = useState<LevelDraft[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   // Maps the server's coach levels into local draft rows, keyed by their real
@@ -55,7 +51,6 @@ export function CoachLevelsSection() {
   // must never read as "unsaved".
   const comparableLevels = (rows: LevelDraft[]) => rows.map((r) => ({ code: r.code, label: r.label }));
   const unsaved = JSON.stringify(comparableLevels(levels)) !== JSON.stringify(comparableLevels(baseline));
-  useReportUnsaved("coachLevels", unsaved);
 
   const handleAdd = () => {
     setLevels((prev) => [
@@ -69,19 +64,10 @@ export function CoachLevelsSection() {
     ]);
   };
 
-  const handleRemove = async (id: string) => {
-    setRemovingId(id);
-    try {
-      await deleteCoachLevel(id);
-      setLevels((prev) => prev.filter((l) => l.id !== id));
-      // A delete persists immediately (it isn't behind the Save button below),
-      // so the row's absence is already the server's truth.
-      setBaseline((prev) => prev.filter((l) => l.id !== id));
-    } catch {
-      toast({ variant: "destructive", title: t("settings.coachLevels.deleteFailed") });
-    } finally {
-      setRemovingId(null);
-    }
+  // settings.explicit-save (PAD-506): removing a row is an edit like any other — held until the
+  // tab's Save, which deletes the stored rows that are gone.
+  const handleRemove = (id: string) => {
+    setLevels((prev) => prev.filter((l) => l.id !== id));
   };
 
   const handleChange = (id: string, field: "code" | "label", value: string) => {
@@ -114,36 +100,36 @@ export function CoachLevelsSection() {
     setDragIdx(null);
   };
 
-  const handleSave = async () => {
+  // settings.explicit-save rule 3 (PAD-506): this section's part of the tab's one Save. It throws on
+  // a refusal, so the levels stay unsaved and the next Save retries them.
+  const save = async () => {
     const invalid = levels.some((l) => !l.code.trim() || !l.label.trim());
-    if (invalid) {
-      toast({ title: t("settings.coachLevels.validationErrorTitle"), description: t("settings.coachLevels.validationErrorDescription") });
-      return;
-    }
+    if (invalid) throw new TabSaveError(t("settings.coachLevels.validationErrorDescription"));
 
     if (USE_MOCK_DATA) {
-      toast({ title: t("settings.coachLevels.savedTitle"), description: t("settings.coachLevels.savedMock", { count: levels.length }) });
+      setBaseline(levels);
       return;
     }
 
-    const payload = levels.map((l, i) => ({ code: l.code, label: l.label, displayOrder: i + 1 }));
-    setSaving(true);
-    try {
-      await addCoachLevel(payload);
-      // Re-key local rows with the server-returned ids. The save endpoint upserts
-      // and does not echo ids back, so refetch the persisted ladder — otherwise a
-      // just-added row keeps its temp `new-…` id and deleting it before a reload
-      // sends that non-numeric id to the delete endpoint (PAD-101).
-      const fresh = toDrafts(await getCoachLevels());
-      setLevels(fresh);
-      setBaseline(fresh); // rule 2: a successful save is the new clean baseline
-      toast({ title: t("settings.coachLevels.savedTitle"), description: t("settings.coachLevels.saved", { count: levels.length }) });
-    } catch {
-      toast({ variant: "destructive", title: t("settings.coachLevels.saveFailed") });
-    } finally {
-      setSaving(false);
+    const kept = new Set(levels.map((l) => l.id));
+    for (const gone of baseline.filter((l) => !kept.has(l.id))) {
+      try {
+        await deleteCoachLevel(gone.id);
+      } catch {
+        throw new TabSaveError(t("settings.coachLevels.deleteFailed"));
+      }
+      setBaseline((prev) => prev.filter((l) => l.id !== gone.id));
     }
+    const payload = levels.map((l, i) => ({ code: l.code, label: l.label, displayOrder: i + 1 }));
+    await addCoachLevel(payload);
+    // Re-key local rows with the server-returned ids. The save endpoint upserts
+    // and does not echo ids back, so refetch the persisted ladder — otherwise a
+    // just-added row keeps its temp `new-…` id (PAD-101).
+    const fresh = toDrafts(await getCoachLevels());
+    setLevels(fresh);
+    setBaseline(fresh); // rule 2: a successful save is the new clean baseline
   };
+  useTabSave("coachLevels", unsaved, { label: t("settings.coachLevels.title"), save });
 
   if (loading) {
     return (
@@ -273,10 +259,10 @@ export function CoachLevelsSection() {
               variant="ghost"
               size="icon"
               className="order-5 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-auto sm:order-none sm:ml-0"
+              aria-label={t("settings.coachLevels.remove")}
               onClick={() => handleRemove(level.id)}
-              disabled={removingId === level.id}
             >
-              {removingId === level.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <Trash2 className="w-4 h-4" />
             </Button>
           </div>
         ))}
@@ -287,11 +273,6 @@ export function CoachLevelsSection() {
           <Button variant="outline" size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
             {t("settings.coachLevels.addLevel")}
-          </Button>
-
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saving ? t("settings.coachLevels.saving") : t("settings.coachLevels.saveLevels")}
           </Button>
         </div>
       </CardContent>

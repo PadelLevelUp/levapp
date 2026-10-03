@@ -13,7 +13,7 @@
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
+import { Link, MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@/components/layout/AppLayout", () => ({
@@ -168,6 +168,8 @@ function RouterProbe() {
   return (
     <>
       <span data-testid="probe-search">{location.search}</span>
+      <span data-testid="probe-path">{location.pathname}</span>
+      <Link data-testid="probe-link-players" to="/players">players</Link>
       <button data-testid="probe-go-connections" onClick={() => navigate("/settings?tab=connections")} />
       <button data-testid="probe-go-settings" onClick={() => navigate("/settings")} />
       <button
@@ -280,16 +282,17 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(dialog()).not.toBeInTheDocument();
   });
 
-  it("a save-on-change section (request alerts) never asks", async () => {
+  it("PAD-506: a held request-alerts change asks before leaving the tab, and nothing was sent", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
-    await screen.findByTestId("settings-request-alerts");
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
 
-    fireEvent.click(screen.getByTestId("settings-request-alerts"));
-    await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1));
+    fireEvent.click(toggle);
 
     fireEvent.click(screen.getByTestId("settings-nav-calendar"));
-    expect(dialog()).not.toBeInTheDocument();
+    expect(dialog()).toBeInTheDocument();
+    expect(updateMe).not.toHaveBeenCalled();
   });
 
   it("choosing the tab that is already active never asks", async () => {
@@ -423,154 +426,202 @@ describe("SettingsPage — the tab follows the URL (PAD-459, settings.role-scope
   });
 });
 
-describe("SettingsPage — save on change (settings.save-on-change, PAD-473)", () => {
+describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", () => {
   async function chooseLanguage(lang: "pt" | "en") {
     fireEvent.click(await screen.findByTestId(`select-option-${lang}`));
   }
+  const headerSave = () => screen.getByTestId("settings-header-save");
+  const shownLanguage = () => screen.getByLabelText("settings.language").getAttribute("data-value");
 
-  it("B-244: choosing a language stores it at once, shows it, and signs it", async () => {
+  it("a language change is held: nothing is sent and the app keeps its language until Save", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     await waitFor(() => expect(getMe).toHaveBeenCalled());
+    await waitFor(() => expect(shownLanguage()).toBe("en"));
+    expect(headerSave()).toBeDisabled();
+    vi.mocked(i18n.changeLanguage).mockClear();
 
     await chooseLanguage("pt");
 
+    expect(shownLanguage()).toBe("pt");
+    expect(updateMe).not.toHaveBeenCalled();
+    expect(i18n.changeLanguage).not.toHaveBeenCalledWith("pt");
+    expect(headerSave()).toBeEnabled();
+
+    fireEvent.click(headerSave());
     await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ language: "pt" }));
-    expect(i18n.changeLanguage).toHaveBeenCalledWith("pt");
-    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved"));
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(i18n.changeLanguage).toHaveBeenCalledWith("pt"));
+    await waitFor(() => expect(headerSave()).toBeDisabled());
   });
 
-  it("a failed language save says so and returns to the confirmed language", async () => {
-    goto("/settings?tab=preferences");
-    renderSettings();
-    await waitFor(() => expect(getMe).toHaveBeenCalled());
-    updateMe.mockRejectedValueOnce(new Error("offline"));
-
-    await chooseLanguage("pt");
-
-    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
-    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
-    expect(screen.getByLabelText("settings.language")).toHaveAttribute("data-value", "en");
-  });
-
-  it("request alerts sign their save; a failure says so and switches back", async () => {
+  it("language and request alerts go in one PATCH", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     const toggle = await screen.findByTestId("settings-request-alerts");
     await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
 
     fireEvent.click(toggle);
-    await waitFor(() => expect(screen.getByTestId("settings-request-alerts-sign")).toHaveAttribute("data-state", "saved"));
+    await chooseLanguage("pt");
+    fireEvent.click(headerSave());
 
-    updateMe.mockRejectedValueOnce(new Error("offline"));
-    fireEvent.click(toggle);
-    await waitFor(() => expect(screen.getByTestId("settings-request-alerts-sign")).toHaveAttribute("data-state", "failed"));
-    expect(toggle).toHaveAttribute("data-state", "unchecked");
+    await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1));
+    expect(updateMe).toHaveBeenCalledWith({ language: "pt", requestAlerts: false });
   });
 
-  it("the page-header Save shows on Perfil only (rule 4)", async () => {
-    // By test id: an accessible-name query over this page's DOM is what made the test load-sensitive.
-    const headerSave = () => screen.queryByTestId("settings-header-save");
+  it("a failed Save keeps the change held and unsaved, and the app keeps its language", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(shownLanguage()).toBe("en"));
+    vi.mocked(i18n.changeLanguage).mockClear();
+    updateMe.mockRejectedValueOnce(new Error("offline"));
+
+    await chooseLanguage("pt");
+    fireEvent.click(headerSave());
+
+    await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(headerSave()).toBeEnabled());
+    expect(shownLanguage()).toBe("pt");
+    expect(i18n.changeLanguage).not.toHaveBeenCalledWith("pt");
+
+    fireEvent.click(screen.getByTestId("settings-nav-calendar"));
+    expect(dialog()).toBeInTheDocument();
+  });
+
+  it("a mixed result: the part that failed stays unsaved, the part that saved is clean", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await waitFor(() => expect(shownLanguage()).toBe("en"));
+    evaluationApi.putEvaluationScale.mockRejectedValueOnce(new Error("offline"));
+
+    await chooseLanguage("pt");
+    fireEvent.click(await screen.findByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(headerSave());
+
+    await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ language: "pt" }));
+    await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledWith({ scaleMax: 10 }));
+    // Still something to save: the scale. A second Save sends only it.
+    await waitFor(() => expect(headerSave()).toBeEnabled());
+    fireEvent.click(headerSave());
+    await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledTimes(2));
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(headerSave()).toBeDisabled());
+    evaluationApi.putEvaluationScale.mockClear();
+  });
+
+  it("changed and changed back is clean: Save disabled, nothing asked", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+
+    expect(headerSave()).toBeDisabled();
+    fireEvent.click(screen.getByTestId("settings-nav-calendar"));
+    expect(dialog()).not.toBeInTheDocument();
+  });
+
+  it("the header Save shows on Perfil and Preferências, and not on a tab whose sections still save themselves", async () => {
+    const maybeSave = () => screen.queryByTestId("settings-header-save");
     goto("/settings?tab=profile");
     renderSettings();
     expect(await screen.findByTestId("settings-header-save")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("settings-nav-preferences"));
     await screen.findByTestId("settings-request-alerts");
-    expect(headerSave()).not.toBeInTheDocument();
+    expect(maybeSave()).toBeInTheDocument();
 
-    // Calendar: its sections have their own Save buttons, so the page header has nothing to save there.
+    // Calendar: until PAD-506 PR 2 its sections keep their own Save buttons.
     fireEvent.click(screen.getByTestId("settings-nav-calendar"));
     await screen.findByTestId("working-hours-works-sun");
-    expect(headerSave()).not.toBeInTheDocument();
+    expect(maybeSave()).not.toBeInTheDocument();
   });
 
-
-  function deferred<T>() {
-    let resolve!: (v: T) => void;
-    let reject!: (e: Error) => void;
-    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
-    return { promise, resolve, reject };
-  }
-  const shownLanguage = () => screen.getByLabelText("settings.language").getAttribute("data-value");
-
-  it("rule 3 / review #497: a late opening read does not replace a confirmed language", async () => {
-    const read = deferred<typeof ME>();
-    getMe.mockReset().mockReturnValueOnce(read.promise);
-    updateMe.mockImplementationOnce(async () => ({ ...ME, language: "pt" }));
+  it("a late opening read does not replace a held language", async () => {
+    let land!: (me: typeof ME) => void;
+    getMe.mockReset().mockReturnValueOnce(new Promise((resolve) => { land = resolve; }));
     goto("/settings?tab=preferences");
     renderSettings();
 
     await chooseLanguage("pt");
-    await waitFor(() => expect(updateMe).toHaveBeenCalledTimes(1));
-    await act(async () => { read.resolve(ME); }); // the read started before the PATCH: it says en
+    await act(async () => { land(ME); }); // the read says en
     await waitFor(() => expect(shownLanguage()).toBe("pt"));
-
-    updateMe.mockRejectedValueOnce(new Error("offline"));
-    await chooseLanguage("en");
-    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
-    expect(shownLanguage()).toBe("pt");
-    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("pt");
+    expect(headerSave()).toBeEnabled();
   });
 
-  it("rule 3 / review #497: a language save failing before the opening read lands returns to the language shown", async () => {
-    getMe.mockReset().mockReturnValueOnce(new Promise(() => undefined));
-    updateMe.mockRejectedValueOnce(new Error("offline"));
-    goto("/settings?tab=preferences");
-    renderSettings();
-
-    await chooseLanguage("pt");
-    await waitFor(() => expect(screen.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "failed"));
-    expect(shownLanguage()).toBe("en");
-    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
-  });
-
-  it("rule 3: two held language saves both fail — back to the confirmed language, not the one the last started from", async () => {
-    goto("/settings?tab=preferences");
-    renderSettings();
-    await waitFor(() => expect(getMe).toHaveBeenCalled());
-    await waitFor(() => expect(shownLanguage()).toBe("en"));
-    const y = deferred<typeof ME>();
-    const z = deferred<typeof ME>();
-    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
-
-    await chooseLanguage("pt"); // Y
-    await chooseLanguage("en"); // Z, started from pt
-    await act(async () => { y.reject(new Error("y")); });
-    await act(async () => { z.reject(new Error("z")); });
-
-    expect(shownLanguage()).toBe("en");
-    expect(i18n.changeLanguage).toHaveBeenLastCalledWith("en");
-  });
-
-  it("rule 3: request alerts — two held saves both fail, back to the confirmed value", async () => {
-    goto("/settings?tab=preferences");
-    renderSettings();
-    const toggle = await screen.findByTestId("settings-request-alerts");
-    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
-    const y = deferred<typeof ME>();
-    const z = deferred<typeof ME>();
-    updateMe.mockReturnValueOnce(y.promise).mockReturnValueOnce(z.promise);
-
-    fireEvent.click(toggle); // Y: off
-    fireEvent.click(toggle); // Z: on, started from off
-    await act(async () => { y.reject(new Error("y")); });
-    await act(async () => { z.reject(new Error("z")); });
-
-    expect(toggle).toHaveAttribute("data-state", "checked");
-  });
-
-  it("settings.unsaved-edits rule 1: frequency and scale save on change and never ask", async () => {
+  it("frequency and scale are held, sent by the one Save, and then clean", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     fireEvent.click(await screen.findByTestId("settings-evaluation-scale-option-10"));
     fireEvent.click(await screen.findByTestId("settings-evaluation-reminder-option-monthly"));
+    expect(evaluationApi.putEvaluationScale).not.toHaveBeenCalled();
+    expect(evaluationApi.putEvaluationSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(headerSave());
     await waitFor(() => expect(evaluationApi.putEvaluationScale).toHaveBeenCalledWith({ scaleMax: 10 }));
     await waitFor(() => expect(evaluationApi.putEvaluationSettings).toHaveBeenCalledWith({ reminder: "monthly" }));
 
+    await waitFor(() => expect(headerSave()).toBeDisabled());
     fireEvent.click(screen.getByTestId("settings-nav-calendar"));
     expect(dialog()).not.toBeInTheDocument();
-    expect(await screen.findByTestId("working-hours-works-sun")).toBeInTheDocument();
+  });
+
+  it("an in-app link out of Settings asks while something is held; Discard follows it (rule 5)", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+    fireEvent.click(toggle);
+
+    fireEvent.click(screen.getByTestId("probe-link-players"));
+    expect(dialog()).toBeInTheDocument();
+    expect(screen.getByTestId("probe-path")).toHaveTextContent("/settings");
+
+    fireEvent.click(screen.getByTestId("settings-unsaved-discard"));
+    await waitFor(() => expect(screen.getByTestId("probe-path")).toHaveTextContent("/players"));
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+
+  it("signing out from the avatar menu asks while something is held; Discard signs out (#550 review F3)", async () => {
+    const { guardedLeave } = await import("@/lib/leave-guard");
+    goto("/settings?tab=preferences");
+    renderSettings();
+    const toggle = await screen.findByTestId("settings-request-alerts");
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "checked"));
+    fireEvent.click(toggle);
+    const signOut = vi.fn();
+
+    act(() => guardedLeave(signOut));
+    expect(dialog()).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("settings-unsaved-discard"));
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+
+  it("with nothing held, signing out leaves at once", async () => {
+    const { guardedLeave } = await import("@/lib/leave-guard");
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await screen.findByTestId("settings-request-alerts");
+    const signOut = vi.fn();
+
+    act(() => guardedLeave(signOut));
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(dialog()).not.toBeInTheDocument();
+  });
+
+  it("with nothing held, an in-app link leaves at once", async () => {
+    goto("/settings?tab=preferences");
+    renderSettings();
+    await screen.findByTestId("settings-request-alerts");
+
+    fireEvent.click(screen.getByTestId("probe-link-players"));
+    expect(dialog()).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("probe-path")).toHaveTextContent("/players"));
   });
 });
 

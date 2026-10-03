@@ -87,7 +87,10 @@
       "countPastSeason": "A última aula ({{last}}) é depois do fim da época ({{end}}).",
       "fieldEndCount": "Número de aulas",
       "endCountInvalid": "Escolha entre 1 e 52 aulas.",
-      "fieldTime": "Hora"
+      "fieldTime": "Hora",
+      "timeStart": "Hora de início",
+      "timeEnd": "Hora de fim",
+      "endBeforeStart": "A hora de fim tem de ser depois da hora de início."
     },
     "overlap": {
       "title": "Horário sobreposto",

@@ -1,0 +1,101 @@
+# confirmed — Session-C, iPhone 17 Pro simulator, feature/pad-507, 2026-10-03 15:56Z and 15:57Z: passed twice in a row
+# PAD-507 (notifications.waiting-list rule 2): on iOS the coach adds a student to the standing
+# waiting list with an end date (default preset: 1 month), sees "Renovar · Até <date>" on the
+# player's page, and renews to the 12-month preset chip; the credits stay. The chips replace a
+# Select whose list opened behind the dialog (B-295).
+#
+# Setup and teardown through the API (R-040): Filler Player 08 starts and ends with no standing
+# entry (onFlowComplete removes it, on failure too). The player card is found by its playerId
+# (fixture data); everything else by test id, never rendered copy.
+# Flow number 157 is from Session C's range (157–160), granted by the coordinator 2026-10-03.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleared = (function () { var rows = json(http.get(output.api + '/api/app/notify/standing_waiting_list', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); for (var i = 0; i < rows.length; i++) { if (rows[i].playerId === output.pid) { http.delete(output.api + '/api/app/notify/standing_waiting_list/' + rows[i].id, { headers: { 'Authorization': 'Bearer ' + output.coachTok } }); } } return true; })()}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.pid = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'Filler Player 08'; })[0].playerId}"
+- evalScript: "${output.entry = function () { var rows = json(http.get(output.api + '/api/app/notify/standing_waiting_list', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); for (var i = 0; i < rows.length; i++) { if (rows[i].playerId === output.pid) return rows[i]; } return null; }}"
+- assertTrue: "${output.entry() === null}"
+- evalScript: "${output.oneMonth = (function () { var d = new Date(); d.setMonth(d.getMonth() + 1); return output.fmt(d); })()}"
+- evalScript: "${output.twelve = (function () { var d = new Date(); d.setMonth(d.getMonth() + 12); return output.fmt(d); })()}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "Filler Player 08"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.pid}"
+    timeout: 20000
+- tapOn:
+    id: "player-card-${output.pid}"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+
+# ── Add: the default end date is one month from today ──
+- tapOn:
+    id: "player-waiting-list"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-list-dialog"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    id: "waiting-list-end-date"
+# B-295: the date picker opens ON TOP of this dialog, reachable (its own dialog, Cancel/Done).
+- tapOn:
+    id: "waiting-list-end-date"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-list-end-date-confirm"
+    timeout: 10000
+- tapOn:
+    id: "waiting-list-end-date-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "waiting-list-end-date-confirm"
+    timeout: 10000
+- tapOn:
+    id: "waiting-list-save"
+- extendedWaitUntil:
+    visible:
+      id: "player-waiting-list-renew"
+    timeout: 15000
+- assertTrue: "${output.entry().expiresOn === output.oneMonth && output.entry().creditsTotal === 3}"
+
+# ── Renew: the 12-month preset moves the end date; credits stay ──
+- tapOn:
+    id: "player-waiting-list-renew"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-list-dialog"
+    timeout: 10000
+- assertNotVisible:
+    id: "waiting-list-credits"
+# The dialog slides in; a tap during the animation can land on the overlay, which closes it.
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "waiting-list-preset-12m"
+- tapOn:
+    id: "waiting-list-save"
+- extendedWaitUntil:
+    notVisible:
+      id: "waiting-list-dialog"
+    timeout: 15000
+- assertTrue: "${output.entry().expiresOn === output.twelve && output.entry().creditsTotal === 3}"
+- assertVisible:
+    id: "player-waiting-list-renew"
+    text: ".*${output.twelve.slice(0, 4)}.*"

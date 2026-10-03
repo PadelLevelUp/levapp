@@ -1,7 +1,7 @@
-# PAD-473 / settings.save-on-change rule 2 — on iOS a Settings control that saves on change says so
-# beside itself. Choosing "1-10" in "Escala de avaliações" shows the sign's text
-# (`settings-evaluation-scale-sign-text`, by id — it renders in the account's language), the server
-# holds 10, and the sign goes after about two seconds. `onFlowComplete` puts the scale back to 5 (R-040).
+# PAD-506 (settings.explicit-save): replaces the PAD-473 save-sign flow (the sign is gone). Choosing "1-10"
+# in "Escala de avaliações" is HELD: the server still holds 5 after the tap; tapping
+# `settings-preferences-save` ("Guardar alterações") sends it and the server then holds 10. By id and by
+# the server's own answers, never rendered copy. `onFlowComplete` puts the scale back to 5 (R-040).
 appId: com.padellevelup.app
 onFlowComplete:
   - evalScript: "${output.restore = (typeof output.coachTok === 'undefined') ? false : http.put(output.api + '/api/app/evaluation_scale', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ scaleMax: 5 }) }).ok}"
@@ -26,18 +26,30 @@ onFlowComplete:
       id: "settings-evaluation-scale-option-10"
     direction: DOWN
     timeout: 30000
-- assertNotVisible:
-    id: "settings-evaluation-scale-sign-text"
 - tapOn:
     id: "settings-evaluation-scale-option-10"
+# Held: nothing reached the server yet (a short wait, then read it back).
 - extendedWaitUntil:
     visible:
-      id: "settings-evaluation-scale-sign-text"
-    timeout: 8000
-- evalScript: "${output.scale = json(http.get(output.api + '/api/app/evaluation_scale', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).scaleMax}"
-- assertTrue: "${output.scale == 10}"
-# The sign goes after about two seconds.
-- extendedWaitUntil:
-    notVisible:
-      id: "settings-evaluation-scale-sign-text"
-    timeout: 8000
+      id: "b506-never-present"
+    timeout: 2000
+    optional: true
+- evalScript: "${output.held = json(http.get(output.api + '/api/app/evaluation_scale', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).scaleMax}"
+- assertTrue: "${output.held == 5}"
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b506-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.scale = json(http.get(output.api + '/api/app/evaluation_scale', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).scaleMax}"
+      - assertTrue: "${output.scale == 10}"

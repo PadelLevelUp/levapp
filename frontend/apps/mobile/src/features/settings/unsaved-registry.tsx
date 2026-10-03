@@ -17,11 +17,27 @@ import * as React from "react";
  * instances or across a logout/login.
  */
 
+/**
+ * settings.explicit-save (PAD-506): a section's part of the screen's one "Guardar alterações". `save`
+ * resolves once the server confirmed (the section has made the confirmed value its baseline, so it
+ * reports clean) and throws when it did not — the section then stays unsaved and the next Save
+ * retries only it (rule 3). `label` names the section in a failure message.
+ */
+export type SectionSaver = { label: string; save: () => Promise<void> };
+
 type UnsavedRegistry = {
   /** A section reports its own current "differs from the last loaded/saved value" flag. */
   setUnsaved: (key: string, unsaved: boolean) => void;
   /** Is ANY currently-registered entry unsaved. Read at the moment the back row is pressed. */
   hasUnsaved: () => boolean;
+  /** PAD-506: the unsaved entries right now, in the order they became unsaved. */
+  unsavedKeys: () => string[];
+  /** PAD-506: a section's part of the one Save (null unregisters). */
+  registerSaver: (key: string, saver: SectionSaver | null) => void;
+  saverFor: (key: string) => SectionSaver | undefined;
+  /** PAD-506: changes whenever an entry turns unsaved or clean, so the footer Save and the
+   *  leave guard re-render with it. */
+  version: number;
 };
 
 const UnsavedRegistryContext = React.createContext<UnsavedRegistry | null>(null);
@@ -35,16 +51,30 @@ export function UnsavedRegistryProvider({
   // screen never needs a re-render from it — it only reads hasUnsaved() once, when the
   // back row is pressed.
   const entries = React.useRef(new Map<string, boolean>());
-  const value = React.useMemo<UnsavedRegistry>(
+  const savers = React.useRef(new Map<string, SectionSaver>());
+  // PAD-506: bumped only when an entry's membership changes (not per keystroke), so the screen's
+  // footer Save and its leave guard follow the aggregate.
+  const [version, setVersion] = React.useState(0);
+  // The functions never change identity (sections depend on them in effects); only `version` does.
+  const fns = React.useMemo<Omit<UnsavedRegistry, "version">>(
     () => ({
       setUnsaved: (key, unsaved) => {
+        const had = entries.current.has(key);
         if (unsaved) entries.current.set(key, true);
         else entries.current.delete(key);
+        if (had !== unsaved) setVersion((v) => v + 1);
       },
       hasUnsaved: () => entries.current.size > 0,
+      unsavedKeys: () => [...entries.current.keys()],
+      registerSaver: (key, saver) => {
+        if (saver) savers.current.set(key, saver);
+        else savers.current.delete(key);
+      },
+      saverFor: (key) => savers.current.get(key),
     }),
     []
   );
+  const value = React.useMemo<UnsavedRegistry>(() => ({ ...fns, version }), [fns, version]);
   return (
     <UnsavedRegistryContext.Provider value={value}>
       {children}
@@ -76,15 +106,39 @@ export function useUnsavedRegistry(): UnsavedRegistry {
  * nothing rather than throwing, keeping every existing section test unmodified.
  */
 export function useUnsavedReporter(key: string, unsaved: boolean): void {
-  const ctx = React.useContext(UnsavedRegistryContext);
+  // The stable function, not the context object: the object changes with `version` (PAD-506), and
+  // depending on it would run the cleanup below on every flip — a clean/unsaved loop.
+  const setUnsaved = React.useContext(UnsavedRegistryContext)?.setUnsaved;
   React.useEffect(() => {
-    ctx?.setUnsaved(key, unsaved);
-  }, [ctx, key, unsaved]);
-  // Separate effect, empty-ish deps ([ctx, key] only): this cleanup must run ONLY on
-  // unmount (or a key/ctx change), never after every `unsaved` flip — a `[..., unsaved]`
+    setUnsaved?.(key, unsaved);
+  }, [setUnsaved, key, unsaved]);
+  // Separate effect, empty-ish deps ([setUnsaved, key] only): this cleanup must run ONLY on
+  // unmount (or a key change), never after every `unsaved` flip — a `[..., unsaved]`
   // dep here would clear the entry between every keystroke's effect and the next.
   React.useEffect(() => {
-    return () => ctx?.setUnsaved(key, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx, key]);
+    return () => setUnsaved?.(key, false);
+  }, [setUnsaved, key]);
+}
+
+/**
+ * settings.explicit-save (PAD-506): `useUnsavedReporter` plus the section's part of the screen's one
+ * Save. The saver is read through a ref, so a section passes a fresh closure every render (it sees the
+ * current draft) without re-registering; it is unregistered on unmount. A no-op with no Provider.
+ */
+export function useSectionSave(key: string, unsaved: boolean, saver: SectionSaver): void {
+  useUnsavedReporter(key, unsaved);
+  const ctx = React.useContext(UnsavedRegistryContext);
+  const saverRef = React.useRef(saver);
+  saverRef.current = saver;
+  const registerRef = React.useRef(ctx?.registerSaver);
+  registerRef.current = ctx?.registerSaver;
+  React.useEffect(() => {
+    registerRef.current?.(key, {
+      get label() {
+        return saverRef.current.label;
+      },
+      save: () => saverRef.current.save(),
+    });
+    return () => registerRef.current?.(key, null);
+  }, [key]);
 }

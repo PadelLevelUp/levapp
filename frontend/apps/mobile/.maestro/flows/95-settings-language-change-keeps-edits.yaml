@@ -1,23 +1,21 @@
+# PAD-506 (settings.explicit-save): the language is held until `settings-preferences-save`, so B-155 is
+# pinned at the Save: the coach adds a valid level row (code + label) and holds Portuguese, then presses
+# Save. The Save sends both; the app then re-renders in Portuguese (`t` changes), and the typed row must
+# still be on screen — an editor that reloads its rows on a `t` change would replace it. Asserted through
+# the API too: the language is pt and the coach has one level more.
 # PAD-392 (B-155), settings.unsaved-edits / coach-working-hours rule 7: a change of language never
-# undoes an unsaved edit.
+# undoes an edit.
 #
-# The defect: an editor that reloaded its rows in an effect listing `t` in its deps re-ran on a
-# language change and replaced the rows, wiping what the coach had typed but not saved. The section
-# under test sits in the SAME Preferences section as the language selector, which is what makes this
-# drivable end to end on iOS with no timing: add, type, switch language, look.
+# B-251 (PAD-473): drives the coach-levels editor (in the same Preferences pane as the language).
 #
-# B-251 (PAD-473): this flow used to drive the evaluation-categories editor, removed from Settings by
-# PAD-373 (1a113e541) without the testid grep, so it failed at its first scroll. It now drives the
-# coach-levels editor (an explicit-save section in the same Preferences pane): add a level, type its
-# label, do not save.
-#
-# What is written: only the coach's LANGUAGE, twice (pt, then back to en); no level is saved. The end
-# state is asserted: the row still holds its typed label, the language is "en" again, and the server
-# holds no new level. Backend: -e API_BASE=http://localhost:<port>, else :5001.
+# What is written: the language (pt) and one level ("M95" / "Maestro 95"); onFlowComplete deletes that
+# level and puts the language back to en, on failure too. Backend: -e API_BASE=http://localhost:<port>,
+# else :5001.
 appId: com.padellevelup.app
 onFlowComplete:
-  # Whatever happened, leave the seeded coach in English.
+  # Whatever happened, leave the seeded coach in English and without the added level.
   - evalScript: "${output.tidy = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ language: 'en' }) }).ok}"
+  - evalScript: "${output.tidyLevel = (typeof output.coachTok === 'undefined') ? false : (function () { var rows = json(http.get(output.api + '/api/app/coach_levels', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body); for (var i = 0; i < rows.length; i++) { if (rows[i].code === 'M95') { http.post(output.api + '/api/app/delete/coach_level', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ id: rows[i].id }) }); } } return true; })()}"
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
@@ -25,6 +23,7 @@ onFlowComplete:
 - assertTrue: "${output.lang0 == 'en'}"
 - evalScript: "${output.before = json(http.get(output.api + '/api/app/coach_levels', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).length}"
 # The new row is appended after the coach's existing levels.
+- evalScript: "${output.newCode = 'level-code-' + output.before}"
 - evalScript: "${output.newLabel = 'level-label-' + output.before}"
 
 - runFlow: ../subflows/login-coach.yaml
@@ -42,13 +41,17 @@ onFlowComplete:
     direction: DOWN
     timeout: 30000
 
-# ── Add a level and type its label; do not save ──
+# ── Add a valid level: code and label ──
 - tapOn:
     id: "settings-levels-add"
 - extendedWaitUntil:
     visible:
-      id: "${output.newLabel}"
+      id: "${output.newCode}"
     timeout: 10000
+- tapOn:
+    id: "${output.newCode}"
+- inputText: "M95"
+- pressKey: Enter
 - tapOn:
     id: "${output.newLabel}"
 - inputText: "Maestro 95"
@@ -56,7 +59,7 @@ onFlowComplete:
 - assertVisible:
     text: "Maestro 95"
 
-# ── Switch the language: the editor must keep the unsaved row ──
+# ── Hold another language: the editor must keep the unsaved row ──
 # Scrolled UP the select stops just under the screen's header (y≈50–92), where a tap
 # lands on the header; centring it puts it in the clear.
 - scrollUntilVisible:
@@ -76,10 +79,7 @@ onFlowComplete:
       - tapOn:
           id: "settings-language-pt"
           retryTapIfNoChange: false
-      - extendedWaitUntil:
-          visible:
-            id: "settings-language-status"
-          timeout: 15000
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       id: "${output.newLabel}"
@@ -88,40 +88,31 @@ onFlowComplete:
 - assertVisible:
     text: "Maestro 95"
 
-# ── Back to English the same way; the row survives that too ──
-# Scrolled UP the select stops just under the screen's header (y≈50–92), where a tap
-# lands on the header; centring it puts it in the clear.
+# ── Save: the language and the level go together; the app re-renders in Portuguese ──
 - scrollUntilVisible:
     element:
-      id: "settings-language-select"
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b506-never-present"
+          timeout: 1000
+          optional: true
+      - evalScript: "${output.lang1 = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).language}"
+      - assertTrue: "${output.lang1 == 'pt'}"
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/coach_levels', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).length}"
+- assertTrue: "${output.after == output.before + 1}"
+# B-155: after the language change (t changed), the typed row is still on screen.
+- scrollUntilVisible:
+    element:
+      text: "Maestro 95"
     direction: UP
     timeout: 30000
-    centerElement: true
-# The picker's first tap sometimes does not open it on iOS; flow 12's retry shape.
-- retry:
-    maxRetries: 3
-    commands:
-      - tapOn:
-          id: "settings-language-select"
-          retryTapIfNoChange: false
-      - waitForAnimationToEnd
-      - tapOn:
-          id: "settings-language-en"
-          retryTapIfNoChange: false
-      - extendedWaitUntil:
-          visible:
-            id: "settings-language-status"
-          timeout: 15000
-- scrollUntilVisible:
-    element:
-      id: "${output.newLabel}"
-    direction: DOWN
-    timeout: 30000
 - assertVisible:
     text: "Maestro 95"
-
-# ── End state: language en, nothing saved ──
-- evalScript: "${output.lang1 = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).language}"
-- assertTrue: "${output.lang1 == 'en'}"
-- evalScript: "${output.after = json(http.get(output.api + '/api/app/coach_levels', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).length}"
-- assertTrue: "${output.after == output.before}"

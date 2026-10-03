@@ -118,6 +118,7 @@ executionOrder:
     # onFlowComplete, like 113; positions not load bearing.
     - 151-coach-incomplete-players
     - 152-student-profile-reminder
+    - 157-standing-waiting-list-end-date
     # 142 (PAD-483, B-267) blocks a roster student as the coach and unblocks it in
     # onFlowComplete; it picks a student with no thread, so its position is not load bearing.
     - 142-picker-refusal-explains-itself
@@ -128,6 +129,8 @@ executionOrder:
     # its position is not load bearing. Not yet run.
     - 42-cancel-requested-class
     - 43-tutorials-understand-invites
+    # 153 (PAD-446) adds and removes its own standing waiting-list entry; position not load bearing.
+    - 153-tutorial-waiting-list-asked-first
     - 44-signup
     - 45-club-join-request
     - 46-tactical-board
@@ -204,6 +207,7 @@ executionOrder:
     # edit intact, discard returns to the list. Nothing is ever PATCHed, so there is
     # nothing to restore — the server's phone is asserted unchanged instead.
     - 102-settings-unsaved-edits
+    - 158-settings-swipe-back-asks
     # 103 posts 45 messages as the student and opens conversation 1 on the 3rd (older
     # than the first page) by deep link, asserting it — not the newest — is on screen
     # (PAD-408); it deletes the 45 in onFlowComplete.

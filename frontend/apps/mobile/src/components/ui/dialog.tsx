@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import * as DialogPrimitive from "@rn-primitives/dialog";
+import { PortalHost } from "@rn-primitives/portal";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View, useWindowDimensions } from "react-native";
@@ -22,8 +23,9 @@ const DialogClose = DialogPrimitive.Close;
 function DialogOverlay({
   className,
   children,
+  after,
   ...props
-}: DialogPrimitive.OverlayProps) {
+}: DialogPrimitive.OverlayProps & { after?: React.ReactNode }) {
   return (
     <DialogPrimitive.Overlay
       style={StyleSheet.absoluteFill}
@@ -58,6 +60,7 @@ function DialogOverlay({
       >
         <>{children}</>
       </Animated.View>
+      {after}
     </DialogPrimitive.Overlay>
   );
 }
@@ -65,12 +68,19 @@ function DialogOverlay({
 type DialogContentProps = DialogPrimitive.ContentProps & {
   /** Portal host name; defaults to the root <PortalHost /> in app/_layout.tsx. */
   portalHost?: string;
+  /**
+   * B-295: a PortalHost of this name inside the dialog's full-screen overlay, above the panel.
+   * A Select or picker opened inside the dialog must render here — through the root host it draws
+   * BEHIND the dialog on iOS. Pass the same name as their `portalHost`.
+   */
+  innerPortalHost?: string;
 };
 
 function DialogContent({
   className,
   children,
   portalHost,
+  innerPortalHost,
   ...props
 }: DialogContentProps) {
   const { t } = useTranslation();
@@ -84,7 +94,7 @@ function DialogContent({
   const maxHeight = dialogMaxHeight(windowHeight, useSafeAreaInsets());
   return (
     <DialogPortal hostName={portalHost}>
-      <DialogOverlay>
+      <DialogOverlay after={innerPortalHost ? <PortalHost name={innerPortalHost} /> : null}>
         <DialogPrimitive.Content
           className={cn(
             "z-50 w-full max-w-lg gap-4 rounded-lg border border-border bg-background p-6 shadow-lg shadow-black/20",

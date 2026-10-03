@@ -47,6 +47,7 @@ export * from "./save-ledger";
 export * from "./serial-saver";
 export * from "./email-prompt";
 export * from "./class-time";
+export * from "./standing-end";
 
 /**
  * dashboard.profile-completeness (PAD-490, #523): the student card's body names what is missing
@@ -59,3 +60,4 @@ export function profileIncompleteBodyKey(missing: readonly ("level" | "side")[])
   if (level) return "dashboard.profileCompleteness.studentBodyLevel";
   return "dashboard.profileCompleteness.studentBodySide";
 }
+export * from "./waiting-list-first";

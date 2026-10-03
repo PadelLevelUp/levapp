@@ -16,12 +16,13 @@ import { PlayerHeader } from "@/components/players/detail/PlayerHeader";
 import { PlayerStrengthsWeaknesses } from "@/components/players/detail/PlayerStrengthsWeaknesses";
 import { PlayerInfoCard } from "@/components/players/detail/PlayerInfoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CalendarCheck, CalendarX, ClipboardList, CalendarPlus, ListX, Loader2, Trash2, Unlink } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CalendarX, ClipboardList, CalendarPlus, ListX, Loader2, RefreshCw, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
 import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
 import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
+import { standingEndLabel } from "@levelup/config";
 import { getStandingWaitingList, removeFromStandingWaitingList } from "@/api/notificationEngine";
 import type { StandingWaitingListEntry } from "@/types";
 import { toast } from "sonner";
@@ -58,7 +59,7 @@ interface PlayerDetailPaneProps {
  */
 export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetailPaneProps) {
   const { user: authUser } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -74,6 +75,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   // Inline edit state
   const [standingEntry, setStandingEntry] = useState<StandingWaitingListEntry | null>(null);
   const [isWaitingListOpen, setIsWaitingListOpen] = useState(false);
+  const [isWaitingListRenewOpen, setIsWaitingListRenewOpen] = useState(false);
   const [removingWaitingList, setRemovingWaitingList] = useState(false);
 
   // Inline edit state
@@ -338,6 +340,19 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
                 onClick: () => setIsWaitingListOpen(true),
                 testId: "player-waiting-list", // PAD-410: the same id iOS uses
               },
+          // PAD-507: an entry runs to a date; the coach sees it and can renew (same id on iOS).
+          ...(standingEntry
+            ? [
+                {
+                  label: `${t("players.renewWaitingList")} · ${t("players.waitingListUntil", {
+                    date: standingEntry.expiresOn ? standingEndLabel(standingEntry.expiresOn, i18n.language) : "",
+                  })}`,
+                  icon: <RefreshCw className="mr-2 h-4 w-4" />,
+                  onClick: () => setIsWaitingListRenewOpen(true),
+                  testId: "player-waiting-list-renew",
+                },
+              ]
+            : []),
           {
             // evaluations.history rule 3: "Avaliações" is a primary action on the profile.
             label: t("players.evaluationHistory.open"),
@@ -435,6 +450,19 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
           toast.success(t("players.addedToWaitingList", { name: player.name }));
         }}
       />
+      {standingEntry && (
+        <AddToStandingWaitingListDialog
+          open={isWaitingListRenewOpen}
+          onClose={() => setIsWaitingListRenewOpen(false)}
+          playerId={Number(player.playerId)}
+          playerName={player.name ?? null}
+          renewing={standingEntry}
+          onAdded={(entry) => {
+            setStandingEntry(entry);
+            toast.success(t("players.waitingListRenewed", { name: player.name }));
+          }}
+        />
+      )}
 
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>

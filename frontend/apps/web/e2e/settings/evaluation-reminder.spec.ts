@@ -16,6 +16,8 @@
  * frequency left on `monthly` would mark players due for every spec that reads
  * the players list or a class panel after this one.
  *
+ * PAD-506 (settings.explicit-save): a choice is sent by the tab's one Save (`settings-header-save`).
+ *
  * Locates by test id only — `ui()` is used only for the "Preferences" nav
  * button, which has no test id (request-alerts-optout.spec.ts's pattern).
  */
@@ -61,15 +63,18 @@ async function studentPlayerId(request: APIRequestContext, coachTok: string): Pr
   return Number(found!.playerId);
 }
 
+// PAD-506 (settings.explicit-save): the choice is held until the tab's one Save.
 async function pickReminder(page: Page, option: "monthly" | "never") {
+  await page.getByTestId(`settings-evaluation-reminder-option-${option}`).click();
   const request = page.waitForResponse(
     (r) =>
       /\/api\/app\/evaluation_settings$/.test(r.url()) &&
       r.request().method() === "PUT" &&
       r.status() === 200
   );
-  await page.getByTestId(`settings-evaluation-reminder-option-${option}`).click();
+  await page.getByTestId("settings-header-save").click();
   await request;
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 }
 
 test.afterEach(async ({ page }) => {

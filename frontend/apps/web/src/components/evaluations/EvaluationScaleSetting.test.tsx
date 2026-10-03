@@ -1,11 +1,10 @@
 /**
- * evaluations.scale rules 1 and 8 (PAD-423) — "Escala de avaliações" on web. Saves on change,
- * `{scaleMax}` only; a failed save puts the previous choice back. By test id, never by rendered
- * copy (t is mocked to return the key).
+ * evaluations.scale rules 1 and 8 (PAD-423) — "Escala de avaliações" on web. settings.explicit-save
+ * (PAD-506): a choice is held until the tab's one Save (the harness's `harness-save`), which sends
+ * `{scaleMax}` only. By test id, never by rendered copy (t is mocked to return the key).
  */
-import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EvaluationScale } from "@levelup/types";
 
@@ -23,101 +22,68 @@ const api = vi.hoisted(() => ({
 vi.mock("@levelup/api/src/resources/evaluationScale", () => api);
 
 import { EvaluationScaleSetting } from "./EvaluationScaleSetting";
+import { SettingsUnsavedTestHarness } from "@/test/settingsUnsavedTestHarness";
 
 function open(data: EvaluationScale) {
   api.getEvaluationScale.mockResolvedValue(data);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <EvaluationScaleSetting />
+      <SettingsUnsavedTestHarness>
+        <EvaluationScaleSetting />
+      </SettingsUnsavedTestHarness>
     </QueryClientProvider>,
   );
 }
 
 afterEach(() => Object.values(api).forEach((fn) => fn.mockReset()));
 
+const scale = (n: number) => screen.getByTestId(`settings-evaluation-scale-option-${n}`);
+const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
+
 describe("Escala de avaliações", () => {
   it("shows the server's scale, 1-5 for a coach who never set one", async () => {
     open({ scaleMax: 5 });
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
-    for (const n of [10, 20, 100]) expect(screen.getByTestId(`settings-evaluation-scale-option-${n}`)).not.toBeChecked();
+    await waitFor(() => expect(scale(5)).toBeChecked());
+    for (const n of [10, 20, 100]) expect(scale(n)).not.toBeChecked();
   });
 
-  it("choosing 1-10 saves {scaleMax: 10} at once, and nothing else", async () => {
+  it("choosing 1-10 is held; the Save sends {scaleMax: 10} once, and nothing else", async () => {
     open({ scaleMax: 5 });
     api.putEvaluationScale.mockResolvedValue({ scaleMax: 10 });
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+    await waitFor(() => expect(scale(5)).toBeChecked());
 
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10"));
+    fireEvent.click(scale(10));
+    expect(scale(10)).toBeChecked();
+    expect(api.putEvaluationScale).not.toHaveBeenCalled();
+    expect(unsavedIds()).toBe("evaluationScale");
 
+    fireEvent.click(screen.getByTestId("harness-save"));
     await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
     expect(api.putEvaluationScale.mock.calls[0][0]).toEqual({ scaleMax: 10 });
-    expect(screen.getByTestId("settings-evaluation-scale-option-10")).toBeChecked();
+    await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("a failed save puts the previous choice back and says so", async () => {
+  it("a failed Save keeps the choice held and unsaved", async () => {
     open({ scaleMax: 20 });
     api.putEvaluationScale.mockRejectedValue(new Error("offline"));
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-20")).toBeChecked());
+    await waitFor(() => expect(scale(20)).toBeChecked());
 
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-100"));
+    fireEvent.click(scale(100));
+    fireEvent.click(screen.getByTestId("harness-save"));
 
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-sign")).toHaveAttribute("data-state", "failed"));
-    expect(screen.getByTestId("settings-evaluation-scale-option-20")).toBeChecked();
+    await waitFor(() => expect(screen.getByTestId("save-failed")).toHaveTextContent("evaluationScale"));
+    expect(scale(100)).toBeChecked();
+    expect(unsavedIds()).toBe("evaluationScale");
   });
 
-  it("rule 3: one save in flight — the second waits for the first answer, then the latest is sent", async () => {
+  it("choosing a scale and back is clean", async () => {
     open({ scaleMax: 5 });
-    let okY!: (v: unknown) => void;
-    api.putEvaluationScale.mockImplementationOnce(() => new Promise((res) => { okY = res; }));
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
+    await waitFor(() => expect(scale(5)).toBeChecked());
 
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10"));
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20"));
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-100"));
-    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
-    await act(async () => { okY({ scaleMax: 10 }); });
+    fireEvent.click(scale(10));
+    fireEvent.click(scale(5));
 
-    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
-    expect(api.putEvaluationScale).toHaveBeenLastCalledWith({ scaleMax: 100 });
-    expect(screen.getByTestId("settings-evaluation-scale-option-100")).toBeChecked();
-  });
-
-  it("rule 3: two saves both fail — back to the confirmed scale, not the one the last started from", async () => {
-    open({ scaleMax: 5 });
-    let failY!: (e: Error) => void;
-    let failZ!: (e: Error) => void;
-    api.putEvaluationScale
-      .mockImplementationOnce(() => new Promise((_r, rej) => { failY = rej; }))
-      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
-
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10")); // Y, sent
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20")); // Z, waits; started from 10
-    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
-    await act(async () => { failY(new Error("y")); });
-    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
-    await act(async () => { failZ(new Error("z")); });
-
-    expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked();
-  });
-
-  it("rule 3: the first is confirmed, the waiting newer one fails — shows the confirmed first", async () => {
-    open({ scaleMax: 5 });
-    let okY!: (v: unknown) => void;
-    let failZ!: (e: Error) => void;
-    api.putEvaluationScale
-      .mockImplementationOnce(() => new Promise((res) => { okY = res; }))
-      .mockImplementationOnce(() => new Promise((_r, rej) => { failZ = rej; }));
-    await waitFor(() => expect(screen.getByTestId("settings-evaluation-scale-option-5")).toBeChecked());
-
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-10")); // Y
-    fireEvent.click(screen.getByTestId("settings-evaluation-scale-option-20")); // Z, waits
-    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(1));
-    await act(async () => { okY({ scaleMax: 10 }); });
-    await waitFor(() => expect(api.putEvaluationScale).toHaveBeenCalledTimes(2));
-    await act(async () => { failZ(new Error("z")); });
-
-    expect(screen.getByTestId("settings-evaluation-scale-option-10")).toBeChecked();
+    expect(unsavedIds()).toBe("");
   });
 });

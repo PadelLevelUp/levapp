@@ -1,4 +1,5 @@
-# confirmed — Session-E, iPhone 17 Pro simulator (debug build with the slider), feature/pad-423-clients @ 2f6550124 (staging 8e61b419a merged), 2026-09-26 01:11:18Z: 0 failed (also 2026-09-25 23:21:08Z / 23:33:40Z); red with the pre-slider form (no slider row)
+# PAD-506 (settings.explicit-save): the scale option is held; `settings-preferences-save` is tapped before the scale read-back.
+# confirmed (before PAD-506) — Session-E, iPhone 17 Pro simulator (debug build with the slider), feature/pad-423-clients @ 2f6550124 (staging 8e61b419a merged), 2026-09-26 01:11:18Z: 0 failed (also 2026-09-25 23:21:08Z / 23:33:40Z); red with the pre-slider form (no slider row)
 # PAD-423 / evaluations.scale rules 7-8 on iOS: the coach picks "1–10" in Settings →
 # Preferences ("Escala de avaliações", beside the frequency), and a competency on the coach's
 # scale is then rated with a SLIDER, not stars. A tap on the slider (tapToSeek) is one input:
@@ -16,7 +17,7 @@ onFlowComplete:
 
 - runFlow: ../subflows/login-coach.yaml
 
-# ── Rule 8: the setting, beside the frequency; 1–10 saves at once and rescales ──
+# ── Rule 8: the setting, beside the frequency; 1–10 is saved by the Preferences Save and rescales ──
 - tapOn:
     id: "header-account"
 - extendedWaitUntil:
@@ -32,6 +33,13 @@ onFlowComplete:
     timeout: 30000
 - tapOn:
     id: "settings-evaluation-scale-option-10"
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
 - evalScript: "${output.scaleNow = json(http.get(output.api + '/api/app/evaluation_scale', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).scaleMax}"
 - assertTrue: "${output.scaleNow == 10}"
 - evalScript: "${output.compMax = json(http.get(output.api + '/api/app/evaluation_competencies', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).competencies.filter(function (c) { return String(c.id) === output.competencyId; })[0].scaleMax}"

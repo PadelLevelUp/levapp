@@ -33,6 +33,7 @@
     "toast": {
       "couldNotSaveTitle": "Não foi possível guardar as definições",
       "couldNotSaveDescription": "Tenta novamente.",
+      "couldNotSaveParts": "Não foi guardado: {{parts}}. O resto ficou guardado; tenta guardar de novo.",
       "settingsSavedTitle": "Definições guardadas",
       "settingsSavedWithAvatar": "Definições guardadas. (O carregamento do avatar está pronto a ligar.)",
       "settingsSavedDescription": "As tuas preferências foram atualizadas.",
@@ -356,6 +357,7 @@
       "deleteFailed": "Não foi possível remover a época"
     },
     "coachLevels": {
+      "remove": "Remover nível",
       "title": "Níveis do treinador",
       "description": "Define os níveis de competência dos teus jogadores. Arrasta para reordenar.",
       "highestLevel": "Mais alto",
@@ -537,7 +539,8 @@
       "expired": "Expirado",
       "classCount_one": "{{count}} aula",
       "classCount_other": "{{count}} aulas",
-      "remove": "Remover"
+      "remove": "Remover",
+      "renew": "Renovar"
     },
     "templates": {
       "saving": "A guardar…",
@@ -554,13 +557,13 @@
         "invite": "Mensagem de convite",
         "confirm": "Resposta de confirmação",
         "decline": "Resposta de recusa",
-        "spotFilled": "Resposta de vaga preenchida",
+        "spotFilled": "Pedido de entrada fechado: aula cheia",
         "reminder": "Lembrete de presença",
         "reminderFollowup": "Seguimento do lembrete",
         "reminderConfirmed": "Presença confirmada",
         "reminderDeclined": "Presença recusada",
         "waitingListOffer": "Oferta de lista de espera",
-        "waitingListPlaced": "Vaga da lista de espera",
+        "waitingListInvite": "Convite da lista de espera",
         "addedToClass": "Adicionado a uma aula",
         "addedToClassComing": "Adicionado a uma aula, presença confirmada"
       },
@@ -568,13 +571,13 @@
         "invite": "Enviada ao notificar um aluno sobre uma vaga aberta.",
         "confirm": "Enviada automaticamente quando um aluno responde Sim.",
         "decline": "Enviada automaticamente quando um aluno responde Não.",
-        "spotFilled": "Enviada quando uma vaga é ocupada antes de o aluno responder.",
+        "spotFilled": "Enviada ao aluno cujo pedido para entrar numa aula é fechado porque a aula encheu. Um convite que expira, ou cuja vaga fica para outro aluno, não envia mensagem: o aluno vê-o no próprio convite.",
         "reminder": "Enviada para lembrar os alunos antes da aula e pedir-lhes que confirmem a presença.",
         "reminderFollowup": "Enviada se o aluno não tiver respondido ao primeiro lembrete.",
         "reminderConfirmed": "Enviada automaticamente quando um aluno confirma a presença.",
         "reminderDeclined": "Enviada automaticamente quando um aluno recusa a presença.",
         "waitingListOffer": "Enviada quando uma vaga foi preenchida, oferecendo entrada na lista de espera.",
-        "waitingListPlaced": "Enviada quando um aluno da lista de espera consegue uma vaga.",
+        "waitingListInvite": "Enviada primeiro aos alunos da lista de espera da aula, quando abre uma vaga. {side} indica o lado da vaga quando o tem.",
         "addedToClass": "Enviada quando colocas um aluno numa aula.",
         "addedToClassComing": "Enviada em vez dessa quando a aula é criada depois da hora do lembrete: a presença do aluno fica confirmada e não lhe é perguntado nada."
       }

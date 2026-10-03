@@ -58,3 +58,12 @@ describe("SettingsUnsavedContext", () => {
     expect(() => render(<Section id="a" unsaved={true} />)).not.toThrow();
   });
 });
+
+// #550 review F2: the page's one failure toast carries a part's reason (the toaster shows one at a time).
+describe("failedPartText", () => {
+  it("names the part with its reason for a TabSaveError, and the part alone otherwise", async () => {
+    const { TabSaveError, failedPartText } = await import("./SettingsUnsavedContext");
+    expect(failedPartText("Níveis", new TabSaveError("Preenche o código e o nome."))).toBe("Níveis — Preenche o código e o nome.");
+    expect(failedPartText("Escala", new Error("Network Error"))).toBe("Escala");
+  });
+});

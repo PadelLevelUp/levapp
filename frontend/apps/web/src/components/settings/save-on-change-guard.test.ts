@@ -18,8 +18,6 @@ const STATUS_KEY = /status\(\s*"([^"]+)"\s*\)/g;
 
 // Calls that are not themselves a save-on-change save, by the exact text they start with.
 const UNTRACKED_CALLS: Record<string, string[]> = {
-  // the explicit Perfil Save (settings.save-on-change rule 4)
-  "pages/SettingsPage.tsx": ["updateMe(payload)"],
   // the card's one save(): the request is tracked under the caller's key on the next line; the
   // engine check below pins every caller's key
   "components/settings/NotificationsEngineSection.tsx": ["updateNotificationConfig(patch)", "saveEngine(patch)"],
@@ -27,6 +25,10 @@ const UNTRACKED_CALLS: Record<string, string[]> = {
 
 const NOT_SAVE_ON_CHANGE: Record<string, string> = {
   "api/auth.ts": "defines updateMe",
+  // PAD-506 PR 1: held until the tab's one Save (settings.explicit-save); explicit-save-guard.test.ts
+  "pages/SettingsPage.tsx": "explicit Save (settings.explicit-save)",
+  "components/evaluations/EvaluationReminderSetting.tsx": "explicit Save (settings.explicit-save)",
+  "components/evaluations/EvaluationScaleSetting.tsx": "explicit Save (settings.explicit-save)",
   "components/settings/MessageTemplatesSection.tsx": "explicit Save (settings.unsaved-edits rule 1)",
   "components/settings/StudentNotificationBlocksSection.tsx": "explicit Save (settings.unsaved-edits rule 1)",
   "pages/VerifyEmailPage.tsx": "not a Settings control",

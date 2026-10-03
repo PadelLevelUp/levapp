@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): choosing 1-10 is held and sent by the header Save.
 /**
  * PAD-423 — evaluations.scale on web: the coach picks 1-10 in Settings → Preferences
  * ("Escala de avaliações", rule 8), a competency on the coach's scale is then rated with a
@@ -53,10 +54,12 @@ test("PAD-423: on 1-10 a competency is rated with a slider, and one drag saves o
   // Rule 8: the setting, beside the frequency; choosing 1-10 saves {scaleMax: 10} at once.
   await openPreferences(page);
   await expect(page.getByTestId("settings-evaluation-scale-option-5")).toHaveAttribute("data-state", "checked");
+  // PAD-506: the choice is held; the header Save sends it.
+  await page.getByTestId("settings-evaluation-scale-option-10").click();
   const scaleSaved = page.waitForResponse(
     (r) => /\/api\/app\/evaluation_scale$/.test(r.url()) && r.request().method() === "PUT" && r.status() === 200,
   );
-  await page.getByTestId("settings-evaluation-scale-option-10").click();
+  await page.getByTestId("settings-header-save").click();
   expect((await scaleSaved).request().postDataJSON()).toEqual({ scaleMax: 10 });
 
   // A competency created now is on the coach's scale (rule 2).

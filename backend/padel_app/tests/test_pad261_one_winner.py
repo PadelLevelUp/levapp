@@ -126,23 +126,32 @@ def _waiting(app, coach_id, instance_id, player_id):
         return vacancy.id, entry.id
 
 
-def _fill(app, coach_id, instance_id, vacancy_id, entry_id):
-    from padel_app.models import LessonInstance, Vacancy, WaitingListEntry
+def _ask(app, coach_id, instance_id, vacancy_id, now=None):
+    """PAD-446: the waiting list is invitation group 0 — the batch asks it first. Returns the
+    players invited."""
+    from padel_app.models import LessonInstance, Vacancy
     from padel_app.models.notification_config import NotificationConfig
-    from padel_app.services.notification_service import _fill_from_waiting_list
+    from padel_app.services.notification_service import _send_invitation_batch
 
     with app.app_context():
         with patch(PATCHES[0]), patch(PATCHES[1]):
-            return _fill_from_waiting_list(
-                db.session.get(WaitingListEntry, entry_id),
+            sent = _send_invitation_batch(
                 db.session.get(Vacancy, vacancy_id),
                 db.session.get(LessonInstance, instance_id),
-                coach_id,
                 NotificationConfig.query.filter_by(coach_id=coach_id).first(),
+                coach_id,
+                now=now,
             )
+            return [int(row["id"]) for row in sent]
 
 
-def test_a_placement_never_takes_a_vacancy_someone_else_already_won(app, locks):
+def _invited(instance_id):
+    from padel_app.models import NotificationEvent
+
+    return {e.player_id for e in NotificationEvent.query.filter_by(lesson_instance_id=instance_id)}
+
+
+def test_a_waiting_list_invitation_never_offers_a_vacancy_someone_else_already_won(app, locks):
     from padel_app.models import Vacancy, WaitingListEntry
 
     coach_id, instance_id, players = _world(app, students=1)
@@ -152,14 +161,14 @@ def test_a_placement_never_takes_a_vacancy_someone_else_already_won(app, locks):
         db.session.get(Vacancy, vacancy_id).status = "filled"  # another path won it
         db.session.commit()
 
-    assert _fill(app, coach_id, instance_id, vacancy_id, entry_id) is False
+    assert _ask(app, coach_id, instance_id, vacancy_id) == []
     with app.app_context():
-        assert player_id not in _enrolled(instance_id)
+        assert player_id not in _enrolled(instance_id) and player_id not in _invited(instance_id)
         assert db.session.get(WaitingListEntry, entry_id).is_active is True
-    assert "Vacancy" in locks and "LessonInstance" in locks
+    assert "Vacancy" in locks  # decided under the vacancy lock, as every invitation (rule 13)
 
 
-def test_a_placement_never_overfills_a_full_class(app):
+def test_a_waiting_list_invitation_is_never_sent_for_a_full_class(app):
     from padel_app.models import LessonInstance, WaitingListEntry
     from padel_app.services.lesson_service import enrol  # PAD-259: the one writer
 
@@ -170,19 +179,19 @@ def test_a_placement_never_overfills_a_full_class(app):
         # The last seat is taken by someone else; the vacancy row still says open.
         enrol(other_id, db.session.get(LessonInstance, instance_id), "coach")
 
-    assert _fill(app, coach_id, instance_id, vacancy_id, entry_id) is False
+    assert _ask(app, coach_id, instance_id, vacancy_id) == []
     with app.app_context():
-        assert _enrolled(instance_id) == {other_id}
+        assert _enrolled(instance_id) == {other_id} and waiting_id not in _invited(instance_id)
         assert db.session.get(WaitingListEntry, entry_id).is_active is True
 
 
-def test_a_placement_still_happens_when_there_is_room(app):
+def test_with_room_the_waiting_list_student_is_invited_not_enrolled(app):
     coach_id, instance_id, players = _world(app, students=1)
     ((player_id, _),) = players
     vacancy_id, entry_id = _waiting(app, coach_id, instance_id, player_id)
-    assert _fill(app, coach_id, instance_id, vacancy_id, entry_id) is True
+    assert _ask(app, coach_id, instance_id, vacancy_id) == [player_id]
     with app.app_context():
-        assert player_id in _enrolled(instance_id)
+        assert player_id not in _enrolled(instance_id)
 
 
 # ── instances rule 8 ─────────────────────────────────────────────────────────
@@ -252,19 +261,18 @@ def test_a_yes_that_waits_past_the_start_enrols_nobody(app, monkeypatch):
         assert db.session.get(Vacancy, vacancy_id).status == "expired"
 
 
-def test_a_placement_that_waits_past_the_start_places_nobody(app, monkeypatch):
+def test_a_class_that_has_started_asks_nobody_from_the_waiting_list(app, monkeypatch):
+    """PAD-68 at the batch's door (PAD-446: the waiting list is asked, never placed)."""
     from padel_app.models import LessonInstance, Vacancy, WaitingListEntry
 
     coach_id, instance_id, players = _world(app, students=1)
     ((player_id, _),) = players
     vacancy_id, entry_id = _waiting(app, coach_id, instance_id, player_id)
     with app.app_context():
-        start_instant = db.session.get(LessonInstance, instance_id).start_datetime - timedelta(hours=1)
+        after_start = db.session.get(LessonInstance, instance_id).start_datetime + timedelta(minutes=5)
 
-    _moved_to_start_while_locking(monkeypatch, instance_id, start_instant)
-    monkeypatch.setattr("padel_app.services.notification_service.utcnow_naive", lambda: start_instant)
-    assert _fill(app, coach_id, instance_id, vacancy_id, entry_id) is False
+    assert _ask(app, coach_id, instance_id, vacancy_id, now=after_start) == []
     with app.app_context():
-        assert player_id not in _enrolled(instance_id)
+        assert player_id not in _enrolled(instance_id) and player_id not in _invited(instance_id)
         assert db.session.get(WaitingListEntry, entry_id).is_active is True
         assert db.session.get(Vacancy, vacancy_id).status == "expired"

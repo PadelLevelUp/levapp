@@ -1246,7 +1246,11 @@ def _wave_rules(config: NotificationConfig, wave: tuple) -> list | None:
     """The rules of an invitation-group wave, or None when the wave does not
     exist in this coach's config. PAD-279 removed the legacy ``rounds``
     vocabulary; ``("group", n)`` is the only wave kind."""
-    _kind, number = wave
+    kind, number = wave
+    if kind == "waiting_list":
+        # PAD-446 (invitations rule 8a): group 0 has no criteria of its own — its invitation names
+        # the spot's side and the student decides (waiting-list rule 4a).
+        return []
     groups = config.get_invitation_groups()
     idx = int(number) - 1
     if idx < 0 or idx >= len(groups):
@@ -1753,6 +1757,18 @@ _EMPTY_COURT_CONNECTORS = _EMPTY_PLACEHOLDER_CONNECTORS + ("em", "no", "na", "in
 _LEADING_PUNCTUATION = re.compile(r"^[,.;:!?\-–—\s]+")
 
 
+_SIDE_PHRASES = {
+    "en": {"left": " (left side)", "right": " (right side)"},
+    "pt": {"left": " (lado esquerdo)", "right": " (lado direito)"},
+}
+
+
+def _side_phrase(side: str | None, locale: str | None) -> str:
+    """PAD-446 (message-templates rule 16): the spot's side for `{side}` — only for a left/right
+    spot, in the coach's locale; a `both` or unknown side says nothing."""
+    return _SIDE_PHRASES.get("en" if locale == "en" else "pt", {}).get(side or "", "")
+
+
 def _format_template(template: str, **variables) -> str:
     # The coach may open a template on punctuation ("- Lembrete: …"); only a
     # leading run the substitution *exposed* is stripped below (B's #455 review).
@@ -1772,6 +1788,9 @@ def _format_template(template: str, **variables) -> str:
                 flags=re.IGNORECASE,
             )
         template = template.replace("{" + key + "}", val)
+    # PAD-446 (message-templates rule 16): `{side}` is filled only for a waiting-list invitation; anywhere else (or a
+    # caller that did not pass it) it renders as nothing, never as a raw token.
+    template = template.replace("{side}", "")
     # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
     template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a
@@ -2491,7 +2510,7 @@ def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
     enrol(player_id, instance, "fill", confirmed=True)
 
     # PAD-131 (classes.join-requests rule 10): first fill wins. Every fill path
-    # — invitation "yes", waiting-list placement, accepted request — converges
+    # — invitation "yes" (a waiting-list one included), accepted request — converges
     # here, so this is where the other pending requests learn the spot is gone.
     from padel_app.services.class_join_request_service import supersede_pending_requests
     db.session.expire(instance, ["presences"])
@@ -2507,7 +2526,10 @@ def _broadcast_spot_filled(
     locale: str | None = None,
     events: list | None = None,
 ) -> None:
-    """Tell the other candidates the spot is gone, and retire their invitations.
+    """Retire the other candidates' invitations: their bubble now reads "Vaga preenchida".
+
+    PAD-501 (notifications.message-templates rule 15): that IS the telling. No `spot_filled`
+    message is sent on top of it any more; ``templates`` and ``locale`` are kept for the callers.
 
     PAD-317: a caller that closed the vacancy through ``_close_vacancy`` passes
     the events that close retired as ``events``. Those rows are already
@@ -2519,8 +2541,6 @@ def _broadcast_spot_filled(
     """
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
-
-    spot_filled_text = resolve_message_template(templates, "spot_filled", locale)
 
     if events is None:
         query = NotificationEvent.query.filter(
@@ -2554,10 +2574,6 @@ def _broadcast_spot_filled(
                     message_recipient_ids(invite_msg),
                 )
 
-        _send_system_message(
-            coach_user_id, other_player_user_id, spot_filled_text,
-            class_instance_id=instance.id,
-        )
         # Already expired when the list came from _close_vacancy; still this
         # function's job on the fallback path. Idempotent either way.
         other_event.status = "expired"
@@ -3506,13 +3522,7 @@ def respond_to_reminder(
             and _effective_filled_spots(locked) >= locked.effective_max_players
         ):
             db.session.commit()  # release the lock, change nothing
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    acting_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the screen that sent this shows the refusal.
             # The coach is the only one who can seat them by hand, and they were
             # told of the cancellation — so they hear about the attempt too.
             _notify_coach_of_refused_return(
@@ -4010,18 +4020,29 @@ def _send_invitation_batch(
             vacancy.save()
         return []
 
-    # Check waiting list before doing a fresh invite round
-    wl_entry = _check_waiting_list(vacancy, instance, coach_id, config, vacancy.current_round_number)
-    if wl_entry:
-        if _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config, now=now):
-            return [{"id": str(wl_entry.player_id), "name": "waiting_list"}]
-        # PAD-261: another path won the spot, or the class is full. Invite nobody.
-        return []
-
-    verdicts = evaluate_candidates(
-        vacancy, instance, coach_id, config, wave=("group", vacancy.current_round_number)
-    )
-    eligible = _rank_invited(verdicts, config, vacancy)
+    # PAD-446 (invitations rule 8a, waiting-list rule 4): group 0 first. While a waiting-list
+    # student is left to ask for this spot, the batch asks them — in join order — and the vacancy's
+    # own round does not move; only then does it go to the current invitation group.
+    # #546 review: only the ones who can still be sent an invitation TODAY ("left to ask today",
+    # rule 8a) — a list member at maxInvitesPerStudentPerDay must not hold the spot from the groups
+    # for the rest of the club day. (Kept here, not in _waiting_list_candidates: the simulation and
+    # the approval queue show the list as it is, as they show the groups.)
+    restrictions_today = config.get_restrictions()
+    waiting_list = [
+        (entry, cp)
+        for entry, cp in _waiting_list_candidates(vacancy, instance, coach_id, config)
+        if _check_per_student_daily_limit(cp.player_id, coach_id, restrictions_today, now=now)
+    ]
+    wave_round = 0 if waiting_list else vacancy.current_round_number
+    entry_of = {cp.player_id: entry for entry, cp in waiting_list}
+    if waiting_list:
+        verdicts = []
+        eligible = [cp for _, cp in waiting_list]
+    else:
+        verdicts = evaluate_candidates(
+            vacancy, instance, coach_id, config, wave=("group", vacancy.current_round_number)
+        )
+        eligible = _rank_invited(verdicts, config, vacancy)
 
     if (
         not eligible
@@ -4118,7 +4139,13 @@ def _send_invitation_batch(
         locked = (
             Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
         )
-        db.session.expire(instance, ["presences"])
+        # PAD-509 (B-300, rule 18): ...and then the CLASS lock, in rule 10's one order (vacancy,
+        # then class — the order every accept takes). Two senders on two spots of one class hold
+        # two different vacancy locks; only the class row makes them decide one after the other,
+        # so the second sees the first's invitation and does not offer the same student twice.
+        # Held until this student's commit, like the vacancy lock. A sender never holds the class
+        # while waiting for a spot, so it cannot deadlock against an accept.
+        instance = _lock_instance(instance)
         if locked.status != "open" or (
             instance.effective_max_players is not None
             and _effective_filled_spots(instance) >= instance.effective_max_players
@@ -4131,7 +4158,12 @@ def _send_invitation_batch(
         ).count() >= first_batch_cap:
             db.session.commit()  # release the lock: the first batch is already full
             break
-        if not _still_invitable(cp, instance, coach_id, config):
+        if not _still_invitable(cp, instance, coach_id, config) or (
+            # PAD-446 (waiting-list rule 13): a group-0 student is still on the list.
+            cp.player_id in entry_of
+            and not WaitingListEntry.query.filter_by(id=entry_of[cp.player_id].id, is_active=True)
+            .populate_existing().first()
+        ):
             db.session.commit()  # release the lock; nothing was written
             continue
 
@@ -4141,7 +4173,7 @@ def _send_invitation_batch(
             player_id=cp.player_id,
             vacancy_id=vacancy.id,
             type="auto",
-            round_number=vacancy.current_round_number,
+            round_number=wave_round,
             status="sent",
         )
         # Flushed, not committed: the id goes into the message's metadata, and the message's own
@@ -4151,11 +4183,14 @@ def _send_invitation_batch(
         db.session.flush()
 
         text = _format_template(
-            resolve_message_template(templates, "invite", locale),
+            resolve_message_template(
+                templates, "waiting_list_invite" if wave_round == 0 else "invite", locale
+            ),
             name=player_name,
             level=level_code,
             weekday=weekday,
             time=time_str,
+            side=_side_phrase(vacancy.side, locale) if wave_round == 0 else "",
             **class_placeholders(instance, locale),
         )
         msg = _send_system_message(
@@ -4168,6 +4203,7 @@ def _send_invitation_batch(
                 "lessonInstanceId": instance.id,
                 "vacancyId": vacancy.id,
                 "responded": False,
+                **({"waitingList": True} if wave_round == 0 else {}),
             },
             conversation=conversation,
             before_commit=lambda m, event=event: setattr(event, "message_id", m.id),
@@ -4276,12 +4312,8 @@ def _advance_round(
         vacancy.save()
         return
 
-    # Check waiting list for new round, then send fresh batch
-    wl_entry = _check_waiting_list(vacancy, instance, coach_id, config, vacancy.current_round_number)
-    if wl_entry:
-        _fill_from_waiting_list(wl_entry, vacancy, instance, coach_id, config)
-    else:
-        _send_invitation_batch(vacancy, instance, config, coach_id)
+    # PAD-446: the batch asks the waiting list first (group 0), then the new round's group.
+    _send_invitation_batch(vacancy, instance, config, coach_id)
 
 
 def _send_batch_locked(
@@ -4297,7 +4329,8 @@ def _send_batch_locked(
     vacancy row locked and re-read, so two senders on the same spot — a decline's follow-up and the
     tick's next batch, or two declines — wait for each other and never pick the same student. The
     lock ends at the first commit (an invitation with its message), before any push, or at the
-    final commit when nothing was sent. Across two spots of a class this is PAD-509."""
+    final commit when nothing was sent. Across two spots of a class, the per-student class lock
+    in `_send_invitation_batch` serialises the senders (PAD-509)."""
     locked = (
         Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
     )
@@ -4708,7 +4741,7 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
                 vacancy.save()
                 continue
 
-            # Semi-automatic gating: never send (or waiting-list fill) vacancies
+            # Semi-automatic gating: never send (the waiting list included) for vacancies
             # awaiting coach approval or dismissed by the coach.
             if vacancy.approval_status in ("pending", "dismissed"):
                 continue
@@ -4877,6 +4910,7 @@ def respond_to_notification(
         # rule 10's lock instead, inside the single commit (PAD-499, #527 review item 3).
         event.answer = "no"
         event.status = "expired"
+        _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15): flushes
         db.session.flush()
 
     config = get_or_create_config(event.coach_id)
@@ -4964,13 +4998,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    player_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
             publish(
                 {
@@ -4990,13 +5018,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    player_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
             publish(
                 {
@@ -5026,6 +5048,7 @@ def respond_to_notification(
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
 
@@ -5094,6 +5117,7 @@ def coach_respond_to_notification(
     if action == "no":
         event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
         event.status = "expired"
+        _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15)
         event.save()
         if vacancy:
             vacancy.last_activity_at = utcnow_naive()
@@ -5134,6 +5158,7 @@ def coach_respond_to_notification(
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
         if vacancy:
@@ -5480,247 +5505,110 @@ def get_waiting_list(instance_id: int, coach_id: int) -> list[dict]:
     return result
 
 
-def _check_waiting_list(
+def _waiting_list_candidates(
     vacancy: Vacancy,
     instance: LessonInstance,
     coach_id: int,
     config: NotificationConfig,
-    round_number: int,
     *,
     dry_run: bool = False,
-) -> WaitingListEntry | None:
-    """
-    Return the highest-priority waiting list entry that meets the current round's criteria,
-    or None if the waiting list is empty / no match.
+) -> list[tuple[WaitingListEntry, Association_CoachPlayer]]:
+    """PAD-446 (waiting-list rule 4, invitations rule 8a): group 0 — the class's waiting-list
+    students the engine asks first, as ``(entry, coach_player)`` in the order they joined.
 
-    ``dry_run`` (PAD-196): answer the question without the side effect — an
-    expired standing entry is skipped but NOT deactivated, so the simulation
-    writes nothing (notifications.invite-simulation rule 3).
+    They go through the same candidate pipeline as every invitation (``evaluate_candidates`` with
+    the ``("waiting_list", 0)`` wave, which has no group criteria): not in the class (an ``absent``
+    presence included), never the departing student, no "no" to the class and no live offer for
+    another spot of it (rule 18), not already asked in group 0 for this vacancy, eligible, not
+    excluded, an active account, available, not opted out of automatic invitations (rules 4a–4c).
+    Order: the join time — a standing entry's creation time for an entry it fanned out, the entry's
+    own ``joined_at`` otherwise — then the entry id.
+
+    An entry whose standing entry has expired or was closed is skipped and, unless ``dry_run``
+    (PAD-196: the simulation writes nothing), its standing entry is deactivated.
     """
     entries = WaitingListEntry.query.filter_by(
         lesson_instance_id=instance.id,
         coach_id=coach_id,
         is_active=True,
     ).all()
-    if entries:
-        # PAD-497 (rule 18): the automatic fill is the engine offering the spot; a student who
-        # said "no" to this class is not placed by it.
-        declined = _declined_player_ids(instance.id)
-        entries = [e for e in entries if e.player_id not in declined]
     if not entries:
-        return None
+        return []
 
-    invitation_groups = config.get_invitation_groups()
-
-    # PAD-128 / PAD-122: placement is hard-gated on the bar
-    # (eligibility.enforcement rule 2). Waiting-list candidates are NOT subject
-    # to wave criteria — they are being placed, not invited in rounds — so they
-    # are filtered by eligibility and ranked by the priority criteria below.
-    eligibility_rules = effective_eligibility(instance, coach_id, config)
-
-    # PAD-123: a student is never placed into a class they are already in
-    # (eligibility.enforcement rule 4). `absent` is the load-bearing half: the
-    # student whose cancellation CREATED this vacancy still holds an enrolment
-    # association plus an `absent` presence, so without both exclusions they are
-    # placed straight back into their own vacancy — a credit is spent, a
-    # `waiting_list_placed` message is sent, and the real spot is never offered
-    # to anybody. Unconditional: applies whether or not a bar is defined
-    # (eligibility.enforcement rule 10).
-    # PAD-259: a presence row of any status is in the class; the one who
-    # declined keeps their row, so one set covers both cases.
-    already_in_class_ids = set(instance.enrolled_player_ids)
-
-    # PAD-122: the restrictions the invitation path has always honoured but the
-    # fill path skipped entirely (eligibility.enforcement rule 5). Also
-    # unconditional.
-    restrictions = config.get_restrictions()
-    restricted_player_ids = set()
-    if restrictions["excludedPlayers"]["enabled"]:
-        restricted_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
-
-    # Filter entries — when invitation groups are configured, skip round-criteria filtering
-    eligible_entries = []
+    keyed = []
     for entry in entries:
-        # Check if linked standing entry is still valid
-        if entry.standing_entry_id:
-            standing = StandingWaitingListEntry.query.get(entry.standing_entry_id)
-            if standing and (not standing.is_active or standing.expires_at < utcnow_naive()):
-                if not dry_run:
-                    _deactivate_standing_entry(standing)
-                continue
-
-        cp = Association_CoachPlayer.query.filter_by(
-            coach_id=coach_id, player_id=entry.player_id
-        ).first()
-        if not cp:
-            continue
-
-        if entry.player_id in already_in_class_ids:
-            continue
-
-        if str(entry.player_id) in restricted_player_ids:
-            continue
-
-        user = cp.player.user if cp.player else None
-        # PAD-268 (auth.account-deletion rule 7): never place a deleted account.
-        if user is not None and user.status == "disabled":
-            continue
-        if restrictions["excludeUnpaidSubscription"]["enabled"]:
-            if not user or user.status != "active":
-                continue
-
-        if not passes_eligibility(cp, instance, coach_id, eligibility_rules):
-            continue
-
-        # All active waiting-list entries compete; there is no wave-criteria
-        # filter on the fill path (PAD-279 removed the legacy rounds filter
-        # that only ever ran for a coach with an empty group list).
-        eligible_entries.append((entry, cp))
-
-    if not eligible_entries:
-        return None
-
-    # PAD-122: the availability-blocker filter, the last guard the fill path
-    # skipped (eligibility.enforcement rule 5). Placement is silent enrolment,
-    # so dropping a student into a window they marked unavailable is worse here
-    # than on the invitation path, where they could at least decline.
-    from padel_app.services.student_availability_service import filter_blocked_coach_players
-    unblocked_player_ids = {
-        cp.player_id
-        for cp in filter_blocked_coach_players(
-            [cp for _, cp in eligible_entries], instance
+        standing = (
+            StandingWaitingListEntry.query.get(entry.standing_entry_id)
+            if entry.standing_entry_id else None
         )
-    }
-    eligible_entries = [
-        pair for pair in eligible_entries if pair[1].player_id in unblocked_player_ids
-    ]
-    if not eligible_entries:
-        return None
-
-    # Rank by priority ordering
-    player_stats = {}
-    for entry, cp in eligible_entries:
-        att_rate, just_rate = _attendance_stats(entry.player_id, vacancy.coach_id)
-        player_stats[entry.player_id] = {
-            "attendance_rate": att_rate,
-            "justified_miss_rate": just_rate,
-        }
-
-    sort_key = _build_sort_key(config.get_priority_criteria(), player_stats, vacancy)
-    eligible_entries.sort(key=lambda pair: sort_key(pair[1]))
-
-    return eligible_entries[0][0]
-
-
-def _fill_from_waiting_list(
-    entry: WaitingListEntry,
-    vacancy: Vacancy,
-    instance: LessonInstance,
-    coach_id: int,
-    config: NotificationConfig,
-    now: datetime | None = None,
-) -> bool:
-    """Place a waiting-list student into the vacancy. Returns whether it did.
-
-    PAD-261 (waiting-list rule 13): decided under the vacancy-then-class lock.
-    The student is placed only while the vacancy is still open and the class
-    still has room; otherwise nobody is placed and the entry stays active.
-    """
-    from padel_app.models import Coach
-
-    vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
-    if _instance_is_over(instance, now):
-        # PAD-68 under the lock: the class started while this placement waited.
-        # The vacancy expires as _send_invitation_batch's early check expires it.
-        if vacancy.status == "open":
-            vacancy.status = "expired"
-        db.session.commit()  # the expiry, and the end of the lock
-        return False
-    if vacancy.status != "open" or _effective_filled_spots(instance) >= instance.effective_max_players:
-        db.session.commit()  # release the lock; nothing was written
-        return False
-    # #527 final read item 5: the entry was picked before the lock. Read the student again under it:
-    # still on the list, not in the class, and no "no" to this class meanwhile (rule 18).
-    WaitingListEntry.query.filter_by(id=entry.id).populate_existing().one()
-    if (
-        not entry.is_active
-        or entry.player_id in set(instance.enrolled_player_ids)
-        or entry.player_id in _declined_player_ids(instance.id)
-    ):
-        db.session.commit()  # release the lock; nothing was written
-        return False
-
-    # PAD-317: through the one routine. This path retired NOTHING, so a
-    # waiting-list placement left every live invitation for the seat in the
-    # candidates' inboxes and one of them could still accept a taken spot.
-    # It retires silently, like reconcile_vacancies: this path has never sent the
-    # candidates user-visible mail, and starting would be a product change rather
-    # than the closing of a hole.
-    retired = _close_vacancy(vacancy, entry.player_id)
-    _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
-    _add_player_to_instance(entry.player_id, instance)  # the ONE commit (PAD-499)
-    vacancy.save()
-
-    entry.is_active = False
-    entry.save()
-
-    # Credit the standing entry, deactivate when cap reached
-    if entry.standing_entry_id:
-        standing = StandingWaitingListEntry.query.get(entry.standing_entry_id)
-        if standing and standing.is_active:
-            standing.credits_used += 1
-            standing.save()
-            if standing.credits_used >= standing.credits_total:
+        if standing is not None and (not standing.is_active or standing.expires_at < utcnow_naive()):
+            if not dry_run:
                 _deactivate_standing_entry(standing)
+            continue
+        joined = (standing.created_at if standing is not None else entry.joined_at) or datetime.min
+        keyed.append(((joined, entry.id), entry))
+    if not keyed:
+        return []
 
-    coach = Coach.query.get(coach_id)
-    if not coach:
-        return True
+    # The volume cap (coordinator default 2026-10-03; the owner may reverse it): one live
+    # waiting-list offer per student per coach at a time. A standing entry fans out to every class,
+    # so without it one opened spot per class would each ask the same student at once. A student
+    # answers one list offer before the next spot asks them from its list (rule 4); the spots'
+    # own groups are not affected. (One live offer per CLASS is rule 18's, in evaluate_candidates.)
+    asked_elsewhere = {
+        e.player_id
+        for e in NotificationEvent.query.filter(
+            NotificationEvent.coach_id == coach_id,
+            NotificationEvent.round_number == 0,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            NotificationEvent.lesson_instance_id != instance.id,
+            NotificationEvent.player_id.in_([entry.player_id for _, entry in keyed]),
+        ).all()
+    }
+    keyed = [(key, entry) for key, entry in keyed if entry.player_id not in asked_elsewhere]
+    if not keyed:
+        return []
 
-    player_user_id = _user_id_for_player(entry.player_id)
-    if not player_user_id:
-        return True
-
-    from padel_app.models import Player
-
-    locale = _resolve_locale(coach)
-    templates = config.get_message_templates(locale)
-    player = Player.query.get(entry.player_id)
-    player_name = (player.user.name if player and player.user else "there").split()[0]
-    level_code = effective_level_code(instance)
-    weekday = _format_weekday(instance.start_datetime, locale)
-    time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
-
-    text = _format_template(
-        resolve_message_template(templates, "waiting_list_placed", locale),
-        name=player_name,
-        level=level_code,
-        weekday=weekday,
-        time=time_str,
-        **class_placeholders(instance, locale),
+    verdicts = evaluate_candidates(
+        vacancy, instance, coach_id, config, wave=("waiting_list", 0),
+        only_player_ids={entry.player_id for _, entry in keyed},
     )
-    _send_system_message(
-        coach_user_id=coach.user_id,
-        player_user_id=player_user_id,
-        text=text,
-        message_type="waiting_list_placed",
-        class_instance_id=instance.id,
-    )
-
-    publish(
-        {
-            "type": "notification_responded",
-            "payload": {
-                "lessonInstanceId": instance.id,
-                "vacancyId": vacancy.id,
-                "response": "waiting_list_filled",
-            },
-        },
-        _coach_only(coach.user_id),
-    )
-    return True
+    invited = {v.cp.player_id: v.cp for v in verdicts if v.invited}
+    keyed.sort(key=lambda pair: pair[0])
+    return [(entry, invited[entry.player_id]) for _, entry in keyed if entry.player_id in invited]
 
 
+def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
+    """PAD-446 (waiting-list rule 15): what an answer does to the student's waiting-list entry for
+    the class. Flushed, never committed — the caller's commit (the accept's single commit, the
+    decline's commit) carries it, so a failed answer changes nothing here either.
+
+    - ``yes`` on a group-0 invitation that took the spot: the entry closes and, when a standing
+      entry fanned it out, that entry spends one credit (and closes at its cap).
+    - ``no`` to any invitation for the class: the "no" is final for the class (rule 18), so the
+      student's entries for it close. No credit is spent; a standing entry stays for its other
+      classes.
+    """
+    rows = WaitingListEntry.query.filter_by(
+        lesson_instance_id=event.lesson_instance_id,
+        player_id=event.player_id,
+        is_active=True,
+    ).all()
+    if answer == "yes" and event.round_number != 0:
+        return
+    for row in rows:
+        row.is_active = False
+        if answer == "yes" and row.standing_entry_id:
+            standing = StandingWaitingListEntry.query.get(row.standing_entry_id)
+            if standing is not None and standing.is_active:
+                standing.credits_used += 1
+                if standing.credits_used >= standing.credits_total:
+                    standing.is_active = False
+                    for other in WaitingListEntry.query.filter_by(
+                        standing_entry_id=standing.id, is_active=True
+                    ).all():
+                        other.is_active = False
+    db.session.flush()
 # ---------------------------------------------------------------------------
 # Notification groups (manual notify modal)
 # ---------------------------------------------------------------------------
@@ -5865,8 +5753,12 @@ def _deactivate_standing_entry(entry: StandingWaitingListEntry) -> None:
 
 
 def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
-    """Create per-class WaitingListEntry rows for all upcoming instances for this coach."""
+    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
+    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
     now = utcnow_naive()
+    if entry.expires_at <= now:
+        return
+    end_wall = utc_to_wall_naive(entry.expires_at)
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
     coach_instance_ids = _coach_instances(entry.coach_id)  # PAD-275 rule 4
@@ -5877,6 +5769,8 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
+            continue
+        if instance.start_datetime >= end_wall:  # B-293: not past the entry's end
             continue
         # PAD-109: match on the (lesson_instance_id, player_id) pair the
         # uq_waiting_session_player constraint covers — NOT on is_active, which
@@ -5907,10 +5801,67 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         ).create()
 
 
+# PAD-507 (notifications.waiting-list rule 2): an entry runs to an end date the coach picks, at most
+# STANDING_MAX_MONTHS ahead, renewable, never open-ended (owner decision 2026-10-03).
+STANDING_MAX_MONTHS = 12
+STANDING_MAX_DAYS = 366  # the legacy `durationDays` wire (old app builds): 1..366
+
+
+class InvalidStandingEndError(ValueError):
+    """An end date (or legacy number of days) the standing list does not accept; `field` names it."""
+
+    def __init__(self, field: str):
+        super().__init__(field)
+        self.field = field
+
+
+def standing_end_from_date(value) -> datetime:
+    """`expiresOn` (a club date, inclusive) → the UTC instant the entry expires: the start of the
+    next club day. Refused unless today <= date <= today + 12 months (club clock)."""
+    from datetime import date as _date
+
+    from dateutil.relativedelta import relativedelta
+
+    from padel_app.utils.dates import club_now_naive
+
+    day = None
+    if isinstance(value, str) and len(value) == 10:
+        try:
+            day = _date.fromisoformat(value)
+        except ValueError:
+            day = None
+    today = club_now_naive().date()
+    if day is None or day < today or day > today + relativedelta(months=STANDING_MAX_MONTHS):
+        raise InvalidStandingEndError("expiresOn")
+    return wall_to_utc_naive(datetime.combine(day + timedelta(days=1), time.min))
+
+
+def standing_end_from_days(value) -> datetime:
+    """The legacy `durationDays` wire: a whole number of days from now, 1..366."""
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise InvalidStandingEndError("durationDays")
+    if isinstance(value, str):
+        if not value.strip().isdigit():
+            raise InvalidStandingEndError("durationDays")
+        value = int(value)
+    if not 1 <= value <= STANDING_MAX_DAYS:
+        raise InvalidStandingEndError("durationDays")
+    return utcnow_naive() + timedelta(days=value)
+
+
+def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
+    """The club date an entry runs to, inclusive — the day its expiry instant falls in."""
+    if not entry.expires_at:
+        return None
+    return (utc_to_wall_naive(entry.expires_at) - timedelta(microseconds=1)).date().isoformat()
+
+
 def add_standing_waiting_list_entry(
-    coach_id: int, player_id: int, credits_total: int, duration_days: int
+    coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
+    *, expires_at: datetime | None = None,
 ) -> StandingWaitingListEntry:
-    """Add (or replace) a standing waiting list entry for a player."""
+    """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
+    (or, for the legacy callers, `duration_days` from now)."""
     # Deactivate any existing active entry for this coach/player pair
     existing = StandingWaitingListEntry.query.filter_by(
         coach_id=coach_id, player_id=player_id, is_active=True
@@ -5923,10 +5874,30 @@ def add_standing_waiting_list_entry(
         player_id=player_id,
         credits_total=credits_total,
         credits_used=0,
-        expires_at=utcnow_naive() + timedelta(days=duration_days),
+        expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
         is_active=True,
     )
     entry.create()
+    _fan_out_standing_entry(entry)
+    return entry
+
+
+def renew_standing_waiting_list_entry(entry_id: int, coach_id: int, expires_at: datetime) -> StandingWaitingListEntry:
+    """PAD-507 (rule 2): move an active entry's end. Credits stay as they are; classes the new end
+    no longer covers lose the rows this entry put there, and classes it now covers gain one."""
+    from flask import abort
+
+    entry = StandingWaitingListEntry.query.get(entry_id)
+    if entry is None or entry.coach_id != coach_id or not entry.is_active:
+        abort(404)
+    entry.expires_at = expires_at
+    entry.save()
+    end_wall = utc_to_wall_naive(expires_at)
+    for row in WaitingListEntry.query.filter_by(standing_entry_id=entry.id, is_active=True).all():
+        instance = LessonInstance.query.get(row.lesson_instance_id)
+        if instance is not None and instance.start_datetime >= end_wall:
+            row.is_active = False
+    db.session.commit()
     _fan_out_standing_entry(entry)
     return entry
 
@@ -5959,6 +5930,8 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "creditsUsed": e.credits_used,
             "creditsTotal": e.credits_total,
             "expiresAt": e.expires_at.isoformat() if e.expires_at else None,
+            # PAD-507: the club date the entry runs to, inclusive.
+            "expiresOn": standing_end_on(e),
             "createdAt": e.created_at.isoformat() if e.created_at else None,
             "activeClassCount": active_class_count,
         })
@@ -5980,7 +5953,11 @@ def _sync_standing_entries_for_new_instance(instance: LessonInstance, coach_id: 
     active_entries = StandingWaitingListEntry.query.filter_by(
         coach_id=coach_id, is_active=True
     ).all()
+    now = utcnow_naive()
     for entry in active_entries:
+        # B-293: an expired entry, or one that ends before this class, queues nothing.
+        if entry.expires_at <= now or instance.start_datetime >= utc_to_wall_naive(entry.expires_at):
+            continue
         existing = WaitingListEntry.query.filter_by(
             lesson_instance_id=instance.id,
             player_id=entry.player_id,

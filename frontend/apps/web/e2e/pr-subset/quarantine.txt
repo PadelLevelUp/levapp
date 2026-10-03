@@ -5,4 +5,3 @@ settings/language-preference.spec.ts          # B-079: nav still English; Chromi
 player-management/add-player.spec.ts          # B-079: US-35 new player not visible in 8 s
 schedule-calendar/class-delete-confirm.spec.ts  # B-079: loading state not observed
 schedule-calendar/class-deletion.spec.ts      # B-079: hangs walking weeks under two workers
-messaging/message-timestamp-timezone.spec.ts  # flaky in full runs (insight)

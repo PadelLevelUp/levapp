@@ -142,8 +142,9 @@ Players confirm or decline their attendance in response to a reminder notificati
    and `respond_to_reminder`'s retaking branch. When the row is `status=absent` and not validated,
    it locks the instance, re-checks capacity, and either re-seats the student — clearing `status`,
    `justification` and `late_cancellation` per `attendance.presence` rule 9, closing their vacancy
-   and retiring live invitations — or refuses with `{"action": "spot_filled"}`, messaging the
-   student and notifying the coach. This rule adds **only** the way in.
+   and retiring live invitations — or refuses with `{"action": "spot_filled"}` and notifies the coach. The student
+   is not sent a message: the screen that sent the request shows the refusal
+   (`notifications.message-templates` rule 15, PAD-501). This rule adds **only** the way in.
    - **Offered while `attendanceState` is `not_coming` and the class has not started.** Same gate
      shape as rule 9's cancel, and in the same place: the student's own attendance block, so a row
      still shows one state word and one action at a time (rule 25).
@@ -275,12 +276,14 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Then** the request is rejected with 403
 - **And** no `Vacancy` is created and no invitation fan-out is triggered for that instance
 
-#### Student cancels a class they requested for tomorrow (PAD-282)
-- **Given** a student whose class request for tomorrow 10:00–11:00 the coach accepted, so a one-off
-  `private` lesson exists with the student on its roster, no `LessonInstance` row, and no reminder
-  job (its fire time was already past at accept)
+#### Student cancels a class they requested that is still virtual (PAD-282)
+- **Given** a student whose class request five days ahead, 10:00–11:00, the coach accepted, so a
+  one-off `private` lesson exists with the student on its roster and no `LessonInstance` row (its
+  reminder time is still ahead; a request accepted after its reminder time, tomorrow say, is
+  materialised at acceptance with the student counted as coming: `notifications.reminders` rule 22,
+  PAD-489, B-287)
 - **When** the student POSTs `/api/app/notify/cancel_attendance` with `{model: "Lesson",
-  originalId: <lesson id>, date: <tomorrow>}`
+  originalId: <lesson id>, date: <that day>}`
 - **Then** the response is 200 `{"action": "declined", "proactive": false|true}`
 - **And** exactly one `LessonInstance` now exists for that lesson and date, with the student's
   presence `status=absent, justification=justified`
@@ -299,7 +302,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 
 #### The class-detail payload offers the cancel action on a virtual occurrence
 - **Given** the PAD-282 setup above
-- **When** the student POSTs `/api/app/class_instance?model=Lesson&id=<lesson id>&date=<tomorrow>`
+- **When** the student POSTs `/api/app/class_instance?model=Lesson&id=<lesson id>&date=<that day>`
 - **Then** the payload carries `cancellationDeadline`, `cancellationDeadlineHours`,
   `proactiveDeclineDeadline` and `canDeclineProactively` computed for that date
 - **And** the web class-detail sheet and the iOS class screen both show the cancel action (rule 20)

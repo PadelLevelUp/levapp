@@ -33,6 +33,7 @@
     "toast": {
       "couldNotSaveTitle": "Could not save settings",
       "couldNotSaveDescription": "Please try again.",
+      "couldNotSaveParts": "Not saved: {{parts}}. The rest was saved; try saving again.",
       "settingsSavedTitle": "Settings saved",
       "settingsSavedWithAvatar": "Settings saved. (Avatar upload hook is ready to connect.)",
       "settingsSavedDescription": "Your preferences were updated.",
@@ -356,6 +357,7 @@
       "deleteFailed": "The season could not be removed"
     },
     "coachLevels": {
+      "remove": "Remove level",
       "title": "Coach Levels",
       "description": "Define skill levels for your players. Drag to reorder.",
       "highestLevel": "Highest",
@@ -537,7 +539,8 @@
       "expired": "Expired",
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
-      "remove": "Remove"
+      "remove": "Remove",
+      "renew": "Renew"
     },
     "templates": {
       "saving": "Saving…",
@@ -554,13 +557,13 @@
         "invite": "Invite message",
         "confirm": "Confirm response",
         "decline": "Decline response",
-        "spotFilled": "Spot-filled response",
+        "spotFilled": "Join request closed: class full",
         "reminder": "Attendance reminder",
         "reminderFollowup": "Reminder follow-up",
         "reminderConfirmed": "Attendance confirmed",
         "reminderDeclined": "Attendance declined",
         "waitingListOffer": "Waiting list offer",
-        "waitingListPlaced": "Spot from waiting list",
+        "waitingListInvite": "Invitation from the waiting list",
         "addedToClass": "Added to a class",
         "addedToClassComing": "Added to a class, counted as coming"
       },
@@ -568,13 +571,13 @@
         "invite": "Sent when notifying a student about an open spot.",
         "confirm": "Sent automatically when a student says Yes.",
         "decline": "Sent automatically when a student says No.",
-        "spotFilled": "Sent when a spot is claimed before the student responds.",
+        "spotFilled": "Sent to a student whose request to join a class is closed because the class filled up. An invitation that expires, or whose spot goes to someone else, sends no message: the student sees it on the invitation.",
         "reminder": "Sent to remind students before class and ask them to confirm attendance.",
         "reminderFollowup": "Sent if the student hasn't responded to the first reminder.",
         "reminderConfirmed": "Sent automatically when a student confirms attendance.",
         "reminderDeclined": "Sent automatically when a student declines attendance.",
         "waitingListOffer": "Sent when a spot was filled, offering to be placed on the waiting list.",
-        "waitingListPlaced": "Sent when a waiting-list student gets a spot.",
+        "waitingListInvite": "Sent first, to the students on the class's waiting list, when a spot opens. {side} names the spot's side when it has one.",
         "addedToClass": "Sent when you put a student in a class.",
         "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing."
       }

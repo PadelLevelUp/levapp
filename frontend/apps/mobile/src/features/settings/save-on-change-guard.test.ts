@@ -20,7 +20,11 @@ const UNTRACKED_CALLS: Record<string, string[]> = {};
 
 const NOT_SAVE_ON_CHANGE: Record<string, string> = {
   "app/verify-email.tsx": "not a Settings control",
-  "src/features/settings/profile-section.tsx": "explicit Save (settings.unsaved-edits rule 1)",
+  "src/features/settings/profile-section.tsx": "explicit Save (settings.explicit-save)",
+  // PAD-506 PR 1: held until the screen's one Save (settings.explicit-save); explicit-save-guard.test.ts
+  "src/features/settings/preferences-section.tsx": "explicit Save (settings.explicit-save)",
+  "src/features/evaluations/evaluation-reminder-setting.tsx": "explicit Save (settings.explicit-save)",
+  "src/features/evaluations/evaluation-scale-setting.tsx": "explicit Save (settings.explicit-save)",
   "src/features/settings/student-notification-blocks-section.tsx": "explicit Save (settings.unsaved-edits rule 1)",
 };
 
@@ -93,8 +97,4 @@ describe("save-on-change guard (settings.save-on-change rule 1)", () => {
     expect([...card.matchAll(/\bsave\(\{[^}]*\}\)/g)].map((m) => m[0])).toEqual([]);
   });
 
-  it("rule 4: the iOS Settings screen has no page-level Save — only sections own one", () => {
-    const screen = files.find((f) => f.rel === "app/settings.tsx")!.text;
-    expect(screen).not.toMatch(/saveChanges|onPress=\{handleSave\}|testID="settings-save"/);
-  });
 });

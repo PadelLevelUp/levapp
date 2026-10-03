@@ -1235,7 +1235,8 @@ export interface MessageTemplates {
   reminder_confirmed: string;
   reminder_declined: string;
   waiting_list_offer: string;
-  waiting_list_placed: string;
+  /** PAD-446: the waiting list is asked first (replaces `waiting_list_placed`). */
+  waiting_list_invite: string;
   /** PAD-330 / PAD-489: the coach put the student in a class. Optional: older configs lack them
    *  and the server falls back to its defaults. */
   added_to_class?: string;
@@ -1297,6 +1298,8 @@ export interface ApprovalQueuePlayer {
   roundNumber?: number;
   groupIndex?: number;
   groupLabel?: string;
+  /** PAD-446: a waiting-list student, asked first (round 0). */
+  fromWaitingList?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1419,12 +1422,26 @@ export interface InviteSimulationRound {
   candidates: InviteSimulationCandidate[];
 }
 
+export interface InviteSimulationWaitingListEntry {
+  playerId: string;
+  name: string | null;
+  standing: boolean;
+  /** naive-UTC ISO instant the student joined the list (a standing entry's creation time) */
+  joinedAt: string | null;
+}
+
 export interface InviteSimulation {
   /** naive-UTC ISO instant the answer was evaluated at */
   evaluatedAt: string;
   approvalRequired: boolean;
   gates: InviteSimulationGate[];
+  /** Always null since PAD-446 (nobody is placed); kept because older builds read it. */
   waitingListPlacement: { playerId: string; name: string | null; standing: boolean } | null;
+  /**
+   * PAD-446 (notifications.invite-simulation rule 8): group 0, the class's waiting-list students
+   * the engine would ask first, in its order. Absent from servers older than PAD-446.
+   */
+  waitingList?: InviteSimulationWaitingListEntry[];
   spot: InviteSimulationSpot;
   rounds: InviteSimulationRound[];
 }
@@ -1490,6 +1507,8 @@ export interface StandingWaitingListEntry {
   creditsUsed: number;
   creditsTotal: number;
   expiresAt: string;
+  /** PAD-507: the date the entry runs to, inclusive (club calendar). */
+  expiresOn: string | null;
   createdAt: string;
   activeClassCount: number;
 }

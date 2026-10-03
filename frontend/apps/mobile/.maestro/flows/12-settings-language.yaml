@@ -1,8 +1,10 @@
+# PAD-506 (settings.explicit-save): choosing a language is HELD; it reaches the server (and the app
+# switches language) only when `settings-preferences-save` is tapped. The removed saved-status line
+# (`settings-language-status`) is replaced by a read-back of the coach's language through the API.
+#
 # Mirrors: apps/web/e2e/settings/language-preference.spec.ts
 # - change the preferred language and back; each change is persisted via
-#   PATCH /auth/me and confirmed by the saved-status line
-#   (`settings-language-status`, asserted by id — it renders in whichever
-#   language was just chosen).
+#   PATCH /auth/me on Save and confirmed by reading /auth/me back.
 #
 # The options are tapped by id on both platforms since B-067: a select's
 # portal wrapper had no size, so its list lay outside its parent's bounds and
@@ -22,9 +24,7 @@
 # reset).
 #
 # The restore-to-English step leaves the Preferences pane and comes back
-# first, forcing a remount so the leftover saved-status line from the
-# Portuguese step is gone before the second save — otherwise the stale line
-# would make a missed second tap pass silently.
+# first (a remount, the pane reloads what the server holds).
 #
 # PAD-193 rewired the navigation only: Settings is off the bottom bar and is
 # pushed from the header avatar (`header-account`), and the language control
@@ -34,7 +34,12 @@
 # both platforms tap `settings-language-pt` / `-en` by id, which works since
 # B-067 fixed the select's portal wrapper.
 appId: com.padellevelup.app
+onFlowComplete:
+  # Whatever happened, leave the seeded coach in English.
+  - evalScript: "${output.tidy = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ language: 'en' }) }).ok}"
 ---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
     id: "header-account"
@@ -65,17 +70,32 @@ appId: com.padellevelup.app
       - tapOn:
           id: "settings-language-pt"
           retryTapIfNoChange: false
-      # By id, not by the sentence: the status is deliberately rendered in the
-      # language just switched TO (preferences-section.tsx holds the key, not
-      # the resolved string), so asserting the English text failed the moment
-      # the switch to Portuguese succeeded — and left every later coach flow
-      # running in Portuguese (PAD-304).
+      - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+# The server holds the language only once Save has run (read until it lands).
+- retry:
+    maxRetries: 5
+    commands:
       - extendedWaitUntil:
           visible:
-            id: "settings-language-status"
-          timeout: 8000
+            id: "b506-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.lang = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).language}"
+      - assertTrue: "${output.lang == 'pt'}"
 
-# ── Remount Settings (clears the local saved-status text) ──
+# ── Remount Settings ── (the Save sits at the bottom; the back row is at the top)
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+    timeout: 15000
 - tapOn:
     id: "settings-back"
 - extendedWaitUntil:
@@ -88,8 +108,6 @@ appId: com.padellevelup.app
     visible:
       id: "settings-language-select"
     timeout: 15000
-- assertNotVisible:
-    id: "settings-language-status"
 
 # ── Switch back to English (second option) — restores the seed default ──
 - retry:
@@ -105,12 +123,22 @@ appId: com.padellevelup.app
       - tapOn:
           id: "settings-language-en"
           retryTapIfNoChange: false
-      # By id, not by the sentence: the status is deliberately rendered in the
-      # language just switched TO (preferences-section.tsx holds the key, not
-      # the resolved string), so asserting the English text failed the moment
-      # the switch to Portuguese succeeded — and left every later coach flow
-      # running in Portuguese (PAD-304).
+      - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+# The server holds the language only once Save has run (read until it lands).
+- retry:
+    maxRetries: 5
+    commands:
       - extendedWaitUntil:
           visible:
-            id: "settings-language-status"
-          timeout: 8000
+            id: "b506-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.lang = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).language}"
+      - assertTrue: "${output.lang == 'en'}"

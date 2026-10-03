@@ -1,3 +1,4 @@
+// PAD-506 (settings.explicit-save): selectLanguage holds the choice and presses the header Save (waits for PATCH /auth/me).
 import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openSettings } from "../helpers/navigation";
@@ -25,17 +26,18 @@ async function openPreferences(page: Page) {
 }
 
 async function selectLanguage(page: Page, option: RegExp) {
-  // PAD-473 (B-244): choosing the language IS the save — Preferences has no Save button. Wait for the
-  // PATCH itself (navigating away mid-flight would leave the shared coach in the wrong language),
-  // then for the sign beside the select (settings.save-on-change).
+  // PAD-506 (settings.explicit-save): choosing the language is held; the page-header Save sends it
+  // (PATCH /auth/me) and only then does the app switch. Wait for that response before going on —
+  // navigating away mid-flight would leave the shared coach in the wrong language.
+  await page.getByLabel(/language|idioma/i).click();
+  await page.getByRole("option", { name: option }).click();
   const saved = page.waitForResponse(
     (r) => /\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
     { timeout: 30_000 }
   );
-  await page.getByLabel(/language|idioma/i).click();
-  await page.getByRole("option", { name: option }).click();
+  await page.getByTestId("settings-header-save").click();
   await saved;
-  await expect(page.getByTestId("settings-language-sign")).toHaveAttribute("data-state", "saved", { timeout: 5000 });
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled({ timeout: 5000 });
 }
 
 test.beforeEach(async ({ page }) => {
