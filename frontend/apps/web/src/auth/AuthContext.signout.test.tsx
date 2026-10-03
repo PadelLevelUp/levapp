@@ -5,7 +5,7 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { createSerialSaver, SaveSuperseded } from "@levelup/config";
+import { createSerialSaver, emailPromptSession, SaveSuperseded } from "@levelup/config";
 
 vi.mock("@/api/auth", () => ({ getMe: vi.fn(() => new Promise(() => undefined)) }));
 vi.mock("@/api/client", () => ({ api: { post: vi.fn(async () => undefined) } }));
@@ -37,3 +37,19 @@ describe("logout and settings still waiting to be saved", () => {
     expect(sent).toEqual(["out"]);
   });
 });
+
+// PAD-482 (auth.email-verification rule 14, #509 review): "Agora não" lasts for the session; signing out ends it.
+describe("logout and the email prompt's dismissal", () => {
+  it("the next sign-in asks for a missing email again", () => {
+    emailPromptSession.dismiss(7);
+    let logout!: () => void;
+    function Probe() {
+      logout = useAuth().logout;
+      return null;
+    }
+    render(<AuthProvider><Probe /></AuthProvider>);
+    act(() => logout());
+    expect(emailPromptSession.isDismissed(7)).toBe(false);
+  });
+});
+

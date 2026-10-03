@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import text
 
 from padel_app.sql_db import db
+from padel_app.tests.helpers import insert_user_on_an_old_schema
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
@@ -41,11 +42,9 @@ def _cols(table):
 
 
 def _coach(username):
-    from padel_app.models import Coach, User
+    from padel_app.models import Coach
 
-    user = User(name=username, username=username, email=f"{username}@t.test", password="x", status="active")
-    db.session.add(user)
-    db.session.flush()
+    user = insert_user_on_an_old_schema(username)
     coach = Coach(user_id=user.id)
     db.session.add(coach)
     db.session.flush()

@@ -292,6 +292,7 @@ function GroupCard({
 
   return (
     <div
+      data-testid={`invitation-group-${index}`}
       draggable={!disabled}
       onDragStart={onDragStart}
       onDragOver={onDragOver}

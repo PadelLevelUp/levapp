@@ -238,6 +238,9 @@ export function NotifyModal({
           <DialogTitle>{t("calendar.notify.title")}</DialogTitle>
         </DialogHeader>
 
+        {/* PAD-496: this list KEEPS its fixed height. The dialog has a search field, nothing
+            here lifts a dialog above the keyboard, and a taller list would push the field and
+            the buttons further under it (review of #515). */}
         <ScrollView className="max-h-96" keyboardShouldPersistTaps="handled">
           <View className="gap-3 p-1">
             {loadingGroups ? (

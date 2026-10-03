@@ -132,14 +132,25 @@ def _seed_user(app, username):
     return user
 
 
-def _seed_coach(app, username):
-    """A student may start a conversation with any active coach."""
+def _seed_coach(app, username, student=None):
+    """A coach; with `student`, that student goes on its roster so the student may start a
+    conversation with it (messaging.conversations rule 7, B-267)."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
 
     user = _seed_user(app, username)
     coach = Coach(user_id=user.id)
     db.session.add(coach)
     db.session.flush()
+    if student is not None:
+        player = Player.query.filter_by(user_id=student.id).first()
+        if player is None:
+            player = Player(user_id=student.id)
+            db.session.add(player)
+            db.session.flush()
+        db.session.add(Association_CoachPlayer(coach_id=coach.id, player_id=player.id))
+        db.session.flush()
     return user
 
 
@@ -150,7 +161,7 @@ class TestConversationIsGroup:
 
         with app.app_context():
             student = _seed_user(app, "pad93-alice")
-            coach = _seed_coach(app, "pad93-bob")
+            coach = _seed_coach(app, "pad93-bob", student=student)
             db.session.commit()
 
             conv, _ = create_conversation_service(
@@ -165,8 +176,8 @@ class TestConversationIsGroup:
 
         with app.app_context():
             student = _seed_user(app, "pad93-alice2")
-            coach_a = _seed_coach(app, "pad93-bob2")
-            coach_b = _seed_coach(app, "pad93-carol2")
+            coach_a = _seed_coach(app, "pad93-bob2", student=student)
+            coach_b = _seed_coach(app, "pad93-carol2", student=student)
             db.session.commit()
 
             conv, _ = create_conversation_service(

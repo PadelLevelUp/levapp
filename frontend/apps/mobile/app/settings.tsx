@@ -142,9 +142,11 @@ function SettingsScreenBody() {
 
   // PAD-281: the chat bubble's "Propose another time" on a student's
   // counter-proposal opens the coach's class-requests pane on that request.
-  const params = useLocalSearchParams<{ section?: string; proposeFor?: string }>();
+  // PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" opens Perfil on the
+  // email field (`section=profile&focus=email`).
+  const params = useLocalSearchParams<{ section?: string; proposeFor?: string; focus?: string }>();
   const [openId, setOpenId] = React.useState<SettingsSectionId | null>(
-    params.section === "classRequests" ? "classRequests" : null
+    params.section === "classRequests" ? "classRequests" : params.section === "profile" ? "profile" : null
   );
   const proposeFor = params.proposeFor ? Number(params.proposeFor) : null;
 
@@ -167,7 +169,7 @@ function SettingsScreenBody() {
   const renderSection = (id: SettingsSectionId) => {
     switch (id) {
       case "profile":
-        return <ProfileSection />;
+        return <ProfileSection focusEmail={params.focus === "email"} />;
       case "preferences":
         return <PreferencesSection isCoach={isCoach} />;
       case "calendar":

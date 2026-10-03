@@ -82,7 +82,8 @@ def test_student_never_receives_another_users_contact_details(client, app, world
     assert res.status_code == 200
     body = res.get_json()
     _assert_public(body)
-    assert any(e["username"] == "tomas" for e in body)  # listed, but only publicly
+    # PAD-500 / B-268: another student is not listed at all any more (it used to be, publicly).
+    assert not any(e["username"] == "tomas" for e in body)
 
 
 def test_coach_lists_are_public_but_roster_keeps_contact_details(client, app, world):

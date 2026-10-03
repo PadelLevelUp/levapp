@@ -1,0 +1,240 @@
+"""PAD-498 (B-276, auth.password-recovery rule 11; auth.email-verification rule 3): a recovery or
+verification code belongs to the address it was mailed to. The binding is in the code's HMAC (the
+normalised address is part of the input, checked at confirm), so a code never confirms for another
+address whatever order the writes land in; a `set` listener on `User.email` also discards a pending
+recovery code at once, as defence in depth. A recovery started and finished on the same address is
+unchanged.
+"""
+from flask_jwt_extended import create_access_token
+
+from padel_app.sql_db import db
+from padel_app.tests.test_password_recovery import (  # noqa: F401
+    NEW,
+    OLD,
+    _code_from,
+    _confirm,
+    _jwt_secret,
+    _request,
+    _user,
+    ana,
+    outbox,
+)
+
+NEW_ADDRESS = "ana.new@example.com"
+
+
+def _auth(app, user_id):
+    with app.app_context():
+        return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
+
+
+def _code_for_ana(client, outbox):
+    assert _request(client).status_code == 200
+    return _code_from(outbox[-1])
+
+
+def _pending_code(app, user_id):
+    user = _user(app, user_id)
+    return (user.password_reset_code_hash, user.password_reset_expires_at, user.password_reset_sent_at)
+
+
+def test_a_code_does_not_survive_a_change_of_address(client, app, ana, outbox):
+    """Criterion "A recovery code does not survive an email change"."""
+    code = _code_for_ana(client, outbox)
+    assert client.patch("/api/auth/me", json={"email": NEW_ADDRESS}, headers=_auth(app, ana)).status_code == 200
+    assert _pending_code(app, ana) == (None, None, None)
+
+    res = _confirm(client, code, email=NEW_ADDRESS)
+
+    assert res.status_code == 410 and res.get_json()["error"] == "CODE_EXPIRED"
+    user = _user(app, ana)
+    assert user.email_verified_at is None, "the new address was never proved"
+    assert client.post("/api/auth/login", json={"username": "ana.silva", "password": OLD}).status_code == 200
+
+
+def test_a_code_does_not_survive_clearing_the_address_and_adding_another(client, app, ana, outbox):
+    code = _code_for_ana(client, outbox)
+    headers = _auth(app, ana)
+    assert client.patch("/api/auth/me", json={"email": ""}, headers=headers).status_code == 200
+    assert client.patch("/api/auth/me", json={"email": NEW_ADDRESS}, headers=headers).status_code == 200
+
+    res = _confirm(client, code, email=NEW_ADDRESS)
+
+    assert res.status_code == 410
+    assert _user(app, ana).email_verified_at is None
+
+
+def test_re_saving_the_same_address_keeps_the_code(client, app, ana, outbox):
+    """Not a change: the same address in another case leaves a pending recovery alone."""
+    code = _code_for_ana(client, outbox)
+    assert client.patch("/api/auth/me", json={"email": "ANA@example.com"}, headers=_auth(app, ana)).status_code == 200
+
+    res = _confirm(client, code)
+
+    assert res.status_code == 200
+    assert _user(app, ana).email_verified_at is not None
+
+
+def test_a_recovery_on_an_unchanged_address_works_as_before(client, app, ana, outbox):
+    """Criterion "A recovery on an unchanged address is unchanged": it resets the password and, as it
+    always did, marks that address verified."""
+    code = _code_for_ana(client, outbox)
+
+    res = _confirm(client, code)
+
+    assert res.status_code == 200 and res.get_json()["accessToken"]
+    assert client.post("/api/auth/login", json={"username": "ana.silva", "password": NEW}).status_code == 200
+    assert _user(app, ana).email_verified_at is not None
+
+
+def test_any_write_of_a_new_address_discards_the_code(client, app, ana, outbox):
+    """The rule holds for every path that writes `users.email` (activation, claim, deletion, a form), not
+    only the profile endpoint: it lives on the model."""
+    from padel_app.models import User
+
+    _code_for_ana(client, outbox)
+    with app.app_context():
+        user = db.session.get(User, ana)
+        user.email = NEW_ADDRESS
+        db.session.commit()
+
+    assert _pending_code(app, ana) == (None, None, None)
+
+
+def test_a_write_after_a_commit_that_never_read_the_address_still_discards_the_code(client, app, ana, outbox):
+    """The old value is expired after a commit; the rule must not depend on someone having read it."""
+    from padel_app.models import User
+
+    _code_for_ana(client, outbox)
+    with app.app_context():
+        user = db.session.get(User, ana)
+        user.name = "Ana S."
+        db.session.commit()  # expires every attribute, email included
+        user.email = NEW_ADDRESS
+        db.session.commit()
+
+    assert _pending_code(app, ana) == (None, None, None)
+
+
+
+def test_the_staging_sync_rewrite_clears_codes_too():
+    """The one writer the listener cannot see: scripts/sync-staging-db.sh rewrites every email with a bulk
+    SQL UPDATE after each staging deploy. That same statement must clear any pending recovery code."""
+    import pathlib
+    import re
+
+    script = (pathlib.Path(__file__).resolve().parents[2] / "scripts/sync-staging-db.sh").read_text()
+    (rewrite,) = [line for line in script.splitlines() if re.search(r"update users set email", line, re.I)]
+
+    for column in ("password_reset_code_hash = null", "password_reset_expires_at = null",
+                   "password_reset_sent_at = null", "password_reset_attempts = 0",
+                   "email_verification_code_hash = null", "email_verification_expires_at = null",
+                   "email_verification_sent_at = null", "email_verification_attempts = 0"):
+        assert column in rewrite.lower(), column
+
+
+# --- #518 review: overlapping requests. A listener orders writes; a code bound to its address does not
+# depend on order. Another request commits an email change while the code's mail is being sent.
+
+def _change_email_from_another_session(user_id, address):
+    from sqlalchemy import update
+    from sqlalchemy.orm import Session
+
+    from padel_app.models import User
+
+    with Session(db.engine) as other:
+        other.execute(update(User).where(User.id == user_id).values(email=address))
+        other.commit()
+
+
+def test_a_recovery_code_issued_while_the_address_changes_does_not_confirm_on_the_new_one(client, app, ana, outbox, monkeypatch):
+    """Criterion "A code is bound to the address it was issued for" (rule 11)."""
+    from padel_app.services import password_recovery_service as svc
+
+    real = svc._deliver
+
+    def deliver_while_another_request_changes_the_address(user, code):
+        real(user, code)
+        _change_email_from_another_session(ana, NEW_ADDRESS)
+
+    monkeypatch.setattr(svc, "_deliver", deliver_while_another_request_changes_the_address)
+    code = _code_for_ana(client, outbox)
+    assert outbox[-1]["recipients"] == ["ana@example.com"]
+
+    res = _confirm(client, code, email=NEW_ADDRESS)
+
+    assert res.status_code != 200
+    user = _user(app, ana)
+    assert user.email == NEW_ADDRESS and user.email_verified_at is None
+    assert client.post("/api/auth/login", json={"username": "ana.silva", "password": OLD}).status_code == 200
+
+
+def test_a_verification_code_issued_while_the_address_changes_does_not_verify_the_new_one(client, app, ana, outbox, monkeypatch):
+    """The same binding for the email-verification code (auth.email-verification rule 3)."""
+    from padel_app.models import User
+    from padel_app.services import email_verification_service as svc
+
+    real = svc._deliver
+
+    def deliver_while_another_request_changes_the_address(user, code):
+        real(user, code)
+        _change_email_from_another_session(ana, NEW_ADDRESS)
+
+    monkeypatch.setattr(svc, "_deliver", deliver_while_another_request_changes_the_address)
+    headers = _auth(app, ana)
+    assert client.post("/api/auth/email-verification/send", headers=headers).status_code == 200
+    code = _code_from(outbox[-1])
+
+    res = client.post("/api/auth/email-verification/confirm", json={"code": code}, headers=headers)
+
+    assert res.status_code != 200
+    with app.app_context():
+        user = db.session.get(User, ana)
+        assert user.email == NEW_ADDRESS and user.email_verified_at is None
+
+
+def test_a_mixed_case_rewrite_of_the_same_address_through_the_orm_keeps_the_code(client, app, ana, outbox):
+    """Writers that do not lower-case (activation, the admin editor) reach the listener's case branch, and
+    the code still confirms: the address is normalised on the confirm side too (#518 second read)."""
+    from padel_app.models import User
+
+    code = _code_for_ana(client, outbox)
+    with app.app_context():
+        user = db.session.get(User, ana)
+        user.email = "Ana@Example.COM"
+        db.session.commit()
+
+    assert _pending_code(app, ana)[0] is not None
+    res = _confirm(client, code)
+    assert res.status_code == 200, res.get_json()
+
+
+def test_setting_the_email_on_a_detached_expired_user_does_not_raise(client, app, ana, outbox):
+    """#518 review: the listener must not load the old value (that raises on a detached instance)."""
+    from padel_app.models import User
+
+    _code_for_ana(client, outbox)
+    with app.app_context():
+        user = db.session.get(User, ana)
+        db.session.commit()  # expires every attribute
+        db.session.expunge(user)
+        user.email = NEW_ADDRESS  # an unknown old value counts as a change
+        assert user.password_reset_code_hash is None
+
+
+
+def test_a_verification_code_still_confirms_after_a_mixed_case_rewrite_of_the_same_address(client, app, ana, outbox):
+    """The verification code's binding normalises the address on the confirm side as well."""
+    from padel_app.models import User
+
+    headers = _auth(app, ana)
+    assert client.post("/api/auth/email-verification/send", headers=headers).status_code == 200
+    code = _code_from(outbox[-1])
+    with app.app_context():
+        user = db.session.get(User, ana)
+        user.email = "Ana@Example.COM"
+        db.session.commit()
+
+    res = client.post("/api/auth/email-verification/confirm", json={"code": code}, headers=headers)
+
+    assert res.status_code == 200, res.get_json()

@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import text
 
 from padel_app.sql_db import db
+from padel_app.tests.helpers import insert_user_on_an_old_schema
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
@@ -56,7 +57,7 @@ def _column_info(table, name):
 def test_the_migration_walks_up_and_down_with_the_pre_existing_row_intact(app):
     from flask_migrate import downgrade, upgrade
 
-    from padel_app.models import Coach, User
+    from padel_app.models import Coach
 
     with app.app_context():
         try:
@@ -69,9 +70,7 @@ def test_the_migration_walks_up_and_down_with_the_pre_existing_row_intact(app):
             # are the only NOT NULL columns on notification_configs without a
             # server default (auto_notify_enabled dates to the original
             # create_table, before PAD-279 gave every scalar a DB default).
-            coach_user = User(name="C", username="p404m_c", email="p404m_c@t.test", password="x", status="active")
-            db.session.add(coach_user)
-            db.session.flush()
+            coach_user = insert_user_on_an_old_schema("p404m_c", "C")
             coach = Coach(user_id=coach_user.id)
             db.session.add(coach)
             db.session.flush()
@@ -105,9 +104,7 @@ def test_the_migration_walks_up_and_down_with_the_pre_existing_row_intact(app):
             # A second coach, inserted AFTER the migration without naming the
             # new evaluation-reminder columns at all: the server default still
             # applies.
-            other_user = User(name="C2", username="p404m_c2", email="p404m_c2@t.test", password="x", status="active")
-            db.session.add(other_user)
-            db.session.flush()
+            other_user = insert_user_on_an_old_schema("p404m_c2", "C2")
             other_coach = Coach(user_id=other_user.id)
             db.session.add(other_coach)
             db.session.flush()
