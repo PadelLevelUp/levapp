@@ -88,7 +88,7 @@ Players:
 | POST | `/api/app/remove_player` | None | `{coach_id, player_id}` | varies |
 | POST | `/api/app/check_field_available` | None | `{model*: "user", field*: "username"\|"email"\|"name", value*, scope?}` | `{available, message?}` or 409 |
 
-Users: `GET /api/app/users` (JWT) → serialize_user[] (active only)
+Users: `GET /api/app/users` (JWT) → serialize_user_public[] — the caller's messageable set, the same as `GET /api/app/messageable-users` (PAD-500); no client calls it
 
 Invitations:
 | POST | `/api/app/club/<club_id>/coach-invitations` | JWT | `{email?}` | `{token, inviteLink, expiresAt}` 201 |
