@@ -581,3 +581,45 @@ def test_join_a_failed_enrolment_changes_nothing_and_the_coach_can_accept_again(
         assert _decide(app, ids, request_id, accept=True) == "accepted"
         with app.app_context():
             assert asker in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+
+
+# ── #527 final read item 5: the waiting-list fill re-checks the student under its lock ──────
+
+@pytest.mark.parametrize("meanwhile", ["declined", "left_the_list"])
+def test_waiting_list_fill_rechecks_the_student_under_its_lock(app, monkeypatch, meanwhile):
+    """`_check_waiting_list` picks the entry before the lock. A "no" to this class (rule 18), or the
+    student leaving the waiting list, landing between the pick and the lock must stop the placement."""
+    from padel_app.models import LessonInstance, NotificationEvent, Vacancy, WaitingListEntry
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.test_notification_integration import PATCHES as INT_PATCHES
+    from padel_app.tests.test_pad317_one_vacancy_close import _open_vacancy, _world
+
+    ids = _world(app)
+    with app.app_context(), patch(INT_PATCHES[0]), patch(INT_PATCHES[1]):
+        vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
+        entry = WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
+                                 coach_id=ids["coach_id"], is_active=True)
+        db.session.add(entry)
+        db.session.commit()
+        entry_id = entry.id
+        real_lock = ns._lock_vacancy_and_instance
+
+        def lock(vacancy, instance):
+            # what another request committed while this fill was on its way to the lock
+            if meanwhile == "declined":
+                db.session.add(NotificationEvent(coach_id=ids["coach_id"], lesson_instance_id=ids["instance_id"],
+                                                 player_id=ids["bea"], type="manual", round_number=1,
+                                                 status="expired", answer="no"))
+            else:
+                WaitingListEntry.query.filter_by(id=entry_id).update({"is_active": False})
+            db.session.commit()
+            return real_lock(vacancy, instance)
+
+        monkeypatch.setattr(ns, "_lock_vacancy_and_instance", lock)
+        placed = ns._fill_from_waiting_list(
+            db.session.get(WaitingListEntry, entry_id), Vacancy.query.get(vacancy_id),
+            LessonInstance.query.get(ids["instance_id"]), ids["coach_id"], ns.get_or_create_config(ids["coach_id"]))
+        db.session.expire_all()
+        assert placed is False
+        assert ids["bea"] not in LessonInstance.query.get(ids["instance_id"]).enrolled_player_ids
+        assert Vacancy.query.get(vacancy_id).status == "open"
