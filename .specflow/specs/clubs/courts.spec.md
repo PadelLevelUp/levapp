@@ -15,15 +15,23 @@ useful to students and coaches on the day, and it is the first step towards club
 own courts on the platform later. Owner decision (PAD-194, 2026-09-09): **minimal v1** — courts are
 a name and an order per club, managed by the club's coaches in Settings → Club; a class carries an
 optional court; the class forms let the coach pick it; the calendar cards and the class detail show
-the club and the court. Nothing else (court availability, booking, per-occurrence court changes)
-is in scope.
+the club and the court. Nothing else (court availability, booking) is in scope. PAD-513
+(2026-10-03) added a per-occurrence court (rule 9) after a court chosen for one occurrence was found
+accepted and dropped (B-285).
+
+**Courts are display-only.** No overlap, blocker, availability or booking check reads a court: two
+classes on the same court at the same time are not a conflict anywhere in the platform. The court is
+shown on the card and the detail, and named by the `{court}` message placeholder
+(`notifications.message-templates` rule 14); nothing else reads it.
 
 ### Entities
 - **Court** (`courts`): `id`, `club_id` (FK → `clubs.id`, ON DELETE CASCADE), `name` (String(80),
   NOT NULL), `position` (Integer, NOT NULL, default 0 — the display order). UNIQUE (`club_id`,
   `name`).
 - **Lesson** — new column `court_id` (FK → `courts.id`, ON DELETE SET NULL, nullable). A
-  `LessonInstance` reads its court from its lesson; there is no per-occurrence override in v1.
+  `LessonInstance` reads its court from its lesson unless it has its own (rule 9).
+- **LessonInstance** — column `court_id` (FK → `courts.id`, ON DELETE SET NULL, nullable, PAD-513):
+  the occurrence's own court; NULL inherits the lesson's.
 - **READS:** Club, Association_CoachClub (membership check).
 
 ### Rules
@@ -37,7 +45,8 @@ is in scope.
    empty name is 400 `{"error": …, "code": "invalid_court"}`.
 4. `PATCH /app/courts/<court_id>` `{"name"?}` renames (same validation). `DELETE
    /app/courts/<court_id>` removes the court (204); classes on that court keep running with no
-   court (`court_id` becomes NULL), nothing else changes.
+   court (`court_id` becomes NULL), and an occurrence that had that court as its own falls back to its
+   lesson's (rule 9); nothing else changes.
 5. `PUT /app/club/<club_id>/courts/order` `{"ids": [...]}` sets `position` to the index of each id;
    the list must contain exactly the club's court ids, else 400 `invalid_court`.
 6. **A class may carry a court.** `POST /app/add_class` and `POST /app/edit_class` accept an
@@ -57,6 +66,21 @@ is in scope.
 8. **Settings → Club (web and iOS, R-024).** The Club section gains a **Courts** block: the ordered
    list with rename, move up/down and delete, an input plus **Add court**, and an empty line that
    says the club has no courts yet. Validation errors are shown inline.
+
+9. **One occurrence may have its own court (PAD-513, B-285).** An edit with scope `single` and a
+   `courtId` (validated as in rule 6) stores the court on the occurrence, following the override
+   pattern of `classes.edit` rule 4: a court equal to the series' court clears the override (NULL
+   inherits). The calendar event and the class detail of an occurrence read its own court first,
+   then the lesson's (`LessonInstance.effective_court`), and so does the `{court}` message
+   placeholder (`notifications.message-templates` rule 14). `courtId: null` for one occurrence of a
+   series that has a court is answered `400 {"error": "invalid_fields", "fields": ["courtId"]}`
+   (NULL inherits, so "no court" for one occurrence cannot be stored), and nothing is written. A
+   class that does not recur is edited with scope `single` by both editors; there the court is the
+   class's own (null clears it), written in the same commit as the occurrence, so an edit that fails
+   leaves it unchanged. A "this and future" edit that sends `courtId` clears every
+   occurrence's own court from the boundary on, so the series' new court reaches them; an edit
+   without `courtId` leaves them. The migration adds the column and its foreign key only if absent
+   and drops them only if present.
 
 ### Acceptance Criteria
 
@@ -107,9 +131,42 @@ is in scope.
 - **When** A DELETEs the court
 - **Then** the class still exists and its event carries `court: null`
 
+#### One occurrence keeps its own court
+- **Given** a weekly series on "Campo 1" and its materialised occurrence of 2026-10-12
+- **When** the coach edits that occurrence only with `courtId` "Campo 2"
+- **Then** the response is 200 and the occurrence's card and detail show "Campo 2"; the series and
+  its other occurrences show "Campo 1"
+- **When** the coach edits it again with "Campo 1"
+- **Then** the occurrence has no court of its own and shows "Campo 1"
+- **When** the coach edits it with `courtId: null`
+- **Then** the response is 400 naming `courtId` and the occurrence still shows "Campo 1"
+- **And** the same holds for an occurrence not yet materialised (a `Lesson` event and its date)
+
+#### A series court change reaches the occurrences from the boundary on
+- **Given** occurrences of 2026-10-12 and 2026-10-26, both on "Campo 2" of their own
+- **When** the coach edits the series from 2026-10-19 on with `courtId` "Campo 3"
+- **Then** the 2026-10-12 occurrence keeps "Campo 2" and the 2026-10-26 one shows "Campo 3"
+- **And** a reminder for the 2026-10-12 occurrence names "Campo 2" in `{court}`
+- **When** a "this and future" edit does not send `courtId`
+- **Then** the occurrences keep their own courts
+
+#### Deleting an occurrence's court
+- **Given** an occurrence on "Campo 2" of its own, in a series on "Campo 1"
+- **When** the coach deletes "Campo 2"
+- **Then** the occurrence shows "Campo 1"
+
+#### A class that does not recur
+- **Given** a one-off class on "Campo 1"
+- **When** the coach picks "Campo 2", then "No court", in its editor (scope `single`)
+- **Then** the class shows "Campo 2", then no court
+
 #### Migration
 - **Given** the migration source
 - **Then** `courts` is created only if absent and `lessons.court_id` is added only if absent
+- **And** `lesson_instances.court_id` and its SET NULL foreign key are added only if absent and
+  dropped only if present, the key found by its column whatever its name; on Postgres the walk
+  down, up, up over a bare column, up over a column already keyed under the default name, and
+  down passes
 
 #### The coach manages courts in Settings on web
 - **Given** the seeded coach on Settings → Club
@@ -130,7 +187,15 @@ is in scope.
 
 ### Notes
 - Source: PAD-194 (owner decision: minimal v1, 2026-09-09).
-- Out of scope, as follow-ups: court availability/booking, a per-occurrence court change, clubs
+- Known limits of rule 9 (PAD-513, accepted 2026-10-03):
+  - The 400 for "no court" on one occurrence of a series with a court reaches the coach as the
+    editors' generic "update failed" message; neither web nor iOS explains it. It is a rare action.
+  - A "this and future" edit cannot adopt an occurrence's own court for the series: the editor
+    pre-fills that court, both clients send only what changed, so no `courtId` goes out and the
+    series keeps its court. Editing the series from a day without a court of its own does it.
+  - A "this and future" edit that also moves the date clears own courts from the new date on, as it
+    does the other overrides.
+- Out of scope, as follow-ups: court availability/booking (courts are display-only, see Intent), clubs
   managing their own courts without a coach, multiple clubs on one screen.
 - The coach's *current* club is what the class forms list courts for; a class always belongs to the
   club it was created in (`clubs.crud` rule 5), so the court list and the class agree.

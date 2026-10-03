@@ -20,6 +20,7 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 5. Changing lesson time reschedules all future reminder/invitation jobs
 6. **Court (PAD-194).** `updates.courtId` sets the class's court (null clears it; omitted leaves it);
    it must belong to the class's club (`clubs.courts` rule 6). A "this and future" split copies the court.
+   One occurrence of a series may have a court of its own (`clubs.courts` rule 9, PAD-513).
 
 7. **What was sent is what is written (PAD-387, B-136; times PAD-508, B-275).** `POST /api/app/edit_class` writes only the
    keys present in `updates`; an omitted key — `isRecurring` and `recursUntilSeasonEnd` included — is
@@ -33,8 +34,9 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
      present empty value is answered `400 {"error": "invalid_fields", "fields": [...]}` naming every
      such field, and nothing is written. The 400 is decided on the whole payload before any path
      writes or forks the series.
-   - **A single occurrence (`single`):** an occurrence has no colour, end date or court of its own —
-     those keys are accepted and ignored; a cleared `levelId` sets the occurrence's level to NULL,
+   - **A single occurrence (`single`):** an occurrence has no colour or end date of its own —
+     those keys are accepted and ignored. Its court is its own (`clubs.courts` rule 9, PAD-513): a
+     court is stored on the occurrence, or refused by name, never accepted and dropped. A cleared `levelId` sets the occurrence's level to NULL,
      which INHERITS the series level (rule 4), not "all levels". An empty `name` is refused as above;
      the title override is dropped only by resending the series title (rule 4), and it is touched
      only by an edit that sent `name`.

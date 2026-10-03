@@ -539,6 +539,9 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    # clubs.courts rule 9 (PAD-513): the court is an override only when it
+    # differs from the lesson's; NULL inherits.
+    lesson_instance.court_id = _court_override(instance_data, parent_lesson)
     lesson_instance.create()
 
     add_ids = {
@@ -579,6 +582,12 @@ def create_lesson_instance_helper(data, parent_lesson=None):
         ).create()
 
     return lesson_instance
+
+
+def _court_override(data, lesson):
+    court = data.get('court')
+    court = int(court) if court not in (None, '') else None
+    return court if court != (lesson.court_id if lesson is not None else None) else None
 
 
 def edit_lesson_instance_helper(data, lesson_instance=None):
@@ -627,6 +636,11 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
         _lesson_cap = lesson_instance.lesson.max_players if lesson_instance.lesson else None
         lesson_instance.max_players_override = _cap if _cap != _lesson_cap else None
     lesson_instance.max_players = lesson_instance.effective_max_players
+    # clubs.courts rule 9 (PAD-513): a court equal to the lesson's clears the
+    # override — which is also how a "this and future" court edit reaches the
+    # occurrences from the boundary on (the lesson is edited first).
+    if 'court' in data:
+        lesson_instance.court_id = _court_override(data, lesson_instance.lesson)
     lesson_instance.save()
 
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
@@ -1206,6 +1220,16 @@ def _edit_future_instances_for_lesson(*, lesson, from_date, payload):
         edit_lesson_instance_helper(inst_payload, inst)
 
 
+def _clear_court_overrides(lesson, from_date):
+    (
+        LessonInstance.query
+        .filter(LessonInstance.lesson_id == lesson.id)
+        .filter(LessonInstance.start_datetime >= datetime.combine(from_date, time.min))
+        .update({LessonInstance.court_id: None}, synchronize_session=False)
+    )
+    db.session.commit()
+
+
 def _ensure_date(payload, date_obj):
     payload["date"] = payload.get("date") or date_obj.strftime("%Y-%m-%d")
     return payload
@@ -1358,6 +1382,16 @@ def edit_class_service(data):
         target = LessonInstance.query.get_or_404(original_id).lesson if model == "LessonInstance" else Lesson.query.get_or_404(original_id)
         court = resolve_court_for_club(target.club_id, updates.get("courtId"))
         payload["court"] = court.id if court else None
+        # clubs.courts rule 9 (PAD-513). Both editors send scope "single" for a
+        # class that does not recur: its court is the class's own. For one
+        # occurrence of a series, "no court" cannot be stored (NULL inherits the
+        # series' court) — refused, never dropped.
+        if scope == "single" and not target.recurrence_rule:
+            # Not committed here: the occurrence's save below commits it, so an
+            # edit that fails on the way writes nothing.
+            target.court_id = payload["court"]
+        elif scope == "single" and court is None and target.court_id is not None:
+            return {"error": "invalid_fields", "fields": ["courtId"]}, 400
 
     if model == "LessonInstance":
         instance = LessonInstance.query.get_or_404(original_id)
@@ -1516,12 +1550,16 @@ def edit_class_service(data):
         # clears them so they are re-timed below.
         if event_date == lesson.start_datetime.date():
             cancel_lesson_reminder_jobs(lesson.id, from_date=new_date or event_date)
-        lesson_to_edit, _ = _apply_future_edit_to_lesson(
+        lesson_to_edit, from_date = _apply_future_edit_to_lesson(
             lesson=lesson,
             event_date=event_date,
             new_date=new_date,
             payload=payload,
         )
+        if "court" in payload:
+            # clubs.courts rule 9 (PAD-513): the series' new court reaches every
+            # occurrence from the boundary on, own courts included.
+            _clear_court_overrides(lesson_to_edit, from_date)
         if notifications_enabled is not None:
             lesson_to_edit.notifications_enabled = notifications_enabled
             lesson_to_edit.save()
