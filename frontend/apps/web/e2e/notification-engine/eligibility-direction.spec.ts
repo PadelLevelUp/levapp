@@ -69,6 +69,14 @@ test.describe("PAD-481: within N levels has a direction", () => {
       );
       await direction.click();
       await page.getByTestId("eligibility-direction-below").click();
+      await expect(direction).toContainText(ui("settings.eligibility.directions.below", { exact: false }));
+      // PAD-506 (settings.explicit-save): the choice is held; the stored bar is still the old one
+      // until the tab's Save sends it.
+      await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+      expect((await getConfig(request, token)).eligibilityRules).toEqual([
+        { attribute: "level", operation: "within_n_above_class", value: 2 },
+      ]);
+      await page.getByTestId("settings-header-save").click();
       const body = (await saved).postDataJSON();
       expect(body.eligibilityRules).toEqual([
         { attribute: "level", operation: "within_n_below_class", value: 2 },

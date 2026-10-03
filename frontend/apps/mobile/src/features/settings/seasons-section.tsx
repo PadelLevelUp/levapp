@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -36,7 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
-import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
+import { useSectionSave } from "@/features/settings/unsaved-registry";
 
 /**
  * calendar.seasons rule 12 (PAD-82) — Settings → Calendar on iOS, mirroring
@@ -95,7 +94,6 @@ export function SeasonsSection() {
   const [definition, setDefinition] = React.useState<SeasonDefinition | null>(null);
   const [draft, setDraft] = React.useState<Draft>(DEFAULT_DRAFT);
   const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
   const [removing, setRemoving] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
@@ -142,7 +140,6 @@ export function SeasonsSection() {
     return (iso: string) => fmt.format(new Date(`${iso}T00:00:00Z`));
   }, [i18n.language]);
 
-  useUnsavedReporter("seasons", seasonUnsaved(draft, definition));
 
   const dayOptions = React.useMemo<Option[]>(() => DAYS.map((d) => ({ value: String(d), label: String(d) })), []);
   const monthOptions = React.useMemo<Option[]>(
@@ -168,13 +165,14 @@ export function SeasonsSection() {
     return null;
   };
 
+  // settings.explicit-save rule 3 (PAD-506): this section's part of the screen's one Save; throws on a
+  // refusal. Removing the season stays a command, asked first, outside the Save.
   const handleSave = async () => {
     const problem = localProblem();
     if (problem) {
       setError(problem);
-      return;
+      throw new Error(problem);
     }
-    setSaving(true);
     setError(null);
     setStatus(null);
     try {
@@ -187,7 +185,6 @@ export function SeasonsSection() {
       });
       setDefinition(saved);
       setDraft(draftFrom(saved));
-      setStatus(t("settings.seasons.saved"));
     } catch (err) {
       const e = err as ApiErr;
       setError(
@@ -195,10 +192,10 @@ export function SeasonsSection() {
           ? t("settings.seasons.invalidDay")
           : t("settings.seasons.saveFailed")
       );
-    } finally {
-      setSaving(false);
+      throw err;
     }
   };
+  useSectionSave("seasons", seasonUnsaved(draft, definition), { label: t("settings.seasons.title"), save: handleSave });
 
   const handleRemove = async () => {
     setRemoving(true);
@@ -332,16 +329,6 @@ export function SeasonsSection() {
               ) : (
                 <View className="flex-1" />
               )}
-              <Button
-                size="sm"
-                className="flex-1"
-                testID="season-save"
-                accessibilityLabel={t("settings.seasons.save")}
-                disabled={saving}
-                onPress={() => void handleSave()}
-              >
-                <Text>{saving ? t("settings.seasons.saving") : t("settings.seasons.save")}</Text>
-              </Button>
             </View>
           </>
         )}

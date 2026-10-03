@@ -12,7 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -24,9 +23,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
 import { getMe, updateMe } from "@/api/auth";
-import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
+import { useTabSave } from "@/context/SettingsUnsavedContext";
 
 /**
  * PAD-112 — the student's own notification block preferences.
@@ -48,10 +46,8 @@ import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
  */
 export function StudentNotificationBlocksSection() {
   const { t } = useTranslation();
-  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
   const [blockAuto, setBlockAuto] = useState(false);
@@ -92,34 +88,18 @@ export function StudentNotificationBlocksSection() {
     blockManual !== baseline.blockManual ||
     blockAll !== baseline.blockAll ||
     reason !== baseline.reason;
-  useReportUnsaved("studentNotificationBlocks", unsaved);
-
+  // settings.explicit-save rule 3: this section's part of the tab's one Save.
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateMe({
+    await updateMe({
         blockAutoInvitations: blockAuto,
         blockManualInvitations: blockManual,
         blockAllNotifications: blockAll,
         notificationBlockReason: reason.trim(),
       });
-      // rule 2: a successful save is the new clean baseline.
-      setBaseline({ blockAuto, blockManual, blockAll, reason });
-      // Only after the server confirms — never an optimistic success toast.
-      toast({
-        title: t("settings.notificationBlocks.savedTitle"),
-        description: t("settings.notificationBlocks.savedDescription"),
-      });
-    } catch {
-      toast({
-        variant: "destructive",
-        title: t("settings.toast.couldNotSaveTitle"),
-        description: t("settings.toast.couldNotSaveDescription"),
-      });
-    } finally {
-      setSaving(false);
-    }
+    // rule 2: a successful save is the new clean baseline.
+    setBaseline({ blockAuto, blockManual, blockAll, reason });
   };
+  useTabSave("studentNotificationBlocks", unsaved, { label: t("settings.notificationBlocks.title"), save: handleSave });
 
   if (loading) {
     return (
@@ -197,18 +177,6 @@ export function StudentNotificationBlocksSection() {
           </p>
         </div>
 
-        <div className="flex justify-end">
-          <Button
-            data-testid="student-notif-save"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {saving
-              ? t("settings.notificationBlocks.saving")
-              : t("settings.notificationBlocks.save")}
-          </Button>
-        </div>
 
         {anyBlocked && (
           <p className="sr-only" data-testid="student-notif-any-blocked">

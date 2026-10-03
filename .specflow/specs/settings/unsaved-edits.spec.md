@@ -20,18 +20,17 @@ competes with the server's value, with the B-155 load guards and with the same a
 device. The server stays the one truth; the user decides at the moment of leaving.
 
 ### Entities
-- **READS/WRITES:** nothing new. Each section keeps writing its own entity through its own Save
+- **READS/WRITES:** nothing new. Each section keeps writing its own entity through the tab's one Save
   (`settings.profile`, `settings.coach-working-hours`, `calendar.seasons`, `levels.*`,
   `notifications.student-block-preferences`, web's message templates).
 
 ### Rules
-1. **Which sections.** Every section whose edits wait for a Save holds unsaved edits: since PAD-506
-   (`settings.explicit-save`) Perfil, Preferências (language, class-request alerts, coach levels,
-   evaluation frequency and scale) and Admin wait for the tab's one Save; seasons, working hours, the
-   student's notification blocks and web's message templates wait for their own Save until PAD-506 PR 2
-   brings them under it. Controls still saved on change (the notification engine / auto-invite
-   toggles, until PR 2) have nothing unsaved and never ask (`settings.save-on-change`). Theme is a
-   device preference and never asks.
+1. **Which sections.** Since PAD-506 (`settings.explicit-save`) every setting on every Settings tab
+   waits for the tab's one Save, so every section with a setting can hold unsaved edits: Perfil,
+   Preferências (language, class-request alerts, coach levels, evaluation frequency and scale), Admin,
+   Notificações (the notification engine and web's message templates), Calendário (seasons, working
+   hours) and the student's "As minhas notificações". Theme is a device preference and never asks;
+   commands (`settings.explicit-save` rule 4) hold nothing and never ask.
 2. **Unsaved means different from the last loaded or saved value**, compared by value, not by "was
    touched": an edit undone by hand is not unsaved. A successful Save makes the section clean; a
    failed Save leaves it unsaved.
@@ -77,10 +76,10 @@ device. The server stays the one truth; the user decides at the moment of leavin
 - **When** they switch tab
 - **Then** no question appears
 
-#### A save-on-change control never asks
-- **Given** a coach toggled an auto-invite setting (saved on change until PAD-506 PR 2)
+#### A held engine change asks (PAD-506 PR 2)
+- **Given** a coach toggled an auto-invite setting and did not press Save
 - **When** they leave the section
-- **Then** no question appears
+- **Then** "Descartar alterações?" appears
 
 #### A held language asks (PAD-506)
 - **Given** a coach changed the language and did not press Save

@@ -275,9 +275,9 @@ executionOrder:
     # 128 (B-242, PAD-473): a number typed into "Personalizado" survives backgrounding the app and
     # following a link with the field focused. onFlowComplete restores "never".
     - 128-evaluation-custom-frequency-survives-leaving
-    # 129 (PAD-473, settings.save-on-change): choosing a scale shows the save sign beside it, the server
-    # holds 10, and the sign goes. onFlowComplete restores 5.
-    - 129-settings-save-sign
+    # 129 (PAD-506, settings.explicit-save): choosing a scale is held — the server still holds 5 — until
+    # settings-preferences-save sends 10. onFlowComplete restores 5.
+    - 129-settings-scale-held-until-save
     # 130 (PAD-480): a sub-category is moved under another category from the manager; the server holds
     # the new parent. onFlowComplete deletes the two categories it made.
     - 130-competency-move

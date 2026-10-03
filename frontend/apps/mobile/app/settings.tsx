@@ -191,8 +191,8 @@ function SettingsScreenBody() {
   // to the list the moment a section stops being allowed.
   const activeSection = sections.find((s) => s.id === openId) ?? null;
 
-  // settings.explicit-save rule 3 (PAD-506): the sections brought under the one Save (PR 1).
-  const SAVE_SECTIONS: SettingsSectionId[] = ["profile", "preferences", "admin"];
+  // settings.explicit-save rule 3 (PAD-506): every section with a setting has the one Save.
+  const SAVE_SECTIONS: SettingsSectionId[] = ["profile", "preferences", "calendar", "notifications", "myNotifications", "admin"];
   const sectionHasSave = activeSection !== null && SAVE_SECTIONS.includes(activeSection.id);
   // Every unsaved part of the open section, in turn; a part that fails stays unsaved and is named.
   const handleSave = async () => {

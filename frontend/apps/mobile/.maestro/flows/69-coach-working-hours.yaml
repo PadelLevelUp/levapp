@@ -4,9 +4,10 @@
 # Mirrors: apps/web/e2e (PAD-357 working-hours spec). Walks what the editor owns
 # without driving the iOS time spinner (not stable in Maestro, see flow 13):
 # - unset hours show the default note and the "default" state;
-# - Sunday switched to "não trabalho", saved: the state becomes "set" and Sunday
+# - Sunday switched to "não trabalho", saved with the footer Save: the state becomes "set" and Sunday
 #   reads off after the server's confirmation;
-# - Clear returns the coach to the default.
+# - Clear is held, and returns the coach to the default once the Calendar footer Save sends it.
+# PAD-506 (settings.explicit-save): every edit is held until `settings-calendar-save`.
 #
 # The seeded coach starts with no working hours; the flow clears what it saves, and
 # a first API step clears any hours left behind by an earlier failed run.
@@ -57,11 +58,16 @@ appId: com.padellevelup.app
     timeout: 10000
 - scrollUntilVisible:
     element:
-      id: "working-hours-save"
+      id: "settings-calendar-save"
     direction: DOWN
     timeout: 20000
 - tapOn:
-    id: "working-hours-save"
+    id: "settings-calendar-save"
+- extendedWaitUntil:
+    visible:
+      id: "b506-never-present"
+    timeout: 2000
+    optional: true
 - scrollUntilVisible:
     element:
       id: "working-hours-set"
@@ -87,6 +93,21 @@ appId: com.padellevelup.app
     timeout: 20000
 - tapOn:
     id: "working-hours-clear"
+# PAD-506: Clear is held too: the server still holds the hours until the footer Save sends it.
+- evalScript: "${output.stillSet = json(http.get(output.api + '/api/app/coach/working-hours', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).workingHours}"
+- assertTrue: "${output.stillSet !== null}"
+- scrollUntilVisible:
+    element:
+      id: "settings-calendar-save"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "settings-calendar-save"
+- extendedWaitUntil:
+    visible:
+      id: "b506-never-present"
+    timeout: 2000
+    optional: true
 - scrollUntilVisible:
     element:
       id: "working-hours-default"

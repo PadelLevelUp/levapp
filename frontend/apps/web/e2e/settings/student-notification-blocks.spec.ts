@@ -77,6 +77,20 @@ async function openMyNotifications(page: Page) {
   });
 }
 
+/**
+ * PAD-506 (settings.explicit-save): the blocks are held until the tab's one Save. Press it, wait for the
+ * PATCH /auth/me it sends, and check the tab went clean (Save disabled).
+ */
+async function saveHeld(page: Page) {
+  await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+  const [res] = await Promise.all([
+    page.waitForResponse((r) => /\/api\/auth\/me$/.test(r.url()) && r.request().method() === "PATCH"),
+    page.getByTestId("settings-header-save").click(),
+  ]);
+  expect(res.status()).toBe(200);
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
+}
+
 // Every spec here leaves the shared student unblocked.
 test.afterEach(async ({ request }) => {
   await setStudentPrefs(request, CLEARED);
@@ -110,7 +124,7 @@ test.describe("PAD-112: the student's notification preferences", () => {
 
     await page.getByTestId("student-notif-block-auto").click();
     await page.getByTestId("student-notif-reason").fill("Estou lesionado");
-    await page.getByTestId("student-notif-save").click();
+    await saveHeld(page);
 
     // Reload rather than trusting local state — the bug this guards against is
     // a save that reports success without persisting.
@@ -163,7 +177,7 @@ test.describe("PAD-112: the student's notification preferences", () => {
       "checked",
     );
 
-    await page.getByTestId("student-notif-save").click();
+    await saveHeld(page);
     await page.reload();
     await page.getByTestId("settings-nav-myNotifications").click();
     await expect(page.getByTestId("student-notif-block-all")).toHaveAttribute(
@@ -185,7 +199,7 @@ test.describe("PAD-112: the student's notification preferences", () => {
     );
 
     await page.getByTestId("student-notif-block-auto").click();
-    await page.getByTestId("student-notif-save").click();
+    await saveHeld(page);
 
     await page.reload();
     await page.getByTestId("settings-nav-myNotifications").click();

@@ -1,6 +1,6 @@
 /**
  * PAD-506 (settings.explicit-save): scale and language are held until the page-header Save; the
- * header Save shows on Perfil and Preferências, not on Calendar or Notificações.
+ * header Save shows on every tab with a setting, including Calendário and Notificações (PR 2).
  *
  * PAD-473 — settings.save-on-change on web: a control that saves on change signs its save beside
  * itself ("Guardado"), the language is stored the moment it is chosen (B-244) and its sign shows in
@@ -91,7 +91,7 @@ test("PAD-506 / B-244: the language is held until Save, then stored and the app 
   await expect(page.locator("#language-select")).toContainText(uiText("settings.portuguese", "pt"));
 });
 
-test("PAD-506: the page-header Save shows on Perfil and Preferências, not on Calendar or Notificações", async ({ page }) => {
+test("PAD-506: the page-header Save shows on every tab with a setting (Calendário and Notificações included), disabled while clean", async ({ page }) => {
   await loginAsCoach(page);
   await openSettings(page);
   const headerSave = page.getByTestId("settings-header-save");
@@ -100,8 +100,11 @@ test("PAD-506: the page-header Save shows on Perfil and Preferências, not on Ca
   await expect(headerSave).toBeVisible();
   await openTab(page, "settings.nav.preferences");
   await expect(headerSave).toBeVisible();
+  // PR 2 of PAD-506: Calendário and Notificações are explicit-save too.
   await openTab(page, "settings.nav.calendar");
-  await expect(headerSave).toHaveCount(0);
+  await expect(headerSave).toBeVisible();
+  await expect(headerSave).toBeDisabled();
   await openTab(page, "settings.nav.notifications");
-  await expect(headerSave).toHaveCount(0);
+  await expect(headerSave).toBeVisible();
+  await expect(headerSave).toBeDisabled();
 });

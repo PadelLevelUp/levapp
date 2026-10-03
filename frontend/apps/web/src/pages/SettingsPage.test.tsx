@@ -198,6 +198,8 @@ function renderSettings() {
 const sunday = () => screen.getByTestId("working-hours-day-sun");
 const dialog = () => screen.queryByTestId("settings-unsaved-dialog");
 
+const headerSave = () => screen.getByTestId("settings-header-save");
+
 async function openOnCalendarAndToggleSunday() {
   goto("/settings?tab=calendar");
   renderSettings();
@@ -275,8 +277,10 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     putCoachWorkingHours.mockImplementation((value: unknown) => Promise.resolve({ workingHours: value }));
     await openOnCalendarAndToggleSunday();
 
-    fireEvent.click(screen.getByTestId("working-hours-save"));
+    expect(putCoachWorkingHours).not.toHaveBeenCalled(); // held until the tab's one Save
+    fireEvent.click(headerSave());
     await waitFor(() => expect(putCoachWorkingHours).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(headerSave()).toBeDisabled());
 
     fireEvent.click(screen.getByTestId("settings-nav-preferences"));
     expect(dialog()).not.toBeInTheDocument();
@@ -430,7 +434,6 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
   async function chooseLanguage(lang: "pt" | "en") {
     fireEvent.click(await screen.findByTestId(`select-option-${lang}`));
   }
-  const headerSave = () => screen.getByTestId("settings-header-save");
   const shownLanguage = () => screen.getByLabelText("settings.language").getAttribute("data-value");
 
   it("a language change is held: nothing is sent and the app keeps its language until Save", async () => {
@@ -523,7 +526,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(dialog()).not.toBeInTheDocument();
   });
 
-  it("the header Save shows on Perfil and Preferências, and not on a tab whose sections still save themselves", async () => {
+  it("the header Save shows on every tab that has a setting, and not on a tab with nothing to save", async () => {
     const maybeSave = () => screen.queryByTestId("settings-header-save");
     goto("/settings?tab=profile");
     renderSettings();
@@ -533,9 +536,15 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     await screen.findByTestId("settings-request-alerts");
     expect(maybeSave()).toBeInTheDocument();
 
-    // Calendar: until PAD-506 PR 2 its sections keep their own Save buttons.
+    // Calendar: its sections lost their own Save buttons (PAD-506).
     fireEvent.click(screen.getByTestId("settings-nav-calendar"));
     await screen.findByTestId("working-hours-works-sun");
+    expect(maybeSave()).toBeInTheDocument();
+    expect(screen.queryByTestId("working-hours-save")).not.toBeInTheDocument();
+
+    // A tab with nothing to save has none.
+    fireEvent.click(screen.getByTestId("settings-nav-connections"));
+    await waitFor(() => expect(screen.getByTestId("settings-nav-connections")).toBeInTheDocument());
     expect(maybeSave()).not.toBeInTheDocument();
   });
 

@@ -1,15 +1,15 @@
 /**
- * settings.save-on-change rules 1-3 + B-243 (PAD-473) on the web notification-engine card. Every
- * control behind the card's one save() signs its save and, on a failure, says so and returns to the
- * last value the server confirmed — only the fields whose newest save failed. The reminders
- * subsection is one of them since PAD-478 (its own pause sits in RemindersSection, stubbed here).
+ * settings.explicit-save (PAD-506) on the web notification-engine card. Every control's change is
+ * held in the card; the tab's one Save (here the harness's `harness-save`) sends what differs from
+ * what the server confirmed, in one request, and the message templates as their own part. A failed
+ * part stays on screen and unsaved, and is what a second Save sends again.
  *
  * The sub-panels are stubs that call onChange and show the value they were given, so this file
- * pins the card's wiring (keys, signs, rollback), not each panel's own controls.
+ * pins the card's wiring (what is held, what one Save sends), not each panel's own controls.
  */
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { NotificationConfig } from "@/types";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -25,15 +25,7 @@ function stub(name: string, prop: string, next: unknown) {
     </div>
   );
 }
-// The reminders stub also shows what the card answers when the form asks "send what is pending on close?".
-vi.mock("./RemindersSection", () => ({
-  RemindersSection: (props: Record<string, unknown>) => (
-    <div>
-      {stub("reminders", "reminderTiming", { reminderCount: 3 })(props)}
-      <span data-testid="stub-reminders-flush-on-close">{String((props.flushOnClose as () => boolean)())}</span>
-    </div>
-  ),
-}));
+vi.mock("./RemindersSection", () => ({ RemindersSection: stub("reminders", "reminderTiming", { reminderCount: 3 }) }));
 vi.mock("./InvitationGroupsSection", () => ({
   DEFAULT_INVITATION_GROUPS: [{ id: "default" }],
   InvitationGroupsSection: stub("groups", "groups", [{ id: "g2" }]),
@@ -55,10 +47,19 @@ vi.mock("./RestrictionsPanel", () => ({
   ),
 }));
 vi.mock("./NotificationGroupsSection", () => ({ NotificationGroupsSection: stub("notifyGroups", "groups", [{ id: "n" }]) }));
-vi.mock("./MessageTemplatesSection", () => ({ MessageTemplatesSection: () => null }));
+vi.mock("./MessageTemplatesSection", () => ({
+  MessageTemplatesSection: (props: { templates: Record<string, string>; onChange: (v: unknown) => void }) => (
+    <div>
+      <span data-testid="stub-templates-value">{props.templates.reminder}</span>
+      <button data-testid="stub-templates-change" onClick={() => props.onChange({ ...props.templates, reminder: "Olá {name}" })} />
+      <button data-testid="stub-templates-revert" onClick={() => props.onChange({ ...props.templates, reminder: "" })} />
+    </div>
+  ),
+}));
 vi.mock("./StandingWaitingListSection", () => ({ StandingWaitingListSection: () => null }));
 
 import { NotificationsEngineSection } from "./NotificationsEngineSection";
+import { SettingsUnsavedTestHarness } from "@/test/settingsUnsavedTestHarness";
 
 const CONFIG = {
   autoNotifyEnabled: true,
@@ -73,15 +74,11 @@ const CONFIG = {
   messageTemplates: {},
 } as unknown as NotificationConfig;
 
-function deferred<T>() {
-  let resolve!: (v: T) => void;
-  let reject!: (e: Error) => void;
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
-  return { promise, resolve, reject };
-}
-
 const toggle = () => screen.getByTestId("notification-engine-auto-notify-toggle");
-const sign = (key: string) => screen.getByTestId(`notification-engine-${key}-sign`);
+const save = () => fireEvent.click(screen.getByTestId("harness-save"));
+const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
+const failed = () => screen.getByTestId("save-failed").textContent;
+const settle = () => new Promise((r) => setTimeout(r, 50));
 async function openSection(labelKey: string) {
   fireEvent.click(screen.getByText(labelKey));
 }
@@ -93,22 +90,34 @@ beforeEach(() => {
 });
 
 async function mount() {
-  render(<NotificationsEngineSection />);
+  render(
+    <SettingsUnsavedTestHarness>
+      <NotificationsEngineSection />
+    </SettingsUnsavedTestHarness>,
+  );
   await screen.findByTestId("notification-engine-auto-notify-toggle");
 }
 
-describe("the engine card signs its saves (settings.save-on-change rule 2)", () => {
-  it("the master toggle saves and signs", async () => {
+
+describe("every engine control is held until the tab's Save (settings.explicit-save rules 2-3)", () => {
+  it("the master toggle is held: nothing is sent until Save, which sends it once; then clean", async () => {
     await mount();
     fireEvent.click(toggle());
+    await settle();
+    expect(api.updateNotificationConfig).not.toHaveBeenCalled();
+    expect(toggle()).toHaveAttribute("data-state", "unchecked");
+    expect(unsavedIds()).toBe("notificationEngine");
 
-    expect(api.updateNotificationConfig).toHaveBeenCalledWith({ autoNotifyEnabled: false });
-    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledWith({ autoNotifyEnabled: false }));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
   });
 
-  it("each sub-panel signs under its own key", async () => {
+  it("every sub-panel's change is held, and one Save sends them all in one request", async () => {
     await mount();
     for (const [label, key] of [
+      ["settings.engine.reminders", "reminders"],
       ["settings.engine.eligibility", "eligibility"],
       ["settings.engine.invitationGroups", "groups"],
       ["settings.engine.tiebreakers", "tiebreakers"],
@@ -117,251 +126,138 @@ describe("the engine card signs its saves (settings.save-on-change rule 2)", () 
     ] as const) {
       await openSection(label);
       fireEvent.click(await screen.findByTestId(`stub-${key}-change`));
-      await waitFor(() => expect(sign(key)).toHaveAttribute("data-state", "saved"));
     }
-  });
-
-  it("PAD-478: the reminders sub-panel saves through the card's save and signs like the others", async () => {
-    await mount();
-    await openSection("settings.engine.reminders");
-    fireEvent.click(await screen.findByTestId("stub-reminders-change"));
-
-    expect(api.updateNotificationConfig).toHaveBeenCalledWith({ reminderTiming: { reminderCount: 3 } });
-    await waitFor(() => expect(sign("reminders")).toHaveAttribute("data-state", "saved"));
-    expect(screen.queryByTestId("notification-engine-reschedule-failed")).toBeNull();
-  });
-
-  it("PAD-478: the card tells the reminders form to drop a pending edit when there is no session", async () => {
-    localStorage.setItem("accessToken", "t");
-    await mount();
-    await openSection("settings.engine.reminders");
-    expect(await screen.findByTestId("stub-reminders-flush-on-close")).toHaveTextContent("true");
-
-    localStorage.removeItem("accessToken"); // what sign-out does, before the screen unmounts
-    fireEvent.click(screen.getByTestId("stub-reminders-change")); // any re-render
-    await waitFor(() => expect(screen.getByTestId("stub-reminders-flush-on-close")).toHaveTextContent("false"));
-  });
-
-  it("PAD-478: a reminders change made while another engine save is out waits for it (one in flight)", async () => {
-    await mount();
-    const first = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
     await openSection("settings.engine.eligibility");
-    fireEvent.click(await screen.findByTestId("stub-eligibility-change")); // out
-    await openSection("settings.engine.reminders");
-    fireEvent.click(await screen.findByTestId("stub-reminders-change")); // must wait
+    fireEvent.click(await screen.findByTestId("open-spots-visible"));
+    await settle();
+    expect(api.updateNotificationConfig).not.toHaveBeenCalled();
 
-    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
-    await act(async () => { first.resolve({ ...CONFIG, eligibilityRules: [{ attribute: "level" }] } as unknown as NotificationConfig); });
-    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
-    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ reminderTiming: { reminderCount: 3 } });
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1));
+    expect(api.updateNotificationConfig).toHaveBeenCalledWith({
+      reminderTiming: { reminderCount: 3 },
+      eligibilityRules: [{ attribute: "level" }],
+      openSpotsVisible: true,
+      invitationGroups: [{ id: "g2" }],
+      tiebreakers: [{ id: "t" }],
+      restrictions: { cancellationDeadlineHours: 13 },
+      notificationGroups: [{ id: "n" }],
+    });
+    await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("PAD-478 (notifications.config rule 10c): a save the server stored but could not re-arm is confirmed AND says so", async () => {
+  it("changed and changed back is clean, and Save sends nothing", async () => {
+    await mount();
+    fireEvent.click(toggle());
+    fireEvent.click(toggle());
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+    save();
+    await settle();
+    expect(api.updateNotificationConfig).not.toHaveBeenCalled();
+  });
+
+  it("a failed Save keeps the held values on screen and unsaved; a second Save sends them again", async () => {
+    await mount();
+    await openSection("settings.engine.eligibility");
+    api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByTestId("open-spots-visible"));
+    fireEvent.click(screen.getByTestId("stub-eligibility-change"));
+
+    save();
+    await waitFor(() => expect(failed()).toBe("notificationEngine"));
+    expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "checked");
+    expect(screen.getByTestId("stub-eligibility-value")).toHaveTextContent("level");
+    expect(unsavedIds()).toBe("notificationEngine");
+
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
+    expect(api.updateNotificationConfig.mock.calls[1][0]).toEqual(api.updateNotificationConfig.mock.calls[0][0]);
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("after a Save only what changed since is sent", async () => {
+    await mount();
+    fireEvent.click(toggle());
+    save();
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+    await openSection("settings.engine.notifyGroups");
+    fireEvent.click(await screen.findByTestId("stub-notifyGroups-change"));
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
+    expect(api.updateNotificationConfig.mock.calls[1][0]).toEqual({ notificationGroups: [{ id: "n" }] });
+  });
+});
+
+describe("notifications.config rule 10c (PAD-478) on the Save's answer", () => {
+  it("a timing the server stored but could not re-arm is saved AND says so; the next re-armed timing Save removes the note", async () => {
     await mount();
     await openSection("settings.engine.reminders");
     api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch, rescheduleFailed: true }));
-
     fireEvent.click(await screen.findByTestId("stub-reminders-change"));
+    save();
 
     const note = await screen.findByTestId("notification-engine-reschedule-failed");
     expect(note).toHaveTextContent("settings.engine.rescheduleFailed");
-    // It is a saved value, not a failure: the sign confirms it and the control keeps it.
-    await waitFor(() => expect(sign("reminders")).toHaveAttribute("data-state", "saved"));
+    await waitFor(() => expect(unsavedIds()).toBe("")); // a saved value, not a failure
     expect(screen.getByTestId("stub-reminders-value")).toHaveTextContent('"reminderCount":3');
-
-    // The next reminders save that re-arms removes the note.
-    fireEvent.click(screen.getByTestId("stub-reminders-change"));
-    await waitFor(() => expect(screen.queryByTestId("notification-engine-reschedule-failed")).toBeNull());
   });
 
-  it("PAD-478 (rule 10c): a save of another control does not remove the note; it says nothing about the jobs", async () => {
+  it("a Save that does not carry the timing leaves the note as it is", async () => {
     await mount();
     await openSection("settings.engine.reminders");
     api.updateNotificationConfig.mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch, rescheduleFailed: true }));
     fireEvent.click(await screen.findByTestId("stub-reminders-change"));
+    save();
     await screen.findByTestId("notification-engine-reschedule-failed");
 
-    fireEvent.click(toggle()); // the master toggle: its answer carries no rescheduleFailed
-    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
-
-    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2);
+    fireEvent.click(toggle()); // its answer carries no rescheduleFailed
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
     expect(screen.getByTestId("notification-engine-reschedule-failed")).toBeTruthy();
   });
 });
 
-describe("a failed save is never silent (rule 3, B-243)", () => {
-  it("open spots: says so and shows the confirmed value", async () => {
+describe("the message templates are their own part of the Save", () => {
+  it("a template edit is held and sent alone, as messageTemplates", async () => {
     await mount();
-    await openSection("settings.engine.eligibility");
-    api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByText("settings.engine.messageTemplates"));
+    fireEvent.click(await screen.findByTestId("stub-templates-change"));
+    await settle();
+    expect(api.updateNotificationConfig).not.toHaveBeenCalled();
+    expect(unsavedIds()).toBe("messageTemplates");
 
-    fireEvent.click(screen.getByTestId("open-spots-visible"));
-
-    await waitFor(() => expect(sign("open-spots")).toHaveAttribute("data-state", "failed"));
-    expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "unchecked");
-  });
-
-  it("a sub-panel's failure returns it to the confirmed value", async () => {
-    await mount();
-    await openSection("settings.engine.restrictions");
-    api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
-
-    fireEvent.click(await screen.findByTestId("stub-restrictions-change"));
-
-    await waitFor(() => expect(sign("restrictions")).toHaveAttribute("data-state", "failed"));
-    // The panel is handed the confirmed restrictions again (the card's defaults, 24 h), not the refused 12.
-    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":24');
-  });
-
-  it("rule 3: one engine save in flight — a change made meanwhile waits and is sent when it returns", async () => {
-    await mount();
-    const first = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
-
-    fireEvent.click(toggle()); // off — sent
-    fireEvent.click(toggle()); // on — waits
-    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
-    await act(async () => { first.reject(new Error("late")); });
-
-    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
-    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({ autoNotifyEnabled: true });
-    expect(toggle()).toHaveAttribute("data-state", "checked");
-    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
-  });
-
-  it("a failure rolls back only its own fields: a confirmed save of another control survives", async () => {
-    await mount();
-    await openSection("settings.engine.eligibility");
-    const master = deferred<NotificationConfig>();
-    api.updateNotificationConfig
-      .mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch })) // open spots on: ok
-      .mockImplementationOnce(() => master.promise); // master off: fails later
-
-    fireEvent.click(screen.getByTestId("open-spots-visible"));
-    await waitFor(() => expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "checked"));
-    fireEvent.click(toggle());
-    await act(async () => { master.reject(new Error("offline")); });
-
-    expect(toggle()).toHaveAttribute("data-state", "checked");
-    expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "checked");
-    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "failed"));
-  });
-
-  it("a failure does not undo a newer confirmed change of another control (no stale copy)", async () => {
-    await mount();
-    await openSection("settings.engine.eligibility");
-    const spots = deferred<NotificationConfig>();
-    api.updateNotificationConfig
-      .mockImplementationOnce(() => spots.promise) // open spots on: out, fails
-      .mockImplementationOnce(async (patch: object) => ({ ...CONFIG, ...patch })); // master off: waits, then ok
-
-    fireEvent.click(screen.getByTestId("open-spots-visible"));
-    await waitFor(() => expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "checked"));
-    fireEvent.click(toggle());
-    await act(async () => { spots.reject(new Error("offline")); });
-    await waitFor(() => expect(sign("auto-notify")).toHaveAttribute("data-state", "saved"));
-
-    expect(toggle()).toHaveAttribute("data-state", "unchecked");
-    expect(screen.getByTestId("open-spots-visible")).toHaveAttribute("data-state", "unchecked");
-    await waitFor(() => expect(sign("open-spots")).toHaveAttribute("data-state", "failed"));
-  });
-
-  it("an older save failing while a newer one of the same control is still on its way does not put the old value back", async () => {
-    await mount();
-    const older = deferred<NotificationConfig>();
-    const newer = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => older.promise).mockImplementationOnce(() => newer.promise);
-
-    fireEvent.click(toggle()); // off — held
-    await waitFor(() => expect(toggle()).toHaveAttribute("data-state", "unchecked"));
-    fireEvent.click(toggle()); // on — held
-    await waitFor(() => expect(toggle()).toHaveAttribute("data-state", "checked"));
-    await act(async () => { older.reject(new Error("offline")); });
-    expect(toggle()).toHaveAttribute("data-state", "checked");
-
-    await act(async () => { newer.resolve({ ...CONFIG, autoNotifyEnabled: true }); });
-    expect(toggle()).toHaveAttribute("data-state", "checked");
-  });
-
-  it("an older sub-panel save failing while a newer one is on its way keeps the newer value (newest save only)", async () => {
-    await mount();
-    await openSection("settings.engine.restrictions");
-    const older = deferred<NotificationConfig>();
-    const newer = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => older.promise).mockImplementationOnce(() => newer.promise);
-
-    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // 13, held
-    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // 14, held
-    await act(async () => { older.reject(new Error("offline")); });
-    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":14');
-
-    await act(async () => { newer.resolve(CONFIG); });
-    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":14');
-    await waitFor(() => expect(sign("restrictions")).toHaveAttribute("data-state", "saved"));
-  });
-
-  it("rule 3: two held saves both fail — back to the value confirmed before them, not the one the last started from", async () => {
-    await mount();
-    await openSection("settings.engine.restrictions");
-    const y = deferred<NotificationConfig>();
-    const z = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => y.promise).mockImplementationOnce(() => z.promise);
-
-    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // Y: 13
-    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // Z: 14, started from 13
-    await act(async () => { y.reject(new Error("y")); });
-    await act(async () => { z.reject(new Error("z")); });
-
-    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":24');
-    await waitFor(() => expect(sign("restrictions")).toHaveAttribute("data-state", "failed"));
-  });
-
-  it("rule 3: the first is confirmed, the waiting newer one fails — the panel shows what the server confirmed", async () => {
-    await mount();
-    await openSection("settings.engine.restrictions");
-    const y = deferred<NotificationConfig>();
-    const z = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => y.promise).mockImplementationOnce(() => z.promise);
-
-    fireEvent.click(await screen.findByTestId("stub-restrictions-change")); // Y: 13, sent
-    fireEvent.click(screen.getByTestId("stub-restrictions-change")); // Z: 14, waits
-    await act(async () => { y.resolve({ ...CONFIG, restrictions: { cancellationDeadlineHours: 13 } } as unknown as NotificationConfig); });
-    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
-    await act(async () => { z.reject(new Error("z")); });
-
-    expect(screen.getByTestId("stub-restrictions-value")).toHaveTextContent('"cancellationDeadlineHours":13');
-  });
-
-  it("PAD-478: a failed reminders save says so and returns to the confirmed value, like every other control", async () => {
-    await mount();
-    await openSection("settings.engine.reminders");
-    api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
-
-    fireEvent.click(await screen.findByTestId("stub-reminders-change"));
-
-    expect(api.updateNotificationConfig).toHaveBeenCalledWith({ reminderTiming: { reminderCount: 3 } });
-    await waitFor(() => expect(sign("reminders")).toHaveAttribute("data-state", "failed"));
-    await waitFor(() => expect(screen.getByTestId("stub-reminders-value")).not.toHaveTextContent('"reminderCount":3'));
-  });
-
-  it("review #497 round 2: changes to two controls made while a save is out are merged into the next request, neither lost", async () => {
-    await mount();
-    await openSection("settings.engine.eligibility");
-    const first = deferred<NotificationConfig>();
-    api.updateNotificationConfig.mockImplementationOnce(() => first.promise);
-
-    fireEvent.click(screen.getByTestId("open-spots-visible")); // sent
-    fireEvent.click(toggle()); // master off — waits
-    await openSection("settings.engine.notifyGroups"); // stays enabled with the engine off
-    fireEvent.click(await screen.findByTestId("stub-notifyGroups-change")); // notify groups — waits, merged
-    expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1);
-    await act(async () => { first.resolve({ ...CONFIG, openSpotsVisible: true } as NotificationConfig); });
-
-    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(2));
-    expect(api.updateNotificationConfig).toHaveBeenLastCalledWith({
-      autoNotifyEnabled: false,
-      notificationGroups: [{ id: "n" }],
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledTimes(1));
+    expect(api.updateNotificationConfig.mock.calls[0][0]).toEqual({
+      messageTemplates: expect.objectContaining({ reminder: "Olá {name}" }),
     });
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("a template typed back to what was stored is clean", async () => {
+    await mount();
+    fireEvent.click(screen.getByText("settings.engine.messageTemplates"));
+    fireEvent.click(await screen.findByTestId("stub-templates-change"));
+    await waitFor(() => expect(unsavedIds()).toBe("messageTemplates"));
+    fireEvent.click(screen.getByTestId("stub-templates-revert"));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("a mixed result: the templates fail, the engine saves — only the templates stay unsaved", async () => {
+    await mount();
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByText("settings.engine.messageTemplates"));
+    fireEvent.click(await screen.findByTestId("stub-templates-change"));
+    api.updateNotificationConfig.mockImplementation(async (patch: Record<string, unknown>) => {
+      if ("messageTemplates" in patch) throw new Error("offline");
+      return { ...CONFIG, ...patch };
+    });
+
+    save();
+    await waitFor(() => expect(failed()).toBe("messageTemplates"));
+    expect(unsavedIds()).toBe("messageTemplates");
+    expect(screen.getByTestId("stub-templates-value")).toHaveTextContent("Olá {name}");
+    expect(toggle()).toHaveAttribute("data-state", "unchecked");
   });
 });

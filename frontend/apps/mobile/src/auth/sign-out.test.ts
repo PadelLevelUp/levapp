@@ -7,7 +7,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { createSerialSaver, emailPromptSession, SaveSuperseded } from "@levelup/config";
+import { emailPromptSession } from "@levelup/config";
 
 import { endSessionState, signOut } from "./sign-out";
 
@@ -99,21 +99,6 @@ describe("signOut", () => {
       revokeTimeoutMs: 30,
     });
     expect(events).toEqual(["unregister", "clear"]);
-  });
-});
-
-describe("sign-out and settings still waiting to be saved (review #497)", () => {
-  it("a value waiting in a save queue is dropped, never sent under the next session", async () => {
-    const sent: string[] = [];
-    let release!: () => void;
-    const save = createSerialSaver<string, void>((v) => new Promise<void>((res) => { sent.push(v); release = res; }));
-    void save("out");
-    const waiting = save("waiting");
-
-    await signOut({ unregisterPush: async () => undefined, revokeSession: async () => undefined, clearToken: async () => undefined });
-    release();
-    await expect(waiting).rejects.toBeInstanceOf(SaveSuperseded);
-    expect(sent).toEqual(["out"]);
   });
 });
 

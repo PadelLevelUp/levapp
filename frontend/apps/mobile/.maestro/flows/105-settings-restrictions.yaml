@@ -1,6 +1,6 @@
 # PAD-433 / notifications.config rule 14, 14a — the restrictions on iOS. A coach opens
 # Settings → Notifications → Restrictions, sees the saved values and the excluded
-# student BY NAME (B-168), presses + on "max simultaneous" once, leaves Settings and
+# student BY NAME (B-168), presses + on "max simultaneous" once, presses the footer Save (`settings-notifications-save`), leaves Settings and
 # comes back: the new value is read back from the server, on screen and through the API.
 #
 # Setup (scripts/restrictions-setup.js) turns the engine on, sets maxSimultaneous to 3 and
@@ -56,6 +56,20 @@ onFlowComplete:
 - assertVisible:
     id: "restriction-maxSimultaneous-value"
     text: "4"
+
+# ── PAD-506 (settings.explicit-save): the + is held; the footer Save sends it ──
+- scrollUntilVisible:
+    element:
+      id: "settings-notifications-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-notifications-save"
+- extendedWaitUntil:
+    visible:
+      id: "b506-never-present"
+    timeout: 2000
+    optional: true
 
 # ── Leave Settings and come back ──
 - scrollUntilVisible:

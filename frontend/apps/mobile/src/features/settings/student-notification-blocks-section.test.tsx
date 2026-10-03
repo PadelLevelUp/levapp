@@ -1,5 +1,5 @@
 /**
- * PAD-394 (B-157), settings.unsaved-edits rule 2 on StudentNotificationBlocksSection.
+ * PAD-394 (B-157), settings.unsaved-edits rule 2 + settings.explicit-save (PAD-506) on StudentNotificationBlocksSection.
  *
  * `isNotifBlocksUnsaved` (pure, exported from the section) is the "differs by value
  * from the last loaded or saved value" comparison rule 2 asks for. The mount tests
@@ -14,6 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderNative } from "@/test/render-native";
+import { SectionSaveProbe } from "@/test/section-save-probe";
 import {
   UnsavedRegistryProvider,
   useUnsavedRegistry,
@@ -86,7 +87,8 @@ async function mount() {
       UnsavedRegistryProvider,
       null,
       createElement(Capture, { onReady: (r) => (registry = r) }),
-      createElement(StudentNotificationBlocksSection)
+      createElement(StudentNotificationBlocksSection),
+      createElement(SectionSaveProbe, { testID: "settings-notification-blocks-save" })
     )
   );
   await n.flush();
@@ -127,15 +129,23 @@ describe("StudentNotificationBlocksSection registers its unsaved state (PAD-394)
     expect(registry().hasUnsaved()).toBe(true);
   });
 
-  it("a successful save clears the unsaved flag", async () => {
+  it("an edit is held until the screen's Save, which sends one PATCH and clears the flag", async () => {
     updateMe.mockResolvedValue({ ...ME, blockManualInvitations: true });
     const { n, registry } = await mount();
 
     await n.toggle("student-notif-block-manual");
     expect(registry().hasUnsaved()).toBe(true);
+    expect(updateMe).not.toHaveBeenCalled();
 
-    await n.press("student-notif-save");
+    await n.press("settings-notification-blocks-save");
     await n.flush();
+    expect(updateMe).toHaveBeenCalledTimes(1);
+    expect(updateMe).toHaveBeenCalledWith({
+      blockAutoInvitations: false,
+      blockManualInvitations: true,
+      blockAllNotifications: false,
+      notificationBlockReason: "",
+    });
     expect(registry().hasUnsaved()).toBe(false);
   });
 
@@ -144,8 +154,9 @@ describe("StudentNotificationBlocksSection registers its unsaved state (PAD-394)
     const { n, registry } = await mount();
 
     await n.toggle("student-notif-block-manual");
-    await n.press("student-notif-save");
+    await n.press("settings-notification-blocks-save");
     await n.flush();
+    expect(updateMe).toHaveBeenCalledTimes(1);
     expect(registry().hasUnsaved()).toBe(true);
   });
 });

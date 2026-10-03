@@ -14,7 +14,7 @@ The settings domain.
 - `settings.tutorials` — implemented — the coach-only Tutorials section and its first walkthrough,
   "Understand invites" (data from `notifications.invite-simulation`)
 - `settings.unsaved-edits` — implemented (PAD-394 / B-157: leaving a section with unsaved edits asks "Descartar alterações?"; warn, not hold)
-- `settings.save-on-change` — implementing (PAD-473: a control that saves on change shows "Guardado" beside it, a failed save says so and returns to the confirmed value, the header Save only where something waits for it)
+- `settings.explicit-save` — implementing (PAD-506: nothing in Settings is saved until the tab's one "Guardar alterações"; leaving with unsaved edits asks. Replaced PAD-473's save-on-change, whose spec was retired)
 
 ## Why it's grouped this way
 
