@@ -150,3 +150,57 @@ def test_cell_b_an_enrolment_that_raises_after_the_close_leaves_no_confirmed_but
         confirmed = db.session.get(NotificationEvent, ids[x][0]).status == "confirmed"
         enrolled = x in db.session.get(LessonInstance, instance_id).enrolled_player_ids
         assert confirmed == enrolled, f"confirmed={confirmed} but enrolled={enrolled}"
+
+
+@pytest.mark.parametrize("where", ["enrolment", "commit"])
+def test_cell_b2_a_failed_single_commit_changes_nothing_the_student_can_see(app, monkeypatch, where):
+    """#527 review item 3: after the single commit fails — the enrolment raising, or the commit
+    itself — nothing changed: no confirmation, no place, the spot open, and the invite bubble still
+    unanswered (no "Accepted" badge, buttons back), so the student can answer again and win."""
+    from padel_app.models import Message
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, _y, _z) = _two_open_spots_for_one_place(app)
+    real_add = ns._add_player_to_instance
+    calls = {"n": 0}
+
+    def failing(player_id, instance):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            return real_add(player_id, instance)
+        if where == "enrolment":
+            raise RuntimeError("enrolment failed")
+        real_commit = db.session.commit
+
+        def boom():
+            raise RuntimeError("commit failed")
+
+        monkeypatch.setattr(db.session, "commit", boom)
+        try:
+            return real_add(player_id, instance)
+        finally:
+            monkeypatch.setattr(db.session, "commit", real_commit)
+
+    monkeypatch.setattr(ns, "_add_player_to_instance", failing)
+    with app.app_context(), _io():
+        with pytest.raises(RuntimeError):
+            respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=1))
+        db.session.rollback()
+        db.session.expire_all()
+        event = db.session.get(NotificationEvent, ids[x][0])
+        bubble = Message.query.get(event.message_id).msg_metadata
+        assert (event.status, event.answer) == ("sent", None)
+        assert bubble.get("responded") is False
+        assert x not in db.session.get(LessonInstance, instance_id).enrolled_player_ids
+        assert db.session.get(Vacancy, event.vacancy_id).status == "open"
+
+        respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=2))
+        db.session.expire_all()
+        assert db.session.get(NotificationEvent, ids[x][0]).status == "confirmed"
+        assert x in db.session.get(LessonInstance, instance_id).enrolled_player_ids
