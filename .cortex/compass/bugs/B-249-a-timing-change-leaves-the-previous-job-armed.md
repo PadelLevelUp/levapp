@@ -60,3 +60,7 @@ The first version of the fix derived a class's jobs from whichever coach trigger
 - Part 1 (PR #496) resolves the stale jobs. What a class gets when its new reminder time is already past is part 2 (PR #499, rule 10f).
 - Tests: `test_pad478_stale_timing_jobs.py`, `test_pad478_primary_coach_decides.py`, `test_pad478_one_failure_does_not_cost_the_rest.py`; web `pausedSaver.test.ts`, `RemindersSection.test.tsx`, `NotificationsEngineSection.test.tsx`.
 - Resolved: 2026-10-02T13:14:00Z
+
+### Part 2 (PR #499): the coach is asked before past-due reminders are sent
+Owner's decision, 2026-10-02: option (b), behind an explicit confirmation. Rule 10f. Known limits recorded there: an armed end-of-quiet-hours pass is not moved when the coach widens quiet hours afterwards; it is dropped if the scheduler cannot run it within six hours of its time (raised from the ordinary five minutes, because it carries the coach's explicit yes).
+
