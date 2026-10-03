@@ -19,6 +19,7 @@ import { Text } from "@/components/ui/text";
 import { KpiTiles, NeedsYouQueue, NextClassHero, Schedule7Days } from "./blocks";
 import { pick } from "./CoachDashboard";
 import { StudentEvaluationsBlock } from "./student-evaluations-block";
+import { ProfileIncompleteBlock } from "./profile-completeness";
 import { ClaimRequests } from "@/features/players/claim-requests";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -31,6 +32,8 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
   // capability token and omitted entirely when the player has no shared card
   // — so its presence here is the only decision this screen makes.
   const evaluations = pick(blocks, "evaluations");
+  // dashboard.profile-completeness rule 4 (PAD-490): omitted when every link is complete.
+  const profileIncomplete = pick(blocks, "profile_incomplete");
   const { t } = useTranslation();
 
   // players.join-token rule 8: no next class and an empty week is what a
@@ -60,6 +63,7 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
           </Button>
         </View>
       ) : null}
+      {profileIncomplete && <ProfileIncompleteBlock block={profileIncomplete} />}
       {hero && <NextClassHero block={hero} />}
       {needsYou && <NeedsYouQueue block={needsYou} />}
       {schedule && <Schedule7Days block={schedule} role="student" />}

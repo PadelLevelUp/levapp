@@ -44,6 +44,8 @@ export const queryKeys = {
   // classes.join-requests rule 17 (PAD-460): the caller's academy join requests, shown
   // beside `classRequests` in the same lists.
   classJoinRequests: ["class-join-requests"] as const,
+  /** PAD-504: the student's waiting-list places (classes.academy-class-booking rule 11). */
+  classWaitingList: ["class-waiting-list"] as const,
   classRequestFreeBlocks: (coachId: string, date: string, excludeRequestId?: number) =>
     ["class-request-free-blocks", coachId, date, excludeRequestId ?? null] as const,
   exercises: ["exercises"] as const,

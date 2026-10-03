@@ -25,6 +25,14 @@ def build_player_dashboard_blocks(*, player, user_id: int, now: Optional[datetim
     """
     blocks: List[Dict[str, Any]] = []
 
+    # dashboard.profile-completeness rule 4 (PAD-490): first, above the hero, as both clients
+    # render it; omitted when every link is complete.
+    from padel_app.services.profile_completeness_service import build_profile_incomplete_block
+
+    incomplete = build_profile_incomplete_block(player=player)
+    if incomplete is not None:
+        blocks.append(incomplete)
+
     hero = build_player_next_class_block(player_id=player.id, now=now)
     if hero is not None:
         blocks.append(hero)

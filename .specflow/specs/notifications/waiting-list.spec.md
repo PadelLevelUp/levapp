@@ -129,6 +129,9 @@ Players can join a waiting list for full classes. Standing waiting list entries 
     and then the class instance, and places the student only while the vacancy is still open and the
     class still has room and has not started (PAD-68, checked again on the re-read class); otherwise it
     places nobody and leaves the entry active, and a class that has started also expires the vacancy.
+    The student is read again under the same lock (PAD-499): still on the list, not already in the
+    class, and no "no" to an invitation for this class (invitations rule 18). A change that landed
+    between the pick and the lock places nobody, and the next pass picks again.
 
 ### Acceptance Criteria
 
@@ -235,3 +238,8 @@ Players can join a waiting list for full classes. Standing waiting list entries 
 - **Given** a vacancy that another path has just filled, or a class that is already full
 - **When** the waiting list tries to place a student into it
 - **Then** nobody is placed and the waiting-list entry stays active
+
+#### The student is re-read under the lock (PAD-499)
+- **Given** a waiting-list student picked for a spot
+- **When** before the placement takes its lock they answer "no" to an invitation for the class, or leave the waiting list
+- **Then** nobody is placed and the spot stays open

@@ -25,6 +25,8 @@ export async function refreshAfterRequestChange(queryClient: QueryClient): Promi
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
     queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
+    // PAD-504: a student's waiting-list places sit in the same request history.
+    queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList }),
     queryClient.invalidateQueries({ queryKey: ["calendar-events"] }),
     queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
     queryClient.invalidateQueries({ queryKey: ["dashboard"] }),

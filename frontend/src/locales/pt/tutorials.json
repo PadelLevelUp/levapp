@@ -66,14 +66,17 @@
     "stages": {
       "departing_player": "É o aluno que falta — a vaga é dele(a).",
       "already_enrolled": "Já está inscrito(a) nesta aula.",
+      "declined_this_class": "Disse que não a um convite para esta aula, por isso não volta a ser convidado para ela.",
       "already_invited": "Já tem um convite pendente para esta vaga.",
+      "offered_another_spot": "Já tem um convite pendente para outra vaga desta aula.",
       "eligibility": "Está abaixo da barra de elegibilidade desta aula:",
       "excluded_by_coach": "Excluíste este aluno dos convites automáticos (Definições › Notificações › Restrições).",
       "inactive_account": "A conta não está ativa e as contas inativas estão excluídas.",
       "unavailable": "Marcou-se como indisponível à hora desta aula.",
       "auto_invites_off": "Desligou os convites automáticos.",
       "no_round_matched": "Não cumpre os critérios de nenhuma ronda:",
-      "invited": "Seria convidado(a)."
+      "invited": "Seria convidado(a).",
+      "unknown": "Não é convidado desta vez."
     },
     "rules": {
       "level": {

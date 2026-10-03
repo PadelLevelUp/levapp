@@ -47,3 +47,15 @@ export * from "./save-ledger";
 export * from "./serial-saver";
 export * from "./email-prompt";
 export * from "./class-time";
+
+/**
+ * dashboard.profile-completeness (PAD-490, #523): the student card's body names what is missing
+ * and only its real cost. Shared so web and iOS pick the same sentence.
+ */
+export function profileIncompleteBodyKey(missing: readonly ("level" | "side")[]): string {
+  const level = missing.includes("level");
+  const side = missing.includes("side");
+  if (level && side) return "dashboard.profileCompleteness.studentBodyBoth";
+  if (level) return "dashboard.profileCompleteness.studentBodyLevel";
+  return "dashboard.profileCompleteness.studentBodySide";
+}

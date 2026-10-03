@@ -82,3 +82,17 @@ describe("lisbonNowMs / wallClockMs / wallClockISOMs", () => {
     expect(Number.isNaN(config.wallClockISOMs("soon"))).toBe(true);
   });
 });
+
+describe("clubDateOfInstant", () => {
+  it("reads a naive-UTC instant on the club's clock, so late evening is the next day in summer", () => {
+    expect(config.clubDateOfInstant("2026-10-02T23:30:00")).toBe("2026-10-03");
+    expect(config.clubDateOfInstant("2026-10-02T22:30:00")).toBe("2026-10-02");
+  });
+  it("leaves a winter evening on the same day (Lisbon is UTC+0)", () => {
+    expect(config.clubDateOfInstant("2026-12-02T23:30:00")).toBe("2026-12-02");
+  });
+  it("accepts an explicit offset and falls back to the string's date when unparseable", () => {
+    expect(config.clubDateOfInstant("2026-10-02T23:30:00Z")).toBe("2026-10-03");
+    expect(config.clubDateOfInstant("2026-10-02Tnope")).toBe("2026-10-02");
+  });
+});

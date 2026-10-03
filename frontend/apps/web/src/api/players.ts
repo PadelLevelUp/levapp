@@ -37,6 +37,7 @@ export async function getCoachPlayersPaginated(
   sortDir?: "asc" | "desc",
   missingLevel?: boolean,
   missingSide?: boolean,
+  incomplete?: boolean,
 ): Promise<CoachPlayersPageResponse> {
   if (USE_MOCK_DATA) {
     let filtered = mockCoachPlayers;
@@ -69,6 +70,7 @@ export async function getCoachPlayersPaginated(
     sortDir,
     missingLevel,
     missingSide,
+    incomplete,
   );
 }
 

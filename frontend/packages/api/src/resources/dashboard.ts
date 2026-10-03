@@ -40,3 +40,13 @@ export async function snoozeNeedsYouItem(itemId: string): Promise<{
   );
   return res.data;
 }
+
+/**
+ * dashboard.profile-completeness rule 6 (PAD-490): remind one coach that the student's profile
+ * is incomplete. 409 `already_reminded` (once per club day) or `profile_complete`; 404 when the
+ * caller is not linked to that coach.
+ */
+export async function sendProfileReminder(coachId: number): Promise<{ ok: true }> {
+  const res = await getApi().post("/app/profile-reminder", { coachId });
+  return res.data;
+}

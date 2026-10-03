@@ -1,4 +1,4 @@
-import type { AcademyClassesResponse } from "@levelup/types";
+import type { AcademyClassesResponse, ClassWaitingListRow } from "@levelup/types";
 import { getApi } from "../client";
 
 /**
@@ -41,3 +41,9 @@ export type WaitingListRefusalCode =
   | "not_visible"
   | "ineligible"
   | "has_spots";
+
+/** classes.academy-class-booking rule 11 (PAD-504): the student's waiting-list places. */
+export async function listClassWaitingList(): Promise<ClassWaitingListRow[]> {
+  const res = await getApi().get("/app/class-waiting-list");
+  return res.data;
+}

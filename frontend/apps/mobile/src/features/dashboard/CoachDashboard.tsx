@@ -16,6 +16,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { NeedsYouQueue, NextClassHero, Schedule7Days, WeekPulse } from "./blocks";
+import { IncompletePlayersBlock } from "./profile-completeness";
 
 export function pick<T extends DashboardBlock["type"]>(blocks: DashboardBlock[], type: T) {
   return blocks.find((b): b is Extract<DashboardBlock, { type: T }> => b.type === type);
@@ -26,11 +27,14 @@ export function CoachDashboard({ blocks }: { blocks: DashboardBlock[] }) {
   const needsYou = pick(blocks, "needs_you");
   const schedule = pick(blocks, "schedule_7d");
   const pulse = pick(blocks, "week_pulse");
+  // dashboard.profile-completeness rule 3 (PAD-486): omitted when nobody is missing anything.
+  const incomplete = pick(blocks, "incomplete_players");
 
   return (
     <View className="gap-5" testID="coach-dashboard">
       {hero && <NextClassHero block={hero} />}
       {needsYou && <NeedsYouQueue block={needsYou} />}
+      {incomplete && <IncompletePlayersBlock block={incomplete} />}
       {schedule && <Schedule7Days block={schedule} />}
       {pulse && <WeekPulse block={pulse} />}
     </View>

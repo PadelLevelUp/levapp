@@ -111,6 +111,22 @@
       "close": "Close",
       "emptyNotAdvertised": "This coach isn't taking requests for academy classes."
     },
-    "cardIntro": "Ask your coach for a class. Your open requests are listed here until the coach answers, and you can withdraw one at any time."
+    "cardIntro": "Ask your coach for a class. Your open requests are listed here until the coach answers, and you can withdraw one at any time.",
+    "waitingList": {
+      "status": {
+        "active": "On the waiting list",
+        "placed": "Spot given",
+        "left": "No longer on the waiting list",
+        "passed": "Class has passed",
+        "canceled": "Class cancelled"
+      },
+      "joinedOn": "Since {{date}}",
+      "withCoach": "with {{name}}",
+      "leave": "Leave the waiting list",
+      "leaveConfirm": "Leave this class's waiting list?",
+      "leaveYes": "Leave",
+      "cancel": "Cancel",
+      "leaveFailed": "Couldn't leave the waiting list. Please try again."
+    }
   }
 }

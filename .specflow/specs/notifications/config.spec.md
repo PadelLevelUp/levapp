@@ -260,7 +260,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 14. **(PAD-433) One restrictions section, on both clients.** Web (`RestrictionsPanel`) and iOS
    (Settings → Auto-Invite Engine → Restrictions) show the same nine controls over the same
    `restrictions` object of `GET|POST /api/app/notify/config`: `maxSimultaneous` 1–20 step 1,
-   `maxTotal` 1–50 step 1, `maxInactiveTime` 15–1440 min step 15, `minTimeBeforeClass` 5–240 min
+   `maxTotal` 1–50 step 1, `maxInactiveTime` 15–1440 min step 15 (the server also clamps a saved
+   value below 15 up to 15, PAD-495), `minTimeBeforeClass` 5–240 min
    step 5, `maxInvitesPerStudentPerDay` 1–10 step 1, the `quietHours`, `excludedPlayers` and
    `excludeUnpaidSubscription` toggles, and `cancellationDeadlineHours` 0–168 h step 1 (no toggle).
    The bounds and steps live in ONE place, `RESTRICTION_BOUNDS` in `@levelup/config`, and a step

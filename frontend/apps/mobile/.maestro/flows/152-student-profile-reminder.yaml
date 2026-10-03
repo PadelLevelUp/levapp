@@ -1,0 +1,27 @@
+# Mirrors: apps/web/e2e/dashboard/profile-completeness.spec.ts, student half (PAD-490,
+# dashboard.profile-completeness rules 4, 6, 7). A student who joined by link sees the card and
+# reminds the coach; the button turns into "sent today" and stays so after a reload.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad486-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad486-teardown.js
+---
+- assertTrue: "${output.coachId > 0}"
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-3
+      PASSWORD: E2eStudent3123!
+- tapOn:
+    id: "tab-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "profile-incomplete-remind-${output.coachId}"
+    timeout: 20000
+- tapOn:
+    id: "profile-incomplete-remind-${output.coachId}"
+- extendedWaitUntil:
+    visible:
+      id: "profile-incomplete-reminded-${output.coachId}"
+    timeout: 15000

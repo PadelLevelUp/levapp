@@ -20,6 +20,7 @@ import { NeedsYouQueue } from "./coach/NeedsYouQueue";
 import { NextClassHero } from "./coach/NextClassHero";
 import { Schedule7Days } from "./coach/Schedule7Days";
 import { WeekPulse } from "./coach/WeekPulse";
+import { IncompletePlayersBlock } from "./IncompletePlayersBlock";
 import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
 
@@ -46,6 +47,8 @@ export function CoachDashboard({
   const needsYouBlock = pick(blocks, "needs_you");
   const scheduleBlock = pick(blocks, "schedule_7d");
   const pulseBlock = pick(blocks, "week_pulse");
+  // dashboard.profile-completeness rule 3: omitted by the server when nobody is missing anything.
+  const incompleteBlock = pick(blocks, "incomplete_players");
 
   // Rendered once each, then placed by the branch below.
   const hero = heroBlock ? <NextClassHero block={heroBlock} /> : null;
@@ -54,6 +57,7 @@ export function CoachDashboard({
   ) : null;
   const schedule = scheduleBlock ? <Schedule7Days block={scheduleBlock} /> : null;
   const pulse = pulseBlock ? <WeekPulse block={pulseBlock} /> : null;
+  const incomplete = incompleteBlock ? <IncompletePlayersBlock block={incompleteBlock} /> : null;
 
   const greeting = t(`dashboard.greeting.${greetingKey()}`, { name: firstName });
   const today = longDate(todayISO(), i18n.language);
@@ -75,6 +79,7 @@ export function CoachDashboard({
         </div>
         {hero}
         {needsYou}
+        {incomplete}
         {schedule}
         {pulse}
       </div>
@@ -112,6 +117,7 @@ export function CoachDashboard({
       <div className="grid grid-cols-[minmax(0,1.35fr)_400px] items-start gap-7 p-8">
         <div className="flex min-w-0 flex-col gap-6">
           {needsYou}
+          {incomplete}
           {schedule}
         </div>
         <aside className="sticky top-6 flex flex-col gap-6">
