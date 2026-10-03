@@ -160,7 +160,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     failed enrolment leaves nothing changed (the student can answer again). Every path that seats a
     student on a vacancy decides the same way and in the same order (vacancy, then class): the
     student's yes, the coach's recorded yes, the waiting-list fill, the join-request accept, and a
-    student taking back the place they had given up (the reminder return, ledger B-284). The
+    student taking back the place they had given up (the reminder return, ledger B-284). **This is
+    the engine's one lock order (PAD-509, ledger B-300): a vacancy, then its class.** A sender
+    choosing whom to invite takes it too: its spot's lock and then the class lock, per student,
+    until that student's invitation commits. No path takes the class lock and then waits for a
+    vacancy's — the reconcile, which runs under the class lock, takes vacancies only with
+    `SKIP LOCKED` — so a sender and an accept on the same spot cannot deadlock. The
     reconcile that an enrolment runs counts every open vacancy of the class but locks only the one
     it is about to close, without waiting (`SKIP LOCKED`): one that another answer is deciding on is
     passed over for the next, and that answer either fills it or finds the class full, and the tick
@@ -283,12 +288,11 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
       its other spots until that offer resolves; if it resolves without a "no" (the spot went to
       someone else), they may be asked for another spot on the next pass.
-      This is checked by reading the class's live invitations, not under a lock: two senders
-      choosing at the same moment for two spots of one class can still both pick the same free
-      student (PAD-509, a class-level lock while choosing). Within ONE spot every sender — the tick's
-      next batch, a decline's follow-up — decides each student under that vacancy's row lock, held
-      until the student's invitation commits with its message, so two senders on the same spot never
-      invite the same student (PAD-495).
+      Every sender — the tick's next batch, a decline's follow-up, on any spot of the class —
+      decides each student under its spot's row lock and then the class's (rule 10's order), held
+      until the student's invitation commits with its message. Two senders on the same spot wait on
+      the spot (PAD-495); two senders on two spots of one class wait on the class (PAD-509, ledger
+      B-300), so the second sees the first's invitation and never offers the same student twice.
     **Who counts as holding a spot (#513 review).** `offered_another_spot` is decided LAST, after
     every other check of the round (eligibility, the coach's exclusions, inactive accounts,
     unavailability, the student's own opt-out, the round's rules): it means "this round would ask
@@ -646,3 +650,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** a second open vacancy on instance 10 for player 7 is inserted
 - **Then** the database refuses it (`uq_vacancies_open_original_player`)
 - **And** an expired vacancy on instance 10 for player 7 next to the open one is accepted, and two structural vacancies (no departing player) on instance 10 are accepted
+
+#### Two spots sending at once never offer one student twice (PAD-509)
+- **Given** a class with two open spots, two free students and `maxSimultaneous` 1
+- **When** both spots send their first invitation at the same moment
+- **Then** each student holds at most one live offer for the class, and each spot asks one of them
+
+#### An accept and a sender on the same spot never deadlock (PAD-509)
+- **Given** a student answering yes on spot V1 while the engine is choosing another student for V1
+- **When** the accept holds V1 and the sender reaches its lock section
+- **Then** both finish without a database deadlock: the sender waits for V1 (rule 10's order) and then finds the spot taken
