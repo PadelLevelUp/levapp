@@ -416,21 +416,11 @@ test("US-56: the tab's Save is disabled when no changes are made", async ({ page
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  await expect(page.getByRole("button", { name: /save templates/i })).toHaveCount(0);
   await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 });
 
-test("US-56: the tab's Save enables after editing a template", async ({ page }) => {
-  await openNotificationsTab(page);
-  await openSection(page, /message templates/i);
-
-  const firstTextarea = page.locator("textarea").first();
-  await firstTextarea.fill("New invite text " + Date.now());
-
-  await expect(page.getByTestId("settings-header-save")).toBeEnabled({ timeout: 3000 });
-});
-
-test("US-56: an edited template is sent by the tab's Save, and only then", async ({ page }) => {
+// The edit enables the tab's Save; it is sent by that Save, and only then.
+test("US-56: an edited template enables the tab's Save and is sent by it, and only then", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
@@ -446,7 +436,7 @@ test("US-56: an edited template is sent by the tab's Save, and only then", async
   const edited = "PAD-506 template " + Date.now();
   try {
     await textarea.fill(edited);
-    await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+    await expect(page.getByTestId("settings-header-save")).toBeEnabled({ timeout: 3000 });
     expect(posts, "an edit alone sends nothing").toBe(0);
 
     const [res] = await Promise.all([

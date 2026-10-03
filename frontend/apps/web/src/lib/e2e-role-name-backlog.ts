@@ -25,7 +25,7 @@ export interface RoleBacklogEntry {
 }
 
 export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
-  { file: "pw:settings/notification-engine-settings.spec.ts", max: 14, reason: "14 en role names, e.g. 'add group', 'add rule'" },
+  { file: "pw:settings/notification-engine-settings.spec.ts", max: 12, reason: "12 en role names, e.g. 'add group', 'add rule'" },
   { file: "pw:landing/landing-page.spec.ts", max: 10, reason: "10 pt role names, e.g. 'enche as aulas', 'joga mais'" },
   { file: "pw:availability/unavailable-student-notifications.spec.ts", max: 9, reason: "9 en role names, e.g. 'all', 'cancel'" },
   { file: "pw:import-history/import-history.spec.ts", max: 8, reason: "8 en role names, e.g. 'cancel', 'confirm'" },
