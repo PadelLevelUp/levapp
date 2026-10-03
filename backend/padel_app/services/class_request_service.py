@@ -687,6 +687,10 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
         # acceptance message. Telling them a coach added them would be a second
         # message for one event, about something they initiated.
         notify_students=False,
+        # PAD-489 (notifications.reminders rule 22): accepted after the class's reminder
+        # time, the requester is counted as coming; the invitees did not ask and are told
+        # and asked like anyone added to a class.
+        counted_player_ids=[row.player_id],
     )
     # PAD-357 rule 14: the people they brought did not ask — they are told.
     from padel_app.services.notification_service import notify_student_added_to_class

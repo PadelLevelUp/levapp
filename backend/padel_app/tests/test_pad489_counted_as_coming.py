@@ -220,3 +220,149 @@ def test_saying_no_afterwards_works_as_for_any_confirmed_student(app, live_sched
         db.session.commit()
         p = Presence.query.filter_by(lesson_instance_id=inst.id, player_id=ids["student_id"]).first()
         assert p.attendance_state == "not_coming"
+
+
+# ── review of #535 ────────────────────────────────────────────────────────────
+
+def _request_world(app):
+    """test_pad104's world: a coach with a club and a student linked to them, as the request
+    service requires. Keys follow this file's: student_id, student_user_id."""
+    from padel_app.tests.test_pad104_class_requests import _setup
+    from padel_app.tests.test_pad330_the_student_is_told import _student_user_id
+
+    ids = _setup(app)
+    ids["student_id"] = ids["player_id"]
+    ids["student_user_id"] = _student_user_id(app, ids["player_id"])
+    return ids
+
+
+def _request_for(app, ids, *, hours_ahead, invitees=()):
+    """A student's own class request, through the real request service. `invitees` are usernames."""
+    from padel_app.models import Player
+    from padel_app.services.class_request_service import create_class_request_service
+
+    with app.app_context():
+        start = (utc_to_wall_naive(utcnow_naive()) + timedelta(hours=hours_ahead)).replace(second=0, microsecond=0)
+        row = create_class_request_service(
+            db.session.get(Player, ids["student_id"]),
+            {"coachId": ids["coach_id"], "date": start.date().isoformat(), "startTime": start.strftime("%H:%M"),
+             "endTime": (start + timedelta(hours=1)).strftime("%H:%M"), "participants": list(invitees)},
+        )
+        db.session.commit()
+        return row.id
+
+
+def _accept(app, ids, rid):
+    from padel_app.models import ClassRequest, Coach
+    from padel_app.services.class_request_service import decide_class_request_service
+
+    with app.app_context():
+        with patch(QUIET[0]), patch(QUIET[1]):
+            row = decide_class_request_service(rid, db.session.get(Coach, ids["coach_id"]), action="accept", data={})
+            db.session.commit()
+            assert row.status == "accepted"
+            return db.session.get(ClassRequest, rid).lesson_id
+
+
+def test_a_request_accepted_late_through_the_real_path_counts_the_requester(app, live_scheduler):
+    """Review of #535, finding 1: the request path, not add_class_service by hand."""
+    ids = _request_world(app)
+    rid = _request_for(app, ids, hours_ahead=6)
+
+    lesson_id = _accept(app, ids, rid)
+
+    row = [r for r in _presences(app, lesson_id) if r["player"] == ids["student_id"]][0]
+    assert (row["confirmed"], row["response"], row["recorded_by"]) == (True, "confirmed", "system")
+    assert _ask_jobs(live_scheduler) == []
+    assert _added_messages(app, ids["student_user_id"]) == [], "the acceptance message is the whole story"
+
+
+def test_an_invitee_of_a_request_accepted_late_is_asked_not_counted(app, live_scheduler):
+    """Review of #535, finding 1 (coordinator's decision): the invitee did not ask for the class.
+    They are told (rule 14's added message) and asked (rule 18), as before."""
+    from padel_app.tests.test_pad128_eligibility import _add_student
+    from padel_app.tests.test_pad330_the_student_is_told import _student_user_id
+
+    ids = _request_world(app)
+    with app.app_context():
+        carla = _add_student(ids["coach_id"], "carla", level_id=ids["level_ids"]["5"])
+        db.session.commit()
+    carla_user = _student_user_id(app, carla)
+    rid = _request_for(app, ids, hours_ahead=6, invitees=["carla"])
+
+    lesson_id = _accept(app, ids, rid)
+
+    rows = {r["player"]: r for r in _presences(app, lesson_id)}
+    assert rows[ids["student_id"]]["response"] == "confirmed", "the requester is counted"
+    assert (rows[carla]["confirmed"], rows[carla]["response"]) == (False, "none"), "the invitee is not"
+    jobs = _ask_jobs(live_scheduler)
+    assert len(jobs) == 1 and f"_{carla}_" in jobs[0], "the invitee is asked by rule 18's late ask"
+    told = _added_messages(app, carla_user)
+    assert len(told) == 1 and told[0].msg_metadata.get("countedAsComing") is None, "told the ordinary message"
+
+
+def test_a_class_with_notifications_off_is_not_counted(app, live_scheduler):
+    """Review of #535, finding 2: no reminder would ever have asked them, so the reminder moment
+    did not pass; today's behaviour stays."""
+    from padel_app.models import Club, Coach
+    from padel_app.services.lesson_service import add_class_service
+
+    ids, club_id = _world(app)
+    with app.app_context():
+        start = (utc_to_wall_naive(utcnow_naive()) + timedelta(hours=6)).replace(second=0, microsecond=0)
+        with patch(QUIET[0]), patch(QUIET[1]):
+            lesson = add_class_service(
+                {"name": "Quiet class", "classType": "academy", "maxPlayers": 4, "color": "#000",
+                 "date": start.date().isoformat(), "startTime": start.strftime("%H:%M"),
+                 "endTime": (start + timedelta(hours=1)).strftime("%H:%M"),
+                 "playerIds": [ids["student_id"]], "notificationsEnabled": False},
+                db.session.get(Coach, ids["coach_id"]), db.session.get(Club, club_id),
+            )
+            db.session.commit()
+            lesson_id = lesson.id
+
+    assert _presences(app, lesson_id) == []
+    msgs = _added_messages(app, ids["student_user_id"])
+    assert len(msgs) == 1 and msgs[0].msg_metadata.get("countedAsComing") is None
+
+
+def test_the_started_boundary_is_the_clubs_clock(app, live_scheduler):
+    """Review of #535, mutant M10: a class that started half an hour ago on the club's clock is
+    not counted, whatever the UTC offset."""
+    ids, club_id = _world(app)
+
+    lesson_id = _create(app, ids, club_id, hours_ahead=-0.5, title="Already started")
+
+    assert _presences(app, lesson_id) == []
+    assert _ask_jobs(live_scheduler) == []
+
+
+def test_a_series_counts_only_the_occurrence_whose_reminder_time_has_passed(app, live_scheduler):
+    """Review of #535, mutant M1: two occurrences inside the look-ahead, only the first late."""
+    from padel_app.models import Club, Coach
+    from padel_app.services.lesson_service import add_class_service
+
+    ids, club_id = _world(app)
+    with app.app_context():
+        start = (utc_to_wall_naive(utcnow_naive()) + timedelta(hours=20)).replace(second=0, microsecond=0)
+        second = start + timedelta(days=2)   # 68 h ahead: its 48 h reminder is still 20 h away
+        with patch(QUIET[0]), patch(QUIET[1]):
+            lesson = add_class_service(
+                {"name": "Twice a week", "classType": "academy", "maxPlayers": 4, "color": "#000",
+                 "date": start.date().isoformat(), "startTime": start.strftime("%H:%M"),
+                 "endTime": (start + timedelta(hours=1)).strftime("%H:%M"),
+                 "isRecurring": True,
+                 "recurrenceRule": {"frequency": "weekly",
+                                    "daysOfWeek": sorted({(start.weekday() + 1) % 7, (second.weekday() + 1) % 7})},
+                 "endDate": (start + timedelta(weeks=3)).date().isoformat(),
+                 "playerIds": [ids["student_id"]]},
+                db.session.get(Coach, ids["coach_id"]), db.session.get(Club, club_id),
+            )
+            db.session.commit()
+            lesson_id = lesson.id
+            first_date = start.date().isoformat()
+
+    rows = _presences(app, lesson_id)
+    assert [r["date"] for r in rows] == [first_date], "exactly the late occurrence"
+    assert rows[0]["response"] == "confirmed"
+

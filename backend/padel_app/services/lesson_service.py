@@ -54,12 +54,15 @@ def _get_or_insert(model, build, **key):
 # answered yes by the system and no late ask is armed for it. Set only around materialising
 # the occurrences of a class CREATED after its reminder time (add_class_service); every other
 # enrolment path, a student added later included, keeps rule 18 and is asked.
-_COUNTED_AS_COMING = contextvars.ContextVar("levapp_counted_as_coming", default=False)
+_COUNTED_AS_COMING = contextvars.ContextVar("levapp_counted_as_coming", default=frozenset())
 
 
 @contextlib.contextmanager
-def counted_as_coming():
-    token = _COUNTED_AS_COMING.set(True)
+def counted_as_coming(player_ids):
+    """The players (ids) whose NEW enrolments are counted while the block runs. A request's
+    invitees are left out (review of #535): they did not ask for the class, so they are told
+    and asked like anyone added to it."""
+    token = _COUNTED_AS_COMING.set(frozenset(int(p) for p in player_ids))
     try:
         yield
     finally:
@@ -137,10 +140,12 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # be the same over-reach as `confirmed` meaning "coming".
         presence.confirmed = confirmed
 
-    if created and _COUNTED_AS_COMING.get():
+    if created and player_id in _COUNTED_AS_COMING.get():
         # PAD-489 (rule 22): the class was created after its reminder time, so there was no
         # moment to ask; the coach arranged it with them. Answered yes by the system, told by
         # the caller, validated after the class like everyone else (coming is not present).
+        # The vacancy reconciliation below is skipped on purpose: the occurrence was created a
+        # moment ago and holds no vacancy yet.
         from padel_app.services.presence_response import record_response
 
         presence.confirmed = True
@@ -1017,13 +1022,17 @@ def edit_lesson_from_data(lesson, data):
     return lesson
 
 
-def add_class_service(data, coach, club, *, notify_students=True):
+def add_class_service(data, coach, club, *, notify_students=True, counted_player_ids=None):
     """Builds a lesson payload from frontend add_class data and creates the lesson.
 
     PAD-390 (B-136 step 5): a missing, empty or blank name and a capacity that is
     not a positive integer (0, null, "", a fraction, text — an absent key too)
     are refused before anything is written, 400 naming the fields; both used to
     reach the NOT NULL column (an IntegrityError) or a KeyError — a 500 either way.
+
+    ``counted_player_ids`` (PAD-489, rule 22): the players counted as coming when the
+    class is created after its reminder time; ``None`` means everyone in ``playerIds``.
+    A request's accept passes the requester alone, so invitees are told and asked.
     """
     refused = _refused_class_fields(
         {"title": data.get("name"), "max_players": data.get("maxPlayers")}, recurring=False,
@@ -1073,8 +1082,15 @@ def add_class_service(data, coach, club, *, notify_students=True):
     # PAD-489 (notifications.reminders rule 22): a class created after its reminder time
     # counts its students as coming. Decided here, before anything is written, from the
     # coach's timing as saved (a plain read: creating a class must not create settings).
-    late_dates = _occurrence_dates_past_their_reminder_time(lesson_payload, coach.id)
-    told_as_coming = bool(late_dates) and bool(lesson_payload["player_ids"]) and notify_students
+    counted = list(lesson_payload["player_ids"]) if counted_player_ids is None else [
+        p for p in lesson_payload["player_ids"] if int(p) in {int(c) for c in counted_player_ids}
+    ]
+    # A class whose notifications are off would never have asked: nothing has "passed".
+    late_dates = (
+        _occurrence_dates_past_their_reminder_time(lesson_payload, coach.id)
+        if counted and data.get("notificationsEnabled") is not False else []
+    )
+    told_as_coming = bool(late_dates) and notify_students
 
     lesson = create_lesson_helper(
         lesson_payload, notify_students=notify_students and not told_as_coming,
@@ -1102,8 +1118,8 @@ def add_class_service(data, coach, club, *, notify_students=True):
     # PAD-489 (rule 22): the occurrences whose reminder time has already passed exist from
     # now on, with their students answered yes; later occurrences get the ordinary reminder.
     first_late = None
-    if late_dates and lesson_payload["player_ids"]:
-        with counted_as_coming():
+    if late_dates:
+        with counted_as_coming(counted):
             for occ_date in late_dates:
                 instance = get_or_materialize_instance(lesson, occ_date)
                 first_late = first_late or instance
@@ -1111,7 +1127,7 @@ def add_class_service(data, coach, club, *, notify_students=True):
     if told_as_coming and first_late is not None:
         from padel_app.services.notification_service import notify_student_added_to_class
 
-        for player_id in lesson_payload["player_ids"]:
+        for player_id in counted:
             notify_student_added_to_class(coach, player_id, instance=first_late, counted_as_coming=True)
 
     return lesson

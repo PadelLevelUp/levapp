@@ -124,7 +124,7 @@ Automatically send class reminders to enrolled players at a configured time befo
     materialises it later. Ledger: B-161.
 
 22. **A class created after its reminder time: its students are counted as coming (PAD-489;
-    owner, 2026-10-03).** When a coach creates a class whose first-reminder time, under the
+    owner, 2026-10-02).** When a coach creates a class whose first-reminder time, under the
     coach's timing, has already passed when the class is created, the students put on it are
     recorded as coming at that moment, without being asked: the occurrence is materialised at
     creation, each presence is answered yes with `recorded_by = "system"`, and no late ask (rule
@@ -132,8 +132,11 @@ Automatically send class reminders to enrolled players at a configured time befo
     already exists keeps rule 18 and is asked; a student who cancelled and is put back by the
     coach is asked (PAD-318); the ordinary reminder of a class whose time is still ahead is
     unchanged. A student's own class request accepted late (`class_request_service`, which
-    creates the class through the same path) is counted as coming too, and not asked. For a
-    recurring series created late, only the occurrences whose reminder time has already passed
+    creates the class through the same path) is counted as coming too, and not asked; the
+    people they invited to it did not ask for it, so they are told and asked like anyone added
+    to a class (review of #535). A class whose notifications are off is never counted: no
+    reminder would have asked, so no reminder moment passed. The cutoff for "already started"
+    is the club's clock. For a recurring series created late, only the occurrences whose reminder time has already passed
     are counted; later occurrences get the ordinary reminder. The students are told: the
     "added to class" message of such a class is the `added_to_class_coming` template ("your
     presence is already confirmed; if you cannot come, tell me in the app"), which carries no
@@ -154,6 +157,10 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **And** a student who cancelled and is put back late is still asked
 - **And** a student whose own request is accepted six hours before the class is counted as coming and not asked
 - **And** `POST /app/notify/config` with a timing save lists no such class in `pastDue.reminders`
+- **And** the invitees of a request accepted six hours before the class are not counted: told the ordinary message and asked by rule 18
+- **And** a class created six hours ahead with notifications off is not counted and gets the ordinary message
+- **And** a class that started half an hour ago on the club's clock is not counted
+- **And** a series with one occurrence twenty hours ahead and the next sixty-eight hours ahead counts exactly the first
 
 #### Two passes at once send one reminder each (PAD-407)
 - **Given** a materialised class with three unanswered students and `reminderCount` 1 or 3
