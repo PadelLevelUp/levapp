@@ -75,7 +75,8 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
      it fanned out, the entry's own `joined_at` otherwise; ties by entry id. The coach's priority
      criteria do not reorder the list, and a standing entry has no other precedence.
    - **Pacing, as a group:** at most `maxSimultaneous` of them at once. The next waiting-list
-     students (or, when none is left, the coach's current group) are asked on the next batch, after
+     students (or, when none is left to ask today — a student at `maxInvitesPerStudentPerDay` is
+     not — the coach's current group) are asked on the next batch, after
      `maxInactiveTime`; a "no" is followed at once by one more invitation to the next candidate, as
      any decline is (`notifications.invitations` rule 1b). The same restrictions apply as to
      every invitation: quiet hours and the invitation window, the per-student daily limit,

@@ -149,8 +149,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    first asks the class's waiting-list students who have not yet been invited for it, in the order
    they joined, up to the batch size (`notifications.waiting-list` rules 4–4c, 16). Their
    invitations carry `round_number = 0` and use the `waiting_list_invite` template; the vacancy's
-   own round counter does not move for them. Only when no waiting-list student is left to ask does
-   the batch go to the vacancy's current invitation group, so rounds, pacing (`maxSimultaneous`,
+   own round counter does not move for them. Only when no waiting-list student is left to ask
+   **today** — one at `maxInvitesPerStudentPerDay` is not, so they never hold the spot from the
+   groups for the rest of the club day — does the batch go to the vacancy's current invitation group, so rounds, pacing (`maxSimultaneous`,
    `maxInactiveTime`), the start-once claim (rule 1b), the hold (rule 16) and rule 18 work as before,
    with group-0 invitations counted like any other. A student who joins the list while the rounds
    run is asked on the next batch, ahead of the group. A group-0 invitation is answered through the

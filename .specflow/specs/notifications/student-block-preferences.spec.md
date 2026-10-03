@@ -71,9 +71,10 @@ cut a student off from their coach.
    recipient has blocked all notifications. Neither the chat message nor the web/Expo push is
    created. The backstop is a safety net, not the primary enforcement — the earlier filters in
    rules 5–7 are what prevent orphan events and lying counts.
-9. Message types outside that set are unaffected: plain chat (`text`), class-cancellation notices
-   confirmations are still delivered to a student who blocked everything. (The `waiting_list_placed`
-   message is gone with PAD-446: a waiting-list student is invited, not placed.)
+9. Message types outside that set are unaffected: plain chat (`text`) and class-cancellation
+   notices are still delivered to a student who blocked everything. (The `waiting_list_placed`
+   confirmation that was listed here is gone with PAD-446: a waiting-list student is invited, not
+   placed.)
 10. **Coach visibility.** The coach-facing player payload
     (`_serialize_coach_player_relation`, and the identical dict returned by
     `Player.coach_player_info` used by `add_player`/`edit_player`) carries

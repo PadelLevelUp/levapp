@@ -4032,7 +4032,16 @@ def _send_invitation_batch(
     # PAD-446 (invitations rule 8a, waiting-list rule 4): group 0 first. While a waiting-list
     # student is left to ask for this spot, the batch asks them — in join order — and the vacancy's
     # own round does not move; only then does it go to the current invitation group.
-    waiting_list = _waiting_list_candidates(vacancy, instance, coach_id, config)
+    # #546 review: only the ones who can still be sent an invitation TODAY ("left to ask today",
+    # rule 8a) — a list member at maxInvitesPerStudentPerDay must not hold the spot from the groups
+    # for the rest of the club day. (Kept here, not in _waiting_list_candidates: the simulation and
+    # the approval queue show the list as it is, as they show the groups.)
+    restrictions_today = config.get_restrictions()
+    waiting_list = [
+        (entry, cp)
+        for entry, cp in _waiting_list_candidates(vacancy, instance, coach_id, config)
+        if _check_per_student_daily_limit(cp.player_id, coach_id, restrictions_today, now=now)
+    ]
     wave_round = 0 if waiting_list else vacancy.current_round_number
     entry_of = {cp.player_id: entry for entry, cp in waiting_list}
     if waiting_list:
@@ -5595,6 +5604,10 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
                     ).all():
                         other.is_active = False
     db.session.flush()
+# ---------------------------------------------------------------------------
+# Notification groups (manual notify modal)
+# ---------------------------------------------------------------------------
+
 def _students_with_recent_absences(coach_players: list, coach_id: int, lookback: int = 8) -> list:
     """PAD-382 (B-143): the student's last ``lookback`` rows WITH THIS COACH — another
     coach's classes are not this coach's dialog to see."""
