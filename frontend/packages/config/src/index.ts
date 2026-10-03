@@ -45,6 +45,8 @@ export * from "./join-request-message";
 export * from "./recurrence-end";
 export * from "./save-ledger";
 export * from "./serial-saver";
+export * from "./email-prompt";
+export * from "./class-time";
 
 /**
  * dashboard.profile-completeness (PAD-490, #523): the student card's body names what is missing

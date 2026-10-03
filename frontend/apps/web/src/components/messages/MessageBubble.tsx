@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@levelup/hooks';
+import { queryKeys, refreshAfterRequestChange } from '@levelup/hooks';
 import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest } from '@/api/classJoinRequests';
@@ -130,7 +130,8 @@ export function MessageBubble({
       toast.error(refusal ? t(`classRequests.refusal.${refusal.code}`) : t("messages.somethingWentWrong"));
     } finally {
       setResponding(false);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      // classes.class-requests rule 19 (PAD-488): the calendar follows the answer.
+      await refreshAfterRequestChange(queryClient);
     }
   };
 
@@ -154,11 +155,8 @@ export function MessageBubble({
   // class sheet and "Pedidos de Aula" ask (ClassRequestsSection).
   const [pendingJoinIneligible, setPendingJoinIneligible] = useState<EligibilityCheckEntry[] | null>(null);
 
-  const invalidateJoinRequestQueries = () => Promise.all([
-    queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
-    queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
-  ]);
+  // The request lists, the class sheet and, rule 19 (PAD-488), the calendar and dashboard.
+  const invalidateJoinRequestQueries = () => refreshAfterRequestChange(queryClient);
 
   const handleAnswerJoinRequest = async (accept: boolean, confirm = false) => {
     if (!joinRequestMeta || responding) return;
@@ -315,7 +313,10 @@ export function MessageBubble({
   }
 
   return (
-    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}>
+    <div
+      data-testid={`message-item-${message.id}`}
+      className={`flex ${isMine ? 'justify-end' : 'justify-start'} px-3 ${showTail ? 'mt-2.5' : 'mt-1.5'}`}
+    >
       <motion.div
         className={`relative max-w-[80%] md:max-w-[65%] ${message.reactions?.length ? 'pb-4' : ''}`}
         drag="x"
@@ -377,6 +378,16 @@ export function MessageBubble({
           <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
             {message.content}
           </p>
+
+          {/* messaging.conversation-detail rule 16 (PAD-492): the time's size and colour. */}
+          {message.isAutomatic && (
+            <p
+              data-testid="message-automatic-note"
+              className={`text-[10px] mt-1 ${isMine ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}
+            >
+              {t('messages.automaticMessage')}
+            </p>
+          )}
 
           <div className={`flex items-center gap-1 mt-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
             {message.edited && (

@@ -847,7 +847,11 @@ def get_players():
 @bp.get("/users")
 @jwt_required()
 def get_users():
-    users = User.query.filter_by(status="active").all()
+    # PAD-500 / B-268: this used to list every active user to any signed-in caller. No
+    # current screen or installed build calls it, but the route stays so an unknown old
+    # caller gets a list, never an error: exactly the caller's messageable set, the same
+    # one the picker uses (messaging.conversations rule 7).
+    users = get_messageable_users_service(current_user())
     # messaging.conversations rule 15 (PAD-227): public shape, never contact details.
     return jsonify([serialize_user_public(u) for u in users])
 
@@ -1627,8 +1631,8 @@ def add_class():
         # rather than creating an unbounded recurring class.
         return jsonify({"error": str(e), "code": e.code}), 400
     except CourtNotInClubError as e:
-        # clubs.courts rule 6 (PAD-194).
-        return jsonify({"error": str(e), "code": e.code}), 400
+        # clubs.courts rule 6 (PAD-194); B-266: name the field.
+        return jsonify({"error": str(e), "code": e.code, "fields": ["courtId"]}), 400
     return jsonify(serialize_calendar_event(lesson))
 
 
@@ -2563,8 +2567,8 @@ def edit_class():
     try:
         result, status = edit_class_service(data)
     except CourtNotInClubError as e:
-        # clubs.courts rule 6 (PAD-194).
-        return jsonify({"error": str(e), "code": e.code}), 400
+        # clubs.courts rule 6 (PAD-194); B-266: name the field.
+        return jsonify({"error": str(e), "code": e.code, "fields": ["courtId"]}), 400
     # PAD-387: the service refuses a sent-empty NOT NULL value before writing; any
     # other NotNullableFieldError is answered 400 by the blueprint handler (PAD-385).
     return jsonify(result), status

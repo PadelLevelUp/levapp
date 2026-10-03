@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import text
 
 from padel_app.sql_db import db
+from padel_app.tests.helpers import insert_user_on_an_old_schema
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
@@ -64,7 +65,7 @@ def _columns(table):
 def test_the_migration_walks_up_and_down_with_every_entry_intact(app):
     from flask_migrate import downgrade, upgrade
 
-    from padel_app.models import Association_CoachPlayer, Coach, Player, User
+    from padel_app.models import Association_CoachPlayer, Coach, Player
 
     with app.app_context():
         try:
@@ -73,10 +74,8 @@ def test_the_migration_walks_up_and_down_with_every_entry_intact(app):
             assert "record_id" not in _columns("evaluation_entries")
             assert "competency_group" not in _columns("evaluation_categories")
 
-            coach_user = User(name="C", username="p363m_c", email="p363m_c@t.test", password="x", status="active")
-            student_user = User(name="S", username="p363m_s", email="p363m_s@t.test", password="x", status="active")
-            db.session.add_all([coach_user, student_user])
-            db.session.flush()
+            coach_user = insert_user_on_an_old_schema("p363m_c", "C")
+            student_user = insert_user_on_an_old_schema("p363m_s", "S")
             coach, player = Coach(user_id=coach_user.id), Player(user_id=student_user.id)
             db.session.add_all([coach, player])
             db.session.flush()

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -65,7 +66,7 @@ const signUpSchema = z
   });
 
 type FieldErrors = Partial<
-  Record<"name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "country", string>
+  Record<"name" | "username" | "email" | "password" | "repeatPassword" | "birthDate" | "country" | "terms", string>
 >;
 
 /** auth.register rule 18: the server's codes, in the form's own words. */
@@ -75,6 +76,7 @@ const CODE_KEYS: Record<string, string> = {
   COUNTRY_REQUIRED: "countryRequired",
   INVALID_COUNTRY: "countryRequired",
   UNDERAGE: "birthDateUnderage",
+  TERMS_REQUIRED: "termsRequired",
 };
 
 const SignUpPage = () => {
@@ -93,6 +95,8 @@ const SignUpPage = () => {
     birthDate: "",
     country: "PT",
   });
+  // auth.register rule 19 (PAD-485): the Terms must be accepted, explicitly, before an account exists.
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -103,17 +107,16 @@ const SignUpPage = () => {
 
   const validate = () => {
     const result = signUpSchema.safeParse(form);
-    if (result.success) {
-      setErrors({});
-      return true;
-    }
     const next: FieldErrors = {};
-    for (const issue of result.error.errors) {
-      const field = String(issue.path[0]) as keyof FieldErrors;
-      if (!next[field]) next[field] = t(`auth.signup.${issue.message}`);
+    if (!result.success) {
+      for (const issue of result.error.errors) {
+        const field = String(issue.path[0]) as keyof FieldErrors;
+        if (!next[field]) next[field] = t(`auth.signup.${issue.message}`);
+      }
     }
+    if (!termsAccepted) next.terms = t("auth.signup.termsRequired");
     setErrors(next);
-    return false;
+    return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,6 +133,7 @@ const SignUpPage = () => {
         password: form.password,
         birthDate: form.birthDate,
         country: form.country,
+        termsAccepted,
       });
       // Same persistence as AuthPage: `login(token)` writes localStorage and
       // hydrates the session from /auth/me before we route on it.
@@ -315,6 +319,37 @@ const SignUpPage = () => {
               )}
             </div>
 
+            {/* auth.register rule 19 (PAD-485): required, with both documents a click away. */}
+            <div className="space-y-1">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="signup-terms"
+                  data-testid="signup-terms"
+                  checked={termsAccepted}
+                  aria-invalid={errors.terms ? true : undefined}
+                  onCheckedChange={(next) => {
+                    setTermsAccepted(next === true);
+                    setErrors((e) => ({ ...e, terms: undefined }));
+                  }}
+                />
+                <label htmlFor="signup-terms" className="text-sm leading-snug">
+                  {t("auth.signup.termsAcceptPrefix")}{" "}
+                  <Link to="/privacy" target="_blank" className="underline hover:text-foreground">
+                    {t("auth.legal.privacyPolicy")}
+                  </Link>{" "}
+                  {t("auth.signup.termsAcceptJoin")}{" "}
+                  <Link to="/terms" target="_blank" className="underline hover:text-foreground">
+                    {t("auth.legal.terms")}
+                  </Link>
+                </label>
+              </div>
+              {errors.terms && (
+                <p className="text-sm text-destructive" data-testid="signup-terms-error">
+                  {errors.terms}
+                </p>
+              )}
+            </div>
+
             <Button type="submit" className="w-full" disabled={submitting} data-testid="signup-submit">
               {submitting ? t("auth.signup.creating") : t("auth.signup.create")}
             </Button>
@@ -329,16 +364,6 @@ const SignUpPage = () => {
         </CardContent>
       </Card>
 
-      <p className="mt-4 text-center text-xs text-muted-foreground">
-        {t("auth.signup.legalPrefix")}{" "}
-        <Link to="/privacy" className="underline hover:text-foreground">
-          {t("auth.legal.privacyPolicy")}
-        </Link>{" "}
-        {t("auth.legal.separator")}{" "}
-        <Link to="/terms" className="underline hover:text-foreground">
-          {t("auth.legal.terms")}
-        </Link>
-      </p>
     </div>
   );
 };

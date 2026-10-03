@@ -121,6 +121,22 @@ describe("MessageTemplatesSection — placeholder hints (PAD-430, message-templa
     }
   });
 
+  // PAD-489 (notifications.reminders rule 22): the two "added to class" messages are editable
+  // like the others, and take {class} and {when} on top of the class vocabulary. A config
+  // from before the keys existed has no text for them: the row still shows, empty, and the
+  // server falls back to its default.
+  it.each(["added_to_class", "added_to_class_coming"] as const)("offers the class vocabulary plus {class} and {when} on %s", (key) => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <Wrapper />
+      </SettingsUnsavedTestHarness>
+    );
+    const row = screen.getByTestId(`template-row-${key}`);
+    for (const token of [...EXPECTED, "{class}", "{when}"]) {
+      expect(within(row).getByText(token)).toBeTruthy();
+    }
+  });
+
   it("inserts {court} into the textarea when its hint is clicked", () => {
     render(
       <SettingsUnsavedTestHarness>

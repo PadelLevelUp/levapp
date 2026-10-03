@@ -335,6 +335,20 @@ def _meta(row: ClassRequest, kind: str) -> dict:
     }}
 
 
+def _publish_request_changed(row: ClassRequest) -> None:
+    """Rule 19 (PAD-488, B-264): every transition tells everyone whose calendar it changes —
+    the coach, the requester and the people named on the request — the one who acted
+    included, so an open calendar on any of their devices refreshes."""
+    from padel_app.realtime import publish
+
+    user_ids = {row.coach.user.id} if row.coach and row.coach.user else set()
+    for pid in [row.player_id, *(int(p) for p in (row.invitee_player_ids or []))]:
+        player = db.session.get(Player, pid) if pid is not None else None
+        if player is not None and player.user_id is not None:
+            user_ids.add(player.user_id)
+    publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, sorted(user_ids))
+
+
 def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     """A message from the student's side in the direct conversation, pushed to the coach."""
     from padel_app.models import Message
@@ -358,7 +372,7 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     )
     msg.create()
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
-    publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, [coach_user.id])
+    _publish_request_changed(row)
     title = "Pedido de aula" if locale == "pt" else "Class request"
     send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
     # PAD-324 (messaging.push-notifications rule 7): the same defect as the
@@ -377,7 +391,6 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
 
 def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     """A system message from the coach's side; `_send_system_message` pushes."""
-    from padel_app.realtime import publish
     from padel_app.services.notification_service import _send_system_message
 
     coach_user = row.coach.user if row.coach else None
@@ -389,7 +402,7 @@ def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
         coach_user.id, player_user.id, text,
         msg_metadata=_meta(row, kind),
     )
-    publish({"type": "class_request_changed", "payload": {"requestId": row.id, "status": row.status}}, [player_user.id])
+    _publish_request_changed(row)
 
 
 # ── student side ─────────────────────────────────────────────────────────────
@@ -687,6 +700,10 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
         # acceptance message. Telling them a coach added them would be a second
         # message for one event, about something they initiated.
         notify_students=False,
+        # PAD-489 (notifications.reminders rule 22): accepted after the class's reminder
+        # time, the requester is counted as coming; the invitees did not ask and are told
+        # and asked like anyone added to a class.
+        counted_player_ids=[row.player_id],
     )
     # PAD-357 rule 14: the people they brought did not ask — they are told.
     from padel_app.services.notification_service import notify_student_added_to_class

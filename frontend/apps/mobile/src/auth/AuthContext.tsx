@@ -16,7 +16,7 @@ import {
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
 import { getPushRegistrar } from "@/lib/push";
-import { signOut } from "./sign-out";
+import { endSessionState, signOut } from "./sign-out";
 
 export type AuthUser = authApi.MeResponse;
 
@@ -97,6 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       if (userRef.current !== null) {
+        // PAD-482 (#509 review): a session lost to a 401 ends its session-only state, as a sign-out does.
+        endSessionState();
         setUser(null);
         router.replace("/login");
       }

@@ -159,6 +159,9 @@ function host(name: string) {
 export const View = host("View");
 export const Text = host("Text");
 export const ScrollView = host("ScrollView");
+// PAD-487: screens under a native header are mounted to read their keyboard offset.
+export const KeyboardAvoidingView = host("KeyboardAvoidingView");
+export const FlatList = host("FlatList");
 export const TextInput = host("TextInput");
 export const Pressable = host("Pressable");
 export const TouchableOpacity = host("TouchableOpacity");

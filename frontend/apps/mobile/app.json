@@ -120,7 +120,8 @@
           "defaultChannel": "default"
         }
       ],
-      "./plugins/with-ci-cleartext"
+      "./plugins/with-ci-cleartext",
+      "./plugins/with-pod-deployment-floor"
     ],
     "experiments": {
       "tsconfigPaths": false

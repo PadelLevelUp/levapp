@@ -21,7 +21,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listCurrentClubCourts } from "@/api/courts";
+import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
 import { ClassPlanningSection } from "./ClassPlanningSection";
@@ -39,7 +39,7 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, errorStatusOf } from "@levelup/config";
+import { classEvaluationsAction, errorStatusOf, isHhMm } from "@levelup/config";
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -156,12 +156,14 @@ export function ClassDetailSheet({
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ClassInstance | null>(null);
-  // clubs.courts rule 7 (PAD-194): the current club's courts, for the editor.
+  // clubs.courts rule 7 (PAD-194; B-266): the editor offers the CLASS's club's courts — what
+  // edit_class validates against — not the coach's current club's.
   const [courts, setCourts] = useState<Court[]>([]);
+  const classClubId = classInstance?.clubId ?? null;
   useEffect(() => {
     if (!isEditing) return;
     let cancelled = false;
-    listCurrentClubCourts()
+    listCourtsForClass({ clubId: classClubId })
       .then((rows) => {
         if (!cancelled) setCourts(rows);
       })
@@ -169,7 +171,7 @@ export function ClassDetailSheet({
     return () => {
       cancelled = true;
     };
-  }, [isEditing]);
+  }, [isEditing, classClubId]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -529,6 +531,15 @@ export function ClassDetailSheet({
   };
 
   const saveEdit = () => {
+    // B-275 (PAD-508): a cleared native time input reads ""; never send it (the server would refuse it).
+    if (draft && (!isHhMm(draft.startTime) || !isHhMm(draft.endTime))) {
+      toast({
+        variant: "destructive",
+        title: t("calendar.addClass.missingFieldsTitle"),
+        description: t("calendar.addClass.missingFieldsDescription", { fields: t("calendar.addClass.fieldTime") }),
+      });
+      return;
+    }
     // PAD-99: warn (non-blocking) when the edited date/time overlaps another
     // event on the same day. Only check when the timing actually changed, so
     // editing a name/participants on an already-overlapping class doesn't nag.
@@ -953,6 +964,7 @@ export function ClassDetailSheet({
                 <div className="space-y-1">
                   <Input
                     type="time"
+                    data-testid="class-detail-start-time"
                     value={active.startTime}
                     className="h-8 text-sm"
                     onChange={(e) =>
@@ -961,6 +973,7 @@ export function ClassDetailSheet({
                   />
                   <Input
                     type="time"
+                    data-testid="class-detail-end-time"
                     value={active.endTime}
                     className="h-8 text-sm"
                     onChange={(e) =>
@@ -976,7 +989,7 @@ export function ClassDetailSheet({
             </div>
 
             {/* Capacity */}
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <div data-testid="class-detail-capacity" className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Users className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{t("calendar.detail.capacity")}</span>
@@ -1083,7 +1096,7 @@ export function ClassDetailSheet({
                   <SelectContent>
                     <SelectItem value="none">{t("calendar.detail.noCourt")}</SelectItem>
                     {courts.map((court) => (
-                      <SelectItem key={court.id} value={String(court.id)}>
+                      <SelectItem key={court.id} value={String(court.id)} data-testid={`class-detail-court-option-${court.id}`}>
                         {court.name}
                       </SelectItem>
                     ))}

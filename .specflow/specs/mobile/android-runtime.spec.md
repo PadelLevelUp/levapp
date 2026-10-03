@@ -39,6 +39,17 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    covered the login screen's Sign In button), so Android pads exactly like iOS. If a screen
    ever needs a different value, that one function changes, not ten screens.
    `useKeyboardVisible` keeps `keyboardDid*` on Android (there are no `will` events there).
+   **A screen under a native stack header passes the header's height as
+   `keyboardVerticalOffset` (PAD-487, B-265)**, through `useNativeHeaderKeyboardOffset()`
+   (`src/lib/native-header-offset.ts`). The view pads by its own frame, which `onLayout` reports relative to its parent;
+   under a native header that frame starts the header's height below the window's top, so with
+   no offset the view shrinks too little and the bottom of the form stays under the keyboard.
+   Today that is the class-request wizard and the new-conversation screen; screens that draw
+   their own header inside the view, or have none, pass no offset.
+   **A scrolling form whose last field can be covered scrolls it into view (PAD-487):** the
+   shrink alone leaves the ScrollView's offset where it was, so the wizard's notes field, on
+   focus, scrolls the form to its end once the keyboard is up (`useScrollToEndOnKeyboard`,
+   `keyboardDidShow`, both platforms).
 
 #### Back button
 3. **The hardware / gesture back closes the topmost transient surface first.** A registry in
@@ -114,6 +125,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** it returns `"padding"` both times
 - **And** all ten `KeyboardAvoidingView`s take their `behavior` from it
 - **And** on the emulator the login screen's Sign In button stays above the keyboard
+
+#### A field at the bottom of a screen under a native header stays above the keyboard (PAD-487)
+- **Given** the class-request wizard on iOS at the private-class step, with the native header shown
+- **When** the student taps the optional-notes field, the last field before Send
+- **Then** the field is above the keyboard, not under it
+- **And** the wizard and the new-conversation screen pass `keyboardVerticalOffset` equal to the
+  header height (`useNativeHeaderKeyboardOffset()`)
 
 #### Back closes the newest surface first
 - **Given** a dialog is open and a context menu is opened over it on Android

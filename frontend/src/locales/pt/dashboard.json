@@ -139,6 +139,11 @@
       "remind": "Lembrar treinador",
       "reminded": "Lembrete enviado hoje",
       "remindFailed": "Não foi possível enviar o lembrete. Tenta novamente."
+    },
+    "emailPrompt": {
+      "text": "Adiciona o teu email para poderes recuperar a palavra-passe e receber avisos.",
+      "add": "Adicionar email",
+      "dismiss": "Agora não"
     }
   }
 }
