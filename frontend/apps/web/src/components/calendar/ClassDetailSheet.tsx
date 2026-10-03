@@ -65,6 +65,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { TimeSelect, endAfterStartMove } from "@/components/ui/time-select";
 import { cn } from "@/lib/utils";
 import { useAutoInviteEnabled } from "@/hooks/useAutoInviteEnabled";
 
@@ -962,23 +963,23 @@ export function ClassDetailSheet({
               </div>
               {isEditing ? (
                 <div className="space-y-1">
-                  <Input
-                    type="time"
+                  {/* PAD-508 (classes.edit rule 7b): the same never-empty field as the new-class sheet. */}
+                  <TimeSelect
                     data-testid="class-detail-start-time"
+                    aria-label={t("calendar.addClass.timeStart")}
                     value={active.startTime}
-                    className="h-8 text-sm"
-                    onChange={(e) =>
-                      setDraft((d) => d ? { ...d, startTime: e.target.value } : d)
+                    onChange={(startTime) =>
+                      setDraft((d) =>
+                        d ? { ...d, startTime, endTime: endAfterStartMove(d.startTime, d.endTime, startTime) } : d
+                      )
                     }
                   />
-                  <Input
-                    type="time"
+                  <TimeSelect
                     data-testid="class-detail-end-time"
+                    aria-label={t("calendar.addClass.timeEnd")}
                     value={active.endTime}
-                    className="h-8 text-sm"
-                    onChange={(e) =>
-                      setDraft((d) => d ? { ...d, endTime: e.target.value } : d)
-                    }
+                    from={active.startTime}
+                    onChange={(endTime) => setDraft((d) => (d ? { ...d, endTime } : d))}
                   />
                 </div>
               ) : (

@@ -39,10 +39,28 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    (00:00–23:59). Anything else — an empty or blank string, null, an absent key, one digit, "25:00",
    "09:60", seconds — is refused before anything is written with the same `400 {"error":
    "invalid_fields", "fields": [...]}` naming `start_time` / `end_time`; it used to raise inside
-   `build_datetime` — a 500. The web sheet never sends one: its native time input reads `""` once a
-   segment is cleared, so the sheet flags the time box and lists "Hora" in the missing-fields
-   message instead of sending. iOS's picker always holds a value. The same check guards
-   `POST /api/app/edit_class` (`classes.edit` rule 7).
+   `build_datetime` — a 500. The web sheet never sends one: its time field (rule 8b) cannot be left
+   empty, and should a time still be invalid the sheet flags the time box and lists "Hora" in the
+   missing-fields message instead of sending. iOS's picker always holds a value. The same check
+   guards `POST /api/app/edit_class` (`classes.edit` rule 7).
+8b. **The desktop class-time field (PAD-508, owner decision 2026-10-03).** On web, the new-class
+   sheet's start and end times — and the class editor's (`classes.edit` rule 7b) — are one field
+   each that the coach can type into or pick from a list:
+   - **Typing:** written as spoken — "930", "9:30", "9h30", "21.15" — and read as `HH:MM` on Enter
+     or on leaving the field. Any time can be typed, quarter hours or not ("09:10").
+   - **List:** a click opens every quarter hour from 06:00 to 23:45, scrolled to the current time.
+     Choosing one sets it and closes the list.
+   - **End:** its list starts after the start time and shows each option's class length beside it
+     ("19:00 · 1 h", "19:30 · 1 h 30 min"). When the start reaches or passes the end, the end moves
+     (rule 8b keeps create's existing behaviour: start plus the default length).
+   - **Never empty, never zero:** text that is not a time — an emptied field included, however
+     long it is left — puts the last valid time back. This replaces the browser's native time
+     input, whose cleared segment read as empty and fell back to "zero" (the report behind PAD-508
+     and B-275).
+   - **Web only, with the reason:** iOS keeps its native time wheel (`classes.create` rule 10's
+     sheet), which always holds a value and already reads as the platform's time control; the
+     native picker is the better phone control and has none of the desktop field's problem. The
+     other web time fields (events, blockers, working hours) are unchanged.
 9. **How a recurring series ends: a date, a number of classes, or the season (PAD-463, D151).**
    Class creation on web (add-class sheet) and iOS (new class) offers one choice of three, the
    first selected by default:
@@ -80,12 +98,24 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 
 ### Acceptance Criteria
 
-#### A cleared time is flagged, never sent, and refused by the server (rule 8a, B-275)
-- **Given** the web new-class sheet with a name, and the start time's hour cleared (it reads `""`)
-- **When** the coach presses Create class
-- **Then** the time box is flagged, "Hora" is named in the missing-fields message, and no request is sent
-- **And** `POST /api/app/add_class` or `/edit_class` with `startTime: ""` (or null, absent, "9",
-  "25:00") answers 400 naming `start_time`, and nothing is written
+#### An invalid time is refused by the server (rule 8a, B-275)
+- **Given** `POST /api/app/add_class` or `/edit_class` with `startTime: ""` (or null, absent, "9",
+  "25:00")
+- **Then** it answers 400 naming `start_time`, and nothing is written
+
+#### The time never reverts to zero (rule 8b, PAD-508)
+- **Given** the web new-class sheet with a name, start 18:00 and end 19:30
+- **When** the coach empties the start time, leaves it alone for a while, and moves on
+- **Then** the start reads 18:00 again, nothing is flagged, and Create class sends 18:00–19:30
+
+#### The coach picks or types a time (rule 8b)
+- **Given** the web new-class sheet
+- **When** the coach opens the start list and picks 17:15
+- **Then** the start reads 17:15 and the list closes
+- **When** they open the end list
+- **Then** it starts at 17:30 and each option shows the class length
+- **When** they type "1930" in a time and press Enter
+- **Then** it reads 19:30
 
 #### The coach chooses students when creating a class (rule 10, PAD-474)
 - **Given** a coach on the mobile app with students Ana and Bruno

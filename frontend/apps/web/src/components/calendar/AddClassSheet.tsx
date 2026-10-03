@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { TimeSelect } from '@/components/ui/time-select';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
 import {
@@ -435,21 +436,21 @@ export function AddClassSheet({
                 <span className="text-xs font-medium">{t("calendar.addClass.time")}</span>
               </div>
               <div className="space-y-1">
-                <Input
-                  type="time"
+                {/* PAD-508 (classes.create rule 8b): the desktop time field never holds an empty time. */}
+                <TimeSelect
                   data-testid="add-class-start-time"
+                  aria-label={t("calendar.addClass.timeStart")}
                   aria-invalid={errors.time ? true : undefined}
                   value={startTime}
-                  className="h-8 text-sm min-w-0"
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={setStartTime}
                 />
-                <Input
-                  type="time"
+                <TimeSelect
                   data-testid="add-class-end-time"
+                  aria-label={t("calendar.addClass.timeEnd")}
                   aria-invalid={errors.time ? true : undefined}
                   value={endTime}
-                  className="h-8 text-sm min-w-0"
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={setEndTime}
+                  from={startTime}
                 />
               </div>
             </div>
