@@ -35,6 +35,7 @@ export const CODE_KEYS: Record<string, string> = {
   COUNTRY_REQUIRED: "countryRequired",
   INVALID_COUNTRY: "countryRequired",
   UNDERAGE: "birthDateUnderage",
+  TERMS_REQUIRED: "termsRequired",
 };
 
 /** Same rules as web's SignUpPage (auth.register rules 2–4). */

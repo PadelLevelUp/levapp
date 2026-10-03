@@ -19,11 +19,10 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
 }
 
 function autoNotifySwitch(page: import("@playwright/test").Page) {
-  return page
-    .getByText(/^automatic notifications$/i)
-    .locator("xpath=ancestor::div[contains(@class, 'flex')][1]")
-    .locator('[role="switch"]')
-    .first();
+  // B-282: by its test id. The old locator climbed from the label's English text to the nearest
+  // ancestor div with "flex" in its class; a wrapper added around the label and its save sign
+  // (PAD-473) became that ancestor, and the switch is not inside it.
+  return page.getByTestId("notification-engine-auto-notify-toggle");
 }
 
 async function enableAutoNotify(page: import("@playwright/test").Page) {
@@ -47,11 +46,9 @@ async function openRestrictions(page: import("@playwright/test").Page) {
   await page.waitForTimeout(300);
 }
 
-/** The cancellation-deadline row, located by its label heading. */
+/** The cancellation-deadline row, located by its test id. */
 function cancellationRow(page: import("@playwright/test").Page) {
-  return page
-    .getByText(/^cancellation deadline$/i)
-    .locator("xpath=ancestor::div[contains(@class, 'space-y-1')][1]");
+  return page.getByTestId("restriction-row-cancellation-deadline");
 }
 
 // US-75: Cancellation deadline control defaults to 24 hours.

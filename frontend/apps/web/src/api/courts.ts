@@ -11,6 +11,9 @@ import { USE_MOCK_DATA } from "@/config";
  */
 
 export const listCourts = (clubId: number) => (USE_MOCK_DATA ? Promise.resolve([] as Court[]) : courtsApi.listCourts(clubId));
+/** B-266: the courts a class's edit form offers — its own club's. */
+export const listCourtsForClass = (cls: { clubId?: number | null }) =>
+  USE_MOCK_DATA ? Promise.resolve([] as Court[]) : courtsApi.listCourtsForClass(cls);
 export const createCourt = courtsApi.createCourt;
 export const renameCourt = courtsApi.renameCourt;
 export const deleteCourt = courtsApi.deleteCourt;

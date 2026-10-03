@@ -1,7 +1,7 @@
 """PAD-497: the answer a student gave to an invitation
 
 Revision ID: 0d2107f3fa7b
-Revises: b3a1c474d07b
+Revises: 1228571ddef6
 Create Date: 2026-10-02
 
 Adds ``answer`` (String(8), nullable: 'yes' | 'no') to ``notification_events``
@@ -18,7 +18,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0d2107f3fa7b"
-down_revision = "b3a1c474d07b"
+down_revision = "1228571ddef6"
 branch_labels = None
 depends_on = None
 

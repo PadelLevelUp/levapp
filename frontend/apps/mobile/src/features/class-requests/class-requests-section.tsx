@@ -15,11 +15,13 @@ import {
   clubTodayISO,
   lightTheme,
   mergeClassRequestRows,
+  proposalAfterStartChange,
+  requestMinutes,
   slotOptions,
   splitClassRequestRows,
   type MergedClassRequestRow,
 } from "@levelup/config";
-import { queryKeys } from "@levelup/hooks";
+import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
 import type { ClassJoinRequestListRow, ClassRequest, EligibilityCheckEntry } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
@@ -64,14 +66,9 @@ export function ClassRequestsSection({
   // classes.join-requests rule 17 (PAD-460): academy requests, shown beside the
   // private ones above, merged newest first (`@levelup/config`, shared with web).
   const joinRequests = useQuery({ queryKey: queryKeys.classJoinRequests, queryFn: classJoinRequestsApi.listClassJoinRequests });
-  const invalidate = () =>
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
-      // The class detail's own read, wherever it is cached — an academy decision
-      // made from this list must not leave it stale.
-      queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
-    ]);
+  // The request lists, the class detail's own read wherever it is cached (an academy
+  // decision made from this list must not leave it stale) and, rule 19 (PAD-488), the calendar.
+  const invalidate = () => void refreshAfterRequestChange(queryClient);
 
   const [proposingId, setProposingId] = React.useState<number | null>(null);
   const [proposal, setProposal] = React.useState({ date: "", startTime: "10:00", endTime: "11:00" });
@@ -244,7 +241,7 @@ export function ClassRequestsSection({
                 <DatePickerInput testID="class-request-proposal-date" label={t("classRequests.date")} value={proposal.date} onChange={(v) => setProposal((p) => ({ ...p, date: v }))} />
                 <View className="flex-row gap-2">
                   <View className="flex-1">
-                    <TimePickerInput testID="class-request-proposal-start" label={t("availability.startTime")} value={proposal.startTime} onChange={(v) => setProposal((p) => ({ ...p, startTime: v }))} />
+                    <TimePickerInput testID="class-request-proposal-start" label={t("availability.startTime")} value={proposal.startTime} onChange={(v) => setProposal((p) => ({ ...p, ...proposalAfterStartChange(p, v, requestMinutes(r)) }))} />
                   </View>
                   <View className="flex-1">
                     <TimePickerInput testID="class-request-proposal-end" label={t("availability.endTime")} value={proposal.endTime} onChange={(v) => setProposal((p) => ({ ...p, endTime: v }))} />

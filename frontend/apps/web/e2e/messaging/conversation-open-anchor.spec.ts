@@ -62,16 +62,11 @@ async function dedicatedConversationId(
   studentToken: string
 ): Promise<string> {
   const auth = { Authorization: `Bearer ${studentToken}` };
-  const usersRes = await request.get(`${API_APP}/messageable-users`, { headers: auth });
-  const users = await usersRes.json();
-  const counterpart = users.find(
-    (u: { username?: string }) => u.username === COUNTERPART_USERNAME
-  );
-  expect(counterpart, `the seed must provide ${COUNTERPART_USERNAME}`).toBeTruthy();
-
+  // B-267: the student is not linked to this coach, so the picker does not list it;
+  // the exact-username path (messaging.direct-by-username) still opens the thread.
   const created = await request.post(`${API_APP}/conversation`, {
     headers: auth,
-    data: { otherParticipants: [String(counterpart.id)] },
+    data: { otherUsername: COUNTERPART_USERNAME },
   });
   expect(created.status()).toBeLessThan(400);
   return String((await created.json()).id);

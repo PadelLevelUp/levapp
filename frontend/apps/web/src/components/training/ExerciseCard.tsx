@@ -33,6 +33,7 @@ export function ExerciseCard({ exercise: ex, onClick, onDelete }: Props) {
   const diffLabel = (d: number) => t(`training.difficulty.${d}`, { defaultValue: String(d) });
   return (
     <Card
+      data-testid={`exercise-card-${ex.id}`}
       className="cursor-pointer hover:shadow-md transition-shadow group"
       onClick={onClick}
     >

@@ -112,7 +112,16 @@ function RadioDot({ selected, onPress, testID }: { selected: boolean; onPress: (
   );
 }
 
-export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone: () => void }) {
+export function PrivateClassStep({
+  coachId,
+  onDone,
+  onNoteFocus,
+}: {
+  coachId: string;
+  onDone: () => void;
+  /** PAD-487: the wizard scrolls the note above the keyboard once it is up. */
+  onNoteFocus?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const today = clubTodayISO();
@@ -499,6 +508,7 @@ export function PrivateClassStep({ coachId, onDone }: { coachId: string; onDone:
           placeholder={t("classRequests.notePlaceholder")}
           value={note}
           onChangeText={setNote}
+          onFocus={onNoteFocus}
         />
       </View>
 

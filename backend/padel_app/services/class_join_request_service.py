@@ -252,6 +252,22 @@ def _require_owner(row: ClassJoinRequest, coach):
 
 
 def decide_join_request_service(request_id, coach, *, accept: bool, confirm: bool = False, now=None):
+    """Decide, then tell both sides' clients (classes.class-requests rule 19, PAD-488 review):
+    an accept puts the student on the class, so an open calendar or home screen on any of their
+    devices refreshes. A refusal raises before anything is published."""
+    row = _decide_join_request(request_id, coach, accept=accept, confirm=confirm, now=now)
+    _publish_join_request_decided(row)
+    return row
+
+
+def _publish_join_request_decided(row: ClassJoinRequest) -> None:
+    from padel_app.realtime import publish
+
+    user_ids = {who.user_id for who in (row.coach, row.player) if who is not None and who.user_id is not None}
+    publish({"type": "join_request_decided", "payload": {"requestId": row.id, "status": row.status}}, sorted(user_ids))
+
+
+def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = False, now=None):
     """Rules 5–10, 13 and 15. Accepting IS a manual add: the bar is re-checked
     and a failure is a named warning the coach may override with ``confirm``."""
     from padel_app.services.notification_service import (

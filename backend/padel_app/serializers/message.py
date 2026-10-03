@@ -45,6 +45,17 @@ def deleted_class_message_ids(messages):
     return {mid for mid, iid in refs.items() if iid not in existing}
 
 
+def is_automatic(message) -> bool:
+    """messaging.messages rule 6 (PAD-492): the app wrote this message, a person did not.
+
+    Every automatic writer stores a `message_type` other than "text" or a non-null
+    `msg_metadata` (`_send_system_message` always writes `msg_metadata or {}`); the human
+    send path stores neither. The guard in test_pad492_automatic_marker keeps it that way.
+    """
+    message_type = getattr(message, "message_type", None) or "text"
+    return message_type != "text" or getattr(message, "msg_metadata", None) is not None
+
+
 def serialize_message(message, last_read_at, *, class_deleted=False):
     """One message.
 
@@ -67,6 +78,7 @@ def serialize_message(message, last_read_at, *, class_deleted=False):
             "isDeleted": True,
             "reactions": [],
             "classDeleted": False,
+            "isAutomatic": False,
         }
 
     is_read = bool(last_read_at and message.sent_at <= last_read_at)
@@ -91,4 +103,6 @@ def serialize_message(message, last_read_at, *, class_deleted=False):
         # messaging.conversation-detail rule 15 (PAD-325): the class this
         # message points at was deleted, so clients must not offer it.
         "classDeleted": bool(class_deleted),
+        # messaging.messages rule 6 / conversation-detail rule 16 (PAD-492).
+        "isAutomatic": is_automatic(message),
     }
