@@ -4,6 +4,7 @@ import { API_ROOT } from "../helpers/api";
 import { removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
+import { setClassTime } from "../helpers/class-time";
 
 /**
  * PAD-107: when a student has marked themselves unavailable, the coach must be
@@ -79,9 +80,8 @@ async function fillClassForm(
   const sheet = page.locator('[role="dialog"]').first();
   await sheet.getByPlaceholder(/beginner academy|private/i).first().fill(name);
   await sheet.locator('input[type="date"]').first().fill(dateISO);
-  const times = sheet.locator('input[type="time"]');
-  await times.nth(0).fill(start);
-  await times.nth(1).fill(end);
+  await setClassTime(sheet.getByTestId("add-class-start-time"), start);
+  await setClassTime(sheet.getByTestId("add-class-end-time"), end);
 
   if (withStudent) {
     // PlayerSelector: switch to the "All" tab and pick the seeded student.

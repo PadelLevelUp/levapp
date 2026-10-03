@@ -52,7 +52,7 @@ def test_every_red_file_is_rerun_alone_and_labelled():
     assert "order dependency" in rerun["run"] and "real failure" in rerun["run"]
 
 
-def test_every_quarantined_spec_cites_its_ledger_entry_and_b286_is_there():
+def test_every_quarantined_spec_cites_a_still_open_ledger_entry():
     lines = [l for l in QUARANTINE.read_text().splitlines() if l.strip() and not l.lstrip().startswith("#")]
     assert lines
     for line in lines:
@@ -65,8 +65,8 @@ def test_every_quarantined_spec_cites_its_ledger_entry_and_b286_is_there():
             assert entry is not None, f"{b} has no ledger file in .cortex/compass/bugs: {line}"
             statuses.append(re.search(r"^status:\s*(\S+)", entry.read_text(), re.M).group(1))
         assert any(s != "resolved" for s in statuses), f"every cited entry is resolved: {line}"
-    badge = [l for l in lines if l.split()[0] == "messaging/nav-unread-badge.spec.ts"]
-    assert badge and "B-286" in badge[0] and "PAD-514" in badge[0]
+    # PAD-514 fixed B-286 and took its spec out in the same PR (rule 4).
+    assert not [l for l in lines if l.split()[0] == "messaging/nav-unread-badge.spec.ts"]
 
 
 def _step_names(wf):
