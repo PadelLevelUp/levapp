@@ -532,7 +532,8 @@
       "expired": "Expired",
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
-      "remove": "Remove"
+      "remove": "Remove",
+      "renew": "Renew"
     },
     "templates": {
       "saving": "Saving…",

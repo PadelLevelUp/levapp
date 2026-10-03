@@ -532,7 +532,8 @@
       "expired": "Expirado",
       "classCount_one": "{{count}} aula",
       "classCount_other": "{{count}} aulas",
-      "remove": "Remover"
+      "remove": "Remover",
+      "renew": "Renovar"
     },
     "templates": {
       "saving": "A guardar…",

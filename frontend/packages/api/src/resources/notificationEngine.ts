@@ -308,12 +308,22 @@ export async function getStandingWaitingList(): Promise<StandingWaitingListEntry
   return res.data;
 }
 
+/** PAD-507: `expiresOn` is the ISO date the entry runs to (inclusive), at most 12 months ahead. */
 export async function addToStandingWaitingList(
   playerId: number,
   credits: number,
-  durationDays: number,
+  expiresOn: string,
 ): Promise<StandingWaitingListEntry> {
-  const res = await getApi().post("/app/notify/standing_waiting_list", { playerId, credits, durationDays });
+  const res = await getApi().post("/app/notify/standing_waiting_list", { playerId, credits, expiresOn });
+  return res.data;
+}
+
+/** PAD-507: renew — move an entry's end date; its credits stay. */
+export async function renewStandingWaitingListEntry(
+  entryId: number,
+  expiresOn: string,
+): Promise<StandingWaitingListEntry> {
+  const res = await getApi().patch(`/app/notify/standing_waiting_list/${entryId}`, { expiresOn });
   return res.data;
 }
 
