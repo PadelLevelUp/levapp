@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, time
+import contextlib
+import contextvars
 import json
 
 from flask import current_app
@@ -46,6 +48,22 @@ def _get_or_insert(model, build, **key):
     except IntegrityError:
         savepoint.rollback()
         return model.query.filter_by(**key).one()
+
+
+# PAD-489 (notifications.reminders rule 22): while set, a NEW enrolment is recorded as
+# answered yes by the system and no late ask is armed for it. Set only around materialising
+# the occurrences of a class CREATED after its reminder time (add_class_service); every other
+# enrolment path, a student added later included, keeps rule 18 and is asked.
+_COUNTED_AS_COMING = contextvars.ContextVar("levapp_counted_as_coming", default=False)
+
+
+@contextlib.contextmanager
+def counted_as_coming():
+    token = _COUNTED_AS_COMING.set(True)
+    try:
+        yield
+    finally:
+        _COUNTED_AS_COMING.reset(token)
 
 
 def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
@@ -119,7 +137,15 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # be the same over-reach as `confirmed` meaning "coming".
         presence.confirmed = confirmed
 
-    if created or returning:
+    if created and _COUNTED_AS_COMING.get():
+        # PAD-489 (rule 22): the class was created after its reminder time, so there was no
+        # moment to ask; the coach arranged it with them. Answered yes by the system, told by
+        # the caller, validated after the class like everyone else (coming is not present).
+        from padel_app.services.presence_response import record_response
+
+        presence.confirmed = True
+        record_response(presence, "confirmed", recorded_by="system")
+    elif created or returning:
         # PAD-331: a late arrival must actually be ASKED. The reminder chain is
         # spent once a pass reports nothing more due, so nobody who joins after
         # it is asked by anything — clearing the cap (PAD-318) removes the
@@ -1044,7 +1070,15 @@ def add_class_service(data, coach, club, *, notify_students=True):
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
 
-    lesson = create_lesson_helper(lesson_payload, notify_students=notify_students)
+    # PAD-489 (notifications.reminders rule 22): a class created after its reminder time
+    # counts its students as coming. Decided here, before anything is written, from the
+    # coach's timing as saved (a plain read: creating a class must not create settings).
+    late_dates = _occurrence_dates_past_their_reminder_time(lesson_payload, coach.id)
+    told_as_coming = bool(late_dates) and bool(lesson_payload["player_ids"]) and notify_students
+
+    lesson = create_lesson_helper(
+        lesson_payload, notify_students=notify_students and not told_as_coming,
+    )
 
     if lesson_payload.get("recurs_until_season_end"):
         lesson.recurs_until_season_end = True
@@ -1065,7 +1099,63 @@ def add_class_service(data, coach, club, *, notify_students=True):
         from padel_app.scheduler import _maybe_schedule_lesson
         _maybe_schedule_lesson(lesson.id, lesson.coaches_relations[0].coach_id)
 
+    # PAD-489 (rule 22): the occurrences whose reminder time has already passed exist from
+    # now on, with their students answered yes; later occurrences get the ordinary reminder.
+    first_late = None
+    if late_dates and lesson_payload["player_ids"]:
+        with counted_as_coming():
+            for occ_date in late_dates:
+                instance = get_or_materialize_instance(lesson, occ_date)
+                first_late = first_late or instance
+        db.session.commit()
+    if told_as_coming and first_late is not None:
+        from padel_app.services.notification_service import notify_student_added_to_class
+
+        for player_id in lesson_payload["player_ids"]:
+            notify_student_added_to_class(coach, player_id, instance=first_late, counted_as_coming=True)
+
     return lesson
+
+
+def _occurrence_dates_past_their_reminder_time(lesson_payload, coach_id):
+    """PAD-489: the dates of the occurrences, inside the coach's reminder offset, whose
+    reminder time under the coach's saved timing is already past and that have not started.
+    Reads the coach's configuration without creating it."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.scheduler import _fire_time_utc
+    from padel_app.services.past_due_service import _lookahead
+    from padel_app.tools.calendar_tools import expand_occurrences
+    from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first() or NotificationConfig(coach_id=coach_id)
+    timing = config.get_reminder_timing()
+    now = utcnow_naive()
+    wall_now = utc_to_wall_naive(now)
+    start = lesson_payload["start_datetime"]
+    if isinstance(start, str):
+        # add_class_service builds "dd/mm/YYYY, HH:MM" for the form (build_datetime).
+        start = datetime.strptime(start, "%d/%m/%Y, %H:%M")
+    if start is None:
+        return []
+    if lesson_payload.get("is_recurring") and lesson_payload.get("recurrence_rule"):
+        window_end = wall_now + _lookahead(timing) + timedelta(days=1)
+        end = lesson_payload.get("recurrence_end")
+        if isinstance(end, str):
+            end = datetime.strptime(end, "%Y-%m-%d").date()
+        occurrences = expand_occurrences(
+            start, lesson_payload["recurrence_rule"], end, wall_now, window_end,
+        )
+    else:
+        occurrences = [start]
+    dates = []
+    for occ in occurrences:
+        occ_wall = occ.replace(tzinfo=None) if getattr(occ, "tzinfo", None) else occ
+        if occ_wall <= wall_now:
+            continue
+        fire = _fire_time_utc(occ_wall, timing)
+        if fire is not None and fire <= now:
+            dates.append(occ_wall.date())
+    return dates
 
 
 def confirm_presences_service(class_instance_data, presences_data):

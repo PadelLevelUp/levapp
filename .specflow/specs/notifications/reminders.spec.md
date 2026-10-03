@@ -123,7 +123,37 @@ Automatically send class reminders to enrolled players at a configured time befo
     occurrence whose job misfired (never ran) is still asked by the ask passes of whatever
     materialises it later. Ledger: B-161.
 
+22. **A class created after its reminder time: its students are counted as coming (PAD-489;
+    owner, 2026-10-03).** When a coach creates a class whose first-reminder time, under the
+    coach's timing, has already passed when the class is created, the students put on it are
+    recorded as coming at that moment, without being asked: the occurrence is materialised at
+    creation, each presence is answered yes with `recorded_by = "system"`, and no late ask (rule
+    18) is armed for them. Only a class CREATED late: a student added later to a class that
+    already exists keeps rule 18 and is asked; a student who cancelled and is put back by the
+    coach is asked (PAD-318); the ordinary reminder of a class whose time is still ahead is
+    unchanged. A student's own class request accepted late (`class_request_service`, which
+    creates the class through the same path) is counted as coming too, and not asked. For a
+    recurring series created late, only the occurrences whose reminder time has already passed
+    are counted; later occurrences get the ordinary reminder. The students are told: the
+    "added to class" message of such a class is the `added_to_class_coming` template ("your
+    presence is already confirmed; if you cannot come, tell me in the app"), which carries no
+    question. Saying no afterwards works as for any confirmed student, and after the class the
+    presence is validated like every other: coming is not present. A class whose students are
+    all counted as coming has nobody still owed a reminder, so `notifications.config` rule 10f's
+    dialog never lists it.
+
 ### Acceptance Criteria
+
+#### A class created after its reminder time counts its students as coming (PAD-489)
+- **Given** a coach with the default timing (48 h before) and a student
+- **When** the coach creates a class six hours ahead with that student on it
+- **Then** the occurrence exists, the student's presence is answered yes and recorded by the system, no ask job is armed, and the student receives one message, the "counted as coming" text, with no question
+- **And** a class created five days ahead is unchanged: no occurrence, the ordinary message, the ordinary reminder job
+- **And** a weekly series created with its first occurrence tomorrow counts tomorrow's students as coming and leaves next week's occurrence to the ordinary reminder
+- **And** a student added later to an existing class whose reminder time has passed is still asked (rule 18)
+- **And** a student who cancelled and is put back late is still asked
+- **And** a student whose own request is accepted six hours before the class is counted as coming and not asked
+- **And** `POST /app/notify/config` with a timing save lists no such class in `pastDue.reminders`
 
 #### Two passes at once send one reminder each (PAD-407)
 - **Given** a materialised class with three unanswered students and `reminderCount` 1 or 3

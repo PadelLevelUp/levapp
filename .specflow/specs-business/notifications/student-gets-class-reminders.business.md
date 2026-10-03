@@ -53,6 +53,10 @@ chasing people individually.
   — a student can't tell the difference except in timing.
 - A student's answer is always saved, even the very first time they've ever responded to anything —
   there's no silent case where an answer is received but not recorded.
+- A class created after its reminder time has already passed counts its students as coming
+  without asking them (PAD-489): the coach arranged it with them directly, there was no moment to
+  send a reminder, and the student is told they are counted as coming and can say no. A student
+  added later to an existing class is still asked.
 
 ## Success Metrics
 
