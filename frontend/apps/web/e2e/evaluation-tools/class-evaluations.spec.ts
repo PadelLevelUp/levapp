@@ -100,6 +100,12 @@ test("US-376a: the coach rates a participant from today's class; the record carr
   const title = `E2E Eval Class ${Date.now()}`;
   const cls = await makeClass(request, coachTok, isoDaysFromToday(0), title, playerId);
   made.push(cls);
+  // The panel's classRef is the occurrence the calendar shows when the coach opens it, read
+  // before the rating (a rating materialises a virtual occurrence). Since PAD-489
+  // (notifications.reminders rule 22) a class created after its reminder time is materialised at
+  // creation, so for a class added today that is the LessonInstance, not add_class's Lesson (B-287).
+  const shown = (await dayEvents(request, bearer(coachTok), cls.day)).find((e) => e.type === "class" && e.title === title);
+  expect(shown, "the class is on the coach's calendar").toBeTruthy();
 
   await loginAsCoach(page);
   await openClassDetail(page, title);
@@ -122,11 +128,6 @@ test("US-376a: the coach rates a participant from today's class; the record carr
   recordIds.push(record.id);
   expect(record.classInstanceId, "the record carries the class").not.toBeNull();
   expect(record.className).toBe(title);
-  // The panel's classRef is the occurrence the calendar shows for that day. Since PAD-489
-  // (notifications.reminders rule 22) a class created after its reminder time is materialised at
-  // creation, so for a class added today that is the LessonInstance, not add_class's Lesson (B-287).
-  const shown = (await dayEvents(request, bearer(coachTok), cls.day)).find((e) => e.type === "class" && e.title === title);
-  expect(shown, "the class is on the coach's calendar").toBeTruthy();
   expect(JSON.parse(response.request().postData() ?? "{}").classRef).toMatchObject({
     model: shown!.model,
     id: Number(shown!.originalId ?? shown!.id),
