@@ -68,9 +68,14 @@ into the PR check.
 - **Then** `settings/engine.spec.ts` is selected with the reason `id engine-toggle`, and a spec using other ids is not
 
 #### A quarantined spec stays out unless the PR edits it (rule 4)
-- **Given** `messaging/nav-unread-badge.spec.ts` in `quarantine.txt` citing B-286 and PAD-514
+- **Given** `schedule-calendar/class-deletion.spec.ts` in `quarantine.txt` citing B-079 (still open)
 - **When** a PR changes a component whose id that spec uses, and another PR edits the spec itself
 - **Then** the first PR's subset leaves it out and lists it as quarantined; the second runs it
+
+#### A fixed entry takes its spec out of quarantine (rule 4)
+- **Given** B-286 resolved by PAD-514
+- **When** `quarantine.txt` is read
+- **Then** `messaging/nav-unread-badge.spec.ts` is not in it, and every remaining line cites a ledger entry that is not resolved
 
 #### Over the cap the best-ranked are kept and it says so (rule 5)
 - **Given** a change driving 30 specs

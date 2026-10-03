@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { TimeSelect } from '@/components/ui/time-select';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
 import {
@@ -36,6 +37,7 @@ import {
   MAX_REQUEST_CLASSES,
   countPassesSeasonEnd,
   findOverlappingEvent,
+  endsAfterStart,
   isHhMm,
   recurrenceEndPayload,
   type RecurrenceEndMode,
@@ -237,6 +239,12 @@ export function AddClassSheet({
     if (!date) newErrors.date = true;
     // B-275 (PAD-508): a cleared native time input reads ""; never send it (the server would refuse it).
     if (!isHhMm(startTime) || !isHhMm(endTime)) newErrors.time = true;
+    // PAD-508 (rule 8b): a typed end at or before the start is flagged, never sent.
+    if (isHhMm(startTime) && isHhMm(endTime) && !endsAfterStart(startTime, endTime)) {
+      setErrors({ ...newErrors, time: true });
+      toast({ variant: 'destructive', title: t('calendar.addClass.missingFieldsTitle'), description: t('calendar.addClass.endBeforeStart') });
+      return;
+    }
     if (isRecurring && selectedDays.length === 0) newErrors.days = true;
     if (isRecurring && 'field' in endChoice) newErrors[endChoice.field] = true;
 
@@ -435,21 +443,21 @@ export function AddClassSheet({
                 <span className="text-xs font-medium">{t("calendar.addClass.time")}</span>
               </div>
               <div className="space-y-1">
-                <Input
-                  type="time"
+                {/* PAD-508 (classes.create rule 8b): the desktop time field never holds an empty time. */}
+                <TimeSelect
                   data-testid="add-class-start-time"
+                  aria-label={t("calendar.addClass.timeStart")}
                   aria-invalid={errors.time ? true : undefined}
                   value={startTime}
-                  className="h-8 text-sm min-w-0"
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={setStartTime}
                 />
-                <Input
-                  type="time"
+                <TimeSelect
                   data-testid="add-class-end-time"
+                  aria-label={t("calendar.addClass.timeEnd")}
                   aria-invalid={errors.time ? true : undefined}
                   value={endTime}
-                  className="h-8 text-sm min-w-0"
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={setEndTime}
+                  from={startTime}
                 />
               </div>
             </div>
