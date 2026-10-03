@@ -20,7 +20,7 @@
       "blockedTitle": "Right now the engine would contact nobody",
       "clearTitle": "Nothing stops a send right now",
       "approvalRequired": "You are in semi-automatic mode: before anything is sent, you would be asked to approve this list.",
-      "waitingList": "{{name}} would be placed directly from the waiting list — nobody is invited for this spot.",
+      "waitingList": "Asked first, from the waiting list (in the order they joined):",
       "waitingListStanding": "(standing entry)",
       "spot": "A {{side}}-side spot at level {{level}} — {{source}}",
       "spotNoLevel": "A {{side}}-side spot with no level — {{source}}",

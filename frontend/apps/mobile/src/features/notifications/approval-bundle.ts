@@ -49,29 +49,10 @@ export type TranslatedLabel = {
 };
 
 /**
- * The queue-position chip next to a player's name: an explicit `groupLabel`
- * wins, then the round number, then the group index — and nothing at all when
- * the backend sent none of the three. `groupLabel` is server-authored text and
- * therefore carries no key.
+ * The queue-position chip next to a player's name. PAD-446: one rule for web and iOS, in
+ * `@levelup/config` (a waiting-list student first, then label, round, group).
  */
-export function queueBadgeLabel(
-  player: Pick<ApprovalQueuePlayer, "roundNumber" | "groupIndex" | "groupLabel">
-): { text: string } | TranslatedLabel | null {
-  if (player.groupLabel) return { text: player.groupLabel };
-  if (player.roundNumber != null) {
-    return {
-      key: "notificationsUi.replacementApproval.round",
-      params: { number: player.roundNumber },
-    };
-  }
-  if (player.groupIndex != null) {
-    return {
-      key: "notificationsUi.replacementApproval.group",
-      params: { index: player.groupIndex },
-    };
-  }
-  return null;
-}
+export { queueBadgeLabel } from "@levelup/config";
 
 export type ApprovalCardState = {
   /** The window has not opened yet, so "Yes, at <window>" is a real choice. */

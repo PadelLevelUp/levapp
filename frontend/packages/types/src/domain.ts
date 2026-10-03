@@ -1235,7 +1235,8 @@ export interface MessageTemplates {
   reminder_confirmed: string;
   reminder_declined: string;
   waiting_list_offer: string;
-  waiting_list_placed: string;
+  /** PAD-446: the waiting list is asked first (replaces `waiting_list_placed`). */
+  waiting_list_invite: string;
   /** PAD-330 / PAD-489: the coach put the student in a class. Optional: older configs lack them
    *  and the server falls back to its defaults. */
   added_to_class?: string;
