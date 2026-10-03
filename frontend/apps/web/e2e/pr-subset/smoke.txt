@@ -1,0 +1,7 @@
+# PAD-511: run when a change reaches every page (global, broad or packages). Paths under e2e/.
+auth-onboarding/login.spec.ts
+dashboard/coach-dashboard.spec.ts
+dashboard/student-dashboard-home.spec.ts
+layout/mobile-bottom-nav.spec.ts
+players/master-detail.spec.ts
+settings/profile-persistence.spec.ts
