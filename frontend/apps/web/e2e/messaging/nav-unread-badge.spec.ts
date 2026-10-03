@@ -34,11 +34,12 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import {
   loginAsCoach,
+  COACH_PASSWORD,
   COACH_USERNAME,
   STUDENT_USERNAME,
   STUDENT_PASSWORD,
 } from "../helpers/auth";
-import { openMessages } from "../helpers/navigation";
+import { conversationRow, openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 const CONVERSATION_PARTNER = "E2E Student";
@@ -55,6 +56,27 @@ async function apiToken(
   });
   const json = await res.json();
   return (json.accessToken ?? json.access_token) as string;
+}
+
+/**
+ * Read every conversation the coach has unread, so the badge counts only this spec's message.
+ * The badge shows the coach's TOTAL unread: any earlier spec that leaves one (automatic-message-note
+ * did, B-286 / PAD-514) kept it visible after this spec's conversation was read, and the test
+ * failed in a group while passing alone. The app was right; the premise "one unread" was not.
+ */
+async function clearCoachUnread(request: APIRequestContext): Promise<void> {
+  const headers = { Authorization: `Bearer ${await apiToken(request, COACH_USERNAME, COACH_PASSWORD)}` };
+  const res = await request.get(`${API_APP}/conversations`, { headers });
+  expect(res.status(), "coach must be able to list conversations").toBe(200);
+  const { conversations } = await res.json();
+  for (const c of conversations as Array<{ id: number | string; unreadCount?: number }>) {
+    if ((c.unreadCount ?? 0) > 0) {
+      const read = await request.post(`${API_APP}/conversation/${c.id}/read`, { headers });
+      expect(read.status(), `marking conversation ${c.id} read`).toBeLessThan(300);
+    }
+  }
+  const count = await request.get(`${API_APP}/messages/unread_count`, { headers });
+  expect((await count.json()).unreadCount, "the coach starts with nothing unread").toBe(0);
 }
 
 /** Send a message from the student to the coach, creating a fresh unread. */
@@ -94,6 +116,7 @@ test("PAD-149: opening the conversation clears the nav unread badge without a re
   request,
 }) => {
   expect(COACH_USERNAME).toBe("e2e-coach");
+  await clearCoachUnread(request);
   await seedUnreadForCoach(request);
 
   await loginAsCoach(page);
@@ -112,7 +135,8 @@ test("PAD-149: opening the conversation clears the nav unread badge without a re
     (window as unknown as { __pad149: true }).__pad149 = true;
   });
 
-  await page.getByText(CONVERSATION_PARTNER).first().click();
+  // Exact participant name (B-179): "E2E Student" also matches "E2E Student Two".
+  await conversationRow(page, CONVERSATION_PARTNER).click();
   await page.waitForResponse(
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
     { timeout: 10_000 }
