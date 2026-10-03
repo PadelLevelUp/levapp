@@ -1,13 +1,17 @@
 /**
  * PAD-282 / PAD-288 (`attendance.confirm` rules 18–20, criteria "Student cancels
- * a class they requested for tomorrow" and "The class-detail payload offers the
+ * a class they requested that is still virtual" and "The class-detail payload offers the
  * cancel action on a virtual occurrence").
  *
- * A class the coach accepted from the student's own request for TOMORROW never
- * gets a reminder job (its fire time is already past), so nothing materialises
- * it: the student's class detail resolves to the Lesson, with no instance row
- * and no presence. The cancel action must still be offered, and cancelling must
+ * A class the coach accepted from the student's own request, still VIRTUAL: the
+ * student's class detail resolves to the Lesson, with no instance row and no
+ * presence. The cancel action must still be offered, and cancelling must
  * materialise the occurrence and record the decline.
+ *
+ * The slot is four or more days out, outside the reminder window: since PAD-489
+ * (notifications.reminders rule 22) a request accepted inside it (tomorrow, say)
+ * is materialised at once with the student counted as coming, so it is no longer
+ * virtual (B-287; the backend test moved the same way in 5902af516).
  *
  * Setup goes through the API (booking + accept), the assertion through the UI.
  * Everything created is removed in `finally`.
@@ -36,31 +40,34 @@ async function token(request: APIRequestContext, username: string, password: str
   return (json.accessToken ?? json.access_token) as string;
 }
 
-test("US-PAD-282: a student can cancel a class they requested for tomorrow — it is materialised on demand", async ({
+test("US-PAD-282: a student can cancel a class they requested that is still virtual — it is materialised on demand", async ({
   page,
   request,
 }) => {
   test.setTimeout(180_000);
   const coachAuth = { Authorization: `Bearer ${await token(request, COACH_USERNAME, COACH_PASSWORD)}` };
   const studentAuth = { Authorization: `Bearer ${await token(request, STUDENT_USERNAME, STUDENT_PASSWORD)}` };
-  const day = isoDaysAhead(1);
+  const from = isoDaysAhead(4);
+  const to = isoDaysAhead(11);
+  let day = from;
   const requestIds: Array<string | number> = [];
 
   try {
-    // The student books a free slot tomorrow (classes.class-requests rules 1–2).
+    // The student books the first free slot 4 to 11 days out (classes.class-requests rules 1–2).
     const coachesRes = await request.get(`${API_ROOT}/app/class-requests/coaches`, { headers: studentAuth });
     expect(coachesRes.ok()).toBeTruthy();
     const coaches = (await coachesRes.json()) as Array<{ id: string | number; name: string }>;
     const coach = coaches.find((c) => c.name === "E2E Coach") ?? coaches[0];
     expect(coach, "the student is rostered with the seeded coach").toBeTruthy();
     const freeRes = await request.get(
-      `${API_ROOT}/app/class-requests/free-blocks?coachId=${coach.id}&from=${day}&to=${day}`,
+      `${API_ROOT}/app/class-requests/free-blocks?coachId=${coach.id}&from=${from}&to=${to}`,
       { headers: studentAuth }
     );
     expect(freeRes.ok()).toBeTruthy();
     const blocks = (await freeRes.json()) as Array<{ date: string; startTime: string; endTime: string }>;
-    const slot = blocks.find((b) => b.date === day);
-    expect(slot, "tomorrow has a free block").toBeTruthy();
+    const slot = blocks[0];
+    expect(slot, "a free block 4 to 11 days out").toBeTruthy();
+    day = slot.date;
     const [h, m] = slot!.startTime.split(":").map(Number);
     const end = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     const createRes = await request.post(`${API_ROOT}/app/class-requests`, {

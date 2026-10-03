@@ -51,6 +51,8 @@ test("PAD-486/490: a student who joined by link is told why, reminds the coach o
   await student.locator("#signup-password").fill(PASSWORD);
   await student.locator("#signup-repeatPassword").fill(PASSWORD);
   await student.locator("#signup-birthDate").fill("2000-01-01");
+  // PAD-485 (auth.register rule 19): the Terms box is required (B-288).
+  await student.getByTestId("signup-terms").click();
   await student.getByTestId("signup-submit").click();
   await completeEmailVerification(student);
   await expect(student.getByTestId("join-coach-preview")).toBeVisible({ timeout: 15_000 });

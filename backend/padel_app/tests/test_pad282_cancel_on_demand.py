@@ -61,7 +61,7 @@ def _cancellation_messages(app, ids):
         ]
 
 
-# ── criterion: student cancels a class they requested for tomorrow (PAD-282) ──
+# ── criterion: student cancels a class they requested that is still virtual (PAD-282) ──
 
 def test_cancel_by_model_and_date_materialises_the_requested_class(app):
     from padel_app.models import LessonInstance, Presence
