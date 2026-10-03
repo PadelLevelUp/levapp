@@ -428,8 +428,8 @@ def test_semi_auto_reports_approval_with_prompt_list(app):
 # Waiting list (rule 8)
 # ---------------------------------------------------------------------------
 
-def test_waiting_list_member_is_placed_not_invited(app):
-    """AC "A waiting-list member who passes the bar is placed, not invited"."""
+def test_waiting_list_members_are_asked_first_in_join_order(app):
+    """AC "A waiting-list member who passes the bar is asked first" (PAD-446, rule 8)."""
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
     from padel_app.models.waiting_list_entry import WaitingListEntry
 
@@ -437,25 +437,28 @@ def test_waiting_list_member_is_placed_not_invited(app):
     ids = _seed(app, eligibility_rules=bar, max_players=1)
     with app.app_context():
         alice, roster = _mixed_roster(ids)
-        dora = roster[1]  # r_5_right: level 5 == class level 5
+        eva, dora = roster[0], roster[1]  # r_5_left, r_5_right: level 5 == class level 5
+        now = utcnow_naive()
         standing = StandingWaitingListEntry(
             coach_id=ids["coach_id"], player_id=dora, credits_total=5, credits_used=0,
-            expires_at=utcnow_naive() + timedelta(days=30), is_active=True,
+            expires_at=now + timedelta(days=30), is_active=True, created_at=now - timedelta(hours=1),
         )
         db.session.add(standing)
         db.session.flush()
-        db.session.add(WaitingListEntry(
-            lesson_instance_id=ids["instance_id"], player_id=dora,
-            coach_id=ids["coach_id"], standing_entry_id=standing.id, is_active=True,
-        ))
+        db.session.add_all([
+            WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=dora, coach_id=ids["coach_id"],
+                             standing_entry_id=standing.id, is_active=True, joined_at=now),
+            WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=eva, coach_id=ids["coach_id"],
+                             is_active=True, joined_at=now - timedelta(hours=2)),
+        ])
         db.session.commit()
 
         simulation = _simulate(ids, alice)
-        placement = simulation["waitingListPlacement"]
-        assert placement is not None
-        assert placement["playerId"] == str(dora)
-        assert placement["standing"] is True
-        assert str(dora) not in _queue_ids(simulation)
+        assert [(w["playerId"], w["standing"]) for w in simulation["waitingList"]] == [
+            (str(eva), False), (str(dora), True),
+        ]
+        assert simulation["waitingListPlacement"] is None
+        assert str(dora) not in _queue_ids(simulation) and str(eva) not in _queue_ids(simulation)
 
 
 # ---------------------------------------------------------------------------

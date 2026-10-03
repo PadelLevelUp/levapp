@@ -15,7 +15,7 @@ import pytest
 
 from padel_app.sql_db import db
 
-_LEVEL_TEMPLATES = ("invite", "reminder", "reminder_followup", "waiting_list_placed", "class_cancelled")
+_LEVEL_TEMPLATES = ("invite", "reminder", "reminder_followup", "waiting_list_invite", "class_cancelled")
 
 
 def _render(template):

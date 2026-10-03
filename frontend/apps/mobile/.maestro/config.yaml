@@ -129,6 +129,8 @@ executionOrder:
     # its position is not load bearing. Not yet run.
     - 42-cancel-requested-class
     - 43-tutorials-understand-invites
+    # 153 (PAD-446) adds and removes its own standing waiting-list entry; position not load bearing.
+    - 153-tutorial-waiting-list-asked-first
     - 44-signup
     - 45-club-join-request
     - 46-tactical-board

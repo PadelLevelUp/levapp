@@ -56,11 +56,11 @@ Students/players looking at a class from the outside, and the coach who decides 
 - The wizard's academy list never shows a class the student could not request or queue for: not
   another coach's, not one above their level, not one the coach keeps private.
 - A student may put themselves on a full class's waiting list; that queues them, it never enrols
-  them — placement stays the coach's engine's job.
+  them — when a spot opens the engine asks them first, and they answer like any invitation.
 - A student can withdraw their own pending request without alerting the coach.
 - The coach alone decides — accepting or rejecting a request is never automatic.
-- First fill wins: whichever path — an accepted request, an accepted invitation, or a
-  waiting-list placement — fills the spot first closes every other pending request for it.
+- First fill wins: whichever path — an accepted request or an accepted invitation (a waiting-list
+  one included) — fills the spot first closes every other pending request for it.
 - The coach is always told when a spot they were tracking requests for gets filled by someone
   else, regardless of whether the students are notified automatically.
 

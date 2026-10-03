@@ -127,9 +127,10 @@ def test_coach_accept_publishes_at_its_commit(app, trail):
         _published_at_the_closing_commit(trail, retired_message)
 
 
-def test_waiting_list_fill_publishes_at_its_commit(app, trail):
-    from padel_app.models import LessonInstance, Vacancy, WaitingListEntry
-    from padel_app.services.notification_service import _fill_from_waiting_list, get_or_create_config
+def test_waiting_list_yes_publishes_at_its_commit(app, trail):
+    """PAD-446: the waiting list is invitation group 0; its door is the student accept."""
+    from padel_app.models import NotificationEvent, WaitingListEntry
+    from padel_app.services.notification_service import respond_to_notification
     from padel_app.tests.test_notification_integration import PATCHES as INT_PATCHES
     from padel_app.tests.test_pad317_one_vacancy_close import _invite, _open_vacancy, _world
 
@@ -137,15 +138,14 @@ def test_waiting_list_fill_publishes_at_its_commit(app, trail):
     with app.app_context():
         vacancy_id = _open_vacancy(ids["instance_id"], ids["coach_id"], ids["ana"])
         retired_message = _message_of(_invite(ids["instance_id"], ids["coach_id"], ids["caio"], vacancy_id, "sent"))
-        entry = WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
-                                 coach_id=ids["coach_id"], is_active=True)
-        db.session.add(entry)
+        bea = _invite(ids["instance_id"], ids["coach_id"], ids["bea"], vacancy_id, "sent")
+        NotificationEvent.query.get(bea).round_number = 0
+        db.session.add(WaitingListEntry(lesson_instance_id=ids["instance_id"], player_id=ids["bea"],
+                                        coach_id=ids["coach_id"], is_active=True))
         db.session.commit()
         trail.clear()
         with patch(INT_PATCHES[1]):  # push only; `publish` is the trail's
-            assert _fill_from_waiting_list(entry, Vacancy.query.get(vacancy_id),
-                                           LessonInstance.query.get(ids["instance_id"]), ids["coach_id"],
-                                           get_or_create_config(ids["coach_id"])) is True
+            assert respond_to_notification(bea, "yes", ids["bea_user_id"])["action"] == "confirmed"
         _published_at_the_closing_commit(trail, retired_message)
 
 

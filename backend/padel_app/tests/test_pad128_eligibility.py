@@ -381,18 +381,19 @@ def test_widest_wave_stops_at_the_bar(app):
 # EXPLICIT BAR: with the bar unset these assertions could not fail.
 # ---------------------------------------------------------------------------
 
-def test_waiting_list_placement_respects_the_bar(app):
+def test_waiting_list_invitation_respects_the_bar(app):
     """PAD-122 / eligibility.enforcement rule 2.
 
     AC: "Given a coach whose eligibility is [{level, same_as_class}] and a
     student with an active standing waiting-list entry whose level does not
-    match a class, when a vacancy opens, then they are not placed."
+    match a class, when a vacancy opens, then they are not invited" (PAD-446: the
+    waiting list is invitation group 0)."
     """
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.services.notification_service import _check_waiting_list
+    from padel_app.services.notification_service import _waiting_list_candidates
 
     ids = _seed(app, eligibility_rules=[
         {"attribute": "level", "operation": "same_as_class"}
@@ -413,21 +414,21 @@ def test_waiting_list_placement_respects_the_bar(app):
         instance = LessonInstance.query.get(ids["instance_id"])
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance.id).first()
 
-        picked = _check_waiting_list(vacancy, instance, ids["coach_id"], config, 1)
+        picked = next((e for e, _ in _waiting_list_candidates(vacancy, instance, ids["coach_id"], config)), None)
         assert picked is None, (
-            "a student below the bar was selected for silent placement — the "
-            "waiting-list fill is still bypassing eligibility"
+            "a student below the bar was picked from the waiting list — group 0 "
+            "is bypassing eligibility"
         )
 
 
-def test_waiting_list_placement_honours_excluded_players(app):
+def test_waiting_list_invitation_honours_excluded_players(app):
     """PAD-122 / eligibility.enforcement rule 5 — `restrictions.excludedPlayers`
     was skipped entirely by the fill path in every configuration."""
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.services.notification_service import _check_waiting_list
+    from padel_app.services.notification_service import _waiting_list_candidates
 
     ids = _seed(app, eligibility_rules=None)
     with app.app_context():
@@ -450,7 +451,7 @@ def test_waiting_list_placement_honours_excluded_players(app):
         instance = LessonInstance.query.get(ids["instance_id"])
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance.id).first()
 
-        assert _check_waiting_list(vacancy, instance, ids["coach_id"], config, 1) is None
+        assert next((e for e, _ in _waiting_list_candidates(vacancy, instance, ids["coach_id"], config)), None) is None
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +460,7 @@ def test_waiting_list_placement_honours_excluded_players(app):
 # bar must not be what produces the result.
 # ---------------------------------------------------------------------------
 
-def test_cancelling_student_is_not_replaced_into_their_own_vacancy(app):
+def test_cancelling_student_is_not_offered_their_own_vacancy(app):
     """PAD-123 / eligibility.enforcement rule 4 — the `absent` half.
 
     The student still holds an `absent` presence (the enrolment row), which is exactly the state their own cancellation leaves behind.
@@ -470,7 +471,7 @@ def test_cancelling_student_is_not_replaced_into_their_own_vacancy(app):
     from padel_app.models.presences import Presence
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.services.notification_service import _check_waiting_list
+    from padel_app.services.notification_service import _waiting_list_candidates
 
     ids = _seed(app, eligibility_rules=None)
     with app.app_context():
@@ -496,14 +497,14 @@ def test_cancelling_student_is_not_replaced_into_their_own_vacancy(app):
         instance = LessonInstance.query.get(ids["instance_id"])
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance.id).first()
 
-        picked = _check_waiting_list(vacancy, instance, ids["coach_id"], config, 1)
+        picked = next((e for e, _ in _waiting_list_candidates(vacancy, instance, ids["coach_id"], config)), None)
         assert picked is None, (
             "the student whose cancellation created the vacancy was selected to "
             "fill it — a credit would be spent placing nobody"
         )
 
 
-def test_enrolled_student_is_never_placed_into_their_own_class(app):
+def test_enrolled_student_is_never_invited_from_the_list_into_their_own_class(app):
     """PAD-123 / eligibility.enforcement rule 4 — the enrolment half.
 
     Someone else's cancellation opens the vacancy; an already-enrolled student
@@ -513,7 +514,7 @@ def test_enrolled_student_is_never_placed_into_their_own_class(app):
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.vacancy import Vacancy
     from padel_app.models.waiting_list_entry import WaitingListEntry
-    from padel_app.services.notification_service import _check_waiting_list
+    from padel_app.services.notification_service import _waiting_list_candidates
 
     ids = _seed(app, eligibility_rules=None)
     with app.app_context():
@@ -535,7 +536,7 @@ def test_enrolled_student_is_never_placed_into_their_own_class(app):
         instance = LessonInstance.query.get(ids["instance_id"])
         vacancy = Vacancy.query.filter_by(lesson_instance_id=instance.id).first()
 
-        picked = _check_waiting_list(vacancy, instance, ids["coach_id"], config, 1)
+        picked = next((e for e, _ in _waiting_list_candidates(vacancy, instance, ids["coach_id"], config)), None)
         assert picked is not None, "the vacancy should still be offered to the outsider"
         assert picked.player_id == outsider, (
             "an already-enrolled student was selected to fill a spot in the very "

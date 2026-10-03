@@ -38,7 +38,7 @@ three separate fields on it. Decision record:
      `justification`); only the coach writes it (`attendance.validation`).
 3. **`enrolment_source`** records how the row came to exist: `roster` (copied from the series roster
    at materialisation), `coach` (added to this occurrence by the coach), `fill` (invitation
-   accepted, waiting-list placement, accepted join request), `walk_in` (recorded on the attendance
+   accepted — a waiting-list student's group-0 invitation included, PAD-446 —, accepted join request), `walk_in` (recorded on the attendance
    sheet after the fact), `import`, `unknown` (backfilled rows whose origin cannot be told). It is
    informational: never used for authorization or capacity.
 4. **One writer.** Every path that puts a player on an occurrence calls
@@ -110,7 +110,7 @@ three separate fields on it. Decision record:
 - **Then** no further `added_to_class` message is sent — they were told when they were placed, not once per week
 
 #### The engine's own placements are not announced twice (PAD-330)
-- **Given** a student enrolled by an invitation acceptance, a waiting-list placement or an accepted join request
+- **Given** a student enrolled by an invitation acceptance (a waiting-list student's included) or an accepted join request
 - **Then** no `added_to_class` message is sent, because that path already sends its own
 - **And** a walk-in or an import, which record a class that already happened, send nothing
 

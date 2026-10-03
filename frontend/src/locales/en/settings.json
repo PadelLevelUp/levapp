@@ -561,7 +561,7 @@
         "reminderConfirmed": "Attendance confirmed",
         "reminderDeclined": "Attendance declined",
         "waitingListOffer": "Waiting list offer",
-        "waitingListPlaced": "Spot from waiting list",
+        "waitingListInvite": "Invitation from the waiting list",
         "addedToClass": "Added to a class",
         "addedToClassComing": "Added to a class, counted as coming"
       },
@@ -575,7 +575,7 @@
         "reminderConfirmed": "Sent automatically when a student confirms attendance.",
         "reminderDeclined": "Sent automatically when a student declines attendance.",
         "waitingListOffer": "Sent when a spot was filled, offering to be placed on the waiting list.",
-        "waitingListPlaced": "Sent when a waiting-list student gets a spot.",
+        "waitingListInvite": "Sent first, to the students on the class's waiting list, when a spot opens. {side} names the spot's side when it has one.",
         "addedToClass": "Sent when you put a student in a class.",
         "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing."
       }

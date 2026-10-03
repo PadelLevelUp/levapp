@@ -46,8 +46,9 @@ about anyone who is missing. Web and iOS ship it together (R-024).
       response gives one ("The engine is switched off", "Quiet hours — invitations resume at
       07:00", "Invitations open at 16:00", "This class is too close to start").
    2. **Approval note** when `approvalRequired` — "You would be asked to approve this list first".
-   3. **Waiting-list line** when `waitingListPlacement` is present — "Dora would be placed directly
-      from the waiting list; nobody is invited for this spot".
+   3. **Waiting list, asked first (PAD-446)** when `waitingList` is not empty — "Asked first, from
+      the waiting list:" and the students in their order, each marked "(standing entry)" when
+      `standing`. Nothing is shown for an empty list.
    4. **The spot** — side and level and where the level came from ("a left-side, level 5 spot —
       level taken from the player").
    5. **The rounds**, in order. Each round is headed by its rules rendered in words ("Same level

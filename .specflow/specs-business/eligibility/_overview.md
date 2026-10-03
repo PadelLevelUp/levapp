@@ -11,7 +11,7 @@ students already above that floor.
 - `eligibility.coach-sets-the-eligibility-bar` — coach defines a standard bar (level, attendance
   history) and overrides it per recurring series or per single class
 - `eligibility.coach-enforces-the-eligibility-bar` — the bar hard-gates automatic invitations and
-  waiting-list placement, and warns (never blocks) a coach acting by hand
+  waiting-list invitations, and warns (never blocks) a coach acting by hand
 - `eligibility.student-discovers-open-spots` — an eligible student can see advertised open spots
   right on their own calendar
 

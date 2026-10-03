@@ -561,7 +561,7 @@
         "reminderConfirmed": "Presença confirmada",
         "reminderDeclined": "Presença recusada",
         "waitingListOffer": "Oferta de lista de espera",
-        "waitingListPlaced": "Vaga da lista de espera",
+        "waitingListInvite": "Convite da lista de espera",
         "addedToClass": "Adicionado a uma aula",
         "addedToClassComing": "Adicionado a uma aula, presença confirmada"
       },
@@ -575,7 +575,7 @@
         "reminderConfirmed": "Enviada automaticamente quando um aluno confirma a presença.",
         "reminderDeclined": "Enviada automaticamente quando um aluno recusa a presença.",
         "waitingListOffer": "Enviada quando uma vaga foi preenchida, oferecendo entrada na lista de espera.",
-        "waitingListPlaced": "Enviada quando um aluno da lista de espera consegue uma vaga.",
+        "waitingListInvite": "Enviada primeiro aos alunos da lista de espera da aula, quando abre uma vaga. {side} indica o lado da vaga quando o tem.",
         "addedToClass": "Enviada quando colocas um aluno numa aula.",
         "addedToClassComing": "Enviada em vez dessa quando a aula é criada depois da hora do lembrete: a presença do aluno fica confirmada e não lhe é perguntado nada."
       }

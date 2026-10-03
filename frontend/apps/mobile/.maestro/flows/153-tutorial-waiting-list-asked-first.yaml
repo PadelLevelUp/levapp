@@ -1,0 +1,58 @@
+# PAD-446 — Settings › Tutorials › "Understand invites" shows the class's waiting list as ASKED
+# FIRST (settings.tutorials rule 4.3; notifications.invite-simulation rule 8), not as placed.
+# Same path as flow 43; the setup puts "Filler Player 01" on the coach's standing waiting list
+# (fanned out to "E2E Academy Class"), the teardown removes it.
+#
+# Asserted by ids, not rendered English (PAD-320). The block's header is a shared-locale string,
+# so the iOS i18n static-import trap would show a raw key here — the id proves the block rendered,
+# and the second assertion proves the student's row did.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad446-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad446-teardown.js
+---
+- assertTrue: "${output.entryId > 0}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-tutorials"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-tutorials"
+- tapOn:
+    id: "tutorial-understand-invites"
+- extendedWaitUntil:
+    visible:
+      id: "tutorial-understand-invites-screen"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 15000
+- tapOn:
+    text: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn:
+    text: "E2E Student"
+
+# ── the waiting list, asked first, with the student's own row ──
+- scrollUntilVisible:
+    element:
+      id: "tutorial-waiting-list"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "tutorial-waiting-list-${output.playerId}"
+- assertNotVisible:
+    text: ".*tutorials\\.understandInvites.*"

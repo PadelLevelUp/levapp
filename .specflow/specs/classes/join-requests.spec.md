@@ -42,14 +42,14 @@ by a student's request — and whichever lands first wins.
    schema the only credit balance that exists is `StandingWaitingListEntry.credits_*`, so this means:
    if the requesting student holds an active standing waiting-list entry with that coach, accepting
    consumes one of its credits and deactivates the entry when the cap is reached, exactly as
-   `notifications.waiting-list` rule 2 does for a placement. A student with no standing entry has no
+   accepting a waiting-list invitation does (`notifications.waiting-list` rule 15, PAD-446). A student with no standing entry has no
    credit balance to debit and is enrolled without one. **This rule is the open question flagged with
    the stakeholder** — if "credit" is meant to be a general per-enrolment balance, that is a new
    entity and this rule changes.
 9. **On reject, nothing happens** — the request closes as `rejected`, the spot stays open, and the
    student is told.
 10. **First fill wins.** The moment a spot is filled by any path — an accepted request, an accepted
-    invitation, a waiting-list placement, or a manual add — that spot is gone:
+    invitation (a waiting-list student's included), or a manual add — that spot is gone:
     - the class stops appearing as an open spot in every student's calendar;
     - invitation messages already sent for it are retired exactly as they are today when a spot is
       taken (the existing `spot_filled` / invite-retirement path);

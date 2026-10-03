@@ -386,7 +386,7 @@ test("US-56: waiting list templates are present", async ({ page }) => {
   await openSection(page, /message templates/i);
 
   await expect(page.getByTestId("template-row-waiting_list_offer")).toBeVisible({ timeout: 3000 });
-  await expect(page.getByTestId("template-row-waiting_list_placed")).toBeVisible();
+  await expect(page.getByTestId("template-row-waiting_list_invite")).toBeVisible();
 });
 
 test("US-56: variable chips are shown and insert text at cursor", async ({ page }) => {

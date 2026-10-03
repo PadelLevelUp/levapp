@@ -182,9 +182,11 @@ class TestDefaultMessageTemplates:
     def test_has_waiting_list_offer(self):
         assert "waiting_list_offer" in DEFAULT_MESSAGE_TEMPLATES
 
-    def test_has_waiting_list_placed(self):
-        assert "waiting_list_placed" in DEFAULT_MESSAGE_TEMPLATES
-        assert "{name}" in DEFAULT_MESSAGE_TEMPLATES["waiting_list_placed"]
+    def test_has_waiting_list_invite(self):
+        # PAD-446: the waiting list is invited first; waiting_list_placed is retired.
+        assert "waiting_list_placed" not in DEFAULT_MESSAGE_TEMPLATES
+        assert "{name}" in DEFAULT_MESSAGE_TEMPLATES["waiting_list_invite"]
+        assert "{side}" in DEFAULT_MESSAGE_TEMPLATES["waiting_list_invite"]
 
     @pytest.mark.new_backend
     def test_has_reminder_followup(self):
@@ -231,7 +233,7 @@ class TestGetMessageTemplates:
         required_keys = {
             "invite", "confirm", "decline", "spot_filled",
             "reminder", "reminder_followup", "reminder_confirmed", "reminder_declined",
-            "waiting_list_offer", "waiting_list_placed",
+            "waiting_list_offer", "waiting_list_invite",
         }
         t = fresh_config.get_message_templates()
         missing = required_keys - set(t.keys())
