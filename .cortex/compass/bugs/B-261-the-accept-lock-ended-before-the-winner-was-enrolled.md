@@ -66,6 +66,8 @@ one commit and the code did not keep that promise. Incomplete rule.
   passed over for the next. Locking them all had held spots it would not close, and counting only
   the ones it got left a stale vacancy behind once the held one was filled.
 - **Tests:** cells (a) and (b), red on `0ae8b0ade`, green after (3/3 runs on Postgres).
+  A commit put back inside `_close_vacancy` (by restoring the committing retire) fails 9 tests
+  on Postgres: cells (a), (b) and (b2), and the coach, join and waiting-list cells.
 
 ### What is one commit, and what is not
 
