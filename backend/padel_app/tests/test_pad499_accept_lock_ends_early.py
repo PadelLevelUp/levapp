@@ -421,3 +421,57 @@ def test_return_and_an_invitees_yes_on_the_returners_spot_neither_deadlocks_nor_
     assert filled <= places, f"class overfilled: {filled} on {places} places ({results})"
     assert results["return"]["action"] == "confirmed"
     assert results["invitee"]["action"] != "confirmed", results
+
+
+# ── #527 review item 5: the reconcile locks only the vacancy it closes ──────────────────────
+
+@POSTGRES_ONLY
+def test_reconcile_locks_only_the_vacancy_it_closes(app, monkeypatch):
+    """Two open vacancies for one free place: the reconcile closes one. While it is closing it, an
+    answer on the OTHER spot must be able to lock that spot — the reconcile has no business holding
+    it. Probed with NOWAIT from a second connection."""
+    from sqlalchemy import text
+
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, _ids, _players = _two_open_spots_for_one_place(app)
+    with app.app_context():
+        v1, v2 = [v.id for v in Vacancy.query.filter_by(lesson_instance_id=instance_id).order_by(Vacancy.id)]
+    closing, probed = threading.Event(), threading.Event()
+    real_close = ns._close_vacancy
+    closed_ids, probe = [], {}
+
+    def close(vacancy, *args, **kwargs):
+        closed_ids.append(vacancy.id)
+        result = real_close(vacancy, *args, **kwargs)
+        closing.set()
+        probed.wait(timeout=5)
+        return result
+
+    monkeypatch.setattr(ns, "_close_vacancy", close)
+
+    def reconcile():
+        ns.reconcile_vacancies(LessonInstance.query.get(instance_id))
+
+    def other_answer():
+        closing.wait(timeout=5)
+        try:
+            other = v2 if closed_ids == [v1] else v1
+            try:
+                db.session.execute(text("SELECT id FROM vacancies WHERE id = :id FOR UPDATE NOWAIT"), {"id": other})
+                probe["locked"] = True
+            except Exception as exc:  # noqa: BLE001 — LockNotAvailable is the finding
+                probe["locked"] = type(exc.orig).__name__ if hasattr(exc, "orig") else repr(exc)
+            db.session.rollback()
+        finally:
+            probed.set()
+
+    with _io():
+        _race(app, [reconcile, other_answer])
+    assert len(closed_ids) == 1, closed_ids
+    assert probe["locked"] is True, f"the reconcile held the vacancy it did not close: {probe}"
