@@ -170,6 +170,15 @@ jobs:
         working-directory: app/frontend/apps/web
         run: npx playwright install --with-deps chromium
 
+      # Playwright starts its webServers BEFORE globalSetup resets the database, so Flask would
+      # boot against a database that does not exist yet and exit (first phase-0 run). Migrate and
+      # seed first, as the maestro lane does; globalSetup then resets it again for the run.
+      - name: Migrate + seed the isolated database
+        if: steps.select.outputs.count != '0'
+        env:
+          POSTGRES_DB: ${{ env.E2E_DB_NAME }}
+        run: bash app/frontend/apps/web/e2e/scripts/reset-test-db.sh
+
       - name: Clock setup
         if: steps.select.outputs.count != '0'
         run: echo "T_SETUP=$(date +%s)" >> "$GITHUB_ENV"
