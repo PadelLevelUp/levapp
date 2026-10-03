@@ -186,17 +186,30 @@ export function useAddToStandingWaitingList() {
     mutationFn: ({
       playerId,
       credits,
-      durationDays,
+      expiresOn,
     }: {
       playerId: number;
       credits: number;
-      durationDays: number;
+      /** PAD-507: the ISO date the entry runs to, at most 12 months ahead. */
+      expiresOn: string;
     }) =>
       notificationEngineApi.addToStandingWaitingList(
         playerId,
         credits,
-        durationDays
+        expiresOn
       ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: standingWaitingListKey });
+    },
+  });
+}
+
+/** PAD-507: renew — move an entry's end date; its credits stay. */
+export function useRenewStandingWaitingList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entryId, expiresOn }: { entryId: number; expiresOn: string }) =>
+      notificationEngineApi.renewStandingWaitingListEntry(entryId, expiresOn),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: standingWaitingListKey });
     },

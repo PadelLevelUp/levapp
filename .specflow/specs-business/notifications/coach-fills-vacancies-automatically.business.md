@@ -60,6 +60,9 @@ the waiting list.
 - A standing waiting-list entry is a pre-paid, priority claim on a future spot; it is matched at the
   moment a spot actually opens, not reserved in advance, since a student's level and record can
   change between when they join the list and when a spot appears.
+- A standing entry lasts until a date the coach chooses — at most twelve months ahead, never
+  indefinitely — and the coach can renew it before or after it runs out without losing the classes
+  already paid for (PAD-507).
 - A student is never placed back into a class they just left, or into a class they're already
   enrolled in, through the waiting list.
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
