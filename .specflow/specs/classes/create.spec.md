@@ -61,7 +61,11 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
     search, a filter by level, and a mark on any student outside the class's level. A chosen student
     is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
-    tells them. The picker applies no cap at `maxPlayers`; it shows the count. When students are
+    tells them. The picker applies no cap at `maxPlayers`; it shows the count. **Every student
+    in the list can be reached (PAD-502, B-271):** the list has a fixed height and scrolls inside
+    it, by wheel, trackpad or finger, whatever its length and whichever filter is on; the picker
+    shows no "first N". Web uses a native `overflow-y: auto` list (a Radix ScrollArea with only a
+    max height showed four rows and clipped the rest); the mobile app uses a ScrollView. When students are
     chosen, the PAD-107 warning (`calendar.student-blockers` rule 9) runs before saving, after the
     overlap warning; if that lookup fails, the class still saves. Create runs no eligibility check
     (`eligibility.enforcement` rule 7d covers an edit that adds students).
@@ -87,6 +91,11 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **When** they choose "Termina ao fim de 6 aulas"
 - **Then** the form notes that the last class, 2027-08-09, falls after the season's end, and saving
   still creates 6 classes
+
+#### Every student of a level can be reached in the picker (PAD-502, B-271)
+- **Given** a coach with twenty students at one level, in the web add-class sheet's picker on the "all students" tab
+- **When** the coach picks that level and scrolls the list with the mouse wheel
+- **Then** the last of the twenty comes into view inside the list and can be ticked
 
 #### Create one-off class
 - **Given** an authenticated coach in club 1
