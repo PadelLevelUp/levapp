@@ -1,6 +1,7 @@
 /**
  * PAD-478 (notifications.config rule 10f): a saved timing can put a class's reminder time in the
- * past. The save sends nothing; the web form asks the coach once they have stopped editing.
+ * past. The save sends nothing; the web form asks the coach right after the tab's Save (PAD-506:
+ * a timing change is held until `settings-header-save`, so nothing is saved, and nothing asked, before it).
  *
  * WHICH classes are past due is the server's decision and is pinned by the backend tests
  * (test_pad478_ask_before_sending.py). Here the save's real answer is given a `pastDue` list on
@@ -53,8 +54,16 @@ test("PAD-478: a past-due class is asked about once the coach stops; only a yes 
   const dialog = page.getByTestId("past-due-dialog");
   const body = page.getByTestId("past-due-body");
 
-  // 1. The save lists a class: the coach is asked, and nothing has been sent.
+  const save = page.getByTestId("settings-header-save");
+
+  // 1. A tap is only held: nothing is saved and nothing is asked. The Save lists a class: the coach
+  // is asked, and nothing has been sent.
   await stepper.nth(1).click();
+  await expect(save).toBeEnabled();
+  expect(timingSaves).toBe(0);
+  await expect(dialog).toBeHidden();
+  await save.click();
+  await expect.poll(() => timingSaves).toBe(1);
   await expect(dialog).toBeVisible();
   await expect(body).toContainText("Academy B1");
   await expect(body).toContainText("18:00");
@@ -67,13 +76,16 @@ test("PAD-478: a past-due class is asked about once the coach stops; only a yes 
 
   // 3. A later save lists the same class: not asked again in this visit.
   await stepper.nth(1).click();
+  await save.click();
   await expect.poll(() => timingSaves).toBe(2);
-  await expect(page.getByTestId("notification-engine-reminders-sign")).toHaveAttribute("data-state", "saved");
+  await expect(save).toBeDisabled();
   await expect(dialog).toBeHidden();
 
   // 4. A later save lists a new class too: asked about that one alone; yes sends exactly its key.
   listed = [ACADEMY, KIDS];
   await stepper.nth(0).click();
+  await save.click();
+  await expect.poll(() => timingSaves).toBe(3);
   await expect(dialog).toBeVisible();
   await expect(body).toContainText("Kids");
   await expect(body).not.toContainText("Academy B1");
@@ -83,6 +95,7 @@ test("PAD-478: a past-due class is asked about once the coach stops; only a yes 
 
   // Back to the seeded count; both classes are answered for, so this save asks nothing.
   await stepper.nth(0).click();
+  await save.click();
   await expect.poll(() => timingSaves).toBe(4);
   await expect(dialog).toBeHidden();
   expect(sends).toHaveLength(1);

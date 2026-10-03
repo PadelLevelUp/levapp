@@ -257,19 +257,12 @@ async function markSeededStudentAbsentAndConfirm(page: Page) {
 async function enableAutoInviteEngine(page: Page) {
   const masterToggle = page.locator('[role="switch"]').first();
   await expect(masterToggle).toBeVisible({ timeout: 5000 });
+  // PAD-506 (settings.explicit-save): the toggle is only held; the caller's Save sends it with the
+  // rest of the tab. (The engine is already on via the API in the specs that call this.)
   if ((await masterToggle.getAttribute("data-state")) === "unchecked") {
-    await Promise.all([
-      page
-        .waitForResponse(
-          (resp) =>
-            resp.url().includes("/notify/config") &&
-            resp.request().method() === "POST",
-          { timeout: 8000 }
-        )
-        .catch(() => null),
-      masterToggle.click(),
-    ]);
-    await page.waitForTimeout(500);
+    await masterToggle.click();
+    await expect(masterToggle).toHaveAttribute("data-state", "checked");
+    await page.waitForTimeout(900); // the toggle initialises the default groups after ~700 ms
   }
 }
 
@@ -306,23 +299,25 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
     "Settings → Notifications must expose an 'Invitation mode' control (automatic | semi-automatic)"
   ).toBeVisible({ timeout: 5000 });
 
-  await Promise.all([
-    page
-      .waitForResponse(
-        (resp) =>
-          resp.url().includes("/notify/config") &&
-          resp.request().method() === "POST",
-        { timeout: 8000 }
-      )
-      .catch(() => null),
-    page
-      .getByRole("radio", { name: /semi.automatic/i })
-      .or(page.getByRole("button", { name: /semi.automatic/i }))
-      .or(page.getByRole("option", { name: /semi.automatic/i }))
-      .or(page.getByLabel(/semi.automatic/i))
-      .first()
-      .click(),
+  // PAD-506: choosing the mode is held; the tab's one Save sends it.
+  await page
+    .getByRole("radio", { name: /semi.automatic/i })
+    .or(page.getByRole("button", { name: /semi.automatic/i }))
+    .or(page.getByRole("option", { name: /semi.automatic/i }))
+    .or(page.getByLabel(/semi.automatic/i))
+    .first()
+    .click();
+  const [saveResponse] = await Promise.all([
+    page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/notify/config") && resp.request().method() === "POST",
+      { timeout: 8000 }
+    ),
+    page.getByTestId("settings-header-save").click(),
   ]);
+  expect(saveResponse.status()).toBeLessThan(300);
+  expect(saveResponse.request().postDataJSON()).toMatchObject({ invitationMode: "semi_automatic" });
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 
   // Confirm the backend persisted the mode
   const configRes = await request.get(`${API_BASE}/notify/config`, {

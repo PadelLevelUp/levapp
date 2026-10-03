@@ -27,7 +27,7 @@ async function openNotificationsTab(page: import("@playwright/test").Page) {
 function autoNotifySwitch(page: import("@playwright/test").Page) {
   // B-282: by its test id. The old locator climbed from the label's English text to the nearest
   // ancestor div with "flex" in its class; a wrapper added around the label and its save sign
-  // (PAD-473) became that ancestor, and the switch is not inside it.
+  // (PAD-473, since removed by PAD-506) became that ancestor, and the switch is not inside it.
   return page.getByTestId("notification-engine-auto-notify-toggle");
 }
 
@@ -410,24 +410,62 @@ test("US-56: variable chips are shown and insert text at cursor", async ({ page 
   expect(value).toContain("{name}");
 });
 
-test("US-56: save templates button is disabled when no changes are made", async ({ page }) => {
+// PAD-506 (settings.explicit-save): the templates have no Save of their own; they are held with the rest of
+// the Notifications tab and sent by the page header's Save.
+test("US-56: the tab's Save is disabled when no changes are made", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  const saveBtn = page.getByRole("button", { name: /save templates/i });
-  await expect(saveBtn).toBeVisible({ timeout: 3000 });
-  await expect(saveBtn).toBeDisabled();
+  await expect(page.getByRole("button", { name: /save templates/i })).toHaveCount(0);
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 });
 
-test("US-56: save templates button enables after editing a template", async ({ page }) => {
+test("US-56: the tab's Save enables after editing a template", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
   const firstTextarea = page.locator("textarea").first();
   await firstTextarea.fill("New invite text " + Date.now());
 
-  const saveBtn = page.getByRole("button", { name: /save templates/i });
-  await expect(saveBtn).toBeEnabled({ timeout: 3000 });
+  await expect(page.getByTestId("settings-header-save")).toBeEnabled({ timeout: 3000 });
+});
+
+test("US-56: an edited template is sent by the tab's Save, and only then", async ({ page }) => {
+  await openNotificationsTab(page);
+  await openSection(page, /message templates/i);
+
+  const isConfigPost = (r: { url(): string; request(): { method(): string } }) =>
+    /\/api\/app\/notify\/config$/.test(r.url()) && r.request().method() === "POST";
+  let posts = 0;
+  page.on("request", (r) => {
+    if (/\/api\/app\/notify\/config$/.test(r.url()) && r.method() === "POST") posts += 1;
+  });
+
+  const textarea = page.locator("textarea").first();
+  const original = await textarea.inputValue();
+  const edited = "PAD-506 template " + Date.now();
+  try {
+    await textarea.fill(edited);
+    await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+    expect(posts, "an edit alone sends nothing").toBe(0);
+
+    const [res] = await Promise.all([
+      page.waitForResponse(isConfigPost),
+      page.getByTestId("settings-header-save").click(),
+    ]);
+    expect(res.status()).toBeLessThan(300);
+    expect(Object.values(res.request().postDataJSON().messageTemplates)).toContain(edited);
+    await expect(page.getByTestId("settings-header-save")).toBeDisabled();
+  } finally {
+    // The E2E DB is shared: put the template back.
+    await textarea.fill(original);
+    if (await page.getByTestId("settings-header-save").isEnabled()) {
+      await Promise.all([
+        page.waitForResponse(isConfigPost),
+        page.getByTestId("settings-header-save").click(),
+      ]);
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------

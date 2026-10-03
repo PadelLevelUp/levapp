@@ -440,23 +440,25 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
   // Read current state
   const initialChecked = await toggle.getAttribute("aria-checked");
 
-  // Click the toggle and wait for the async save POST to complete
-  const [saveResp] = await Promise.all([
-    page.waitForResponse(
-      (resp) => resp.url().includes("/notify/config") && resp.request().method() === "POST",
-      { timeout: 8000 }
-    ).catch(() => null),
-    toggle.click(),
-  ]);
+  // PAD-506 (settings.explicit-save): the toggle is held until the tab's one Save, which sends the POST.
+  const headerSave = page.getByTestId("settings-header-save");
+  const isConfigPost = (resp: { url(): string; request(): { method(): string } }) =>
+    resp.url().includes("/notify/config") && resp.request().method() === "POST";
+  const toggleAndSave = async () => {
+    await toggle.click();
+    // Turning it on with no groups yet initialises the defaults after ~700 ms; Save enables then.
+    await expect(headerSave).toBeEnabled({ timeout: 5000 });
+    const [saveResp] = await Promise.all([
+      page.waitForResponse(isConfigPost, { timeout: 8000 }),
+      headerSave.click(),
+    ]);
+    expect(saveResp.status()).toBeLessThan(300);
+    await expect(headerSave).toBeDisabled();
+  };
 
-  await page.waitForTimeout(500);
+  await toggleAndSave();
   const afterToggle = await toggle.getAttribute("aria-checked");
   expect(afterToggle).not.toBe(initialChecked);
-
-  if (!saveResp) {
-    test.skip(true, "Auto-Invite Engine toggle POST not detected — may be a different section's toggle");
-    return;
-  }
 
   // Verify the state persisted by reloading the page
   await page.reload();
@@ -470,14 +472,13 @@ test("US-REM-07: auto-notify toggle state is saved and persists across page relo
   expect(afterReload).toBe(afterToggle);
 
   // Restore original state to avoid side-effects on other tests
+  await toggleAfterReload.click();
+  await expect(headerSave).toBeEnabled({ timeout: 5000 });
   await Promise.all([
-    page.waitForResponse(
-      (resp) => resp.url().includes("/notify/config") && resp.request().method() === "POST",
-      { timeout: 5000 }
-    ).catch(() => null),
-    toggleAfterReload.click(),
+    page.waitForResponse(isConfigPost, { timeout: 8000 }),
+    headerSave.click(),
   ]);
-  await page.waitForTimeout(500);
+  await expect(headerSave).toBeDisabled();
 });
 
 // ---------------------------------------------------------------------------
