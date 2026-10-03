@@ -21,6 +21,7 @@ import { NeedsYouQueue } from "./coach/NeedsYouQueue";
 import { NextClassHero } from "./coach/NextClassHero";
 import { Schedule7Days } from "./coach/Schedule7Days";
 import { StudentEvaluationsBlock } from "./StudentEvaluationsBlock";
+import { ProfileIncompleteBlock } from "./ProfileIncompleteBlock";
 import { greetingKey, longDate, todayISO } from "@levelup/config";
 import { useIsDesktop } from "./coach/useIsDesktop";
 import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
@@ -51,6 +52,8 @@ export function StudentDashboard({
   // evaluations.student-view rules 4-5: capability-gated and omitted when the
   // player has no shared card — absent here means exactly that, never "loading".
   const evaluationsBlock = pick(blocks, "evaluations");
+  // dashboard.profile-completeness rule 4 (PAD-490): omitted when every link is complete.
+  const profileBlock = pick(blocks, "profile_incomplete");
 
   const hero = heroBlock ? <NextClassHero block={heroBlock} onAnswered={onRefresh} /> : null;
   const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} onAnswered={onRefresh} /> : null;
@@ -59,6 +62,9 @@ export function StudentDashboard({
   ) : null;
   const kpis = kpiBlock ? <KpiTiles block={kpiBlock} /> : null;
   const evaluations = evaluationsBlock ? <StudentEvaluationsBlock block={evaluationsBlock} /> : null;
+  const profileIncomplete = profileBlock ? (
+    <ProfileIncompleteBlock block={profileBlock} onReminded={onRefresh} />
+  ) : null;
 
   // players.join-token rule 8: a student with nothing scheduled and no next
   // class is, in practice, a student no coach has picked up yet — the payload
@@ -100,6 +106,7 @@ export function StudentDashboard({
         </div>
         {claimRequests}
         {connectPrompt}
+        {profileIncomplete}
         {hero}
         {needsYou}
         {schedule}
@@ -134,6 +141,7 @@ export function StudentDashboard({
         <div className="flex min-w-0 flex-col gap-6">
           {claimRequests}
           {connectPrompt}
+          {profileIncomplete}
           {needsYou}
           {schedule}
         </div>

@@ -14,6 +14,7 @@
     "missingSideAlert_one": "{{count}} player without Playing Side defined",
     "missingSideAlert_other": "{{count}} players without Playing Side defined",
     "missingLevelFilterActive": "Missing level filter active",
+    "incompleteFilterActive": "Incomplete profile filter active",
     "missingSideFilterActive": "Missing side filter active",
     "clearFilterAriaLabel": "Clear filter",
     "clearFilter": "Clear filter",

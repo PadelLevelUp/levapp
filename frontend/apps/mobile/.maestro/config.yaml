@@ -114,6 +114,10 @@ executionOrder:
     - 25-claim-request
     - 26-message-by-username
     - 27-unknown-sender-block
+    # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in
+    # onFlowComplete, like 113; positions not load bearing.
+    - 151-coach-incomplete-players
+    - 152-student-profile-reminder
     # 142 (PAD-483, B-267) blocks a roster student as the coach and unblocks it in
     # onFlowComplete; it picks a student with no thread, so its position is not load bearing.
     - 142-picker-refusal-explains-itself

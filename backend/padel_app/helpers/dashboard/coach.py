@@ -40,6 +40,13 @@ def build_coach_dashboard_blocks(*, coach, user_id: int) -> List[Dict[str, Any]]
         blocks.append(hero)
 
     blocks.append(build_needs_you_block(coach_id=coach.id, user_id=user_id, now=now, events=events))
+
+    # dashboard.profile-completeness rule 3 (PAD-486): omitted when nobody is missing anything.
+    from padel_app.services.profile_completeness_service import build_incomplete_players_block
+
+    incomplete = build_incomplete_players_block(coach_id=coach.id)
+    if incomplete is not None:
+        blocks.append(incomplete)
     blocks.append(build_schedule_block(coach_id=coach.id, now=now, events=events))
     blocks.append(build_week_pulse_block(coach_id=coach.id, now=now, events=events))
 

@@ -128,7 +128,8 @@ export function useCoachPlayersPaginated(
         params.sortBy,
         params.sortDir,
         params.missingLevel,
-        params.missingSide
+        params.missingSide,
+        params.incomplete
       ),
     ...options,
   });

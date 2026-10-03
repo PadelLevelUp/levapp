@@ -856,6 +856,25 @@ def get_users():
     return jsonify([serialize_user_public(u) for u in users])
 
 
+@bp.post("/profile-reminder")
+@jwt_required()
+def profile_reminder():
+    """dashboard.profile-completeness rule 6 (PAD-490): a student reminds one of their coaches,
+    once per club day, while their link to that coach is incomplete."""
+    from padel_app.serializers.message import serialize_message
+    from padel_app.services.profile_completeness_service import send_profile_reminder
+
+    player = current_player()
+    if player is None:
+        abort(403, "Only a student can send a profile reminder")
+    data = request.get_json(silent=True) or {}
+    coach_id = data.get("coachId")
+    if isinstance(coach_id, bool) or not isinstance(coach_id, (int, str)) or not str(coach_id).isdigit():
+        abort(400, "coachId is required")
+    msg = send_profile_reminder(player=player, coach_id=int(coach_id))
+    return jsonify({"ok": True, "message": serialize_message(msg, None)})
+
+
 @bp.get("/messageable-users")
 @jwt_required()
 def get_messageable_users():
@@ -919,6 +938,7 @@ def coach_players_paginated():
     sort_dir = request.args.get("sort_dir", default="asc", type=str)
     missing_level = request.args.get("missing_level", default="", type=str) == "true"
     missing_side = request.args.get("missing_side", default="", type=str) == "true"
+    incomplete = request.args.get("incomplete", default="", type=str) == "true"
 
     page = max(1, page or 1)
     per_page = max(1, min(100, per_page or 25))
@@ -932,7 +952,7 @@ def coach_players_paginated():
     result = get_coach_players_paginated(
         coach, page=page, per_page=per_page, search=search,
         sort_by=sort_by, sort_dir=sort_dir,
-        missing_level=missing_level, missing_side=missing_side,
+        missing_level=missing_level, missing_side=missing_side, incomplete=incomplete,
     )
     return jsonify(result)
 

@@ -45,6 +45,8 @@ export interface PlayersQueryParams {
   sortDir?: "asc" | "desc";
   missingLevel?: boolean;
   missingSide?: boolean;
+  /** dashboard.profile-completeness: no level OR no side (the dashboard's "see all"). */
+  incomplete?: boolean;
 }
 
 function isFresh(expiresAt: number): boolean {
@@ -82,8 +84,9 @@ export async function getCoachPlayersPaginated(
   sortDir?: "asc" | "desc",
   missingLevel?: boolean,
   missingSide?: boolean,
+  incomplete?: boolean,
 ): Promise<CoachPlayersPageResponse> {
-  const hasFilters = !!search || !!missingLevel || !!missingSide ||
+  const hasFilters = !!search || !!missingLevel || !!missingSide || !!incomplete ||
     (sortBy && sortBy !== "name") || (sortDir && sortDir !== "asc");
 
   // Skip cache when any filter/sort is active
@@ -101,6 +104,7 @@ export async function getCoachPlayersPaginated(
   if (sortDir) params.sort_dir = sortDir;
   if (missingLevel) params.missing_level = "true";
   if (missingSide) params.missing_side = "true";
+  if (incomplete) params.incomplete = "true";
 
   const res = await getApi().get("/app/coach_players_paginated", { params });
   const payload = res.data as CoachPlayersPageResponse;

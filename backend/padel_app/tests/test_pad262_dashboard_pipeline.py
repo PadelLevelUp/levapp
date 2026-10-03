@@ -143,7 +143,12 @@ def test_the_coach_home_runs_the_pipeline_once(app, monkeypatch):
         blocks = coach_module.build_coach_dashboard_blocks(coach=db.session.get(Coach, coach_id), user_id=user_id)
 
     assert len(calls) == 1
-    assert [b["type"] for b in blocks] == ["next_class", "needs_you", "schedule_7d", "week_pulse"]
+    # PAD-486: the seed's roster has no level or side set, so dashboard.profile-completeness's
+    # block sits after needs-you. It reads the roster, not the events pipeline this test counts.
+    assert [b["type"] for b in blocks] == [
+        "next_class", "needs_you", "incomplete_players", "schedule_7d", "week_pulse",
+    ]
+    blocks = [b for b in blocks if b["type"] != "incomplete_players"]
     # The blocks are the same as when each loads its own window.
     with app.app_context():
         separately = [
