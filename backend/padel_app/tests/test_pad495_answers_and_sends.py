@@ -253,17 +253,25 @@ def test_item_3a_a_tick_and_a_decline_follow_up_on_one_spot_invite_different_stu
         event_a, user_a = _event_for(instance_id, a).id, _user(a)
 
     later = pin_clock(monkeypatch, NOW + timedelta(minutes=121))   # past maxInactiveTime: the tick sends
-    real = ns._send_invitation_batch
+    # Forced (#526 review): each sender pauses right after its under-lock re-check of its FIRST
+    # student, before it inserts, until the other has reached the same point. With the per-student
+    # lock the second is still waiting on the lock, so the pause times out and they go one after
+    # the other; without it both pass the re-check for the same student and both insert.
+    real = ns._still_invitable
     gate = threading.Barrier(2)
+    seen = threading.local()
 
     def gated(*args, **kwargs):
-        try:
-            gate.wait(timeout=1.5)
-        except threading.BrokenBarrierError:
-            pass
-        return real(*args, **kwargs)
+        result = real(*args, **kwargs)
+        if not getattr(seen, "done", False):
+            seen.done = True
+            try:
+                gate.wait(timeout=1.5)
+            except threading.BrokenBarrierError:
+                pass
+        return result
 
-    monkeypatch.setattr(ns, "_send_invitation_batch", gated)
+    monkeypatch.setattr(ns, "_still_invitable", gated)
     with _io():
         _race(app, [
             lambda: respond_to_notification(event_a, "no", user_a, now=later),
