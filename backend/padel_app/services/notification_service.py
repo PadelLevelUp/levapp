@@ -2507,7 +2507,10 @@ def _broadcast_spot_filled(
     locale: str | None = None,
     events: list | None = None,
 ) -> None:
-    """Tell the other candidates the spot is gone, and retire their invitations.
+    """Retire the other candidates' invitations: their bubble now reads "Vaga preenchida".
+
+    PAD-501 (notifications.message-templates rule 15): that IS the telling. No `spot_filled`
+    message is sent on top of it any more; ``templates`` and ``locale`` are kept for the callers.
 
     PAD-317: a caller that closed the vacancy through ``_close_vacancy`` passes
     the events that close retired as ``events``. Those rows are already
@@ -2519,8 +2522,6 @@ def _broadcast_spot_filled(
     """
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
-
-    spot_filled_text = resolve_message_template(templates, "spot_filled", locale)
 
     if events is None:
         query = NotificationEvent.query.filter(
@@ -2554,10 +2555,6 @@ def _broadcast_spot_filled(
                     message_recipient_ids(invite_msg),
                 )
 
-        _send_system_message(
-            coach_user_id, other_player_user_id, spot_filled_text,
-            class_instance_id=instance.id,
-        )
         # Already expired when the list came from _close_vacancy; still this
         # function's job on the fallback path. Idempotent either way.
         other_event.status = "expired"
@@ -3506,13 +3503,7 @@ def respond_to_reminder(
             and _effective_filled_spots(locked) >= locked.effective_max_players
         ):
             db.session.commit()  # release the lock, change nothing
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    acting_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the screen that sent this shows the refusal.
             # The coach is the only one who can seat them by hand, and they were
             # told of the cancellation — so they hear about the attempt too.
             _notify_coach_of_refused_return(
@@ -4964,13 +4955,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    player_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
             publish(
                 {
@@ -4990,13 +4975,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            if coach_user_id:
-                _send_system_message(
-                    coach_user_id,
-                    player_user_id,
-                    resolve_message_template(templates, "spot_filled", locale),
-                    class_instance_id=instance.id,
-                )
+            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
             publish(
                 {
