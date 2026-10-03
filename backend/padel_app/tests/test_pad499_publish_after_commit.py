@@ -24,7 +24,10 @@ def trail(monkeypatch):
     seen = []
 
     def on_commit(session):
-        seen.append("commit")
+        # #527 final read item 2: SQLAlchemy 1.4 fires after_commit on a SAVEPOINT release too
+        # (enrol's _get_or_insert); only the real commit counts.
+        if not session.in_nested_transaction():
+            seen.append("commit")
 
     def fake_publish(event, user_ids):
         # The message id, so the retired invitation's edit is told from the accepter's own bubble.
@@ -211,3 +214,68 @@ def test_the_coach_putting_a_returner_back_publishes_at_its_commit(app, monkeypa
         trail.clear()
         enrol(r_player, LessonInstance.query.get(instance_id), "coach")
         _published_at_the_closing_commit(trail, retired_message)
+
+
+# ── #527 final read items 1 and 3: nothing goes out before the REAL commit ──────────────────
+
+@pytest.mark.parametrize("where", ["enrolment", "commit"])
+def test_a_failed_single_commit_publishes_nothing(app, monkeypatch, trail, where):
+    """r3: X's yes closes V1 (retiring Z's invitation) and the single commit then fails. Neither
+    X's own "Accepted" edit nor Z's retired bubble may have been published: the database rolled
+    back, so X holds no place and Z's invitation is live. (A savepoint inside the enrolment used to
+    fire the queue early; publishing at once instead of queueing fails this too.)"""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad499_accept_lock_ends_early import _two_open_spots_for_one_place
+
+    pin_clock(monkeypatch, NOW)
+    instance_id, ids, (x, _y, z) = _two_open_spots_for_one_place(app)
+    real_add = ns._add_player_to_instance
+
+    def failing(player_id, instance):
+        if where == "enrolment":
+            raise RuntimeError("enrolment failed")
+        real_commit = db.session.commit
+
+        def boom():
+            raise RuntimeError("commit failed")
+
+        monkeypatch.setattr(db.session, "commit", boom)
+        try:
+            return real_add(player_id, instance)
+        finally:
+            monkeypatch.setattr(db.session, "commit", real_commit)
+
+    monkeypatch.setattr(ns, "_add_player_to_instance", failing)
+    with app.app_context(), patch(PATCHES[1]):
+        watched = {db.session.get(NotificationEvent, ids[p][0]).message_id for p in (x, z)}
+        trail.clear()
+        with pytest.raises(RuntimeError):
+            ns.respond_to_notification(ids[x][0], "yes", ids[x][1], now=NOW + timedelta(minutes=1))
+        db.session.rollback()
+        db.session.commit()  # a later, unrelated commit must not send them either
+        sent = [t for t in trail if t.startswith("publish:message_edited")]
+        assert not [t for t in sent if int(t.rsplit(":", 1)[1]) in watched], trail
+
+
+def test_the_queue_waits_through_a_savepoint_release_and_survives_its_rollback(app):
+    """padel_app.tools.after_commit: a SAVEPOINT is not the transaction. Its release must not run
+    the queue, and its rollback must not drop it; the real commit runs it, a real rollback drops it."""
+    from padel_app.tools.after_commit import on_commit
+
+    ran = []
+    with app.app_context():
+        db.session.commit()
+        on_commit(lambda: ran.append("a"))
+        db.session.begin_nested().commit()          # release
+        assert ran == []
+        sp = db.session.begin_nested()
+        sp.rollback()                               # savepoint rollback
+        db.session.commit()
+        assert ran == ["a"]
+
+        on_commit(lambda: ran.append("b"))
+        db.session.rollback()
+        db.session.commit()
+        assert ran == ["a"]
