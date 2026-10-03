@@ -192,14 +192,18 @@ def test_only_the_tick_sends_the_next_batch_and_only_after_the_interval(app, mon
 
 @pytest.fixture
 def locks(monkeypatch):
-    """The entity of every SELECT ... FOR UPDATE the code asks for, in order (PAD-261's spy)."""
+    """Every SELECT ... FOR UPDATE the code asks for, in order, as (entity, the function that asked)
+    (PAD-261's spy). The asking function matters: since PAD-495 the batch sender also locks the
+    vacancy per student, so "a Vacancy was locked" no longer proves the START took the lock."""
+    import sys
+
     from sqlalchemy.orm import Query
 
     seen = []
     original = Query.with_for_update
 
     def spy(self, *args, **kwargs):
-        seen.append(self.column_descriptions[0]["entity"].__name__)
+        seen.append((self.column_descriptions[0]["entity"].__name__, sys._getframe(1).f_code.co_name))
         return original(self, *args, **kwargs)
 
     monkeypatch.setattr(Query, "with_for_update", spy)
@@ -221,7 +225,7 @@ def test_the_start_locks_the_vacancy(app, monkeypatch, locks, starter):
             trigger_invitations(_instance(instance_id), coach_id, now=MORNING)
         else:
             process_invitation_batches(now=MORNING)
-        assert "Vacancy" in locks
+        assert ("Vacancy", "_start_vacancy") in locks
         assert _vacancies(instance_id) == [(1, "open", 1, 1)]
 
 
@@ -327,13 +331,19 @@ def test_two_triggers_at_once_start_the_spot_once(app, monkeypatch):
 
 @POSTGRES_ONLY
 def test_without_the_lock_the_same_race_starts_the_spot_twice(app, monkeypatch):
-    """The harness has teeth: a check-then-send with no lock and no re-read sends two batches."""
+    """The harness has teeth: with a check-then-send start (no lock, no re-read) both callers start
+    the spot and run its first batch. (PAD-495's per-student lock and first-batch cap then keep
+    that double batch from over-inviting — defence in depth that made "two batches counted"
+    timing-dependent — so the control counts the starts, which only the start's lock prevents.)"""
     from padel_app.services import notification_service as ns
     from padel_app.tests.helpers import pin_clock
+
+    starts = []
 
     def unlocked(vacancy, instance, config, coach_id, *, now):
         if vacancy.status != "open" or vacancy.last_activity_at is not None:
             return []
+        starts.append(vacancy.id)
         return ns._send_invitation_batch(vacancy, instance, config, coach_id, now=now)
 
     monkeypatch.setattr(ns, "_start_vacancy", unlocked)
@@ -341,8 +351,7 @@ def test_without_the_lock_the_same_race_starts_the_spot_twice(app, monkeypatch):
     instance_id, coach_id = _seed_one_unstarted_vacancy(app)
     with _io(), _both_loaded(monkeypatch):
         _race(app, [_trigger(instance_id, coach_id)] * 2)
-    with app.app_context():
-        assert _vacancies(instance_id)[0][3] == 2, "both callers sent a batch"
+    assert len(starts) == 2, f"both callers started the spot: {starts}"
 
 
 # ── B-260 (rule 17): a double tap racing itself is answered once (Postgres only) ─────────────
@@ -611,7 +620,10 @@ def test_a_claim_whose_process_died_mid_send_lapses_and_is_retried(app, monkeypa
         process_invitation_batches(now=later)
         vacancies, events = _state(instance_id)
         assert vacancies == [(1, "open", 1, 1)]
-        assert sorted(p for _, p in events) == sorted(others)          # the first once, the others now
+        # The first student once; the restart tops the batch up to maxSimultaneous (3) rather than
+        # sending a full batch on top (PAD-495 item 10).
+        players = [p for _, p in events]
+        assert players.count(others[0]) == 1 and len(players) == 3 and len(set(players)) == 3
 
 
 def test_the_give_back_leaves_a_row_that_moved_alone(app, monkeypatch):

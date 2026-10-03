@@ -1178,6 +1178,23 @@ def _passes_group_rules(
 # player with the first stage that dropped them; the engine keeps the
 # survivors, the simulation keeps everything.
 
+def _still_invitable(cp: Association_CoachPlayer, instance: LessonInstance, coach_id: int,
+                     config: NotificationConfig) -> bool:
+    """#526 review item 3: the class-level checks of rule 18, read again under the per-student lock
+    just before an invitation is created (the wave's verdict may be minutes old)."""
+    from sqlalchemy import or_
+
+    if cp.player_id in set(instance.enrolled_player_ids):
+        return False
+    if NotificationEvent.query.filter(
+        _same_class(instance.id),
+        NotificationEvent.player_id == cp.player_id,
+        or_(NotificationEvent.status.in_(LIVE_INVITATION_STATES), NotificationEvent.answer == "no"),
+    ).first() is not None:
+        return False
+    return passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config))
+
+
 def _same_class(instance_id: int):
     """PAD-497 (invitations rule 18): the one place "that class" is keyed for a student's "no" and
     for one-live-offer-per-class — the single occurrence. A series-wide reading would change only
@@ -3987,11 +4004,27 @@ def _send_invitation_batch(
     restrictions = config.get_restrictions()
 
     # Determine batch size
+    first_batch_already_full = False
+    first_batch_cap = None  # PAD-495 item 10 / #526 item 7: maxSimultaneous, re-counted under the lock
     if max_sim_override is not None:
         batch_size = max_sim_override
     else:
         max_sim = restrictions.get("maxSimultaneous", {})
         batch_size = max_sim["value"] if max_sim.get("enabled") else len(eligible)
+        if vacancy.current_batch_number == 0 and max_sim.get("enabled"):
+            # PAD-495 item 10 (rule 1b): the FIRST batch may be a restart of one that died part-way
+            # (its claim lapsed, or was given back on a raise). The invitations it already sent are
+            # live and count toward maxSimultaneous, so the restart tops the batch up instead of
+            # sending a full one on top. Later batches are not capped this way: invitations do not
+            # expire before the class starts, so counting every live one would stop all later
+            # batches; their pacing is maxInactiveTime.
+            already_out = NotificationEvent.query.filter(
+                NotificationEvent.vacancy_id == vacancy.id,
+                NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            ).count()
+            batch_size = max(0, batch_size - already_out)
+            first_batch_already_full = batch_size == 0
+            first_batch_cap = max_sim["value"]
 
     # Respect maxTotal across ALL vacancies for this instance
     max_total = restrictions.get("maxTotal", {})
@@ -4014,7 +4047,11 @@ def _send_invitation_batch(
     time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
 
     notified = []
-    for cp in eligible[:batch_size]:
+    for cp in eligible:
+        # #526 review: count the students actually SENT — one with no account to message, or at
+        # today's limit, no longer uses up a slot of the batch.
+        if len(notified) >= batch_size:
+            break
         if not _check_per_student_daily_limit(cp.player_id, coach_id, restrictions):
             continue
         player_user_id = _user_id_for_player(cp.player_id)
@@ -4024,10 +4061,36 @@ def _send_invitation_batch(
         player = Player.query.get(cp.player_id)
         player_name = (player.user.name if player and player.user else "Player").split()[0]
 
-        # PAD-497 (#526 review item 1): the conversation first — getting or creating it commits —
-        # so nothing below commits until the invitation, its message and the link between them
-        # can commit together.
+        # PAD-497 (#526 review item 1): the conversation first — getting or creating it commits,
+        # so it must happen before the lock below, which that commit would end.
         conversation = _get_or_create_direct_conversation(coach_user_id, player_user_id)
+
+        # PAD-495 item 3(a) and #526 review items 2, 3, 7: the decision for THIS student is taken
+        # under the vacancy lock, held until their invitation commits with its message (a batch
+        # commits once per student, so a lock taken once at its start would end after the first).
+        # Under it, everything another sender or an answer may have changed meanwhile is read
+        # again: the spot (still open?), the class (still room?), and this student (no live offer
+        # for the class, no "no" for it, not enrolled, still over the eligibility bar).
+        locked = (
+            Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
+        )
+        db.session.expire(instance, ["presences"])
+        if locked.status != "open" or (
+            instance.effective_max_players is not None
+            and _effective_filled_spots(instance) >= instance.effective_max_players
+        ):
+            db.session.commit()  # release the lock: the spot is gone, invite nobody more
+            break
+        if first_batch_cap is not None and NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        ).count() >= first_batch_cap:
+            db.session.commit()  # release the lock: the first batch is already full
+            break
+        if not _still_invitable(cp, instance, coach_id, config):
+            db.session.commit()  # release the lock; nothing was written
+            continue
+
         event = NotificationEvent(
             coach_id=coach_id,
             lesson_instance_id=instance.id,
@@ -4074,6 +4137,12 @@ def _send_invitation_batch(
             continue
 
         notified.append({"id": str(cp.player_id), "name": player_name})
+
+    if not notified and not first_batch_already_full:
+        # PAD-495 item 9: nobody could be sent this batch (every candidate is at today's limit,
+        # or has no account to message). It does not count as a batch, so a first batch gives its
+        # claim back and is tried again on the next tick, and a later one is re-examined as before.
+        return notified
 
     vacancy.last_activity_at = utcnow_naive()
     vacancy.current_batch_number += 1
@@ -4171,6 +4240,33 @@ def _advance_round(
         _send_invitation_batch(vacancy, instance, config, coach_id)
 
 
+def _send_batch_locked(
+    vacancy: Vacancy,
+    instance: LessonInstance,
+    config: NotificationConfig,
+    coach_id: int,
+    *,
+    max_sim_override: int | None = None,
+    now: datetime | None = None,
+) -> list[dict]:
+    """PAD-495 item 3 (and 3a): send a STARTED vacancy's next invitation(s) deciding who on the
+    vacancy row locked and re-read, so two senders on the same spot — a decline's follow-up and the
+    tick's next batch, or two declines — wait for each other and never pick the same student. The
+    lock ends at the first commit (an invitation with its message), before any push, or at the
+    final commit when nothing was sent. Across two spots of a class this is PAD-509."""
+    locked = (
+        Vacancy.query.filter_by(id=vacancy.id).with_for_update().populate_existing().one()
+    )
+    if locked.status != "open":
+        db.session.commit()  # release the lock; nothing was written
+        return []
+    sent = _send_invitation_batch(
+        locked, instance, config, coach_id, max_sim_override=max_sim_override, now=now
+    )
+    db.session.commit()  # the end of the lock when the batch sent (and so committed) nothing
+    return sent
+
+
 def _send_next_on_decline(
     vacancy: Vacancy,
     instance: LessonInstance,
@@ -4182,7 +4278,10 @@ def _send_next_on_decline(
     # an automatic one too — none when automatic invitations are off for the class.
     if not effective_auto_invites(instance):
         return
-    _send_invitation_batch(vacancy, instance, config, coach_id, max_sim_override=1)
+    # PAD-495 item 3: two declines at once each invite "the next student"; deciding who that is
+    # on the vacancy row locked and re-read means the second waits for the first's invitation to
+    # commit (with its message) and then sees it.
+    _send_batch_locked(vacancy, instance, config, coach_id, max_sim_override=1)
 
 
 # ---------------------------------------------------------------------------
@@ -4526,72 +4625,82 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         closed_ids.update(v.id for v in reconcile_vacancies(vacancy.lesson_instance))
 
     for vacancy in open_vacancies:
-        if vacancy.id in closed_ids:
-            continue
-        instance = vacancy.lesson_instance
+        # #526 review item 6: one vacancy's failure (a Postgres deadlock abort, a send that raises)
+        # rolls back its own work and is logged; the tick goes on with the others.
+        try:
+            if vacancy.id in closed_ids:
+                continue
+            instance = vacancy.lesson_instance
 
-        # Skip past or canceled classes (PAD-256: "started" on the club's clock)
-        if instance.start_datetime <= utc_to_wall_naive(_now):
-            vacancy.status = "expired"
-            vacancy.save()
-            continue
-        if instance.status in ("canceled", "completed"):
-            vacancy.status = "expired"
-            vacancy.save()
-            continue
+            # Skip past or canceled classes (PAD-256: "started" on the club's clock)
+            if instance.start_datetime <= utc_to_wall_naive(_now):
+                vacancy.status = "expired"
+                vacancy.save()
+                continue
+            if instance.status in ("canceled", "completed"):
+                vacancy.status = "expired"
+                vacancy.save()
+                continue
 
-        # Semi-automatic gating: never send (or waiting-list fill) vacancies
-        # awaiting coach approval or dismissed by the coach.
-        if vacancy.approval_status in ("pending", "dismissed"):
-            continue
-        # Approved "at the invitation window": hold until the window opens.
-        if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
-            continue
-        # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the
-        # vacancy (a coach who turns it off mid-fill stops the rounds; turning it back on resumes).
-        if not effective_auto_invites(instance):
-            continue
+            # Semi-automatic gating: never send (or waiting-list fill) vacancies
+            # awaiting coach approval or dismissed by the coach.
+            if vacancy.approval_status in ("pending", "dismissed"):
+                continue
+            # Approved "at the invitation window": hold until the window opens.
+            if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
+                continue
+            # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the
+            # vacancy (a coach who turns it off mid-fill stops the rounds; turning it back on resumes).
+            if not effective_auto_invites(instance):
+                continue
 
-        config = get_or_create_config(vacancy.coach_id)
-        restrictions = config.get_restrictions()
+            config = get_or_create_config(vacancy.coach_id)
+            restrictions = config.get_restrictions()
 
-        # B-200 (rule 6d): the sweep sends too, so it asks the same restrictions as
-        # trigger_invitations. A refused vacancy is held and retried on the next tick.
-        if not _check_restrictions(instance, vacancy.coach_id, restrictions, now=_now):
-            continue
+            # B-200 (rule 6d): the sweep sends too, so it asks the same restrictions as
+            # trigger_invitations. A refused vacancy is held and retried on the next tick.
+            if not _check_restrictions(instance, vacancy.coach_id, restrictions, now=_now):
+                continue
 
-        last = vacancy.last_activity_at
+            last = vacancy.last_activity_at
 
-        # Fresh vacancy (no batch sent yet) — start it, through the same claim as
-        # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
-        if last is None or _claim_lapsed(vacancy, _now):
-            _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
-            processed += 1
-            continue
-
-        # PAD-87: a round reached because the previous one was empty. Send it
-        # now — one round per tick — regardless of maxInactiveTime, which waits
-        # for invited students to answer and an empty round invited nobody.
-        if _round_pending(vacancy):
-            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
-            processed += 1
-            continue
-
-        # PAD-497 (rule 18): a started vacancy with no invitation of its own still out has nothing
-        # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
-        # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
-        if _nothing_out(vacancy):
-            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
-            processed += 1
-            continue
-
-        # Check inactivity timer
-        max_inactive = restrictions.get("maxInactiveTime", {})
-        if max_inactive.get("enabled"):
-            threshold = timedelta(minutes=max_inactive["value"])
-            if _now - last >= threshold:
-                _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            # Fresh vacancy (no batch sent yet) — start it, through the same claim as
+            # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
+            if last is None or _claim_lapsed(vacancy, _now):
+                _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
                 processed += 1
+                continue
+
+            # PAD-87: a round reached because the previous one was empty. Send it
+            # now — one round per tick — regardless of maxInactiveTime, which waits
+            # for invited students to answer and an empty round invited nobody.
+            if _round_pending(vacancy):
+                _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
+                processed += 1
+                continue
+
+            # PAD-497 (rule 18): a started vacancy with no invitation of its own still out has nothing
+            # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
+            # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
+            if _nothing_out(vacancy):
+                _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
+                processed += 1
+                continue
+
+            # Check inactivity timer
+            max_inactive = restrictions.get("maxInactiveTime", {})
+            if max_inactive.get("enabled"):
+                threshold = timedelta(minutes=max_inactive["value"])
+                if _now - last >= threshold:
+                    _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
+                    processed += 1
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            from flask import current_app, has_app_context
+            if has_app_context():
+                current_app.logger.exception(
+                    "process_invitation_batches: vacancy %s skipped this tick", vacancy.id
+                )
 
     return processed
 
@@ -4600,12 +4709,16 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
 
-def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
+def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = False) -> dict | None:
     """B-260 (invitations rule 17): the response for an answer already given, else None.
 
     Locks the vacancy (if any) and re-reads the invitation — rule 10's order, vacancy first — so of
     two identical answers racing each other the second sees the first's outcome. A "no" on an
     invitation that is no longer live and a "yes" on one already confirmed change nothing.
+
+    ``by_coach`` (PAD-495 item 2): the coach recording an answer goes through the same guard, but
+    may still record a "yes" after the student's "no" — the coach deciding is not the engine
+    inviting (rule 18).
     """
     if event.vacancy_id is not None:
         Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
@@ -4613,17 +4726,28 @@ def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
     else:
         # A manual invitation has no vacancy to lock (#513 review F3): lock the invitation itself.
         NotificationEvent.query.filter_by(id=event.id).with_for_update().populate_existing().one()
+    if action == "no" and event.status == "confirmed":
+        # PAD-495 item 5: the student holds the spot; say so (both clients show Accepted).
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "confirmed"}
     if action == "no" and event.status not in LIVE_INVITATION_STATES:
         db.session.commit()  # release the lock; nothing was written
         return {"action": "declined"}
     if action == "yes" and event.status == "confirmed":
         db.session.commit()  # release the lock; nothing was written
         return {"action": "confirmed"}
+    if by_coach:
+        return None
     if action == "yes" and event.answer == "no":
         # PAD-497 (rule 18): the student's "no" is final for the class; both clients already show
         # this invitation as Declined, and "declined" keeps it so.
         db.session.commit()  # release the lock; nothing was written
         return {"action": "declined"}
+    if action == "yes" and event.answer == "yes" and event.status not in LIVE_INVITATION_STATES:
+        # PAD-495 item 4: this "yes" was already answered "spot filled" (and offered the waiting
+        # list). Answer the same again, and send nothing more.
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "spot_filled_waiting_list_offered"}
     return None
 
 
@@ -4874,6 +4998,11 @@ def coach_respond_to_notification(
         _expire_stale_invitations(event.lesson_instance)
         _retire_invite_message(event)
         return {"action": "expired"}
+
+    # PAD-495 item 2 (rule 17): the coach recording the same answer twice changes nothing.
+    repeat = _repeated_answer(event, action, by_coach=True)
+    if repeat is not None:
+        return repeat
 
     instance = event.lesson_instance
     vacancy = event.vacancy
