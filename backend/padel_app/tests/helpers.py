@@ -50,3 +50,22 @@ def pin_clock(monkeypatch, now):
         if name.startswith("padel_app") and getattr(module, "utcnow_naive", None) is real:
             monkeypatch.setattr(module, "utcnow_naive", fake)
     return now
+
+
+def insert_user_on_an_old_schema(username, name=None):
+    """A `users` row for a migration-walk test, by raw SQL naming only the columns every old schema has.
+
+    A walk test downgrades to an older revision and seeds rows there. The ORM's `User` names every column
+    the CURRENT model has, so the first migration that adds a `users` column (PAD-485's terms_*) broke
+    every walk at once (the #517/#525 Postgres lane). Returns an object with `.id`, like the ORM row did.
+    """
+    from types import SimpleNamespace
+
+    from sqlalchemy import text
+
+    user_id = db.session.execute(
+        text("INSERT INTO users (name, username, email, password, status, is_admin, is_superadmin, created_at, updated_at) "
+             "VALUES (:n, :u, :e, 'x', 'active', false, false, now(), now()) RETURNING id"),
+        {"n": name or username, "u": username, "e": f"{username}@t.test"},
+    ).scalar_one()
+    return SimpleNamespace(id=user_id)

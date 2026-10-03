@@ -97,6 +97,14 @@ class User(db.Model, model.Model, UserMixin):
     birth_date = Column(Date, nullable=True)
     country = Column(String(2), nullable=True)
     guardian_consent_status = Column(String(16), nullable=True)
+    # ── auth.register rule 19 (PAD-485) ───────────────────────────────────────
+    #
+    # What a self-registration accepted: when, and which versions of the two documents the box names
+    # (each page's effective date). Written only by `register_user_service` for a client declaring
+    # `terms-acceptance`; every other account, existing ones included, keeps NULLs.
+    terms_accepted_at = Column(DateTime, nullable=True)
+    terms_version = Column(String(32), nullable=True)
+    privacy_version = Column(String(32), nullable=True)
 
     # ── PAD-112: the student's standing block preferences ────────────────────
     #
@@ -211,3 +219,31 @@ class User(db.Model, model.Model, UserMixin):
         form.add_block(info_block)
 
         return form
+
+
+# PAD-498 (auth.password-recovery rule 11, B-276): a recovery code belongs to the address it was mailed
+# to. The binding itself is in the code's HMAC (password_recovery_service._hash), which holds whatever
+# order writes land in; this listener is defence in depth: any ORM write that changes `email` (or clears
+# it) discards a pending code at once — the profile endpoint, activation, a claim, a deletion, a form.
+# Re-saving the same address in another case is not a change.
+from sqlalchemy import event as _event  # noqa: E402
+from sqlalchemy.orm.attributes import NO_VALUE as _NO_VALUE  # noqa: E402
+
+
+# No `active_history`: loading an expired old value would raise on a detached instance. An old value
+# that is not loaded (expired after a commit, or a row being created) is unknown, so it counts as a
+# change and the code is discarded — an extra discard costs a resend at most.
+@_event.listens_for(User.email, "set")
+def _email_change_discards_recovery_code(target, value, oldvalue, initiator):
+    if oldvalue is _NO_VALUE:
+        target.password_reset_code_hash = None
+        target.password_reset_expires_at = None
+        target.password_reset_sent_at = None
+        target.password_reset_attempts = 0
+        return
+    if (oldvalue or "").strip().lower() == (value or "").strip().lower():
+        return
+    target.password_reset_code_hash = None
+    target.password_reset_expires_at = None
+    target.password_reset_sent_at = None
+    target.password_reset_attempts = 0

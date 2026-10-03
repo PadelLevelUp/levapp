@@ -124,6 +124,11 @@
       "spotFilled": "Sorry, that spot was just filled.",
       "joinedWaitingList": "You're on the waiting list.",
       "offerDeclined": "Noted — you're not on the list."
+    },
+    "emailPrompt": {
+      "text": "Add your email so you can recover your password and receive notices.",
+      "add": "Add email",
+      "dismiss": "Not now"
     }
   }
 }

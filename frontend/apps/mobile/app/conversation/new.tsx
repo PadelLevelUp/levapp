@@ -25,6 +25,7 @@ import { useMessageableUsers } from "@/features/messages/hooks";
 import { initialsOf, normalizeId } from "@/features/messages/utils";
 import { describeApiError } from "@/lib/apiError";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
+import { useNativeHeaderKeyboardOffset } from "@/lib/native-header-offset";
 
 const HEADER_OPTIONS = {
   headerShown: true,
@@ -47,6 +48,7 @@ const HEADER_OPTIONS = {
  */
 export default function NewConversationScreen() {
   const { t } = useTranslation();
+  const keyboardOffset = useNativeHeaderKeyboardOffset();
   const { user: me } = useAuth();
   const queryClient = useQueryClient();
   const { data: users, isLoading, isError, refetch } = useMessageableUsers();
@@ -60,6 +62,7 @@ export default function NewConversationScreen() {
   const [username, setUsername] = React.useState("");
   const [usernameError, setUsernameError] = React.useState<string | null>(null);
   const [submittingUsername, setSubmittingUsername] = React.useState(false);
+  const [pickerError, setPickerError] = React.useState<string | null>(null);
 
   const openConversation = (id: string | number) => {
     void queryClient.invalidateQueries({ queryKey: ["conversations"] });
@@ -108,21 +111,42 @@ export default function NewConversationScreen() {
       return;
     }
     setCreatingId(String(picked.id));
+    setPickerError(null);
     try {
       const conversation = await messagesApi.createConversation({
         otherParticipants: [String(picked.id)],
       });
       openConversation(conversation.id);
-    } catch {
+    } catch (error) {
+      // B-267 (PAD-483): the server can refuse a picked person (a stale list, a link
+      // removed since it loaded). Say why instead of a row that just stops spinning.
+      const info = describeApiError(error);
+      if (info.network) setPickerError(t("auth.login.networkError"));
+      else if (info.status === 403) setPickerError(t("messages.cannotMessageUser"));
+      else setPickerError(t("messages.somethingWentWrong"));
       setCreatingId(null);
     }
   };
 
   const listHeader = (
     <View className="border-b border-border bg-background px-4 pb-2 pt-3" testID="new-conversation-header">
-      <Text className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {t("messages.connectedPeople")}
-      </Text>
+      {/* B-267: a refusal takes the label's one line, so nothing under the finger moves. */}
+      {pickerError ? (
+        <Text
+          className="mb-2 text-xs font-medium text-destructive"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          accessibilityRole="alert"
+          testID="new-conversation-picker-error"
+        >
+          {pickerError}
+        </Text>
+      ) : (
+        <Text className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t("messages.connectedPeople")}
+        </Text>
+      )}
       <Input
         testID="new-conversation-search"
         accessibilityLabel={t("messages.searchConnectedAria")}
@@ -205,6 +229,8 @@ export default function NewConversationScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-background"
       behavior={keyboardAvoidingBehavior()}
+      // PAD-487: the native header sits above this view; without its height the bottom is covered.
+      keyboardVerticalOffset={keyboardOffset}
       testID="screen-new-conversation"
     >
       {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}

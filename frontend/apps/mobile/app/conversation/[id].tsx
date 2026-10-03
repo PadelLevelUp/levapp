@@ -5,6 +5,7 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
   queryKeys,
+  refreshAfterRequestChange,
   shouldShowJumpToBottom,
   openingTarget,
   canRetryThreadLoad,
@@ -1001,7 +1002,8 @@ export default function ConversationScreen() {
       );
     } finally {
       setRespondingClassRequestId(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
+      // classes.class-requests rule 19 (PAD-488): the calendar follows the answer.
+      void refreshAfterRequestChange(queryClient);
     }
   };
   const handleCounterClassRequest = (message: Message) => {
@@ -1042,12 +1044,8 @@ export default function ConversationScreen() {
     message: Message;
     ineligible: EligibilityCheckEntry[];
   } | null>(null);
-  const invalidateJoinRequestQueries = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
-      queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
-    ]);
+  // The request lists, the class sheet and, rule 19 (PAD-488), the calendar and dashboard.
+  const invalidateJoinRequestQueries = () => refreshAfterRequestChange(queryClient);
   const handleAnswerJoinRequest = async (
     message: Message,
     accept: boolean,

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys, usePendingValidationBadge } from "@levelup/hooks";
+import { isRequestEvent, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
 import {
   Calendar,
   CalendarOff,
@@ -209,14 +209,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       // one section now, so a private OR an academy event refreshes both —
       // "both lists refresh on join_request_created, join_requests_superseded
       // and on a decision, the same way they refresh on class_request_changed".
-      if (
-        data.type === "class_request_changed" ||
-        data.type === "join_request_created" ||
-        data.type === "join_requests_superseded"
-      ) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.classRequests });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests });
-      }
+      // classes.class-requests rule 19 (PAD-488): and the calendar with them.
+      if (isRequestEvent(data.type)) void refreshAfterRequestChange(queryClient);
     });
   }, [refreshUnreadCount, token, queryClient]);
   

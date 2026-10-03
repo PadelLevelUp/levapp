@@ -22,4 +22,10 @@ describe("mobile shell capabilities", () => {
   it("declares coach-invite-email", () => {
     expect(declared).toContain("coach-invite-email");
   });
+
+  // terms-acceptance: auth.register rule 19 (PAD-485). This shell's sign-up form has the required Terms
+  // checkbox and sends `termsAccepted`, so the server may refuse a sign-up without it.
+  it("declares terms-acceptance", () => {
+    expect(declared).toContain("terms-acceptance");
+  });
 });

@@ -45,7 +45,10 @@ def verification_required():
 
 
 def verification_state(user):
-    """`verified` | `pending` | `unverified` — rule 2."""
+    """`verified` | `pending` | `unverified` — rule 2. With no email there is nothing verified (B-262),
+    whatever an older row still holds."""
+    if not user.email:
+        return "unverified"
     if user.email_verified_at is not None:
         return "verified"
     if user.email and user.email_verification_required:
@@ -63,9 +66,12 @@ def resend_available_in(user, now=None):
     return int(left) + 1 if left > 0 else 0
 
 
-def _hash(code):
+def _hash(code, address):
+    """PAD-498: the code is bound to the address it was mailed to (part of the HMAC input), so it
+    verifies only that address, whatever order an email change and the code's own commit land in."""
     key = (current_app.config.get("SECRET_KEY") or "dev-secret-key").encode()
-    return hmac.new(key, code.encode(), sha256).hexdigest()
+    bound = f"{(address or '').strip().lower()}\n{code}"
+    return hmac.new(key, bound.encode(), sha256).hexdigest()
 
 
 def _generate_code():
@@ -80,7 +86,7 @@ def _clear_code(user):
 
 def _issue(user, now):
     code = _generate_code()
-    user.email_verification_code_hash = _hash(code)
+    user.email_verification_code_hash = _hash(code, user.email)  # the address `_deliver` mails
     user.email_verification_expires_at = now + CODE_TTL
     user.email_verification_sent_at = now
     user.email_verification_attempts = 0
@@ -125,6 +131,16 @@ def send_code(user, now=None):
         "expiresInSeconds": int(CODE_TTL.total_seconds()),
         "resendAvailableInSeconds": int(RESEND_COOLDOWN.total_seconds()),
     }
+
+
+def forget_verification(user):
+    """B-262 (rule 2; settings.profile rule 9): an account whose email is cleared has nothing to be
+    verified — no timestamp, nothing required, no pending code — so it reads `unverified`. Does not
+    commit: the caller's save does."""
+    user.email_verified_at = None
+    user.email_verification_required = False
+    user.email_verification_sent_at = None
+    _clear_code(user)
 
 
 def begin_verification(user, now=None):
@@ -175,7 +191,7 @@ def confirm_code(user, code, now=None):
     if expired:
         raise EmailVerificationError("CODE_EXPIRED", 410)
 
-    if hmac.compare_digest(stored, _hash(raw)):
+    if hmac.compare_digest(stored, _hash(raw, user.email)):  # the account's address now
         user.email_verified_at = now
         user.email_verification_required = False
         _clear_code(user)
