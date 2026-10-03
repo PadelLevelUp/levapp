@@ -4612,72 +4612,82 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         closed_ids.update(v.id for v in reconcile_vacancies(vacancy.lesson_instance))
 
     for vacancy in open_vacancies:
-        if vacancy.id in closed_ids:
-            continue
-        instance = vacancy.lesson_instance
+        # #526 review item 6: one vacancy's failure (a Postgres deadlock abort, a send that raises)
+        # rolls back its own work and is logged; the tick goes on with the others.
+        try:
+            if vacancy.id in closed_ids:
+                continue
+            instance = vacancy.lesson_instance
 
-        # Skip past or canceled classes (PAD-256: "started" on the club's clock)
-        if instance.start_datetime <= utc_to_wall_naive(_now):
-            vacancy.status = "expired"
-            vacancy.save()
-            continue
-        if instance.status in ("canceled", "completed"):
-            vacancy.status = "expired"
-            vacancy.save()
-            continue
+            # Skip past or canceled classes (PAD-256: "started" on the club's clock)
+            if instance.start_datetime <= utc_to_wall_naive(_now):
+                vacancy.status = "expired"
+                vacancy.save()
+                continue
+            if instance.status in ("canceled", "completed"):
+                vacancy.status = "expired"
+                vacancy.save()
+                continue
 
-        # Semi-automatic gating: never send (or waiting-list fill) vacancies
-        # awaiting coach approval or dismissed by the coach.
-        if vacancy.approval_status in ("pending", "dismissed"):
-            continue
-        # Approved "at the invitation window": hold until the window opens.
-        if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
-            continue
-        # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the
-        # vacancy (a coach who turns it off mid-fill stops the rounds; turning it back on resumes).
-        if not effective_auto_invites(instance):
-            continue
+            # Semi-automatic gating: never send (or waiting-list fill) vacancies
+            # awaiting coach approval or dismissed by the coach.
+            if vacancy.approval_status in ("pending", "dismissed"):
+                continue
+            # Approved "at the invitation window": hold until the window opens.
+            if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
+                continue
+            # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the
+            # vacancy (a coach who turns it off mid-fill stops the rounds; turning it back on resumes).
+            if not effective_auto_invites(instance):
+                continue
 
-        config = get_or_create_config(vacancy.coach_id)
-        restrictions = config.get_restrictions()
+            config = get_or_create_config(vacancy.coach_id)
+            restrictions = config.get_restrictions()
 
-        # B-200 (rule 6d): the sweep sends too, so it asks the same restrictions as
-        # trigger_invitations. A refused vacancy is held and retried on the next tick.
-        if not _check_restrictions(instance, vacancy.coach_id, restrictions, now=_now):
-            continue
+            # B-200 (rule 6d): the sweep sends too, so it asks the same restrictions as
+            # trigger_invitations. A refused vacancy is held and retried on the next tick.
+            if not _check_restrictions(instance, vacancy.coach_id, restrictions, now=_now):
+                continue
 
-        last = vacancy.last_activity_at
+            last = vacancy.last_activity_at
 
-        # Fresh vacancy (no batch sent yet) — start it, through the same claim as
-        # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
-        if last is None or _claim_lapsed(vacancy, _now):
-            _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
-            processed += 1
-            continue
+            # Fresh vacancy (no batch sent yet) — start it, through the same claim as
+            # trigger_invitations so the two cannot both start it (PAD-493, rule 1b).
+            if last is None or _claim_lapsed(vacancy, _now):
+                _start_vacancy(vacancy, instance, config, vacancy.coach_id, now=_now)
+                processed += 1
+                continue
 
-        # PAD-87: a round reached because the previous one was empty. Send it
-        # now — one round per tick — regardless of maxInactiveTime, which waits
-        # for invited students to answer and an empty round invited nobody.
-        if _round_pending(vacancy):
-            _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
-            processed += 1
-            continue
-
-        # PAD-497 (rule 18): a started vacancy with no invitation of its own still out has nothing
-        # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
-        # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
-        if _nothing_out(vacancy):
-            _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
-            processed += 1
-            continue
-
-        # Check inactivity timer
-        max_inactive = restrictions.get("maxInactiveTime", {})
-        if max_inactive.get("enabled"):
-            threshold = timedelta(minutes=max_inactive["value"])
-            if _now - last >= threshold:
+            # PAD-87: a round reached because the previous one was empty. Send it
+            # now — one round per tick — regardless of maxInactiveTime, which waits
+            # for invited students to answer and an empty round invited nobody.
+            if _round_pending(vacancy):
                 _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
                 processed += 1
+                continue
+
+            # PAD-497 (rule 18): a started vacancy with no invitation of its own still out has nothing
+            # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
+            # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
+            if _nothing_out(vacancy):
+                _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
+                processed += 1
+                continue
+
+            # Check inactivity timer
+            max_inactive = restrictions.get("maxInactiveTime", {})
+            if max_inactive.get("enabled"):
+                threshold = timedelta(minutes=max_inactive["value"])
+                if _now - last >= threshold:
+                    _send_batch_locked(vacancy, instance, config, vacancy.coach_id, now=_now)
+                    processed += 1
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            from flask import current_app, has_app_context
+            if has_app_context():
+                current_app.logger.exception(
+                    "process_invitation_batches: vacancy %s skipped this tick", vacancy.id
+                )
 
     return processed
 

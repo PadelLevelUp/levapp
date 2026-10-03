@@ -357,3 +357,34 @@ def test_r7_the_first_batch_recounts_live_invitations_under_the_lock(app, monkey
         trigger_invitations(_instance(instance_id), coach_id, now=NOW)
         spot = _vacancies(instance_id)[0][0]
         assert len([e for e in _live_events(instance_id) if e[0] == spot]) <= 3
+
+
+def test_r6_one_vacancy_failing_does_not_skip_the_rest_of_the_tick(app, monkeypatch):
+    """#526 review item 6: a failure on one vacancy (a Postgres abort, a raise) rolls back its own
+    work, is logged, and the tick still serves the other vacancies."""
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        first_id, coach_a, _, _ = _seed(enrolled=0, candidates=2, max_players=2)
+        from padel_app.models.vacancy import Vacancy
+
+        ids = []
+        for _ in range(2):
+            v = Vacancy(lesson_instance_id=first_id, coach_id=coach_a, status="open",
+                        current_round_number=1, current_batch_number=0)
+            db.session.add(v)
+            db.session.flush()
+            ids.append(v.id)
+        db.session.commit()
+        real = ns._start_vacancy
+
+        def flaky(vacancy, *args, **kwargs):
+            if vacancy.id == ids[0]:
+                raise RuntimeError("deadlock detected")
+            return real(vacancy, *args, **kwargs)
+
+        monkeypatch.setattr(ns, "_start_vacancy", flaky)
+        ns.process_invitation_batches(now=NOW)
+        assert db.session.get(Vacancy, ids[1]).current_batch_number == 1
