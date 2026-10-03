@@ -1192,6 +1192,8 @@ export interface StudentGroupPlayer {
   name: string;
   levelCode: string | null;
   levelId: string | null;
+  /** PAD-497: said "no" to an invitation for this class; the coach may still invite them. Absent from older servers. */
+  declinedThisClass?: boolean;
 }
 
 export interface StudentGroup {
@@ -1409,7 +1411,9 @@ export interface InviteSimulation {
 export type InviteExplainStage =
   | "departing_player"
   | "already_enrolled"
+  | "declined_this_class"
   | "already_invited"
+  | "offered_another_spot"
   | "eligibility"
   | "excluded_by_coach"
   | "inactive_account"

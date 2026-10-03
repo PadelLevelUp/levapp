@@ -6,6 +6,7 @@ import {
   describePriority,
   describeRules,
   describeSendStatus,
+  describeStage,
   describeVerdict,
   resolveText,
   sortGates,
@@ -200,5 +201,12 @@ describe("describeVerdict + resolveText", () => {
     expect(resolveText(t, verdict.reasons[0])).toBe(
       'tutorials.understandInvites.roundReason{"round":2,"n":2,"reason":"tutorials.eligibility.levelBelow{\\"round\\":2,\\"n\\":2}"}',
     );
+  });
+});
+
+describe("describeStage fallback (PAD-497)", () => {
+  it("names a known stage and falls back to a generic line for one this build does not know", () => {
+    expect(describeStage("declined_this_class").key).toBe("tutorials.stages.declined_this_class");
+    expect(describeStage("some_future_stage" as never).key).toBe("tutorials.stages.unknown");
   });
 });

@@ -570,9 +570,12 @@ def test_daily_quota_marks_candidate(app):
             **DEFAULT_RESTRICTIONS,
             "maxInvitesPerStudentPerDay": {"enabled": True, "value": 1},
         })
+        # Today's earlier invitation spends hugo's quota. It ended unanswered (`expired`, no
+        # answer): a live one would now skip him as `offered_another_spot`, and a "no" as
+        # `declined_this_class` (invitations rule 18), before the quota is ever asked.
         db.session.add(NotificationEvent(
             coach_id=ids["coach_id"], lesson_instance_id=ids["instance_id"],
-            player_id=hugo, type="auto", round_number=1, status="sent",
+            player_id=hugo, type="auto", round_number=1, status="expired",
         ))
         db.session.commit()
 

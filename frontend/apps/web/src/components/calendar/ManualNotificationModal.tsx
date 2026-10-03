@@ -30,6 +30,8 @@ interface PlayerToggleRowProps {
   playerId: string;
   name: string;
   levelCode?: string | null;
+  /** PAD-497: said "no" to an invitation for this class — still selectable by the coach. */
+  declined?: boolean;
   selected: boolean;
   onToggle: (playerId: string) => void;
   /** Group rows sit inside a bordered card, so they get slightly tighter spacing. */
@@ -49,10 +51,12 @@ function PlayerToggleRow({
   playerId,
   name,
   levelCode,
+  declined = false,
   selected,
   onToggle,
   compact = false,
 }: PlayerToggleRowProps) {
+  const { t } = useTranslation();
   // useId (not the player id): the same player can legitimately appear in more
   // than one group and in the search results, and duplicate DOM ids would break
   // the label↔checkbox association.
@@ -78,6 +82,14 @@ function PlayerToggleRow({
         </div>
         <span className="text-sm truncate">{name}</span>
         {levelCode && <span className="text-xs text-muted-foreground shrink-0">{levelCode}</span>}
+        {declined && (
+          <span
+            data-testid={`notify-declined-${playerId}`}
+            className="text-xs text-destructive shrink-0"
+          >
+            {t("calendar.notify.declinedThisClass")}
+          </span>
+        )}
       </div>
     </label>
   );
@@ -121,6 +133,12 @@ export function ManualNotificationModal({
       .catch(() => setGroups([]))
       .finally(() => setLoadingGroups(false));
   }, [open, eventModel, eventOriginalId, eventDate]);
+
+  // PAD-497: the class's decliners, from the groups (search rows come from the roster list).
+  const declinedIds = useMemo(
+    () => new Set(groups.flatMap((g) => g.players.filter((p) => p.declinedThisClass).map((p) => p.id))),
+    [groups]
+  );
 
   const allEligible = useMemo(
     () => coachPlayers.filter((p) => !existingSet.has(p.playerId)),
@@ -277,6 +295,7 @@ export function ManualNotificationModal({
                           playerId={p.id}
                           name={p.name}
                           levelCode={p.levelCode}
+                          declined={!!p.declinedThisClass}
                           selected={selected.has(p.id)}
                           onToggle={togglePlayer}
                           compact
@@ -311,6 +330,7 @@ export function ManualNotificationModal({
                     playerId={p.playerId}
                     name={p.name}
                     levelCode={p.level?.code}
+                    declined={declinedIds.has(p.playerId)}
                     selected={selected.has(p.playerId)}
                     onToggle={togglePlayer}
                   />

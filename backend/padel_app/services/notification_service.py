@@ -1178,9 +1178,26 @@ def _passes_group_rules(
 # player with the first stage that dropped them; the engine keeps the
 # survivors, the simulation keeps everything.
 
+def _same_class(instance_id: int):
+    """PAD-497 (invitations rule 18): the one place "that class" is keyed for a student's "no" and
+    for one-live-offer-per-class — the single occurrence. A series-wide reading would change only
+    this (to the occurrence's ``lesson_id``)."""
+    return NotificationEvent.lesson_instance_id == instance_id
+
+
+def _declined_player_ids(instance_id: int) -> set:
+    """Players who answered "no" to an invitation for this class occurrence (rule 18)."""
+    return {
+        pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
+            _same_class(instance_id), NotificationEvent.answer == "no"
+        )
+    }
+
+
 CANDIDATE_STAGES = (
     "departing_player",
     "already_enrolled",
+    "declined_this_class",  # PAD-497 (rule 18): said "no" to an invitation for this class
     "already_invited",
     "eligibility",
     "excluded_by_coach",
@@ -1188,6 +1205,7 @@ CANDIDATE_STAGES = (
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
+    "offered_another_spot",  # PAD-497 / PAD-494 (rule 18): would be asked, but holds another spot's offer
     "invited",
 )
 
@@ -1251,27 +1269,42 @@ def evaluate_candidates(
     enrolled_ids = set(instance.enrolled_player_ids)  # PAD-259
     departing_id = getattr(vacancy, "original_player_id", None)
 
-    active_invite_ids: set = set()
-    if getattr(vacancy, "id", None) is not None:
-        from sqlalchemy import or_
+    from sqlalchemy import and_, or_
 
-        # B-056 (notifications.invitations rule 8): a player already asked for
-        # this vacancy in THIS round is done for the round, whatever they
-        # answered. A decline or a timeout leaves the invitation `expired`, and
-        # without the round clause the decliner was eligible again at once:
-        # the ranking does not change on a decline, so `_send_next_on_decline`
-        # invited the same player straight back and the round never ran out.
-        # Invitations still live from any round keep excluding, as before.
-        active_invite_ids = {
-            e.player_id
-            for e in NotificationEvent.query.filter(
-                NotificationEvent.vacancy_id == vacancy.id,
-                or_(
-                    NotificationEvent.status.in_(["sent", "confirmed"]),
-                    NotificationEvent.round_number == wave[1],
-                ),
-            ).all()
-        }
+    own_vacancy_id = getattr(vacancy, "id", None)
+    # One query for the wave (PAD-276), over every invitation of the class occurrence that matters:
+    # - B-056 (rule 8): a player already asked for THIS vacancy in THIS round is done for the
+    #   round, whatever they answered; live invitations for it from any round keep excluding.
+    #   (A vacancy with no ``id`` — the simulation's hypothetical — has none of its own.)
+    # - PAD-497 (rule 18): a player who answered "no" to any invitation of the class is never
+    #   asked again for it, and a player holding a live invitation for another spot of it is
+    #   skipped until that offer resolves (PAD-494).
+    own_clauses = []
+    if own_vacancy_id is not None:
+        own_clauses.append(and_(
+            NotificationEvent.vacancy_id == own_vacancy_id,
+            or_(
+                NotificationEvent.status.in_(["sent", "confirmed"]),
+                NotificationEvent.round_number == wave[1],
+            ),
+        ))
+    active_invite_ids: set = set()
+    declined_ids: set = set()
+    offered_elsewhere_ids: set = set()
+    for e in NotificationEvent.query.filter(
+        _same_class(instance.id),
+        or_(
+            NotificationEvent.answer == "no",
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            *own_clauses,
+        ),
+    ).all():
+        if e.answer == "no":
+            declined_ids.add(e.player_id)
+        elif own_vacancy_id is not None and e.vacancy_id == own_vacancy_id:
+            active_invite_ids.add(e.player_id)
+        elif e.status in LIVE_INVITATION_STATES:
+            offered_elsewhere_ids.add(e.player_id)
 
     eligibility_rules = effective_eligibility(instance, coach_id, config)
 
@@ -1326,6 +1359,9 @@ def evaluate_candidates(
         if pid in enrolled_ids:
             verdicts.append(CandidateVerdict(cp, "already_enrolled"))
             continue
+        if pid in declined_ids:
+            verdicts.append(CandidateVerdict(cp, "declined_this_class"))
+            continue
         if pid in active_invite_ids:
             verdicts.append(CandidateVerdict(cp, "already_invited"))
             continue
@@ -1366,6 +1402,15 @@ def evaluate_candidates(
         )
         if failures:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
+            continue
+        # PAD-497 / PAD-494 (rule 18), last on purpose (#513 review F1): a student holding a live
+        # invitation for another spot of the class (a manual invitation included) is skipped only
+        # here, after every other stage has passed, so `offered_another_spot` means "this round
+        # would ask them but for that offer". A holder the round would never ask (excluded,
+        # ineligible, unavailable, outside the round's rules) gets that reason instead, and does not
+        # hold the spot (_send_invitation_batch waits only on `offered_another_spot`).
+        if pid in offered_elsewhere_ids:
+            verdicts.append(CandidateVerdict(cp, "offered_another_spot"))
             continue
         verdicts.append(CandidateVerdict(cp, "invited"))
 
@@ -1820,9 +1865,20 @@ def _send_system_message(
     msg_metadata: dict | None = None,
     class_instance_id: int | None = None,
     push: bool = True,
+    *,
+    conversation=None,
+    before_commit=None,
 ):
-    from padel_app.models import Message
+    """Persist one coach→student message, then deliver it (live event, push).
+
+    ``conversation`` and ``before_commit`` (PAD-497, #526 review): an invitation's sender fetches
+    the conversation BEFORE it flushes the invitation (getting or creating it commits), and passes
+    ``before_commit`` to stamp the invitation's ``message_id`` — so the invitation, its message and
+    the link between them land in ONE commit, and delivery happens only after it.
+    """
+    import padel_app.models as models
     from padel_app.serializers.message import serialize_message
+    from padel_app.tools.unit_of_work import commit_or_flush
     from padel_app.utils.expo_push import send_expo_push_to_user
 
     # PAD-67 backstop: never deliver an empty message. Template resolution
@@ -1900,15 +1956,19 @@ def _send_system_message(
                 )
             return None
 
-    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
-    msg = Message(
+    conv = conversation or _get_or_create_direct_conversation(coach_user_id, player_user_id)
+    msg = models.Message(
         text=text,
         sender_id=coach_user_id,
         conversation_id=conv.id,
         message_type=message_type,
         msg_metadata=msg_metadata or {},
     )
-    msg.create()
+    db.session.add(msg)
+    db.session.flush()
+    if before_commit is not None:
+        before_commit(msg)
+    commit_or_flush()  # the message (and whatever its caller flushed with it), as create() did
 
     # The coach and the player of the direct conversation, nobody else (B-004).
     publish(
@@ -3897,7 +3957,22 @@ def _send_invitation_batch(
         # PAD-261: another path won the spot, or the class is full. Invite nobody.
         return []
 
-    eligible = _get_eligible_students_for_group(vacancy, instance, coach_id, config, vacancy.current_round_number)
+    verdicts = evaluate_candidates(
+        vacancy, instance, coach_id, config, wave=("group", vacancy.current_round_number)
+    )
+    eligible = _rank_invited(verdicts, config, vacancy)
+
+    if (
+        not eligible
+        and vacancy.current_round_number >= _round_max_count(config)
+        and any(v.stage == "offered_another_spot" for v in verdicts)
+    ):
+        # PAD-497 / PAD-494 (rule 18): the LAST round is empty only because students hold an offer
+        # for another spot of the class. Wait for those offers to resolve instead of expiring: a
+        # sibling spot's pending offer must not starve this one (a never-started vacancy gives its
+        # claim back and is retried on the next tick). An earlier round moves on as usual, so the
+        # students only a later invitation group admits are still asked.
+        return []
 
     if not eligible:
         # PAD-87 / notifications.invitations rule 3c: an empty round advances
@@ -3949,6 +4024,10 @@ def _send_invitation_batch(
         player = Player.query.get(cp.player_id)
         player_name = (player.user.name if player and player.user else "Player").split()[0]
 
+        # PAD-497 (#526 review item 1): the conversation first — getting or creating it commits —
+        # so nothing below commits until the invitation, its message and the link between them
+        # can commit together.
+        conversation = _get_or_create_direct_conversation(coach_user_id, player_user_id)
         event = NotificationEvent(
             coach_id=coach_id,
             lesson_instance_id=instance.id,
@@ -3958,7 +4037,11 @@ def _send_invitation_batch(
             round_number=vacancy.current_round_number,
             status="sent",
         )
-        event.create()
+        # Flushed, not committed: the id goes into the message's metadata, and the message's own
+        # commit carries the invitation and its message_id (before_commit) with it. A message
+        # that fails rolls its invitation back; one a backstop withholds is discarded below.
+        db.session.add(event)
+        db.session.flush()
 
         text = _format_template(
             resolve_message_template(templates, "invite", locale),
@@ -3979,12 +4062,16 @@ def _send_invitation_batch(
                 "vacancyId": vacancy.id,
                 "responded": False,
             },
+            conversation=conversation,
+            before_commit=lambda m, event=event: setattr(event, "message_id", m.id),
         )
-        # _send_system_message returns None only if the body came out empty
-        # (PAD-67 backstop); the event still exists, just without a chat message.
-        if msg is not None:
-            event.message_id = msg.id
-            event.save()
+        # _send_system_message returns None, without raising, when a backstop withholds the
+        # message (an empty body, PAD-67; availability, PAD-107; block-all, PAD-112). The
+        # invitation was only flushed: discard it.
+        if msg is None:
+            db.session.delete(event)
+            db.session.flush()
+            continue
 
         notified.append({"id": str(cp.player_id), "name": player_name})
 
@@ -4021,6 +4108,17 @@ def _defer_next_round(
     else:
         vacancy.current_round_number += 1
     vacancy.save()
+
+
+def _nothing_out(vacancy: Vacancy) -> bool:
+    """PAD-497: a vacancy whose first batch completed (batch 1 or later) and that has no invitation
+    of its own still live — nothing for `maxInactiveTime` to pace. A claim still in its first batch
+    (batch 0) is left to the claim's lease (rule 1b)."""
+    batch = vacancy.current_batch_number
+    # A real row only: the schedule tests drive this tick with MagicMock vacancies (as _round_pending).
+    if not isinstance(batch, int) or batch < 1:
+        return False
+    return not _has_live_offers(vacancy)
 
 
 def _has_live_offers(vacancy: Vacancy) -> bool:
@@ -4479,6 +4577,14 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
             processed += 1
             continue
 
+        # PAD-497 (rule 18): a started vacancy with no invitation of its own still out has nothing
+        # to pace — it is waiting on another spot's offers (rule 18), or its last offer was answered
+        # by the coach — so it is looked at every tick: it invites, waits again, or moves on.
+        if _nothing_out(vacancy):
+            _send_invitation_batch(vacancy, instance, config, vacancy.coach_id, now=_now)
+            processed += 1
+            continue
+
         # Check inactivity timer
         max_inactive = restrictions.get("maxInactiveTime", {})
         if max_inactive.get("enabled"):
@@ -4503,13 +4609,21 @@ def _repeated_answer(event: NotificationEvent, action: str) -> dict | None:
     """
     if event.vacancy_id is not None:
         Vacancy.query.filter_by(id=event.vacancy_id).with_for_update().populate_existing().one()
-    NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    else:
+        # A manual invitation has no vacancy to lock (#513 review F3): lock the invitation itself.
+        NotificationEvent.query.filter_by(id=event.id).with_for_update().populate_existing().one()
     if action == "no" and event.status not in LIVE_INVITATION_STATES:
         db.session.commit()  # release the lock; nothing was written
         return {"action": "declined"}
     if action == "yes" and event.status == "confirmed":
         db.session.commit()  # release the lock; nothing was written
         return {"action": "confirmed"}
+    if action == "yes" and event.answer == "no":
+        # PAD-497 (rule 18): the student's "no" is final for the class; both clients already show
+        # this invitation as Declined, and "declined" keeps it so.
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "declined"}
     return None
 
 
@@ -4547,11 +4661,13 @@ def respond_to_notification(
     repeat = _repeated_answer(event, action)
     if repeat is not None:
         return repeat
+    if action in ("yes", "no"):
+        event.answer = action  # PAD-497 (rule 18): the answer itself, not only the status
     if action == "no":
         # Claimed while the vacancy lock is still held: the invite message's save below commits
         # and releases it, and a second "no" waiting on that lock must already see this one.
         event.status = "expired"
-        db.session.flush()
+    db.session.flush()
 
     config = get_or_create_config(event.coach_id)
 
@@ -4633,6 +4749,11 @@ def respond_to_notification(
         if event.status == "confirmed":
             db.session.commit()  # release the lock; nothing was written
             return {"action": "confirmed"}
+        if event.answer == "no":
+            # PAD-497 (#513 review F3): a "no" on this invitation landed between this answer's
+            # first commit and the lock; it is final (rule 18).
+            db.session.commit()  # release the lock; nothing was written
+            return {"action": "declined"}
 
         # Check vacancy status first
         if vacancy and vacancy.status != "open":
@@ -4756,6 +4877,8 @@ def coach_respond_to_notification(
 
     instance = event.lesson_instance
     vacancy = event.vacancy
+    if action in ("yes", "no"):
+        event.answer = action  # PAD-497 (rule 18): the coach records the student's answer
 
     if action == "no":
         event.status = "expired"
@@ -4844,7 +4967,10 @@ def send_manual_notifications(
             continue
 
         player_user_id = _user_id_for_player(player_id)
+        if not coach_user_id or not player_user_id:
+            continue  # nobody to message: no invitation either (rule 18: none without its message)
 
+        conversation = _get_or_create_direct_conversation(coach_user_id, player_user_id)
         event = NotificationEvent(
             coach_id=coach_id,
             lesson_instance_id=instance_id,
@@ -4853,38 +4979,43 @@ def send_manual_notifications(
             round_number=1,
             status="sent",
         )
-        event.create()
+        # As in _send_invitation_batch (#526 review item 1): the conversation first, then the
+        # invitation flushed; it commits with its message and message_id, or not at all.
+        db.session.add(event)
+        db.session.flush()
 
-        if coach_user_id and player_user_id:
-            player = Player.query.get(player_id)
-            player_name = (player.user.name if player and player.user else "there").split()[0]
-            level_code = effective_level_code(instance)
-            weekday = _format_weekday(instance.start_datetime, locale)
-            time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
+        player = Player.query.get(player_id)
+        player_name = (player.user.name if player and player.user else "there").split()[0]
+        level_code = effective_level_code(instance)
+        weekday = _format_weekday(instance.start_datetime, locale)
+        time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
 
-            text = _format_template(
-                resolve_message_template(templates, "invite", locale),
-                name=player_name,
-                level=level_code,
-                weekday=weekday,
-                time=time_str,
-                **class_placeholders(instance, locale),
-            )
+        text = _format_template(
+            resolve_message_template(templates, "invite", locale),
+            name=player_name,
+            level=level_code,
+            weekday=weekday,
+            time=time_str,
+            **class_placeholders(instance, locale),
+        )
 
-            msg = _send_system_message(
-                coach_user_id=coach_user_id,
-                player_user_id=player_user_id,
-                text=text,
-                message_type="notification_invite",
-                msg_metadata={
-                    "notificationEventId": event.id,
-                    "lessonInstanceId": instance_id,
-                    "responded": False,
-                },
-            )
-            if msg is not None:
-                event.message_id = msg.id
-                event.save()
+        msg = _send_system_message(
+            coach_user_id=coach_user_id,
+            player_user_id=player_user_id,
+            text=text,
+            message_type="notification_invite",
+            msg_metadata={
+                "notificationEventId": event.id,
+                "lessonInstanceId": instance_id,
+                "responded": False,
+            },
+            conversation=conversation,
+            before_commit=lambda m, event=event: setattr(event, "message_id", m.id),
+        )
+        if msg is None:
+            db.session.delete(event)
+            db.session.flush()
+            continue
 
         events.append(event)
 
@@ -5145,6 +5276,11 @@ def _check_waiting_list(
         coach_id=coach_id,
         is_active=True,
     ).all()
+    if entries:
+        # PAD-497 (rule 18): the automatic fill is the engine offering the spot; a student who
+        # said "no" to this class is not placed by it.
+        declined = _declined_player_ids(instance.id)
+        entries = [e for e in entries if e.player_id not in declined]
     if not entries:
         return None
 
@@ -5395,7 +5531,7 @@ def _students_with_justified_absences(coach_players: list, coach_id: int) -> lis
     return result
 
 
-def _serialize_cp_for_group(cp: Association_CoachPlayer) -> dict:
+def _serialize_cp_for_group(cp: Association_CoachPlayer, declined_ids: set = frozenset()) -> dict:
     player = cp.player
     user = player.user if player else None
     return {
@@ -5403,6 +5539,9 @@ def _serialize_cp_for_group(cp: Association_CoachPlayer) -> dict:
         "name": user.name if user else "Unknown",
         "levelCode": cp.level.code if cp.level else None,
         "levelId": str(cp.level_id) if cp.level_id else None,
+        # PAD-497 (rule 18): the engine will not invite them to this class again; the coach still
+        # can, so the picker marks them rather than hiding them.
+        "declinedThisClass": cp.player_id in declined_ids,
     }
 
 
@@ -5414,12 +5553,14 @@ def get_notification_groups(
     enabled_groups = [g for g in groups_config if g.get("enabled")]
 
     already_notified_ids: set[int] = set()
+    declined_ids: set = set()
     if model.lower() == "lessoninstance":
         obj = LessonInstance.query.get(original_id)
         if obj is None:
             return []
         level_id = effective_level_id(obj)
         enrolled_ids = set(obj.enrolled_player_ids)  # PAD-259
+        declined_ids = _declined_player_ids(obj.id)
         already_notified_ids = {
             e.player_id
             for e in NotificationEvent.query.filter(
@@ -5464,7 +5605,7 @@ def get_notification_groups(
         result.append({
             "id": gid,
             "label": label,
-            "players": [_serialize_cp_for_group(cp) for cp in players],
+            "players": [_serialize_cp_for_group(cp, declined_ids) for cp in players],
         })
 
     return result
