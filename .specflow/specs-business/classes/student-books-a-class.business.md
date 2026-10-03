@@ -63,6 +63,10 @@ Students who want a class outside the coach's published schedule, and the coach 
   another time, and the other side always gets to answer.
 - Every state change — new request, accepted, declined, counter-proposed, proposal answered,
   withdrawn — reaches the other side through the existing notification channels.
+- Whatever happens to a request (accepted, declined, withdrawn, moved), the coach and the students
+  on it see it on their calendars and home screens straight away, on every device they have open,
+  with no reload and no logging out (PAD-488). A device that was offline at that moment catches up
+  the next time it reloads that screen.
 
 ## Success Metrics
 

@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@levelup/hooks";
+import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassJoinRequestListRow, ClassRequest, EligibilityCheckEntry } from "@levelup/types";
 import {
@@ -102,13 +102,10 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const [booking, setBooking] = useState(false);
 
   const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.classRequests }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.classJoinRequests }),
-      // The class sheet's own read, wherever it is cached — an academy decision
-      // made from this list must not leave it stale.
-      queryClient.invalidateQueries({ queryKey: ["class-instance"] }),
-    ]);
+    // The request lists, the class sheet's own read wherever it is cached (an academy
+    // decision made from this list must not leave it stale) and, rule 19 (PAD-488),
+    // the calendar.
+    await refreshAfterRequestChange(queryClient);
   };
 
   useEffect(() => {
