@@ -42,6 +42,9 @@ class LessonInstance(db.Model, model.Model):
     
     level_id = Column(Integer, ForeignKey("coach_levels.id", ondelete="SET NULL"))  # PAD-255
     level = relationship("CoachLevel")
+    # clubs.courts rule 9 (PAD-513): this occurrence's own court; NULL inherits the lesson's.
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="SET NULL"), nullable=True)
+    court = relationship("Court")
 
     notifications_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
     # PAD-129 (eligibility.cascade): the single-class tier. Same tri-state as
@@ -107,6 +110,14 @@ class LessonInstance(db.Model, model.Model):
         if lesson is not None and lesson.default_level_id:
             return getattr(lesson, "default_level", None) or _load_level(lesson.default_level_id)
         return None
+
+    @property
+    def effective_court(self):
+        """Court of this occurrence (clubs.courts rule 9): its own when set, else the lesson's."""
+        if self.court is not None:
+            return self.court
+        lesson = self.lesson
+        return lesson.court if lesson is not None else None
 
     @property
     def title(self):

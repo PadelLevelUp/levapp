@@ -161,3 +161,33 @@ describe("edit: the save decision (classes.edit rule 9)", () => {
     expect(finalize).toHaveBeenCalledWith({ addPlayers: ["2"] });
   });
 });
+
+describe("edit: the court reaches the save in every scope (clubs.courts rule 9, PAD-513)", () => {
+  // [id].tsx passes these changes to editClass with the scope the coach chose;
+  // "this occurrence only" and a class that does not recur both save as "single".
+  const original = { ...base, courtId: 1 as number | null };
+
+  it("a court chosen in the editor is sent as courtId", async () => {
+    const finalize = vi.fn(async () => {});
+    await commitClassEdit({
+      original,
+      draft: { ...original, courtId: 2 },
+      eligibility: vi.fn(async () => ({ ineligible: [] })),
+      finalize,
+      ui: { nothingToSave: vi.fn(), askEligibility: vi.fn() },
+    });
+    expect(finalize).toHaveBeenCalledWith({ courtId: 2 });
+  });
+
+  it("\"No court\" is sent as courtId null, for the server to store or refuse", async () => {
+    const finalize = vi.fn(async () => {});
+    await commitClassEdit({
+      original,
+      draft: { ...original, courtId: null },
+      eligibility: vi.fn(async () => ({ ineligible: [] })),
+      finalize,
+      ui: { nothingToSave: vi.fn(), askEligibility: vi.fn() },
+    });
+    expect(finalize).toHaveBeenCalledWith({ courtId: null });
+  });
+});
