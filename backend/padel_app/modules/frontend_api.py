@@ -1611,8 +1611,8 @@ def add_class():
         # rather than creating an unbounded recurring class.
         return jsonify({"error": str(e), "code": e.code}), 400
     except CourtNotInClubError as e:
-        # clubs.courts rule 6 (PAD-194).
-        return jsonify({"error": str(e), "code": e.code}), 400
+        # clubs.courts rule 6 (PAD-194); B-266: name the field.
+        return jsonify({"error": str(e), "code": e.code, "fields": ["courtId"]}), 400
     return jsonify(serialize_calendar_event(lesson))
 
 
@@ -2547,8 +2547,8 @@ def edit_class():
     try:
         result, status = edit_class_service(data)
     except CourtNotInClubError as e:
-        # clubs.courts rule 6 (PAD-194).
-        return jsonify({"error": str(e), "code": e.code}), 400
+        # clubs.courts rule 6 (PAD-194); B-266: name the field.
+        return jsonify({"error": str(e), "code": e.code, "fields": ["courtId"]}), 400
     # PAD-387: the service refuses a sent-empty NOT NULL value before writing; any
     # other NotNullableFieldError is answered 400 by the blueprint handler (PAD-385).
     return jsonify(result), status
