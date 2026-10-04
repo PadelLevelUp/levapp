@@ -62,7 +62,7 @@ test("US-75: cancellation deadline control defaults to 24", async ({ page }) => 
   await expect(row.getByText("24", { exact: true })).toBeVisible({ timeout: 5000 });
 });
 
-// US-75: Changing and saving the cancellation deadline persists across reload.
+// US-75: Changing the cancellation deadline and pressing the tab's Save persists across reload.
 test("US-75: cancellation deadline persists via config API across reload", async ({ page }) => {
   await openNotificationsTab(page);
   await openRestrictions(page);
@@ -75,7 +75,7 @@ test("US-75: cancellation deadline persists via config API across reload", async
   const incrementBtn = row.getByRole("button").last();
 
   // Armed BEFORE the clicks — waitForResponse only observes traffic that happens
-  // after the call. Waiting for the auto-save POST to actually come back, rather
+  // after the call. Waiting for the Save's POST to actually come back, rather
   // than sleeping a fixed 600ms, is what makes this deterministic: under full
   // suite load the write had not always landed before the reload, so the value
   // read back as the pre-edit default and the test failed intermittently.
@@ -92,7 +92,11 @@ test("US-75: cancellation deadline persists via config API across reload", async
   await incrementBtn.click();
   await expect(row.getByText("26", { exact: true })).toBeVisible({ timeout: 5000 });
 
+  // PAD-506 (settings.explicit-save): the steps are held; the tab's one Save sends the final value.
+  await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+  await page.getByTestId("settings-header-save").click();
   await saved;
+  await expect(page.getByTestId("settings-header-save")).toBeDisabled();
   await page.reload();
   await page.getByTestId("settings-nav-notifications").click();
   await expect(page.getByTestId("notifications-engine-card")).toBeVisible({ timeout: 5000 });

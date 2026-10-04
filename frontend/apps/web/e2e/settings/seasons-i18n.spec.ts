@@ -48,7 +48,9 @@ test("PAD-51: Seasons section and class-recurrence controls render fully localiz
   await expect(page.getByLabel(/^start month$/i)).toBeVisible();
   await expect(page.getByLabel(/^end day$/i)).toBeVisible();
   await expect(page.getByLabel(/^end month$/i)).toBeVisible();
-  await expect(page.getByRole("button", { name: /save season/i })).toBeVisible();
+  // PAD-506: the season has no Save of its own; the tab's one Save is the page header's.
+  await expect(page.getByRole("button", { name: /save season/i })).toHaveCount(0);
+  await expect(page.getByTestId("settings-header-save")).toBeVisible();
 
   // --- AddClassSheet recurrence controls ---
   await openCalendar(page);

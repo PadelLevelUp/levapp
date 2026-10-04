@@ -95,8 +95,9 @@ season each September.
     UI: PAD-91 showed every trigger empty in production; `needs_review` is kept as data only.
 12. **Settings → Calendar (web and iOS, R-024).** One card: an optional label, a start day/month
     pair and an end day/month pair (selects, not free text), a live preview line of the
-    current-or-upcoming occurrence in the coach's language, **Save** and **Remove season** (with a
-    confirm). The empty state says there is no season yet and what defining one enables. A rule-2
+    current-or-upcoming occurrence in the coach's language, and **Remove season** (with a
+    confirm). A changed definition is held and sent by the Calendário tab's one Save
+    (`settings.explicit-save`, PAD-506); the card has no Save of its own. The empty state says there is no season yet and what defining one enables. A rule-2
     rejection is shown inline under the fields.
 13. **Class creation (web and iOS).** "Recurs until season end" is one of the three ways a series
     ends (`classes.create` rule 9, PAD-463: a date, N classes, or the season). It keeps its hint, and iOS

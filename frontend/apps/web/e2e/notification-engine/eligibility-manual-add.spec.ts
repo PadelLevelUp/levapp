@@ -162,8 +162,10 @@ test.describe("PAD-150: saving a stricter bar reports who it would exclude", () 
       const saved = page.waitForResponse(
         (r) => /\/api\/app\/notify\/config/.test(r.url()) && r.request().method() === "POST" && r.status() === 200
       );
-      // "Add rule" defaults to the level rule (same as the class) and saves at once.
+      // "Add rule" defaults to the level rule (same as the class); PAD-506 (settings.explicit-save)
+      // holds it until the tab's one Save.
       await page.getByRole("button", { name: ui("settings.eligibility.addRule") }).first().click();
+      await page.getByTestId("settings-header-save").click();
       await saved;
 
       const note = page.getByTestId("eligibility-impact");

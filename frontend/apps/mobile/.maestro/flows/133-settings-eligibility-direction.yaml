@@ -3,6 +3,8 @@
 # "only above", leaves Settings and comes back: the screen shows "above" and the server holds
 # within_n_above_class with N kept. Then "only below": the server holds within_n_below_class.
 #
+# PAD-506: each pick is held until the footer Save (`settings-notifications-save`).
+#
 # Setup and teardown through the API (R-040): scripts/pad481-setup.js stores the coach's own
 # bar and sets the starting one; pad481-teardown.js restores it, even when a step fails.
 # Assertions are by testID and server values only, never rendered copy: the trigger's text is
@@ -52,7 +54,18 @@ onFlowComplete:
           visible:
             id: "eligibility-direction-is-above"
           timeout: 5000
-# The saver writes after the pick; poll the server until it holds it.
+# PAD-506 (settings.explicit-save): the pick is held — the server still holds the old operation until
+# the footer Save sends it.
+- evalScript: "${output.held = output.rule()}"
+- assertTrue: "${output.held.operation === 'within_n_of_class'}"
+- scrollUntilVisible:
+    element:
+      id: "settings-notifications-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-notifications-save"
+# After the Save the server is polled until it holds the pick.
 - retry:
     maxRetries: 5
     commands:
@@ -102,7 +115,18 @@ onFlowComplete:
           visible:
             id: "eligibility-direction-is-below"
           timeout: 5000
-# The saver writes after the pick; poll the server until it holds it.
+# PAD-506 (settings.explicit-save): the pick is held — the server still holds the old operation until
+# the footer Save sends it.
+- evalScript: "${output.held = output.rule()}"
+- assertTrue: "${output.held.operation === 'within_n_above_class'}"
+- scrollUntilVisible:
+    element:
+      id: "settings-notifications-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-notifications-save"
+# After the Save the server is polled until it holds the pick.
 - retry:
     maxRetries: 5
     commands:

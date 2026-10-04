@@ -19,9 +19,7 @@ import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
-import { SaveSign, useSaveSign } from "./save-sign";
-import { SaveLedger, createSerialSaver } from "@levelup/config";
-import { useFlushOnBackground } from "@/features/evaluations/use-flush-on-background";
+import { useSectionSave } from "./unsaved-registry";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
 /**
@@ -44,6 +42,15 @@ import type { EligibilityImpactEntry } from "@levelup/types";
  * porting web's RadioGroup 1:1.
  */
 // Web's fallbacks (NotificationsEngineSection) for a config saved before these keys existed.
+// settings.explicit-save (PAD-506): the engine settings this screen edits and its Save sends.
+const ENGINE_FIELDS = [
+  "autoNotifyEnabled",
+  "invitationMode",
+  "eligibilityRules",
+  "openSpotsVisible",
+  "restrictions",
+] as const satisfies readonly (keyof NotificationConfig)[];
+
 const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
   maxInactiveTime: { enabled: false, value: 120 },
   excludedPlayers: { enabled: false, playerIds: [] },
@@ -54,23 +61,11 @@ const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
 export function AutoInviteSection() {
   const { t } = useTranslation();
 
+  // settings.explicit-save (PAD-506), as web's card: every control changes `config` (what the screen
+  // holds); `stored` is what the server last confirmed; the screen's one Save sends the difference.
   const [config, setConfig] = React.useState<NotificationConfig | null>(null);
+  const [stored, setStored] = React.useState<NotificationConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
-  // settings.save-on-change rules 2-3 / B-243 (PAD-473), as web's card: each control signs its save
-  // under its own key, and what a failure puts back comes from the shared SaveLedger.
-  const sign = useSaveSign();
-  const ledger = React.useRef(new SaveLedger<NotificationConfig>());
-  // settings.save-on-change rule 3: one engine save in flight at a time; patches waiting meanwhile are
-  // merged and sent next, so the server ends in the order the saves were sent.
-  const [saveEngine] = React.useState(() =>
-    createSerialSaver(
-      (patch: Partial<NotificationConfig>) => notificationEngineApi.updateNotificationConfig(patch),
-      (pending, next) => ({ ...pending, ...next }),
-    ),
-  );
-  // Review #497: an app leaving the foreground may be suspended before a queued save leaves, so a save
-  // waiting behind one in flight is sent at once (rule 3's named limit: the older one may land after it).
-  useFlushOnBackground(() => saveEngine.sendPendingNow());
 
   React.useEffect(() => {
     let cancelled = false;
@@ -81,7 +76,7 @@ export function AutoInviteSection() {
         // Normalize like web: invitationMode always concrete so the control
         // below is fully controlled and never fires a spurious change.
         const loaded = { ...cfg, invitationMode: cfg.invitationMode ?? "automatic" };
-        ledger.current.seed(loaded);
+        setStored(loaded);
         setConfig(loaded);
       })
       .finally(() => {
@@ -98,24 +93,34 @@ export function AutoInviteSection() {
   // Closed by default, like web's collapsible sub-panels.
   const [restrictionsOpen, setRestrictionsOpen] = React.useState(false);
 
-  const save = async (patch: Partial<NotificationConfig>, signKey: string) => {
-    if (!config) return;
-    const token = ledger.current.begin(patch);
+  // A control's change is held (settings.explicit-save rule 2).
+  const save = (patch: Partial<NotificationConfig>) => {
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
-    const show = (values: Partial<NotificationConfig>) => {
-      if (Object.keys(values).length > 0) setConfig((prev) => (prev ? { ...prev, ...values } : prev));
-    };
-    try {
-      const saved = await sign.track(signKey, saveEngine(patch));
-      show(ledger.current.confirm(token, saved).show);
-      if ("eligibilityRules" in patch) {
-        setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
-      }
-    } catch {
-      // Back to the confirmed value, for the fields whose newest save this was (B-243).
-      show(ledger.current.fail(token));
-    }
   };
+
+  // The fields this screen edits, compared by value (settings.unsaved-edits rule 2).
+  const changed: Partial<NotificationConfig> = {};
+  if (config && stored) {
+    for (const key of ENGINE_FIELDS) {
+      if (JSON.stringify(config[key] ?? null) !== JSON.stringify(stored[key] ?? null)) {
+        (changed as Record<string, unknown>)[key] = config[key];
+      }
+    }
+  }
+  // settings.explicit-save rule 3: one request with what changed.
+  useSectionSave("notificationEngine", Object.keys(changed).length > 0, {
+    label: t("settings.engine.title"),
+    save: async () => {
+      if (Object.keys(changed).length === 0) return;
+      const patch = changed;
+      const saved = await notificationEngineApi.updateNotificationConfig(patch);
+      const confirmed: Partial<NotificationConfig> = {};
+      for (const key of ENGINE_FIELDS) if (key in saved) (confirmed as Record<string, unknown>)[key] = saved[key];
+      setStored((prev) => (prev ? { ...prev, ...patch, ...confirmed } : prev));
+      setConfig((prev) => (prev ? { ...prev, ...confirmed } : prev));
+      if ("eligibilityRules" in patch) setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
+    },
+  });
 
   if (loading) {
     return (
@@ -144,7 +149,6 @@ export function AutoInviteSection() {
               <Text className="text-sm font-medium">
                 {t("settings.engine.automaticNotifications")}
               </Text>
-              <SaveSign status={sign.status("autoNotify")} testID="settings-auto-invite-sign" />
             </View>
             <Text className="text-xs text-muted-foreground">
               {t("settings.engine.automaticNotificationsDescription")}
@@ -154,7 +158,7 @@ export function AutoInviteSection() {
             testID="settings-auto-invite-toggle"
             accessibilityLabel={t("settings.engine.automaticNotifications")}
             checked={config.autoNotifyEnabled}
-            onCheckedChange={(val: boolean) => void save({ autoNotifyEnabled: val }, "autoNotify")}
+            onCheckedChange={(val: boolean) => save({ autoNotifyEnabled: val })}
           />
         </View>
 
@@ -165,7 +169,6 @@ export function AutoInviteSection() {
                 <Text className="text-sm font-medium">
                   {t("settings.engine.invitationMode")}
                 </Text>
-                <SaveSign status={sign.status("invitationMode")} testID="settings-invite-mode-sign" />
               </View>
               <Text className="text-xs text-muted-foreground">
                 {t("settings.engine.invitationModeDescription")}
@@ -191,7 +194,7 @@ export function AutoInviteSection() {
                     accessibilityState={{ checked: isSelected }}
                     accessibilityLabel={label}
                     onPress={() => {
-                      if (value !== mode) void save({ invitationMode: value }, "invitationMode");
+                      if (value !== mode) save({ invitationMode: value });
                     }}
                     className={cn(
                       "flex-1 items-center rounded-md border px-3 py-2.5",
@@ -227,7 +230,6 @@ export function AutoInviteSection() {
               <Text className="text-sm font-medium">
                 {t("settings.engine.eligibility")}
               </Text>
-              <SaveSign status={sign.status("eligibility")} testID="settings-eligibility-sign" />
             </View>
             <Text className="text-xs text-muted-foreground">
               {t("settings.engine.eligibilityHint")}
@@ -235,20 +237,19 @@ export function AutoInviteSection() {
           </View>
           <EligibilitySection
             rules={config.eligibilityRules}
-            onChange={(eligibilityRules) => void save({ eligibilityRules }, "eligibility")}
+            onChange={(eligibilityRules) => save({ eligibilityRules })}
           />
           <EligibilityImpactNote affected={eligibilityImpact} />
           {/* PAD-130: the coach standard of the open-spot toggle. */}
           <View className="mt-3 flex-row items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
             <View className="flex-1 flex-row items-center gap-2">
               <Text className="text-xs">{t("settings.eligibility.openSpots.label")}</Text>
-              <SaveSign status={sign.status("openSpots")} testID="settings-open-spots-sign" />
             </View>
             <Switch
               testID="open-spots-visible"
               accessibilityLabel={t("settings.eligibility.openSpots.label")}
               checked={config.openSpotsVisible ?? false}
-              onCheckedChange={(openSpotsVisible) => void save({ openSpotsVisible }, "openSpots")}
+              onCheckedChange={(openSpotsVisible) => save({ openSpotsVisible })}
             />
           </View>
         </View>
@@ -265,7 +266,6 @@ export function AutoInviteSection() {
           >
             <View className="flex-row items-center gap-2">
               <Text className="text-sm font-medium">{t("settings.engine.restrictions")}</Text>
-              <SaveSign status={sign.status("restrictions")} testID="settings-restrictions-sign" />
             </View>
             <Ionicons
               name={restrictionsOpen ? "chevron-up" : "chevron-down"}
@@ -278,7 +278,7 @@ export function AutoInviteSection() {
               restrictions={{ ...RESTRICTION_FALLBACKS, ...config.restrictions }}
               excludedPlayerNames={config.excludedPlayerNames ?? {}}
               disabled={!config.autoNotifyEnabled}
-              onChange={(restrictions) => void save({ restrictions }, "restrictions")}
+              onChange={(restrictions) => save({ restrictions })}
             />
           ) : null}
         </View>

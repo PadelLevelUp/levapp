@@ -1,12 +1,10 @@
 /**
- * settings.unsaved-edits rule 2 (PAD-394, ledger B-157): the section already computed
- * `isDirty` by value against the `templates` prop (the parent's last loaded/saved
- * value) — this reuses it as-is, so these tests pin that the reused flag still
- * follows rule 2 once it drives the page-level registry.
+ * settings.explicit-save (PAD-506): the section is controlled (value/onChange). The engine
+ * card holds the templates and sends them with the tab's one Save; its tests own that.
  */
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { MessageTemplates } from "@/types";
 
 const updateNotificationConfig = vi.fn();
@@ -40,8 +38,7 @@ const TEMPLATES: MessageTemplates = {
   waiting_list_invite: "waiting list invite {side}",
 };
 
-// Mirrors how NotificationsEngineSection wires it: `onChange` feeds back into the
-// `templates` prop, which is what `isDirty` (and rule 2) compares `local` against.
+// Mirrors how NotificationsEngineSection wires it: `onChange` feeds back into `templates`.
 function Wrapper() {
   const [templates, setTemplates] = useState<MessageTemplates>(TEMPLATES);
   return <MessageTemplatesSection templates={templates} onChange={setTemplates} />;
@@ -56,52 +53,52 @@ beforeEach(() => {
 const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
 const reminderTextarea = () =>
   within(screen.getByTestId("template-row-reminder")).getByRole("textbox") as HTMLTextAreaElement;
-const saveButton = () => screen.getByText("settings.templates.saveTemplates");
 
-describe("MessageTemplatesSection — reports unsaved by rule 2 (PAD-394)", () => {
-  it("reports unsaved after an edit, and clean again once undone by hand", () => {
+describe("MessageTemplatesSection — controlled (settings.explicit-save, PAD-506)", () => {
+  it("shows the templates it is given", () => {
     render(
       <SettingsUnsavedTestHarness>
         <Wrapper />
       </SettingsUnsavedTestHarness>
     );
-    expect(unsavedIds()).toBe("");
-
-    fireEvent.change(reminderTextarea(), { target: { value: "reminder {name} at {time}" } });
-    expect(unsavedIds()).toBe("messageTemplates");
-
-    fireEvent.change(reminderTextarea(), { target: { value: "reminder {name}" } });
-    expect(unsavedIds()).toBe("");
+    expect(reminderTextarea().value).toBe("reminder {name}");
   });
 
-  it("is clean again after a successful save", async () => {
-    updateNotificationConfig.mockResolvedValue({});
+  it("an edit is handed to onChange with the other templates intact, and sends nothing itself", () => {
+    const onChange = vi.fn();
     render(
       <SettingsUnsavedTestHarness>
-        <Wrapper />
+        <MessageTemplatesSection templates={TEMPLATES} onChange={onChange} />
       </SettingsUnsavedTestHarness>
     );
     fireEvent.change(reminderTextarea(), { target: { value: "reminder {name} at {time}" } });
-    expect(unsavedIds()).toBe("messageTemplates");
-
-    fireEvent.click(saveButton());
-    await waitFor(() => expect(updateNotificationConfig).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(unsavedIds()).toBe(""));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ ...TEMPLATES, reminder: "reminder {name} at {time}" });
+    expect(updateNotificationConfig).not.toHaveBeenCalled();
   });
 
-  it("stays unsaved after a failed save", async () => {
-    updateNotificationConfig.mockRejectedValue(new Error("nope"));
+  it("the held value shows in the textarea; the section does not hold state of its own", () => {
+    const onChange = vi.fn();
+    render(
+      <SettingsUnsavedTestHarness>
+        <MessageTemplatesSection templates={TEMPLATES} onChange={onChange} />
+      </SettingsUnsavedTestHarness>
+    );
+    fireEvent.change(reminderTextarea(), { target: { value: "typed" } });
+    // controlled: the parent did not take the change, so the prop value still shows
+    expect(reminderTextarea().value).toBe("reminder {name}");
+  });
+
+  it("has no Save button and reports nothing unsaved by itself (the engine card owns both)", () => {
     render(
       <SettingsUnsavedTestHarness>
         <Wrapper />
       </SettingsUnsavedTestHarness>
     );
-    fireEvent.change(reminderTextarea(), { target: { value: "reminder {name} at {time}" } });
-    expect(unsavedIds()).toBe("messageTemplates");
-
-    fireEvent.click(saveButton());
-    await waitFor(() => expect(updateNotificationConfig).toHaveBeenCalledTimes(1));
-    expect(unsavedIds()).toBe("messageTemplates");
+    fireEvent.change(reminderTextarea(), { target: { value: "edited" } });
+    expect(screen.queryByText("settings.templates.saveTemplates")).toBeNull();
+    expect(unsavedIds()).toBe("");
+    expect(updateNotificationConfig).not.toHaveBeenCalled();
   });
 });
 
