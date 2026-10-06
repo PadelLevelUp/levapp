@@ -194,3 +194,8 @@ it is designed to be switched off later without a data change.
 - Decision 2026-09-09 (owner, PAD-233): rejection disables the login (rules 10–13) and the
   coach may ask again. The `disabled` status is reused rather than a new column so no migration
   was needed; a deleted account cannot re-apply because deletion clears the email.
+- **Surface moving (2026-10-06, PAD-532, draft):** the approving surface of rules 2, 3, 7 and 9
+  (Settings → Admin and `/api/app/admin/*`) moves to the staff console and is removed from web
+  and iOS; the approval rules themselves are unchanged and the console calls the same services.
+  See `admin.approvals-and-users` (approvals) and `admin.clubs-and-switches` rule 4 (the gate).
+  Until that ships, the rules above describe production.

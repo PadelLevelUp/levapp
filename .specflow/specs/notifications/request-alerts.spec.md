@@ -110,6 +110,9 @@ with a per-user opt-out (PAD-232).
 - **Then** the switch stays off and `GET /api/auth/me` returns `requestAlerts: false`
 
 ### Notes
+- **Pending-coach push target (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10
+  points the superadmin's pending-coach push at the staff console's approvals page; who receives
+  it once `admin_roles` replaces `is_superadmin` is owner-pending there.
 - OPEN: role-neutral editable copy for these alerts (rule 4).
 - RESOLVED (PAD-327): the native tap route. Request alerts no longer send `type: "request"`;
   they carry `messaging.push-notifications` rule 7's `path` shape with `PATHS[kind]`, and the
