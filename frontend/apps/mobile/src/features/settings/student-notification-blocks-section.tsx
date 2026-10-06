@@ -13,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -27,8 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/toast";
-import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
+import { useSectionSave } from "@/features/settings/unsaved-registry";
 import { writeAuthMe } from "@/features/settings/write-auth-me";
 
 /**
@@ -94,7 +92,6 @@ export function StudentNotificationBlocksSection() {
   const [blockManual, setBlockManual] = React.useState(false);
   const [blockAll, setBlockAll] = React.useState(false);
   const [reason, setReason] = React.useState("");
-  const [isSaving, setIsSaving] = React.useState(false);
   const [confirmAllOpen, setConfirmAllOpen] = React.useState(false);
   // The last loaded/saved baseline (settings.unsaved-edits rule 2) — updated whenever
   // `me` changes (like profile-section.tsx's `saved`), independent of `dirtyRef`.
@@ -125,48 +122,41 @@ export function StudentNotificationBlocksSection() {
     setReason(loaded.reason);
   }, [me]);
 
-  useUnsavedReporter(
-    "studentNotificationBlocks",
-    isNotifBlocksUnsaved({ blockAuto, blockManual, blockAll, reason }, saved)
-  );
 
   const edit = (apply: () => void) => {
     dirtyRef.current = true;
     apply();
   };
 
+  // settings.explicit-save rule 3 (PAD-506): this section's part of the screen's one Save.
   const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const updated = await authApi.updateMe({
-        blockAutoInvitations: blockAuto,
-        blockManualInvitations: blockManual,
-        blockAllNotifications: blockAll,
-        notificationBlockReason: reason.trim(),
-      });
-      await writeAuthMe(queryClient, updated);
-      // Re-hydrate from the response so the pane shows exactly what was
-      // stored (the server trims the reason).
-      const confirmed: NotifBlocksForm = {
-        blockAuto: Boolean(updated.blockAutoInvitations),
-        blockManual: Boolean(updated.blockManualInvitations),
-        blockAll: Boolean(updated.blockAllNotifications),
-        reason: updated.notificationBlockReason ?? "",
-      };
-      setBlockAuto(confirmed.blockAuto);
-      setBlockManual(confirmed.blockManual);
-      setBlockAll(confirmed.blockAll);
-      setReason(confirmed.reason);
-      setSaved(confirmed);
-      dirtyRef.current = false;
-      // Only after the server confirms — never an optimistic success toast.
-      toast.success(t("settings.notificationBlocks.savedDescription"));
-    } catch {
-      toast.error(t("settings.toast.couldNotSaveDescription"));
-    } finally {
-      setIsSaving(false);
-    }
+    const updated = await authApi.updateMe({
+      blockAutoInvitations: blockAuto,
+      blockManualInvitations: blockManual,
+      blockAllNotifications: blockAll,
+      notificationBlockReason: reason.trim(),
+    });
+    await writeAuthMe(queryClient, updated);
+    // Re-hydrate from the response so the pane shows exactly what was
+    // stored (the server trims the reason).
+    const confirmed: NotifBlocksForm = {
+      blockAuto: Boolean(updated.blockAutoInvitations),
+      blockManual: Boolean(updated.blockManualInvitations),
+      blockAll: Boolean(updated.blockAllNotifications),
+      reason: updated.notificationBlockReason ?? "",
+    };
+    setBlockAuto(confirmed.blockAuto);
+    setBlockManual(confirmed.blockManual);
+    setBlockAll(confirmed.blockAll);
+    setReason(confirmed.reason);
+    setSaved(confirmed);
+    dirtyRef.current = false;
   };
+  useSectionSave(
+    "studentNotificationBlocks",
+    isNotifBlocksUnsaved({ blockAuto, blockManual, blockAll, reason }, saved),
+    { label: t("settings.notificationBlocks.title"), save: handleSave },
+  );
 
   if (isPending) {
     return (
@@ -237,18 +227,6 @@ export function StudentNotificationBlocksSection() {
           </Text>
         </View>
 
-        <Button
-          testID="student-notif-save"
-          accessibilityLabel={t("settings.notificationBlocks.save")}
-          disabled={isSaving}
-          onPress={() => void handleSave()}
-        >
-          <Text>
-            {isSaving
-              ? t("settings.notificationBlocks.saving")
-              : t("settings.notificationBlocks.save")}
-          </Text>
-        </Button>
       </CardContent>
 
       <AlertDialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>

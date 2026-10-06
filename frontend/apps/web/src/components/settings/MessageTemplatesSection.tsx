@@ -1,13 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageSquare } from "lucide-react";
 
 import type { MessageTemplates } from "@/types";
-import { updateNotificationConfig } from "@/api/notificationEngine";
-import { toast } from "sonner";
-import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
 
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -85,30 +81,15 @@ interface Props {
   onChange: (templates: MessageTemplates) => void;
 }
 
+/**
+ * settings.explicit-save (PAD-506): controlled — the engine card holds the templates with the rest of
+ * the tab (this section unmounts when collapsed) and sends them with the tab's one Save.
+ */
 export function MessageTemplatesSection({ templates, onChange }: Props) {
   const { t } = useTranslation();
-  const [local, setLocal] = useState<MessageTemplates>(templates);
-  const [saving, setSaving] = useState(false);
+  const local = templates;
+  const setLocal = (next: (prev: MessageTemplates) => MessageTemplates) => onChange(next(templates));
   const textareaRefs = useRef<Partial<Record<keyof MessageTemplates, HTMLTextAreaElement | null>>>({});
-
-  // settings.unsaved-edits rule 2 (PAD-394, B-157): already computed by value
-  // against `templates` (the last loaded/saved value passed down by the
-  // parent), not by "was `local` ever touched" — reused as-is.
-  const isDirty = JSON.stringify(local) !== JSON.stringify(templates);
-  useReportUnsaved("messageTemplates", isDirty);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateNotificationConfig({ messageTemplates: local });
-      onChange(local);
-      toast.success(t("settings.templates.savedSuccess"));
-    } catch {
-      toast.error(t("settings.templates.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const insertVariable = (key: keyof MessageTemplates, variable: string) => {
     const textarea = textareaRefs.current[key];
@@ -165,15 +146,6 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
           </div>
         </div>
       ))}
-
-      <Button
-        size="sm"
-        onClick={handleSave}
-        disabled={!isDirty || saving}
-        className="w-full"
-      >
-        {saving ? t("settings.templates.saving") : t("settings.templates.saveTemplates")}
-      </Button>
     </div>
   );
 }

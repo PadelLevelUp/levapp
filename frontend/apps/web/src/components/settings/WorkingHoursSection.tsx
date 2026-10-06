@@ -23,7 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { useReportUnsaved } from "@/context/SettingsUnsavedContext";
+import { useTabSave } from "@/context/SettingsUnsavedContext";
 
 type Row = { off: boolean; windows: [string, string][] };
 type Week = Record<WorkingDayKey, Row>;
@@ -54,8 +54,10 @@ export function WorkingHoursSection() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [isSet, setIsSet] = useState(false);
+  // settings.explicit-save (PAD-506): "clear" is an edit like any other — held until the tab's Save,
+  // which then stores no working hours (null).
+  const [clearHeld, setClearHeld] = useState(false);
   const [week, setWeek] = useState<Week>(() => weekFromWorkingHours(null));
   // settings.unsaved-edits rule 2 (PAD-394, B-157): the last loaded/saved week,
   // compared BY VALUE against `week` — deliberately NOT the `touched` ref above,
@@ -66,13 +68,13 @@ export function WorkingHoursSection() {
 
   const apply = (value: CoachWorkingHours) => {
     setIsSet(value !== null);
+    setClearHeld(false);
     const wk = weekFromWorkingHours(value);
     setWeek(wk);
     setBaseline(wk);
   };
 
-  const unsaved = JSON.stringify(week) !== JSON.stringify(baseline);
-  useReportUnsaved("workingHours", unsaved);
+  const unsaved = (clearHeld && isSet) || JSON.stringify(week) !== JSON.stringify(baseline);
 
   // PAD-392 (B-155): the week is loaded ONCE, and a load never replaces a week the
   // coach has touched. `t` was in this effect's deps, and `t` gets a new identity when
@@ -98,25 +100,32 @@ export function WorkingHoursSection() {
 
   const update = (key: WorkingDayKey, row: Row) => {
     touched.current = true;
+    setClearHeld(false);
     setErrorDay(null);
     setWeek((w) => ({ ...w, [key]: row }));
   };
 
+  // settings.explicit-save rule 3: this section's part of the tab's one Save; throws on a refusal.
   const persist = async (value: CoachWorkingHours) => {
-    setSaving(true);
     setErrorDay(null);
     try {
       const res = await workingHoursApi.putCoachWorkingHours(value);
       apply(res.workingHours);
       touched.current = false; // what is shown is what the server holds again
-      toast({ title: t(value === null ? "settings.workingHours.cleared" : "settings.workingHours.saved") });
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { code?: string; day?: WorkingDayKey } } })?.response?.data;
       if (data?.code === "INVALID_WORKING_HOURS" && data.day && WORKING_DAY_KEYS.includes(data.day)) setErrorDay(data.day);
-      toast({ variant: "destructive", title: t("settings.workingHours.saveFailed") });
-    } finally {
-      setSaving(false);
+      throw err;
     }
+  };
+  useTabSave("workingHours", unsaved, {
+    label: t("settings.workingHours.title"),
+    save: () => persist(clearHeld ? null : workingHoursFromWeek(week)),
+  });
+  const clear = () => {
+    touched.current = true;
+    setClearHeld(true);
+    setWeek(weekFromWorkingHours(null));
   };
 
   return (
@@ -245,14 +254,11 @@ export function WorkingHoursSection() {
             )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              {isSet && (
-                <Button variant="outline" disabled={saving} onClick={() => persist(null)} data-testid="working-hours-clear">
+              {isSet && !clearHeld && (
+                <Button variant="outline" onClick={clear} data-testid="working-hours-clear">
                   {t("settings.workingHours.clear")}
                 </Button>
               )}
-              <Button disabled={saving} onClick={() => persist(workingHoursFromWeek(week))} data-testid="working-hours-save">
-                {saving ? t("settings.workingHours.saving") : t("common.save")}
-              </Button>
             </div>
           </>
         )}

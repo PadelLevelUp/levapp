@@ -12,7 +12,7 @@
  * the same authenticated request (auth.logout rule 4) — the unregister above is
  * then only the fallback. Every step is best-effort: logout always completes.
  */
-import { dropPendingSaves, emailPromptSession } from "@levelup/config";
+import { emailPromptSession } from "@levelup/config";
 
 export const PUSH_UNREGISTER_TIMEOUT_MS = 3000;
 /** The API client has no timeout; a blackholed /auth/logout must not hold logout either. */
@@ -34,8 +34,6 @@ function bounded(work: Promise<void>, ms: number): Promise<void> {
  * PAD-482 (#509 review): the client-only state of a session that ends — on a sign-out, and on a 401 that
  * drops the session without one. "Agora não" on the email prompt lasts for the session
  * (auth.email-verification rule 14), so the same user signing back in is asked again.
- * (`dropPendingSaves` is not here: the 401 path does not drop pending saves either, a known gap of its
- * own — see B-262's resolution.)
  */
 export function endSessionState(): void {
   emailPromptSession.reset();
@@ -48,9 +46,6 @@ export async function signOut(deps: {
   unregisterTimeoutMs?: number;
   revokeTimeoutMs?: number;
 }): Promise<void> {
-  // settings.save-on-change (review #497): a setting still waiting to be saved belongs to this account;
-  // it must never be sent with the next account's session.
-  dropPendingSaves();
   // PAD-482 (auth.email-verification rule 14): the next sign-in asks for a missing email again.
   endSessionState();
   await bounded(deps.unregisterPush(), deps.unregisterTimeoutMs ?? PUSH_UNREGISTER_TIMEOUT_MS);

@@ -7,7 +7,7 @@ import { API_APP } from "../helpers/api";
  * PAD-82 — `calendar.seasons`: the coach's ONE recurring day/month season.
  *
  * Settings → Calendar holds a single card (label, start day/month, end
- * day/month, a preview of the current-or-upcoming occurrence, Save, Remove).
+ * day/month, a preview of the current-or-upcoming occurrence, Remove; the page header's Save sends it).
  * A recurring class set to "recurs until season end" ends with the occurrence
  * its start date belongs to. The seeded coach defaults to English.
  *
@@ -65,14 +65,17 @@ test.describe("PAD-82 one recurring season", () => {
     await expect(page.getByTestId("season-preview")).toContainText(/Sep/);
     await expect(page.getByTestId("season-preview")).toContainText(/Jul/);
 
+    // PAD-506: the definition is held until the tab's Save.
+    await expect(page.getByTestId("settings-header-save")).toBeEnabled();
     const [response] = await Promise.all([
       page.waitForResponse((r) => /\/api\/app\/season$/.test(r.url()) && r.request().method() === "PUT"),
-      page.getByTestId("season-save").click(),
+      page.getByTestId("settings-header-save").click(),
     ]);
     expect(response.status()).toBe(200);
     const saved = (await response.json()) as { startMonth: number; endMonth: number; wrapsYear: boolean; label: string };
     expect(saved).toMatchObject({ startMonth: 9, endMonth: 7, wrapsYear: true, label: "Academy season" });
     await expect(page.getByTestId("season-empty")).toHaveCount(0);
+    await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 
     await page.reload();
     await openCalendarSettings(page);
@@ -86,7 +89,7 @@ test.describe("PAD-82 one recurring season", () => {
     await openCalendarSettings(page);
     await pick(page, "season-start-day", "31");
     await pick(page, "season-start-month", "April");
-    await page.getByTestId("season-save").click();
+    await page.getByTestId("settings-header-save").click();
 
     await expect(page.getByTestId("season-error")).toContainText(/does not exist in that month/i);
     const res = await page.request.get(`${API_APP}/season`, {
@@ -110,7 +113,7 @@ test.describe("PAD-82 one recurring season", () => {
     await pick(page, "season-end-month", monthName(endMonth));
     await Promise.all([
       page.waitForResponse((r) => /\/api\/app\/season$/.test(r.url()) && r.request().method() === "PUT"),
-      page.getByTestId("season-save").click(),
+      page.getByTestId("settings-header-save").click(),
     ]);
 
     // Create a recurring class that recurs until season end.

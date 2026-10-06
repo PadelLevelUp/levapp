@@ -65,11 +65,16 @@ onFlowComplete:
 # ── Save: accepted ──
 - scrollUntilVisible:
     element:
-      id: "working-hours-save"
+      id: "settings-calendar-save"
     direction: DOWN
     timeout: 30000
 - tapOn:
-    id: "working-hours-save"
+    id: "settings-calendar-save"
+- extendedWaitUntil:
+    visible:
+      id: "b506-never-present"
+    timeout: 2000
+    optional: true
 - scrollUntilVisible:
     element:
       id: "working-hours-set"

@@ -1,10 +1,12 @@
 /**
- * PAD-478 (notifications.config rule 10d): the reminders form sends ONE save per edit, with
- * the final value. Before, every stepper tap and every segment edit of the time field was a
- * save, and each save re-armed every future job of the coach.
+ * settings.explicit-save (PAD-506): the reminders form is controlled. Every change goes to the
+ * card at once (it holds it with the rest of the tab until "Guardar alterações"); the section
+ * itself pauses, flushes and sends nothing. (PAD-478's one-save-per-edit pause belonged to the
+ * save-on-change model; the single Save now makes it one request by construction.)
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReminderConfig } from "@/types";
 
 vi.mock("react-i18next", () => ({
@@ -20,80 +22,67 @@ const HOURS: ReminderConfig = {
   invitationStart: { type: "days_before_at_time", days: 1, time: "18:00" },
 };
 
-beforeEach(() => vi.useFakeTimers());
-afterEach(() => vi.useRealTimers());
+// Mirrors the engine card: onChange feeds back into the prop; `seen` records what went up.
+function Held({ onSeen }: { onSeen: (c: ReminderConfig) => void }) {
+  const [value, setValue] = useState(HOURS);
+  return (
+    <RemindersSection
+      reminderTiming={value}
+      onChange={(next) => {
+        onSeen(next);
+        setValue(next);
+      }}
+    />
+  );
+}
 
-const pause = () => act(() => vi.advanceTimersByTimeAsync(600));
-
-describe("RemindersSection saves once per edit (PAD-478)", () => {
-  it("five taps on a stepper are one save, with the final value", async () => {
-    const onChange = vi.fn();
-    render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
+describe("RemindersSection is controlled (PAD-506)", () => {
+  it("each stepper tap goes up at once with the new value; the final value is the sum of the taps", () => {
+    const seen = vi.fn();
+    render(<Held onSeen={seen} />);
     const first = within(screen.getByTestId("reminder-first-reminder-timing"));
     const plus = first.getAllByRole("button")[1];
 
     for (let i = 0; i < 5; i += 1) fireEvent.click(plus);
 
-    // The control shows each tap at once; nothing is sent while the coach is still tapping.
     expect(first.getByText("29")).toBeTruthy();
-    expect(onChange).not.toHaveBeenCalled();
-
-    await pause();
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].firstReminder).toEqual({ type: "hours_before", value: 29 });
+    expect(seen).toHaveBeenCalledTimes(5);
+    expect(seen.mock.calls[4][0].firstReminder).toEqual({ type: "hours_before", value: 29 });
   });
 
-  it("typing a time is one save, with the time as it stands when the coach stops", async () => {
+  it("typing a time goes up with the time as typed, other fields intact", () => {
     const onChange = vi.fn();
     const { container } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
     const time = container.querySelector('input[type="time"]') as HTMLInputElement;
 
-    // 18:00 → 09:30 passes through valid times on the way (segment by segment).
-    fireEvent.change(time, { target: { value: "00:00" } });
-    fireEvent.change(time, { target: { value: "09:00" } });
     fireEvent.change(time, { target: { value: "09:30" } });
-    expect(onChange).not.toHaveBeenCalled();
-
-    await pause();
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].invitationStart).toEqual({ type: "days_before_at_time", days: 1, time: "09:30" });
-  });
-
-  it("leaving the time field sends at once", () => {
-    const onChange = vi.fn();
-    const { container } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
-    const time = container.querySelector('input[type="time"]') as HTMLInputElement;
-
-    fireEvent.change(time, { target: { value: "07:15" } });
-    fireEvent.blur(time);
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].invitationStart.time).toBe("07:15");
+    expect(onChange).toHaveBeenCalledWith({
+      ...HOURS,
+      invitationStart: { type: "days_before_at_time", days: 1, time: "09:30" },
+    });
   });
 
-  it("edits to two controls inside one pause travel together in one save", async () => {
-    const onChange = vi.fn();
-    render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
+  it("edits to two controls both reach the held value", () => {
+    const seen = vi.fn();
+    render(<Held onSeen={seen} />);
     fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
     fireEvent.click(within(screen.getByTestId("reminder-hours-between")).getAllByRole("button")[1]);
 
-    await pause();
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0]).toMatchObject({ reminderCount: 3, hoursBetweenReminders: 5 });
+    expect(seen.mock.calls.at(-1)![0]).toMatchObject({ reminderCount: 3, hoursBetweenReminders: 5 });
   });
 
-  it("closing the section sends what is pending", () => {
+  it("is not controlled by itself: without the parent taking the change, the control keeps the prop value", () => {
     const onChange = vi.fn();
-    const { unmount } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
+    render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
     fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
 
-    unmount();
-
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].reminderCount).toBe(3);
+    expect(within(screen.getByTestId("reminder-per-student")).getByText("2")).toBeTruthy();
   });
 
-  it("follows the server's value when nothing is being edited (a failed save reverts)", async () => {
+  it("follows the value it is given", () => {
     const onChange = vi.fn();
     const { rerender } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
 
@@ -103,46 +92,20 @@ describe("RemindersSection saves once per edit (PAD-478)", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("after a save that failed and was rolled back, the control returns to the saved value", async () => {
-    let fail!: () => void;
-    const onChange = vi.fn(
-      () => new Promise<void>((resolve) => (fail = resolve)), // the parent's save() catches and resolves
-    );
-    const { rerender } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
-    const perStudent = () => within(screen.getByTestId("reminder-per-student"));
-    fireEvent.click(perStudent().getAllByRole("button")[1]);
-    await pause();
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(perStudent().getByText("3")).toBeTruthy();
-
-    // The parent rolls its state back to the confirmed value, then its save() settles.
-    rerender(<RemindersSection reminderTiming={{ ...HOURS }} onChange={onChange} />);
-    await act(async () => {
-      fail();
-      await vi.advanceTimersByTimeAsync(0);
-    });
-
-    expect(perStudent().getByText("2")).toBeTruthy();
-  });
-
-  it("closing the section with no session (sign-out) sends nothing", () => {
+  it("closing the section sends nothing of its own (the held value lives in the card)", () => {
     const onChange = vi.fn();
-    const { unmount } = render(
-      <RemindersSection reminderTiming={HOURS} onChange={onChange} flushOnClose={() => false} />,
-    );
+    const { unmount } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
     fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
+    expect(onChange).toHaveBeenCalledTimes(1);
 
     unmount();
-    vi.advanceTimersByTime(600);
 
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it("a tab that is hidden sends what is still inside the pause", () => {
+  it("a tab that is hidden sends nothing more", () => {
     const onChange = vi.fn();
     render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
-    fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
-    expect(onChange).not.toHaveBeenCalled();
 
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     try {
@@ -151,7 +114,6 @@ describe("RemindersSection saves once per edit (PAD-478)", () => {
       Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
     }
 
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].reminderCount).toBe(3);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

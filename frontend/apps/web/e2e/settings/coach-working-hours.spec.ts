@@ -1,7 +1,7 @@
 /**
  * PAD-357 (settings.coach-working-hours): the coach's weekly working hours in
  * Settings > Calendar. Not set → the 08:00–22:00 default applies and the card
- * says so; saving writes all seven days (a day off is an empty list); a window
+ * says so; pressing the tab's Save (settings-header-save) writes all seven days (a day off is an empty list); a window
  * that ends before it starts is refused for that day; clearing returns to "not
  * set". Test ids and request payloads only, never copy. The coach's working
  * hours are cleared before and after.
@@ -39,8 +39,13 @@ test("PAD-357: a coach sets, corrects and clears their working hours", async ({ 
     await expect(card.getByTestId("working-hours-day-sun")).toHaveAttribute("data-state", "off");
     await card.getByTestId("working-hours-mon-0-start").fill("09:00");
     await card.getByTestId("working-hours-mon-0-end").fill("13:00");
+    // PAD-506: the edits are held; nothing is sent until the tab's Save.
+    let puts = 0;
+    page.on("request", (r) => { if (/\/api\/app\/coach\/working-hours$/.test(r.url()) && r.method() === "PUT") puts += 1; });
+    await expect(page.getByTestId("settings-header-save")).toBeEnabled();
+    expect(puts).toBe(0);
     const saved = page.waitForResponse(isPut);
-    await card.getByTestId("working-hours-save").click();
+    await page.getByTestId("settings-header-save").click();
     const res = await saved;
     expect(res.status(), await res.text()).toBeLessThan(300);
     const { workingHours } = res.request().postDataJSON();
@@ -49,6 +54,7 @@ test("PAD-357: a coach sets, corrects and clears their working hours", async ({ 
     expect(workingHours.mon).toEqual([["09:00", "13:00"]]);
     expect(workingHours.tue).toEqual([["08:00", "22:00"]]);
     await expect(card).toHaveAttribute("data-state", "set");
+    await expect(page.getByTestId("settings-header-save")).toBeDisabled();
 
     // What was saved is what loads.
     await page.reload();
@@ -59,17 +65,20 @@ test("PAD-357: a coach sets, corrects and clears their working hours", async ({ 
     // A Tuesday window that ends before it starts is refused, on Tuesday.
     await card.getByTestId("working-hours-tue-0-end").fill("07:00");
     const refused = page.waitForResponse(isPut);
-    await card.getByTestId("working-hours-save").click();
+    await page.getByTestId("settings-header-save").click();
     expect((await refused).status()).toBe(400);
     await expect(card.getByTestId("working-hours-error")).toHaveAttribute("data-day", "tue");
     await expect(card.getByTestId("working-hours-day-tue")).toHaveAttribute("data-invalid", "true");
 
-    // Clearing returns to "not set".
-    const cleared = page.waitForResponse(isPut);
+    // Clearing is held too: the card still reads "set" until Save sends it, and returns to "not set".
     await card.getByTestId("working-hours-clear").click();
+    await expect(card).toHaveAttribute("data-state", "set");
+    const cleared = page.waitForResponse(isPut);
+    await page.getByTestId("settings-header-save").click();
     expect((await cleared).request().postDataJSON()).toEqual({ workingHours: null });
     await expect(card).toHaveAttribute("data-state", "default");
     await expect(card.getByTestId("working-hours-default-note")).toBeVisible();
+    await expect(page.getByTestId("settings-header-save")).toBeDisabled();
   } finally {
     await clearWorkingHours(request);
   }
@@ -92,7 +101,7 @@ test("PAD-361 (B-140): 'add window' on an untouched day gives a day the server a
     await expect(card.getByTestId("working-hours-mon-1-end")).toHaveValue("22:00");
 
     const saved = page.waitForResponse(isPut);
-    await card.getByTestId("working-hours-save").click();
+    await page.getByTestId("settings-header-save").click();
     const res = await saved;
     const { workingHours } = res.request().postDataJSON();
     expect(res.status(), `sent mon=${JSON.stringify(workingHours.mon)} → ${await res.text()}`).toBeLessThan(300);
@@ -116,7 +125,7 @@ test("PAD-369 (B-141): a time typed off the 15-minute grid is brought onto it be
     const end = card.getByTestId("working-hours-tue-0-end");
     await end.fill("22:07");
     const saved = page.waitForResponse(isPut);
-    await card.getByTestId("working-hours-save").click();
+    await page.getByTestId("settings-header-save").click();
     const res = await saved;
     const { workingHours } = res.request().postDataJSON();
     expect(res.status(), `sent tue=${JSON.stringify(workingHours.tue)} → ${await res.text()}`).toBeLessThan(300);

@@ -32,7 +32,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
-import { useUnsavedReporter } from "@/features/settings/unsaved-registry";
+import { useSectionSave } from "@/features/settings/unsaved-registry";
 
 type Row = { off: boolean; windows: [string, string][] };
 type Week = Record<WorkingDayKey, Row>;
@@ -75,7 +75,9 @@ export function weeksEqual(a: Week, b: Week): boolean {
 export function WorkingHoursSection() {
   const { t } = useTranslation();
   const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
+  // settings.explicit-save (PAD-506): "clear" is an edit like any other — held until the screen's
+  // Save, which then stores no working hours (null).
+  const [clearHeld, setClearHeld] = React.useState(false);
   const [isSet, setIsSet] = React.useState(false);
   const [week, setWeek] = React.useState<Week>(() => weekFromWorkingHours(null));
   // The last loaded/saved baseline (settings.unsaved-edits rule 2), set alongside
@@ -91,7 +93,6 @@ export function WorkingHoursSection() {
     setSavedWeek(next);
   };
 
-  useUnsavedReporter("workingHours", !weeksEqual(week, savedWeek));
 
   // PAD-392 (B-155): loaded ONCE, and a load never replaces a week the coach has
   // touched. `t` was in the deps; it gets a new identity whenever the language changes
@@ -115,27 +116,35 @@ export function WorkingHoursSection() {
 
   const update = (key: WorkingDayKey, row: Row) => {
     touched.current = true;
+    setClearHeld(false);
     setErrorDay(null);
     setWeek((w) => ({ ...w, [key]: row }));
   };
 
+  // settings.explicit-save rule 3: this section's part of the screen's one Save; throws on a refusal.
   const persist = async (value: CoachWorkingHours) => {
-    setSaving(true);
     setErrorDay(null);
     try {
       const res = await workingHoursApi.putCoachWorkingHours(value);
       apply(res.workingHours);
+      setClearHeld(false);
       touched.current = false; // what is shown is what the server holds again
-      toast.success(t(value === null ? "settings.workingHours.cleared" : "settings.workingHours.saved"));
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { code?: string; day?: WorkingDayKey } } })?.response?.data;
       if (data?.code === "INVALID_WORKING_HOURS" && data.day && WORKING_DAY_KEYS.includes(data.day)) {
         setErrorDay(data.day);
       }
-      toast.error(t("settings.workingHours.saveFailed"));
-    } finally {
-      setSaving(false);
+      throw err;
     }
+  };
+  useSectionSave("workingHours", (clearHeld && isSet) || !weeksEqual(week, savedWeek), {
+    label: t("settings.workingHours.title"),
+    save: () => persist(clearHeld ? null : workingHoursFromWeek(week)),
+  });
+  const clear = () => {
+    touched.current = true;
+    setClearHeld(true);
+    setWeek(weekFromWorkingHours(null));
   };
 
   return (
@@ -257,16 +266,11 @@ export function WorkingHoursSection() {
             ) : null}
 
             <View className="gap-2">
-              <Button testID="working-hours-save" disabled={saving} onPress={() => void persist(workingHoursFromWeek(week))}>
-                {saving ? <Spinner size="small" color="white" /> : null}
-                <Text>{saving ? t("settings.workingHours.saving") : t("common.save")}</Text>
-              </Button>
-              {isSet ? (
+              {isSet && !clearHeld ? (
                 <Button
                   variant="outline"
                   testID="working-hours-clear"
-                  disabled={saving}
-                  onPress={() => void persist(null)}
+                  onPress={clear}
                 >
                   <Text>{t("settings.workingHours.clear")}</Text>
                 </Button>

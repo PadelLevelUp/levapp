@@ -94,7 +94,8 @@ describe("WorkingHoursSection — a late load never undoes an edit (PAD-392)", (
  * settings.unsaved-edits rule 2 (PAD-394, ledger B-157): "unsaved" is whether the
  * week differs BY VALUE from the last loaded/saved one — not the B-155 `touched`
  * ref above, which only gates a late load and must keep working unchanged (it
- * still does; these tests don't touch it).
+ * still does; these tests don't touch it). settings.explicit-save (PAD-506): sent by the
+ * tab's one Save (the harness's `harness-save`).
  */
 describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
   const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
@@ -118,7 +119,7 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(unsavedIds()).toBe("");
   });
 
-  it("is clean again after a successful save", async () => {
+  it("is clean again after a successful save, sent by the tab's one Save", async () => {
     putCoachWorkingHours.mockImplementation((value: unknown) => Promise.resolve({ workingHours: value }));
     render(
       <SettingsUnsavedTestHarness>
@@ -128,13 +129,15 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     await screen.findByTestId("working-hours-works-sun");
     fireEvent.click(screen.getByTestId("working-hours-works-sun"));
     expect(unsavedIds()).toBe("workingHours");
+    expect(putCoachWorkingHours).not.toHaveBeenCalled(); // held until the Save
 
-    fireEvent.click(screen.getByTestId("working-hours-save"));
+    fireEvent.click(screen.getByTestId("harness-save"));
     await waitFor(() => expect(putCoachWorkingHours).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(unsavedIds()).toBe(""));
+    expect(screen.getByTestId("save-failed")).toHaveTextContent("");
   });
 
-  it("stays unsaved after a failed save", async () => {
+  it("stays unsaved after a failed save, and is listed as failed", async () => {
     putCoachWorkingHours.mockRejectedValue(new Error("nope"));
     render(
       <SettingsUnsavedTestHarness>
@@ -145,8 +148,51 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     fireEvent.click(screen.getByTestId("working-hours-works-sun"));
     expect(unsavedIds()).toBe("workingHours");
 
-    fireEvent.click(screen.getByTestId("working-hours-save"));
+    fireEvent.click(screen.getByTestId("harness-save"));
     await waitFor(() => expect(putCoachWorkingHours).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("save-failed")).toHaveTextContent("workingHours"));
     expect(unsavedIds()).toBe("workingHours");
+  });
+
+  it("a refusal naming a day shows that day's error and the part stays unsaved", async () => {
+    putCoachWorkingHours.mockRejectedValue({ response: { data: { code: "INVALID_WORKING_HOURS", day: "sun" } } });
+    render(
+      <SettingsUnsavedTestHarness>
+        <WorkingHoursSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("working-hours-works-sun");
+    fireEvent.click(screen.getByTestId("working-hours-works-sun"));
+
+    fireEvent.click(screen.getByTestId("harness-save"));
+    expect(await screen.findByTestId("working-hours-error")).toHaveAttribute("data-day", "sun");
+    expect(unsavedIds()).toBe("workingHours");
+  });
+
+  it("clearing is held and sent as null by the Save", async () => {
+    getCoachWorkingHours.mockResolvedValue({ workingHours: { mon: [["09:00", "13:00"]], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] } });
+    putCoachWorkingHours.mockResolvedValue({ workingHours: null });
+    render(
+      <SettingsUnsavedTestHarness>
+        <WorkingHoursSection />
+      </SettingsUnsavedTestHarness>
+    );
+    fireEvent.click(await screen.findByTestId("working-hours-clear"));
+    expect(putCoachWorkingHours).not.toHaveBeenCalled();
+    expect(unsavedIds()).toBe("workingHours");
+
+    fireEvent.click(screen.getByTestId("harness-save"));
+    await waitFor(() => expect(putCoachWorkingHours).toHaveBeenCalledWith(null));
+    await waitFor(() => expect(unsavedIds()).toBe(""));
+  });
+
+  it("there is no section Save button any more", async () => {
+    render(
+      <SettingsUnsavedTestHarness>
+        <WorkingHoursSection />
+      </SettingsUnsavedTestHarness>
+    );
+    await screen.findByTestId("working-hours-works-sun");
+    expect(screen.queryByTestId("working-hours-save")).toBeNull();
   });
 });
