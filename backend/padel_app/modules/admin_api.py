@@ -163,3 +163,127 @@ def list_audit():
         page = 1
     rows, has_more = audit_service.search(request.args, page)
     return jsonify({"items": [row.to_dict() for row in rows], "page": page, "hasMore": has_more})
+
+
+# ── clubs and switches (PAD-533, admin.clubs-and-switches rules 1–3, 5, 6) ────────────────────
+
+def _court_error(exc):
+    # Rule 2: the coach route's own answer (clubs.courts).
+    return jsonify({"error": str(exc), "code": exc.code}), 400
+
+
+@bp.get("/clubs")
+@require_role("support")
+def admin_list_clubs():
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.list_clubs(request.args.get("q"), request.args.get("page", 1)))
+
+
+@bp.get("/clubs/<int:club_id>")
+@require_role("support")
+def admin_club_detail(club_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.club_detail(club_id))
+
+
+@bp.patch("/clubs/<int:club_id>")
+@audited("club.edit")
+@require_role("operator")
+def admin_edit_club(club_id):
+    from padel_app.services.admin import clubs_service
+
+    try:
+        return jsonify(clubs_service.edit_club(club_id, request.get_json(silent=True) or {}))
+    except clubs_service.ClubFieldError as exc:
+        return jsonify({"error": str(exc), "code": "invalid_club"}), 400
+
+
+@bp.post("/clubs/<int:club_id>/courts")
+@audited("court.create")
+@require_role("operator")
+def admin_add_court(club_id):
+    from padel_app.services.admin import clubs_service
+    from padel_app.services.court_service import InvalidCourtError, serialize_court
+
+    try:
+        court = clubs_service.add_court(club_id, request.get_json(silent=True) or {})
+    except InvalidCourtError as exc:
+        return _court_error(exc)
+    return jsonify(serialize_court(court)), 201
+
+
+@bp.patch("/courts/<int:court_id>")
+@audited("court.rename")
+@require_role("operator")
+def admin_rename_court(court_id):
+    from padel_app.services.admin import clubs_service
+    from padel_app.services.court_service import InvalidCourtError, serialize_court
+
+    try:
+        court = clubs_service.rename_court(court_id, request.get_json(silent=True) or {})
+    except InvalidCourtError as exc:
+        return _court_error(exc)
+    return jsonify(serialize_court(court))
+
+
+@bp.delete("/courts/<int:court_id>")
+@audited("court.delete")
+@require_role("operator")
+def admin_delete_court(court_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.delete_court(court_id))
+
+
+@bp.put("/clubs/<int:club_id>/courts/order")
+@audited("court.reorder")
+@require_role("operator")
+def admin_reorder_courts(club_id):
+    from padel_app.services.admin import clubs_service
+    from padel_app.services.court_service import InvalidCourtError
+
+    try:
+        return jsonify(clubs_service.reorder_courts(club_id, (request.get_json(silent=True) or {}).get("ids")))
+    except InvalidCourtError as exc:
+        return _court_error(exc)
+
+
+@bp.post("/clubs/<int:club_id>/coaches")
+@audited("club.coach_link")
+@require_role("operator")
+def admin_link_coach(club_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.link_coach(club_id, (request.get_json(silent=True) or {}).get("coachId")))
+
+
+@bp.delete("/clubs/<int:club_id>/coaches/<int:coach_id>")
+@audited("club.coach_unlink")
+@require_role("operator")
+def admin_unlink_coach(club_id, coach_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.unlink_coach(club_id, coach_id))
+
+
+@bp.get("/settings/capabilities")
+@require_role("support")
+def admin_list_capabilities():
+    from padel_app.services.admin import switches_service
+
+    return jsonify(switches_service.list_capabilities())
+
+
+@bp.put("/settings/capabilities/<capability>")
+@audited("capability.switch")
+@require_role("owner")
+def admin_set_capability(capability):
+    """Rule 6: owner only (decision 2026-10-07); a reason of at least 5 characters to switch off."""
+    from padel_app.services.admin import switches_service
+
+    body, problem = switches_service.set_switch(capability, request.get_json(silent=True) or {})
+    if problem:
+        return error(problem, 400)
+    return jsonify(body)
