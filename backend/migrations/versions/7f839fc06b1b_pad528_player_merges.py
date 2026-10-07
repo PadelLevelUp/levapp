@@ -1,7 +1,7 @@
 """player_merges — the audit row of a placeholder merge (players.claim rule 5i, PAD-528)
 
 Revision ID: 7f839fc06b1b
-Revises: 0d2107f3fa7b
+Revises: e4381787870f
 Create Date: 2026-10-07 19:40:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '7f839fc06b1b'
-down_revision = '0d2107f3fa7b'
+down_revision = 'e4381787870f'
 branch_labels = None
 depends_on = None
 

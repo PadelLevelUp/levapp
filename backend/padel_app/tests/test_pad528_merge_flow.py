@@ -425,3 +425,16 @@ def test_consent_off_is_one_commit_a_failed_merge_leaves_no_request(app, client,
         assert PlayerClaimRequest.query.count() == 0
         assert PlayerMerge.query.count() == 0
         assert Player.query.get(world["ph_player"]) is not None
+
+
+def test_the_standing_pass_keys_on_coach_and_scope(app, world):
+    """PAD-547 compatibility: two active entries collide only with the same coach AND scope
+    (lesson_id, NULL = coach-wide). Before 547 there is no lesson_id and every entry is
+    coach-wide; this pins the key function on both shapes."""
+    from types import SimpleNamespace
+    from padel_app.services.player_claim_service import _standing_scope
+
+    assert _standing_scope(SimpleNamespace(coach_id=7)) == (7, 0)                   # before 547
+    assert _standing_scope(SimpleNamespace(coach_id=7, lesson_id=None)) == (7, 0)   # coach-wide
+    assert _standing_scope(SimpleNamespace(coach_id=7, lesson_id=12)) == (7, 12)    # one series
+    assert _standing_scope(SimpleNamespace(coach_id=7, lesson_id=12)) != _standing_scope(SimpleNamespace(coach_id=7))

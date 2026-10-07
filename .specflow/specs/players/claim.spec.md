@@ -109,8 +109,10 @@ asks by exact username and the student accepts.
    b. `Association_PlayerLesson`, `Association_PlayerLessonInstance`, `WaitingListEntry`:
       re-point, deleting the placeholder's row where the claimant already has the same
       (lesson | instance) row. `StandingWaitingListEntry` (PAD-528 review): one ACTIVE entry
-      per (coach, player); when both hold an active one with the same coach, the claimant's
-      stays active and the placeholder's moves over inactive. Inactive entries always move.
+      per (coach, player, scope), where scope is the entry's series (`lesson_id`, PAD-547) or
+      coach-wide when it has none; when both hold an active one with the same coach and scope,
+      the claimant's stays active and the placeholder's moves over inactive. Inactive entries,
+      and active entries of another scope, always move.
    c. `Presence` (unique per instance, R-018): re-point; where both exist for the same
       instance, keep the claimant's row and delete the placeholder's.
    d. `Vacancy.original_player_id` (PAD-528 review): one OPEN vacancy per (occurrence,

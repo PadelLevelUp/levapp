@@ -449,23 +449,32 @@ def _merge_rows(placeholder_player, claimant_user, counts):
     return claimant_player, placeholder_user
 
 
+def _standing_scope(entry):
+    """The active-entry key: (coach, series or coach-wide). PAD-547 adds a nullable
+    ``lesson_id`` (NULL = coach-wide) and scopes the unique index on
+    COALESCE(lesson_id, 0); before it lands the attribute is absent and every entry is
+    coach-wide. Written to be right on both sides of that migration."""
+    return (entry.coach_id, getattr(entry, "lesson_id", None) or 0)
+
+
 def _merge_standing_entries(pid, cid, counts):
-    """Rule 5b, PAD-528 review: one ACTIVE standing entry per (coach, player). When both
-    hold an active one with the same coach, the claimant's stays active; the placeholder's
-    moves to the claimant as inactive (its credits stay readable as history). Inactive
-    rows always move."""
+    """Rule 5b, PAD-528 review: one ACTIVE standing entry per (coach, player, scope). When
+    both hold an active one with the same coach and scope, the claimant's stays active; the
+    placeholder's moves to the claimant as inactive (its credits stay readable as history).
+    Inactive rows, and active rows of another scope, always move."""
     active = {
-        e.coach_id
+        _standing_scope(e)
         for e in StandingWaitingListEntry.query.filter_by(player_id=cid, is_active=True).all()
     }
     for entry in StandingWaitingListEntry.query.filter_by(player_id=pid).all():
-        if entry.is_active and entry.coach_id in active:
+        scope = _standing_scope(entry)
+        if entry.is_active and scope in active:
             entry.is_active = False
             counts.drop("standing_waiting_list_entries")
         else:
             counts.move("standing_waiting_list_entries")
             if entry.is_active:
-                active.add(entry.coach_id)
+                active.add(scope)
         entry.player_id = cid
     db.session.flush()
 
