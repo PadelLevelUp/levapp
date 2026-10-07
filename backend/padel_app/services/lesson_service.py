@@ -632,9 +632,6 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
             data.get("lesson_instance_id")
         )
 
-    # PAD-552 (invitations rule 13a): the capacity before the edit, to tell a place freed by it.
-    _cap_before = lesson_instance.effective_max_players or 0
-
     data = transform_to_datetime(lesson_instance, data)
     # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
     # override. PAD-387: only a title that was SENT says anything about the
@@ -684,22 +681,12 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     for player_id in data.get("add_player_ids", []):
         enrol(player_id, lesson_instance, "coach")
 
-    removed_any = False
     for player_id in data.get("remove_player_ids", []):
-        removed_any = unenrol(player_id, lesson_instance) or removed_any
+        unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_schedule_instance
     _maybe_schedule_instance(lesson_instance)
-
-    # PAD-552 (invitations rule 13a): the vacancies follow the edit now, not at the next tick: a
-    # lower capacity retires the offers the class can no longer hold, and a place the edit freed
-    # (a higher capacity, a student taken off) is opened under the engine's usual gates.
-    from padel_app.services.notification_service import vacancies_after_class_edit
-    vacancies_after_class_edit(
-        lesson_instance,
-        place_freed=removed_any or (lesson_instance.effective_max_players or 0) > _cap_before,
-    )
 
     return lesson_instance
 
@@ -1429,7 +1416,77 @@ def _is_hh_mm(value):
     return isinstance(value, str) and _HH_MM.match(value) is not None
 
 
+def _free_places(instance) -> int:
+    return (instance.effective_max_players or 0) - instance.effective_filled_spots
+
+
+def _future_occurrences(lesson_ids) -> list:
+    from padel_app.utils.dates import club_now_naive
+
+    ids = [i for i in lesson_ids if i is not None]
+    if not ids:
+        return []
+    return (
+        LessonInstance.query
+        .filter(LessonInstance.lesson_id.in_(ids),
+                LessonInstance.start_datetime > club_now_naive(),
+                LessonInstance.status.notin_(("canceled", "completed")))
+        .all()
+    )
+
+
 def edit_class_service(data):
+    """Scope-aware class edit. Returns (result_dict, http_status_code).
+
+    PAD-552 (notifications.invitations rule 13a): once the WHOLE edit is written — capacity, the
+    roster, and the class's own flags (automatic invitations, notifications, eligibility), on
+    every occurrence it reached — each of the class's future occurrences brings its vacancies in
+    line (`vacancies_after_class_edit`): the reconcile runs, and an occurrence with more free
+    places than before the edit (a higher capacity, a student taken off) opens them under the
+    engine's gates. The free places are read before anything is written, per occurrence, so a
+    "this and future" edit (the lesson is edited before its occurrences) still sees the rise.
+    """
+    event = data.get("event") or {}
+    lesson_id = None
+    try:
+        if event.get("model") == "LessonInstance":
+            _target = LessonInstance.query.get(event.get("originalId"))
+            lesson_id = _target.lesson_id if _target else None
+        elif event.get("model") == "Lesson":
+            lesson_id = int(event.get("originalId"))
+    except (TypeError, ValueError):
+        lesson_id = None
+    _lesson = Lesson.query.get(lesson_id) if lesson_id else None
+    lesson_cap_before = (_lesson.max_players or 0) if _lesson else 0
+    free_before = {inst.id: _free_places(inst) for inst in _future_occurrences([lesson_id])}
+
+    result, status = _edit_class_service(data)
+    if status not in (200, 201):
+        return result, status
+
+    from padel_app.services.notification_service import vacancies_after_class_edit
+
+    db.session.expire_all()
+    seen = set()
+    candidates = _future_occurrences([lesson_id, result.get("id") if isinstance(result, dict) else None])
+    candidates += [i for i in (LessonInstance.query.get(k) for k in free_before) if i is not None]
+    for inst in candidates:
+        if inst.id in seen:
+            continue
+        seen.add(inst.id)
+        before = free_before.get(inst.id)
+        if before is None:
+            # Materialised by this edit: before it, the occurrence had the lesson's capacity.
+            before = lesson_cap_before - inst.effective_filled_spots
+        try:
+            vacancies_after_class_edit(inst, place_freed=_free_places(inst) > before)
+        except Exception:  # noqa: BLE001 — the edit is committed; the tick reconciles later
+            db.session.rollback()
+            _log_exception("PAD-552: vacancies after the edit of instance %s failed", inst.id)
+    return result, status
+
+
+def _edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
     scope = data.get("scope")

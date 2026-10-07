@@ -229,8 +229,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      decline, cancellation and structural paths, and (rule 13a) a coach's edit.
 
 13a. **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
-   numbering unconfirmed).** `edit_lesson_instance_helper` (a single-occurrence edit, and each
-   occurrence a "this and future" edit reaches) ends with `vacancies_after_class_edit`:
+   numbering unconfirmed).** `edit_class_service` (`POST /edit_class`), once the WHOLE edit is
+   written — capacity, the roster, and the class's own flags (automatic invitations, notifications,
+   eligibility) on every occurrence it reached — runs `vacancies_after_class_edit` on each of the
+   class's future occurrences. An occurrence counts as having a place freed when it has more free
+   places (capacity minus filled spots) than before the edit, read per occurrence before anything is
+   written, so a "this and future" edit (the lesson is edited before its occurrences) sees the rise
+   too (#577 review):
    - it always reconciles (rule 13), so a capacity lowered below the open vacancies closes the
      surplus and retires their live invitations now, not at the next tick;
    - when the edit freed a place (a higher capacity, a student taken off) and the coach's invitation
