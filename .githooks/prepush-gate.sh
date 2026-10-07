@@ -12,7 +12,7 @@
 # Every check runs CI's own command (.github/workflows/*):
 #   always              one Alembic head, on the COMMIT's migrations (untracked parents don't count)
 #   *.json changed      each file parses
-#   frontend/ changed   tsc web (tsconfig.app.json) + tsc mobile + `npm test` (web, packages, mobile)
+#   frontend/ changed   tsc web (tsconfig.app.json) + tsc mobile + tsc admin + `npm test` (web, packages, mobile, admin)
 #   backend/ or .cortex/compass/ changed  pytest (SQLite): the changed test files, the tests that import a changed
 #                       module, and every source-scanning guard (ratchets, heads, registries…);
 #                       --full, or a change to models/migrations, runs the whole suite
@@ -121,7 +121,8 @@ elif changed '^frontend/'; then
     echo "(frontend checks on node $(node -v) — $(command -v node))"
     step "typecheck web"    bash -c 'cd frontend && npx tsc --noEmit -p apps/web/tsconfig.app.json'
     step "typecheck mobile" bash -c 'cd frontend && npx tsc --noEmit -p apps/mobile/tsconfig.json'
-    step "unit tests (npm test: web, packages, mobile)" bash -c 'cd frontend && npm test --silent'
+    step "typecheck admin"  bash -c 'cd frontend && npx tsc --noEmit -p apps/admin/tsconfig.app.json'
+    step "unit tests (npm test: web, packages, mobile, admin)" bash -c 'cd frontend && npm test --silent'
   fi
 fi
 
