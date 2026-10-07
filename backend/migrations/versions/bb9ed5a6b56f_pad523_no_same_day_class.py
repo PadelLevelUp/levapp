@@ -1,7 +1,7 @@
 """PAD-523: the coach's "do not invite a student who already has a class that day" restriction
 
 Revision ID: bb9ed5a6b56f
-Revises: 0d2107f3fa7b
+Revises: e4381787870f
 Create Date: 2026-10-07
 
 Adds ``no_same_day_class_enabled`` (Boolean, NOT NULL, server default false) to
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "bb9ed5a6b56f"
-down_revision = "0d2107f3fa7b"
+down_revision = "e4381787870f"
 branch_labels = None
 depends_on = None
 
