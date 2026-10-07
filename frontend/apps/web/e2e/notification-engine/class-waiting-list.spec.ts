@@ -65,7 +65,8 @@ test("PAD-547: the coach adds a student to one class's waiting list and removes 
   await loginAsCoach(page);
   await openCalendar(page);
   expect(await findClassOnCalendar(page, CLASS_TITLE)).toBe(true);
-  await page.getByText(CLASS_TITLE).first().click();
+  // The card, not any text on the page (findClassOnCalendar's text match can hit elsewhere).
+  await page.getByTestId("calendar-event-card").filter({ hasText: CLASS_TITLE }).first().click();
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 
   const section = page.getByTestId("class-waiting-list");
