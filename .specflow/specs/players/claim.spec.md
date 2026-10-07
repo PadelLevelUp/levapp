@@ -26,7 +26,9 @@ asks by exact username and the student accepts.
   PlayerLevelHistory, PlayerInvitation, StandingWaitingListEntry, WaitingListEntry, Vacancy
   (`filled_by_player_id`, `absent_player_id`), NotificationEvent, ReplacementApprovalPrompt —
   and the user-keyed rows of the placeholder User: ConversationParticipant, Message (sender),
-  CalendarBlock. The placeholder User is then disabled.
+  CalendarBlock. **And every table with a FK to `coach_in_player.id`** (B-361, PAD-528):
+  EvaluationRecord, EvaluationEntry, CoachPlayerNote (EvaluationShare follows its record). The
+  placeholder User is then disabled.
 
 ### Rules
 1. **Claimable** means: the Player's User has `password IS NULL`, a placeholder username
@@ -56,6 +58,17 @@ asks by exact username and the student accepts.
       relation with that coach, keep the claimant's row but copy `level_id`, `side`, `notes`
       from the placeholder's row where the claimant's are null; otherwise re-point
       `player_id`. `Association_PlayerClub`: re-point, skipping pairs that already exist.
+      **The rows that hang off a dropped relation move to the kept one (B-361, PAD-528):**
+      `CoachPlayerNote` re-points. An `EvaluationRecord` re-points unless the kept relation
+      already has a record for the same (`evaluated_on`, `lesson_instance_id`); then the
+      dropped record's ratings join the kept record for categories it has not rated and stay
+      as history (`record_id` NULL, as `evaluations.records` keeps a day's earlier scores) for
+      categories it has, its `note` is appended to the kept record's note after a blank line,
+      its `EvaluationShare` follows unless the kept record is already shared, and the emptied
+      record is deleted. Every `EvaluationEntry` ends on the kept relation. No rating and no
+      note is ever dropped by a merge. A metadata guard
+      (`test_every_coach_relation_fk_is_covered_by_the_merge`) fails when a new FK onto
+      `coach_in_player.id` appears that this step does not handle.
    b. `Association_PlayerLesson`, `Association_PlayerLessonInstance`, `WaitingListEntry`,
       `StandingWaitingListEntry`: re-point, deleting the placeholder's row where the claimant
       already has the same (lesson | instance | standing entry) row.
@@ -130,6 +143,21 @@ asks by exact username and the student accepts.
 - **When** the merge runs
 - **Then** exactly one Presence exists for (instance 10, `P2`) and it is `P2`'s original row
 
+#### Evaluations and notes survive when the student already has the coach (B-361, PAD-528)
+- **Given** student `ana` already on Maria's roster (she scanned Maria's QR), and placeholder `P1`
+  on Maria's roster with one evaluation record (one rating, a note) and one strength note
+- **When** the merge runs
+- **Then** that record, its rating and the strength note exist and point at Maria's relation with
+  `ana`, and Maria has exactly one relation with `ana`
+
+#### Two records for the same day merge into the student's (B-361, PAD-528)
+- **Given** the same setup, where both `P1` and `ana` have a class-less record on 2026-09-01: `P1`'s
+  rates Volley 4 and Smash 5 with note "placeholder note", `ana`'s rates Smash 2 with note "claimant note"
+- **When** the merge runs
+- **Then** one record exists for (Maria–`ana`, 2026-09-01): Smash 2 is its rating, Volley 4 joined
+  it, Smash 5 remains as a history row with no record, its note is "claimant note", a blank line,
+  "placeholder note", and `P1`'s record is gone
+
 #### Invite page offers linking on both platforms
 - **Given** a pending invitation opened in a browser with an existing student session
 - **When** the page renders
@@ -140,7 +168,8 @@ asks by exact username and the student accepts.
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 4.
 - Push + email to the invited account on a request and to the coach on the decision:
   `notifications.request-alerts` (PAD-232).
-- Merge tests must cover every FK listed under Entities; when a new `players.id` FK is added
-  elsewhere, this spec's rule 5 and its tests are the place that has to change.
+- Merge tests must cover every FK listed under Entities; when a new `players.id` **or
+  `coach_in_player.id`** FK is added elsewhere, this spec's rule 5 and its tests are the place
+  that has to change. B-361 is what happened when the second kind was forgotten.
 - OPEN: whether a placeholder that has *two* coaches (a second coach imported the same person)
   should be claimable in one go — v1: yes, all relations move.

@@ -58,7 +58,10 @@ point that composes them (PAD-358).
    `(instance, player)` index answers as "already on the list", never an error. The
    coach is told exactly as a join request tells them: a message in the coach ↔ student
    conversation, a web push and an iOS push that open that thread, and a realtime
-   `waiting_list_joined` event to the coach.
+   `waiting_list_joined` event to the coach. The message names the class and its day —
+   "… entrou na lista de espera de Sábado 18h no dia 10/04 (sábado) às 18:00." (PAD-519,
+   `notifications.message-templates` rule 17): the weekday alone did not tell a coach with
+   a weekly class which week was meant.
    What the list then does is `notifications.waiting-list` rules 4–4c and 13: when a spot opens the
    student is invited first (PAD-446) — this rule adds an entry, it never enrols anyone.
 7. **Each class shows what the student already did**: their latest join request for it (and its
