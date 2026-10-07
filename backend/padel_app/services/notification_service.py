@@ -1865,8 +1865,79 @@ def _format_day_month(dt) -> str:
     return dt.strftime("%d/%m") if dt else ""
 
 
+def format_relative_day(start, locale, now=None) -> str:
+    """PAD-549 (notifications.message-templates rule 18; numbering unconfirmed): the ``{day}``
+    placeholder — the class's day said the way a person would, relative to when the message is
+    rendered, which in the engine is the moment it is sent (so a message held by quiet hours past
+    midnight still says "hoje" correctly). Both ``start`` and ``now`` are club wall-clock times.
+
+    No preposition is inside it; the coach writes "para {day} às {time}":
+        same day → "hoje" / "today"; next day → "amanhã" / "tomorrow";
+        two days → "depois de amanhã" / "the day after tomorrow";
+        later this week (Monday–Sunday) → "esta sexta-feira" / "this Friday";
+        any day of next week → "a próxima segunda-feira" / "next Monday";
+        anything else, past included → "dia 23/02" / "23/02".
+    Saturday and Sunday are masculine in Portuguese: "este sábado", "o próximo domingo".
+    """
+    if start is None:
+        return ""
+    if now is None:
+        now = utc_to_wall_naive(utcnow_naive())
+    is_pt = (locale or "").startswith("pt")
+    days = (start.date() - now.date()).days
+    if days == 0:
+        return "hoje" if is_pt else "today"
+    if days == 1:
+        return "amanhã" if is_pt else "tomorrow"
+    if days == 2:
+        return "depois de amanhã" if is_pt else "the day after tomorrow"
+    week_start = now.date() - timedelta(days=now.weekday())
+    weeks_ahead = (start.date() - week_start).days // 7
+    weekday = _format_weekday(start, locale)
+    masculine = start.weekday() >= 5
+    if days > 2 and weeks_ahead == 0:
+        if is_pt:
+            return f"{'este' if masculine else 'esta'} {weekday}"
+        return f"this {weekday}"
+    if days > 0 and weeks_ahead == 1:
+        if is_pt:
+            return f"{'o próximo' if masculine else 'a próxima'} {weekday}"
+        return f"next {weekday}"
+    date = _format_day_month(start)
+    return f"dia {date}" if is_pt else date
+
+
+def template_preview_examples(locale, now=None) -> dict:
+    """PAD-549 (message-templates rule 19; numbering unconfirmed): one example value per
+    placeholder, for the settings help and live preview — a sample class tomorrow at 18:00 at
+    level "Intermédio" on court "Campo 2", built from the same formatters a real message uses,
+    so the example cannot drift from what is sent. Coach's locale, like every placeholder."""
+    if now is None:
+        now = utc_to_wall_naive(utcnow_naive())
+    start = (now + timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
+    is_pt = (locale or "").startswith("pt")
+    return {
+        "name": "Ana",
+        "level": "Intermédio" if is_pt else "Intermediate",
+        "weekday": _format_weekday(start, locale),
+        "time": start.strftime("%H:%M"),
+        "type": _CLASS_TYPE_WORDS.get("pt" if is_pt else "en", {}).get("academy", ""),
+        "date": _format_day_month(start),
+        "court": "Campo 2" if is_pt else "Court 2",
+        "day": format_relative_day(start, locale, now=now),
+        "class": "Treino de grupo" if is_pt else "Group training",
+        "when": _format_when(start, locale, dated=True).strip(),
+        "side": _side_phrase("left", locale),
+    }
+
+
+def render_template_preview(template, locale, now=None) -> str:
+    """PAD-549: the coach's template rendered through ``_format_template`` with the examples."""
+    return _format_template(template or "", **template_preview_examples(locale, now=now))
+
+
 def class_placeholders(source, locale) -> dict:
-    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
+    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders; PAD-549 adds ``{day}``.
 
     ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
     locale like every other placeholder (notifications.message-templates rule 12);
@@ -1886,6 +1957,8 @@ def class_placeholders(source, locale) -> dict:
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
         "date": _format_day_month(start),
         "court": (getattr(court, "name", None) or "") if court is not None else "",
+        # PAD-549: computed now, i.e. when the message is rendered and sent.
+        "day": format_relative_day(start, locale),
     }
 
 

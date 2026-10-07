@@ -66,6 +66,31 @@ def _resolve_instance(model: str, original_id: int, date_str: str | None) -> Les
     return get_or_materialize_instance(lesson, date)
 
 
+@bp.post("/template_preview")
+@jwt_required()
+def template_preview():
+    """PAD-549 (notifications.message-templates rule 19): the settings help's live preview — the
+    coach's template rendered by the real formatter with example values, plus each example."""
+    from padel_app.services.notification_service import (
+        _resolve_locale,
+        render_template_preview,
+        template_preview_examples,
+    )
+
+    coach = _current_coach()
+    data = request.get_json(silent=True) or {}
+    template = data.get("template")
+    if template is not None and not isinstance(template, str):
+        abort(400, "template must be a string")
+    if template is not None and len(template) > 2000:
+        abort(400, "template is too long")
+    locale = _resolve_locale(coach)
+    return jsonify({
+        "text": render_template_preview(template or "", locale),
+        "examples": template_preview_examples(locale),
+    })
+
+
 @bp.get("/player_search")
 @jwt_required()
 def player_search():
