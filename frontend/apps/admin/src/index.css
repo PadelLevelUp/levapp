@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LevApp tokens — mirror of apps/web/src/index.css (the subset the console uses). */
+@layer base {
+  :root {
+    --background: 216 29% 93%;
+    --foreground: 216 52% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 216 52% 13%;
+    --primary: 220 84% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 100% 95%;
+    --secondary-foreground: 220 84% 47%;
+    --muted: 213 39% 95%;
+    --muted-foreground: 219 18% 41%;
+    --destructive: 4 63% 53%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 28% 86%;
+    --input: 215 28% 86%;
+    --ring: 220 84% 47%;
+    --radius: 0.625rem;
+    --success: 161 78% 33%;
+    --success-foreground: 0 0% 100%;
+    --warning: 31 72% 50%;
+    --warning-foreground: 216 52% 13%;
+    --sidebar-background: 217 58% 12%;
+    --sidebar-foreground: 216 63% 97%;
+    --sidebar-primary: 213 100% 65%;
+    --sidebar-accent: 218 54% 19%;
+    --sidebar-border: 213 37% 23%;
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

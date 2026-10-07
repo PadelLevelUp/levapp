@@ -1,0 +1,71 @@
+{
+  "admin": {
+    "shell": {
+      "title": "LevApp Staff",
+      "nav": { "home": "Home", "roles": "Access", "audit": "Audit log" },
+      "signOut": "Sign out",
+      "role": { "owner": "owner", "operator": "operator", "support": "support" },
+      "readOnly": "Read only",
+      "language": "Language"
+    },
+    "signIn": {
+      "title": "Staff console",
+      "lead": "Sign in with your LevApp Google account.",
+      "loading": "Loading sign-in…",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Only @levapp.app accounts can sign in. Use the company account.",
+        "NO_ADMIN_ROLE": "Your account has no console access. Ask the owner for a role.",
+        "GOOGLE_TOKEN_INVALID": "Google did not validate the sign-in. Try again.",
+        "ADMIN_NOT_CONFIGURED": "Sign-in is not configured yet.",
+        "NETWORK": "Could not reach the server.",
+        "generic": "Could not sign in."
+      }
+    },
+    "notConfigured": {
+      "title": "Sign-in not configured",
+      "body": "This environment has no Google OAuth client yet. ADMIN_GOOGLE_CLIENT_ID is empty in the server environment; the console opens as soon as the value exists.",
+      "retry": "Check again"
+    },
+    "home": {
+      "welcome": "Hello, {{email}}",
+      "yourRole": "Your role: {{role}}",
+      "sessionEnds": "Session ends at {{time}}",
+      "empty": "Operations (approvals, users, clubs, engine health) arrive in the next parts."
+    },
+    "roles": {
+      "title": "Console access",
+      "lead": "Who can sign in, and as what. Only the owner changes this.",
+      "grant": "Grant access",
+      "email": "Email @levapp.app",
+      "role": "Role",
+      "add": "Add",
+      "change": "Change role",
+      "revoke": "Revoke",
+      "revoked": "Revoked",
+      "active": "Active",
+      "grantedBy": "Granted by {{email}}",
+      "seeded": "Seeded by the migration",
+      "none": "No access rows yet.",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Only @levapp.app emails.",
+        "INVALID_ROLE": "Unknown role.",
+        "ROLE_EXISTS": "That email already has access.",
+        "LAST_OWNER": "There must always be an owner.",
+        "ADMIN_ROLE_TOO_LOW": "Only the owner can do this.",
+        "generic": "Could not save."
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "lead": "Who changed what, before and after, and when. It cannot be edited or deleted.",
+      "filters": { "actor": "Who", "action": "Action", "targetType": "Target type", "targetId": "Target id", "apply": "Filter", "clear": "Clear" },
+      "columns": { "when": "When", "who": "Who", "action": "Action", "target": "Target", "outcome": "Outcome", "change": "Before → after" },
+      "outcome": { "ok": "ok", "denied": "denied", "error": "error" },
+      "empty": "No rows for these filters.",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
+    },
+    "common": { "loading": "Loading…", "error": "Something went wrong.", "cancel": "Cancel", "confirm": "Confirm" }
+  }
+}
