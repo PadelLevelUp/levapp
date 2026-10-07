@@ -17,6 +17,11 @@ describe("nameMatchesQuery (PAD-516, players.list rule 3)", () => {
     expect(nameMatchesQuery("Ana-Rita O'Neil", "oneil anarita")).toBe(true);
   });
 
+  it("matches nobody on a query with no searchable characters", () => {
+    expect(nameMatchesQuery("Anyone", "%")).toBe(false);
+    expect(nameMatchesQuery("Anyone", " _ ")).toBe(false);
+  });
+
   it("matches everyone on an empty query and nobody on a missing name", () => {
     expect(nameMatchesQuery("Anyone", "   ")).toBe(true);
     expect(nameMatchesQuery(null, "a")).toBe(false);

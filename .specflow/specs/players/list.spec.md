@@ -20,7 +20,8 @@ Coaches view their player roster with search, sorting, filtering, and pagination
    whitespace and each matches as a substring. Accents, case and punctuation are folded ("joao"
    finds "João"), with one rule on the server (`player_service.name_matches_query`, applied after
    the coach scope and the other filters, before pagination) and in the apps' local pickers
-   (`@levelup/config` `nameMatchesQuery`).
+   (`@levelup/config` `nameMatchesQuery`). A blank query matches everyone; a query with text but
+   no searchable characters ("%", "_") matches nobody, so a wildcard never lists the roster.
 4. Sort options: name-asc, name-desc, level-asc, level-desc
 5. Filters: `missing_level=true` (players without assigned level), `missing_side=true` (players without side preference), `incomplete=true` (no level OR no side — the dashboard's "see all", `dashboard.profile-completeness` rule 3; PAD-486). The three are mutually exclusive on screen; each can arrive in the Players URL
 6. Frontend uses 60-second LRU cache for paginated results, invalidated on mutations

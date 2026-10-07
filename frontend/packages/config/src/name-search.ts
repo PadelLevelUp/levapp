@@ -17,10 +17,14 @@ export function searchWords(query: string): string[] {
   return normalizeSearchText(query).split(/\s+/).filter(Boolean);
 }
 
-/** True when every word of `query` is in `name`; an empty query matches everyone. */
+/**
+ * True when every word of `query` is in `name`. A blank query matches everyone; a query with
+ * text but no searchable characters ("%", "_", "!!") matches nobody — the server's rule too.
+ */
 export function nameMatchesQuery(name: string | null | undefined, query: string): boolean {
+  if (!(query ?? "").trim()) return true;
   const words = searchWords(query);
-  if (words.length === 0) return true;
+  if (words.length === 0) return false;
   const haystack = normalizeSearchText(name ?? "");
   return words.every((w) => haystack.includes(w));
 }

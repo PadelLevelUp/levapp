@@ -210,10 +210,14 @@ def name_matches_query(name, query):
     """players.list rule 3 (PAD-516): every word of ``query`` is in ``name``, in any order,
     with accents, case and punctuation folded — one rule with the apps' local pickers
     (``nameMatchesQuery``). Applied in Python after the coach scope: rosters are small, and
-    SQL cannot fold accents without the unaccent extension. An empty query matches all."""
+    SQL cannot fold accents without the unaccent extension. A blank query matches all; a
+    query with text but no searchable characters ("%", "_", "!!") matches nobody, so a
+    wildcard never dumps the roster (#569 review)."""
+    if not (query or "").strip():
+        return True
     words = normalize_search_text(query).split()
     if not words:
-        return True
+        return False
     haystack = normalize_search_text(name)
     return all(w in haystack for w in words)
 
@@ -262,7 +266,8 @@ def search_coach_players(coach_id, term, limit=20):
     legitimately put them on a waiting list.
     """
     term = (term or "").strip()
-    if not term:
+    # A blank term, or one with no searchable characters ("%", "_"), never lists the roster.
+    if not normalize_search_text(term).split():
         return []
 
 

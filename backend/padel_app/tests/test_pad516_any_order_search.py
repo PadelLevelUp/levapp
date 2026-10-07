@@ -72,3 +72,11 @@ def test_a_search_still_paginates(app, client, roster):
     assert body["pagination"]["total"] == 7 and body["pagination"]["pages"] == 3
     assert body["pagination"]["page"] == 2 and body["pagination"]["hasPrev"] and body["pagination"]["hasNext"]
     assert len(body["items"]) == 3
+
+
+@pytest.mark.parametrize("q", ["%", "_", "!!"])
+def test_a_query_with_no_searchable_characters_matches_nobody(client, roster, q):
+    """#569 review: "%" normalised to no words and the type-ahead listed the roster."""
+    from urllib.parse import quote
+
+    assert _names(client, roster, quote(q)) == []
