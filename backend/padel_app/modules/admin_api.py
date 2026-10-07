@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 
 from padel_app.services.admin import audit_service, auth_service, role_service
 from padel_app.utils.admin_auth import audited, error, request_id_for, require_role
+from padel_app.utils.rate_limit import rate_limited
 from padel_app.utils.dates import to_utc_iso
 
 bp = Blueprint("admin_api", __name__, url_prefix="/admin/api")
@@ -58,6 +59,7 @@ def auth_config():
 
 
 @bp.post("/auth/google")
+@rate_limited("admin_sign_in")
 @audited("auth.sign_in")
 def auth_google():
     body = request.get_json(silent=True) or {}

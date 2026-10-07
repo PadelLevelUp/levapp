@@ -67,12 +67,17 @@ def _check_role(role):
     return role
 
 
-def _active_owner_count():
-    return AdminRole.query.filter_by(role="owner", revoked_at=None).count()
+def _owner_rows_for_update():
+    """The active owner rows, locked until the transaction ends (Postgres `FOR UPDATE`; SQLite
+    has no row locks and serialises writers anyway). Two owners revoking each other at once both
+    wait here, and the second sees the first's revoke: there is always an owner (rule 7)."""
+    return AdminRole.query.filter_by(role="owner", revoked_at=None).order_by(AdminRole.id).with_for_update().all()
 
 
 def _would_remove_last_owner(row, new_role):
-    return row.role == "owner" and row.revoked_at is None and new_role != "owner" and _active_owner_count() <= 1
+    if row.role != "owner" or row.revoked_at is not None or new_role == "owner":
+        return False
+    return len(_owner_rows_for_update()) <= 1
 
 
 def list_roles():
