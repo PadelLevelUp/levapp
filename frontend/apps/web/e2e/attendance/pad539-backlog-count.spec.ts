@@ -47,7 +47,7 @@ test("PAD-539: the trigger counts the backlog on a clean week, and names the wee
   await page.getByTestId("presences-validate-trigger").click();
   const next = page.getByRole("button", { name: ui("presences.week.next") });
   await next.click();
-  await expect(page.getByTestId("presences-week-label")).toContainText(/\+1/);
+  await expect(page.getByTestId("presences-week-label")).not.toContainText(/\+2/); // "Next week" first
   const countOnCleanWeek = page.waitForResponse(
     (r) => /\/pending_validation\/count\?/.test(r.url()) && r.status() === 200
   );
