@@ -632,6 +632,9 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
             data.get("lesson_instance_id")
         )
 
+    # PAD-552 (invitations rule 13a): the capacity before the edit, to tell a place freed by it.
+    _cap_before = lesson_instance.effective_max_players or 0
+
     data = transform_to_datetime(lesson_instance, data)
     # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
     # override. PAD-387: only a title that was SENT says anything about the
@@ -681,12 +684,22 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     for player_id in data.get("add_player_ids", []):
         enrol(player_id, lesson_instance, "coach")
 
+    removed_any = False
     for player_id in data.get("remove_player_ids", []):
-        unenrol(player_id, lesson_instance)
+        removed_any = unenrol(player_id, lesson_instance) or removed_any
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_schedule_instance
     _maybe_schedule_instance(lesson_instance)
+
+    # PAD-552 (invitations rule 13a): the vacancies follow the edit now, not at the next tick: a
+    # lower capacity retires the offers the class can no longer hold, and a place the edit freed
+    # (a higher capacity, a student taken off) is opened under the engine's usual gates.
+    from padel_app.services.notification_service import vacancies_after_class_edit
+    vacancies_after_class_edit(
+        lesson_instance,
+        place_freed=removed_any or (lesson_instance.effective_max_players or 0) > _cap_before,
+    )
 
     return lesson_instance
 
