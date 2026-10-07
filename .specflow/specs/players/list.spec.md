@@ -15,7 +15,10 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 ### Rules
 1. `GET /api/app/coach_players` returns all coach-player pairs for the authenticated coach (with evaluations, notes)
 2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side, incomplete
-3. Search matches against player name (case-insensitive)
+3. Search matches against player name (case-insensitive). **Every typed word must appear in the
+   name, in any order** (PAD-516): "pedro sousa" finds "Pedro Mesquita e Sousa". Words are split on
+   whitespace and each matches as a substring. The roster's server search folds case only; the
+   apps' local pickers also fold accents and punctuation (`@levelup/config` `nameMatchesQuery`).
 4. Sort options: name-asc, name-desc, level-asc, level-desc
 5. Filters: `missing_level=true` (players without assigned level), `missing_side=true` (players without side preference), `incomplete=true` (no level OR no side — the dashboard's "see all", `dashboard.profile-completeness` rule 3; PAD-486). The three are mutually exclusive on screen; each can arrive in the Players URL
 6. Frontend uses 60-second LRU cache for paginated results, invalidated on mutations
@@ -78,6 +81,11 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 - **Given** a coach with players "Alice", "Bob", "Alice B"
 - **When** they GET `/api/app/coach_players_paginated?search=alice`
 - **Then** only "Alice" and "Alice B" are returned
+
+#### Search matches every word in any order (PAD-516)
+- **Given** a coach with players "Pedro Mesquita e Sousa", "Sousa Pedrosa" and "Pedro Alves"
+- **When** they GET `/api/app/coach_players_paginated?search=pedro sousa`
+- **Then** "Pedro Mesquita e Sousa" and "Sousa Pedrosa" are returned and "Pedro Alves" is not
 
 #### Filter by missing level
 - **Given** a coach with 3 players, 1 without a level

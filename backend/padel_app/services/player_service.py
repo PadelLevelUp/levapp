@@ -5,7 +5,7 @@ from padel_app.models import (
     PlayerLevelHistory,
 )
 from sqlalchemy.orm import joinedload
-from sqlalchemy import case, func, or_
+from sqlalchemy import and_, case, func, or_
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
@@ -195,6 +195,20 @@ def _serialize_coach_player_relation(rel, due=None):
     return result
 
 
+def name_matches_all_words(column, term):
+    """players.list rule 3 (PAD-516): every whitespace-separated word of ``term`` appears
+    in ``column``, in any order, case-insensitive; LIKE wildcards in the term are literal.
+    Returns a SQLAlchemy condition, or None for an empty term."""
+    words = [w for w in (term or "").split() if w]
+    if not words:
+        return None
+    conds = []
+    for w in words:
+        escaped = w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        conds.append(column.ilike(f"%{escaped}%", escape="\\"))
+    return and_(*conds)
+
+
 def get_coach_players_list(coach):
     relations = (
         Association_CoachPlayer.query.options(
@@ -230,9 +244,6 @@ def search_coach_players(coach_id, term, limit=20):
     if not term:
         return []
 
-    # Escape LIKE wildcards so a literal "%" or "_" typed by the coach doesn't
-    # turn into a match-everything pattern.
-    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     relations = (
         Association_CoachPlayer.query.options(
@@ -241,7 +252,8 @@ def search_coach_players(coach_id, term, limit=20):
         .filter_by(coach_id=coach_id)
         .join(Association_CoachPlayer.player)
         .join(Player.user)
-        .filter(User.name.ilike(f"%{escaped}%", escape="\\"))
+        # PAD-516: every typed word, in any order; LIKE wildcards stay literal.
+        .filter(name_matches_all_words(User.name, term))
         # PAD-268: invited-but-inactive players stay pickable; deleted ones never.
         .filter(User.status != "disabled")
         .order_by(User.name.asc())
@@ -278,7 +290,9 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     query = query.filter(User.status != "disabled")
 
     if search:
-        query = query.filter(User.name.ilike(f"%{search}%"))
+        cond = name_matches_all_words(User.name, search)
+        if cond is not None:
+            query = query.filter(cond)
 
     # Alert-based filters
     if missing_level:

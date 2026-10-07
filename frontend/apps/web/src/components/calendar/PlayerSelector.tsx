@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { nameMatchesQuery } from "@levelup/config";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -24,12 +25,6 @@ const getInitials = (name: string) =>
     .toUpperCase()
     .slice(0, 2);
 
-const normalize = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9\s]/g, "")
-    .toLowerCase();
 
 export function PlayerSelector({
   players,
@@ -61,8 +56,8 @@ export function PlayerSelector({
     let result = players;
 
     if (isSearching) {
-      const q = normalize(search);
-      result = result.filter((p) => normalize(p.name).includes(q));
+      // PAD-516: every typed word, in any order (shared with iOS).
+      result = result.filter((p) => nameMatchesQuery(p.name, search));
     } else if (filterLevelId) {
       result = result.filter((p) => String(p.levelId) === String(filterLevelId));
     }
