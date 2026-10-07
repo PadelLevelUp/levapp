@@ -56,6 +56,9 @@ def test_the_deploy_builds_and_runs_the_admin_image(env):
     if env == "prod":
         assert "ref: ${{ inputs.rollback_to || github.sha }}" in job
         assert 'TAG="${{ inputs.rollback_to || github.sha }}"' in job
+        # A rollback_to that predates the console must not paint the rollback red.
+        assert 'if [ -n "${{ inputs.rollback_to }}" ] && ! docker pull' in job
+        assert "exit 0" in job.split("docker stop levelup_admin")[0]
 
 
 @pytest.mark.parametrize("env", sorted(ENVIRONMENTS))

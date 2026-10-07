@@ -399,6 +399,15 @@ jobs:
           script: |
             set -euo pipefail
             TAG="${{ inputs.rollback_to || github.sha }}"
+            # A rollback_to older than the console (PAD-531) has no levelup_admin
+            # image under that sha. A rollback is an incident moment: leave the
+            # running console as it is and say so, instead of painting the
+            # product's rollback red. A normal deploy still fails loudly on a
+            # missing image.
+            if [ -n "${{ inputs.rollback_to }}" ] && ! docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:$TAG; then
+              echo "::warning::no levelup_admin:$TAG image (rollback target predates the console); console container left unchanged"
+              exit 0
+            fi
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:$TAG
             docker stop levelup_admin || true && docker rm levelup_admin || true
             # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
