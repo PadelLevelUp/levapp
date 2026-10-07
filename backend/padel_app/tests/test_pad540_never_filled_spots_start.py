@@ -439,3 +439,28 @@ def test_a_tick_and_a_trigger_at_once_open_the_class_once(app, live_scheduler, m
     with app.app_context():
         assert _vacancies_for_class(instance_id) == 1, "the race created the place twice"
         assert _invites_for_class(instance_id) == 1
+
+
+def test_a_scan_that_raises_does_not_stop_the_ticks_open_vacancies(app, monkeypatch):
+    """#558 review: the scan runs before the per-vacancy loop. One failure in it (its candidate
+    query included) is logged, and an existing open vacancy still gets its first batch."""
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.services.lesson_service import get_or_materialize_instance
+
+    def boom(*, now):
+        raise RuntimeError("scan failed")
+
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]), patch(PATCHES[2]):
+        ids = _seed(invite_hours=24, reminder_hours=48, tag="boom")
+        twelve_h = CLASS_UTC - 12 * H
+        pin_clock(monkeypatch, twelve_h)
+        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        db.session.add(Vacancy(lesson_instance_id=instance.id, coach_id=ids["coach"], status="open",
+                               current_round_number=1, current_batch_number=0))
+        db.session.commit()
+        monkeypatch.setattr(ns, "_open_never_filled_places", boom)
+
+        ns.process_invitation_batches(now=twelve_h)
+        assert _invites_for_class(instance.id) == 1, "the scan's failure stopped the tick"

@@ -4783,7 +4783,15 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     expire_stale_invitations(now=_now)
     # PAD-540 / B-301 (rule 1c): a class with a never-filled place and no vacancy of any status
     # whose window is open is started here, since no absence and no one-shot job will do it.
-    _open_never_filled_places(now=_now)
+    # Its own try (#558 review): a scan that raises (its candidate query included) is logged and
+    # the tick goes on to the open vacancies below; the next tick scans again.
+    try:
+        _open_never_filled_places(now=_now)
+    except Exception:  # noqa: BLE001 — logged, the next tick retries
+        db.session.rollback()
+        from flask import current_app, has_app_context
+        if has_app_context():
+            current_app.logger.exception("never-filled places: the scan failed")
     open_vacancies = Vacancy.query.filter_by(status="open").all()
     processed = 0
 
