@@ -403,7 +403,7 @@ def _evaluated(app, rel_id, coach_id, day, score=3.0, note=None, category_id=Non
 
     with app.app_context():
         if category_id is None:
-            cat = EvaluationCategory(coach_id=coach_id, name=f"Volley {rel_id}")
+            cat = EvaluationCategory(coach_id=coach_id, name=f"Volley {rel_id} {day.isoformat()}")
             db.session.add(cat); db.session.flush()
             category_id = cat.id
         record = EvaluationRecord(coach_player_id=rel_id, evaluated_on=day, note=note)
@@ -508,3 +508,41 @@ def test_every_coach_relation_fk_is_covered_by_the_merge(app):
         assert referencing == MERGED_RELATION_FK_TABLES, (
             f"uncovered: {referencing - MERGED_RELATION_FK_TABLES}; stale: {MERGED_RELATION_FK_TABLES - referencing}"
         )
+
+
+def _shared(app, record_id):
+    from padel_app.models import EvaluationShare
+
+    with app.app_context():
+        share = EvaluationShare(record_id=record_id, shared_at=datetime(2026, 9, 2, 9, 0), category_ids=[],
+                                evolution="flat", include_note=False, card={})
+        db.session.add(share); db.session.commit()
+        return share.id
+
+
+def test_b361_a_share_follows_its_record_unless_the_kept_record_is_shared(app, world):
+    """Rule 5a: the dropped record's share moves to the kept record when that one
+    is unshared; when both are shared, the kept record's share wins and the
+    dropped one goes with its record."""
+    from datetime import date
+    from padel_app.models import EvaluationShare
+
+    ph_rel = _relation(app, world["coach"], world["ph_player"])
+    st_rel = _relation(app, world["coach"], world["st_player"])
+    # Day 1: only the placeholder's record is shared → the share follows.
+    ph1 = _evaluated(app, ph_rel, world["coach"], date(2026, 9, 1))
+    st1 = _evaluated(app, st_rel, world["coach"], date(2026, 9, 1))
+    follows = _shared(app, ph1["record"])
+    # Day 2: both shared → the kept record's share wins.
+    ph2 = _evaluated(app, ph_rel, world["coach"], date(2026, 9, 2))
+    st2 = _evaluated(app, st_rel, world["coach"], date(2026, 9, 2))
+    loses = _shared(app, ph2["record"])
+    wins = _shared(app, st2["record"])
+
+    _merge(app, world["ph_player"], world["st_user"])
+
+    with app.app_context():
+        assert EvaluationShare.query.get(follows).record_id == st1["record"]
+        assert EvaluationShare.query.get(loses) is None
+        assert EvaluationShare.query.get(wins).record_id == st2["record"]
+        assert EvaluationShare.query.count() == 2
