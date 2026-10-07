@@ -72,6 +72,7 @@
       "eligibility": "Below the eligibility bar for this class:",
       "excluded_by_coach": "You excluded this student from automatic invitations (Settings › Notifications › Restrictions).",
       "inactive_account": "The account is not active and inactive accounts are excluded.",
+      "has_class_same_day": "They already have another class that day, and students with a class that day are excluded.",
       "unavailable": "Marked themselves unavailable at this class's time.",
       "auto_invites_off": "Switched automatic invitations off.",
       "no_round_matched": "Matches no round's criteria:",

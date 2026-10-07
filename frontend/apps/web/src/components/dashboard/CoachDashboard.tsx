@@ -108,7 +108,7 @@ export function CoachDashboard({
           <Button variant="ghost" onClick={() => navigate("/calendar")}>
             {t("dashboard.today")}
           </Button>
-          <Button onClick={() => navigate("/calendar?new=1")}>
+          <Button data-testid="dashboard-new-class" onClick={() => navigate("/calendar?new=1")}>
             {t("dashboard.newClass")}
           </Button>
         </div>

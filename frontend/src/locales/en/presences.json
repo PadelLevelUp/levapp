@@ -71,7 +71,10 @@
         "ready": "Ready to confirm ({{count}})"
       },
       "triggerEmpty": "Nothing to validate",
-      "needsDecision": "Needs a decision"
+      "needsDecision": "Needs a decision",
+      "presentCount_one": "{{count}} present",
+      "presentCount_other": "{{count}} present",
+      "presentCountNone": "0 present"
     },
     "column": {
       "name": "Player",

@@ -1196,6 +1196,9 @@ export interface NotificationRestrictions {
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
+  /** PAD-523 (notifications.config rule 6e): skip a student who already holds a spot in another class that
+   * club-local day. Off by default. Both settings sections fill it in when a server from before PAD-523 omits it. */
+  noSameDayClass: { enabled: boolean };
   // Plain scalar (hours before class start). Cancellations after this window are
   // still allowed but flagged as "late cancellations". Backend key:
   // restrictions.cancellationDeadlineHours (default 24). See PAD-45 / PAD-43.
@@ -1455,6 +1458,7 @@ export type InviteExplainStage =
   | "eligibility"
   | "excluded_by_coach"
   | "inactive_account"
+  | "has_class_same_day"
   | "unavailable"
   | "auto_invites_off"
   | "no_round_matched"
