@@ -389,8 +389,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
       and answers `spot_filled`; both shells already show "Vaga preenchida". Rule 17's guard decides
       it under its lock, keyed on `withdrawn_by_coach_at` — a late yes on a spot that went to
       someone else keeps rule 17's waiting-list offer.
-    - **Not live:** `confirmed` → 409 `{"code": "confirmed"}`, nothing written (a student leaves a
-      class through attendance); already `expired` → `{"action": "<outcome>"}` as
+    - **Not live:** `confirmed` → `{"action": "confirmed"}`, nothing written, whether the yes landed
+      before the first read or under the lock — one answer for one state (a student leaves a class
+      through attendance); already `expired` → `{"action": "<outcome>"}` as
       `calendar.event-detail` rule 16 computes it, nothing written, so a repeated delete is a
       no-op; a class that is over → `{"action": "expired"}` after the stale sweep, as rule 9's coach
       answer does.

@@ -485,11 +485,19 @@ export interface ClassWaitingListRow {
   createdAt: string | null;
 }
 
+/** PAD-548 (calendar.event-detail rule 16): the one word both shells render for an invitee. */
+export type InvitationOutcome = 'accepted' | 'declined' | 'withdrawn' | 'pending' | 'spot_filled' | 'expired';
+
 export interface ClassInvitation {
   id: number;
   playerId: string;
   playerName: string;
   status: 'sent' | 'confirmed' | 'expired' | 'queued';
+  /** Decided in the backend serializer; clients never derive a label from `status`. */
+  outcome: InvitationOutcome;
+  answer: 'yes' | 'no' | null;
+  /** Who recorded `answer` (invitations rule 9); `coach` adds "recorded by the coach" under the label. */
+  answeredBy: 'student' | 'coach' | null;
 }
 
 export interface ClassInstance {

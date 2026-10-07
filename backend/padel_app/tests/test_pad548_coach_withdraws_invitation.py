@@ -204,9 +204,7 @@ def test_a_withdrawal_that_is_not_live_writes_nothing(app, monkeypatch):
         assert _event_of(instance_id, b).withdrawn_by_coach_at == stamp, "a repeated delete is a no-op"
 
         _answer(instance_id, a, "yes", NOW + timedelta(minutes=3))
-        with pytest.raises(HTTPException) as e:
-            withdraw_invitation(a_event.id, coach_id, now=NOW + timedelta(minutes=4))
-        assert e.value.response.status_code == 409 and e.value.response.get_json()["code"] == "confirmed"
+        assert withdraw_invitation(a_event.id, coach_id, now=NOW + timedelta(minutes=4)) == {"action": "confirmed"}
         db.session.expire_all()
         assert (_event_of(instance_id, a).status, _event_of(instance_id, a).withdrawn_by_coach_at) == ("confirmed", None)
 
@@ -265,16 +263,24 @@ def test_a_withdrawal_racing_a_yes_waits_for_the_lock_and_the_yes_wins(app, monk
         event_id = _event_of(instance_id, a).id
         user_id = Player.query.get(a).user_id
 
-    in_locked_section, withdraw_attempted = threading.Event(), threading.Event()
-    real_close = ns._close_vacancy
+    in_locked_section, withdraw_at_the_lock = threading.Event(), threading.Event()
+    real_close, real_lock = ns._close_vacancy, ns._lock_vacancy_and_instance
 
     def gated_close(*args, **kwargs):
         if threading.current_thread().name == "yes":
             in_locked_section.set()
-            withdraw_attempted.wait(timeout=1.5)  # the withdrawal is now blocked on this yes's lock
+            # Hold the yes, locks taken and answer flushed, until the withdrawal has read the
+            # invitation as live and reached its own lock call — where it must now wait.
+            withdraw_at_the_lock.wait(timeout=1.5)
         return real_close(*args, **kwargs)
 
+    def gated_lock(vacancy, instance):
+        if threading.current_thread().name == "withdraw":
+            withdraw_at_the_lock.set()
+        return real_lock(vacancy, instance)
+
     monkeypatch.setattr(ns, "_close_vacancy", gated_close)
+    monkeypatch.setattr(ns, "_lock_vacancy_and_instance", gated_lock)
     results = {}
 
     def yes():
@@ -282,8 +288,10 @@ def test_a_withdrawal_racing_a_yes_waits_for_the_lock_and_the_yes_wins(app, monk
         results["yes"] = respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
 
     def withdraw():
+        threading.current_thread().name = "withdraw"
         in_locked_section.wait(timeout=5)
-        withdraw_attempted.set()
+        # The mutant (no lock call) never signals; the yes then goes on after its timeout and
+        # the unlocked withdrawal lands on top of it — both answers, the red this cell exists for.
         results["withdraw"] = withdraw_invitation(event_id, coach_id, now=NOW + timedelta(minutes=1))
 
     with _io():

@@ -5198,7 +5198,7 @@ def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datet
     rule 17's guard does) — and ONE commit: retire, settle and stamp are flushed; the bubble
     edit is queued with ``on_commit`` before the commit; the follow-up runs after it.
     """
-    from flask import abort, jsonify, make_response
+    from flask import abort
 
     from padel_app.models import Coach
     from padel_app.serializers.lesson import invitation_outcome
@@ -5214,8 +5214,9 @@ def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datet
         return {"action": "expired"}
 
     if event.status == "confirmed":
-        # The student holds the spot; leaving a class is the attendance cancel, not this.
-        abort(make_response(jsonify({"code": "confirmed"}), 409))
+        # The student holds the spot; leaving a class is the attendance cancel, not this. One
+        # answer whether the yes landed before this read or under the lock below.
+        return {"action": "confirmed"}
     if event.status not in LIVE_INVITATION_STATES:
         return {"action": invitation_outcome(event)}  # already ended; a repeated delete is a no-op
 

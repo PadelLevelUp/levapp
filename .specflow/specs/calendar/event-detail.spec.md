@@ -123,8 +123,8 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     "A pessoa convidada vai ver a mensagem do convite na mesma, mas como vaga ocupada." / "The
     invited person will still see the invitation message, but as spot filled." with Cancel and
     Delete; confirming calls `DELETE /api/app/notify/invitations/<id>` (`notifications.invitations`
-    rule 19) and the row reads `withdrawn`. A 409 `confirmed` (the student accepted first) refreshes
-    the row to `accepted` with a toast saying so. Web `AlertDialog`; iOS `Alert` with a destructive
+    rule 19) and the row reads `withdrawn`. An answer of `confirmed` (the student accepted first)
+    refreshes the row to `accepted` with a toast saying so. Web `AlertDialog`; iOS `Alert` with a destructive
     button.
 
 ### Acceptance Criteria
