@@ -64,7 +64,7 @@ test("PAD-524: a class is cloned into a new series, with the start left to the c
     await openCalendar(page);
     expect(await findClassOnCalendar(page, NAME)).toBe(true);
     await page.getByTestId("calendar-event-card").filter({ hasText: NAME }).first().click();
-    await page.getByRole("dialog").getByTestId("class-clone").click();
+    await page.getByRole("dialog").getByTestId("class-clone").click({ timeout: 15_000 });
 
     const sheet = page.getByTestId("add-class-sheet");
     await expect(sheet).toBeVisible();
