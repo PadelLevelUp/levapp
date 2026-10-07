@@ -93,6 +93,13 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit -p apps/mobile/tsconfig.json
 
+      # admin.foundation (PAD-531): the staff console is a third shell, web-only by
+      # design (spec rule 15); its own project file, like the two above.
+      - name: Typecheck admin
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npx tsc --noEmit -p apps/admin/tsconfig.app.json
+
   unit:
     runs-on: ubuntu-latest
     steps:
@@ -119,10 +126,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # web (`@levelup/web`), then packages/*, then mobile — the root `test`
-      # script, so what CI runs is what `npm test` runs locally. The E2E guards
-      # (B-092) are part of the web suite.
-      - name: Unit tests (web, packages, mobile)
+      # web (`@levelup/web`), then packages/*, then mobile, then admin — the root
+      # `test` script, so what CI runs is what `npm test` runs locally. The E2E
+      # guards (B-092) are part of the web suite.
+      - name: Unit tests (web, packages, mobile, admin)
         if: steps.filter.outputs.frontend == 'true'
         working-directory: frontend
         run: npm test
