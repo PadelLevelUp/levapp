@@ -1,0 +1,97 @@
+# PAD-525 (classes.edit rule 10; B-341): an edit belongs to one class on one opening of the
+# class screen. Going back mid-edit with an unsaved change asks "Descartar alterações?"
+# (Discard / Keep editing — no Save, see the rule). Keep editing keeps the typed name; Discard
+# leaves without sending anything, and the class reopens in view mode with its saved name.
+# Going back with nothing changed asks nothing. Nothing is saved: the seeded class is left as found.
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad525-edit-mode-does-not-leak.spec.ts
+# Flow number 179 self-assigned from Session C's range 179–188 (2026-10-07), unconfirmed.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+- tapOn: "E2E Academy Class"
+- scrollUntilVisible:
+    element:
+      id: "class-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-edit"
+- extendedWaitUntil:
+    visible:
+      id: "class-edit-name"
+    timeout: 10000
+
+# ── An unsaved change: back asks; Keep editing keeps it ──
+- tapOn:
+    id: "class-edit-name"
+- eraseText: 40
+- inputText: "PAD-525 changed"
+- tapOn:
+    point: "50%, 60%"
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "class-unsaved-dialog"
+    timeout: 10000
+- tapOn:
+    id: "class-unsaved-keep"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-unsaved-dialog"
+    timeout: 10000
+- assertVisible:
+    id: "class-edit-name"
+- assertVisible: "PAD-525 changed"
+
+# ── Discard leaves; the class reopens in view mode with its saved name ──
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "class-unsaved-dialog"
+    timeout: 10000
+- tapOn:
+    id: "class-unsaved-discard"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- assertVisible: "E2E Academy Class"
+- assertNotVisible: "PAD-525 changed"
+
+- tapOn: "E2E Academy Class"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 15000
+- assertNotVisible:
+    id: "class-edit-name"
+- assertNotVisible:
+    id: "class-edit-save"
+- scrollUntilVisible:
+    element:
+      id: "class-edit"
+    direction: DOWN
+    timeout: 30000
+
+# ── Nothing unsaved, nothing asked ──
+- tapOn:
+    id: "class-edit"
+- extendedWaitUntil:
+    visible:
+      id: "class-edit-name"
+    timeout: 10000
+- tapOn:
+    id: "class-detail-back"
+- assertNotVisible:
+    id: "class-unsaved-dialog"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
