@@ -19,10 +19,19 @@ from padel_app.tests.test_pad259_enrolment import _extra_player, _materialise
 from padel_app.tests.test_pad474_participant_edit_scope import _presences, _roster, _seed_weekly_series
 
 
-def _edit(app, model, original_id, day, scope, updates):
+def _noon_before(day):
+    """The series walk skips occurrences that have ended (classes.edit rule 9), so the clock is
+    pinned to the day before the series starts. The shared fixture starts the series at the next
+    hour, tomorrow: run after 23:00 it is a 23:00–24:00 class whose stored end reads 00:00 of its
+    own date, which the wall clock already counts as over (wall-clock-tests-fail-overnight)."""
+    return datetime.combine(day - timedelta(days=1), datetime.min.time()) + timedelta(hours=12)
+
+
+def _edit(app, model, original_id, day, scope, updates, now=None):
     from padel_app.services.lesson_service import edit_class_service
 
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]), \
+            patch("padel_app.utils.dates.club_now_naive", return_value=now or _noon_before(day)), \
             patch("padel_app.utils.expo_push.send_expo_push_to_user"), \
             patch("padel_app.scheduler._maybe_schedule_instance"), \
             patch("padel_app.scheduler._maybe_schedule_lesson"), \
@@ -103,7 +112,8 @@ def test_the_instance_path_still_reaches_the_current_occurrence(app):
     instance_id = _materialise(app, lesson_id, day)
     from padel_app.tests.test_pad474_participant_edit_scope import _edit as _edit_instance
 
-    result, status = _edit_instance(app, instance_id, day, "future", {"addPlayers": [bruno]})
+    with patch("padel_app.utils.dates.club_now_naive", return_value=_noon_before(day)):
+        result, status = _edit_instance(app, instance_id, day, "future", {"addPlayers": [bruno]})
     assert status == 201, result
     with app.app_context():
         assert bruno in _presences(instance_id)
@@ -137,8 +147,7 @@ def test_a_series_edit_leaves_an_ended_occurrence_alone(app):
     first = _materialise(app, lesson_id, day)
     later = _materialise(app, lesson_id, day + timedelta(weeks=1))
     after_first = datetime.combine(day, datetime.min.time()) + timedelta(days=1)
-    with patch("padel_app.utils.dates.club_now_naive", return_value=after_first):
-        result, status = _edit(app, "Lesson", lesson_id, day, "future", {"addPlayers": [bruno]})
+    result, status = _edit(app, "Lesson", lesson_id, day, "future", {"addPlayers": [bruno]}, now=after_first)
     assert status == 201, result
     with app.app_context():
         assert bruno not in _presences(first), "an ended occurrence is a record"
