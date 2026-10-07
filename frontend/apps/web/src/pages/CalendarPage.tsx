@@ -50,6 +50,8 @@ function readDeepLink(search: string) {
     date: parsedDate && isValid(parsedDate) ? parsedDate : null,
     // PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class with Notificar open.
     notify: params.get("notify") === "1",
+    // PAD-520 (dashboard.navigation rule 12): the dashboard's "Nova aula" opens the new-class sheet.
+    newClass: params.get("new") === "1",
   };
 }
 
@@ -184,12 +186,13 @@ export default function CalendarPage() {
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.
   useEffect(() => {
-    if (!searchParams.has("classId") && !searchParams.has("date")) return;
+    if (!searchParams.has("classId") && !searchParams.has("date") && !searchParams.has("new")) return;
 
     const next = new URLSearchParams(searchParams);
     next.delete("classId");
     next.delete("notify");
     next.delete("date");
+    next.delete("new");
     setSearchParams(next, { replace: true });
     // Runs once — the guard above makes it a no-op afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,6 +276,17 @@ export default function CalendarPage() {
     setNewClassEndTime(undefined);
     setAddClassOpen(true);
   };
+
+  // PAD-520 (dashboard.navigation rule 12, B-345): `?new=1` — the dashboard's "Nova aula" — opens
+  // the new-class sheet once, for a coach, exactly as the toolbar's own button does. Before, the
+  // page never read the param and the coach landed on the calendar with nothing open.
+  const newClassFromLink = useRef(deepLink.newClass);
+  useEffect(() => {
+    if (!newClassFromLink.current || !canManageClasses) return;
+    newClassFromLink.current = false;
+    openAddClass();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageClasses]);
 
   const handleSlotClick = (date: Date, time: string) => {
     setNewClassDate(date);

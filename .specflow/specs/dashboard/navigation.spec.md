@@ -54,6 +54,15 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
     exist yet (PAD-76). `attendance.absences` creates the route, so rule 6 is now *satisfied*
     rather than waived, and the same reasoning that gave "Attended" an `href` applies unchanged.
 
+12. **(PAD-520, B-345; rule number unconfirmed) "Nova aula" opens the new-class sheet.** The coach
+    dashboard's "Nova aula" button links to `/calendar?new=1`. The calendar reads `new=1` once,
+    opens the same new-class sheet as its own toolbar button (on today, desktop; on the selected
+    day, phone width), and removes the param with a history replace, so closing the sheet or going
+    back does not reopen it. A non-coach ignores it. Before PAD-520 the calendar never read the
+    param and the coach landed on the calendar with nothing open. **Web only:** the iOS coach
+    dashboard has no "Nova aula" control (its calendar tab's own add button is the way in), so
+    there is nothing to fix there; adding the control to iOS would be a new feature, not this bug.
+
 ### Acceptance Criteria
 
 #### KPI item with a destination
@@ -103,3 +112,10 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
 - **When** they activate the invite card's "Open" action
 - **Then** the calendar opens on that class's week with its detail sheet open, where the
   student can confirm or decline
+
+#### "Nova aula" on the dashboard opens the new-class sheet (rule 12, PAD-520)
+- **Given** a coach on the dashboard
+- **When** they press "Nova aula"
+- **Then** the calendar opens with the new-class sheet open, and the URL has no `new` param
+- **When** they close the sheet
+- **Then** it stays closed
