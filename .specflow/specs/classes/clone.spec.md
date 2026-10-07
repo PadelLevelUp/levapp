@@ -27,12 +27,13 @@ owner, 2026-10-07: one ticket for web and iOS, no decomposition, because the cre
 2. **The series, never one occurrence.** Values come from the `Lesson`: an occurrence's own title,
    court, capacity or eligibility override is not copied.
 3. **Students.** A recurring class: the series roster, including a student who cancelled one
-   occurrence. A one-off: its participants minus anyone not coming.
+   occurrence. A one-off: its participants minus anyone not coming — a student who cancelled or
+   declined, and one the coach validated as a no-show ("missed").
 4. **What is copied, set and left out:**
 
    | | Fields |
    |---|---|
-   | **Copied** | title (as is); type; level; capacity; colour; club and court (the court only when the class is at the coach's current club, where `/add_class` creates); length; notifications on/off; the class-level auto-invite, open-spot visibility and eligibility-rule overrides; recurrence weekdays and end date, and "until season end" — as a NEW, independent series; students (rule 3) |
+   | **Copied** | title (as is); type; level; capacity; colour; club and court (the court only when the class is at the coach's current club, where `/add_class` creates); length; notifications on/off; the class-level auto-invite, open-spot visibility and eligibility-rule overrides; recurrence weekdays and end date, and "until season end" — as a NEW, independent series; students (rule 3; a one-off drops the cancelled, the declined and a validated no-show) |
    | **Set by the clone** | date = the original occurrence's date; start = empty, required |
    | **Not copied** | one occurrence's own overrides; attendance and validation; invitations, vacancy offers, waiting lists (per class and standing), join requests; evaluations; the training plan; any link back to the original |
 
@@ -47,6 +48,8 @@ owner, 2026-10-07: one ticket for web and iOS, no decomposition, because the cre
 6. **The save is the ordinary create.** Nothing about a clone skips create's checks: the overlap
    warning (PAD-159) and the unavailable-student warning (`calendar.student-blockers` rule 9) run,
    and the students are told as on any create (PAD-330).
+6a. **Who may clone.** The template is a read of the class: only a coach who may read it (its owner,
+   or a coach of its club — `require_readable_class`) gets it; any other coach gets 403, a student 403.
 7. **Where.** Web: "Clonar aula" in the class sheet's actions (`class-clone`), coach only, on a
    class. iOS: the same button on the class screen, opening the new-class screen with the class's
    `model`, `id` and `date`.

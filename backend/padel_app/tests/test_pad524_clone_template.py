@@ -163,3 +163,27 @@ def test_the_template_is_coach_only(app, client):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 403
+
+
+def test_a_coach_of_another_club_gets_403(app, client):
+    """#579 review: the template is a read of the class, so `require_readable_class` applies — a
+    coach who neither owns the class nor coaches at its club cannot read it."""
+    from flask_jwt_extended import create_access_token
+    from padel_app.models import User
+    from padel_app.models.coaches import Coach
+
+    ids, bruno, lesson_id, day = _series(app)
+    app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+    with app.app_context():
+        u = User(name="Other Coach", username="other_coach_524", password="x")
+        db.session.add(u)
+        db.session.flush()
+        other = Coach(user_id=u.id)
+        db.session.add(other)
+        db.session.commit()
+        token = create_access_token(identity=str(u.id))
+    res = client.get(
+        f"/api/app/class_instance/clone_template?model=Lesson&id={lesson_id}&date={day.isoformat()}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 403
