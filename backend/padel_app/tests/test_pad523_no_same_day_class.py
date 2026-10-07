@@ -181,3 +181,20 @@ def test_the_setting_round_trips_and_an_older_client_cannot_switch_it_off(app, c
     restrictions["noSameDayClass"] = {"enabled": False}
     client.post("/api/app/notify/config", json={"restrictions": restrictions}, headers=auth)
     assert client.get("/api/app/notify/config", headers=auth).get_json()["restrictions"]["noSameDayClass"] == {"enabled": False}
+
+
+def test_the_class_being_filled_does_not_count_against_itself(app):
+    """Only the day's OTHER classes count. A place in the class being filled is not "another class
+    that day" (the engine drops such a student earlier, as `already_enrolled`), so the lookup must
+    exclude it; without that exclusion it would report the student busy because of this class."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.services.notification_service import _players_with_a_class_that_day
+
+    with app.app_context():
+        ids = _seed(restriction_on=True)
+        db.session.add(Presence(player_id=ids["free"], lesson_instance_id=ids["instance"], invited=True,
+                                enrolment_source="roster"))
+        db.session.commit()
+        inst = db.session.get(LessonInstance, ids["instance"])
+        assert _players_with_a_class_that_day([ids["free"], ids["busy"]], inst) == set()
