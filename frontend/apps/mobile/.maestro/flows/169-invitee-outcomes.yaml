@@ -21,9 +21,10 @@ onFlowComplete:
 - evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day }, scope: 'single' }) }); }}"
 - evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/manual', { headers: output.auth, body: JSON.stringify({ model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day, playerIds: [output.invitee.playerId] }) }).body).sent}"
 - assertTrue: "${output.sent === 1}"
-- evalScript: "${output.detail = function () { return json(http.post(output.api + '/api/app/class_instance?model=' + (output.made.model || 'Lesson') + '&id=' + output.made.originalId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body); }}"
-- evalScript: "${output.instanceId = output.detail().id}"
+# The manual invitation materialised the occurrence; the calendar feed names it (model LessonInstance).
+- evalScript: "${output.instanceId = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: output.auth }).body).filter(function (e) { return e.title === 'E2E Invitee Outcomes iOS' && e.model === 'LessonInstance'; })[0].originalId}"
 - assertTrue: "${output.instanceId > 0}"
+- evalScript: "${output.detail = function () { return json(http.post(output.api + '/api/app/class_instance?model=LessonInstance&id=' + output.instanceId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body); }}"
 - evalScript: "${output.pid = String(output.invitee.playerId)}"
 
 # ── the class screen shows the invitee as "no answer yet" ──
