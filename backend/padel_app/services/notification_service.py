@@ -5482,6 +5482,10 @@ def respond_to_waiting_list(
             player_id=player.id,
         ).first()
         if existing:
+            if not existing.is_active:
+                # PAD-547 (rule 20): reactivated by the student's own yes, the row is theirs now.
+                existing.standing_entry_id = None
+                existing.added_by = "student"
             existing.is_active = True
             existing.save()
         else:
@@ -5489,6 +5493,7 @@ def respond_to_waiting_list(
                 lesson_instance_id=lesson_instance_id,
                 player_id=player.id,
                 coach_id=coach.id,
+                added_by="student",  # PAD-547 (rule 20)
             ).create()
 
         if coach.user_id:
@@ -5506,23 +5511,98 @@ def respond_to_waiting_list(
     return {"action": "unknown"}
 
 
-def get_waiting_list(instance_id: int, coach_id: int) -> list[dict]:
-    entries = WaitingListEntry.query.filter_by(
-        lesson_instance_id=instance_id,
-        coach_id=coach_id,
-        is_active=True,
-    ).all()
-    result = []
-    for e in entries:
+def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict]:
+    """A class's active waiting list (notifications.waiting-list rules 5 and 20, PAD-547): each row
+    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation)."""
+    query = WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, is_active=True)
+    if coach_id is not None:
+        query = query.filter_by(coach_id=coach_id)
+    rows = []
+    for e in query.all():
+        standing = (
+            db.session.get(StandingWaitingListEntry, e.standing_entry_id) if e.standing_entry_id else None
+        )
         player = e.player
         user = player.user if player else None
-        result.append({
+        origin = "standing" if standing is not None else ("coach" if e.added_by == "coach" else "student")
+        key = (standing.created_at if standing else e.joined_at) or datetime.min
+        rows.append((key, e.id, {
             "id": e.id,
             "playerId": e.player_id,
             "playerName": user.name if user else None,
             "joinedAt": e.joined_at.isoformat() if e.joined_at else None,
-        })
-    return result
+            "origin": origin,
+            "standingEntryId": standing.id if standing else None,
+            "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
+        }))
+    return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
+
+
+def add_to_class_waiting_list(
+    coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
+    credits: int | None = None, expires_at: datetime | None = None,
+) -> dict:
+    """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
+    class's waiting list — this occurrence, or the whole series as a standing entry scoped to it.
+    No full-class or eligibility check (the engine decides when a spot opens); nothing is sent to
+    the student; the coach's views get ``waiting_list_changed``."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    if Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first() is None:
+        abort(404, "Not on your roster")
+    if player_id in set(instance.enrolled_player_ids):
+        abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
+
+    if scope == "series":
+        lesson = instance.lesson
+        if lesson is None or not lesson.is_recurring:
+            abort(400, "Only a recurring class has a series")
+        if not credits or expires_at is None:
+            abort(400, "credits and an end date are required")
+        entry = add_standing_waiting_list_entry(
+            coach_id, player_id, int(credits), expires_at=expires_at, lesson_id=lesson.id
+        )
+        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        if row is not None:
+            _publish_waiting_list_changed(row)
+        return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
+    if scope != "occurrence":
+        abort(400, "scope must be occurrence or series")
+
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+    if row is not None and row.is_active:
+        return {"action": "already_on_list", "entryId": row.id}
+    if row is None:
+        row = WaitingListEntry(lesson_instance_id=instance.id, player_id=player_id, coach_id=coach_id)
+        db.session.add(row)
+    row.is_active = True
+    row.coach_id = coach_id
+    row.standing_entry_id = None
+    row.added_by = "coach"
+    row.joined_at = utcnow_naive()
+    db.session.commit()
+    _publish_waiting_list_changed(row)
+    return {"action": "added", "entryId": row.id}
+
+
+def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
+    """PAD-547 (notifications.waiting-list rule 21): the class's coach takes one row off; a
+    standing entry stays for its other classes; nothing is sent to the student."""
+    from flask import abort
+
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    row = WaitingListEntry.query.get_or_404(entry_id)
+    if row.coach_id != coach_id:
+        abort(403, "Not authorized")
+    if row.is_active:
+        row.is_active = False
+        db.session.commit()
+        _publish_waiting_list_changed(row)
+    return {"action": "removed", "entryId": row.id}
 
 
 def _waiting_list_candidates(
@@ -5786,6 +5866,8 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
+        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+            continue  # PAD-547 (rule 19): a series entry reaches only its series
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
@@ -5878,13 +5960,14 @@ def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
 
 def add_standing_waiting_list_entry(
     coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
-    *, expires_at: datetime | None = None,
+    *, expires_at: datetime | None = None, lesson_id: int | None = None,
 ) -> StandingWaitingListEntry:
     """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
-    (or, for the legacy callers, `duration_days` from now)."""
-    # Deactivate any existing active entry for this coach/player pair
+    (or, for the legacy callers, `duration_days` from now). PAD-547 (rule 19): ``lesson_id``
+    scopes it to one series; one active entry per coach, player and scope."""
+    # Deactivate any existing active entry for this coach/player pair in the same scope
     existing = StandingWaitingListEntry.query.filter_by(
-        coach_id=coach_id, player_id=player_id, is_active=True
+        coach_id=coach_id, player_id=player_id, is_active=True, lesson_id=lesson_id
     ).first()
     if existing:
         _deactivate_standing_entry(existing)
@@ -5892,6 +5975,7 @@ def add_standing_waiting_list_entry(
     entry = StandingWaitingListEntry(
         coach_id=coach_id,
         player_id=player_id,
+        lesson_id=lesson_id,
         credits_total=credits_total,
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
@@ -5954,6 +6038,9 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "expiresOn": standing_end_on(e),
             "createdAt": e.created_at.isoformat() if e.created_at else None,
             "activeClassCount": active_class_count,
+            # PAD-547 (rule 19): a series-scoped entry names its class.
+            "lessonId": e.lesson_id,
+            "lessonTitle": (e.lesson.title if e.lesson else None) if e.lesson_id else None,
         })
     return result
 
@@ -5978,6 +6065,8 @@ def _sync_standing_entries_for_new_instance(instance: LessonInstance, coach_id: 
         # B-293: an expired entry, or one that ends before this class, queues nothing.
         if entry.expires_at <= now or instance.start_datetime >= utc_to_wall_naive(entry.expires_at):
             continue
+        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+            continue  # PAD-547 (rule 19): a series entry reaches only its series
         existing = WaitingListEntry.query.filter_by(
             lesson_instance_id=instance.id,
             player_id=entry.player_id,
@@ -6026,3 +6115,4 @@ def get_notification_activity(coach_id: int, limit: int = 20) -> list[dict]:
             },
         })
     return result
+

@@ -473,6 +473,44 @@ def respond_waiting_list_endpoint():
     return jsonify(result)
 
 
+@bp.post("/class_waiting_list")
+@jwt_required()
+def class_waiting_list_add():
+    """PAD-547 (notifications.waiting-list rules 18–19): the coach adds a roster student to this
+    class's waiting list — `scope` "occurrence", or "series" with `credits` and `expiresOn`."""
+    from padel_app.services.notification_service import (
+        InvalidStandingEndError, add_to_class_waiting_list, standing_end_from_date,
+    )
+
+    coach = _current_coach()
+    data = request.get_json() or {}
+    instance = _resolve_instance(str(data.get("model", "")), int(data.get("originalId")), data.get("date"))
+    if not coach_owns_instance(coach, instance):
+        return jsonify({"error": "Not your class"}), 403
+    scope = data.get("scope", "occurrence")
+    expires_at = None
+    if scope == "series":
+        try:
+            expires_at = standing_end_from_date(data.get("expiresOn"))
+        except InvalidStandingEndError as exc:
+            return jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400
+    result = add_to_class_waiting_list(
+        coach.id, instance, int(data.get("playerId")), scope=scope,
+        credits=data.get("credits"), expires_at=expires_at,
+    )
+    return jsonify(result), 201 if result["action"] == "added" else 200
+
+
+@bp.delete("/class_waiting_list/<int:entry_id>")
+@jwt_required()
+def class_waiting_list_remove(entry_id: int):
+    """PAD-547 (notifications.waiting-list rule 21): the coach takes one row off one class's list."""
+    from padel_app.services.notification_service import remove_from_class_waiting_list
+
+    coach = _current_coach()
+    return jsonify(remove_from_class_waiting_list(entry_id, coach.id))
+
+
 @bp.get("/waiting_list/<int:instance_id>")
 @jwt_required()
 def waiting_list(instance_id: int):

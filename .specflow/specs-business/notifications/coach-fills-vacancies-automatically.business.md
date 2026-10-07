@@ -69,6 +69,11 @@ the waiting list.
   already paid for (PAD-507).
 - A student is never offered, through the waiting list, a class they just left or a class they're
   already enrolled in.
+- The coach can see a class's waiting list from the class itself, with where each student came from
+  (the standing list, their own request, or the coach), add students to it — for that class only or
+  for the whole series — and take them off it. Adding someone is not a promise: they are asked
+  first when a spot opens, if they still qualify then, and they hear nothing until that moment
+  (PAD-547).
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
   ask is authoritative, and the coach can select or deselect students with a single click on their
   row, name, or checkbox.

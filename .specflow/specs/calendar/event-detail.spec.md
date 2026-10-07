@@ -86,6 +86,25 @@ Clicking a calendar event opens a detail sheet showing full information and avai
       left the swipe gesture as the only exit. iOS only: web has no class-not-found screen, and
       a calendar deep link to a gone class opens nothing.
 
+19. **The class shows its waiting list to the coach (PAD-547; numbering unconfirmed — 16–18 are
+    PAD-548's).** Below the invited list, a "Lista de espera (N)" section lists the payload's
+    `waitingList` (`notifications.waiting-list` rule 20) in the order the engine asks them, each
+    row with the student's name and an origin label: "Lista permanente" / "Standing list" (a
+    series-scoped entry adds the word "série" / "series"), "Pedido do aluno" / "Student's request",
+    "Adicionado pelo treinador" / "Added by the coach". Each row has a remove control
+    (`notifications.waiting-list` rule 21) with no confirmation — removing is undone by adding
+    again. The section shows for the coach only, also when the list is empty, since that is where
+    the add starts. Web and iOS.
+20. **Adding from the class (PAD-547).** "Adicionar à lista de espera" opens a picker of the
+    coach's roster, without the students already in the class or on its list. A student who
+    would fail the class's eligibility bar is marked with the reason the way the class editor's
+    student picker marks one (`check_eligibility`, PAD-133) and can still be chosen (coordinator,
+    2026-10-07: the coach decides; the engine still filters when a spot opens). Then the coach
+    picks "Só esta aula" / "This class only" or, for a recurring class, "Toda a série" / "The
+    whole series", which shows the standing list's credits and end-date fields
+    (`notifications.waiting-list` rules 2 and 19). Web: a dialog; iOS: a sheet. Both refresh the
+    list from the server's answer and the `waiting_list_changed` event.
+
 ### Acceptance Criteria
 
 #### Unticking a declined student in an edit does not lower the count (rule 5, B-240)
@@ -134,3 +153,10 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **And** the API answers 204, the `calendar_blocks` row is gone, and the calendar returns without
   the event — no "failed to delete" toast
 - **And** the same DELETE sent with no body at all is still honoured (204), not rejected with 415
+
+#### The coach sees and edits a class's waiting list (rules 19–20, PAD-547)
+- **Given** a class occurrence with Bruno on its waiting list from a standing entry, on web and on iOS
+- **When** the coach opens the class and adds Carla, who fails the class's level bar, for this class only
+- **Then** the picker marks Carla with the level reason and still lets the coach choose her
+- **And** the list then reads Bruno "Lista permanente" and Carla "Adicionado pelo treinador"
+- **And** removing Carla's row takes her off the list at once
