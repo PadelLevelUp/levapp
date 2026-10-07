@@ -175,12 +175,15 @@ POSTGRES_ONLY = pytest.mark.skipif(
 
 
 @POSTGRES_ONLY
-def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monkeypatch):
-    """Both callers are held just before their vacancy locks until the other has arrived. Whoever
-    locks first decides: either the yes approves and sends (the recompute then finds nothing to
-    re-open), or the recompute moves the prompt and the yes answers "stale" and sends nothing.
-    Never both, never a deadlock. A respond that did not re-read its prompt under the lock would
-    approve a vacancy the recompute had just re-opened as pending."""
+@pytest.mark.parametrize("first", ["yes", "recompute"])
+def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monkeypatch, first):
+    """Both callers are held just before their vacancy locks until the other has arrived; then the
+    one named `first` goes on at once and the other waits 0.3 s, so each ordering is forced rather
+    than won by chance. Whoever locks first decides: the yes approves and sends (the recompute then
+    finds nothing to re-open), or the recompute moves the prompt and the yes answers "stale" and
+    sends nothing. Never a deadlock. A respond that did not re-read its prompt under the lock would
+    approve a vacancy the recompute had just re-opened as pending (red in the "recompute" cell)."""
+    import time
     from padel_app.models.vacancy import Vacancy
     from padel_app.services import replacement_approval_service as ras
 
@@ -203,10 +206,14 @@ def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monke
     def gated_coached(*a, **k):
         found = real_coached(*a, **k)
         wait()
+        if first == "yes":
+            time.sleep(0.3)
         return found
 
     def gated_now():
         wait()
+        if first == "recompute":
+            time.sleep(0.3)
         return now
 
     monkeypatch.setattr(ras, "_coached_instance", gated_coached)   # recompute, before its locks
@@ -240,6 +247,7 @@ def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monke
         status = db.session.get(Vacancy, vacancy_id).approval_status
         sent = _auto_events()
     yes = out["yes"]["vacancies"][0]["result"]
+    assert yes == ("approved_now" if first == "yes" else "stale"), out
     if yes == "approved_now":
         assert out["recompute"] == {"state": "none"} and status == "approved" and sent == 1
     else:
