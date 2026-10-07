@@ -379,13 +379,27 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
             events=retired,
         )
 
-    # Rule 8: consume a standing waiting-list credit, if the student holds one.
+    # Rule 8: consume a standing waiting-list credit, if the student holds one — from the entry
+    # whose scope covers this class (PAD-547, notifications.waiting-list rule 19): the one that
+    # queued them here, else a series entry for this class's series, else the coach-wide one.
+    # Never an entry scoped to another series.
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+
+    queued = WaitingListEntry.query.filter_by(
+        lesson_instance_id=instance.id, player_id=row.player_id, is_active=True
+    ).first()
     standing = (
-        StandingWaitingListEntry.query
-        .filter_by(coach_id=row.coach_id, player_id=row.player_id, is_active=True)
-        .order_by(StandingWaitingListEntry.id.asc())
-        .first()
+        db.session.get(StandingWaitingListEntry, queued.standing_entry_id)
+        if queued is not None and queued.standing_entry_id
+        else None
     )
+    if standing is None or not standing.is_active:
+        candidates = StandingWaitingListEntry.query.filter_by(
+            coach_id=row.coach_id, player_id=row.player_id, is_active=True
+        ).order_by(StandingWaitingListEntry.id.asc()).all()
+        standing = next((e for e in candidates if e.lesson_id == instance.lesson_id), None) or next(
+            (e for e in candidates if e.lesson_id is None), None
+        )
     if standing is not None:
         standing.credits_used += 1
         standing.save()

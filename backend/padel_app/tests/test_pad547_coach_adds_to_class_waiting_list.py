@@ -224,7 +224,9 @@ def test_the_class_list_names_each_origin_and_a_remove_touches_that_class_only(a
         assert db.session.get(StandingWaitingListEntry, standing_id).is_active
         assert _rows(elsewhere["instance_id"])[bruno].is_active, "his other classes keep him"
         assert len(_messages_to(bruno)) == before
-        remove_from_class_waiting_list(bruno_row["id"], ids["coach_id"])  # a repeat writes nothing
+        again = remove_from_class_waiting_list(bruno_row["id"], ids["coach_id"])  # a repeat writes nothing
+        db.session.expire_all()
+        assert again["action"] == "removed" and _rows(full["instance_id"])[bruno].is_active is False
 
 
 def test_only_the_classs_coach_removes_a_row(app, monkeypatch):
@@ -244,3 +246,33 @@ def test_only_the_classs_coach_removes_a_row(app, monkeypatch):
         with pytest.raises(HTTPException) as e:
             remove_from_class_waiting_list(row_id, other.id)
         assert e.value.code == 403
+
+
+# ── rule 19 × join-requests rule 8: which entry an accepted request spends ────
+
+def test_an_accepted_join_request_never_spends_another_series_entry(app, monkeypatch):
+    """Review of PAD-547 (load-bearing): with a series entry and a coach-wide entry side by side,
+    the accept spent the OLDER one whatever the class — here the entry of another series. It must
+    spend the entry that queued the student on this class (here the coach-wide one), as the
+    engine's own settle does (waiting-list rule 15), and never an entry of another series."""
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+    from padel_app.services.notification_service import add_standing_waiting_list_entry
+    from padel_app.tests.test_pad131_join_requests import LEVEL_SAME, _config, _decide, _request, _student as _s131
+    from padel_app.tests.test_pad128_eligibility import _seed
+    from padel_app.utils.dates import utcnow_naive
+
+    _quiet(monkeypatch)
+    ids = _seed(app, eligibility_rules=LEVEL_SAME)
+    _config(app, ids, open_spots_visible=True)
+    pid = _s131(app, ids, "carla")
+    other = _add_class(app, ids, days=6, title="Other series", recurring=True)
+    with app.app_context():
+        end = utcnow_naive() + timedelta(days=30)
+        other_series = add_standing_waiting_list_entry(ids["coach_id"], pid, 3, expires_at=end, lesson_id=other["lesson_id"]).id
+        coach_wide = add_standing_waiting_list_entry(ids["coach_id"], pid, 3, expires_at=end).id
+    rid, _, _ = _request(app, ids, pid)
+    assert _decide(app, ids, rid, accept=True) == "accepted"
+    with app.app_context():
+        used = {e.id: e.credits_used for e in StandingWaitingListEntry.query.all()}
+    assert used[other_series] == 0, used
+    assert used[coach_wide] == 1, used

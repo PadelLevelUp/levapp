@@ -154,6 +154,7 @@ function AddDialog({
     setPlayerId(null);
     setScope("occurrence");
     setCredits(3);
+    setIneligible([]);
   }, [open]);
 
   // Rule 20: mark who would fail the class's bar today, as the class editor's picker does.

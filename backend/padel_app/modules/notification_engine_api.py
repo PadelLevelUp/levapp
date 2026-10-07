@@ -484,7 +484,13 @@ def class_waiting_list_add():
 
     coach = _current_coach()
     data = request.get_json() or {}
-    instance = _resolve_instance(str(data.get("model", "")), int(data.get("originalId")), data.get("date"))
+    try:
+        original_id = int(data.get("originalId"))
+        player_id = int(data.get("playerId"))
+        credits = int(data["credits"]) if data.get("credits") is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "originalId, playerId and credits must be integers"}), 400
+    instance = _resolve_instance(str(data.get("model", "")), original_id, data.get("date"))
     if not coach_owns_instance(coach, instance):
         return jsonify({"error": "Not your class"}), 403
     scope = data.get("scope", "occurrence")
@@ -495,8 +501,7 @@ def class_waiting_list_add():
         except InvalidStandingEndError as exc:
             return jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400
     result = add_to_class_waiting_list(
-        coach.id, instance, int(data.get("playerId")), scope=scope,
-        credits=data.get("credits"), expires_at=expires_at,
+        coach.id, instance, player_id, scope=scope, credits=credits, expires_at=expires_at,
     )
     return jsonify(result), 201 if result["action"] == "added" else 200
 

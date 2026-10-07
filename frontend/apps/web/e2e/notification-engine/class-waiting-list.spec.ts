@@ -70,7 +70,8 @@ test("PAD-547: the coach adds a student to one class's waiting list and removes 
 
   const section = page.getByTestId("class-waiting-list");
   await section.scrollIntoViewIfNeeded();
-  await page.getByTestId("class-waiting-list-toggle").click();
+  const toggle = page.getByTestId("class-waiting-list-toggle");
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   await page.getByTestId("class-waiting-list-add").click();
   await expect(page.getByTestId("class-waiting-list-dialog")).toBeVisible();
   // The enrolled student is not offered (rule 20).

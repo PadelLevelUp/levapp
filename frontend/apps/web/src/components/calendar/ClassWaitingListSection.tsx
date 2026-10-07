@@ -56,6 +56,7 @@ export function ClassWaitingListSection({ event, rows, roster, enrolledIds, onCh
       <button
         type="button"
         data-testid="class-waiting-list-toggle"
+        aria-expanded={open}
         className="flex items-center justify-between w-full text-sm font-medium py-1"
         onClick={() => setOpen((o) => !o)}
       >

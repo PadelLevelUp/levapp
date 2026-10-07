@@ -5548,6 +5548,8 @@ def add_to_class_waiting_list(
     the student; the coach's views get ``waiting_list_changed``."""
     from flask import abort, jsonify, make_response
 
+    from sqlalchemy.exc import IntegrityError
+
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.services.academy_class_service import _publish_waiting_list_changed
 
@@ -5583,7 +5585,13 @@ def add_to_class_waiting_list(
     row.standing_entry_id = None
     row.added_by = "coach"
     row.joined_at = utcnow_naive()
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Two adds at once: the other committed the unique (instance, player) row first.
+        db.session.rollback()
+        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        return {"action": "already_on_list", "entryId": row.id if row else None}
     _publish_waiting_list_changed(row)
     return {"action": "added", "entryId": row.id}
 

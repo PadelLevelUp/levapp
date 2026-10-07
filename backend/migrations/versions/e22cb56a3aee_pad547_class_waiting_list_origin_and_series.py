@@ -61,7 +61,12 @@ def downgrade():
     if NEW_INDEX in indexes:
         op.drop_index(NEW_INDEX, table_name="standing_waiting_list_entries")
     if "lesson_id" in _columns("standing_waiting_list_entries"):
-        # Series-scoped entries cannot survive the old one-per-coach-and-player index.
+        # Series-scoped entries cannot survive the old one-per-coach-and-player index. Their
+        # fanned-out rows go first, or SET NULL would leave them looking like student requests.
+        op.execute(
+            "UPDATE waiting_list_entries SET is_active = false WHERE standing_entry_id IN "
+            "(SELECT id FROM standing_waiting_list_entries WHERE lesson_id IS NOT NULL)"
+        )
         op.execute("DELETE FROM standing_waiting_list_entries WHERE lesson_id IS NOT NULL")
         with op.batch_alter_table("standing_waiting_list_entries") as batch:
             batch.drop_constraint("standing_waiting_list_entries_lesson_id_fkey", type_="foreignkey")
