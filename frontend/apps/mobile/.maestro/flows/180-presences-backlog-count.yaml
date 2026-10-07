@@ -23,8 +23,10 @@ appId: com.padellevelup.app
       id: "presences-validate-trigger"
     timeout: 20000
 # The trigger's number is the backlog.
+# The trigger is one pressable, so iOS reads its texts as one label: match inside it.
 - assertVisible:
-    text: "${output.total + ' (classes|aulas) (to validate|por validar)|' + output.total + ' (class|aula) (to validate|por validar)'}"
+    id: "presences-validate-trigger"
+    text: "${'(.*[^0-9])?' + output.total + ' (classes|aulas|class|aula) (to validate|por validar).*'}"
 - assertVisible:
     id: "presences-validate-week"
 
