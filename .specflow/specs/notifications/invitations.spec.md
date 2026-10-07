@@ -81,6 +81,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      (rule 1b), and the creation under the class lock (rule 10, PAD-261) — a tick and a start job
      or an absence racing on one class create its places once and start them once. A class whose
      vacancies are all filled or expired is not reopened by the tick; capacity changes are rule 13's.
+     Named limit of that filter: a class whose one absence vacancy was filled before the window
+     while another place was never filled is skipped by the tick (the filled row counts as "a
+     vacancy"); a start job or a hand trigger still opens the remaining place.
      An invitation start of type `none` opens nothing from the tick, as it arms no job.
    The tick opens every such class it can see, so a deploy or a save that lands inside open
    windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,

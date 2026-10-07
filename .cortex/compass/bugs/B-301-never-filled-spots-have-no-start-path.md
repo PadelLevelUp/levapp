@@ -3,7 +3,8 @@ id: B-301
 title: "A never-filled place is invited only if a one-shot job happens to be armed: the invitation start is derived at materialisation and only for a future time"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-10-07T19:47:28Z
 affects:
   - notifications.invitations
   - notifications.config
@@ -106,4 +107,21 @@ rule 1b's claim covers the start; the creation is under the class lock, PAD-261)
 
 ## Resolution
 
-Open.
+Session-A, 2026-10-07, branch `feature/pad-540` (commits 5afa4e7e4 reproduction, 82090103c fix,
+ce916b667 and b119dd3b7 review fixes). Decisions by the coordinator 0710-orchestrator: shape
+(a)+(c); the deploy burst accepted pending a count on the staging database; the watermark is a
+one-line addition in the scan.
+- **Spec:** `notifications.invitations` rule 1c + seven criteria (numbering unconfirmed);
+  `notifications.config` rule 10 pointer; compass R-010 lists the new job family and its two
+  invariants.
+- **Code:** `scheduler.py` — `_run_invite_start_for_lesson_occurrence`, the
+  `invite_start_lesson_<lesson>_<date>` family armed by `schedule_lesson_reminder_jobs`, the
+  `_OCCURRENCE_JOB_FAMILIES` table walked by cancel/move/prune, materialisation removes the pair;
+  `notification_service.py` — `_open_never_filled_places` called by `process_invitation_batches`.
+- **Tests:** `test_pad540_never_filled_spots_start.py` (9 SQLite + 1 Postgres cell). Mutants M1
+  (count before the class lock, Postgres) → race cell red; M2 (scan removed) → cell 2 red; M3
+  (lesson arming removed) → cell 1 red; M4 (pair not removed) → pair red; M5 (asks suppression
+  removed) → roster-ask cell red.
+- **Known limit, named in rule 1c:** the tick's "no vacancy of any status" pre-filter skips a
+  class whose one absence vacancy was filled before the window while another place was never
+  filled; `trigger_invitations` by hand still opens it.
