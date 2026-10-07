@@ -26,7 +26,9 @@ PATHS = {
     "club_join.decided": "/settings?section=club",
     "claim.received": "/players",
     "claim.decided": "/players",
-    "coach_approval.received": "/settings?section=admin",
+    # admin.approvals-and-users rule 10 (PAD-532): the staff console's approvals page, resolved
+    # against ADMIN_CONSOLE_URL by `destination()`; the product app no longer has the screen.
+    "coach_approval.received": "/approvals",
     "coach_approval.decided": "/dashboard",
 }
 
@@ -50,8 +52,8 @@ COPY = {
         "en": ("Account link decision", "{actor} {decision} linking the account \"{player}\"."),
     },
     "coach_approval.received": {
-        "pt": ("Treinador à espera de aprovação", "{actor} registou-se como treinador e aguarda aprovação em Definições → Admin."),
-        "en": ("Coach waiting for approval", "{actor} signed up as a coach and is waiting for approval under Settings → Admin."),
+        "pt": ("Treinador à espera de aprovação", "{actor} registou-se como treinador e aguarda aprovação na consola de staff."),
+        "en": ("Coach waiting for approval", "{actor} signed up as a coach and is waiting for approval in the staff console."),
     },
     "coach_approval.decided": {
         "pt": ("A tua conta foi aprovada", "Já podes usar a LevApp: cria ou junta-te ao teu clube."),
@@ -108,7 +110,7 @@ def notify_request_event(kind: str, recipients, **ctx) -> int:
         alerted += 1
         lang = _lang(user)
         title, body = render_copy(kind, lang, **ctx)
-        path = PATHS[kind]
+        path = destination(kind)
         try:
             send_push_notification(user.id, title, body, url=path)
         except Exception as exc:  # noqa: BLE001 — best-effort (rule 5)
@@ -150,5 +152,39 @@ def club_member_users(club_id: int, exclude_coach_id: int | None = None):
     return users
 
 
+#: Kinds whose destination lives in the staff console, not in the product app (PAD-532).
+CONSOLE_KINDS = frozenset({"coach_approval.received"})
+
+
+def destination(kind: str) -> str:
+    """The one destination a push of ``kind`` names, in both channels (PAD-327).
+
+    Product kinds are app paths. A console kind is an absolute URL on the staff console
+    (``ADMIN_CONSOLE_URL`` + the path); the web opens it, the iPhone app hands it to the browser.
+    """
+    path = PATHS[kind]
+    if kind in CONSOLE_KINDS:
+        base = (current_app.config.get("ADMIN_CONSOLE_URL") or "").rstrip("/")
+        if base:
+            return f"{base}{path}"
+    return path
+
+
 def superadmin_users():
-    return User.query.filter_by(is_superadmin=True).all()
+    """Who hears about a pending coach (decision 2026-10-07, PAD-532): every active owner or
+    operator console role with a linked product account, plus — during the transition, until the
+    console is live — the users still flagged ``is_superadmin``. Support never does."""
+    from padel_app.models.admin_role import AdminRole
+
+    users = {}
+    rows = (
+        AdminRole.query.filter(AdminRole.revoked_at.is_(None), AdminRole.role.in_(("owner", "operator")),
+                               AdminRole.user_id.isnot(None)).all()
+    )
+    for row in rows:
+        user = User.query.get(row.user_id)
+        if user is not None:
+            users[user.id] = user
+    for user in User.query.filter_by(is_superadmin=True).all():
+        users.setdefault(user.id, user)
+    return list(users.values())

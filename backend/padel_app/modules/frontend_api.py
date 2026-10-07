@@ -1495,69 +1495,9 @@ def create_club():
     return jsonify({"id": club.id, "name": club.name, "location": club.location}), 201
 
 
-# -------------------------------------------------------------------
-# auth.coach-approval — superadmin approves self-registered coaches
-# -------------------------------------------------------------------
-
-@bp.get("/admin/coach-approvals")
-@jwt_required()
-def admin_list_coach_approvals():
-    from padel_app.services.coach_approval_service import (
-        list_pending_coaches_service,
-        serialize_pending_coach,
-    )
-
-    require_superadmin()
-    return jsonify([serialize_pending_coach(c) for c in list_pending_coaches_service()])
-
-
-@bp.post("/admin/coach-approvals/<int:coach_id>/approve")
-@jwt_required()
-def admin_approve_coach(coach_id):
-    from padel_app.services.coach_approval_service import approve_coach_service
-
-    admin = require_superadmin()
-    coach = approve_coach_service(coach_id, admin)
-    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
-
-
-@bp.get("/admin/settings")
-@jwt_required()
-def admin_get_settings():
-    """auth.coach-approval rule 9 (PAD-238/PAD-279): the operator settings."""
-    from padel_app.services.app_settings_service import admin_settings_payload
-
-    require_superadmin()
-    return jsonify(admin_settings_payload())
-
-
-@bp.put("/admin/settings")
-@jwt_required()
-def admin_put_settings():
-    from padel_app.services.app_settings_service import (
-        admin_settings_payload,
-        set_coach_approval_required,
-    )
-
-    admin = require_superadmin()
-    data = request.get_json(silent=True) or {}
-    if "coachApprovalRequired" in data:
-        value = data["coachApprovalRequired"]
-        if not isinstance(value, bool):
-            abort(400, "coachApprovalRequired must be a boolean")
-        set_coach_approval_required(value, updated_by_user_id=admin.id)
-    return jsonify(admin_settings_payload())
-
-
-@bp.post("/admin/coach-approvals/<int:coach_id>/reject")
-@jwt_required()
-def admin_reject_coach(coach_id):
-    from padel_app.services.coach_approval_service import reject_coach_service
-
-    admin = require_superadmin()
-    data = request.get_json(silent=True) or {}
-    coach = reject_coach_service(coach_id, admin, reason=data.get("reason"))
-    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
+# auth.coach-approval: the approving screen moved to the staff console (PAD-532,
+# admin.approvals-and-users rules 10 and 11). `/api/app/admin/*` is gone (404), with no
+# compatibility route; an old app shows its load-error state.
 
 
 @bp.post("/message")

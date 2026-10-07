@@ -15,6 +15,7 @@ import pytest
 from padel_app.tests.test_email_verification import (  # noqa: F401
     _auth,
     _code_from,
+    _console,
     _jwt_secret,
     _register,
     _user,
@@ -39,7 +40,8 @@ def _admin_headers(app):
         admin = User(name="Admin", username="admin", password="pw", status="active", is_superadmin=True)
         db.session.add(admin)
         db.session.commit()
-        return _auth(app, admin.id)
+        admin_id = admin.id
+    return _console(app, admin_id)
 
 
 def _verification_columns(app, username="rui"):
@@ -60,8 +62,10 @@ def test_clearing_the_email_of_a_verified_coach_leaves_it_unverified(app, client
     me = client.get("/api/auth/me", headers=headers).get_json()
     assert (me["email"], me["emailVerification"]) == (None, "unverified")
     assert _verification_columns(app) == (None, None, False, None, None)
-    rows = client.get("/api/app/admin/coach-approvals", headers=_admin_headers(app)).get_json()
+    rows = client.get("/admin/api/coach-approvals", headers=_admin_headers(app)).get_json()["items"]
     assert [(r["username"], r["emailVerified"]) for r in rows] == [("rui", False)]
+    # PAD-532: the product route is gone.
+    assert client.get("/api/app/admin/coach-approvals", headers=headers).status_code == 404
 
 
 def test_clearing_the_email_while_a_code_is_pending_drops_the_code(app, client, outbox):
@@ -126,7 +130,7 @@ def test_a_row_left_with_no_email_and_a_timestamp_reads_unverified_everywhere(ap
         db.session.commit()
 
     assert client.get("/api/auth/me", headers=headers).get_json()["emailVerification"] == "unverified"
-    rows = client.get("/api/app/admin/coach-approvals", headers=_admin_headers(app)).get_json()
+    rows = client.get("/admin/api/coach-approvals", headers=_admin_headers(app)).get_json()["items"]
     assert [(r["username"], r["emailVerified"]) for r in rows] == [("rui", False)]
 
 

@@ -32,6 +32,20 @@ def _auth(app, user_id):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
 
 
+def _console(app, user_id=None, role="operator"):
+    """Bearer headers for a staff-console session (admin token) on a role row linked to `user_id`."""
+    from padel_app.models.admin_role import AdminRole
+    from padel_app.tests.admin_helpers import admin_token, bearer, make_role
+
+    email = f"console-{role}-{user_id or 0}@levapp.app"
+    with app.app_context():
+        row = AdminRole.query.filter_by(email=email).first()
+        role_id = row.id if row else None
+    if role_id is None:
+        role_id = make_role(app, email, role, user_id=user_id)
+    return bearer(admin_token(app, role_id))
+
+
 def _register(client, role="student", username="ana", email="ana@example.com"):
     res = client.post(
         "/api/auth/register",
@@ -415,14 +429,16 @@ def test_admin_list_carries_email_verified(client, app, outbox):
         db.session.add(admin)
         db.session.commit()
         admin_id = admin.id
-    rows = client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).get_json()
+    rows = client.get("/admin/api/coach-approvals", headers=_console(app, admin_id)).get_json()["items"]
     assert [r["username"] for r in rows] == ["rui"]
+    # PAD-532: the product route is gone.
+    assert client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).status_code == 404
     assert rows[0]["emailVerified"] is False
 
     code = _code_from(outbox[0])
     rui = _user(app, "rui")
     assert client.post("/api/auth/email-verification/confirm", json={"code": code}, headers=_auth(app, rui.id)).status_code == 200
-    rows = client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).get_json()
+    rows = client.get("/admin/api/coach-approvals", headers=_console(app, admin_id)).get_json()["items"]
     assert rows[0]["emailVerified"] is True
 
 

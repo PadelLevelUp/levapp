@@ -101,8 +101,9 @@ def _deliver(user, code):
     send_email(subject, [user.email], body=text, html=html)
 
 
-def send_code(user, now=None):
-    """Rule 4: issue a fresh code and mail it. Commits. Returns the 200 body."""
+def send_code(user, now=None, *, commit=True):
+    """Rule 4: issue a fresh code and mail it. Commits (unless ``commit=False``: the staff
+    console commits it with its audit row, PAD-532). Returns the 200 body."""
     now = now or utcnow_naive()
     if user.email_verified_at is not None:
         raise EmailVerificationError("ALREADY_VERIFIED", 409)
@@ -123,9 +124,9 @@ def send_code(user, now=None):
         current_app.logger.warning("verification mail to user %s failed: %s", user.id, type(exc).__name__)
         _clear_code(user)
         user.email_verification_sent_at = None
-        db.session.commit()
+        db.session.commit() if commit else db.session.flush()
         raise EmailVerificationError("MAIL_FAILED", 503) from exc
-    db.session.commit()
+    db.session.commit() if commit else db.session.flush()
     return {
         "email": user.email,
         "expiresInSeconds": int(CODE_TTL.total_seconds()),

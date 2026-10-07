@@ -267,6 +267,9 @@ class Config:
     # 11); production refuses to start without it.
     ADMIN_GOOGLE_CLIENT_ID = (os.getenv("ADMIN_GOOGLE_CLIENT_ID") or "").strip()
     ADMIN_HOSTS = parse_admin_hosts(os.getenv("ADMIN_HOSTS", ""))
+    # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
+    # pending-coach mail and push. Empty = the bare path (local development).
+    ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
     ADMIN_STAFF_DOMAIN = ADMIN_STAFF_DOMAIN_DEFAULT
     ADMIN_JWT_AUDIENCE = ADMIN_JWT_AUDIENCE_DEFAULT
     # Rule 3 (owner decision 2026-10-07): 12 hours, no silent refresh.

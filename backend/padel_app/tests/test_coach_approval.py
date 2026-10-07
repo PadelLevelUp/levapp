@@ -15,6 +15,20 @@ def _auth(app, user_id):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
 
 
+def _console(app, user_id=None, role="operator"):
+    """Bearer headers for a staff-console session (admin token) on a role row linked to `user_id`."""
+    from padel_app.models.admin_role import AdminRole
+    from padel_app.tests.admin_helpers import admin_token, bearer, make_role
+
+    email = f"console-{role}-{user_id or 0}@levapp.app"
+    with app.app_context():
+        row = AdminRole.query.filter_by(email=email).first()
+        role_id = row.id if row else None
+    if role_id is None:
+        role_id = make_role(app, email, role, user_id=user_id)
+    return bearer(admin_token(app, role_id))
+
+
 def _make_user(app, username, *, superadmin=False, email=None):
     from padel_app.models import User
 
@@ -94,9 +108,9 @@ def test_superadmin_lists_and_approves_pending_coach(client, app):
     _register_coach(client)
     admin_id = _make_user(app, "admin", superadmin=True)
 
-    res = client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id))
+    res = client.get("/admin/api/coach-approvals", headers=_console(app, admin_id))
     assert res.status_code == 200
-    rows = res.get_json()
+    rows = res.get_json()["items"]
     assert len(rows) == 1
     row = rows[0]
     assert row["username"] == "rui"
@@ -105,7 +119,7 @@ def test_superadmin_lists_and_approves_pending_coach(client, app):
     assert row["requestedAt"]
     coach_id = row["coachId"]
 
-    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id))
+    res = client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id))
     assert res.status_code == 200
     assert res.get_json()["approvalStatus"] == "approved"
 
@@ -118,16 +132,20 @@ def test_superadmin_lists_and_approves_pending_coach(client, app):
         me = client.get("/api/auth/me", headers=_auth(app, rui_id)).get_json()
     assert me["coachApproval"] == "approved"
 
+    # PAD-532: the product route is gone; the staff console is the only door.
+    assert client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).status_code == 404
+    assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id)).status_code == 404
+
     # list is now empty; approving again is idempotent
-    assert client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).get_json() == []
-    assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id)).status_code == 200
+    assert client.get("/admin/api/coach-approvals", headers=_console(app, admin_id)).get_json()["items"] == []
+    assert client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id)).status_code == 200
 
 
 def test_pending_list_is_oldest_first(client, app):
     admin_id = _make_user(app, "admin", superadmin=True)
     _register_coach(client, "first", "first@example.com")
     _register_coach(client, "second", "second@example.com")
-    rows = client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).get_json()
+    rows = client.get("/admin/api/coach-approvals", headers=_console(app, admin_id)).get_json()["items"]
     assert [r["username"] for r in rows] == ["first", "second"]
 
 
@@ -143,9 +161,9 @@ def test_rejection_stores_reason_and_blocks_coach(client, app):
         coach_id, rui_id = coach.id, coach.user_id
 
     res = client.post(
-        f"/api/app/admin/coach-approvals/{coach_id}/reject",
+        f"/admin/api/coach-approvals/{coach_id}/reject",
         json={"reason": "not a coach"},
-        headers=_auth(app, admin_id),
+        headers=_console(app, admin_id),
     )
     assert res.status_code == 200
     with app.app_context():
@@ -161,7 +179,7 @@ def test_rejection_stores_reason_and_blocks_coach(client, app):
         assert User.query.get(rui_id).status == "disabled"
 
     # deciding a non-pending coach the other way is 410
-    assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id)).status_code == 410
+    assert client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id)).status_code == 410
     assert client.get("/api/auth/me", headers=_auth(app, rui_id)).status_code == 401
 
 
@@ -175,8 +193,13 @@ def test_ordinary_coach_cannot_approve(client, app):
     with app.app_context():
         coach_id = Coach.query.filter_by(approval_status="pending").first().id
 
-    assert client.get("/api/app/admin/coach-approvals", headers=_auth(app, maria_id)).status_code == 403
-    assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, maria_id)).status_code == 403
+    # A product user (coach or not) has no console role: the console refuses the product token, and a
+    # `support` console role may read but never decide. The old product route answers 404.
+    assert client.get("/admin/api/coach-approvals", headers=_auth(app, maria_id)).status_code == 401
+    support = _console(app, maria_id, role="support")
+    assert client.get("/admin/api/coach-approvals", headers=support).status_code == 200
+    assert client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=support).status_code == 403
+    assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, maria_id)).status_code == 404
     with app.app_context():
         assert Coach.query.get(coach_id).approval_status == "pending"
 
@@ -189,7 +212,8 @@ def test_student_cannot_approve(client, app):
     with app.app_context():
         db.session.add(Player(user_id=student_id))
         db.session.commit()
-    assert client.get("/api/app/admin/coach-approvals", headers=_auth(app, student_id)).status_code == 403
+    assert client.get("/admin/api/coach-approvals", headers=_auth(app, student_id)).status_code == 401
+    assert client.get("/api/app/admin/coach-approvals", headers=_auth(app, student_id)).status_code == 404
 
 
 # --- Invited coach is approved at creation ---------------------------------
@@ -253,7 +277,7 @@ def test_approval_email_is_best_effort(client, app, monkeypatch):
     admin_id = _make_user(app, "admin", superadmin=True)
     with app.app_context():
         coach_id = Coach.query.first().id
-    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id))
+    res = client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id))
     assert res.status_code == 200
     with app.app_context():
         assert Coach.query.get(coach_id).approval_status == "approved"
@@ -288,7 +312,7 @@ def test_coach_is_emailed_on_approval(client, app, monkeypatch):
     admin_id = _make_user(app, "admin", superadmin=True)
     with app.app_context():
         coach_id = Coach.query.first().id
-    client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id))
+    client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id))
     assert ["rui@example.com"] in sent
 
 
@@ -339,7 +363,7 @@ def test_approval_email_is_branded_and_localised(client, app, monkeypatch):
         rui.language = "pt"
         db.session.commit()
         coach_id = rui.coach.id
-    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id))
+    res = client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id))
     assert res.status_code == 200
     assert len(sent) == 1
     subject, recipients, body, html = sent[0]
@@ -356,7 +380,7 @@ def test_approval_email_is_branded_and_localised(client, app, monkeypatch):
         john.language = "en"
         db.session.commit()
         john_coach_id = john.coach.id
-    client.post(f"/api/app/admin/coach-approvals/{john_coach_id}/approve", headers=_auth(app, admin_id))
+    client.post(f"/admin/api/coach-approvals/{john_coach_id}/approve", headers=_console(app, admin_id))
     assert sent[0][0] == "Your coach account is approved"
 
 
@@ -370,9 +394,9 @@ def _register_and_reject(client, app, reason="not a coach"):
     with app.app_context():
         coach_id = Coach.query.filter_by(user_id=body["user"]["id"]).first().id
     res = client.post(
-        f"/api/app/admin/coach-approvals/{coach_id}/reject",
+        f"/admin/api/coach-approvals/{coach_id}/reject",
         json={"reason": reason},
-        headers=_auth(app, admin_id),
+        headers=_console(app, admin_id),
     )
     assert res.status_code == 200, res.get_json()
     return body["user"]["id"], coach_id, admin_id
@@ -388,8 +412,8 @@ def test_rejection_disables_user_and_kills_sessions(client, app):
 
     with app.app_context():
         coach_id = Coach.query.filter_by(user_id=body["user"]["id"]).first().id
-    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", json={"reason": "x"},
-                      headers=_auth(app, admin_id))
+    res = client.post(f"/admin/api/coach-approvals/{coach_id}/reject", json={"reason": "x"},
+                      headers=_console(app, admin_id))
     assert res.status_code == 200
     with app.app_context():
         assert db.session.get(User, body["user"]["id"]).status == "disabled"
@@ -428,7 +452,7 @@ def test_rejected_coach_can_reapply(client, app, monkeypatch):
         assert coach.approval_status == "pending" and coach.rejection_reason is None
         assert db.session.get(User, user_id).status == "active"
     assert [s for s in sent if s[1] == ["admin@levapp.app"]], sent
-    listed = client.get("/api/app/admin/coach-approvals", headers=_auth(app, admin_id)).get_json()
+    listed = client.get("/admin/api/coach-approvals", headers=_console(app, admin_id)).get_json()["items"]
     assert any(row["username"] == "rui" for row in listed)
     # The fresh token works and /me reports pending.
     me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['accessToken']}"})

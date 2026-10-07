@@ -104,7 +104,8 @@ def test_support_cannot_write(app, client):
     token = admin_token(app, support)
     seen = 0
     for rule, methods in _write_rules(app):
-        path = rule.rule.replace("<int:role_id>", str(target))
+        # The role check runs before any lookup, so every id placeholder may name the target row.
+        path = re.sub(r"<int:\w+>", str(target), rule.rule)
         for method in methods:
             r = client.open(path, method=method, headers=bearer(token), json={"email": "x@levapp.app", "role": "support"})
             assert r.status_code == 403 and r.get_json() == {"error": "ADMIN_ROLE_TOO_LOW"}, (path, method, r.get_json())

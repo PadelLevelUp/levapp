@@ -46,7 +46,8 @@ switched off for everyone without a release. Every change is audited (`admin.fou
    coach's lessons, players or the club's data; lessons stay scoped to their club (R-003). The
    `coach.current_club` rule of `clubs.crud` (most recently joined) applies to the result.
    Audited as `club.coach_link` / `club.coach_unlink` with the coach and club in `after`.
-4. **Coach-approval gate.** `GET /admin/api/settings/coach-approval` (`support`) answers
+4. **Coach-approval gate.** (Shipped early by PAD-532, `admin.approvals-and-users` rule 10b, so
+   the switch never lives only in the database.) `GET /admin/api/settings/coach-approval` (`support`) answers
    `{coachApprovalRequired, source}` exactly as `GET /api/app/admin/settings` does today
    (`auth.coach-approval` rule 9: `source` = `database` | `environment`).
    `PUT /admin/api/settings/coach-approval` `{coachApprovalRequired}` (`operator`) calls
@@ -65,7 +66,7 @@ switched off for everyone without a release. Every change is audited (`admin.fou
    audit log). `PUT /admin/api/settings/capabilities/<capability>` `{off, reason}` (`owner` only; the coach-approval gate of rule 4 stays `operator`)
    sets one; `reason` is required (at least 5 characters) when switching off. An unknown
    capability is 404. Audited as `capability.switch` with the previous and new state.
-7. **The old settings routes go.** In the same ticket `GET|PUT /api/app/admin/settings` and the
+7. **The old settings routes go.** (Done by PAD-532, rule 10b there.) `GET|PUT /api/app/admin/settings` and the
    switch at the top of the product's Settings → Admin are removed (404), on web and iOS, as part
    of the section's removal by `admin.approvals-and-users` rule 10; the removed test ids
    (`admin-coach-approval-required`, `admin-coach-approval-required-switch`,

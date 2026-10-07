@@ -175,6 +175,20 @@ def _auth(app, user_id):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user_id))}"}
 
 
+def _console(app, user_id=None, role="operator"):
+    """Bearer headers for a staff-console session (admin token) on a role row linked to `user_id`."""
+    from padel_app.models.admin_role import AdminRole
+    from padel_app.tests.admin_helpers import admin_token, bearer, make_role
+
+    email = f"console-{role}-{user_id or 0}@levapp.app"
+    with app.app_context():
+        row = AdminRole.query.filter_by(email=email).first()
+        role_id = row.id if row else None
+    if role_id is None:
+        role_id = make_role(app, email, role, user_id=user_id)
+    return bearer(admin_token(app, role_id))
+
+
 def _admin(app):
     from padel_app.models import User
 
@@ -415,7 +429,12 @@ def test_admin_decision_updates_status_and_never_touches_deals(client, app, hubs
     admin_id = _admin(app)
     hubspot.calls.clear()
 
-    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/{decision}", headers=_auth(app, admin_id), json={})
+    # PAD-532: the product route is gone, so it can neither decide nor reach the CRM.
+    old = client.post(f"/api/app/admin/coach-approvals/{coach_id}/{decision}", headers=_auth(app, admin_id), json={})
+    assert old.status_code == 404
+    assert hubspot.writes() == []
+
+    res = client.post(f"/admin/api/coach-approvals/{coach_id}/{decision}", headers=_console(app, admin_id), json={})
     assert res.status_code == 200, res.get_json()
 
     patches = [c for c in hubspot.writes() if c[0] == "PATCH"]
@@ -428,7 +447,7 @@ def test_reapply_sets_status_back_to_pendente(client, app, hubspot):
     _register(client)
     coach_id = _coach_id(app)
     admin_id = _admin(app)
-    client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", headers=_auth(app, admin_id), json={})
+    client.post(f"/admin/api/coach-approvals/{coach_id}/reject", headers=_console(app, admin_id), json={})
     hubspot.calls.clear()
 
     res = client.post("/api/auth/coach-approval/reapply", json={"username": "ana", "password": "Segura123"})
@@ -446,7 +465,7 @@ def test_a_transition_heals_a_missing_contact(client, app, hubspot, monkeypatch)
     monkeypatch.setenv("HUBSPOT_PRIVATE_APP_TOKEN", TOKEN)
     hubspot.contact_deals["999"] = []
 
-    res = client.post(f"/api/app/admin/coach-approvals/{_coach_id(app)}/approve", headers=_auth(app, _admin(app)), json={})
+    res = client.post(f"/admin/api/coach-approvals/{_coach_id(app)}/approve", headers=_console(app, _admin(app)), json={})
     assert res.status_code == 200
 
     creates = [c for c in hubspot.writes() if c[0] == "POST"]
@@ -494,9 +513,9 @@ def test_hubspot_failing_never_blocks_signup_or_decisions(client, app, hubspot, 
         _register(client)
         coach_id = _coach_id(app)
         admin_id = _admin(app)
-        assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", headers=_auth(app, admin_id), json={}).status_code == 200
+        assert client.post(f"/admin/api/coach-approvals/{coach_id}/reject", headers=_console(app, admin_id), json={}).status_code == 200
         assert client.post("/api/auth/coach-approval/reapply", json={"username": "ana", "password": "Segura123"}).status_code == 200
-        assert client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id), json={}).status_code == 200
+        assert client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id), json={}).status_code == 200
 
     with app.app_context():
         user = User.query.filter_by(username="ana").first()
@@ -556,9 +575,9 @@ def test_no_token_no_traffic(client, app, hubspot, monkeypatch, caplog):
         _register(client)
         coach_id = _coach_id(app)
         admin_id = _admin(app)
-        client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", headers=_auth(app, admin_id), json={})
+        client.post(f"/admin/api/coach-approvals/{coach_id}/reject", headers=_console(app, admin_id), json={})
         client.post("/api/auth/coach-approval/reapply", json={"username": "ana", "password": "Segura123"})
-        client.post(f"/api/app/admin/coach-approvals/{coach_id}/approve", headers=_auth(app, admin_id), json={})
+        client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=_console(app, admin_id), json={})
 
     assert hubspot.calls == []
     assert not [r for r in caplog.records if "hubspot" in r.getMessage().lower()]
@@ -627,7 +646,7 @@ def test_a_decision_syncs_only_after_its_commit(client, app, monkeypatch, commit
         lambda coach: seen.append((commits["n"], coach.approval_status)),
     )
     commits["n"] = 0
-    res = client.post(f"/api/app/admin/coach-approvals/{coach_id}/{decision}", headers=_auth(app, admin_id), json={})
+    res = client.post(f"/admin/api/coach-approvals/{coach_id}/{decision}", headers=_console(app, admin_id), json={})
     assert res.status_code == 200
     assert len(seen) == 1
     assert seen[0][0] >= 1, f"the {decision} sync ran before the decision was committed"
@@ -639,7 +658,7 @@ def test_reapply_syncs_only_after_its_commit(client, app, monkeypatch, commits):
 
     _register(client)
     coach_id = _coach_id(app)
-    client.post(f"/api/app/admin/coach-approvals/{coach_id}/reject", headers=_auth(app, _admin(app)), json={})
+    client.post(f"/admin/api/coach-approvals/{coach_id}/reject", headers=_console(app, _admin(app)), json={})
     seen = []
     monkeypatch.setattr(
         hubspot_sync,
@@ -729,7 +748,7 @@ def test_without_a_status_property_no_status_is_sent(client, hubspot, monkeypatc
 
 def test_a_rejected_coach_is_patched_never_deleted(client, app, hubspot):
     _register(client)
-    client.post(f"/api/app/admin/coach-approvals/{_coach_id(app)}/reject", headers=_auth(app, _admin(app)), json={})
+    client.post(f"/admin/api/coach-approvals/{_coach_id(app)}/reject", headers=_console(app, _admin(app)), json={})
     assert hubspot.contacts, "the contact is still there"
     assert {c[0] for c in hubspot.calls} <= {"GET", "POST", "PATCH"}
 
