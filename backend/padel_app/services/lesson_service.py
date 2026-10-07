@@ -1664,6 +1664,18 @@ def edit_class_service(data):
             new_date=new_date,
             payload=payload,
         )
+        # PAD-515 (classes.edit rule 9; B-343): the occurrence the coach is on, and any
+        # later one, may already be materialised — both shells keep event.model="Lesson"
+        # for an occurrence of a series after a read or an attendance confirm materialised
+        # it (the PAD-335 seam B-046 named for the single scope). A future edit that only
+        # touched the series left those occurrences — the current one first — with the old
+        # roster, title and time, so an added student appeared from the next virtual
+        # occurrence on. Walk them from the boundary, as the LessonInstance path does.
+        _edit_future_instances_for_lesson(
+            lesson=lesson_to_edit,
+            from_date=from_date,
+            payload=payload,
+        )
         if "court" in payload:
             # clubs.courts rule 9 (PAD-513): the series' new court reaches every
             # occurrence from the boundary on, own courts included.
