@@ -146,6 +146,14 @@ describe("presentCount (PAD-538, attendance.validation rule 27)", () => {
     expect(presentCount(players, { 1: "unjustified" })).toBe(1);
   });
 
+  it("a stored mark outranks the prefill: confirmed but stored absent is not present", () => {
+    expect(presentCount([player({ response: "confirmed", status: "absent", justification: "justified" })], {})).toBe(0);
+  });
+
+  it("a local edit outranks a stored mark: stored present flipped to unjustified is not present", () => {
+    expect(presentCount([player({ playerId: 7, status: "present", validated: true })], { 7: "unjustified" })).toBe(0);
+  });
+
   it("is 0 for a class with nobody present", () => {
     expect(presentCount([player({ response: "declined" })], {})).toBe(0);
   });
