@@ -86,6 +86,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    invitations are untouched. A saved `restrictions` payload without the key keeps the stored value,
    so an app from before PAD-523 saving its Settings cannot switch it off. Both clients show it as a
    toggle under Restrictions, saved with the section's explicit Save (PAD-506).
+   Known limit (coordinator, 2026-10-07): the rule is read when the batch evaluates its
+   candidates, not again under the sender's per-student locks (`_still_invitable`). A student who
+   takes a place in another class that day between the two can still receive that one invitation.
 7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
 7a. `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
    of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
