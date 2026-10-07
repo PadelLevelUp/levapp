@@ -68,8 +68,12 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
    `support < operator < owner`. A request below the route's role answers 403
    `{"error": "ADMIN_ROLE_TOO_LOW"}` and writes an audit row with `outcome = denied`.
    - `support`: every `GET` route. No write of any kind.
-   - `operator`: everything `support` can do, plus every write except role management.
-   - `owner`: everything, plus `POST|DELETE /admin/api/roles/*` (grant, change, revoke a role).
+   - `operator`: everything `support` can do, plus every write except role management and the
+     capability kill-switches.
+   - `owner`: everything, plus `POST|DELETE /admin/api/roles/*` (grant, change, revoke a role) and
+     `PUT /admin/api/settings/capabilities/*` (`admin.clubs-and-switches` rule 6).
+   - One exception to the order: `POST /admin/api/users/<id>/view-as` needs the `operator` role
+     exactly (`admin.approvals-and-users` rule 9).
 6. **`admin_roles` replaces `is_superadmin` for new code.** The migration creates both tables and
    seeds one `owner` row for `admin@levapp.app` and one `owner` row for the email of every user
    with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null. A seeded
@@ -120,8 +124,8 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     `frontend/packages/*` imports from `frontend/apps/admin`, references `/admin/api`, or holds an
     admin resource client. A guard test enforces it (criteria below). The only product-side code
     this epic adds is not admin code: the read-only "view as" handling and banner
-    (`admin.approvals-and-users` rule 9), the delivery-incident records and the `healthz` fields
-    (`admin.engine-health` rules 3 and 5), and the capability switch read
+    (`admin.approvals-and-users` rule 9), the delivery-incident records and the deploy identity
+    (`admin.engine-health` rules 3 and 4), and the capability switch read
     (`admin.clubs-and-switches` rule 5); none offers a staff action. The existing product admin
     surface (Settings → Admin, `packages/api/src/resources/admin.ts`, `/api/app/admin/*`) is
     removed by `admin.approvals-and-users` and `admin.clubs-and-switches`, after which the guard's
@@ -261,7 +265,6 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 - PyJWT rejects a token that carries an `aud` when the verifier expects none, so the product side
   may need no change for rule 3; the criterion "Tokens do not cross" pins the behaviour either
   way.
-- OPEN: the 12-hour admin session length and the absence of silent refresh are defaults chosen
-  for this draft; the owner may prefer a shorter session.
+- Decision 2026-10-07 (owner): the admin session is 12 hours with no silent refresh.
 - OPEN: whether the Google client allows only the Workspace ("Internal" consent screen) is a
   console setting outside the repo; rule 1's `hd` and email checks hold either way.

@@ -51,9 +51,10 @@ need to look. Indirectly every coach and student, who get faster approvals and f
    app in the same release that adds approvals to the console.
 3. Support staff can look at everything the console shows and change nothing.
 4. Only the owner can give or take away a staff role.
-5. Seeing a user's app "as them" is read-only, never shows their private messages, and is recorded
-   every time it is used.
-6. The engine health page only reads. Nothing on it can start, stop or retry the engine.
+5. Seeing a user's app "as them" is read-only, never shows their private messages, is recorded
+   every time it is used, and is available to the operator role only (for now, the founders).
+6. Switching a feature off for everyone is for the owner only.
+7. The engine health page only reads. Nothing on it can start, stop or retry the engine.
 7. Plans and what they include are recorded before any payment exists. Charging money is a later
    decision that depends on the finance questionnaire.
 
@@ -76,5 +77,7 @@ need to look. Indirectly every coach and student, who get faster approvals and f
 - Linear: PAD-530 (epic); PAD-532 approvals and users, PAD-533 clubs and switches, PAD-534 engine
   health, PAD-535 plans (blocked by PAD-536, the finance questionnaire, and PAD-472).
 - Owner decisions 2026-10-06.
-- OPEN: whether the generic data browser (today's `/editor`, staging and local only) moves into the
-  console or is retired once the console covers routine operations.
+- Decision 2026-10-07 (owner): the generic data browser (the old `/editor` page, staging and local
+  only) is retired with the Settings → Admin tab (PAD-532); the console does not replace it.
+  "View as" is for the founders only (operators); it never shows private messages. Capability
+  switches are owner-only.

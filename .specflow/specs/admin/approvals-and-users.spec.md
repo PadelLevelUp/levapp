@@ -67,7 +67,7 @@ removed from web and iOS in the same ticket.
 8. **Roles screen.** The console lists active and revoked `admin_roles` rows (`support`) and lets
    the owner grant, change and revoke roles through `admin.foundation` rules 5 and 7. The user
    view links to the role row when the user's email has one.
-9. **View as, read-only.** `POST /admin/api/users/<user_id>/view-as` (`operator`) mints a product
+9. **View as, read-only.** `POST /admin/api/users/<user_id>/view-as` (the `operator` role only: owner and support get 403 `ADMIN_ROLE_TOO_LOW`, an exception to the ordered matrix of `admin.foundation` rule 5) mints a product
    token for that user with claims `view_as = true`, `actor = <staff email>`, a 30-minute expiry
    and no refresh, writes an audit row `user.view_as`, and answers a URL on the product web app
    (`/view-as#<token>`) for the console to open in a new tab. Under a `view_as` token the product
@@ -151,10 +151,10 @@ removed from web and iOS in the same ticket.
 - **When** the operator POSTs `/admin/api/users/<maria.id>/view-as`, and the returned token is used for the calendar read of the week holding that instance, a class-creating `POST`, `GET /api/app/conversations` and a refresh
 - **Then** the view-as call wrote one audit row `user.view_as`; the calendar GET is 200 and no `LessonInstance` row was created; the POST and the conversations GET are 403 `VIEW_AS_READ_ONLY`; the response carries no `X-New-Token`; no mail, push or SSE event was emitted
 
-#### View as cannot be minted by support (rule 9)
-- **Given** a `support` token
-- **When** it POSTs `.../view-as`
-- **Then** the response is 403 and no token is minted
+#### View as is for operators only (rule 9)
+- **Given** a `support` token, an `owner` token and an `operator` token
+- **When** each POSTs `.../view-as`
+- **Then** support and owner get 403 `ADMIN_ROLE_TOO_LOW` and no token is minted; the operator gets 200
 
 #### Settings → Admin is gone from web and iOS (rule 10)
 - **Given** a product user with `is_superadmin = true`
@@ -182,13 +182,15 @@ removed from web and iOS in the same ticket.
   `reject_coach_service(coach_id, admin_user, reason=None)`; both call the CRM sync.
 - R-024: the removal ships on web and iOS together (rule 10); the console itself is web-only by
   `admin.foundation` rule 15; view-as is web-only because it is opened from the console.
-- OPEN: `notifications.request-alerts` sends the pending-coach push to every `is_superadmin`
-  user. Whether that recipient list moves to staff with an `admin_roles` row (who may have no
-  product account or device) is for the owner; until decided it keeps reading `is_superadmin`,
-  which is on the guard's allow-list.
-- OPEN: whether `support` may use view-as. This draft limits it to `operator` and `owner`.
-- OPEN: view-as hides private messages entirely; the owner may want a narrower rule (for example,
-  conversation list without message bodies).
+- Decision 2026-10-07 (owner, coordinator defaults confirmed): the pending-coach push
+  (`notifications.request-alerts`) goes to every active `admin_roles` holder with role `owner` or
+  `operator` that has a linked product account (`admin_roles.user_id`); staff without a linked
+  account or device are reached by the unchanged `ADMIN_NOTIFY_EMAIL` mail. During the transition
+  the same list also keeps reading `is_superadmin` (on the guard's allow-list) until the console
+  is live. `support` never receives it.
+- Decision 2026-10-07 (owner): "view as" is for the `operator` role only, "for now just for the
+  founders"; not owner, not support. Private messages are hidden entirely under view-as: the
+  conversation list and bodies are not shown and the messaging surface is absent (rule 9).
 - The view-as banner is the one visible product-web change this epic adds; it carries no staff
   action, only "read-only" and a close button (business rule 6 of
   `staff-act-under-the-company-identity-and-leave-a-trail` names it as the exception).

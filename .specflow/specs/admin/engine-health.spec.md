@@ -69,10 +69,11 @@ database query or a log search, and failed sends are only in the logs.
 4. **Deploy identity.** The deploy workflows pass the commit SHA into the backend image
    (`GIT_SHA` build argument, exposed as an environment variable). `alembicHead` is read from
    `alembic_version`. A missing `GIT_SHA` (local runs) answers `"unknown"`.
-5. **The other environment.** The product health route `GET /api/app/healthz` adds `gitSha` and
-   `alembicHead` to its body (both public: the repository is public). Each console reads the
-   other environment's `healthz` from its public URL with a 2-second timeout and shows
-   `"unreachable"` on failure; it never needs credentials for the other environment.
+5. **The other environment.** The product health route `GET /api/app/healthz` stays `{"status": "ok"}`:
+   `gitSha` and `alembicHead` are exposed on the admin API only (decision 2026-10-07). Each
+   console reads the other environment's identity from `GET /admin/api/deploy-identity` (`support`)
+   on that environment's admin API, with a 2-second timeout, using a service token held in the
+   console's environment configuration, and shows `"unreachable"` on failure.
 6. **Per-coach engine settings, read-only.** `GET /admin/api/engine-health/coaches?q=` lists
    coaches (search as `admin.approvals-and-users` rule 4); `GET
    /admin/api/engine-health/coaches/<coach_id>` answers that coach's NotificationConfig fields
@@ -121,7 +122,7 @@ database query or a log search, and failed sends are only in the logs.
 - **Then** only the 29-day-old row remains
 
 #### Deploy identity for both environments (rules 4, 5)
-- **Given** a backend started with `GIT_SHA=abc1234` and an other-environment `healthz` stub answering `{gitSha: "def5678", alembicHead: "x1"}`, then a stub that times out
+- **Given** a backend started with `GIT_SHA=abc1234` and an other-environment `/admin/api/deploy-identity` stub answering `{gitSha: "def5678", alembicHead: "x1"}`, then a stub that times out
 - **When** the summary is read twice
 - **Then** `deploy.this.gitSha = "abc1234"`, `deploy.this.alembicHead` equals the database's `alembic_version`, `deploy.other.gitSha = "def5678"`; and the second read answers `deploy.other = "unreachable"` within 3 seconds
 
@@ -148,7 +149,7 @@ database query or a log search, and failed sends are only in the logs.
   `current_batch_number`; the job store is `SQLAlchemyJobStore` outside tests; `pastdue_<id>` jobs
   have a 6-hour misfire grace (PAD-478); no table recorded failed sends before this spec;
   `GET /api/app/healthz` answered only `{"status": "ok"}`.
-- OPEN: whether exposing `gitSha` and `alembicHead` on the public `healthz` is acceptable to the
-  owner. The alternative is a staff-only route per environment, which needs the console to hold a
-  token for the other environment.
-- OPEN: the 30-day retention of `delivery_incidents` is a draft default.
+- Decision 2026-10-07 (coordinator default, confirmed): `gitSha` and `alembicHead` are on the
+  admin API only, never on the public `healthz`; the other-environment read costs the console a
+  service token for that environment (wiring left to PAD-534).
+- Decision 2026-10-07 (coordinator default, confirmed): `delivery_incidents` rows are kept 30 days.

@@ -62,7 +62,7 @@ switched off for everyone without a release. Every change is audited (`admin.fou
    seconds per worker, so a switch takes effect everywhere within 30 seconds without a restart.
 6. **Switch screen.** `GET /admin/api/settings/capabilities` (`support`) lists every capability in
    the registry with its on/off state, reason, and when and by whom it was last changed (from the
-   audit log). `PUT /admin/api/settings/capabilities/<capability>` `{off, reason}` (`operator`)
+   audit log). `PUT /admin/api/settings/capabilities/<capability>` `{off, reason}` (`owner` only; the coach-approval gate of rule 4 stays `operator`)
    sets one; `reason` is required (at least 5 characters) when switching off. An unknown
    capability is 404. Audited as `capability.switch` with the previous and new state.
 7. **The old settings routes go.** In the same ticket `GET|PUT /api/app/admin/settings` and the
@@ -94,14 +94,14 @@ switched off for everyone without a release. Every change is audited (`admin.fou
 - **When** support GETs `/admin/api/settings/coach-approval`, and an operator PUTs `{coachApprovalRequired: false}`
 - **Then** the first answers `{coachApprovalRequired: true, source: "environment"}`; after the PUT a coach who self-registers is created `approved`, existing pending coaches stay `pending`, and an audit row `settings.coach_approval` holds `before = true`, `after = false`
 
-#### Support cannot flip a switch (rules 4, 6)
-- **Given** a `support` token
-- **When** it PUTs either switch
-- **Then** both are 403 and nothing changed
+#### Support cannot flip a switch, operators cannot flip a kill-switch (rules 4, 6)
+- **Given** a `support` token and an `operator` token
+- **When** support PUTs either switch, and the operator PUTs a capability kill-switch
+- **Then** all three are 403 and nothing changed
 
 #### A kill-switch withholds a capability from every client (rule 5)
 - **Given** `open-spots` switched on, a student request declaring `X-LevApp-Capabilities: open-spots`, and a visible class with room
-- **When** an operator switches `open-spots` off with reason "B-xxx incident", and the student reads the calendar after the cache window
+- **When** an owner switches `open-spots` off with reason "B-xxx incident", and the student reads the calendar after the cache window
 - **Then** the response contains no open spot, exactly as for a client that never declared it; switching it back on restores the open spot
 
 #### The cache bounds the delay (rule 5)
@@ -110,7 +110,7 @@ switched off for everyone without a release. Every change is audited (`admin.fou
 - **Then** that answer reflects the change
 
 #### Switching off needs a reason; unknown capabilities are refused (rule 6)
-- **Given** an operator token
+- **Given** an owner token
 - **When** it PUTs `{off: true}` with no reason, and PUTs to `/capabilities/no-such-thing`
 - **Then** the first is 400 and the second 404, and nothing changed
 
@@ -132,9 +132,8 @@ switched off for everyone without a release. Every change is audited (`admin.fou
 - The capability mechanism today is client-declares, server-withholds (PAD-352,
   `utils/client_capabilities.py`); rule 5 adds the server-side "off" without changing the header
   or any client.
-- OPEN: whether switching a capability off should be `owner`-only. This draft allows `operator`
-  so an incident can be handled by whoever is on duty.
-- OPEN: some capabilities guard protocol compatibility (an old client must not receive a shape
+- Decision 2026-10-07 (coordinator default, confirmed): capability kill-switches are `owner`-only.
+- Note: some capabilities guard protocol compatibility (an old client must not receive a shape
   it cannot read) rather than a feature; switching those off is safe (it is the old-client
   path) but may hide a feature from every client. The switch screen should say so per capability;
   the wording is left to PAD-533.

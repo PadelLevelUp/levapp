@@ -31,7 +31,7 @@ the product apps. A separate domain keeps that boundary visible: product specs d
 ## Related groups
 
 - `auth/` — `auth.coach-approval` keeps the approval rules; only the approving screen moves here.
-- `settings/` — `settings.admin-editor` (`/editor`) is not moved by this domain (owner-pending);
+- `settings/` — `settings.admin-editor` (`/editor`) is retired (owner, 2026-10-07; PAD-532 removes it with the Settings → Admin tab);
   `settings.role-scope`'s `superadmin` audience loses its Admin section.
 - `eligibility/` — `eligibility.open-spot-visibility` rule 12 defines the capability header the
   kill-switches act on.
