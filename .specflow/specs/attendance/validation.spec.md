@@ -280,6 +280,16 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `accessibilityState.selected` on iOS). The amber of "Justificada" is a different hue from rule 24's yellow
     "needs a decision" flag, so a justified player never reads as one still to decide.
 
+27. **(PAD-538; rule number unconfirmed) Each class shows how many are present.** Beside a class's
+    time and title in the validate view — its card in the list, its row under "validated this week"
+    and the drill-in's title — both shells show one number: the players whose current mark is
+    present. The mark is the one the row shows (`effectiveMark`: the coach's local mark, else
+    what is stored, else the prefill from "confirmed"), so the number moves as the coach marks,
+    and on a validated class it is the recorded number. One helper, `presentCount(players, edits)`
+    in `@levelup/config`. A single number, not "present / capacity". Zero has its own string
+    ("0 presentes"), because pt's CLDR puts 0 in `one` (rule 14). Test id
+    `presences-class-present-count` on both shells. Decided with the coordinator, 2026-10-07.
+
 ### Acceptance Criteria
 
 #### The count endpoint is the listing's count
@@ -491,6 +501,14 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the bar admits Rui; with three real unjustified absences it does not
 - **Given** Sara's only row is `present` still carrying `justified`
 - **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
+
+
+#### Each class shows how many are present (rule 27, PAD-538)
+- **Given** a past class with Ana (confirmed), Bruno (declined) and Carla (no answer)
+- **When** the coach opens the validate view
+- **Then** the class reads "1 presente" beside its time and title
+- **When** the coach marks Carla present
+- **Then** it reads "2 presentes"
 
 #### The count is the whole backlog, not the shown week (rule 18, PAD-539)
 - **Given** a coach with three pending classes in the week before last and none in the current or

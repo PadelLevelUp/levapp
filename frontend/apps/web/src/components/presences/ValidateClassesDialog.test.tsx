@@ -222,6 +222,51 @@ describe("ValidateClassesDialog keeps a completed class in place (PAD-442)", () 
   });
 });
 
+// PAD-538 (attendance.validation rule 27): each class shows how many are present, from the marks
+// the rows show — and the number moves when the coach marks someone.
+describe("each class shows how many are present (PAD-538)", () => {
+  it("counts the confirmed prefill on the card", () => {
+    const k = klass(1, "First"); // its one player answered "confirmed": prefill present
+    render(
+      <Dialog
+        pending={[k]}
+        validated={[]}
+        pendingCount={1}
+        pendingTotal={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    const count = screen.getByTestId("presences-class-present-count");
+    expect(count.textContent).toBe("presences.validate.presentCount:1");
+    expect(count.getAttribute("data-count")).toBe("1");
+  });
+
+  it("has its own string for nobody present", () => {
+    const k = klass(2, "Second");
+    k.players = k.players.map((p) => ({ ...p, response: "declined" }));
+    render(
+      <Dialog
+        pending={[k]}
+        validated={[]}
+        pendingCount={1}
+        pendingTotal={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    expect(screen.getByTestId("presences-class-present-count").textContent).toBe("presences.validate.presentCountNone");
+  });
+});
+
 // PAD-539 (attendance.validation rule 18, B-342): the trigger's number is the whole backlog,
 // and the week's own count sits under it — so three classes left over from an earlier week
 // never read as "nothing to validate" on a clean week.

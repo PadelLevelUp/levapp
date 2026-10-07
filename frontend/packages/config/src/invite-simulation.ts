@@ -136,7 +136,7 @@ export function sortGates(gates: InviteSimulationGate[]): InviteSimulationGate[]
  * rather than showing its raw i18n key (PAD-497: builds before it show the raw key). */
 const KNOWN_STAGES: ReadonlySet<string> = new Set<InviteExplain["stage"]>([
   "departing_player", "already_enrolled", "declined_this_class", "already_invited", "eligibility",
-  "excluded_by_coach", "inactive_account", "unavailable", "auto_invites_off", "no_round_matched",
+  "excluded_by_coach", "inactive_account", "has_class_same_day", "unavailable", "auto_invites_off", "no_round_matched",
   "offered_another_spot", "invited",
 ]);
 

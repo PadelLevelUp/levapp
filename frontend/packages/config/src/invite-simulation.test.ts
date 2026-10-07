@@ -207,6 +207,7 @@ describe("describeVerdict + resolveText", () => {
 describe("describeStage fallback (PAD-497)", () => {
   it("names a known stage and falls back to a generic line for one this build does not know", () => {
     expect(describeStage("declined_this_class").key).toBe("tutorials.stages.declined_this_class");
+    expect(describeStage("has_class_same_day").key).toBe("tutorials.stages.has_class_same_day");
     expect(describeStage("some_future_stage" as never).key).toBe("tutorials.stages.unknown");
   });
 });
