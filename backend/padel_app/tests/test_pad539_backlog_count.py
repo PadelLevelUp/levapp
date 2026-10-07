@@ -161,3 +161,35 @@ def test_week_offset_of_is_monday_aligned(app):
     assert week_offset_of(datetime(2026, 8, 2, 23, 0), tuesday) == -1  # last Sunday
     assert week_offset_of(datetime(2026, 7, 13, 9, 0), tuesday) == -3
     assert week_offset_of(datetime(2026, 8, 10, 9, 0), tuesday) == 1
+
+
+def test_a_canceled_occurrence_is_never_pending(app):
+    """Rule 18: a canceled class with an unvalidated row is not something to validate."""
+    from padel_app.sql_db import db
+    from padel_app.models import LessonInstance
+    from padel_app.services.presence_overview_service import count_pending_validation_total
+
+    coach_id, _, _ = _seed(app, now=TUESDAY)
+    inst_id = _add_past_class(app, coach_id=coach_id, ended_at=TUESDAY - timedelta(days=1), title="Canceled one")
+    with app.app_context():
+        before = count_pending_validation_total(coach_id=coach_id, now=TUESDAY)
+        db.session.get(LessonInstance, inst_id).status = "canceled"
+        db.session.commit()
+        after = count_pending_validation_total(coach_id=coach_id, now=TUESDAY)
+    assert before - after == 1
+
+
+def test_a_class_still_running_is_not_pending_yet(app):
+    """Rule 3: only a class that has ENDED is listed — one that started and runs on is not."""
+    from padel_app.services.presence_overview_service import count_pending_validation_total
+
+    coach_id, _, _ = _seed(app, now=TUESDAY)
+    with app.app_context():
+        before = count_pending_validation_total(coach_id=coach_id, now=TUESDAY)
+    # Started 30 minutes before TUESDAY, ends 30 minutes after it.
+    _add_past_class_with_unvalidated_presence(
+        app, coach_id=coach_id, ended_at=TUESDAY + timedelta(minutes=30), title="Running now"
+    )
+    with app.app_context():
+        assert count_pending_validation_total(coach_id=coach_id, now=TUESDAY) == before
+        assert count_pending_validation_total(coach_id=coach_id, now=TUESDAY + timedelta(hours=1)) == before + 1
