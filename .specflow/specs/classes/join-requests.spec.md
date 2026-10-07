@@ -90,8 +90,10 @@ by a student's request — and whichever lands first wins.
     - Every request or decision is mirrored into the coach ↔ student direct conversation, the same
       channel invitations and cancellations already use: the request itself as a message from the
       student's side (`msg_metadata.joinRequest`, coach push + SSE `join_request_created`), the
-      decision and the automatic "spot taken" reply (rule 11) as system messages to the student. The
-      coach's "class is now full" alert (rule 12) is delivered per superseded requester, inside
+      decision and the automatic "spot taken" reply (rule 11) as system messages to the student.
+      Each names the class with its day, weekday and time ("… em Sábado 18h no dia 10/04
+      (sábado) às 18:00", `notifications.message-templates` rule 17, PAD-519). The coach's
+      "class is now full" alert (rule 12) is delivered per superseded requester, inside
       that requester's own conversation, plus one push — a conversation never names a third
       student.
     - First fill wins is enforced where every fill path already converges:
