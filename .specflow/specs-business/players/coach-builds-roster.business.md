@@ -80,7 +80,9 @@ the invite-link half of the journey.
   the coach is not asked again, because showing the code was the coach's consent.
 - Only an account that has never been activated (no password, placeholder username) can be claimed;
   claiming folds the coach's record into the student's account and retires the placeholder. The
-  student's own name and username win; the coach's level, side and notes are kept.
+  student's own name and username win; the coach's level, side, notes and every evaluation are
+  kept — also when the student was already on that coach's roster (they scanned the QR first), the
+  case PAD-528 was opened for.
 - A student with an account can only be reached, added or linked by something they do — scan,
   open a link, accept a request. A coach never attaches a registered student to a roster
   unilaterally.
