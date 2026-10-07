@@ -265,3 +265,15 @@ def test_the_invite_link_claim_writes_an_invite_link_audit_row(app, client, worl
         audit = PlayerMerge.query.one()
         assert audit.trigger == "invite_link" and audit.confirmed_by_user_id == world["st_user"]
         assert audit.counts["moves"]["player_invitations"] == 1
+
+
+def test_the_edit_response_keeps_the_duplicate_flag(app, client, world):
+    """Rule 4c: `Player.coach_player_info` (what add/edit return) carries the same key as
+    the roster rows, so the flag does not vanish right after an edit (PAD-112 precedent)."""
+    from padel_app.models import Player
+
+    _, dup = _placeholder(app, world["coach"], world["club"], name="ana  SILVA")
+    with app.app_context():
+        info = Player.query.get(dup).coach_player_info(world["coach"])
+        assert info["possibleDuplicateOf"] == {"playerId": world["st_player"], "name": "Ana Silva"}
+        assert Player.query.get(world["st_player"]).coach_player_info(world["coach"])["possibleDuplicateOf"] is None

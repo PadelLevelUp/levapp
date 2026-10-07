@@ -154,22 +154,19 @@ def possible_duplicates_for(coach, relations):
     if not claimable or coach is None:
         return {}
     rows = (
-        db.session.query(Player.id, User.name, User.password, User.username, User.status)
+        db.session.query(Player.id, User)
         .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
         .join(User, Player.user_id == User.id)
         .filter(Association_CoachPlayer.coach_id == coach.id, User.status != "disabled")
         .all()
     )
-    from padel_app.tools.username_tools import is_placeholder_username
-
     by_name = {}
-    for player_id, name, password, username, status in rows:
-        is_claimable = password is None and is_placeholder_username(username) and status == "inactive"
-        if is_claimable:
+    for player_id, user in rows:
+        if _is_claimable_user(user):      # rule 1's one definition, not a second copy
             continue
-        key = normalise_name(name)
+        key = normalise_name(user.name)
         if key and (key not in by_name or player_id < by_name[key]["playerId"]):
-            by_name[key] = {"playerId": player_id, "name": name}
+            by_name[key] = {"playerId": player_id, "name": user.name}
     out = {}
     for rel in claimable:
         key = normalise_name(rel.player.user.name)
