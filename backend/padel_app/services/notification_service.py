@@ -1864,6 +1864,12 @@ _CLASS_TYPE_WORDS = {
 }
 
 
+def _format_day_month(dt) -> str:
+    """The ``dd/mm`` day of a class start (notifications.message-templates rule 13), shared by the
+    ``{date}`` placeholder and the dated class-when suffix (rule 17) so the two never drift."""
+    return dt.strftime("%d/%m") if dt else ""
+
+
 def class_placeholders(source, locale) -> dict:
     """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
 
@@ -1883,7 +1889,7 @@ def class_placeholders(source, locale) -> dict:
     lesson_type = getattr(lesson, "type", None) if lesson is not None else None
     return {
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
-        "date": start.strftime("%d/%m") if start else "",
+        "date": _format_day_month(start),
         "court": (getattr(court, "name", None) or "") if court is not None else "",
     }
 
@@ -2230,8 +2236,15 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_when(dt, locale: str = "en") -> str:
-    """Human-readable ' on <weekday> at <time>' suffix for a datetime.
+def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
+    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default, and
+    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``.
+
+    PAD-519 (notifications.message-templates rule 17): ``dated=True`` names the day of the
+    month as well — ' no dia 10/04 (sábado) às 18:00' / ' on 10/04 (Saturday) at 18:00'. A
+    weekday alone told a coach with a weekly class nothing about which week was meant. The
+    default stays weekday-only for a series (a Lesson, whose start is only its first
+    occurrence): a recurring enrolment must not be dated.
 
     PAD-100: fully localized. For Portuguese coaches this renders
     ' na <weekday> às <time>' (or ' no <weekday> …' for sábado/domingo, which
@@ -2247,7 +2260,12 @@ def _format_when(dt, locale: str = "en") -> str:
         return ""
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
-    if (locale or "").startswith("pt"):
+    is_pt = (locale or "").startswith("pt")
+    if dated:
+        # "dia" is masculine, so the day form needs no na/no switch on the weekday.
+        day = _format_day_month(dt) + (f" ({weekday})" if weekday else "")
+        return f" no dia {day} às {time_str}" if is_pt else f" on {day} at {time_str}"
+    if is_pt:
         if weekday:
             # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6)
             # are masculine ("no").
@@ -2260,8 +2278,9 @@ def _format_when(dt, locale: str = "en") -> str:
 
 
 def _format_class_when(instance: LessonInstance, locale: str = "en") -> str:
-    """The ' on <weekday> at <time>' suffix for a class instance."""
-    return _format_when(getattr(instance, "start_datetime", None), locale)
+    """The ' on <day> (<weekday>) at <time>' suffix for a class instance — one occurrence, so
+    always dated (rule 17)."""
+    return _format_when(getattr(instance, "start_datetime", None), locale, dated=True)
 
 
 def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=None, counted_as_coming=False):
@@ -2328,7 +2347,8 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
                 "name": first_name,
                 # `class` is a keyword, so the placeholder is passed by name.
                 "class": getattr(source, "title", None) or "",
-                "when": _format_when(started_at, locale),
+                # Dated for one occurrence, weekday-only for the whole series (rule 17).
+                "when": _format_when(started_at, locale, dated=instance is not None),
                 # Every other template describes a class as level + weekday +
                 # time, so a coach editing this one finds the vocabulary they
                 # already know. `{class}` and `{when}` are the additions: the
