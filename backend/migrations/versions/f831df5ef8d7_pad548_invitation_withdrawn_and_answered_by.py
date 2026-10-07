@@ -1,7 +1,7 @@
 """PAD-548: a coach's withdrawal of an invitation, and who gave its answer
 
 Revision ID: f831df5ef8d7
-Revises: e4381787870f
+Revises: bb9ed5a6b56f
 Create Date: 2026-10-07
 
 Adds two nullable columns to ``notification_events`` (notifications.invitations rules 9 and 19,
@@ -22,7 +22,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "f831df5ef8d7"
-down_revision = "e4381787870f"
+down_revision = "bb9ed5a6b56f"
 branch_labels = None
 depends_on = None
 
