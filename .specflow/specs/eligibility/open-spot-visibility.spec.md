@@ -178,3 +178,6 @@ separate browse screen. A coach controls whether their open spots are advertised
   surfaces were found by tracing every use of the open-spot machinery: the calendar append (rule 10)
   and the class-detail read exception (`classes.detail-visibility` rule 5). The dashboard, push and
   SSE carry no open-spot events.
+- **Kill-switches (2026-10-06, PAD-533, draft):** `admin.clubs-and-switches` rule 5 lets staff
+  switch a capability off server-side; `client_declares()` then answers false whatever the
+  header says. The header and rule 12 above are unchanged.

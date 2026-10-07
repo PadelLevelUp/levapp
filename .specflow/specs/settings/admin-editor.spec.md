@@ -1,12 +1,18 @@
 ---
 id: settings.admin-editor
-status: implemented
+status: draft
 depends_on: [auth.login, settings.role-scope]
 implements: ../../specs-business/settings/coach-configures-preferences-and-access.business.md
 governed_by: []
 ---
 
 # settings.admin-editor
+
+> **Retired (owner decision 2026-10-07, PAD-532).** The `/editor` page, its API and the legacy Jinja
+> editor are removed from the product together with Settings → Admin. Routine operations move to
+> the staff console (`admin.*`, PAD-530); there is no replacement data browser. The rules below stay
+> as the record of what was removed; the redaction list of rule 3 still governs
+> `admin.approvals-and-users` rule 5.
 
 ### Intent
 The LevApp superadmin's generic data browser — the web `/editor` page — and the two legacy

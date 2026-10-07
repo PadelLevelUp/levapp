@@ -29,7 +29,8 @@ with a per-user opt-out (PAD-232).
      invited account (`target_user`).
    - `claim.decided` — on accept/reject → the requesting coach, with the decision.
    - `coach_approval.received` — on a coach signup that lands `pending` → every
-     `is_superadmin` user. The existing `ADMIN_NOTIFY_EMAIL` mail (auth.coach-approval rule
+     active owner and operator (`admin_roles`, via the linked product account; `is_superadmin`
+     is still read until the console is live). The existing `ADMIN_NOTIFY_EMAIL` mail (auth.coach-approval rule
      4) is unchanged and is sent regardless of any user's opt-out because it is an operational
      mailbox, not a person's preference.
    - `coach_approval.decided` — on approval → the coach (push; the branded approval email of
@@ -110,6 +111,9 @@ with a per-user opt-out (PAD-232).
 - **Then** the switch stays off and `GET /api/auth/me` returns `requestAlerts: false`
 
 ### Notes
+- **Pending-coach push target (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10
+  points the superadmin's pending-coach push at the staff console's approvals page; who receives
+  it is decided (2026-10-07): every owner and operator.
 - OPEN: role-neutral editable copy for these alerts (rule 4).
 - RESOLVED (PAD-327): the native tap route. Request alerts no longer send `type: "request"`;
   they carry `messaging.push-notifications` rule 7's `path` shape with `PATHS[kind]`, and the

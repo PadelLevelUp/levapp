@@ -157,6 +157,9 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **Then** both succeed and the preference is persisted
 
 ### Notes
+- **Admin section leaving (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10
+  removes the `admin` section from web and iOS; the `superadmin` audience then has no section.
+  Staff operations move to the staff console (`admin.*`).
 - **[DEC 2026-09-04, PAD-171 §1]** Settings stays off the bottom tab bar / bottom nav on both
   platforms — it is reached from the account avatar in the header, as iOS already does
   (`AccountAvatar` in `apps/mobile/app/(tabs)/_layout.tsx`). Web wires the avatar entry point in
