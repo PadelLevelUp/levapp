@@ -221,3 +221,4 @@ whether a failure mode has been seen before.
 - [B-287](B-287-two-e2e-specs-assumed-a-class-stays-virtual.md) — E2E: pad282-cancel-requested-class and class-evaluations assumed a class accepted or created today stays virtual; PAD-489 materialises it (2x2 recorded) (test-defect, high, resolved)
 - [B-288](B-288-profile-completeness-spec-signed-up-without-the-terms.md) — E2E: profile-completeness signed up without ticking the Terms, required since PAD-485 (test-defect, high, resolved)
 - [B-300](B-300-two-spots-of-one-class-could-offer-one-student-twice.md) — Two spots of one class sending at once could offer one student two invitations: each sender locked only its own spot (incomplete-rule, medium, resolved)
+- [B-381](B-381-product-api-accepted-a-token-carrying-an-audience.md) — The product API accepted a token carrying an `aud` claim as the user whose id equals `sub`: Flask-JWT-Extended verifies no audience unless one is configured (wrong-rule, high, open)

@@ -139,6 +139,18 @@ def sse_keepalive_seconds(environ=None):
     return value if value > 0 else DEFAULT_SSE_KEEPALIVE_SECONDS
 
 
+# admin.foundation (PAD-531). Test apps load their config from a mapping, so the
+# services read these with these defaults rather than trusting the class.
+ADMIN_STAFF_DOMAIN_DEFAULT = "levapp.app"
+ADMIN_JWT_AUDIENCE_DEFAULT = "levapp-admin"
+ADMIN_TOKEN_EXPIRES_DEFAULT = timedelta(hours=12)
+
+
+def parse_admin_hosts(raw):
+    """``ADMIN_HOSTS`` as a tuple of lower-cased hostnames (rule 11); blanks dropped."""
+    return tuple(item.strip().lower() for item in (raw or "").split(",") if item.strip())
+
+
 class Config:
     """Base config (shared defaults).
 
@@ -248,6 +260,18 @@ class Config:
     SSE_MAX_STREAMS, SSE_MAX_STREAMS_PER_USER = sse_stream_limits()
     SSE_KEEPALIVE_SECONDS = sse_keepalive_seconds()
 
+    # admin.foundation (PAD-531): the staff console. The Google OAuth client id
+    # is public (the browser needs it too) and lives in the tracked env
+    # templates; empty means "sign-in not configured" (rule 13), never a crash.
+    # ADMIN_HOSTS is the only hosts the /admin/api blueprint answers on (rule
+    # 11); production refuses to start without it.
+    ADMIN_GOOGLE_CLIENT_ID = (os.getenv("ADMIN_GOOGLE_CLIENT_ID") or "").strip()
+    ADMIN_HOSTS = parse_admin_hosts(os.getenv("ADMIN_HOSTS", ""))
+    ADMIN_STAFF_DOMAIN = ADMIN_STAFF_DOMAIN_DEFAULT
+    ADMIN_JWT_AUDIENCE = ADMIN_JWT_AUDIENCE_DEFAULT
+    # Rule 3 (owner decision 2026-10-07): 12 hours, no silent refresh.
+    ADMIN_TOKEN_EXPIRES = ADMIN_TOKEN_EXPIRES_DEFAULT
+
     # Sessions
     SESSION_PERMANENT = False
     SESSION_TYPE = "filesystem"
@@ -347,6 +371,11 @@ def assert_production_secrets(environ=None):
     jwt = environ.get("JWT_SECRET_KEY") or ""
     missing = [name for name, value in (("SECRET_KEY/FLASK_SECRET_KEY", secret), ("JWT_SECRET_KEY", jwt))
                if value in DEV_SECRET_FALLBACKS]
+    # admin.foundation rule 13 (PAD-531): the admin blueprint must know its
+    # hosts. The Google client id is deliberately NOT asserted here — an empty
+    # value degrades to "not configured" instead of crash-looping a deploy.
+    if not (environ.get("ADMIN_HOSTS") or "").strip():
+        missing.append("ADMIN_HOSTS")
     if missing:
         raise RuntimeError(
             "Refusing to start with FLASK_ENV=production: "
