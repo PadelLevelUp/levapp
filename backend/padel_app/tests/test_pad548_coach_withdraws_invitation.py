@@ -205,6 +205,7 @@ def test_a_withdrawal_that_is_not_live_writes_nothing(app, monkeypatch):
         _answer(instance_id, a, "yes", NOW + timedelta(minutes=3))
         assert withdraw_invitation(a_event.id, coach_id, now=NOW + timedelta(minutes=4)) == {"action": "confirmed"}
         db.session.expire_all()
+        assert a in _instance(instance_id).enrolled_player_ids, "the accepted student keeps the spot"
         assert (_event_of(instance_id, a).status, _event_of(instance_id, a).withdrawn_by_coach_at) == ("confirmed", None)
 
 
@@ -359,3 +360,42 @@ def test_a_yes_racing_a_withdrawal_waits_for_the_lock_and_the_withdrawal_wins(ap
         assert results["yes"]["action"] == "spot_filled", results
         assert a not in _instance(instance_id).enrolled_player_ids
         assert (event.status, event.answer) == ("expired", None) and event.withdrawn_by_coach_at is not None
+
+
+
+# ── #576 review: one commit, and the bubble edit published by it, before the follow-up ──
+
+from padel_app.tests.test_pad499_publish_after_commit import trail  # noqa: E402,F401  (fixture)
+
+
+def test_the_withdrawal_is_one_commit_and_its_bubble_edit_goes_out_with_it(app, monkeypatch, trail):
+    """Rule 19 (#576 review): everything the withdrawal writes lands in ONE real commit (a SAVEPOINT
+    release does not count), the retired bubble's `message_edited` is published by that commit's
+    after_commit and not before it, and the decline follow-up runs only after it."""
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import trigger_invitations, withdraw_invitation
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context():
+        with _io():
+            instance_id, coach_id, _, (a, b) = _seed(enrolled=0, candidates=2, max_players=1, max_sim=1)
+            trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        event = _event_of(instance_id, a)
+        message_id = event.message_id
+        assert message_id
+
+        monkeypatch.setattr(ns, "_send_next_on_decline", lambda *a_, **k: trail.append("follow-up"))
+        monkeypatch.setattr(ns, "send_push_notification", lambda **kw: None)
+        trail.clear()
+        assert withdraw_invitation(event.id, coach_id, now=NOW + timedelta(minutes=1)) == {"action": "withdrawn"}
+
+    before_follow_up = trail[: trail.index("follow-up")]
+    assert before_follow_up.count("commit") == 1, f"the withdrawal must be ONE commit: {trail}"
+    i_commit = before_follow_up.index("commit")
+    assert f"publish:message_edited:{message_id}" in before_follow_up[i_commit + 1:], (
+        f"the retired bubble's edit must go out with the withdrawal's commit, after it: {trail}"
+    )
+    assert not any(t.startswith("publish:") for t in before_follow_up[:i_commit]), (
+        f"nothing may be published before the commit that makes it true: {trail}"
+    )

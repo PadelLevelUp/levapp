@@ -54,7 +54,8 @@ async function invitations(request: APIRequestContext, tok: string, ref: ClassRe
 async function openClass(page: Page) {
   await openCalendar(page);
   expect(await findClassOnCalendar(page, CLASS_TITLE), "the seeded class is on the calendar").toBe(true);
-  await page.getByText(CLASS_TITLE).first().click();
+  // The card, not any text on the page (findClassOnCalendar's text match can hit elsewhere).
+  await page.getByTestId("calendar-event-card").filter({ hasText: CLASS_TITLE }).first().click();
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
   await page.getByTestId("class-invited-toggle").click();
 }
