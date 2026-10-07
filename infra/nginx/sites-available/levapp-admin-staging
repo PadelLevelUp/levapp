@@ -1,0 +1,50 @@
+server {
+    server_name admin.staging.levapp.app;
+    # admin.foundation rule 12 (PAD-531): the staff console host. `/admin/api/` goes to this
+    # environment's backend container (the blueprint also refuses any other Host, rule 11); everything
+    # else goes to the console's static image. B-182: the same redacted log as every other vhost.
+    access_log /var/log/nginx/access.log redacted;
+
+    # The console never carries a secret in a URL (its token is a header), so any request that
+    # does is refused here, before proxying: an upstream error would write the request line, secret
+    # included, into error.log, which no log format can redact (B-182). access.log still records
+    # the request, redacted.
+    if ($arg_token != "") { return 404; }
+    if ($arg_t != "") { return 404; }
+    if ($arg_access_token != "") { return 404; }
+
+    location /admin/api/ {
+        proxy_pass http://127.0.0.1:5100;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # PAD-531 rule 10: the console sends X-Request-Id; nginx forwards request headers by default.
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3300;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/admin.staging.levapp.app/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/admin.staging.levapp.app/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+server {
+    if ($host = admin.staging.levapp.app) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name admin.staging.levapp.app;
+    access_log /var/log/nginx/access.log redacted;
+    return 404; # managed by Certbot
+}

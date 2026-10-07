@@ -8,6 +8,7 @@ the VM, so nobody reviewed them and no check covered them.
 | `nginx.conf` | `/etc/nginx/nginx.conf` (Debian's stock file, unchanged; kept so the check runs the real http block) |
 | `conf.d/levapp-log-redaction.conf` | `/etc/nginx/conf.d/levapp-log-redaction.conf` |
 | `sites-available/{levapp,levapp-staging,padellevelup}` | `/etc/nginx/sites-available/`, linked from `sites-enabled/` |
+| `sites-available/{levapp-admin,levapp-admin-staging}` | same; the staff console hosts (PAD-531), see below |
 
 **The deploy does not install these files.** A change here is applied by hand on the VM:
 copy the changed files over, run `sudo nginx -t`, then `sudo systemctl reload nginx`. After
@@ -34,3 +35,31 @@ of the logs:
 `check-log-redaction.sh` proves both in Docker: it fails if the token reaches either log. CI runs
 it (`.github/workflows/nginx-log-redaction.yaml`), along with the same check on the web image's
 `frontend/apps/web/nginx.conf`. To run it locally: `bash infra/nginx/check-log-redaction.sh`.
+
+## The staff console hosts (PAD-531, admin.foundation rule 12)
+
+`levapp-admin` (admin.levapp.app → console container on 127.0.0.1:3200, `/admin/api/` → prod
+backend on 5000) and `levapp-admin-staging` (admin.staging.levapp.app → 3300, `/admin/api/` →
+staging backend on 5100). The deploy workflows build and run the two console containers; these
+two files are hand-applied like the others, and only AFTER the certificates exist — `nginx -t`
+refuses a server block whose `ssl_certificate` files are missing, and a refused test leaves the
+running config untouched.
+
+Order, once the DNS records (`admin`, `admin.staging`, proxied like `staging`) resolve:
+
+```bash
+# 1. certificates (certbot writes a temporary block of its own and removes it)
+sudo certbot certonly --nginx -d admin.levapp.app
+sudo certbot certonly --nginx -d admin.staging.levapp.app
+# 2. the tracked blocks
+sudo cp infra/nginx/sites-available/levapp-admin /etc/nginx/sites-available/levapp-admin
+sudo cp infra/nginx/sites-available/levapp-admin-staging /etc/nginx/sites-available/levapp-admin-staging
+sudo ln -sfn /etc/nginx/sites-available/levapp-admin /etc/nginx/sites-enabled/levapp-admin
+sudo ln -sfn /etc/nginx/sites-available/levapp-admin-staging /etc/nginx/sites-enabled/levapp-admin-staging
+sudo nginx -t && sudo systemctl reload nginx
+# 3. check
+curl -sS https://admin.staging.levapp.app/admin/api/auth/config
+```
+
+Rollback: remove the two `sites-enabled` links, `nginx -t`, reload. The product vhosts are not
+touched by any of this; until the blocks are applied the admin hosts simply do not answer.
