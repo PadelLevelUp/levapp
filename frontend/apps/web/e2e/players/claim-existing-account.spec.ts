@@ -121,6 +121,9 @@ test.describe("players.claim", () => {
     await page.reload();
     await page.waitForURL(/\/players\/\d+/, { timeout: 10_000 });
     await page.getByTestId("player-claim-link").click();
+    // PAD-528 (players.claim rule 4b): the dialog opens on "From your students"; this
+    // student is not on the roster yet, so the coach types the username instead.
+    await page.getByTestId("player-claim-tab-username").click();
     await page.getByTestId("player-claim-username").fill(username);
     await page.getByTestId("player-claim-submit").click();
     await expect(page.getByTestId("player-claim-pending")).toBeVisible({ timeout: 10_000 });
