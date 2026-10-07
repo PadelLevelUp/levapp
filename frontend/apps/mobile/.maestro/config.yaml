@@ -302,6 +302,9 @@ executionOrder:
     # 141 (PAD-487, mobile.android-runtime rule 2): the bottom field of the two native-header screens
     # stays above the keyboard; evidence is the screenshots (Maestro cannot see the keyboard).
     - 141-keyboard-clears-fields-under-native-header
+    # 179 (PAD-525, classes.edit rule 10): going back mid-edit with an unsaved change asks
+    # "Descartar alterações?"; Discard leaves without saving; nothing unsaved asks nothing.
+    - 179-class-edit-leave-asks
     # 180 (PAD-539, attendance.validation rule 18): the Presences trigger counts the whole
     # backlog and names the shown week's share; a clean week does not read "nothing to validate".
     - 180-presences-backlog-count
