@@ -19,17 +19,14 @@ const ROSTER = ["1", "2", "3"].map(
 
 function Holder() {
   const [ids, setIds] = useState<string[]>([]);
-  return (
-    <PlayerSelector
-      {...({
-        players: ROSTER,
-        levels: [],
-        selectedPlayerIds: ids,
-        classLevelId: null,
-        onToggle: (id: string) => setIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])),
-      } as never)}
-    />
-  );
+  const props = {
+    players: ROSTER,
+    levels: [],
+    selectedPlayerIds: ids,
+    classLevelId: null,
+    onToggle: (id: string) => setIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])),
+  } as unknown as Parameters<typeof PlayerSelector>[0];
+  return <PlayerSelector {...props} />;
 }
 
 describe("PAD-518: the picker's search clears after a pick", () => {
