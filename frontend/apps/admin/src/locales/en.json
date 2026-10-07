@@ -2,9 +2,20 @@
   "admin": {
     "shell": {
       "title": "LevApp Staff",
-      "nav": { "home": "Home", "roles": "Access", "audit": "Audit log", "approvals": "Approvals", "users": "Users", "settings": "Settings" },
+      "nav": {
+        "home": "Home",
+        "roles": "Access",
+        "audit": "Audit log",
+        "approvals": "Approvals",
+        "users": "Users",
+        "settings": "Settings"
+      },
       "signOut": "Sign out",
-      "role": { "owner": "owner", "operator": "operator", "support": "support" },
+      "role": {
+        "owner": "owner",
+        "operator": "operator",
+        "support": "support"
+      },
       "readOnly": "Read only",
       "language": "Language"
     },
@@ -58,9 +69,27 @@
     "audit": {
       "title": "Audit log",
       "lead": "Who changed what, before and after, and when. It cannot be edited or deleted.",
-      "filters": { "actor": "Who", "action": "Action", "targetType": "Target type", "targetId": "Target id", "apply": "Filter", "clear": "Clear" },
-      "columns": { "when": "When", "who": "Who", "action": "Action", "target": "Target", "outcome": "Outcome", "change": "Before → after" },
-      "outcome": { "ok": "ok", "denied": "denied", "error": "error" },
+      "filters": {
+        "actor": "Who",
+        "action": "Action",
+        "targetType": "Target type",
+        "targetId": "Target id",
+        "apply": "Filter",
+        "clear": "Clear"
+      },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "action": "Action",
+        "target": "Target",
+        "outcome": "Outcome",
+        "change": "Before → after"
+      },
+      "outcome": {
+        "ok": "ok",
+        "denied": "denied",
+        "error": "error"
+      },
       "empty": "No rows for these filters.",
       "prev": "Previous",
       "next": "Next",
@@ -88,11 +117,24 @@
       "tooShort": "Type at least 2 characters.",
       "none": "No users found.",
       "loadMore": "Load more",
-      "columns": { "name": "Name", "username": "Username", "email": "Email", "roles": "Roles", "status": "Status" },
+      "columns": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "roles": "Roles",
+        "status": "Status"
+      },
       "verified": "Verified",
       "unverified": "Not verified",
-      "status": { "inactive": "Inactive", "active": "Active", "disabled": "Disabled" },
-      "role": { "coach": "Coach", "player": "Player" }
+      "status": {
+        "inactive": "Inactive",
+        "active": "Active",
+        "disabled": "Disabled"
+      },
+      "role": {
+        "coach": "Coach",
+        "player": "Player"
+      }
     },
     "user": {
       "back": "Back to users",
@@ -127,8 +169,11 @@
         "NO_EMAIL": "This account has no email.",
         "ALREADY_VERIFIED": "The email is already verified.",
         "RESEND_TOO_SOON": "A code was sent a moment ago. Try again in {{seconds}} seconds.",
-        "generic": "Could not complete the action."
-      }
+        "generic": "Could not complete the action.",
+        "USER_DISABLED": "This account is disabled."
+      },
+      "viewAs": "View as this user",
+      "viewAsHint": "Opens their app in a new tab, read-only and without private messages. It is recorded."
     },
     "settings": {
       "title": "Settings",
@@ -137,10 +182,18 @@
       "approvalLabel": "New coaches need approval",
       "approvalOn": "On: new coaches wait for a decision before they can use the app.",
       "approvalOff": "Off: new coaches are approved on sign-up.",
-      "source": { "database": "Value set in the console", "environment": "Environment default (never changed here)" },
+      "source": {
+        "database": "Value set in the console",
+        "environment": "Environment default (never changed here)"
+      },
       "note": "Changing this never changes coaches that already exist.",
       "error": "Could not save the setting."
     },
-    "common": { "loading": "Loading…", "error": "Something went wrong.", "cancel": "Cancel", "confirm": "Confirm" }
+    "common": {
+      "loading": "Loading…",
+      "error": "Something went wrong.",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    }
   }
 }

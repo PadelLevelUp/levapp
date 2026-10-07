@@ -148,6 +148,8 @@ export const adminApi = {
   disableUser: (userId: number, reason: string) => api<unknown>(`/users/${userId}/disable`, { method: "POST", body: { reason } }),
   enableUser: (userId: number) => api<unknown>(`/users/${userId}/enable`, { method: "POST", body: {} }),
   resendVerification: (userId: number) => api<unknown>(`/users/${userId}/resend-verification`, { method: "POST", body: {} }),
+  // admin.approvals-and-users rule 9: a read-only product session for that user, opened in a new tab.
+  viewAs: (userId: number) => api<{ url: string; expiresAt: string; name: string }>(`/users/${userId}/view-as`, { method: "POST", body: {} }),
 };
 
 export interface PendingCoach {

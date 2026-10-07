@@ -8,7 +8,7 @@ import { adminApi, ApiError, type AuditRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { statusTone } from "./UsersPage";
 
-const KNOWN = ["REASON_REQUIRED", "NO_EMAIL", "ALREADY_VERIFIED", "RESEND_TOO_SOON"];
+const KNOWN = ["REASON_REQUIRED", "NO_EMAIL", "ALREADY_VERIFIED", "RESEND_TOO_SOON", "USER_DISABLED"];
 
 function Field({ label, children, testId }: { label: string; children: React.ReactNode; testId?: string }) {
   return (
@@ -21,8 +21,10 @@ function Field({ label, children, testId }: { label: string; children: React.Rea
 
 export function UserPage() {
   const { t, i18n } = useTranslation();
-  const { can } = useAuth();
+  const { can, session } = useAuth();
   const operator = can("operator");
+  // Rule 9: "view as" is for the operator role exactly (not owner, not support; decision 2026-10-07).
+  const viewAsAllowed = session?.role === "operator";
   const qc = useQueryClient();
   const userId = Number(useParams().userId);
   const key = ["admin", "user", userId];
@@ -44,7 +46,25 @@ export function UserPage() {
   const disable = useMutation({ mutationFn: () => adminApi.disableUser(userId, reason.trim()), onSuccess: () => done("disabled"), onError: fail });
   const enable = useMutation({ mutationFn: () => adminApi.enableUser(userId), onSuccess: () => done("enabled"), onError: fail });
   const resend = useMutation({ mutationFn: () => adminApi.resendVerification(userId), onSuccess: () => done("resent"), onError: fail });
-  const busy = disable.isPending || enable.isPending || resend.isPending;
+  const viewAs = useMutation({
+    mutationFn: async () => {
+      // Open the tab inside the click (a tab opened after an await is a blocked pop-up), cut its
+      // opener, then send it to the read-only session once the token exists.
+      const tab = window.open("about:blank", "_blank");
+      if (tab) tab.opener = null;
+      try {
+        const { url } = await adminApi.viewAs(userId);
+        if (tab) tab.location.href = url;
+        else window.location.assign(url);
+      } catch (err) {
+        tab?.close();
+        throw err;
+      }
+    },
+    onSuccess: () => setFeedback(null),
+    onError: fail,
+  });
+  const busy = disable.isPending || enable.isPending || resend.isPending || viewAs.isPending;
 
   const back = (
     <Link to="/users" className="mb-4 inline-block text-sm text-primary hover:underline">
@@ -123,6 +143,11 @@ export function UserPage() {
             <Button variant="secondary" disabled={busy} onClick={() => resend.mutate()} data-testid="admin-user-resend">
               {t("admin.user.resend")}
             </Button>
+            {viewAsAllowed ? (
+              <Button variant="ghost" disabled={busy} onClick={() => viewAs.mutate()} data-testid="admin-user-view-as" title={t("admin.user.viewAsHint")}>
+                {t("admin.user.viewAs")}
+              </Button>
+            ) : null}
           </div>
           {disabling ? (
             <form

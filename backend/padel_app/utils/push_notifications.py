@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def send_push_notification(user_id, title, body, url="/"):
+    from padel_app.utils.view_as import suppressed
+
+    # admin.approvals-and-users rule 9 (PAD-532): nothing leaves under a view-as token.
+    if suppressed("webpush"):
+        return False
     subscription = PushSubscription.query.filter_by(user_id=user_id).first()
     if not subscription:
         return False

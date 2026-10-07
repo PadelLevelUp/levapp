@@ -79,6 +79,11 @@ def _sender():
 def send_email(subject, recipients, body=None, html=None):
     if not (body or html):
         raise ValueError("Either body or html must be provided")
+    from padel_app.utils.view_as import suppressed
+
+    # admin.approvals-and-users rule 9 (PAD-532): nothing leaves under a view-as token.
+    if suppressed("email"):
+        return None
 
     if debug_endpoints_enabled():
         OUTBOX.append({

@@ -1,0 +1,8 @@
+{
+  "viewAs": {
+    "banner": "Viewing as {{name}} — read only",
+    "close": "Close",
+    "opening": "Opening…",
+    "invalid": "Invalid or expired link."
+  }
+}

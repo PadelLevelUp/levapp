@@ -2,9 +2,20 @@
   "admin": {
     "shell": {
       "title": "LevApp Staff",
-      "nav": { "home": "Início", "roles": "Acessos", "audit": "Registo de alterações", "approvals": "Aprovações", "users": "Utilizadores", "settings": "Definições" },
+      "nav": {
+        "home": "Início",
+        "roles": "Acessos",
+        "audit": "Registo de alterações",
+        "approvals": "Aprovações",
+        "users": "Utilizadores",
+        "settings": "Definições"
+      },
       "signOut": "Terminar sessão",
-      "role": { "owner": "owner", "operator": "operator", "support": "support" },
+      "role": {
+        "owner": "owner",
+        "operator": "operator",
+        "support": "support"
+      },
       "readOnly": "Só leitura",
       "language": "Idioma"
     },
@@ -58,9 +69,27 @@
     "audit": {
       "title": "Registo de alterações",
       "lead": "Quem mudou o quê, antes e depois, e quando. Não se pode editar nem apagar.",
-      "filters": { "actor": "Quem", "action": "Ação", "targetType": "Tipo de alvo", "targetId": "Id do alvo", "apply": "Filtrar", "clear": "Limpar" },
-      "columns": { "when": "Quando", "who": "Quem", "action": "Ação", "target": "Alvo", "outcome": "Resultado", "change": "Antes → depois" },
-      "outcome": { "ok": "ok", "denied": "negado", "error": "erro" },
+      "filters": {
+        "actor": "Quem",
+        "action": "Ação",
+        "targetType": "Tipo de alvo",
+        "targetId": "Id do alvo",
+        "apply": "Filtrar",
+        "clear": "Limpar"
+      },
+      "columns": {
+        "when": "Quando",
+        "who": "Quem",
+        "action": "Ação",
+        "target": "Alvo",
+        "outcome": "Resultado",
+        "change": "Antes → depois"
+      },
+      "outcome": {
+        "ok": "ok",
+        "denied": "negado",
+        "error": "erro"
+      },
       "empty": "Sem registos para estes filtros.",
       "prev": "Anteriores",
       "next": "Seguintes",
@@ -88,11 +117,24 @@
       "tooShort": "Escreve pelo menos 2 caracteres.",
       "none": "Nenhum utilizador encontrado.",
       "loadMore": "Carregar mais",
-      "columns": { "name": "Nome", "username": "Utilizador", "email": "Email", "roles": "Papéis", "status": "Estado" },
+      "columns": {
+        "name": "Nome",
+        "username": "Utilizador",
+        "email": "Email",
+        "roles": "Papéis",
+        "status": "Estado"
+      },
       "verified": "Verificado",
       "unverified": "Por verificar",
-      "status": { "inactive": "Inativo", "active": "Ativo", "disabled": "Desativado" },
-      "role": { "coach": "Treinador", "player": "Jogador" }
+      "status": {
+        "inactive": "Inativo",
+        "active": "Ativo",
+        "disabled": "Desativado"
+      },
+      "role": {
+        "coach": "Treinador",
+        "player": "Jogador"
+      }
     },
     "user": {
       "back": "Voltar aos utilizadores",
@@ -127,8 +169,11 @@
         "NO_EMAIL": "Esta conta não tem email.",
         "ALREADY_VERIFIED": "O email já está verificado.",
         "RESEND_TOO_SOON": "Foi enviado um código há instantes. Tenta outra vez dentro de {{seconds}} segundos.",
-        "generic": "Não foi possível concluir a ação."
-      }
+        "generic": "Não foi possível concluir a ação.",
+        "USER_DISABLED": "Esta conta está desativada."
+      },
+      "viewAs": "Ver como este utilizador",
+      "viewAsHint": "Abre a app dele num novo separador, só de leitura e sem mensagens privadas. Fica registado."
     },
     "settings": {
       "title": "Definições",
@@ -137,10 +182,18 @@
       "approvalLabel": "Novos treinadores precisam de aprovação",
       "approvalOn": "Ligado: os novos treinadores esperam por uma decisão antes de usar a app.",
       "approvalOff": "Desligado: os novos treinadores são aprovados no registo.",
-      "source": { "database": "Valor definido na consola", "environment": "Valor por omissão do ambiente (nunca alterado aqui)" },
+      "source": {
+        "database": "Valor definido na consola",
+        "environment": "Valor por omissão do ambiente (nunca alterado aqui)"
+      },
       "note": "Alterar isto nunca muda os treinadores que já existem.",
       "error": "Não foi possível guardar a definição."
     },
-    "common": { "loading": "A carregar…", "error": "Algo correu mal.", "cancel": "Cancelar", "confirm": "Confirmar" }
+    "common": {
+      "loading": "A carregar…",
+      "error": "Algo correu mal.",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar"
+    }
   }
 }

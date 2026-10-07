@@ -1,0 +1,8 @@
+{
+  "viewAs": {
+    "banner": "A ver como {{name}} — só leitura",
+    "close": "Fechar",
+    "opening": "A abrir…",
+    "invalid": "Ligação inválida ou expirada."
+  }
+}

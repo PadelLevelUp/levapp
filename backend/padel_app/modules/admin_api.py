@@ -320,3 +320,18 @@ def resend_verification(user_id):
         return jsonify(users_service.resend_verification(user_id))
     except users_service.UsersError as exc:
         return _users_error(exc)
+
+
+# ── view as, read-only (rule 9) ───────────────────────────────────────────────
+
+
+@bp.post("/users/<int:user_id>/view-as")
+@audited("user.view_as")
+@require_role("operator", exact=True)  # operators only: not owner, not support (decision 2026-10-07)
+def view_as_user(user_id):
+    from padel_app.services.admin import users_service, view_as_service
+
+    try:
+        return jsonify(view_as_service.mint(user_id, g.admin.email))
+    except users_service.UsersError as exc:
+        return _users_error(exc)
