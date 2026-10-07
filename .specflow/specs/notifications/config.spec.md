@@ -21,7 +21,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 3. `invitation_mode`: `"automatic"` (default) or `"semi_automatic"`. Only relevant when `auto_notify_enabled` is true. In `semi_automatic` mode, vacancies require coach approval before the engine sends invitations (see notifications.semi-auto-approval); in `automatic` mode behavior is unchanged
 4. First reminder timing (`reminder_type`, `reminder_value`, `reminder_time`; on the wire `reminderTiming.firstReminder`): `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
 5. Invitation window (`invitation_start_type`, `invitation_start_value`, `invitation_start_time`; on the wire `reminderTiming.invitationStart`): when to start sending invitations after a vacancy. One home only — the duplicate `invitation_start_timing` column and its precedence dance are gone (PAD-279)
-6. Restrictions (typed columns, composed on the wire as the `restrictions` object): maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c)
+6. Restrictions (typed columns, composed on the wire as the `restrictions` object): maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c), noSameDayClass (rule 6e)
 6a. **(PAD-136, PAD-451)** `quietHours` is a **club-local wall clock** window, evaluated against
    the club timezone (`Europe/Lisbon`), consistent with `calendar` rule 6. **(PAD-451)** The coach
    sets it: `quietHours` is `{enabled, start, end}`, each bound `"HH:00"` or `"HH:30"` (30-minute
@@ -72,6 +72,20 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    invitation-start trigger firing at night used to leave a never-filled spot with no vacancy at
    all, so nobody was ever invited. Those vacancies are invited by the first tick after the window
    ends (the window's `end`, 07:00 club-local by default).
+6e. **Do not invite a student who already has a class that day (PAD-523; coordinator, 2026-10-07;
+   numbering unconfirmed).** `noSameDayClass` is `{enabled}`, stored in
+   `no_same_day_class_enabled`, **off** for every coach until they switch it on (no backfill: a new
+   marker's default is off). When on, `evaluate_candidates` drops a roster student who holds a spot
+   in ANOTHER class on the same club-local day as the class being filled, with stage
+   `has_class_same_day` (after `inactive_account`, `invite-simulation` rule 4). "Holds a spot" is
+   the engine's meaning (PAD-259): a presence row not marked absent and not declined (a "no", a
+   cancellation, a proactive decline); the other class is not cancelled and may be any coach's. The
+   day is the wall date of the class being filled, 00:00 to 00:00 on the club's clock (class times
+   are wall clock, R-023). The waiting list (group 0) is not a bypass: the coach switched the
+   restriction on deliberately and eligibility has one meaning, as with `excludedPlayers`. Manual
+   invitations are untouched. A saved `restrictions` payload without the key keeps the stored value,
+   so an app from before PAD-523 saving its Settings cannot switch it off. Both clients show it as a
+   toggle under Restrictions, saved with the section's explicit Save (PAD-506).
 7. `invitation_groups`: ordered rule-based groups for matching (attribute, operation, value)
 7a. `eligibility_rules` (nullable) and `open_spots_visible` (nullable) are the **coach-standard tier**
    of `eligibility.rules` and `eligibility.open-spot-visibility`. `NULL` means unset at this tier,
@@ -254,8 +268,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    `restrictions` object of `GET|POST /api/app/notify/config`: `maxSimultaneous` 1–20 step 1,
    `maxTotal` 1–50 step 1, `maxInactiveTime` 15–1440 min step 15 (the server also clamps a saved
    value below 15 up to 15, PAD-495), `minTimeBeforeClass` 5–240 min
-   step 5, `maxInvitesPerStudentPerDay` 1–10 step 1, the `quietHours`, `excludedPlayers` and
-   `excludeUnpaidSubscription` toggles, and `cancellationDeadlineHours` 0–168 h step 1 (no toggle).
+   step 5, `maxInvitesPerStudentPerDay` 1–10 step 1, the `quietHours`, `excludedPlayers`,
+   `excludeUnpaidSubscription` and `noSameDayClass` toggles, and `cancellationDeadlineHours` 0–168 h step 1 (no toggle).
    The bounds and steps live in ONE place, `RESTRICTION_BOUNDS` in `@levelup/config`, and a step
    clamps to them; neither client carries its own copy, so the two cannot drift. A disabled
    stepper row hides its value, as on web. While `autoNotifyEnabled` is false the section stays
@@ -279,6 +293,30 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     with a sign and rolled back on a failure — PAD-473, B-243.) The reminders subsection included.
 
 ### Acceptance Criteria
+
+#### A student with another class that day is not invited (rule 6e)
+- **Given** `noSameDayClass` on, a class Monday 18:00 Lisbon with one open vacancy, and roster
+  students Busy (enrolled in another coach's class Monday 10:00) and Free
+- **When** the batch is evaluated and sent
+- **Then** Busy's verdict is `has_class_same_day` and only Free is invited; the explain path and
+  the waiting-list wave give Busy the same verdict
+
+#### Off by default (rule 6e)
+- **Given** a coach who never saved the setting
+- **When** `GET /api/app/notify/config` runs, and the same batch is evaluated
+- **Then** `restrictions.noSameDayClass` is `{enabled: false}` and Busy is invited
+
+#### What does not count as a class that day (rule 6e)
+- **Given** `noSameDayClass` on and Busy's other class at 00:30 the next day, or 23:30 the day
+  before, or Busy marked absent there, or Busy's answer there a "no", or that class cancelled
+- **When** the batch is evaluated
+- **Then** Busy is invited; a class at 00:00 or 23:59 of the same day does count
+
+#### An older client cannot switch it off (rule 6e)
+- **Given** `noSameDayClass` on
+- **When** a `restrictions` payload without the key is saved
+- **Then** `noSameDayClass` stays `{enabled: true}`
+
 
 #### Get or create config
 - **Given** a coach with no existing config
