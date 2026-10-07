@@ -30,9 +30,13 @@ from padel_app.models import (
     BlockedUser,
     CalendarBlock,
     Coach,
+    CoachPlayerNote,
     Conversation,
     ConversationParticipant,
     DeviceToken,
+    EvaluationEntry,
+    EvaluationRecord,
+    EvaluationShare,
     Message,
     MessageReaction,
     MessageReport,
@@ -78,6 +82,15 @@ MERGED_PLAYER_FK_TABLES = frozenset({
     "player_claim_requests",
     "class_requests",
     "class_join_requests",
+})
+
+# B-361 (PAD-528): rows that hang off the coach relation, not off players.id. The
+# players.id guard above never saw them, and the merge used to cascade them away
+# with the placeholder's relation when the claimant already had the coach.
+MERGED_RELATION_FK_TABLES = frozenset({
+    "evaluation_records",
+    "evaluation_entries",
+    "coach_player_notes",
 })
 
 ALREADY_ACTIVATED = "ALREADY_ACTIVATED"
@@ -144,7 +157,61 @@ def _merge_coach_relations(placeholder_id, claimant_id):
             mine.side = rel.side
         if not mine.notes:
             mine.notes = rel.notes
+        # B-361: evaluations and notes hang off the relation; move them before it goes.
+        _merge_relation_children(rel, mine)
+        db.session.expire(rel)
         db.session.delete(rel)
+    db.session.flush()
+
+
+def _merge_relation_children(dropped, kept):
+    """Rule 5a (B-361, PAD-528): nothing that hangs off the dropped coach relation is
+    lost. Notes re-point. Evaluation records re-point, except where the kept relation
+    already holds a record for the same (day, class): then the dropped record's
+    ratings join the kept record for categories it has not rated, stay as history
+    (``record_id`` NULL) for categories it has, its note is appended to the kept
+    record's note, its share follows unless the kept record is already shared, and
+    the emptied record is deleted. Every rating ends up on the kept relation."""
+    from_id, to_id = dropped.id, kept.id
+    CoachPlayerNote.query.filter_by(coach_player_id=from_id).update(
+        {"coach_player_id": to_id}, synchronize_session=False
+    )
+    twins = {
+        (r.evaluated_on, r.lesson_instance_id): r
+        for r in EvaluationRecord.query.filter_by(coach_player_id=to_id).all()
+    }
+    for rec in EvaluationRecord.query.filter_by(coach_player_id=from_id).all():
+        twin = twins.get((rec.evaluated_on, rec.lesson_instance_id))
+        if twin is None:
+            rec.coach_player_id = to_id
+            twins[(rec.evaluated_on, rec.lesson_instance_id)] = rec
+            continue
+        rated = {
+            e.category_id for e in EvaluationEntry.query.filter_by(record_id=twin.id).all()
+        }
+        for entry in EvaluationEntry.query.filter_by(record_id=rec.id).all():
+            if entry.category_id in rated:
+                entry.record_id = None          # history, as the record's own earlier scores are
+            else:
+                entry.record_id = twin.id
+                rated.add(entry.category_id)
+        if rec.note:
+            twin.note = f"{twin.note}\n\n{rec.note}" if twin.note else rec.note
+        share = EvaluationShare.query.filter_by(record_id=rec.id).first()
+        if share is not None:
+            if EvaluationShare.query.filter_by(record_id=twin.id).first() is None:
+                share.record_id = twin.id
+            else:
+                db.session.delete(share)
+        db.session.flush()
+        # Bulk delete: nothing points at the record any more, and the ORM cascade
+        # must not see a stale ``entries`` collection.
+        EvaluationRecord.query.filter_by(id=rec.id).delete(synchronize_session=False)
+        db.session.expunge(rec)
+    db.session.flush()
+    EvaluationEntry.query.filter_by(coach_player_id=from_id).update(
+        {"coach_player_id": to_id}, synchronize_session=False
+    )
     db.session.flush()
 
 
