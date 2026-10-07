@@ -391,7 +391,10 @@ def respond_to_approval(
     db.session.commit()
 
     # Mark the persisted assistant message as responded
-    message_ids = {p.message_id for p in prompts if p.message_id}
+    # #573 review: only the prompts still on THIS bundle. A recompute that committed while this
+    # answer waited moved some prompts to a new bundle and a new message; marking that message
+    # answered would leave the coach a pending vacancy behind an "answered" card.
+    message_ids = {p.message_id for p in prompts if p.message_id and p.bundle_id == bundle_id}
     for message_id in message_ids:
         msg = Message.query.get(message_id)
         if msg and msg.msg_metadata is not None:
@@ -505,6 +508,10 @@ def recompute_suggestions(instance_id: int, coach_id: int, *, now: datetime | No
     _now = now or utcnow_naive()
     if _instance_is_over(instance, _now):
         abort(409, "The class is over")
+    # #573 review: suggestions are a semi-automatic mode's; an automatic coach has nothing to ask.
+    from padel_app.services.notification_service import _is_semi_auto
+    if not _is_semi_auto(get_or_create_config(coach_id)):
+        abort(409, "Suggestions are for the semi-automatic mode")
 
     vacancies = (
         Vacancy.query

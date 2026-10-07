@@ -161,6 +161,75 @@ def test_the_endpoints_are_the_classs_coachs_only(app, client):
         assert post(own).get_json() == {"state": "none"}
 
 
+def test_the_recompute_is_one_commit(app):
+    """Re-opening every vacancy, moving every prompt and posting the message land together: a real
+    commit counter (savepoint releases excluded) sees exactly one during a two-vacancy recompute."""
+    from sqlalchemy import event
+
+    from padel_app.services.replacement_approval_service import recompute_suggestions, respond_to_approval
+
+    with app.app_context():
+        world = _seed_world("rc7", n_candidates=1, enrolled=2)
+        (_, d1), (_, d2) = world["enrolled"]
+        _v1, _p1, b1 = _create_pending_prompt(world, d1)
+        _v2, _p2, b2 = _create_pending_prompt(world, d2)
+        now = datetime.utcnow()
+        with _patched_io():
+            respond_to_approval(b1["bundleId"], "dismiss", world["coach"].id, now=now)
+            respond_to_approval(b2["bundleId"], "dismiss", world["coach"].id, now=now)
+        commits = []
+
+        def count(session):
+            if not session.in_nested_transaction():
+                commits.append(1)
+
+        sess = db.session()
+        event.listen(sess, "after_commit", count)
+        try:
+            with _patched_io():
+                result = recompute_suggestions(world["instance"].id, world["coach"].id, now=now)
+        finally:
+            event.remove(sess, "after_commit", count)
+        assert len(result["bundle"]["vacancies"]) == 2
+        assert len(commits) == 1, f"the recompute committed {len(commits)} times"
+
+
+def test_a_vacancy_filled_after_the_ignore_is_not_reopened(app):
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.replacement_approval_service import recompute_suggestions, respond_to_approval
+
+    with app.app_context():
+        world = _seed_world("rc8", n_candidates=1)
+        _, declined = world["enrolled"][0]
+        vacancy, _prompt, bundle = _create_pending_prompt(world, declined)
+        now = datetime.utcnow()
+        with _patched_io():
+            respond_to_approval(bundle["bundleId"], "dismiss", world["coach"].id, now=now)
+        v = Vacancy.query.get(vacancy.id)
+        v.status = "filled"  # the coach filled it by hand
+        db.session.commit()
+        with _patched_io():
+            assert recompute_suggestions(world["instance"].id, world["coach"].id, now=now) == {"state": "none"}
+        v = Vacancy.query.get(vacancy.id)
+        assert (v.status, v.approval_status) == ("filled", "dismissed")
+
+
+def test_an_automatic_coach_cannot_recompute(app):
+    import pytest as _pytest
+    from werkzeug.exceptions import Conflict
+
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.replacement_approval_service import recompute_suggestions
+
+    with app.app_context():
+        world = _seed_world("rc9", n_candidates=1)
+        cfg = NotificationConfig.query.filter_by(coach_id=world["coach"].id).one()
+        cfg.invitation_mode = "automatic"
+        db.session.commit()
+        with _patched_io(), _pytest.raises(Conflict):
+            recompute_suggestions(world["instance"].id, world["coach"].id, now=datetime.utcnow())
+
+
 # ── Postgres only: an old bundle's yes racing a recompute ───────────────────────────────────────
 import os
 import threading
@@ -248,6 +317,12 @@ def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monke
         sent = _auto_events()
     yes = out["yes"]["vacancies"][0]["result"]
     assert yes == ("approved_now" if first == "yes" else "stale"), out
+    if first == "recompute":
+        # #573 review: the late yes must not mark the recompute's NEW message answered.
+        with app.app_context():
+            newest = _approval_messages()[-1]
+            assert newest.msg_metadata["bundleId"] == out["recompute"]["bundle"]["bundleId"]
+            assert newest.msg_metadata.get("responded") is False, "the new card was marked answered"
     if yes == "approved_now":
         assert out["recompute"] == {"state": "none"} and status == "approved" and sent == 1
     else:
