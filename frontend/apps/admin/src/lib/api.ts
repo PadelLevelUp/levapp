@@ -123,7 +123,45 @@ export const adminApi = {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "")).toString();
     return api<{ items: AuditRow[]; page: number; hasMore: boolean }>(`/audit${query ? `?${query}` : ""}`);
   },
+  // admin.engine-health (PAD-534): read-only.
+  engineHealth: () => api<EngineHealth>("/engine-health"),
+  engineHealthCoaches: (q: string) =>
+    api<{ coaches: { coachId: number; name: string }[] }>(`/engine-health/coaches?q=${encodeURIComponent(q)}`),
+  engineHealthCoach: (coachId: number) => api<CoachEngine>(`/engine-health/coaches/${coachId}`),
 };
+
+export type DeployIdentity = { gitSha: string; alembicHead: string | null };
+export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due";
+
+export interface EngineHealth {
+  computedAt: string;
+  vacancies: {
+    open: number;
+    byRoundAndBatch: { round: number; batch: number; count: number }[];
+    pendingApproval: number;
+    oldestOpenAgeSeconds: number | null;
+  };
+  invitations: { live: number; byRound: { round: number | null; count: number }[] };
+  scheduler:
+    | { available: false }
+    | { available: true; total: number; byFamily: Record<string, number>; overdue: number; singletons: Record<string, boolean> };
+  incidents: {
+    last24h: Record<IncidentKind, number>;
+    last7d: Record<IncidentKind, number>;
+    recent: { id: number; createdAt: string; kind: IncidentKind; channel: string; userId: number | null; subjectType: string | null; subjectId: number | null; errorClass: string | null; detail: string | null }[];
+  };
+  accounts: { users: Record<string, number>; coaches: Record<string, number>; players: number; createdLast7d: number };
+  deploy: { this: DeployIdentity; other: DeployIdentity | string };
+}
+
+export interface CoachEngine {
+  coachId: number;
+  name: string;
+  settings: Record<string, unknown> & { autoNotifyEnabled: boolean; invitationMode: string };
+  openVacancies: number;
+  liveInvitations: number;
+  scheduledJobs: { id: string; nextRunTime: string | null }[];
+}
 
 export interface AdminRoleRow {
   id: number;

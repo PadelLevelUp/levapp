@@ -111,7 +111,18 @@ def send_email(subject, recipients, body=None, html=None):
         msg.body = body
     if html:
         msg.html = html
-    mail.send(msg)
+    try:
+        mail.send(msg)
+    except Exception as exc:
+        # admin.engine-health rule 3 (PAD-534): recorded on its own transaction, then raised as
+        # before, so callers see exactly what they saw. The user, never the address.
+        from padel_app.services import delivery_incidents
+
+        delivery_incidents.record(
+            "email_failed", "email", user_id=delivery_incidents.user_id_for_email(kept[0]),
+            error=exc, detail=type(exc).__name__,
+        )
+        raise
     return "Sent"
 
 

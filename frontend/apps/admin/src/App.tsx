@@ -6,6 +6,7 @@ import { Shell } from "@/components/Shell";
 import { adminApi } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { AuditPage } from "@/pages/AuditPage";
+import { EngineHealthPage } from "@/pages/EngineHealthPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotConfiguredPage } from "@/pages/NotConfiguredPage";
 import { RolesPage } from "@/pages/RolesPage";
@@ -25,6 +26,7 @@ function Gate() {
           <Route index element={<HomePage />} />
           <Route path="roles" element={<RolesPage />} />
           <Route path="audit" element={<AuditPage />} />
+          <Route path="engine-health" element={<EngineHealthPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

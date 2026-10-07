@@ -2,9 +2,18 @@
   "admin": {
     "shell": {
       "title": "LevApp Staff",
-      "nav": { "home": "Home", "roles": "Access", "audit": "Audit log" },
+      "nav": {
+        "home": "Home",
+        "roles": "Access",
+        "audit": "Audit log",
+        "engineHealth": "Engine health"
+      },
       "signOut": "Sign out",
-      "role": { "owner": "owner", "operator": "operator", "support": "support" },
+      "role": {
+        "owner": "owner",
+        "operator": "operator",
+        "support": "support"
+      },
       "readOnly": "Read only",
       "language": "Language"
     },
@@ -58,14 +67,104 @@
     "audit": {
       "title": "Audit log",
       "lead": "Who changed what, before and after, and when. It cannot be edited or deleted.",
-      "filters": { "actor": "Who", "action": "Action", "targetType": "Target type", "targetId": "Target id", "apply": "Filter", "clear": "Clear" },
-      "columns": { "when": "When", "who": "Who", "action": "Action", "target": "Target", "outcome": "Outcome", "change": "Before → after" },
-      "outcome": { "ok": "ok", "denied": "denied", "error": "error" },
+      "filters": {
+        "actor": "Who",
+        "action": "Action",
+        "targetType": "Target type",
+        "targetId": "Target id",
+        "apply": "Filter",
+        "clear": "Clear"
+      },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "action": "Action",
+        "target": "Target",
+        "outcome": "Outcome",
+        "change": "Before → after"
+      },
+      "outcome": {
+        "ok": "ok",
+        "denied": "denied",
+        "error": "error"
+      },
       "empty": "No rows for these filters.",
       "prev": "Previous",
       "next": "Next",
       "page": "Page {{page}}"
     },
-    "common": { "loading": "Loading…", "error": "Something went wrong.", "cancel": "Cancel", "confirm": "Confirm" }
+    "common": {
+      "loading": "Loading…",
+      "error": "Something went wrong.",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "engineHealth": {
+      "title": "Engine health",
+      "lead": "What the invitation and reminder engine holds right now, and what each environment runs. Read only.",
+      "refresh": "Refresh",
+      "computedAt": "Computed {{when}}",
+      "vacancies": {
+        "title": "Open vacancies",
+        "open": "Open",
+        "pending": "Awaiting approval",
+        "oldest": "Oldest open",
+        "round": "Round {{round}}, batch {{batch}}"
+      },
+      "invitations": {
+        "title": "Live invitations",
+        "live": "Live",
+        "round": "Round {{round}}",
+        "waitingList": "Waiting list"
+      },
+      "scheduler": {
+        "title": "Scheduler",
+        "unavailable": "The scheduler is not running in this process.",
+        "total": "Jobs",
+        "overdue": "Overdue (>5 min)",
+        "present": "present",
+        "missing": "missing"
+      },
+      "incidents": {
+        "title": "Failed sends and skipped reminders",
+        "last24h": "Last 24 h",
+        "last7d": "Last 7 days",
+        "recent": "Most recent",
+        "none": "None recorded.",
+        "kind": {
+          "email_failed": "Email failed",
+          "push_failed": "Push failed",
+          "reminder_skipped_past_due": "Reminder skipped (past due)"
+        }
+      },
+      "accounts": {
+        "title": "Accounts",
+        "users": "Users",
+        "coaches": "Coaches",
+        "players": "Players",
+        "new7d": "New in 7 days"
+      },
+      "deploy": {
+        "title": "Deploys",
+        "this": "This environment",
+        "other": "Other environment",
+        "sha": "Commit",
+        "head": "Migration head",
+        "notConfigured": "Not configured",
+        "unreachable": "Unreachable"
+      },
+      "coaches": {
+        "title": "A coach's engine settings",
+        "search": "Search a coach by name",
+        "none": "No coach found.",
+        "openVacancies": "Open vacancies",
+        "liveInvitations": "Live invitations",
+        "jobs": "Scheduled jobs",
+        "settings": "Settings (read only)"
+      },
+      "minutes": "{{n}} min",
+      "hours": "{{n}} h",
+      "days": "{{n}} d"
+    }
   }
 }

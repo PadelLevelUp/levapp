@@ -118,6 +118,8 @@ def send_expo_push(
                 continue
 
             error_type = (receipt.get("details") or {}).get("error") if isinstance(receipt, dict) else None
+            # admin.engine-health rule 3 (PAD-534): Expo's error code, never the token.
+            _record_expo_failure(token, error_type)
             if error_type == "DeviceNotRegistered":
                 # WARNING, not INFO: the app configures no logging, so the
                 # root logger sits at the default WARNING and INFO never
@@ -140,6 +142,16 @@ def send_expo_push(
                 )
 
     return any_success
+
+
+def _record_expo_failure(token, error_type) -> None:
+    from padel_app.services import delivery_incidents
+
+    row = DeviceToken.query.filter_by(token=token).first()
+    platform = (getattr(row, "platform", None) or "").lower()
+    channel = "apns" if platform == "ios" else "fcm" if platform == "android" else "expo"
+    delivery_incidents.record("push_failed", channel, user_id=getattr(row, "user_id", None),
+                              detail=f"error={error_type}")
 
 
 def send_expo_push_to_user(

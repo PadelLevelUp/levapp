@@ -1,6 +1,6 @@
 ---
 id: admin.engine-health
-status: draft
+status: implemented
 depends_on: [admin.foundation, notifications.invitations, notifications.waiting-list, notifications.reminders, notifications.config, messaging.push-notifications]
 implements: ../../specs-business/admin/staff-operate-the-platform-without-the-database.business.md
 governed_by: [R-005, R-010, R-022, R-023, R-036]
@@ -9,7 +9,7 @@ governed_by: [R-005, R-010, R-022, R-023, R-036]
 # admin.engine-health
 
 > Linear: PAD-534 (this spec), epic PAD-530; builds on PAD-531 (`admin.foundation`). Owner
-> decisions 2026-10-06. Draft: no code exists.
+> decisions 2026-10-06. Implemented by PAD-534 (and the GIT_SHA build change, its own PR).
 
 ### Intent
 One read-only page that says whether the invitation and reminder engine is healthy and what each
@@ -26,7 +26,8 @@ database query or a log search, and failed sends are only in the logs.
   `alembic_version`
 - **CREATES:** `delivery_incidents` — `id`, `created_at`, `kind`
   (`email_failed`|`push_failed`|`reminder_skipped_past_due`), `channel`
-  (`email`|`webpush`|`apns`|`fcm`|`scheduler`), `user_id` (FK → users, SET NULL, nullable),
+  (`email`|`webpush`|`apns`|`fcm`|`expo`|`scheduler`; an Expo receipt maps the device's platform
+  to `apns` (ios) or `fcm` (android) and is `expo` when the device row does not say), `user_id` (FK → users, SET NULL, nullable),
   `subject_type` / `subject_id` (nullable: the lesson instance, vacancy or notification the
   incident belongs to), `error_class` (String(120)), `detail` (String(500), truncated). No
   recipient address, message body, device token or push key is stored. Rows older than 30 days
@@ -74,12 +75,20 @@ database query or a log search, and failed sends are only in the logs.
    console reads the other environment's identity from `GET /admin/api/deploy-identity` (`support`)
    on that environment's admin API, with a 2-second timeout, using a service token held in the
    console's environment configuration, and shows `"unreachable"` on failure.
+   Mechanics (PAD-534; coordinator, 2026-10-07): the console calls the other environment with
+   `ADMIN_PEER_URL` and `Authorization: Peer <ADMIN_PEER_TOKEN>`; that environment's blueprint gate
+   accepts a peer token for `GET /admin/api/deploy-identity` ONLY, compared in constant time with
+   its `ADMIN_PEER_INBOUND_TOKEN` (unset refuses every peer read), and logs each peer read naming
+   "peer". Every other admin route still needs an admin session (its `require_role` is a second
+   wall). With `ADMIN_PEER_URL`/`ADMIN_PEER_TOKEN` unset the console answers
+   `"unreachable — not configured"`. Provisioning the three secrets per environment is the owner's.
 6. **Per-coach engine settings, read-only.** `GET /admin/api/engine-health/coaches?q=` lists
    coaches (search as `admin.approvals-and-users` rule 4); `GET
    /admin/api/engine-health/coaches/<coach_id>` answers that coach's NotificationConfig fields
    (`autoNotifyEnabled`, `invitationMode`, reminder and invitation-start type/value/time, quiet
    hours, eligibility rules) and that coach's open vacancies, live invitations and scheduled
-   jobs. There is no write route.
+   jobs. There is no write route. The excluded players' ids are left out (student data); the
+   coach is named, never their email.
 7. **Cost.** Each count is one aggregate query; the summary answers in under 1 second on a
    database the size of production's at the time of writing. The console refreshes it only on
    demand (a "Refresh" button), never by polling.
