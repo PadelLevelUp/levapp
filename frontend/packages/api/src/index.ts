@@ -10,7 +10,6 @@ export {
 export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
 
 // Resource modules, namespaced to avoid name collisions between resources.
-export * as adminApi from "./resources/admin";
 export * as academyClassesApi from "./resources/academyClasses";
 export * as authApi from "./resources/auth";
 export * as attendanceApi from "./resources/attendance";
@@ -24,7 +23,6 @@ export * as classJoinRequestsApi from "./resources/classJoinRequests";
 export * as clubsApi from "./resources/clubs";
 export * as coachLevelApi from "./resources/coachLevel";
 export * as dashboardApi from "./resources/dashboard";
-export * as editorApi from "./resources/editor";
 export * as evaluationApi from "./resources/evaluation";
 export * as evaluationRecordsApi from "./resources/evaluationRecords";
 // PAD-404: the evaluation reminder setting.

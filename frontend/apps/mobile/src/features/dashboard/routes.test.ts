@@ -48,10 +48,6 @@ describe("PAD-327: the request alerts' destinations", () => {
       pathname: "/settings",
       params: { section: "club" },
     });
-    expect(nativeRouteForWebPath("/settings?section=admin")).toEqual({
-      pathname: "/settings",
-      params: { section: "admin" },
-    });
     expect(nativeRouteForWebPath("/settings")).toEqual({ pathname: "/settings" });
   });
 

@@ -1,8 +1,10 @@
-import { ClipboardList, Home, LogOut, Shield } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ClipboardList, Home, LogOut, Settings, Shield, UserCheck, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet } from "react-router-dom";
 import clsx from "clsx";
 
+import { adminApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Badge, Button, Select } from "./ui";
@@ -10,8 +12,13 @@ import { Badge, Button, Select } from "./ui";
 export function Shell() {
   const { t, i18n } = useTranslation();
   const { session, signOut } = useAuth();
+  const pending = useQuery({ queryKey: ["admin", "coach-approvals"], queryFn: adminApi.coachApprovals, enabled: !!session });
+  const pendingCount = pending.data?.items.length ?? 0;
   const items = [
     { to: "/", icon: Home, label: t("admin.shell.nav.home"), end: true },
+    { to: "/approvals", icon: UserCheck, label: t("admin.shell.nav.approvals"), count: pendingCount },
+    { to: "/users", icon: Users, label: t("admin.shell.nav.users") },
+    { to: "/settings", icon: Settings, label: t("admin.shell.nav.settings") },
     { to: "/roles", icon: Shield, label: t("admin.shell.nav.roles") },
     { to: "/audit", icon: ClipboardList, label: t("admin.shell.nav.audit") },
   ];
@@ -33,7 +40,7 @@ export function Shell() {
           ) : null}
         </div>
         <nav className="flex-1 px-2">
-          {items.map(({ to, icon: Icon, label, end }) => (
+          {items.map(({ to, icon: Icon, label, end, count }) => (
             <NavLink
               key={to}
               to={to}
@@ -43,7 +50,12 @@ export function Shell() {
               }
             >
               <Icon className="h-4 w-4" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {count ? (
+                <span className="rounded-full bg-sidebar-accent px-2 text-xs" data-testid="admin-nav-approvals-count">
+                  {count}
+                </span>
+              ) : null}
             </NavLink>
           ))}
         </nav>

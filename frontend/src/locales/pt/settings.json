@@ -22,7 +22,6 @@
       "club": "Clube",
       "account": "Conta",
       "myNotifications": "As minhas notificações",
-      "admin": "Administração",
       "classRequests": "Pedidos de aula",
       "connections": "As minhas ligações"
     },
@@ -148,7 +147,6 @@
       "importNavDescription": "Rever e reverter importações anteriores.",
       "importOnWeb": "As folhas de cálculo são carregadas e analisadas na aplicação web. Aqui podes rever importações anteriores e revertê-las.",
       "importHistoryEmpty": "Ainda não há importações.",
-      "adminNavDescription": "Aprovar treinadores registados",
       "classRequestsNavDescription": "Os alunos pedem aulas nos horários que o teu calendário deixa livres. Aceita, recusa ou propõe outro horário; um pedido pendente reserva o horário no teu calendário.",
       "connectionsNavDescription": "O teu treinador, os teus alunos e as pessoas que bloqueaste."
     },
@@ -635,28 +633,6 @@
       "openSpots": {
         "label": "Mostrar as vagas livres das aulas futuras aos alunos elegíveis (podem pedir para entrar)"
       }
-    },
-    "admin": {
-      "coachApprovalRequired": "Novos treinadores precisam de aprovação",
-      "coachApprovalRequiredDescription": "Ligado: quem se regista como treinador fica a aguardar a tua aprovação. Desligado: entra logo aprovado e escolhe o clube. Não altera treinadores já registados.",
-      "coachApprovalFromEnvironment": "Valor por omissão do servidor — ainda não foi alterado aqui.",
-      "coachApprovalSaved": "Definição guardada.",
-      "emailUnverified": "Email por confirmar",
-      "title": "Administração",
-      "description": "Ferramentas da equipa LevApp.",
-      "pendingCoaches": "Treinadores a aguardar aprovação",
-      "pendingCoachesDescription": "Contas de treinador criadas por registo próprio. Só depois de aprovadas podem criar ou juntar-se a um clube.",
-      "noPending": "Nenhum treinador a aguardar aprovação.",
-      "approve": "Aprovar",
-      "reject": "Recusar",
-      "approved": "{{name}} aprovado.",
-      "rejected": "Pedido de {{name}} recusado.",
-      "loadFailed": "Não foi possível carregar os pedidos.",
-      "actionFailed": "Não foi possível concluir a ação.",
-      "rejectDialogTitle": "Recusar {{name}}?",
-      "rejectDialogDescription": "O treinador fica sem acesso às funcionalidades de treinador. O motivo é apenas para registo interno.",
-      "reason": "Motivo (opcional)",
-      "reasonPlaceholder": "Ex.: não é treinador"
     },
     "connections": {
       "title": "As minhas ligações",

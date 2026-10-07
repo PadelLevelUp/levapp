@@ -47,7 +47,6 @@ type NavItem = {
   labelKey: string;
   path: string;
   roles: string[];
-  superAdminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -114,9 +113,6 @@ const navItems: NavItem[] = [
     // effectively unreachable.
     roles: ["coach", "player"],
   },
-  // The /editor route still exists and is reachable directly — it is just not
-  // a nav destination. It is a superadmin data browser, not one of the coach's
-  // tools, and it was sitting in the same list as Calendar and Players.
 ];
 
 // PAD-149. This used to mount a SECOND LayoutProvider around AppLayoutInner,
@@ -156,7 +152,6 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const visibleNavItems = navItems.filter(item => {
-    if (item.superAdminOnly) return user?.isSuperAdmin === true;
     return item.roles.some(role => user?.roles.includes(role));
   });
 

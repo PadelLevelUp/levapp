@@ -105,8 +105,8 @@ with app.app_context(), unit_of_work():
         password=generate_password_hash("E2eCoach123!"),
         status="active",
         language="en",
-        # PAD-55: super-admin so the /editor tool (SuperAdminRoute) is reachable
-        # in E2E for the Editor i18n coverage spec.
+        # PAD-55: super-admin, which the E2E cleanup helpers still need for the
+        # dev-only /api/editor deletes (the web /editor page is gone, PAD-532).
         is_superadmin=True,
     )
     db.session.add(coach_user)
@@ -179,6 +179,21 @@ with app.app_context(), unit_of_work():
     )
     db.session.add(noclub_coach_user)
 
+    # PAD-532: a REJECTED coach, for mobile flow 29-coach-rejection. The staff
+    # console owns approving and rejecting now, so the flow cannot reject a fresh
+    # sign-up through the product API any more; it signs in as this account
+    # instead (login says why, "request again" lands on the pending screen).
+    # The flow mutates it (rejected -> pending), so it runs once per seeded DB.
+    rejected_coach_user = User(
+        name="E2E Coach Rejected",
+        username="e2e-coach-rejected",
+        email="e2e-coach-rejected@test.com",
+        password=generate_password_hash("E2eCoach123!"),
+        status="active",
+        language="en",
+    )
+    db.session.add(rejected_coach_user)
+
     db.session.flush()
 
     # ── Coach / Player rows ────────────────────────────────────────────────────
@@ -192,6 +207,13 @@ with app.app_context(), unit_of_work():
     # PAD-306: approved, and never linked to a club (see the user above).
     noclub_coach = Coach(user_id=noclub_coach_user.id, approval_status="approved")
     db.session.add(noclub_coach)
+
+    rejected_coach = Coach(
+        user_id=rejected_coach_user.id,
+        approval_status="rejected",
+        rejection_reason="Maestro: not a coach",
+    )
+    db.session.add(rejected_coach)
 
     student = Player(user_id=student_user.id)
     db.session.add(student)

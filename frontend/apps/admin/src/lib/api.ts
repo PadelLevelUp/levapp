@@ -18,6 +18,7 @@ export interface AdminSession {
 export class ApiError extends Error {
   status: number;
   code: string;
+  retryAfterSeconds?: number;
   constructor(status: number, code: string) {
     super(code);
     this.status = status;
@@ -63,7 +64,7 @@ export function clearSession() {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   auth?: boolean;
   fetchImpl?: typeof fetch;
@@ -86,14 +87,22 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     throw new ApiError(0, "NETWORK");
   }
   const text = await response.text();
-  const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  let data: Record<string, unknown> = {};
+  try {
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    // an HTML or empty error body (a 410 from the proxy, say): the status alone tells the story
+    if (response.ok) throw new ApiError(response.status, "BAD_BODY");
+  }
   if (!response.ok) {
     const code = typeof data.error === "string" ? data.error : `HTTP_${response.status}`;
     if (response.status === 401 && auth) {
       clearSession();
       if (typeof window !== "undefined") window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }
-    throw new ApiError(response.status, code);
+    const err = new ApiError(response.status, code);
+    if (typeof data.retryAfterSeconds === "number") err.retryAfterSeconds = data.retryAfterSeconds;
+    throw err;
   }
   return data as T;
 }
@@ -123,7 +132,66 @@ export const adminApi = {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "")).toString();
     return api<{ items: AuditRow[]; page: number; hasMore: boolean }>(`/audit${query ? `?${query}` : ""}`);
   },
+  // admin.approvals-and-users (PAD-532)
+  coachApprovals: () => api<{ items: PendingCoach[] }>("/coach-approvals"),
+  approveCoach: (coachId: number) => api<CoachDecision>(`/coach-approvals/${coachId}/approve`, { method: "POST", body: {} }),
+  rejectCoach: (coachId: number, reason?: string) =>
+    api<CoachDecision>(`/coach-approvals/${coachId}/reject`, { method: "POST", body: reason ? { reason } : {} }),
+  coachApprovalSetting: () => api<CoachApprovalSetting>("/settings/coach-approval"),
+  setCoachApprovalSetting: (coachApprovalRequired: boolean) =>
+    api<CoachApprovalSetting>("/settings/coach-approval", { method: "PUT", body: { coachApprovalRequired } }),
+  users: (q: string, cursor?: string | null) => {
+    const query = new URLSearchParams({ q, ...(cursor ? { cursor } : {}) }).toString();
+    return api<{ items: UserRow[]; nextCursor: string | null }>(`/users?${query}`);
+  },
+  user: (userId: number) => api<UserDetail>(`/users/${userId}`),
+  disableUser: (userId: number, reason: string) => api<unknown>(`/users/${userId}/disable`, { method: "POST", body: { reason } }),
+  enableUser: (userId: number) => api<unknown>(`/users/${userId}/enable`, { method: "POST", body: {} }),
+  resendVerification: (userId: number) => api<unknown>(`/users/${userId}/resend-verification`, { method: "POST", body: {} }),
 };
+
+export interface PendingCoach {
+  coachId: number;
+  userId: number;
+  name: string;
+  username: string;
+  email: string | null;
+  emailVerified: boolean;
+  requestedAt: string | null;
+}
+
+export interface CoachDecision {
+  coachId: number;
+  approvalStatus: string;
+}
+
+export interface CoachApprovalSetting {
+  coachApprovalRequired: boolean;
+  source: "database" | "environment";
+}
+
+export type UserStatus = "inactive" | "active" | "disabled";
+
+export interface UserRow {
+  userId: number;
+  name: string;
+  username: string;
+  email: string | null;
+  emailVerified: boolean;
+  status: UserStatus;
+  roles: ("coach" | "player")[];
+  createdAt: string;
+}
+
+export interface UserDetail extends UserRow {
+  language: string | null;
+  pushRegistered: boolean;
+  isSuperadmin: boolean;
+  adminRole: AdminRoleRow | null;
+  coach?: { coachId: number; approvalStatus: string; rejectionReason: string | null; clubs: { clubId: number; name: string }[] };
+  player?: { playerId: number; coaches: { coachId: number; name: string }[] };
+  audit: AuditRow[];
+}
 
 export interface AdminRoleRow {
   id: number;

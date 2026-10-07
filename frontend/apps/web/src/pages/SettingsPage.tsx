@@ -53,7 +53,6 @@ import {
   Palette,
   ChevronLeft, Save,
   GraduationCap,
-  ShieldCheck,
   Upload,
   User,
   UserX,
@@ -74,7 +73,6 @@ import { AccountSection } from "@/components/settings/AccountSection";
 import { BlockedUsersSection } from "@/components/settings/BlockedUsersSection";
 import { StudentNotificationBlocksSection } from "@/components/settings/StudentNotificationBlocksSection";
 import { TutorialsSection } from "@/components/settings/TutorialsSection";
-import { AdminSection } from "@/components/settings/AdminSection";
 import { ClaimRequestsList } from "@/components/players/ClaimRequestsList";
 
 /**
@@ -94,8 +92,7 @@ export type SettingsTab =
   | "import"
   | "club"
   | "connections"
-  | "account"
-  | "admin";
+  | "account";
 
 /**
  * PAD-103: Settings is shared by both roles, but most of it is coach
@@ -117,13 +114,7 @@ export type SettingsTab =
  * and left "both false" meaning "everyone" only by convention. One field with
  * three values makes every tab's audience a single, total statement.
  */
-/**
- * auth.coach-approval rule 7 adds a fourth audience: `superadmin`, the LevApp
- * admin's own tools. It is orthogonal to the coach/student split — a
- * superadmin is also one of those — so it is filtered on `isSuperAdmin`, not
- * on role, and hidden for everyone else.
- */
-type SettingsAudience = "everyone" | "coach" | "student" | "superadmin";
+type SettingsAudience = "everyone" | "coach" | "student";
 
 type SettingsTabDef = {
   id: SettingsTab;
@@ -152,15 +143,12 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   // PAD-287 (settings.role-scope rule 2): the connection actions, out of Account.
   { id: "connections", labelKey: "settings.nav.connections", icon: <Link2 className="w-4 h-4" />, audience: "everyone" },
   { id: "account", labelKey: "settings.nav.account", icon: <UserX className="w-4 h-4" />, audience: "everyone" },
-  // auth.coach-approval rule 7: the LevApp admin approves self-registered coaches here.
-  { id: "admin", labelKey: "settings.nav.admin", icon: <ShieldCheck className="w-4 h-4" />, audience: "superadmin" },
 ];
 
-const visibleSettingsTabs = (isCoach: boolean, isSuperAdmin: boolean) =>
+const visibleSettingsTabs = (isCoach: boolean) =>
   SETTINGS_TABS.filter(
     (tab) =>
       tab.audience === "everyone" ||
-      (tab.audience === "superadmin" && isSuperAdmin) ||
       (isCoach ? tab.audience === "coach" : tab.audience === "student"),
   );
 
@@ -252,23 +240,7 @@ export default function SettingsPage() {
   // ["player"]`), so a single flag is enough to decide what this page offers.
   const { user, refreshUser } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
-  const isSuperAdmin = user?.isSuperAdmin === true;
-  const tabs = visibleSettingsTabs(isCoach, isSuperAdmin);
-  // Badge on the Admin entry: how many coaches are waiting (auth.coach-approval rule 7).
-  const [pendingCoachCount, setPendingCoachCount] = useState<number | null>(null);
-  useEffect(() => {
-    if (!isSuperAdmin) return;
-    let active = true;
-    import("@/api/admin")
-      .then((m) => m.listPendingCoaches())
-      .then((rows) => {
-        if (active) setPendingCoachCount(rows.length);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [isSuperAdmin]);
+  const tabs = visibleSettingsTabs(isCoach);
   // Badge on the Club entry: coaches asking to join (clubs.join-request rule 9).
   const [pendingJoinCount, setPendingJoinCount] = useState<number | null>(null);
   useEffect(() => {
@@ -609,7 +581,7 @@ export default function SettingsPage() {
   }, [hasUnsaved]);
 
   // settings.explicit-save rule 3: every tab with a setting has the one Save (PAD-506).
-  const TABS_WITH_SAVE: SettingsTab[] = ["profile", "preferences", "calendar", "notifications", "myNotifications", "admin"];
+  const TABS_WITH_SAVE: SettingsTab[] = ["profile", "preferences", "calendar", "notifications", "myNotifications"];
   const tabHasSave = TABS_WITH_SAVE.includes(activeTab);
 
   return (
@@ -652,7 +624,7 @@ export default function SettingsPage() {
                 active={activeTab}
                 onChange={(id) => requestTab(id, false)}
                 items={tabs}
-                badges={{ admin: pendingCoachCount ?? 0, club: pendingJoinCount ?? 0 }}
+                badges={{ club: pendingJoinCount ?? 0 }}
               />
             </CardContent>
           </Card>
@@ -666,7 +638,7 @@ export default function SettingsPage() {
                   <SettingsNav
                     active={activeTab}
                     items={tabs}
-                    badges={{ admin: pendingCoachCount ?? 0, club: pendingJoinCount ?? 0 }}
+                    badges={{ club: pendingJoinCount ?? 0 }}
                     testIdPrefix="settings-mobile-nav"
                     onChange={(id) => requestTab(id, true)}
                   />
@@ -915,22 +887,6 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <ClubSection onJoinRequestCountChange={setPendingJoinCount} />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* ADMIN — auth.coach-approval rule 7: superadmin only. */}
-            {activeTab === "admin" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5" />
-                    {t("settings.admin.title")}
-                  </CardTitle>
-                  <CardDescription>{t("settings.admin.description")}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AdminSection onCountChange={setPendingCoachCount} />
                 </CardContent>
               </Card>
             )}

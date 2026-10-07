@@ -1,13 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
-import { COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { COACH_USERNAME } from "../helpers/auth";
+import { approveCoachInDb } from "../helpers/coachApproval";
 import { completeEmailVerification } from "../helpers/emailVerification";
 
 /**
  * auth.register + auth.coach-approval (PAD-210).
  *
- * The seeded `e2e-coach` is `is_superadmin=True` (e2e/scripts/seed.py), so it
- * doubles as the LevApp admin here. Usernames carry a timestamp so a re-run
- * never trips the uniqueness rules.
+ * Approval moved to the staff console (PAD-532), so the spec sets the approved
+ * state in the E2E database (helpers/coachApproval.ts). Usernames carry a
+ * timestamp so a re-run never trips the uniqueness rules.
  */
 const stamp = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 const PASSWORD = "Segura1234";
@@ -90,7 +91,6 @@ test("US-210: taken username is reported under the field", async ({ page }) => {
 });
 
 test("US-210: coach signs up, waits for approval, then reaches club onboarding once approved", async ({
-  browser,
   page,
 }) => {
   const username = `e2e-signup-c-${stamp()}`;
@@ -110,30 +110,13 @@ test("US-210: coach signs up, waits for approval, then reaches club onboarding o
   await expect(page).toHaveURL(/\/coach-pending$/);
   await signOutFromHoldingScreen(page);
 
-  // 3. The LevApp admin approves in Settings → Admin (separate session).
-  const adminContext = await browser.newContext();
-  const admin = await adminContext.newPage();
-  await signIn(admin, COACH_USERNAME, COACH_PASSWORD);
-  await admin.goto("/settings");
-  await admin.getByTestId("settings-nav-admin").click();
-  await expect(admin.getByTestId(`admin-pending-${username}`)).toBeVisible({ timeout: 10_000 });
-  await admin.getByTestId(`admin-approve-${username}`).click();
-  await expect(admin.getByTestId(`admin-pending-${username}`)).toHaveCount(0, { timeout: 10_000 });
-  await adminContext.close();
+  // 3. The staff console approves (PAD-532): set the same state in the E2E database.
+  approveCoachInDb(username);
 
   // 4. The approved coach now lands on club onboarding.
   await signIn(page, username, PASSWORD);
   await expect(page).toHaveURL(/\/club-onboarding$/, { timeout: 15_000 });
   await expect(page.getByTestId("club-onboarding")).toBeVisible();
-});
-
-test("US-210: a non-superadmin never sees the Admin section", async ({ page }) => {
-  const username = `e2e-signup-s2-${stamp()}`;
-  await signUp(page, "student", username);
-  await expect(page).toHaveURL(/\/connect$/, { timeout: 15_000 });
-  await page.goto("/settings");
-  await expect(page.getByTestId("settings-nav-preferences")).toBeVisible();
-  await expect(page.getByTestId("settings-nav-admin")).toHaveCount(0);
 });
 
 // PAD-485 (auth.register rule 19): the Terms box is required; unticked, nothing is sent; ticked, the
