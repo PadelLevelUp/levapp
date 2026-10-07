@@ -46,7 +46,7 @@ CLASS_UTC = datetime(2027, 7, 12, 17, 0)
 H = timedelta(hours=1)
 
 
-def _seed(*, invite_hours: int, reminder_hours: int, tag: str):
+def _seed(*, invite_hours: int, reminder_hours: int | None, tag: str):
     """Coach, two roster students (one enrolled, one free to invite), a 2-place one-off lesson,
     NOT materialised. Invitation start and first reminder as given, quiet hours off."""
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
@@ -99,7 +99,8 @@ def _seed(*, invite_hours: int, reminder_hours: int, tag: str):
     db.session.add(cfg)
     db.session.flush()
     cfg.reminder_timing = {
-        "firstReminder": {"type": "hours_before", "value": reminder_hours},
+        "firstReminder": ({"type": "none"} if reminder_hours is None
+                          else {"type": "hours_before", "value": reminder_hours}),
         "invitationStart": {"type": "hours_before", "value": invite_hours},
     }
     db.session.commit()
@@ -302,6 +303,31 @@ def test_materialising_leaves_one_start_job(app, live_scheduler, monkeypatch):
         # The daily walk, run again, does not bring the lesson-level pair back for a materialised date.
         live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=four_days)
         assert _jobs(live_scheduler, "invite_start_") == [f"invite_start_{instance.id}"]
+
+
+def test_with_reminders_off_the_window_asks_nobody_on_the_roster(app, live_scheduler, monkeypatch):
+    """Rule 1c: the lesson-level start job materialises the occurrence, and materialising enrols the
+    roster, which arms a late ask per student when no reminder is ahead (PAD-331). With reminders
+    off that would ask everyone the instant the window opened. The job touches never-filled
+    places only."""
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]), patch(PATCHES[2]):
+        ids = _seed(invite_hours=72, reminder_hours=None, tag="noask")
+        four_days = CLASS_UTC - 96 * H
+        pin_clock(monkeypatch, four_days)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=four_days)
+        occ = f"{ids['lesson']}_{ids['date']}"
+        assert _jobs(live_scheduler, "reminder_lesson_") == [], "reminders off: no reminder job"
+        assert _jobs(live_scheduler, "invite_start_lesson_") == [f"invite_start_lesson_{occ}"]
+
+        window = CLASS_UTC - 72 * H
+        pin_clock(monkeypatch, window)
+        _run(live_scheduler, f"invite_start_lesson_{occ}")
+        instance = _instance_for(ids)
+        assert instance is not None
+        assert _invites_for_class(instance.id) == 1
+        assert _jobs(live_scheduler, "ask_") == [], (
+            "materialising from the start job armed a roster-wide ask"
+        )
 
 
 def test_cancelling_and_moving_the_series_jobs_takes_both_families(app, live_scheduler, monkeypatch):

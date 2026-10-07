@@ -423,6 +423,13 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Then** exactly one vacancy exists for the class and the free student holds exactly one
   invitation; a mutant that counts the places outside the class lock creates two
 
+#### With reminders off, the window opens the places and asks nobody on the roster (rule 1c)
+- **Given** the class of the first criterion with the coach's first reminder of type `none` and the
+  invitation start 72 h before, the occurrence not materialised
+- **When** the `invite_start_lesson_<lesson>_<date>` job fires
+- **Then** the free student holds one invitation and no `ask_<instance>_<student>_*` job is armed for
+  the enrolled student: the job touches never-filled places only; the roster is asked by reminders
+
 #### The engine itself opens the place when called (control for rule 1c)
 - **Given** the class of the second criterion
 - **When** `trigger_invitations` is called by hand inside the window
