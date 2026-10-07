@@ -1,4 +1,4 @@
-import { nameMatchesQuery, normalizeSearchText } from "@levelup/config";
+import { nameMatchesQuery } from "@levelup/config";
 import type { CoachPlayer } from "@levelup/types";
 
 /**
@@ -8,10 +8,6 @@ import type { CoachPlayer } from "@levelup/types";
  * API serialises some as numbers.
  */
 
-/** Accents, case and punctuation never stop a search ("alvares" finds "Álvares"). */
-export function normalizeName(s: string): string {
-  return normalizeSearchText(s);
-}
 
 /** A search overrides the level filter, as on web. */
 export function filterPlayers(
