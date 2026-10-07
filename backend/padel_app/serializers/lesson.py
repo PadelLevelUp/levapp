@@ -1,3 +1,4 @@
+from sqlalchemy.orm import selectinload
 import json
 from padel_app.tools.tools import iso_date
 from padel_app.serializers.player import serialize_player
@@ -272,7 +273,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             )
         # One row per STUDENT, not per invite record (PAD-72).
         notification_events = dedupe_invitation_events(
-            notification_query.order_by(NotificationEvent.id).all()
+            # PAD-548: `invitation_outcome` reads each row's vacancy; load them in one query.
+            notification_query.options(selectinload(NotificationEvent.vacancy)).order_by(NotificationEvent.id).all()
         )
 
         training_rows = LessonInstanceTraining.query.filter_by(

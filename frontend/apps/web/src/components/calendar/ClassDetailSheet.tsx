@@ -313,6 +313,8 @@ export function ClassDetailSheet({
       const ev = eventRef.current;
       if (ev) {
         keepInvitationsOpenRef.current = true;
+        // A failed re-read never reaches the reset effect, so clear the flag here; a successful
+        // one is consumed (and cleared) by that effect.
         getClassInstance(ev).then(setClassInstance).catch(() => {
           keepInvitationsOpenRef.current = false;
         });

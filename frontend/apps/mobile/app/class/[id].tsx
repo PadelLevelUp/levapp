@@ -1913,7 +1913,6 @@ export default function ClassDetailScreen() {
         />
       ) : null}
 
-      {/* Delete confirmation (scope choice for recurring classes) */}
       {/* PAD-548 (calendar.event-detail rule 18): the warning before a withdrawal. */}
       <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>
         <AlertDialogContent>
@@ -1940,6 +1939,7 @@ export default function ClassDetailScreen() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete confirmation (scope choice for recurring classes) */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

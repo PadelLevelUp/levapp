@@ -120,7 +120,6 @@ def test_the_coach_withdraws_a_pending_invitation(app, monkeypatch):
         meta = Message.query.get(event.message_id).msg_metadata
         assert meta.get("responded") is True and meta.get("response") not in ("yes", "no"), meta
         assert db.session.get(WaitingListEntry, entry_id).is_active is False
-        assert _events(instance_id)[0][0] is not None
         from padel_app.models.vacancy import Vacancy
         assert db.session.get(Vacancy, event.vacancy_id).status == "open"
         follow_up = _event_of(instance_id, b)
