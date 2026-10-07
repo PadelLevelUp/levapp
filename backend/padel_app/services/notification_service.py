@@ -1219,6 +1219,7 @@ CANDIDATE_STAGES = (
     "eligibility",
     "excluded_by_coach",
     "inactive_account",
+    "has_class_same_day",  # PAD-523 (config rule 6e): holds a spot in another class that club-local day
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
@@ -1256,6 +1257,41 @@ def _wave_rules(config: NotificationConfig, wave: tuple) -> list | None:
     if idx < 0 or idx >= len(groups):
         return None
     return groups[idx].get("rules", []) or []
+
+
+def _players_with_a_class_that_day(player_ids, instance: LessonInstance) -> set:
+    """PAD-523 (notifications.config rule 6e): of ``player_ids``, those who hold a spot in ANOTHER
+    class on the same club-local day as ``instance``, with any coach.
+
+    "Holds a spot" is the engine's own meaning (PAD-259): a presence row that is not marked absent
+    and whose response is not a decline ("no", a cancellation, a proactive decline). The other
+    class must not be cancelled. Class times are the club's wall clock (R-023), so the day is the
+    wall date of ``instance.start_datetime``: [00:00, next 00:00) on that date.
+    """
+    if not player_ids or instance.start_datetime is None:
+        return set()
+    from sqlalchemy import or_
+
+    from padel_app.services.presence_response import DECLINING
+
+    day_start = datetime.combine(instance.start_datetime.date(), time.min)
+    day_end = day_start + timedelta(days=1)
+    rows = (
+        db.session.query(Presence.player_id)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .filter(
+            Presence.player_id.in_(list(player_ids)),
+            Presence.lesson_instance_id != instance.id,
+            or_(Presence.status.is_(None), Presence.status != "absent"),
+            Presence.response.notin_(DECLINING),
+            LessonInstance.status != "canceled",
+            LessonInstance.start_datetime >= day_start,
+            LessonInstance.start_datetime < day_end,
+        )
+        .distinct()
+        .all()
+    )
+    return {pid for (pid,) in rows}
 
 
 def evaluate_candidates(
@@ -1334,6 +1370,7 @@ def evaluate_candidates(
     if restrictions["excludedPlayers"]["enabled"]:
         excluded_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
     exclude_inactive = bool(restrictions["excludeUnpaidSubscription"]["enabled"])
+    no_same_day_class = bool(restrictions.get("noSameDayClass", {}).get("enabled"))
 
     group_rules = _wave_rules(config, wave)
     wave_exists = group_rules is not None
@@ -1369,6 +1406,11 @@ def evaluate_candidates(
         [cp.player.user_id for cp in roster if cp.player is not None],
         instance.start_datetime,
         instance.end_datetime,
+    )
+    # PAD-523 (rule 6e): one query for the roster, only when the coach switched it on.
+    busy_same_day_ids = (
+        _players_with_a_class_that_day([cp.player_id for cp in roster], instance)
+        if no_same_day_class else set()
     )
 
     verdicts: list[CandidateVerdict] = []
@@ -1408,6 +1450,9 @@ def evaluate_candidates(
             if not user or user.status != "active":
                 verdicts.append(CandidateVerdict(cp, "inactive_account"))
                 continue
+        if pid in busy_same_day_ids:
+            verdicts.append(CandidateVerdict(cp, "has_class_same_day"))
+            continue
         user_id = cp.player.user_id if cp.player else None
         if user_id in blocked_user_ids:
             verdicts.append(CandidateVerdict(cp, "unavailable"))
