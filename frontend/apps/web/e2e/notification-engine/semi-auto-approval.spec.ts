@@ -404,11 +404,12 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
 });
 
 // ---------------------------------------------------------------------------
-// US-NSA-02: "No" dismisses without sending; prompt persisted in Assistant
-// conversation
+// US-NSA-02: "Ignore" on the class dismisses without sending; prompt persisted in
+// the Assistant conversation (which has no dismiss button); the class offers a
+// recompute that asks again and still sends nothing (PAD-545, rule 12)
 // ---------------------------------------------------------------------------
 
-test("US-NSA-02: 'No' dismisses the approval prompt, sends no invitations, and the prompt is recorded in the Assistant conversation", async ({
+test("US-NSA-02: 'Ignore' on the class dismisses the prompt, sends nothing, the Assistant message has no dismiss, and the class can recompute", async ({
   page,
   request,
 }) => {
@@ -445,19 +446,17 @@ test("US-NSA-02: 'No' dismisses the approval prompt, sends no invitations, and t
   await openClassDetail(page, APPROVAL_CLASS_TITLE_B);
   await markSeededStudentAbsentAndConfirm(page);
 
-  // ── Step 3: approval card appears, coach dismisses with "No" ──────────────
-  const noBtn = page.getByRole("button", { name: /^no$/i });
+  // ── Step 3: the class's approval card offers Ignore; the coach ignores ─────
+  const ignoreBtn = page.getByTestId("dismiss-invitations");
   await expect(
-    noBtn.first(),
-    "approval card must offer a 'No' action"
+    ignoreBtn.first(),
+    "the class's approval card must offer 'Ignore' (PAD-545)"
   ).toBeVisible({ timeout: 10_000 });
-  await noBtn.first().click();
-  await page.waitForTimeout(1000);
+  await ignoreBtn.first().click();
 
-  // Card actions are gone after dismissal (terminal decision)
-  await expect(
-    page.getByRole("button", { name: ui("notificationsUi.replacementApproval.yesRightNow") })
-  ).not.toBeVisible();
+  // The names leave the class and a fresh computation is offered instead.
+  await expect(page.getByTestId("replacement-approval-card")).toHaveCount(0, { timeout: 5000 });
+  await expect(page.getByTestId("recompute-suggestions")).toBeVisible({ timeout: 5000 });
 
   // ── Step 4: no invitations were sent ──────────────────────────────────────
   // Allow a short grace period to catch any erroneous async send
@@ -483,4 +482,19 @@ test("US-NSA-02: 'No' dismisses the approval prompt, sends no invitations, and t
     page.getByText("E2E Student Two").first(),
     "the persisted prompt must include the ordered invite queue"
   ).toBeVisible();
+  // PAD-545 (rule 8): the conversation offers the send buttons only.
+  await expect(page.getByTestId("dismiss-invitations")).toHaveCount(0);
+
+  // ── Step 6: back on the class, the ignored state survived; recompute asks again ─
+  await openClassDetail(page, APPROVAL_CLASS_TITLE_B);
+  const recompute = page.getByTestId("recompute-suggestions");
+  await expect(recompute, "an ignored class offers a fresh computation after a reload").toBeVisible({ timeout: 10_000 });
+  await recompute.click();
+  await expect(page.getByTestId("replacement-approval-card")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("approve-invitations-now")).toBeVisible();
+  await page.waitForTimeout(3000);
+  expect(
+    await countInviteMessages(request, student2Token),
+    "recomputing the suggestions must not send any invitations"
+  ).toBe(inviteBaseline);
 });

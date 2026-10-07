@@ -50,7 +50,7 @@ def test_ignore_then_recompute_asks_again_and_sends_nothing(app):
         now = datetime.utcnow()
         with _patched_io():
             respond_to_approval(bundle["bundleId"], "dismiss", coach_id, now=now)
-        assert instance_suggestions(instance_id, coach_id) == {"state": "dismissed"}
+        assert instance_suggestions(instance_id, coach_id)["state"] == "dismissed"
 
         with _patched_io():
             result = recompute_suggestions(instance_id, coach_id, now=now)
@@ -80,6 +80,7 @@ def test_an_old_messages_yes_after_a_recompute_decides_nothing_and_says_so(app):
         assert late["vacancies"] == [{"vacancyId": vacancy.id, "result": "stale"}]
         assert _auto_events() == 0
         assert Vacancy.query.get(vacancy.id).approval_status == "pending"
+        assert late.get("superseded") is True, "the old message says why: the list was recomputed"
 
         with _patched_io():
             fresh = respond_to_approval(new["bundleId"], "yes_now", coach_id, now=now)
@@ -131,7 +132,7 @@ def test_nothing_to_suggest_and_an_approved_vacancy_is_not_reopened(app):
 
     with app.app_context():
         world = _seed_world("rc5", n_candidates=1)
-        assert instance_suggestions(world["instance"].id, world["coach"].id) == {"state": "none"}
+        assert instance_suggestions(world["instance"].id, world["coach"].id) == {"state": "none", "semiAutomatic": True}
         _, declined = world["enrolled"][0]
         vacancy, _prompt, bundle = _create_pending_prompt(world, declined)
         now = datetime.utcnow()
@@ -153,7 +154,7 @@ def test_the_endpoints_are_the_classs_coachs_only(app, client):
                                  headers={"Authorization": f"Bearer {tok}"})
     post = lambda tok: client.post(f"/api/app/notify/approval/instance/{instance_id}/recompute",
                                    headers={"Authorization": f"Bearer {tok}"})
-    assert get(own).status_code == 200 and get(own).get_json() == {"state": "none"}
+    assert get(own).status_code == 200 and get(own).get_json() == {"state": "none", "semiAutomatic": True}
     assert get(stranger).status_code == 403
     with _patched_io():
         assert post(stranger).status_code == 403

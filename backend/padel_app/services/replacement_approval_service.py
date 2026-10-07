@@ -317,7 +317,7 @@ def respond_to_approval(
         superseded = _superseded_bundle(bundle_id, coach_id)
         if superseded is None:
             abort(404, "Approval bundle not found")
-        return {"action": action, "vacancies": [
+        return {"action": action, "superseded": True, "vacancies": [
             {"vacancyId": v.get("vacancyId"), "result": "stale"} for v in superseded.get("vacancies", [])
         ]}
     if any(p.coach_id != coach_id for p in prompts):
@@ -452,11 +452,16 @@ def instance_suggestions(instance_id: int, coach_id: int) -> dict:
     ``{"state": "pending", "bundle": {...}}`` — a decision is waiting (the newest pending bundle);
     ``{"state": "dismissed"}`` — the coach ignored them and can recompute;
     ``{"state": "none"}`` — nothing to suggest (no open vacancy awaiting a decision).
+    Each answer carries ``semiAutomatic`` (PAD-542: the class view's loader is for that mode).
     """
     from padel_app.models import Message
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
 
+    from padel_app.services.notification_service import _is_semi_auto, get_or_create_config
+
     instance = _coached_instance(instance_id, coach_id)
+    # PAD-542: the class view shows "preparing suggestions" only for a semi-automatic coach.
+    semi = _is_semi_auto(get_or_create_config(coach_id))
     vacancies = Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").all()
     pending = [v for v in vacancies if v.approval_status == "pending"]
     if pending:
@@ -470,10 +475,10 @@ def instance_suggestions(instance_id: int, coach_id: int) -> dict:
         for prompt in prompts:
             msg = Message.query.get(prompt.message_id) if prompt.message_id else None
             if msg is not None and (msg.msg_metadata or {}).get("bundleId") == prompt.bundle_id:
-                return {"state": "pending", "bundle": msg.msg_metadata}
+                return {"state": "pending", "bundle": msg.msg_metadata, "semiAutomatic": semi}
     if any(v.approval_status == "dismissed" for v in vacancies):
-        return {"state": "dismissed"}
-    return {"state": "none"}
+        return {"state": "dismissed", "semiAutomatic": semi}
+    return {"state": "none", "semiAutomatic": semi}
 
 
 def recompute_suggestions(instance_id: int, coach_id: int, *, now: datetime | None = None) -> dict:
