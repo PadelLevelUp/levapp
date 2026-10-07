@@ -12,6 +12,7 @@ The store is in-process, one per Flask app: prod runs a single gunicorn
 worker with threads, so a lock is all it takes; a restart empties it. Time is
 read through `Limiter.clock` so tests move it instead of sleeping (R-008).
 """
+import ipaddress
 import threading
 import time
 from collections import deque
@@ -38,14 +39,22 @@ def parse_limit(value):
 
 
 def client_ip():
-    """First X-Forwarded-For entry when present (Cloud Run's load balancer),
-    else the peer address. A spoofed header only moves the caller into a
-    bucket of their own choosing; it never empties anyone else's."""
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    if forwarded:
-        first = forwarded.split(",")[0].strip()
-        if first:
-            return first
+    """The client's address for the per-IP throttle (PAD-554, B-382).
+
+    `X-Real-IP` only: the host nginx sets it from `$remote_addr` on every proxied location
+    (overwriting any copy the client sent), and `$remote_addr` is the real client because nginx
+    resolves it from Cloudflare's `CF-Connecting-IP` for requests that come from Cloudflare's
+    ranges (`infra/nginx/conf.d/levapp-cloudflare-real-ip.conf`). `X-Forwarded-For` is NEVER
+    read: nginx keeps whatever the client put in it, so a fresh made-up entry per request used to
+    be a fresh bucket and the auth limits never applied. Without a valid `X-Real-IP` (local runs,
+    tests) the socket peer is the key.
+    """
+    real = (request.headers.get("X-Real-IP") or "").strip()
+    if real:
+        try:
+            return str(ipaddress.ip_address(real))
+        except ValueError:
+            pass
     return request.remote_addr or "unknown"
 
 

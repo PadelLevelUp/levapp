@@ -69,17 +69,43 @@ def test_login_is_throttled_per_ip(client, app, ana):
     assert _post(client, "/api/auth/login", IP_A, username="ana", password="OldPass123").status_code == 200
 
 
-def test_forwarded_for_names_the_client(client, app, ana):
+def _login(client, headers, remote="127.0.0.1"):
+    return client.post("/api/auth/login", json={"username": "ana", "password": "x"}, headers=headers,
+                       environ_base={"REMOTE_ADDR": remote}).status_code
+
+
+def test_a_spoofed_forwarded_for_does_not_change_the_key(client, app, ana):
+    """PAD-554 (B-382): the host nginx keeps whatever X-Forwarded-For the client sent, so a fresh
+    made-up entry per request used to land in a fresh bucket and was never limited."""
     app.config["AUTH_RATE_LIMIT_LOGIN"] = "1/60"
     _clock(app, 1000)
-    hdr = {"X-Forwarded-For": f"{IP_A}, 10.0.0.1"}
-    assert client.post("/api/auth/login", json={"username": "ana", "password": "x"}, headers=hdr,
-                       environ_base={"REMOTE_ADDR": "10.0.0.1"}).status_code == 401
-    assert client.post("/api/auth/login", json={"username": "ana", "password": "x"}, headers=hdr,
-                       environ_base={"REMOTE_ADDR": "10.0.0.1"}).status_code == 429
-    hdr_b = {"X-Forwarded-For": f"{IP_B}, 10.0.0.1"}
-    assert client.post("/api/auth/login", json={"username": "ana", "password": "x"}, headers=hdr_b,
-                       environ_base={"REMOTE_ADDR": "10.0.0.1"}).status_code == 401
+    real = {"X-Real-IP": IP_A}
+    assert _login(client, {**real, "X-Forwarded-For": "1.1.1.1"}) == 401
+    for spoof in ("2.2.2.2", "3.3.3.3, 10.0.0.1", ""):
+        assert _login(client, {**real, "X-Forwarded-For": spoof}) == 429, spoof
+
+
+def test_x_real_ip_set_by_nginx_names_the_client(client, app, ana):
+    app.config["AUTH_RATE_LIMIT_LOGIN"] = "1/60"
+    _clock(app, 1000)
+    assert _login(client, {"X-Real-IP": IP_A}) == 401
+    assert _login(client, {"X-Real-IP": IP_A}) == 429
+    assert _login(client, {"X-Real-IP": IP_B}) == 401  # another client, another bucket
+
+
+def test_without_x_real_ip_the_socket_peer_is_the_key(client, app, ana):
+    """No nginx in front (local, tests): the peer address, and still never X-Forwarded-For."""
+    app.config["AUTH_RATE_LIMIT_LOGIN"] = "1/60"
+    _clock(app, 1000)
+    assert _login(client, {"X-Forwarded-For": IP_A}, remote="10.9.9.9") == 401
+    assert _login(client, {"X-Forwarded-For": IP_B}, remote="10.9.9.9") == 429
+
+
+def test_a_malformed_x_real_ip_falls_back_to_the_peer(client, app, ana):
+    app.config["AUTH_RATE_LIMIT_LOGIN"] = "1/60"
+    _clock(app, 1000)
+    assert _login(client, {"X-Real-IP": "not-an-ip"}, remote="10.9.9.9") == 401
+    assert _login(client, {"X-Real-IP": "also-not"}, remote="10.9.9.9") == 429
 
 
 def test_limiter_can_be_switched_off(client, app, ana):
