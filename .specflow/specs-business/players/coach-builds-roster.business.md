@@ -55,8 +55,12 @@ the invite-link half of the journey.
    coach knew, or after — does not end up as two people. If they open the invite link while signed
    in, the page offers "link this to my account"; the coach's record (level, attendance, notes,
    chat history) is folded into the student's real account. The coach can also start this from the
-   player's page — "Link to existing account", by exact username — and the student accepts or
-   declines from their own app.
+   player's page — "Link to existing account", by exact username or, when the student already
+   joined the roster by QR, by picking them from the roster — and the student accepts or
+   declines from their own app. When a coach-created record and a student on the roster share a
+   name, the roster says "possible duplicate" on the record and offers the merge in one tap.
+   Before anyone confirms, both see in plain words what will move and what the student already
+   had; the merge cannot be undone, and it says so.
 8. A student the coach created and who never registers keeps working exactly as today: they can be
    enrolled, marked present, evaluated and reminded. Having a login is never a precondition for
    being on a roster.

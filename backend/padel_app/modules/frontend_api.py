@@ -2353,8 +2353,41 @@ def create_player_claim_request(player_id):
 
     coach = require_coach()
     data = request.get_json(silent=True) or {}
-    req = create_claim_request_service(player_id, coach, data.get("username"))
+    # players.claim rule 4b (PAD-528): a roster pick instead of a username.
+    req = create_claim_request_service(
+        player_id, coach, data.get("username"), target_player_id=data.get("targetPlayerId"),
+    )
     return jsonify(serialize_claim_request(req)), 201
+
+
+@bp.get("/player/<int:player_id>/claim-candidates")
+@jwt_required()
+def list_player_claim_candidates(player_id):
+    """players.claim rule 4b (PAD-528): the coach's own students who could be
+    this placeholder's real account, same-name matches first."""
+    from padel_app.services.player_claim_service import list_claim_candidates_service
+
+    coach = require_coach()
+    return jsonify(list_claim_candidates_service(player_id, coach, request.args.get("search")))
+
+
+@bp.get("/player/<int:player_id>/merge-preview")
+@jwt_required()
+def preview_player_merge(player_id):
+    """players.claim rule 5j (PAD-528): the coach's dry run before sending."""
+    from padel_app.services.player_claim_service import preview_merge_for_coach_service
+
+    coach = require_coach()
+    return jsonify(preview_merge_for_coach_service(player_id, coach, request.args.get("targetPlayerId")))
+
+
+@bp.get("/player-claim-requests/<int:request_id>/preview")
+@jwt_required()
+def preview_player_claim_request(request_id):
+    """players.claim rule 5j (PAD-528): the student's dry run before accepting."""
+    from padel_app.services.player_claim_service import preview_claim_request_service
+
+    return jsonify(preview_claim_request_service(request_id, current_user()))
 
 
 @bp.get("/player-claim-requests")

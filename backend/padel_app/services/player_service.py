@@ -144,7 +144,40 @@ def _activation_token_if_inactive(user):
     return activation_token_for(user)
 
 
-def _serialize_coach_player_relation(rel, due=None):
+def possible_duplicates_for(coach, relations):
+    """players.claim rule 4c (PAD-528): for each claimable relation on the page,
+    the coach's non-claimable student with the same normalised name, or None.
+    One query over the coach's roster for the whole page, never one per row."""
+    from padel_app.services.player_claim_service import normalise_name
+
+    claimable = [rel for rel in relations if rel.player is not None and _is_claimable_user(rel.player.user)]
+    if not claimable or coach is None:
+        return {}
+    rows = (
+        db.session.query(Player.id, User.name, User.password, User.username, User.status)
+        .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
+        .join(User, Player.user_id == User.id)
+        .filter(Association_CoachPlayer.coach_id == coach.id, User.status != "disabled")
+        .all()
+    )
+    from padel_app.tools.username_tools import is_placeholder_username
+
+    by_name = {}
+    for player_id, name, password, username, status in rows:
+        is_claimable = password is None and is_placeholder_username(username) and status == "inactive"
+        if is_claimable:
+            continue
+        key = normalise_name(name)
+        if key and (key not in by_name or player_id < by_name[key]["playerId"]):
+            by_name[key] = {"playerId": player_id, "name": name}
+    out = {}
+    for rel in claimable:
+        key = normalise_name(rel.player.user.name)
+        out[rel.id] = by_name.get(key) if key else None
+    return out
+
+
+def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     player = rel.player
     user = player.user if player else None
     level = rel.level if rel.level_id else None
@@ -176,6 +209,8 @@ def _serialize_coach_player_relation(rel, due=None):
         "deletable": _is_deletable_by_coach(player),
         # evaluations.reminders rule 4 (PAD-404): computed by the server only (R-048).
         "due": bool((due or {}).get(rel.id, False)),
+        # players.claim rule 4c (PAD-528): only a claimable row can carry one.
+        "possibleDuplicateOf": (duplicates or {}).get(rel.id),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -211,7 +246,8 @@ def get_coach_players_list(coach):
     from padel_app.services.evaluation_api_service import due_for_links
 
     due = due_for_links(coach, relations)
-    return [_serialize_coach_player_relation(rel, due) for rel in relations]
+    duplicates = possible_duplicates_for(coach, relations)
+    return [_serialize_coach_player_relation(rel, due, duplicates) for rel in relations]
 
 
 def search_coach_players(coach_id, term, limit=20):
@@ -319,8 +355,9 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     from padel_app.services.evaluation_api_service import due_for_links
 
     due = due_for_links(coach, pagination.items)
+    duplicates = possible_duplicates_for(coach, pagination.items)
     return {
-        "items": [_serialize_coach_player_relation(rel, due) for rel in pagination.items],
+        "items": [_serialize_coach_player_relation(rel, due, duplicates) for rel in pagination.items],
         "pagination": {
             "page": pagination.page,
             "perPage": pagination.per_page,
