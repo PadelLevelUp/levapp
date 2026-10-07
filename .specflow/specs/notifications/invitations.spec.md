@@ -363,7 +363,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     recording a "yes" on that invitation; removing the student and adding them back does not clear
     it. The coach recording the same answer twice changes nothing (rule 17).
 
-19. **A coach withdraws a live invitation (PAD-548; numbering unconfirmed).** `DELETE
+19. **A coach withdraws a live invitation (PAD-548).** `DELETE
     /api/app/notify/invitations/<event_id>` by the invitation's coach (403 for any other coach,
     404 for an unknown id).
     - **Live (`sent` or `queued`):** under rule 10's locks — the vacancy, then its class; a manual
