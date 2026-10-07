@@ -15,7 +15,7 @@ Customize the text of notification messages sent to players.
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
 2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_invite. (PAD-446: `waiting_list_invite` replaces `waiting_list_placed`; a stored `waiting_list_placed` text is ignored.) Since PAD-501, `spot_filled` is sent only to a student whose pending join request was closed because the class filled (`classes.join-requests` rule 10); see rule 15
-3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_invite, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones
+3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_invite, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones. The two `added_to_class` templates (`classes.instance-enrollment` rule 11, PAD-330) accept the same seven plus `{class}` (the class title) and `{when}` (rule 17)
 4. Updated via `POST /api/app/notify/config`
 5. Placeholders must render fully substituted with concrete values — a rendered message never contains a raw placeholder token (`{level}`, `{weekday}`, etc.) or a filler artifact such as the literal word "this" in a placeholder slot
 6. The `{weekday}`, date, and time placeholders render in the **recipient coach's locale** (see settings.language), formatted via Flask-Babel — e.g. `pt` → "quarta-feira", `en` → "Wednesday". Never manually string-built from English day/month names. Fallback locale is Portuguese
@@ -38,6 +38,22 @@ Customize the text of notification messages sent to players.
     `both` or empty side it renders as nothing. The default texts put it right after the time, so a
     spot without a side reads as an ordinary sentence. In any other template `{side}` renders as
     nothing.
+17. **The class-when suffix names the day (PAD-519; numbering unconfirmed).** One formatter
+    (`_format_when`) writes the " on <day> at <time>" phrase that the system's own, non-editable
+    notices append to a class title — the coach's "entrou na lista de espera de …" notice
+    (`classes.academy-class-booking` rule 6), the join-request notices to the coach and the
+    student (`classes.join-requests` rule 15), the late-cancel and late-return notices to the
+    coach — and that fills `{when}` in the two `added_to_class` templates. For an **occurrence**
+    it carries the day of the month in rule 13's `dd/mm` form, then the weekday in brackets, then
+    the time: pt ` no dia 10/04 (sábado) às 18:00`, en ` on 10/04 (Saturday) at 18:00`. "dia" is
+    masculine, so Portuguese no longer switches `na`/`no` on the weekday. For a **series** (a
+    Lesson, whose start is only its first occurrence — `added_to_class` on a coach's add to the
+    whole class) the phrase stays weekday-only, ` na segunda-feira às 10:00` / ` on Monday at
+    10:00`: a recurring enrolment must not be dated. The weekday follows rule 6 (Babel, the
+    coach's locale); with no start the phrase is empty, and with a start whose weekday Babel
+    cannot name it is ` no dia 10/04 às 18:00` / ` on 10/04 at 18:00`. The
+    coach-editable templates are untouched: `{date}` stays opt-in there (rule 14), and the
+    built-in defaults still read weekday-only unless the owner decides otherwise.
 
 ### Acceptance Criteria
 
@@ -76,6 +92,23 @@ Customize the text of notification messages sent to players.
 - **Given** a coach on the web settings page, Message templates section
 - **When** they open the invite, reminder, reminder follow-up or waiting-list invitation template
 - **Then** the placeholder hints list `{type}`, `{date}` and `{court}` besides `{name}`, `{level}`, `{weekday}` and `{time}`
+
+#### A waiting-list join tells the coach the day, not only the weekday (rule 17, PAD-519)
+- **Given** a `pt` coach Ana with a full academy class "Sábado 18h" occurring Saturday 2027-04-10 at 18:00, and an eligible student Carla Santos
+- **When** Carla joins that occurrence's waiting list
+- **Then** Ana's conversation with Carla gains the message "Carla Santos entrou na lista de espera de Sábado 18h no dia 10/04 (sábado) às 18:00."
+- **And** with an `en` coach the text reads "Carla Santos joined the waiting list for Sábado 18h on 10/04 (Saturday) at 18:00."
+
+#### A join request and its decision name the day the same way (rule 17)
+- **Given** the same class and a pending join request from Carla
+- **When** Ana refuses it
+- **Then** Carla's message reads "O teu pedido para entrar em Sábado 18h no dia 10/04 (sábado) às 18:00 não foi aceite."
+
+#### Adding a student to a whole series stays undated (rule 17)
+- **Given** a `pt` coach whose `added_to_class` template is the default, and a weekly series "Segunda 10h" starting Monday 2027-04-12 10:00
+- **When** the coach adds Carla to the series
+- **Then** the message reads "Olá Carla, adicionei-te a Segunda 10h na segunda-feira às 10:00. Até já! 🎾" — no `dd/mm`
+- **And** when the coach adds her to the single occurrence of 2027-04-19 instead, it reads "… adicionei-te a Segunda 10h no dia 19/04 (segunda-feira) às 10:00. …"
 
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
