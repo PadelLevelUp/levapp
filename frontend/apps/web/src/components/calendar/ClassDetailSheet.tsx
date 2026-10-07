@@ -903,13 +903,14 @@ export function ClassDetailSheet({
             <SheetTitle className="flex-1 min-w-0">
               {isEditing ? (
                 <Input
+                  data-testid="class-edit-name"
                   value={active.name}
                   onChange={(e) =>
                     setDraft((d) => (d ? { ...d, name: e.target.value } : d))
                   }
                 />
               ) : (
-                <span className="truncate">{active.name}</span>
+                <span className="truncate" data-testid="class-detail-title">{active.name}</span>
               )}
             </SheetTitle>
           </div>
@@ -1643,6 +1644,7 @@ export function ClassDetailSheet({
                   <Button
                     variant="outline"
                     className="text-destructive"
+                    data-testid="class-delete"
                     onClick={handleDeleteClick}
                     disabled={isValidating || deleting}
                     aria-label={t("calendar.detail.deleteClass")}
