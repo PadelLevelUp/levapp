@@ -21,6 +21,7 @@ import {
   UserX,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
@@ -645,12 +646,13 @@ export function ClassDetailSheet({
 
   /** classes.edit rule 10: unsaved means different from the loaded class, by value — the same
    *  comparison the save makes (fields of EDITABLE_FIELDS plus the participant diff). */
-  const hasUnsavedEdit = () => {
-    if (!isEditing || !draft || !classInstance) return false;
-    if (Object.keys(diffInstance(classInstance, draft, EDITABLE_FIELDS)).length > 0) return true;
-    const { addPlayers, removePlayers } = diffParticipants(classInstance.participants, draft.participants);
-    return addPlayers.length > 0 || removePlayers.length > 0;
-  };
+  const hasUnsavedEdit = () =>
+    isEditing && !!draft && !!classInstance &&
+    hasUnsavedClassEdit(
+      classInstance as unknown as Record<string, unknown> & { participants?: { id: string }[] },
+      draft as unknown as Record<string, unknown> & { participants?: { id: string }[] },
+      EDITABLE_FIELDS as unknown as readonly string[]
+    );
 
   /** classes.edit rule 10 (PAD-525): every close of the sheet (X, Escape, click outside) comes
    *  through here. With an unsaved draft it asks first; otherwise it ends edit mode and closes.

@@ -99,6 +99,7 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
   its name changed to "A changed"
 - **When** they close the sheet and choose **Descartar**, then open "B"
 - **Then** "B" opens in view mode, titled "B"; the Edit button is offered and no Save button is
+  shown
 
 #### Leaving with an unsaved change asks; Keep editing keeps everything (rule 10)
 - **Given** the coach editing "A" with its name changed

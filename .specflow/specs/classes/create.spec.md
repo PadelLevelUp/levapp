@@ -67,6 +67,15 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      other web time fields (events, blockers, working hours) are unchanged.
    - **Not this ticket:** moving through the list with the arrow keys (the list is pointer and
      typing only).
+8c. **(PAD-553, B-346; number unconfirmed) A class that ends at midnight ends the next day.** An end
+   of exactly 00:00 after a later start is 00:00 of the NEXT day, on every path that writes a class
+   or an occurrence (create, materialisation, an edit, the import). It was stored at 00:00 of the
+   class's own day, before its start, so every "has it ended" reader (attendance validation, the
+   pending count, the "this and future" walk) treated it as over from midnight. Any other end at or
+   before the start is a typed mistake, not a midnight class, and is not moved (B-294 refuses it).
+   A repair migration moved the stored rows that end at 00:00 before their start; its downgrade
+   is a no-op, because a repaired row cannot be told from a correct one.
+
 9. **How a recurring series ends: a date, a number of classes, or the season (PAD-463, D151).**
    Class creation on web (add-class sheet) and iOS (new class) offers one choice of three, the
    first selected by default:
@@ -177,3 +186,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **Then** Ana is chosen and the search is empty (web: with the cursor still in it)
 - **When** the coach searches "Ana" again and unticks her
 - **Then** the search still reads "Ana"
+
+#### A class that ends at midnight ends the next day (rule 8c, PAD-553)
+- **Given** a coach creating a class on 5 Nov from 22:00 to 00:00
+- **Then** it is stored ending at 00:00 on 6 Nov, and its occurrences end an hour after they start
+- **Given** a class typed from 18:00 to 17:00
+- **Then** its end is not moved (B-294's)
+
