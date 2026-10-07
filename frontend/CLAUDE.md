@@ -5,6 +5,9 @@ npm workspaces monorepo (this repo uses **npm**, not pnpm): two app shells shari
 ```
 apps/web/         # React + Vite + Tailwind + shadcn/ui (port 8080), Playwright E2E in apps/web/e2e/
 apps/mobile/      # Expo + Expo Router + NativeWind + react-native-reusables, Maestro E2E in .maestro/
+apps/admin/       # Staff console (admin.levapp.app): React + Vite + Tailwind (port 8090). Web-only by
+                  # design (admin.foundation rule 15); never imported by web, mobile or packages/*
+                  # (backend guard test_pad531_guards.py). Talks only to /admin/api.
 packages/
   types/          # @levelup/types — shared TS types
   api/            # @levelup/api — typed axios client (initApi/getApi)

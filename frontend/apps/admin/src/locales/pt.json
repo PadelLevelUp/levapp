@@ -1,0 +1,71 @@
+{
+  "admin": {
+    "shell": {
+      "title": "LevApp Staff",
+      "nav": { "home": "Início", "roles": "Acessos", "audit": "Registo de alterações" },
+      "signOut": "Terminar sessão",
+      "role": { "owner": "owner", "operator": "operator", "support": "support" },
+      "readOnly": "Só leitura",
+      "language": "Idioma"
+    },
+    "signIn": {
+      "title": "Consola de staff",
+      "lead": "Entra com a tua conta Google da LevApp.",
+      "loading": "A carregar o início de sessão…",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Só contas @levapp.app podem entrar. Usa a conta da empresa.",
+        "NO_ADMIN_ROLE": "A tua conta não tem acesso à consola. Pede ao owner para te dar um papel.",
+        "GOOGLE_TOKEN_INVALID": "A Google não validou o início de sessão. Tenta outra vez.",
+        "ADMIN_NOT_CONFIGURED": "O início de sessão ainda não está configurado.",
+        "NETWORK": "Não foi possível falar com o servidor.",
+        "generic": "Não foi possível entrar."
+      }
+    },
+    "notConfigured": {
+      "title": "Início de sessão por configurar",
+      "body": "Este ambiente ainda não tem o cliente Google OAuth. Falta preencher ADMIN_GOOGLE_CLIENT_ID no ambiente do servidor; a consola fica disponível assim que o valor existir.",
+      "retry": "Verificar outra vez"
+    },
+    "home": {
+      "welcome": "Olá, {{email}}",
+      "yourRole": "O teu papel: {{role}}",
+      "sessionEnds": "A sessão termina às {{time}}",
+      "empty": "As operações (aprovações, utilizadores, clubes, saúde do motor) chegam nas próximas partes."
+    },
+    "roles": {
+      "title": "Acessos à consola",
+      "lead": "Quem pode entrar e com que papel. Só o owner altera isto.",
+      "grant": "Dar acesso",
+      "email": "Email @levapp.app",
+      "role": "Papel",
+      "add": "Adicionar",
+      "change": "Mudar papel",
+      "revoke": "Revogar",
+      "revoked": "Revogado",
+      "active": "Ativo",
+      "grantedBy": "Dado por {{email}}",
+      "seeded": "Semeado pela migração",
+      "none": "Ainda não há acessos.",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Só emails @levapp.app.",
+        "INVALID_ROLE": "Papel desconhecido.",
+        "ROLE_EXISTS": "Esse email já tem acesso.",
+        "LAST_OWNER": "Tem de existir sempre um owner.",
+        "ADMIN_ROLE_TOO_LOW": "Só o owner pode fazer isto.",
+        "generic": "Não foi possível guardar."
+      }
+    },
+    "audit": {
+      "title": "Registo de alterações",
+      "lead": "Quem mudou o quê, antes e depois, e quando. Não se pode editar nem apagar.",
+      "filters": { "actor": "Quem", "action": "Ação", "targetType": "Tipo de alvo", "targetId": "Id do alvo", "apply": "Filtrar", "clear": "Limpar" },
+      "columns": { "when": "Quando", "who": "Quem", "action": "Ação", "target": "Alvo", "outcome": "Resultado", "change": "Antes → depois" },
+      "outcome": { "ok": "ok", "denied": "negado", "error": "erro" },
+      "empty": "Sem registos para estes filtros.",
+      "prev": "Anteriores",
+      "next": "Seguintes",
+      "page": "Página {{page}}"
+    },
+    "common": { "loading": "A carregar…", "error": "Algo correu mal.", "cancel": "Cancelar", "confirm": "Confirmar" }
+  }
+}
