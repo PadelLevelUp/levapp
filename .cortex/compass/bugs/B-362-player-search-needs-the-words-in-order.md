@@ -32,6 +32,6 @@ one substring.
 ### Resolution
 - Spec: `players.list` rule 3 + criterion; `classes.create` rule 10 points at it.
 - Code: `@levelup/config` `nameMatchesQuery` (web picker, iOS picker, web mock API);
-  `player_service.name_matches_all_words` (both roster searches; LIKE wildcards stay literal).
-- Known difference kept: the server folds case only; the local pickers also fold accents and
-  punctuation, as before. Folding accents in SQL needs Postgres `unaccent` (a migration) — not here.
+  `player_service.name_matches_query` (both roster searches), the same normalisation in Python,
+  applied after the coach scope and before pagination — so "joao" finds "João" on the server too
+  (coordinator's call on #569; no `unaccent` needed).

@@ -5,7 +5,7 @@ from padel_app.models import (
     PlayerLevelHistory,
 )
 from sqlalchemy.orm import joinedload
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import case, func, or_
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.sql_db import db
 from padel_app.services.level_service import set_roster_level
@@ -195,18 +195,39 @@ def _serialize_coach_player_relation(rel, due=None):
     return result
 
 
-def name_matches_all_words(column, term):
-    """players.list rule 3 (PAD-516): every whitespace-separated word of ``term`` appears
-    in ``column``, in any order, case-insensitive; LIKE wildcards in the term are literal.
-    Returns a SQLAlchemy condition, or None for an empty term."""
-    words = [w for w in (term or "").split() if w]
+def normalize_search_text(text):
+    """PAD-516: the same normalisation as @levelup/config ``normalizeSearchText`` — accents
+    stripped (NFD, combining marks dropped), punctuation dropped, lower case."""
+    import re
+    import unicodedata
+
+    decomposed = unicodedata.normalize("NFD", text or "")
+    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return re.sub(r"[^a-zA-Z0-9\s]", "", stripped).lower()
+
+
+def name_matches_query(name, query):
+    """players.list rule 3 (PAD-516): every word of ``query`` is in ``name``, in any order,
+    with accents, case and punctuation folded — one rule with the apps' local pickers
+    (``nameMatchesQuery``). Applied in Python after the coach scope: rosters are small, and
+    SQL cannot fold accents without the unaccent extension. An empty query matches all."""
+    words = normalize_search_text(query).split()
     if not words:
-        return None
-    conds = []
-    for w in words:
-        escaped = w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        conds.append(column.ilike(f"%{escaped}%", escape="\\"))
-    return and_(*conds)
+        return True
+    haystack = normalize_search_text(name)
+    return all(w in haystack for w in words)
+
+
+class _ListPage:
+    """The slice of ``Pagination`` the roster serializer reads, for a list filtered in Python."""
+
+    def __init__(self, items, page, per_page):
+        self.page, self.per_page, self.total = page, per_page, len(items)
+        self.pages = max(1, -(-self.total // per_page)) if per_page else 1
+        start = (page - 1) * per_page
+        self.items = items[start:start + per_page]
+        self.has_prev = page > 1
+        self.has_next = page < self.pages
 
 
 def get_coach_players_list(coach):
@@ -252,14 +273,13 @@ def search_coach_players(coach_id, term, limit=20):
         .filter_by(coach_id=coach_id)
         .join(Association_CoachPlayer.player)
         .join(Player.user)
-        # PAD-516: every typed word, in any order; LIKE wildcards stay literal.
-        .filter(name_matches_all_words(User.name, term))
         # PAD-268: invited-but-inactive players stay pickable; deleted ones never.
         .filter(User.status != "disabled")
         .order_by(User.name.asc())
-        .limit(limit)
         .all()
     )
+    # PAD-516: every typed word, in any order, accents folded; the limit after the match.
+    relations = [rel for rel in relations if name_matches_query(rel.player.user.name, term)][:limit]
 
     results = []
     for rel in relations:
@@ -289,10 +309,6 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     # PAD-268: a deleted account's roster row stays, hidden from the list.
     query = query.filter(User.status != "disabled")
 
-    if search:
-        cond = name_matches_all_words(User.name, search)
-        if cond is not None:
-            query = query.filter(cond)
 
     # Alert-based filters
     if missing_level:
@@ -318,7 +334,13 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
         else:
             query = query.order_by(User.name.asc())
 
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    if search and search.strip():
+        # PAD-516: filter by name in Python (accent folding), after every SQL filter and the
+        # sort, then paginate the filtered list. The coach scope keeps this small.
+        matched = [rel for rel in query.all() if name_matches_query(rel.player.user.name, search)]
+        pagination = _ListPage(matched, max(1, int(page or 1)), int(per_page or 25))
+    else:
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     # Compute alert counts across ALL coach players (not just current page)
     base_query = (

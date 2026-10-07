@@ -53,3 +53,22 @@ def test_the_type_ahead_search_uses_the_same_rule(app, roster):
         found = sorted(r["name"] for r in search_coach_players(roster["coach"], "sousa pedro"))
         assert found == ["Pedro Mesquita e Sousa", "Sousa Pedrosa"]
         assert search_coach_players(roster["coach"], "   ") == []
+
+
+def test_accents_fold_on_the_server_as_on_the_pickers(app, client, roster):
+    """The coordinator's call on #569: "joao" must find "João" in the Players tab too."""
+    _, pid = _student(app, username="p5", name="João Álvares")
+    _relation(app, roster["coach"], pid)
+    assert _names(client, roster, "joao alvares") == ["João Álvares"]
+    assert _names(client, roster, "ALVARES joão") == ["João Álvares"]
+
+
+def test_a_search_still_paginates(app, client, roster):
+    for i in range(5):
+        _, pid = _student(app, username=f"s{i}", name=f"Sousa Extra {i}")
+        _relation(app, roster["coach"], pid)
+    res = client.get("/api/app/coach_players_paginated?per_page=3&page=2&search=sousa", headers=roster["headers"])
+    body = res.json
+    assert body["pagination"]["total"] == 7 and body["pagination"]["pages"] == 3
+    assert body["pagination"]["page"] == 2 and body["pagination"]["hasPrev"] and body["pagination"]["hasNext"]
+    assert len(body["items"]) == 3
