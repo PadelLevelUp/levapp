@@ -376,6 +376,13 @@ export default function ClassDetailScreen() {
     scope: "single" | "future";
   } | null>(null);
 
+  // PAD-548 — above `if (!event)`: hooks must run on every render (class-screen-hooks guard).
+  // PAD-548 (calendar.event-detail rules 17–18): the row whose actions are open, and the
+  // invitation awaiting the delete warning. In-app controls with ids, not native alerts, so the
+  // Maestro flow asserts by id (PAD-320).
+  const [inviteeMenuFor, setInviteeMenuFor] = React.useState<number | null>(null);
+  const [inviteeToDelete, setInviteeToDelete] = React.useState<ClassInvitation | null>(null);
+
   if (!event) {
     // PAD-325: none of these states had a way out but the swipe gesture (the
     // stack hides its header), so each gets the same back control as the
@@ -482,11 +489,6 @@ export default function ClassDetailScreen() {
     levels?.find((level) => level.id === active?.levelId)?.code ?? "—";
 
   const invitations = instance?.invitations ?? [];
-  // PAD-548 (calendar.event-detail rules 17–18): the row whose actions are open, and the
-  // invitation awaiting the delete warning. In-app controls with ids, not native alerts, so the
-  // Maestro flow asserts by id (PAD-320).
-  const [inviteeMenuFor, setInviteeMenuFor] = React.useState<number | null>(null);
-  const [inviteeToDelete, setInviteeToDelete] = React.useState<ClassInvitation | null>(null);
 
   // PAD-548 (calendar.event-detail rules 17–18): the coach's actions on an invitee row. The row
   // shows the outcome the server answered; an accepted or withdrawn one re-reads the class (the

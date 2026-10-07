@@ -302,6 +302,7 @@ executionOrder:
     # 141 (PAD-487, mobile.android-runtime rule 2): the bottom field of the two native-header screens
     # stays above the keyboard; evidence is the screenshots (Maestro cannot see the keyboard).
     - 141-keyboard-clears-fields-under-native-header
+    - 169-invitee-outcomes
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
