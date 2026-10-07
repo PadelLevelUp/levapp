@@ -19,6 +19,13 @@ def register_jwt_handlers(jwt):
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
+        # admin.foundation rule 3 (PAD-531, B-381): a product token never carries
+        # an audience. Flask-JWT-Extended verifies none unless one is configured,
+        # so without this line a console token (`aud = levapp-admin`, signed with
+        # the same JWT_SECRET_KEY, `sub` = an admin_roles id) would act as the
+        # product user whose id matches. Any `aud` → revoked → 401.
+        if jwt_payload.get("aud"):
+            return True
         jti = jwt_payload["jti"]
         if TokenBlocklist.query.filter_by(jti=jti).first() is not None:
             return True
