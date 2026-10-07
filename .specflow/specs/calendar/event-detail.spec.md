@@ -117,15 +117,16 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     `accepted`; `declined` → `declined`; `spot_filled` → the row reads `spot_filled` and a toast says
     the class is full (no over-capacity: the existing refusal stands); `expired` → the class is over,
     toast. Web: a per-row actions menu (the sheet's `DropdownMenu`), replacing the two disabled
-    yes/no buttons; iOS: a per-row "…" button opening a native `Alert` with the same actions. Both
+    yes/no buttons; iOS: a per-row "…" button that opens an inline row of the same actions
+    under the invitee (in-app controls with test ids, not a native alert, which cannot carry one). Both
     shells update the row from the server's answer and the `notification_responded` live event.
 18. **The coach deletes an invitation (PAD-548).** "Eliminar convite" first shows the warning
     "A pessoa convidada vai ver a mensagem do convite na mesma, mas como vaga ocupada." / "The
     invited person will still see the invitation message, but as spot filled." with Cancel and
     Delete; confirming calls `DELETE /api/app/notify/invitations/<id>` (`notifications.invitations`
     rule 19) and the row reads `withdrawn`. An answer of `confirmed` (the student accepted first)
-    refreshes the row to `accepted` with a toast saying so. Web `AlertDialog`; iOS `Alert` with a destructive
-    button.
+    refreshes the row to `accepted` with a toast saying so. Web and iOS: the screen's `AlertDialog`, with a
+    destructive Delete.
 
 ### Acceptance Criteria
 

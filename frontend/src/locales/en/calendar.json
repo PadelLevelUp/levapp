@@ -180,7 +180,7 @@
       "markDeclined": "Mark as declined",
       "deleteInvitation": "Delete invitation",
       "deleteInvitationWarning": "The invited person will still see the invitation message, but as spot filled.",
-      "deleteInvitationConfirm": "Delete invitation",
+      "deleteInvitationConfirm": "Delete",
       "inviteeClassFull": "The class is already full.",
       "inviteeClassOver": "The class has already happened.",
       "inviteeAlreadyAccepted": "The student had already accepted the invitation.",

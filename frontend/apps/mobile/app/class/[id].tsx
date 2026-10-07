@@ -48,7 +48,7 @@ import { format, parseISO } from "date-fns";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { ErrorState } from "@/components/error-state";
@@ -482,6 +482,11 @@ export default function ClassDetailScreen() {
     levels?.find((level) => level.id === active?.levelId)?.code ?? "—";
 
   const invitations = instance?.invitations ?? [];
+  // PAD-548 (calendar.event-detail rules 17–18): the row whose actions are open, and the
+  // invitation awaiting the delete warning. In-app controls with ids, not native alerts, so the
+  // Maestro flow asserts by id (PAD-320).
+  const [inviteeMenuFor, setInviteeMenuFor] = React.useState<number | null>(null);
+  const [inviteeToDelete, setInviteeToDelete] = React.useState<ClassInvitation | null>(null);
 
   // PAD-548 (calendar.event-detail rules 17–18): the coach's actions on an invitee row. The row
   // shows the outcome the server answered; an accepted or withdrawn one re-reads the class (the
@@ -534,39 +539,12 @@ export default function ClassDetailScreen() {
     }
   };
 
-  // Rule 18: the warning before a withdrawal, as a native alert with a destructive button.
-  const confirmInviteeDelete = (inv: ClassInvitation) => {
-    Alert.alert(t("calendar.detail.deleteInvitation"), t("calendar.detail.deleteInvitationWarning"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("calendar.detail.deleteInvitationConfirm"),
-        style: "destructive",
-        onPress: () => void withdrawForInvitee(inv),
-      },
-    ]);
-  };
-
   // The Badge has no "muted" variant; the quiet outcomes (withdrawn, expired) read as secondary.
   const inviteeBadgeVariant = (outcome: ClassInvitation["outcome"]) => {
     const tone = INVITATION_OUTCOME_TONE[outcome];
     return tone === "muted" ? "secondary" : tone;
   };
 
-  const openInviteeActions = (inv: ClassInvitation) => {
-    const actions = inviteeActionsFor(inv.outcome);
-    const buttons: Array<{ text: string; style?: "cancel" | "destructive"; onPress?: () => void }> = [];
-    if (actions.includes("accept")) {
-      buttons.push({ text: t("calendar.detail.markAccepted"), onPress: () => void respondForInvitee(inv, "yes") });
-    }
-    if (actions.includes("decline")) {
-      buttons.push({ text: t("calendar.detail.markDeclined"), onPress: () => void respondForInvitee(inv, "no") });
-    }
-    if (actions.includes("delete")) {
-      buttons.push({ text: t("calendar.detail.deleteInvitation"), style: "destructive", onPress: () => confirmInviteeDelete(inv) });
-    }
-    buttons.push({ text: t("common.cancel"), style: "cancel" });
-    Alert.alert(inv.playerName, undefined, buttons);
-  };
 
   const hasMarkedAttendance = Object.values(attendance).some(
     (state) => state.status !== null
@@ -1500,8 +1478,8 @@ export default function ClassDetailScreen() {
                 {invitationsOpen ? (
                   <View className="gap-1.5">
                     {invitations.map((inv) => (
+                      <View key={inv.id}>
                       <View
-                        key={inv.id}
                         testID={`invitee-row-${inv.playerId}`}
                         className="flex-row items-center justify-between py-1"
                       >
@@ -1512,7 +1490,7 @@ export default function ClassDetailScreen() {
                             by the server; actions only on a pending or declined row. */}
                         <View className="items-end">
                           <Badge variant={inviteeBadgeVariant(inv.outcome)}>
-                            <Text testID={`invitee-outcome-${inv.playerId}`}>
+                            <Text testID={`invitee-outcome-${inv.playerId}-${inv.outcome}`}>
                               {t(INVITATION_OUTCOME_KEY[inv.outcome])}
                             </Text>
                           </Badge>
@@ -1531,12 +1509,56 @@ export default function ClassDetailScreen() {
                             accessibilityLabel={t("calendar.detail.inviteeActions")}
                             role="button"
                             hitSlop={8}
-                            onPress={() => openInviteeActions(inv)}
+                            onPress={() => setInviteeMenuFor((open) => (open === inv.id ? null : inv.id))}
                             className="ml-2 h-7 w-7 items-center justify-center rounded-full"
                           >
                             <Ionicons name="ellipsis-horizontal" size={18} color={lightTheme.mutedForeground} />
                           </Pressable>
                         ) : null}
+                      </View>
+                      {inviteeMenuFor === inv.id && inviteeActionsFor(inv.outcome).length > 0 ? (
+                        <View className="flex-row flex-wrap justify-end gap-2 pb-1">
+                          {inviteeActionsFor(inv.outcome).includes("accept") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              testID={`invitee-mark-accepted-${inv.playerId}`}
+                              onPress={() => {
+                                setInviteeMenuFor(null);
+                                void respondForInvitee(inv, "yes");
+                              }}
+                            >
+                              <Text>{t("calendar.detail.markAccepted")}</Text>
+                            </Button>
+                          ) : null}
+                          {inviteeActionsFor(inv.outcome).includes("decline") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              testID={`invitee-mark-declined-${inv.playerId}`}
+                              onPress={() => {
+                                setInviteeMenuFor(null);
+                                void respondForInvitee(inv, "no");
+                              }}
+                            >
+                              <Text>{t("calendar.detail.markDeclined")}</Text>
+                            </Button>
+                          ) : null}
+                          {inviteeActionsFor(inv.outcome).includes("delete") ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              testID={`invitee-delete-${inv.playerId}`}
+                              onPress={() => {
+                                setInviteeMenuFor(null);
+                                setInviteeToDelete(inv);
+                              }}
+                            >
+                              <Text>{t("calendar.detail.deleteInvitation")}</Text>
+                            </Button>
+                          ) : null}
+                        </View>
+                      ) : null}
                       </View>
                     ))}
                   </View>
@@ -1892,6 +1914,32 @@ export default function ClassDetailScreen() {
       ) : null}
 
       {/* Delete confirmation (scope choice for recurring classes) */}
+      {/* PAD-548 (calendar.event-detail rule 18): the warning before a withdrawal. */}
+      <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("calendar.detail.deleteInvitation")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("calendar.detail.deleteInvitationWarning")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              testID="invitee-delete-confirm"
+              variant="destructive"
+              onPress={() => {
+                const inv = inviteeToDelete;
+                setInviteeToDelete(null);
+                if (inv) void withdrawForInvitee(inv);
+              }}
+            >
+              <Text>{t("calendar.detail.deleteInvitationConfirm")}</Text>
+            </Button>
+            <AlertDialogCancel testID="invitee-delete-cancel">
+              <Text>{t("common.cancel")}</Text>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

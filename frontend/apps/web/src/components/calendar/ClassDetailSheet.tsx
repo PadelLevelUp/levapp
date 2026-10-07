@@ -1541,6 +1541,7 @@ export function ClassDetailSheet({
               <div>
                 <button
                   type="button"
+                  data-testid="class-invited-toggle"
                   className="flex items-center justify-between w-full text-sm font-medium py-1"
                   onClick={() => setInvitationsOpen((o) => !o)}
                 >
