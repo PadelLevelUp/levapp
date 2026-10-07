@@ -15,6 +15,9 @@ import { openCalendar } from "../helpers/navigation";
 const NAME = "PAD-526 twice weekly";
 const RENAMED = "PAD-526 renamed";
 
+const cards = (page: import("@playwright/test").Page, title: string) =>
+  page.getByTestId("calendar-event-card").filter({ hasText: title });
+
 async function coachAuth(request: APIRequestContext) {
   const res = await request.post(`${API_ROOT}/auth/login`, { data: { username: COACH_USERNAME, password: COACH_PASSWORD } });
   expect(res.ok()).toBeTruthy();
@@ -47,7 +50,7 @@ test("PAD-526: a 'this and future' rename and delete reach the week's other card
   const made = await request.post(`${API_APP}/add_class`, {
     headers: auth,
     data: {
-      name: NAME, classType: "academy", maxPlayers: 4, date: iso(monday), startTime: "06:00", endTime: "07:00",
+      name: NAME, classType: "academy", maxPlayers: 4, date: iso(monday), startTime: "10:00", endTime: "11:00",
       isRecurring: true, recurrenceRule: { frequency: "weekly", daysOfWeek: [1, 3] },
       recursUntilSeasonEnd: false, endDate: iso(end), playerIds: [],
     },
@@ -58,12 +61,12 @@ test("PAD-526: a 'this and future' rename and delete reach the week's other card
     await loginAsCoach(page);
     await openCalendar(page);
     expect(await findClassOnCalendar(page, NAME)).toBe(true);
-    await expect(page.getByText(NAME, { exact: true })).toHaveCount(2);
+    await expect(cards(page, NAME)).toHaveCount(2);
     const reloads: string[] = [];
     page.on("framenavigated", (f) => { if (f === page.mainFrame()) reloads.push(f.url()); });
 
     // Rename the Monday card "this and future".
-    await page.getByText(NAME, { exact: true }).first().click();
+    await cards(page, NAME).first().click();
     const sheet = page.getByRole("dialog");
     const save = sheet.getByTestId("class-edit-save");
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -73,14 +76,14 @@ test("PAD-526: a 'this and future' rename and delete reach the week's other card
     await sheet.getByTestId("class-edit-name").fill(RENAMED);
     await save.click();
     await page.getByTestId("class-scope-future").click();
-    await expect(page.getByText(RENAMED, { exact: true })).toHaveCount(2, { timeout: 15_000 });
-    await expect(page.getByText(NAME, { exact: true })).toHaveCount(0);
+    await expect(cards(page, RENAMED)).toHaveCount(2, { timeout: 15_000 });
+    await expect(cards(page, NAME)).toHaveCount(0);
 
     // Delete the Monday card "this and future".
-    await page.getByText(RENAMED, { exact: true }).first().click();
+    await cards(page, RENAMED).first().click();
     await page.getByRole("dialog").getByTestId("class-delete").click();
     await page.getByTestId("class-scope-future").click();
-    await expect(page.getByText(RENAMED, { exact: true })).toHaveCount(0, { timeout: 15_000 });
+    await expect(cards(page, RENAMED)).toHaveCount(0, { timeout: 15_000 });
     expect(reloads, "no page reload").toEqual([]);
   } finally {
     await cleanup(request, auth, iso(monday), iso(end));
