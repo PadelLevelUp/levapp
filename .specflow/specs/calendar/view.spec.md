@@ -83,6 +83,17 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     runs once both ends are known. A caller's own `enabled: false` still wins. Rule 1's endpoint
     answers an empty range with 400; the client must not ask it one.
 
+18. **(PAD-526, B-344; rule number unconfirmed) A class write re-reads the calendar.** After the
+    coach creates, edits or deletes a class, the calendar shows the server's answer for the range
+    on screen, without a reload. The write can reach occurrences other than the card that was
+    clicked — a recurring class creates several in one week, and a "this and future" edit or
+    delete changes every later one — and only the server knows them. The web page patches the
+    clicked card at once (so nothing flickers) and then re-reads the range it shows, the same
+    `readRange` a calendar-block save, a drag reschedule and PAD-488's request events already
+    use; the newest read wins (rule 17's ordering). iOS already did this: its class mutations
+    invalidate `["calendar-events"]`, `["class-instance"]` and `["dashboard"]` on success. So the
+    fix is web-only, and the reason is that the iOS behaviour was already right.
+
 ### Acceptance Criteria
 
 #### Coach calendar view
@@ -169,3 +180,10 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Given** a screen that calls `useCalendarEvents` before its date is known (`from` and `to` empty)
 - **When** it renders
 - **Then** no `GET /api/app/calendar` request is made; once the date arrives, exactly one request with that range is made
+
+#### A "this and future" edit reaches the other cards of the week without a reload (rule 18, PAD-526)
+- **Given** a class recurring on two days of one week, both cards on the web calendar
+- **When** the coach renames the first one "this and future" and saves
+- **Then** both cards show the new name, with no page reload
+- **When** the coach deletes the first one "this and future"
+- **Then** both cards are gone, with no page reload
