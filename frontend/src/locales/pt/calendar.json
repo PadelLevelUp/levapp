@@ -90,7 +90,9 @@
       "fieldTime": "Hora",
       "timeStart": "Hora de início",
       "timeEnd": "Hora de fim",
-      "endBeforeStart": "A hora de fim tem de ser depois da hora de início."
+      "endBeforeStart": "A hora de fim tem de ser depois da hora de início.",
+      "chooseStart": "Escolhe a hora de início",
+      "cloneStartHint": "Escolhe a hora de início para criar a aula."
     },
     "overlap": {
       "title": "Horário sobreposto",
@@ -214,7 +216,9 @@
       "comeBack": "Afinal já posso ir",
       "comeBackHint": "Se a tua vaga ainda estiver livre, voltas a ficar inscrito.",
       "spotFilled": "A tua vaga já foi ocupada.",
-      "comeBackDone": "Estás de volta a esta aula."
+      "comeBackDone": "Estás de volta a esta aula.",
+      "clone": "Clonar aula",
+      "cloneFailed": "Não foi possível clonar a aula"
     },
     "planning": {
       "title": "Planeamento ({{count}})",

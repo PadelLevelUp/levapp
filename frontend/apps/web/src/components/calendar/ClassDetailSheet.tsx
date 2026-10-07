@@ -19,6 +19,7 @@ import {
   Loader2,
   AlertTriangle,
   UserX,
+  Copy,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listCourtsForClass } from "@/api/courts";
@@ -132,6 +133,8 @@ interface ClassDetailSheetProps {
   saving?: boolean;
   /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
   existingEvents?: CalendarEvent[];
+  /** classes.clone (PAD-524): "Clonar aula" — the page opens the new-class sheet prefilled. */
+  onClone?: (event: CalendarEvent) => void;
 }
 
 export function ClassDetailSheet({
@@ -147,6 +150,7 @@ export function ClassDetailSheet({
   deleting = false,
   saving = false,
   existingEvents = [],
+  onClone,
 }: ClassDetailSheetProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -1570,6 +1574,17 @@ export function ClassDetailSheet({
                     <Edit className="w-4 h-4 mr-2" />
                     {t("calendar.detail.edit")}
                   </Button>
+                  {onClone && event?.type === "class" && (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      data-testid="class-clone"
+                      onClick={() => event && onClone(event)}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      {t("calendar.detail.clone")}
+                    </Button>
+                  )}
                   {event?.type === "class" && (
                     <>
                       <Button

@@ -26,6 +26,8 @@ import { getCoachLevels } from "@/api/coachLevel";
 import { getCoachPlayers } from "@/api/players";
 import { useCalendar } from "@/hooks/useCalendar";
 import type { CalendarEvent, ClassInstance, CoachLevel, CoachPlayer } from "@/types";
+import type { CloneTemplate } from "@levelup/types";
+import * as classesApi from "@levelup/api/src/resources/classes";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format, isValid, parseISO } from "date-fns";
 import { LoadingCalendar } from "@/components/ui/loading-skeleton";
@@ -260,7 +262,26 @@ export default function CalendarPage() {
 
   // On a phone the new class lands on the selected day (calendar.slot-click's
   // date prefill); on desktop the toolbar button opens on today.
+  // classes.clone (PAD-524): "Clonar aula" — the server derives the prefill; the ordinary
+  // new-class sheet opens with it, and its save is the ordinary create.
+  const [cloneTemplate, setCloneTemplate] = useState<CloneTemplate | null>(null);
+  const handleCloneClass = async (event: CalendarEvent) => {
+    try {
+      const template = await classesApi.getCloneTemplate({
+        model: event.model as string,
+        originalId: event.originalId as string | number,
+        date: event.date,
+      });
+      setSelectedClassEvent(null);
+      setCloneTemplate(template);
+      setAddClassOpen(true);
+    } catch {
+      toast({ variant: "destructive", title: t("calendar.detail.cloneFailed") });
+    }
+  };
+
   const openAddClass = () => {
+    setCloneTemplate(null);
     setNewClassDate(isMobile ? calendar.selectedDay : new Date());
     setNewClassTime(undefined);
     setNewClassEndTime(undefined);
@@ -576,6 +597,7 @@ export default function CalendarPage() {
         canManage={canManageClasses}
         onDelete={canManageClasses ? handleDeleteClass : undefined}
         onEdit={canManageClasses ? handleEditClass : undefined}
+        onClone={canManageClasses ? handleCloneClass : undefined}
         deleting={deletingClassId === selectedClassEvent?.id}
         saving={editingClassId === selectedClassEvent?.id}
         existingEvents={allEvents}
@@ -608,7 +630,11 @@ export default function CalendarPage() {
       {canManageClasses && (
         <AddClassSheet
           open={addClassOpen}
-          onClose={() => setAddClassOpen(false)}
+          onClose={() => {
+            setAddClassOpen(false);
+            setCloneTemplate(null);
+          }}
+          clone={cloneTemplate}
           initialDate={newClassDate}
           initialTime={newClassTime}
           initialEndTime={newClassEndTime}

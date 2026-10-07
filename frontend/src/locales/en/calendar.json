@@ -90,7 +90,9 @@
       "fieldTime": "Time",
       "timeStart": "Start time",
       "timeEnd": "End time",
-      "endBeforeStart": "The end time must be after the start time."
+      "endBeforeStart": "The end time must be after the start time.",
+      "chooseStart": "Choose the start time",
+      "cloneStartHint": "Choose the start time to create the class."
     },
     "overlap": {
       "title": "Overlapping event",
@@ -214,7 +216,9 @@
       "comeBack": "Actually, I can come",
       "comeBackHint": "If your spot is still free, you'll be signed up again.",
       "spotFilled": "Your spot has already been taken.",
-      "comeBackDone": "You're back in this class."
+      "comeBackDone": "You're back in this class.",
+      "clone": "Clone class",
+      "cloneFailed": "Could not clone the class"
     },
     "planning": {
       "title": "Planning ({{count}})",
