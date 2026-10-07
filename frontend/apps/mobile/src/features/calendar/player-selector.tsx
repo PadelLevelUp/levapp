@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, classLevelMatch } from "@levelup/config";
 import type { CoachLevel, CoachPlayer } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -108,13 +108,36 @@ export function PlayerSelector({
           <Text className="flex-shrink text-sm" numberOfLines={1}>
             {player.name}
           </Text>
-          {outOfLevel ? (
-            <View className="rounded-full border border-warning/50 bg-warning/10 px-1.5 py-0.5">
-              <Text className="text-[10px] text-warning">
-                {levelCode(player) ?? t("calendar.playerSelector.noLevel")}
-              </Text>
-            </View>
-          ) : null}
+          {/* PAD-527: the level is always shown — primary when it is the class's level,
+              amber when it is another (or none), neutral when the class has no level. */}
+          {(() => {
+            const match = classLevelMatch(player.levelId, classLevelId);
+            const code = levelCode(player);
+            if (match !== "other" && !code) return null;
+            return (
+              <View
+                testID={`player-level-chip-${playerId}`}
+                accessibilityLabel={`level-${match}`}
+                className={cn(
+                  "rounded-full border px-1.5 py-0.5",
+                  match === "same" && "border-primary/50 bg-primary/10",
+                  match === "other" && "border-warning/50 bg-warning/10",
+                  match === "none" && "border-border bg-muted"
+                )}
+              >
+                <Text
+                  className={cn(
+                    "text-[10px]",
+                    match === "same" && "text-primary",
+                    match === "other" && "text-warning",
+                    match === "none" && "text-muted-foreground"
+                  )}
+                >
+                  {code ?? t("calendar.playerSelector.noLevel")}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
       </Pressable>
     );

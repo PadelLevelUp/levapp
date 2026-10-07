@@ -1,3 +1,4 @@
+import { classLevelMatch } from "@levelup/config";
 import type { CoachPlayer } from "@levelup/types";
 
 /**
@@ -36,10 +37,7 @@ export function isOutOfLevel(
   player: CoachPlayer,
   classLevelId: string | null | undefined
 ): boolean {
-  if (classLevelId === null || classLevelId === undefined || classLevelId === "") {
-    return false;
-  }
-  return String(player.levelId) !== String(classLevelId);
+  return classLevelMatch(player.levelId, classLevelId) === "other";
 }
 
 export function selectedPlayersOf(players: CoachPlayer[], ids: string[]): CoachPlayer[] {
