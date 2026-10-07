@@ -392,3 +392,119 @@ def test_every_players_fk_is_covered_by_the_merge(app):
         assert referencing == MERGED_PLAYER_FK_TABLES, (
             f"uncovered: {referencing - MERGED_PLAYER_FK_TABLES}; stale: {MERGED_PLAYER_FK_TABLES - referencing}"
         )
+
+
+# ── B-361 / PAD-528: rows that hang off the coach relation ──────────────────
+
+def _evaluated(app, rel_id, coach_id, day, score=3.0, note=None, category_id=None):
+    """A class-less EvaluationRecord with one rating and an optional note, plus
+    a strength note, all on the relation `rel_id`. Returns ids."""
+    from padel_app.models import CoachPlayerNote, EvaluationCategory, EvaluationEntry, EvaluationRecord
+
+    with app.app_context():
+        if category_id is None:
+            cat = EvaluationCategory(coach_id=coach_id, name=f"Volley {rel_id}")
+            db.session.add(cat); db.session.flush()
+            category_id = cat.id
+        record = EvaluationRecord(coach_player_id=rel_id, evaluated_on=day, note=note)
+        db.session.add(record); db.session.flush()
+        entry = EvaluationEntry(coach_player_id=rel_id, category_id=category_id, record_id=record.id,
+                                score=score, evaluated_at=datetime(day.year, day.month, day.day, 12, 0))
+        db.session.add(entry)
+        strength = CoachPlayerNote(coach_player_id=rel_id, type="strength", text=f"volley {rel_id}")
+        db.session.add(strength)
+        db.session.commit()
+        return {"category": category_id, "record": record.id, "entry": entry.id, "note": strength.id}
+
+
+def _relation(app, coach_id, player_id, **kw):
+    from padel_app.models import Association_CoachPlayer
+
+    with app.app_context():
+        rel = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first()
+        if rel is None:
+            rel = Association_CoachPlayer(coach_id=coach_id, player_id=player_id, **kw)
+            db.session.add(rel); db.session.commit()
+        return rel.id
+
+
+def test_b361_evaluations_and_notes_survive_when_the_claimant_already_has_the_coach(app, world):
+    """The PAD-528 case: the student scanned the coach's QR (so already has a
+    relation with that coach) and the coach then links the placeholder. The
+    placeholder's relation is dropped — its evaluations and notes must move to
+    the kept relation, not cascade away with it."""
+    from datetime import date
+    from padel_app.models import CoachPlayerNote, EvaluationEntry, EvaluationRecord
+
+    ph_rel = _relation(app, world["coach"], world["ph_player"])
+    st_rel = _relation(app, world["coach"], world["st_player"], side="right")
+    ids = _evaluated(app, ph_rel, world["coach"], date(2026, 9, 1), score=4.0, note="good day")
+
+    _merge(app, world["ph_player"], world["st_user"])
+
+    with app.app_context():
+        record = EvaluationRecord.query.get(ids["record"])
+        assert record is not None, "the placeholder's evaluation record was deleted by the merge"
+        assert record.coach_player_id == st_rel
+        entry = EvaluationEntry.query.get(ids["entry"])
+        assert entry is not None and entry.coach_player_id == st_rel and entry.record_id == record.id
+        note = CoachPlayerNote.query.get(ids["note"])
+        assert note is not None and note.coach_player_id == st_rel
+        assert EvaluationRecord.query.filter_by(coach_player_id=st_rel).count() == 1
+
+
+def test_b361_same_day_records_merge_into_the_claimants(app, world):
+    """Both sides evaluated on the same club day without a class: the two
+    class-less records collide on (coach_player_id, evaluated_on). The
+    claimant's record is kept; the placeholder's ratings move into it where the
+    category is unrated there and stay as history (record_id NULL) otherwise;
+    a note is appended rather than dropped."""
+    from datetime import date
+    from padel_app.models import CoachPlayerNote, EvaluationEntry, EvaluationRecord
+
+    ph_rel = _relation(app, world["coach"], world["ph_player"])
+    st_rel = _relation(app, world["coach"], world["st_player"])
+    day = date(2026, 9, 1)
+    ph = _evaluated(app, ph_rel, world["coach"], day, score=4.0, note="placeholder note")
+    st = _evaluated(app, st_rel, world["coach"], day, score=2.0, note="claimant note", category_id=None)
+    # A second placeholder rating on the SAME category the claimant already rated that day.
+    with app.app_context():
+        clash = EvaluationEntry(coach_player_id=ph_rel, category_id=st["category"], record_id=ph["record"],
+                                score=5.0, evaluated_at=datetime(2026, 9, 1, 13, 0))
+        db.session.add(clash); db.session.commit()
+        clash_id = clash.id
+
+    _merge(app, world["ph_player"], world["st_user"])
+
+    with app.app_context():
+        kept = EvaluationRecord.query.get(st["record"])
+        assert kept is not None and kept.coach_player_id == st_rel
+        assert EvaluationRecord.query.get(ph["record"]) is None          # the emptied record goes
+        assert EvaluationRecord.query.filter_by(coach_player_id=st_rel, evaluated_on=day).count() == 1
+        moved = EvaluationEntry.query.get(ph["entry"])                  # unrated category → joins the kept record
+        assert moved.coach_player_id == st_rel and moved.record_id == kept.id
+        history = EvaluationEntry.query.get(clash_id)                    # already rated → history row
+        assert history.coach_player_id == st_rel and history.record_id is None
+        mine = EvaluationEntry.query.get(st["entry"])
+        assert mine.record_id == kept.id and mine.score == 2.0
+        assert kept.note == "claimant note\n\nplaceholder note"
+        notes = {n.text for n in CoachPlayerNote.query.filter_by(coach_player_id=st_rel).all()}
+        assert notes == {f"volley {ph_rel}", f"volley {st_rel}"}
+        assert CoachPlayerNote.query.filter_by(coach_player_id=ph_rel).count() == 0
+
+
+def test_every_coach_relation_fk_is_covered_by_the_merge(app):
+    """B-361: the players.id guard never saw the coach_in_player children. A new
+    FK onto coach_in_player.id must be added to MERGED_RELATION_FK_TABLES (and
+    handled)."""
+    from padel_app.services.player_claim_service import MERGED_RELATION_FK_TABLES
+
+    with app.app_context():
+        referencing = set()
+        for table in db.metadata.tables.values():
+            for fk in table.foreign_keys:
+                if fk.column.table.name == "coach_in_player":
+                    referencing.add(table.name)
+        assert referencing == MERGED_RELATION_FK_TABLES, (
+            f"uncovered: {referencing - MERGED_RELATION_FK_TABLES}; stale: {MERGED_RELATION_FK_TABLES - referencing}"
+        )
