@@ -21,7 +21,7 @@ def test_production_refuses_dev_fallback_values():
 
 
 def test_production_accepts_flask_secret_key_alias():
-    cls = config.get_config_class("production", environ=_env(FLASK_SECRET_KEY="real-secret", JWT_SECRET_KEY="real-jwt"))
+    cls = config.get_config_class("production", environ=_env(FLASK_SECRET_KEY="real-secret", JWT_SECRET_KEY="real-jwt", ADMIN_HOSTS="admin.levapp.app"))
     assert cls is config.ProdConfig
 
 
