@@ -1562,7 +1562,8 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     presence = Presence.query.filter_by(
         lesson_instance_id=instance.id, player_id=player_id
     ).first()
-    if presence is None or presence.confirmed or presence.status == "absent":
+    # PAD-546 (reminders rule 23): a coach's mark either way means nothing to ask.
+    if presence is None or presence.confirmed or presence.status is not None:
         return None
     if attempts.pending_attempts(instance.id, player_id):
         return None
@@ -2930,6 +2931,11 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         # Stop reminding a student as soon as they have responded.
         # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
         if existing_presence.confirmed:
+            continue
+        # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
+        # `status` is the coach's record only (attendance.presence rule 7); read at send time, on
+        # every pass, so a mark cleared before the next pass brings the reminder back.
+        if existing_presence.status is not None:
             continue
 
         # Count reminders already sent to THIS player for THIS instance —
