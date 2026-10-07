@@ -17,13 +17,13 @@ const HEALTH = {
   deploy: { this: { gitSha: "abc1234def", alembicHead: "e33b118e4205" }, other: "unreachable — not configured" },
 };
 
-function mockFetch() {
+function mockFetch(health: unknown = HEALTH) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = String(input);
     const body = url.includes("/auth/config")
       ? { configured: true, googleClientId: "x", staffDomain: "levapp.app" }
       : url.endsWith("/engine-health")
-        ? HEALTH
+        ? health
         : { error: "NOT_FOUND" };
     return new Response(JSON.stringify(body), { status: body === undefined ? 404 : 200, headers: { "Content-Type": "application/json" } });
   });
@@ -64,5 +64,20 @@ describe("Engine health page (PAD-534)", () => {
     expect(calls(), "no polling: nothing fetches by itself").toBe(before);
     fireEvent.click(button);
     await waitFor(() => expect(calls()).toBe(before + 1));
+  });
+
+  it.each([
+    ["unreachable", "unreachable", /Unreachable|Inacessível/],
+    ["a null identity", null, /Unreachable|Inacessível/],
+    ["an identity with null fields", { gitSha: null, alembicHead: null }, /unknown/],
+    ["an unexpected shape", 42, /Unreachable|Inacessível/],
+  ])("a peer answering %s never breaks the page", async (_name, other, shown) => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    mockFetch({ ...HEALTH, deploy: { this: HEALTH.deploy.this, other } });
+    render(<App />);
+    // The app's query cache is shared across tests: wait for THIS answer, not the cached one.
+    await waitFor(() => expect(screen.getByTestId("admin-eh-deploy")).toHaveTextContent(shown));
+    expect(screen.getByTestId("admin-eh-vacancies-open")).toHaveTextContent("3");
   });
 });

@@ -26,18 +26,20 @@ function useAge() {
   };
 }
 
-function Identity({ id, testId }: { id: DeployIdentity | string; testId: string }) {
+function Identity({ id, testId }: { id: DeployIdentity | string | null | undefined; testId: string }) {
   const { t } = useTranslation();
-  if (typeof id === "string") {
-    const notConfigured = id.includes("not configured");
+  // Rule 5: the other environment answers whatever it answers; nothing it sends may break the page.
+  if (id == null || typeof id !== "object") {
+    const text = typeof id === "string" ? id : "unreachable";
+    const notConfigured = text.includes("not configured");
     return <Badge tone={notConfigured ? "muted" : "warning"}>{t(`admin.engineHealth.deploy.${notConfigured ? "notConfigured" : "unreachable"}`)}</Badge>;
   }
   return (
     <dl className="text-sm" data-testid={testId}>
       <dt className="text-xs text-muted-foreground">{t("admin.engineHealth.deploy.sha")}</dt>
-      <dd className="font-mono">{id.gitSha.slice(0, 12)}</dd>
+      <dd className="font-mono">{String(id.gitSha ?? "unknown").slice(0, 12)}</dd>
       <dt className="mt-1 text-xs text-muted-foreground">{t("admin.engineHealth.deploy.head")}</dt>
-      <dd className="font-mono">{id.alembicHead ?? "—"}</dd>
+      <dd className="font-mono">{id.alembicHead ? String(id.alembicHead) : "—"}</dd>
     </dl>
   );
 }
