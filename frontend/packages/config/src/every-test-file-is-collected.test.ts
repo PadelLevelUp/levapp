@@ -34,6 +34,8 @@ const RUNNERS: { name: string; cwd: string; args: string[] }[] = [
   { name: "packages", cwd: FRONTEND, args: ["--config", "vitest.packages.config.ts"] },
   { name: "web", cwd: join(FRONTEND, "apps", "web"), args: [] },
   { name: "mobile", cwd: join(FRONTEND, "apps", "mobile"), args: [] },
+  // PAD-531: the staff console is the fourth vitest runner (root `npm test` runs it last).
+  { name: "admin", cwd: join(FRONTEND, "apps", "admin"), args: [] },
 ];
 
 /** Looks like a test to a human: `x.test.ts`, `x.spec.tsx`, `x.test.mjs`, or anything under `__tests__/`. */
