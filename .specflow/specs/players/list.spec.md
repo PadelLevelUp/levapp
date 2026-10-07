@@ -16,7 +16,10 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 1. `GET /api/app/coach_players` returns all coach-player pairs for the authenticated coach (with evaluations, notes)
 2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side, incomplete
 3. Search matches against player name (case-insensitive)
-4. Sort options: name-asc, name-desc, level-asc, level-desc
+4. Sort options: name-asc, name-desc, level-asc, level-desc. **`level-desc` is "Level High→Low": the
+   coach's ladder strongest first** (`levels.coach-levels` rules 3 and 10: lower `display_order` is
+   stronger; unordered levels are the weakest; `id` breaks ties); `level-asc` is the reverse. Players
+   with no level are last in both (PAD-521).
 5. Filters: `missing_level=true` (players without assigned level), `missing_side=true` (players without side preference), `incomplete=true` (no level OR no side — the dashboard's "see all", `dashboard.profile-completeness` rule 3; PAD-486). The three are mutually exclusive on screen; each can arrive in the Players URL
 6. Frontend uses 60-second LRU cache for paginated results, invalidated on mutations
 7. The roster endpoints — `GET /api/app/players`, `/api/app/coach_players`,
@@ -78,6 +81,13 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 - **Given** a coach with players "Alice", "Bob", "Alice B"
 - **When** they GET `/api/app/coach_players_paginated?search=alice`
 - **Then** only "Alice" and "Alice B" are returned
+
+#### Level High→Low lists the strongest level first (PAD-521)
+- **Given** Maria's ladder Competição (`display_order` 1), Avançado (2), Iniciação (3), and players
+  Rita (Iniciação), Zé (Competição), Ana (Avançado), Bia (no level)
+- **When** she GETs `/api/app/coach_players_paginated?sort_by=level&sort_dir=desc`
+- **Then** the order is Zé, Ana, Rita, Bia
+- **And** with `sort_dir=asc` it is Rita, Ana, Zé, Bia
 
 #### Filter by missing level
 - **Given** a coach with 3 players, 1 without a level

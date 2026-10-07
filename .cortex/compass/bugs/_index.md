@@ -223,3 +223,5 @@ whether a failure mode has been seen before.
 - [B-300](B-300-two-spots-of-one-class-could-offer-one-student-twice.md) — Two spots of one class sending at once could offer one student two invitations: each sender locked only its own spot (incomplete-rule, medium, resolved)
 - [B-381](B-381-product-api-accepted-a-token-carrying-an-audience.md) — The product API accepted a token carrying an `aud` claim as the user whose id equals `sub`: Flask-JWT-Extended verifies no audience unless one is configured (wrong-rule, high, open)
 - [B-361](B-361-merge-drops-evaluations-when-claimant-already-has-the-coach.md) — Claim merge deleted the placeholder's evaluations and notes when the student already had the coach: the dropped coach relation cascaded its children (incomplete-rule, high, resolved in PAD-528)
+- [B-363](B-363-level-high-low-sort-lists-the-weakest-first.md) — Players tab: "Level High→Low" listed the weakest level first (layer-drift, medium, resolved in PAD-521)
+- [B-364](B-364-level-pickers-list-levels-in-insertion-order.md) — Level pickers listed the coach's levels in creation order, not ladder order (layer-drift, medium, resolved in PAD-522)
