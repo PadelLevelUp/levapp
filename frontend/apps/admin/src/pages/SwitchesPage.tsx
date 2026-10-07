@@ -6,6 +6,9 @@ import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
 import { adminApi, ApiError, type CapabilityRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
+/** Capabilities whose switch-off has consequences beyond the app (#585 review): one more confirm. */
+const CONFIRM_BEFORE_OFF = new Set(["terms-acceptance"]);
+
 /**
  * admin.clubs-and-switches rules 5–6 (PAD-533): every client capability, on or off, with what
  * switching it off does. Only the owner flips one (decision 2026-10-07); switching off needs a reason.
@@ -62,7 +65,11 @@ export function SwitchesPage() {
                   variant={row.off ? "primary" : "destructive"}
                   data-testid={`switch-toggle-${row.capability}`}
                   disabled={flip.isPending}
-                  onClick={() => flip.mutate(row)}
+                  onClick={() => {
+                    if (!row.off && CONFIRM_BEFORE_OFF.has(row.capability)
+                        && !window.confirm(t(`admin.switches.confirmOff.${row.capability}`))) return;
+                    flip.mutate(row);
+                  }}
                 >
                   {row.off ? t("admin.switches.turnOn") : t("admin.switches.turnOff")}
                 </Button>

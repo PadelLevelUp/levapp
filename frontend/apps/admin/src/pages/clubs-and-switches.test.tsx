@@ -71,6 +71,42 @@ describe("the switches page (rules 5, 6)", () => {
   });
 });
 
+describe("switching off terms-acceptance asks first (#585 review)", () => {
+  it("sends nothing when the owner declines, and the switch-off when they confirm", async () => {
+    signIn("owner");
+    const calls = mockFetch({
+      "/admin/api/auth/config": { status: 200, body: CONFIG },
+      "/admin/api/settings/capabilities": { status: 200, body: { items: CAPS } },
+      "PUT /admin/api/settings/capabilities/terms-acceptance": { status: 200, body: { items: CAPS } },
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    window.history.pushState({}, "", "/switches");
+    render(<App />);
+    fireEvent.change(await screen.findByTestId("switch-reason-terms-acceptance"), { target: { value: "Signup outage" } });
+    fireEvent.click(screen.getByTestId("switch-toggle-terms-acceptance"));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(calls.some((c) => c.method === "PUT")).toBe(false);
+    fireEvent.click(screen.getByTestId("switch-toggle-terms-acceptance"));
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(calls.find((c) => c.method === "PUT")!.body).toEqual({ off: true, reason: "Signup outage" });
+  });
+
+  it("does not ask for a feature switch such as open-spots", async () => {
+    signIn("owner");
+    mockFetch({
+      "/admin/api/auth/config": { status: 200, body: CONFIG },
+      "/admin/api/settings/capabilities": { status: 200, body: { items: CAPS } },
+      "PUT /admin/api/settings/capabilities/open-spots": { status: 200, body: { items: CAPS } },
+    });
+    const confirm = vi.spyOn(window, "confirm");
+    window.history.pushState({}, "", "/switches");
+    render(<App />);
+    fireEvent.change(await screen.findByTestId("switch-reason-open-spots"), { target: { value: "B-999 incident" } });
+    fireEvent.click(screen.getByTestId("switch-toggle-open-spots"));
+    expect(confirm).not.toHaveBeenCalled();
+  });
+});
+
 describe("the club page (rules 1–3)", () => {
   const CLUB = {
     id: 7, name: "Padel Norte", description: null, location: "Porto", coaches: 1, players: 3, courts: 1, lessons: 2,

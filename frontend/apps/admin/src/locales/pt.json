@@ -151,7 +151,10 @@
       "reasonRequired": "Escreve um motivo com pelo menos 5 caracteres.",
       "turnOff": "Desligar",
       "turnOn": "Ligar",
-      "ownerOnly": "Só o owner pode alterar isto."
+      "ownerOnly": "Só o owner pode alterar isto.",
+      "confirmOff": {
+        "terms-acceptance": "Desligar isto faz com que novas contas sejam criadas sem aceitar os Termos, e nenhuma aceitação fica registada. Isso tem impacto legal. Desliga só num incidente e volta a ligar assim que estiver resolvido. Continuar?"
+      }
     }
   }
 }

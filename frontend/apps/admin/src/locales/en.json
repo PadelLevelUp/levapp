@@ -151,7 +151,10 @@
       "reasonRequired": "Write a reason of at least 5 characters.",
       "turnOff": "Switch off",
       "turnOn": "Switch on",
-      "ownerOnly": "Only the owner can change this."
+      "ownerOnly": "Only the owner can change this.",
+      "confirmOff": {
+        "terms-acceptance": "Switching this off means new accounts are created without accepting the Terms, and no acceptance is recorded for them. That has legal impact. Switch it off only for an incident, and switch it back on as soon as it is fixed. Continue?"
+      }
     }
   }
 }

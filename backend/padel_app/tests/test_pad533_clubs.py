@@ -127,3 +127,23 @@ def test_a_court_write_and_its_audit_row_commit_together(app, client, world, mon
 
     with app.app_context():
         assert Court.query.filter_by(club_id=world["norte"], name="Court 9").count() == 0
+
+
+def test_deleting_a_court_clears_it_on_the_loaded_classes_in_the_same_transaction(app, world):
+    """clubs.courts rule 4, court_service.delete_court's explicit nulling (#585 review). The FK's
+    ON DELETE SET NULL clears the rows in the database, but a class already loaded in the session
+    would still show the deleted court until the session expires — the admin path flushes and its
+    audit snapshot reads in that same transaction. The explicit nulling is what keeps them right."""
+    from padel_app.models import Court, Lesson, LessonInstance
+    from padel_app.services.court_service import delete_court
+
+    with app.app_context():
+        lesson = db.session.get(Lesson, world["on_c2"])
+        instance = LessonInstance(lesson_id=lesson.id, start_datetime=lesson.start_datetime,
+                                  end_datetime=lesson.end_datetime, max_players=4, court_id=world["c2"])
+        db.session.add(instance); db.session.flush()
+        assert lesson.court_id == world["c2"] and instance.court_id == world["c2"]
+        delete_court(db.session.get(Court, world["c2"]), commit=False)
+        assert lesson.court_id is None          # no expire, no reload: the loaded objects themselves
+        assert instance.court_id is None
+        db.session.rollback()
