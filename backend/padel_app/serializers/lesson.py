@@ -19,6 +19,26 @@ _INVITATION_STATUS_RANK = {
 }
 
 
+def invitation_outcome(event) -> str:
+    """PAD-548 (calendar.event-detail rule 16): the one word both shells render for an invitee,
+    decided here so no client derives a label from ``status``. First match wins:
+    confirmed → accepted; a recorded "no" → declined; withdrawn by the coach → withdrawn;
+    still live → pending; a late yes, or the spot went to someone else → spot_filled;
+    otherwise (the class started, a manual invitation lapsed) → expired."""
+    if event.status == "confirmed":
+        return "accepted"
+    if event.answer == "no":
+        return "declined"
+    if getattr(event, "withdrawn_by_coach_at", None) is not None:
+        return "withdrawn"
+    if event.status in ("sent", "queued"):
+        return "pending"
+    vacancy = getattr(event, "vacancy", None)
+    if event.answer == "yes" or (vacancy is not None and vacancy.status == "filled"):
+        return "spot_filled"
+    return "expired"
+
+
 def _invitation_precedence(event):
     """Sort key for picking the surviving NotificationEvent of a student.
 
@@ -323,6 +343,10 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                             else "Unknown"
                         ),
                         "status": ev.status,
+                        # PAD-548 (calendar.event-detail rule 16)
+                        "outcome": invitation_outcome(ev),
+                        "answer": ev.answer,
+                        "answeredBy": ev.answered_by,
                     }
                     for ev in notification_events
                 ],

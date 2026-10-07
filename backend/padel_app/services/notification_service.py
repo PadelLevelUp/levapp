@@ -1189,7 +1189,8 @@ def _still_invitable(cp: Association_CoachPlayer, instance: LessonInstance, coac
     if NotificationEvent.query.filter(
         _same_class(instance.id),
         NotificationEvent.player_id == cp.player_id,
-        or_(NotificationEvent.status.in_(LIVE_INVITATION_STATES), NotificationEvent.answer == "no"),
+        or_(NotificationEvent.status.in_(LIVE_INVITATION_STATES), NotificationEvent.answer == "no",
+            NotificationEvent.withdrawn_by_coach_at.isnot(None)),  # PAD-548 (rule 19)
     ).first() is not None:
         return False
     return passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config))
@@ -1203,10 +1204,14 @@ def _same_class(instance_id: int):
 
 
 def _declined_player_ids(instance_id: int) -> set:
-    """Players who answered "no" to an invitation for this class occurrence (rule 18)."""
+    """Players who answered "no" to an invitation for this class occurrence (rule 18), and those
+    whose invitation the coach withdrew (PAD-548, rule 19): a withdrawal is a "no" for the engine."""
+    from sqlalchemy import or_
+
     return {
         pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
-            _same_class(instance_id), NotificationEvent.answer == "no"
+            _same_class(instance_id),
+            or_(NotificationEvent.answer == "no", NotificationEvent.withdrawn_by_coach_at.isnot(None)),
         )
     }
 
@@ -1316,11 +1321,12 @@ def evaluate_candidates(
         _same_class(instance.id),
         or_(
             NotificationEvent.answer == "no",
+            NotificationEvent.withdrawn_by_coach_at.isnot(None),  # PAD-548 (rule 19): a withdrawal is a "no"
             NotificationEvent.status.in_(LIVE_INVITATION_STATES),
             *own_clauses,
         ),
     ).all():
-        if e.answer == "no":
+        if e.answer == "no" or e.withdrawn_by_coach_at is not None:
             declined_ids.add(e.player_id)
         elif own_vacancy_id is not None and e.vacancy_id == own_vacancy_id:
             active_invite_ids.add(e.player_id)
@@ -4818,6 +4824,7 @@ def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
     from padel_app.tools.after_commit import on_commit
 
     event.answer = "yes"
+    event.answered_by = "student"  # PAD-548 (rule 9)
     if invite_msg is not None and invite_msg.msg_metadata is not None:
         invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": response}
     db.session.flush()
@@ -4856,6 +4863,12 @@ def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = 
         return {"action": "confirmed"}
     if by_coach:
         return None
+    if action == "yes" and event.withdrawn_by_coach_at is not None:
+        # PAD-548 (rule 19): the coach withdrew this invitation; the student's late yes takes
+        # nothing and sends nothing — no enrolment, no waiting-list offer (the coach removed them).
+        # Both shells already show the bubble as "Vaga preenchida".
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "spot_filled"}
     if action == "yes" and event.answer == "no":
         # PAD-497 (rule 18): the student's "no" is final for the class; both clients already show
         # this invitation as Declined, and "declined" keeps it so.
@@ -4909,6 +4922,7 @@ def respond_to_notification(
         # "no" waiting on that lock must already see this one. A "yes" records its answer under
         # rule 10's lock instead, inside the single commit (PAD-499, #527 review item 3).
         event.answer = "no"
+        event.answered_by = "student"  # PAD-548 (rule 9)
         event.status = "expired"
         _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15): flushes
         db.session.flush()
@@ -5116,6 +5130,7 @@ def coach_respond_to_notification(
 
     if action == "no":
         event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
+        event.answered_by = "coach"  # PAD-548 (rule 9)
         event.status = "expired"
         _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15)
         event.save()
@@ -5152,6 +5167,7 @@ def coach_respond_to_notification(
         # the enrolment in ONE commit; a second coach yes waiting on the lock then finds it
         # confirmed.
         event.answer = "yes"
+        event.answered_by = "coach"  # PAD-548 (rule 9)
         event.status = "confirmed"
         db.session.flush()
         retired = []
@@ -5167,6 +5183,84 @@ def coach_respond_to_notification(
         return {"action": "confirmed"}
 
     return {"action": "unknown"}
+
+
+def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datetime | None = None) -> dict:
+    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation.
+
+    A third terminal outcome beside the student's "no" and the retire-by-fill: the row is retired
+    exactly as `_close_vacancy` retires one (``expired``, the bubble "Vaga preenchida", the buttons
+    gone), ``answer`` stays NULL and ``withdrawn_by_coach_at`` says why — which every automatic
+    path reads as a "no" for this occurrence (rule 18). The vacancy stays open and the decline
+    follow-up asks the next candidate at once, after the one commit.
+
+    Rule 10's order — the vacancy, then its class (a manual invitation locks its own row, as
+    rule 17's guard does) — and ONE commit: retire, settle and stamp are flushed; the bubble
+    edit is queued with ``on_commit`` before the commit; the follow-up runs after it.
+    """
+    from flask import abort, jsonify, make_response
+
+    from padel_app.models import Coach
+    from padel_app.serializers.lesson import invitation_outcome
+
+    event = NotificationEvent.query.get_or_404(notification_event_id)
+    if event.coach_id != coach_id:
+        abort(403, "Not authorized")
+
+    # PAD-68: a class that already happened is swept, as the coach's recorded answer does.
+    if _instance_is_over(event.lesson_instance, now):
+        _expire_stale_invitations(event.lesson_instance)
+        _retire_invite_message(event)
+        return {"action": "expired"}
+
+    if event.status == "confirmed":
+        # The student holds the spot; leaving a class is the attendance cancel, not this.
+        abort(make_response(jsonify({"code": "confirmed"}), 409))
+    if event.status not in LIVE_INVITATION_STATES:
+        return {"action": invitation_outcome(event)}  # already ended; a repeated delete is a no-op
+
+    instance = event.lesson_instance
+    vacancy = event.vacancy
+    if vacancy is not None:
+        vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    else:
+        NotificationEvent.query.filter_by(id=event.id).with_for_update().populate_existing().one()
+    if event.status == "confirmed":
+        # The student's yes won the lock: they are enrolled, and the withdrawal changes nothing.
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "confirmed"}
+    if event.status not in LIVE_INVITATION_STATES:
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": invitation_outcome(event)}
+
+    event.status = "expired"
+    event.withdrawn_by_coach_at = now or utcnow_naive()
+    _retire_invite_message(event, defer=True)  # flushes only; the bubble reads "Vaga preenchida"
+    _publish_retired([event])  # queued now, sent by the commit below
+    _settle_waiting_list_entry(event, "no")  # waiting-list rule 15: the entry closes, no credit spent
+    if vacancy is not None:
+        vacancy.last_activity_at = utcnow_naive()
+    db.session.flush()
+    event.save()  # the ONE commit; it ends the lock
+
+    coach = Coach.query.get(coach_id)
+    coach_user_id = coach.user_id if coach else None
+    publish(
+        {
+            "type": "notification_responded",
+            "payload": {
+                "lessonInstanceId": instance.id,
+                "notificationEventId": event.id,
+                "response": "withdrawn",
+            },
+        },
+        _coach_only(coach_user_id),
+    )
+    if vacancy is not None:
+        # The spot is still open: ask the next candidate at once, as a student's decline does.
+        _send_next_on_decline(vacancy, instance, coach_id, get_or_create_config(coach_id))
+    return {"action": "withdrawn"}
 
 
 # ---------------------------------------------------------------------------
