@@ -368,10 +368,13 @@ function ValidationCard({ item }: { item: DashboardNeedsYouValidation }) {
           {t("dashboard.needsYou.validation.title", { count: item.count })}
         </span>
         <span className="text-[13px] text-muted-foreground tabular-nums">
-          {/* Which week the number is for — the tab opens on that same week. */}
+          {/* PAD-539: the number is the whole backlog; this names the most recent week with
+              work — the week the tab opens on. */}
           {item.weekOffset === 0
             ? t("dashboard.needsYou.validation.thisWeek")
-            : t("dashboard.needsYou.validation.lastWeek")}
+            : item.weekOffset === -1
+              ? t("dashboard.needsYou.validation.lastWeek")
+              : t("dashboard.needsYou.validation.weeksAgo", { count: -item.weekOffset })}
         </span>
       </div>
       <Button variant="secondary" className="h-11 shrink-0 lg:h-10" onClick={() => navigate(item.href)}>

@@ -71,6 +71,12 @@
         "ready": "Prontas a confirmar ({{count}})"
       },
       "triggerEmpty": "Nada por validar",
+      "triggerWeek_one": "{{count}} nesta semana",
+      "triggerWeek_other": "{{count}} nesta semana",
+      "triggerWeekEmpty": "Nada nesta semana",
+      "triggerWeekShown_one": "{{count}} na semana mostrada",
+      "triggerWeekShown_other": "{{count}} na semana mostrada",
+      "triggerWeekShownEmpty": "Nada na semana mostrada",
       "needsDecision": "Precisa de decisão"
     },
     "column": {

@@ -1711,17 +1711,22 @@ export interface PendingValidation {
   pendingCount: number;
 }
 
-/** `GET /class_instances/pending_validation/count` — `attendance.validation` rule 18. */
+/**
+ * `GET /class_instances/pending_validation/count` — `attendance.validation` rule 18 (PAD-539):
+ * `pendingCount` is the window's count (the week the tab shows); `pendingTotal` is the coach's
+ * whole backlog, the number the badge and the dashboard card show.
+ */
 export interface PendingValidationCount {
   from: string;
   to: string;
   pendingCount: number;
+  pendingTotal: number;
 }
 
 /**
- * `GET /class_instances/pending_validation/badge` — `attendance.validation` rule 23 (PAD-443): the
- * dashboard validation item's number (current week, else the previous one; 0 when both are clean),
- * shown on the Presences badge of both shells.
+ * `GET /class_instances/pending_validation/badge` — `attendance.validation` rule 23 (PAD-443;
+ * PAD-539): the dashboard validation item's number — the whole backlog, landing on the most recent
+ * week with something pending; 0 when nothing is — shown on the Presences badge of both shells.
  */
 export interface PendingValidationBadge {
   count: number;

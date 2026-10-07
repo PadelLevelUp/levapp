@@ -221,3 +221,47 @@ describe("ValidateClassesDialog keeps a completed class in place (PAD-442)", () 
     expect(within(screen.getByTestId("presences-group-ready")).getByTestId("validate-list-row-2-20")).toBeInTheDocument();
   });
 });
+
+// PAD-539 (attendance.validation rule 18, B-342): the trigger's number is the whole backlog,
+// and the week's own count sits under it — so three classes left over from an earlier week
+// never read as "nothing to validate" on a clean week.
+describe("the trigger shows the backlog and the week's share (PAD-539)", () => {
+  function renderTrigger(props: Record<string, unknown>) {
+    render(
+      <Dialog
+        pending={[]}
+        validated={[]}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+        {...props}
+      />
+    );
+  }
+
+  it("reads the total, not the week, as its number", () => {
+    renderTrigger({ pendingCount: 0, pendingTotal: 3 });
+    expect(screen.getByTestId("presences-validate-count").textContent).toBe("presences.validate.trigger:3");
+    expect(screen.getByTestId("presences-validate-week").textContent).toBe("presences.validate.triggerWeekEmpty");
+  });
+
+  it("says how many of them are in this week", () => {
+    renderTrigger({ pendingCount: 2, pendingTotal: 5 });
+    expect(screen.getByTestId("presences-validate-count").textContent).toBe("presences.validate.trigger:5");
+    expect(screen.getByTestId("presences-validate-week").textContent).toBe("presences.validate.triggerWeek:2");
+  });
+
+  it("names the shown week when it is not the current one", () => {
+    renderTrigger({ pendingCount: 2, pendingTotal: 5, weekOffset: -3 });
+    expect(screen.getByTestId("presences-validate-week").textContent).toBe("presences.validate.triggerWeekShown:2");
+    renderTrigger({ pendingCount: 0, pendingTotal: 5, weekOffset: 1 });
+    expect(screen.getAllByTestId("presences-validate-week").at(-1)?.textContent).toBe("presences.validate.triggerWeekShownEmpty");
+  });
+
+  it("reads 'nothing to validate' only when the whole backlog is empty", () => {
+    renderTrigger({ pendingCount: 0, pendingTotal: 0 });
+    expect(screen.getByTestId("presences-validate-count").textContent).toBe("presences.validate.triggerEmpty");
+  });
+});

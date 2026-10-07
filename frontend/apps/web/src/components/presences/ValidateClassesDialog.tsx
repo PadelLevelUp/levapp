@@ -70,6 +70,7 @@ export function ValidateClassesDialog({
   pending,
   validated,
   pendingCount,
+  pendingTotal,
   weekOffset,
   onWeekChange,
   loading,
@@ -83,11 +84,16 @@ export function ValidateClassesDialog({
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
   /**
-   * The trigger's number, from `/pending_validation/count` — the helper the
-   * dashboard card reads too (attendance.validation rule 18). `null` while
-   * loading; the list below it is the same week's classes.
+   * The shown week's count, from `/pending_validation/count` (attendance.validation rule 18):
+   * the list below the trigger is the same week's classes. `null` while loading.
    */
   pendingCount: number | null;
+  /**
+   * PAD-539 (B-342): the trigger's number — the coach's whole backlog, the same `pendingTotal`
+   * the dashboard card and the Presences badge show (rule 23). Before, the trigger showed the
+   * week's count, and classes left over from an earlier week read as nothing to validate.
+   */
+  pendingTotal: number | null;
   weekOffset: number;
   onWeekChange: (next: number) => void;
   loading?: boolean;
@@ -265,14 +271,23 @@ export function ValidateClassesDialog({
           <span className="block text-sm font-semibold" data-testid="presences-validate-count">
             {/* Not a plural form: pt's CLDR "one" category covers 0, so the
                 counted string renders "0 aula por validar". An empty queue
-                deserves its own sentence anyway. */}
-            {pendingCount == null
+                deserves its own sentence anyway. PAD-539: the whole backlog. */}
+            {pendingTotal == null
               ? "…"
-              : pendingCount === 0
+              : pendingTotal === 0
                 ? t("presences.validate.triggerEmpty")
-                : t("presences.validate.trigger", { count: pendingCount })}
+                : t("presences.validate.trigger", { count: pendingTotal })}
           </span>
           <span className="block text-xs text-muted-foreground">
+            {/* PAD-539: how many of them fall in the week shown. */}
+            <span data-testid="presences-validate-week">
+              {pendingCount == null
+                ? "…"
+                : pendingCount === 0
+                  ? t(weekOffset === 0 ? "presences.validate.triggerWeekEmpty" : "presences.validate.triggerWeekShownEmpty")
+                  : t(weekOffset === 0 ? "presences.validate.triggerWeek" : "presences.validate.triggerWeekShown", { count: pendingCount })}
+            </span>
+            {" · "}
             {t("presences.validate.triggerHint")}
           </span>
         </span>

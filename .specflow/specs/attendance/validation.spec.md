@@ -154,16 +154,35 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     iOS renders the charts under its own filter sheet with the same rule (the charts are built
     from the same filtered `rows` the list shows), so the decision holds on both shells.
 
-18. **(PAD-190 / PAD-201, B-045) One count for "classes to validate".**
-    `count_pending_validation(coach_id, range_start, range_end)` is the only derivation of how
-    many classes in a window still have an unvalidated presence — it is `len(pending)` of
-    `list_pending_validation` for the same bounds, never a second query. It is exposed as
-    `GET /class_instances/pending_validation/count?from&to` → `{ from, to, pendingCount }`
-    (coach-only, 403 otherwise, same `from`/`to` parsing as the listing). The tab's trigger on
-    both shells reads this endpoint for the week it is showing, and the coach dashboard's
-    `validation` queue item calls the same function (`dashboard.blocks` rule 3), so the two
-    surfaces show one number. The tab accepts `?week=<offset>` (web query string, iOS route
-    param) as its initial week so the dashboard can land the coach on the week it counted.
+18. **(PAD-190 / PAD-201, B-045; amended by PAD-539, B-342) One count for "classes to validate",
+    and it is the whole backlog.** A class is *pending* when it has ended (`end_datetime <=` the
+    club's now), is not canceled, and has at least one presence row that is not validated; a
+    class with no presence rows has nothing to validate and is never pending (rule 1). That
+    predicate is written ONCE, as a query, in `presence_overview_service` — the window listing
+    (`list_pending_validation`, rule 3) and every count derive from it.
+    - **The number is unbounded.** `count_pending_validation_total(coach_id, now)` counts every
+      pending class of the coach with no lower bound on the date. Before PAD-539 the tab's trigger
+      counted only the week it was showing (and the badge the current week, else the previous),
+      so three classes left over from an earlier week read "0 aulas por validar" until the coach
+      happened to navigate there — the forgetting the surface exists to prevent. A window of any
+      length recreates it; history is bounded naturally because an occurrence without presence
+      rows never counts. It is a count over the existing indexes (`ix_coach_in_lesson_lesson_id`,
+      `uq_lesson_instance_occurrence` leading with `lesson_id`, `ix_presences_lesson_instance_id`),
+      never the listing's row load.
+    - **The endpoint.** `GET /class_instances/pending_validation/count?from&to` →
+      `{ from, to, pendingCount, pendingTotal }`: `pendingCount` is the window's count (the week
+      the tab is showing, as before — it is `len(pending)` of the listing for the same bounds, by
+      construction); `pendingTotal` is the backlog. Coach-only, 403 otherwise.
+    - **What the tab shows.** The trigger on both shells reads "X aulas por validar" from
+      `pendingTotal`, and beneath it "Y nesta semana" from `pendingCount` for the week shown
+      ("Nada nesta semana" when it is 0; on any other week the line reads "Y na semana mostrada" /
+      "Nada na semana mostrada"). An empty backlog reads "Nada por validar", as before.
+    - **The one number.** The coach dashboard's `validation` item (`dashboard.blocks` rule 3), the
+      web sidebar badge and the iOS tab badge (rule 23) show `pendingTotal` — the same helper, so
+      the three surfaces and the tab's trigger cannot disagree. The tab accepts `?week=<offset>`
+      (web query string, iOS route param), any integer, as its initial week so a deep link can
+      land the coach on the week it chose.
+
 19. **(PAD-283) `validate=1` opens the validate view.** The tab also accepts `?validate=1`
     (web query string, iOS route param): the page renders with the validate dialog / sheet
     already open, on the week `?week` selects, so the dashboard's validation card
@@ -214,19 +233,26 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       kept the stale queue. The screen's wiring to that query is read from the code; it is not
       driven on a simulator.
 
-23. **(PAD-443) Pending validations are highlighted by count, one number everywhere.** Validating
-    classes is how attendance gets recorded, so the number of classes waiting must be hard to miss.
-    - **One derivation.** `validation_badge(coach_id, now)` (backend) is the dashboard validation
-      item's derivation: the current Monday–Sunday week, else the previous one (`dashboard.blocks`
-      rule 3), `count` 0 when both are clean. It is exposed as
-      `GET /class_instances/pending_validation/badge` → `{ count, weekOffset, href }` (coach-only,
-      403 otherwise). The dashboard's validation item, the web sidebar's Presences badge and the iOS
-      Presences tab badge all show this number; no client re-derives it (rule 18).
+23. **(PAD-443; amended by PAD-539) Pending validations are highlighted by count, one number
+    everywhere.** Validating classes is how attendance gets recorded, so the number of classes
+    waiting must be hard to miss.
+    - **One derivation.** `validation_badge(coach_id, now)` (backend) returns
+      `{ count, weekOffset, href }`: `count` is rule 18's `pendingTotal` (the whole backlog, 0 when
+      nothing is pending); `weekOffset` is the **most recent week that has something pending**
+      (0 for the current week, negative for earlier ones, any distance back), derived from the
+      latest pending class's start, Monday-aligned against the current week; `href` is
+      `/presences?validate=1` or `/presences?validate=1&week=<offset>`. Before PAD-539 it was the
+      current week's count, else the previous week's, and 0 when both were clean even with older
+      classes waiting. It is exposed as `GET /class_instances/pending_validation/badge` (coach-only,
+      403 otherwise). The dashboard's validation item, the web sidebar's Presences badge, the iOS
+      Presences tab badge and (through the same query) the iOS app icon badge all show this
+      number; no client re-derives it.
     - **Tiers.** `validationTier(count)` in `@levelup/config`: `0` → `none` (no badge), `1`–`5` →
       `attention` (yellow), more than `5` → `urgent` (red). Both shells render the badge with the
       number in it, so the colour is never the only signal.
     - **Fresh.** The badge refreshes after a validate, a bulk validate or an undo, and when the app
       regains focus.
+
 24. **(PAD-443) Players who still need a decision stand out.** In the validate view, a player
     whose `effectiveMark` is `null` (rule 5's undecided) shows an alert icon before the name, a soft
     yellow left border on the row, and an accessible label saying they need a decision. The class
@@ -465,3 +491,26 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the bar admits Rui; with three real unjustified absences it does not
 - **Given** Sara's only row is `present` still carrying `justified`
 - **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
+
+#### The count is the whole backlog, not the shown week (rule 18, PAD-539)
+- **Given** a coach with three pending classes in the week before last and none in the current or
+  previous week
+- **When** they open the Presences tab on the current week
+- **Then** the trigger reads "3 aulas por validar" and "Nada nesta semana"; `pendingTotal` is 3 and
+  `pendingCount` is 0
+- **When** they move to the week before last
+- **Then** the trigger still reads "3 aulas por validar" and now "3 nesta semana"
+
+#### One number on four surfaces (rules 18 and 23, PAD-539)
+- **Given** pending classes in three different weeks, one fully validated class and one class
+  with no presence rows
+- **When** the count endpoint, the badge endpoint and the dashboard's needs-you block are read
+- **Then** `pendingTotal`, the badge's `count` and the validation item's `count` are the same
+  number, equal to the number of pending classes the listing returns over all history, and the
+  validated class and the empty class are not in it
+
+#### The deep link lands on the most recent week with work (rule 23, PAD-539)
+- **Given** the only pending classes are three weeks back
+- **When** the badge is read on a Tuesday
+- **Then** `count` is their number, `weekOffset` is -3 and `href` is `/presences?validate=1&week=-3`,
+  and following it opens the tab on that week with the validate view open and those classes listed
