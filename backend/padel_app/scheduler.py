@@ -419,7 +419,13 @@ def _run_invite_start_for_lesson_occurrence(lesson_id: int, date_str: str) -> No
             date = _date.fromisoformat(date_str)
             if date in lesson.excluded_date_set():
                 return
-            instance = get_or_materialize_instance(lesson, date)
+            # The roster enrolments of this materialisation arm no ask of their own
+            # (`arm_ask_for_student`, PAD-331): with the reminder still ahead they would arm
+            # nothing anyway, and with reminders off they would ask every roster student the
+            # instant the window opened. This job is about the never-filled places only; the
+            # roster is asked by the reminder, as before.
+            with _asks_suppressed():
+                instance = get_or_materialize_instance(lesson, date)
             if instance.status in ("canceled", "completed"):
                 return
             coach = primary_coach(instance)

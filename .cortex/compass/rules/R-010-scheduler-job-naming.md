@@ -12,6 +12,6 @@ status: active
 
 # R-010 — Scheduler job ids follow the fixed naming scheme
 
-`reminder_lesson_{lesson_id}_{YYYY-MM-DD}`, `invite_start_{instance_id}`, `process_batches`, `extend_schedule_window`. The extend/self-heal logic finds jobs by these names.
+`reminder_lesson_{lesson_id}_{YYYY-MM-DD}`, `invite_start_lesson_{lesson_id}_{YYYY-MM-DD}` (PAD-540, invitations rule 1c; the two lesson-level families are the `_OCCURRENCE_JOB_FAMILIES` table in scheduler.py — cancel, move and prune walk it), `invite_start_{instance_id}`, `process_batches`, `extend_schedule_window`. The extend/self-heal logic finds jobs by these names.
 
 **Why:** extracted from consistent patterns in the codebase (legacy `RULES.md`, April 2026); breaking it has produced real bugs or silent divergence.
