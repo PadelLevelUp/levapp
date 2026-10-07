@@ -57,7 +57,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      nothing is sent ("A hora de fim tem de ser depois da hora de início"), as iOS's new-class
      screen already does.
    - **Never empty, never zero:** text that is not a time — an emptied field included, however
-     long it is left — puts the last valid time back. Leaving the field (Tab, a click elsewhere)
+     long it is left — puts the last valid time back. **One exception (PAD-524):** a clone opens with the start
+     empty until the coach first sets it, and Create waits for it (`classes.clone` rule 5). Leaving the field (Tab, a click elsewhere)
      commits what was typed, whether or not the list is open. This replaces the browser's native time
      input, whose cleared segment read as empty and fell back to "zero" (the report behind PAD-508
      and B-275).
