@@ -1,0 +1,23 @@
+# admin.foundation rule 12 (PAD-531): the staff console image. Same shape as ./Dockerfile (the
+# web image): build the workspace app, serve the static bundle with nginx. Built by the deploy
+# workflows as levelup_admin, run on the loopback interface only; the host nginx fronts it at
+# admin.levapp.app / admin.staging.levapp.app.
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/admin/package.json ./apps/admin/
+RUN npm ci
+
+COPY . .
+
+RUN npm run build -w @levelup/admin
+
+FROM nginx:1.27-alpine
+
+COPY apps/admin/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/apps/admin/dist /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
