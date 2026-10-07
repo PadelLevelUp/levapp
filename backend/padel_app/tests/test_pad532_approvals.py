@@ -194,3 +194,25 @@ def test_the_pending_coach_alert_points_at_the_console(app, captured):
     assert len(alert_mail) == 1
     assert ": https://admin.staging.levapp.app/approvals" in alert_mail[0]
     assert "apphttps" not in alert_mail[0]
+
+
+def test_no_console_url_means_no_wrong_link(app, captured, caplog):
+    """#568 review: with ADMIN_CONSOLE_URL unset, a console alert would point at the product
+    origin + /approvals, a page that does not exist. Refuse the push and the alert mail, log a
+    warning; the ADMIN_NOTIFY_EMAIL mail still says a coach is waiting, without a bare path."""
+    import logging
+
+    from padel_app.models import Coach
+    from padel_app.services.coach_approval_service import notify_admin_of_pending_coach
+
+    app.config["ADMIN_CONSOLE_URL"] = ""
+    app.config["ADMIN_NOTIFY_EMAIL"] = "admin@levapp.app"
+    owner_u = make_user(app, "own", "own@levapp.app")
+    make_role(app, "own@levapp.app", "owner", user_id=owner_u)
+    _, rui = _coach(app, "rui")
+    with caplog.at_level(logging.WARNING), app.app_context():
+        notify_admin_of_pending_coach(Coach.query.get(rui))
+    assert captured["web"] == [] and captured["expo"] == []
+    assert [to for _, to, _ in captured["mail"]] == [["admin@levapp.app"]]
+    assert "/approvals" not in captured["mail"][0][2]
+    assert "ADMIN_CONSOLE_URL" in caplog.text

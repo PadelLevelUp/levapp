@@ -116,6 +116,8 @@ def test_request_alert_mail_logs_no_address(app, monkeypatch, failing_mail, capl
     from padel_app.services import request_alert_service
 
     caplog.set_level(logging.WARNING)
+    # PAD-532: the pending-coach alert points at the staff console; without its URL it is skipped.
+    app.config["ADMIN_CONSOLE_URL"] = "https://admin.levapp.app"
     # Imported inside notify_request_event, so patched where they live.
     monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification", lambda *a, **k: None)
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda *a, **k: None)

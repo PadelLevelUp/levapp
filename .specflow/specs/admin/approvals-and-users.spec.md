@@ -90,7 +90,9 @@ removed from web and iOS in the same ticket.
     /api/app/admin/coach-approvals*` are removed (404); `packages/api/src/resources/admin.ts`
     loses the approval calls. The pending-coach push to superadmins
     (`notifications.request-alerts`) opens the console's approvals page instead of the app's
-    Settings. Removed test ids are grepped out of the web E2E and Maestro flows in the same change
+    Settings (`ADMIN_CONSOLE_URL` + `/approvals`). With no `ADMIN_CONSOLE_URL` the push and the alert
+    mail are skipped and a warning is logged, rather than sent with a link to a page the product
+    does not have (#568 review). Removed test ids are grepped out of the web E2E and Maestro flows in the same change
     (`admin-coach-approvals`, `admin-pending-*`, `admin-approve-*`, `admin-reject-*`,
     `admin-no-pending`, `admin-email-unverified-*`, `admin-reject-confirm`, `admin-reject-reason`).
 10a. **Removed only when the console is live (coordinator decision 2026-10-07).** Removing the

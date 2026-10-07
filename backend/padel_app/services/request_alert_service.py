@@ -107,10 +107,17 @@ def notify_request_event(kind: str, recipients, **ctx) -> int:
         seen.add(user.id)
         if not wants_request_alerts(user):
             continue
+        path = destination(kind)
+        if path is None:
+            # A console alert with no ADMIN_CONSOLE_URL: skip it rather than send a link to a
+            # page the product app does not have (#568 review). Logged once per alert.
+            current_app.logger.warning(
+                "request alert %s skipped: ADMIN_CONSOLE_URL is not set, so it has no destination", kind
+            )
+            return alerted
         alerted += 1
         lang = _lang(user)
         title, body = render_copy(kind, lang, **ctx)
-        path = destination(kind)
         try:
             send_push_notification(user.id, title, body, url=path)
         except Exception as exc:  # noqa: BLE001 — best-effort (rule 5)
@@ -165,8 +172,8 @@ def destination(kind: str) -> str:
     path = PATHS[kind]
     if kind in CONSOLE_KINDS:
         base = (current_app.config.get("ADMIN_CONSOLE_URL") or "").rstrip("/")
-        if base:
-            return f"{base}{path}"
+        # None: no console URL configured, so the alert has nowhere true to point (caller skips it).
+        return f"{base}{path}" if base else None
     return path
 
 

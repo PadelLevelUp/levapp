@@ -204,7 +204,8 @@ def notify_admin_of_pending_coach(coach):
         f"A coach is waiting for approval.\n\n"
         f"Name: {user.name}\nUsername: {user.username}\nEmail: {user.email}\n"
         f"Email verified: {verified}\n\n"
-        f"Approve or reject in the staff console: {_console_url('/approvals')}"
+        + (f"Approve or reject in the staff console: {_console_url('/approvals')}"
+           if current_app.config.get("ADMIN_CONSOLE_URL") else "Approve or reject in the staff console.")
     )
     _send("[LevApp] Coach waiting for approval", [to], body)
 
