@@ -34,7 +34,8 @@
       "invitedPosition": "Invited in round {{round}}, position {{rank}} — {{status}}",
       "roundReason": "Round {{round}}: {{reason}}",
       "changeClass": "Change class",
-      "changePlayer": "Change student"
+      "changePlayer": "Change student",
+      "classWhen": "{{weekday}}, {{day}} at {{time}}"
     },
     "rounds": {
       "everyone": "Everyone eligible",
