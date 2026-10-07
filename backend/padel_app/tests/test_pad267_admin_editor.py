@@ -113,9 +113,11 @@ def test_the_flag_defaults_on_in_development_and_off_in_production():
     assert editor_enabled_from_env({"EDITOR_ENABLED": " "}, default=True) is True
 
 
-def test_staging_switches_it_on_and_production_does_not():
-    assert "EDITOR_ENABLED=1" in (BACKEND / ".env.staging").read_text().splitlines()
-    assert not any(line.startswith("EDITOR_ENABLED") for line in (BACKEND / ".env.prod").read_text().splitlines())
+def test_no_deployed_environment_switches_it_on():
+    # PAD-532 (admin.approvals-and-users rule 10c): the editor is retired; staging no longer sets
+    # EDITOR_ENABLED either (it did since PAD-267). Its code goes with PAD-550.
+    for template in (".env.staging", ".env.prod"):
+        assert not any(line.startswith("EDITOR_ENABLED") for line in (BACKEND / template).read_text().splitlines()), template
 
 
 # ── rule 2: superadmin only, whatever the flag says ──────────────────────────

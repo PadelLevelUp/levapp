@@ -72,7 +72,8 @@ executionOrder:
     - 32-month-view
     # 28 changes the seeded coach's password and puts it back within itself,
     # 29 registers and rejects its own coach, so its position is not load bearing.
-    - 29-coach-rejection  # signs in as the seeded e2e-coach-rejected and re-applies: needs a reseeded DB per run (e2e.sh resets it)
+    # 29 signs in as the seeded e2e-coach-rejected and re-applies: it needs a reseeded DB per run (e2e.sh resets it). PAD-532
+    - 29-coach-rejection
     # 33 fills the sign-up form as a minor and is refused (PAD-445); it creates nothing, so
     # its position is not load bearing.
     # (29 is PAD-233's; 31-32 belong to the calendar work — numbers kept by the coordinator.)
