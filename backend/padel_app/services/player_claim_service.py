@@ -101,6 +101,41 @@ MERGED_RELATION_FK_TABLES = frozenset({
 
 ALREADY_ACTIVATED = "ALREADY_ACTIVATED"
 
+# PAD-528 review (#563): every unique constraint or unique index on a table the merge
+# writes, and how the merge keeps it. B-361's guards covered FKs, not uniques, and two
+# uniques 500'd the merge. ``test_every_unique_key_the_merge_touches_is_accounted_for``
+# fails when one appears that is in neither map. Keyed "<table>.<name or columns>".
+MERGE_UNIQUE_KEYS_HANDLED = {
+    "coach_in_player.uq_coach_player": "rule 5a: the claimant's relation is kept, children move (B-361)",
+    "player_in_club.uq_player_club": "_repoint_unique_pairs on club_id: the claimant's row is kept",
+    "player_in_lesson.uq_player_lesson": "_repoint_unique_pairs on lesson_id",
+    "waiting_list_entries.uq_waiting_session_player": "_repoint_unique_pairs on lesson_instance_id",
+    "standing_waiting_list_entries.uq_standing_entries_active_coach_player":
+        "_merge_standing_entries: both active with one coach → the claimant's stays active, the placeholder's moves inactive",
+    "presences.uq_presence_player_lesson_instance": "_repoint_unique_pairs on lesson_instance_id (R-018)",
+    "vacancies.uq_vacancies_open_original_player":
+        "_repoint_vacancies: both open on one occurrence → the placeholder's keeps its spot with original_player_id NULL",
+    "class_join_requests.uq_class_join_request_pending": "_repoint_unique_pairs on lesson_instance_id",
+    "evaluation_records.uq_evaluation_records_class_day": "_merge_relation_children: same (day, class) merges into the kept record",
+    "evaluation_records.uq_evaluation_records_classless_day": "_merge_relation_children: same day merges into the kept record",
+    "evaluation_entries.uq_evaluation_entries_record_category": "_merge_relation_children: a rated category stays as history",
+    "evaluation_shares.uq_evaluation_shares_record_id": "_merge_relation_children: the kept record's share wins",
+    "conversation_participants.uq_conversation_participant": "_merge_conversations: a shared thread drops the placeholder's seat",
+    "conversations.participant_key": "_merge_conversations: a colliding key folds into the existing thread",
+    "message_reactions.uq_reaction": "_repoint_user_unique on (message_id, emoji)",
+    "blocked_users.uq_blocked_user": "_repoint_user_unique both ways; a self-block is deleted",
+    "push_subscriptions.user_id": "_repoint_user_unique: the claimant's subscription is kept",
+    "device_tokens.uq_device_tokens_user_token": "_repoint_user_unique on token",
+}
+MERGE_UNIQUE_KEYS_IMPOSSIBLE = {
+    "player_claim_requests.uq_player_claim_request_pending":
+        "the placeholder's pending request is marked accepted before it is re-pointed, and a claimant "
+        "(never claimable) has no pending request of its own",
+    "player_invitations.token_hash": "the merge never writes token_hash",
+    "replacement_approval_prompts.vacancy_id": "the merge never writes vacancy_id",
+    "notification_configs.coach_id": "the merge never writes coach_id",
+}
+
 
 class MergeCounts:
     """Rule 5j: what a merge moves, drops and merges, per table. The same object is
@@ -353,7 +388,7 @@ def _merge_rows(placeholder_player, claimant_user, counts):
     _repoint_unique_pairs(WaitingListEntry, "lesson_instance_id", pid, cid, counts)
     # PAD-131: one pending join request per (class, player) — same rule
     _repoint_unique_pairs(ClassJoinRequest, "lesson_instance_id", pid, cid, counts)
-    _repoint_unique_pairs(StandingWaitingListEntry, "id", pid, cid, counts)  # never collides; plain re-point
+    _merge_standing_entries(pid, cid, counts)
 
     # c. presences — unique per instance (R-018): keep the claimant's row
     _repoint_unique_pairs(Presence, "lesson_instance_id", pid, cid, counts)
@@ -363,7 +398,7 @@ def _merge_rows(placeholder_player, claimant_user, counts):
     counts.move("class_requests", ClassRequest.query.filter_by(player_id=pid).update({"player_id": cid}))  # PAD-104
     counts.move("notification_events", NotificationEvent.query.filter_by(player_id=pid).update({"player_id": cid}))
     counts.move("reminder_attempts", ReminderAttempt.query.filter_by(player_id=pid).update({"player_id": cid}))
-    counts.move("vacancies", Vacancy.query.filter_by(original_player_id=pid).update({"original_player_id": cid}))
+    _repoint_vacancies(pid, cid, counts)
     counts.move("vacancies", Vacancy.query.filter_by(filled_by_player_id=pid).update({"filled_by_player_id": cid}))
     counts.move("replacement_approval_prompts", ReplacementApprovalPrompt.query.filter_by(declined_player_id=pid).update({"declined_player_id": cid}))
     counts.move("replacement_approval_prompts", ReplacementApprovalPrompt.query.filter_by(waiting_list_player_id=pid).update({"waiting_list_player_id": cid}))
@@ -386,10 +421,8 @@ def _merge_rows(placeholder_player, claimant_user, counts):
     counts.move("messages", Message.query.filter_by(sender_id=puid).update({"sender_id": cuid}))
     counts.move("calendar_blocks", CalendarBlock.query.filter_by(user_id=puid).update({"user_id": cuid}))
     counts.move("message_reports", MessageReport.query.filter_by(reporter_id=puid).update({"reporter_id": cuid}))
-    counts.move("push_subscriptions", PushSubscription.query.filter_by(user_id=puid).update({"user_id": cuid}))
-    for tok in DeviceToken.query.filter_by(user_id=puid).all():
-        tok.user_id = cuid
-        counts.move("device_tokens")
+    _repoint_user_unique(PushSubscription, "user_id", (), puid, cuid, counts)
+    _repoint_user_unique(DeviceToken, "user_id", ("token",), puid, cuid, counts)
     # Reactions and blocks carry unique pairs — re-point, dropping duplicates.
     _repoint_user_unique(MessageReaction, "user_id", ("message_id", "emoji"), puid, cuid, counts)
     _repoint_user_unique(BlockedUser, "blocker_id", ("blocked_id",), puid, cuid, counts)
@@ -414,6 +447,45 @@ def _merge_rows(placeholder_player, claimant_user, counts):
     placeholder_user.username = unique_placeholder_username()
     db.session.flush()
     return claimant_player, placeholder_user
+
+
+def _merge_standing_entries(pid, cid, counts):
+    """Rule 5b, PAD-528 review: one ACTIVE standing entry per (coach, player). When both
+    hold an active one with the same coach, the claimant's stays active; the placeholder's
+    moves to the claimant as inactive (its credits stay readable as history). Inactive
+    rows always move."""
+    active = {
+        e.coach_id
+        for e in StandingWaitingListEntry.query.filter_by(player_id=cid, is_active=True).all()
+    }
+    for entry in StandingWaitingListEntry.query.filter_by(player_id=pid).all():
+        if entry.is_active and entry.coach_id in active:
+            entry.is_active = False
+            counts.drop("standing_waiting_list_entries")
+        else:
+            counts.move("standing_waiting_list_entries")
+            if entry.is_active:
+                active.add(entry.coach_id)
+        entry.player_id = cid
+    db.session.flush()
+
+
+def _repoint_vacancies(pid, cid, counts):
+    """Rule 5d, PAD-528 review: one OPEN vacancy per (occurrence, original player). When
+    both left the same occurrence, both spots stay open; the placeholder's keeps its spot
+    with ``original_player_id`` NULL — what deleting the player would do (FK SET NULL)."""
+    open_for_claimant = {
+        v.lesson_instance_id
+        for v in Vacancy.query.filter_by(original_player_id=cid, status="open").all()
+    }
+    for vac in Vacancy.query.filter_by(original_player_id=pid).all():
+        if vac.status == "open" and vac.lesson_instance_id in open_for_claimant:
+            vac.original_player_id = None
+            counts.merge("vacancies")
+        else:
+            vac.original_player_id = cid
+            counts.move("vacancies")
+    db.session.flush()
 
 
 def _repoint_soft_references(pid, cid, counts):
@@ -615,10 +687,12 @@ def create_claim_request_service(player_id, coach, username=None, target_player_
         status="pending",
     )
     db.session.add(req)
-    db.session.commit()
-    if not claim_consent_required(coach, player, target):
-        # Rule 4d, option B: the request is created and accepted in one call; the
-        # coach is who confirmed. The merge marks the request accepted (rule 5d).
+    if claim_consent_required(coach, player, target):
+        db.session.commit()
+    else:
+        # Rule 4d, option B: the request and the merge are ONE commit (the merge's);
+        # a failed merge leaves no request behind. The merge marks it accepted (5d).
+        db.session.flush()
         request_id = req.id
         merge_placeholder_player_into(
             player, target, trigger="coach_request",

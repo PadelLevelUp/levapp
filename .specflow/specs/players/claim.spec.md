@@ -77,7 +77,8 @@ asks by exact username and the student accepts.
    stripped, whitespace collapsed; the first by id when several). Computed for the whole
    page in one query over the coach's roster, like `due` (rule 9 there); never one query per
    row; `null` on non-claimable rows. Both shells show a "Possible duplicate" badge on the
-   row and, on the placeholder's page, a one-tap "Merge into {name}" that opens rule 4b's
+   row, applying rule 4b's exclusions (only an active student account that is not a coach and
+   not claimable can be named), and, on the placeholder's page, a one-tap "Merge into {name}" that opens rule 4b's
    dialog with that student preselected and the preview of rule 5j already shown. Nothing
    moves under the finger: the flag changes no order, filter or sort.
 4d. **One consent function.** Whether the student's accept is required is decided in one place,
@@ -86,7 +87,8 @@ asks by exact username and the student accepts.
    unilaterally). The owner may decide (PAD-528 decision 1, option B) that a target already on
    the requesting coach's roster needs no accept; that is a change to this one function and
    its criterion, nowhere else. When it returns `False` the request is created and accepted in
-   the same call, with `confirmed_by_user_id` the coach's user.
+   the same call and the same commit, with `confirmed_by_user_id` the coach's user; a failed
+   merge leaves no request behind.
 5. **Merge** — one service, `merge_placeholder_player_into(placeholder_player, claimant_user)`,
    one transaction, in this order:
    a. `Association_CoachPlayer`: for each placeholder relation, if the claimant already has a
@@ -104,12 +106,17 @@ asks by exact username and the student accepts.
       note is ever dropped by a merge. A metadata guard
       (`test_every_coach_relation_fk_is_covered_by_the_merge`) fails when a new FK onto
       `coach_in_player.id` appears that this step does not handle.
-   b. `Association_PlayerLesson`, `Association_PlayerLessonInstance`, `WaitingListEntry`,
-      `StandingWaitingListEntry`: re-point, deleting the placeholder's row where the claimant
-      already has the same (lesson | instance | standing entry) row.
+   b. `Association_PlayerLesson`, `Association_PlayerLessonInstance`, `WaitingListEntry`:
+      re-point, deleting the placeholder's row where the claimant already has the same
+      (lesson | instance) row. `StandingWaitingListEntry` (PAD-528 review): one ACTIVE entry
+      per (coach, player); when both hold an active one with the same coach, the claimant's
+      stays active and the placeholder's moves over inactive. Inactive entries always move.
    c. `Presence` (unique per instance, R-018): re-point; where both exist for the same
       instance, keep the claimant's row and delete the placeholder's.
-   d. `PlayerLevelHistory`, `NotificationEvent`, `Vacancy.*_player_id`,
+   d. `Vacancy.original_player_id` (PAD-528 review): one OPEN vacancy per (occurrence,
+      original player); when both left the same occurrence, both spots stay open and the
+      placeholder's keeps its spot with `original_player_id` NULL, as deleting the player would.
+      `PlayerLevelHistory`, `NotificationEvent`, `Vacancy.filled_by_player_id`,
       `ReplacementApprovalPrompt.*_player_id`, `PlayerInvitation`: re-point (invitations become
       `accepted`).
    e. `ConversationParticipant` rows of the placeholder User: re-point `user_id`; recompute
@@ -117,6 +124,8 @@ asks by exact username and the student accepts.
       coach already chatted with the claimant), move the placeholder conversation's messages
       and reactions into the existing conversation and delete the emptied conversation. Keep
       the earlier `last_read_at`. `Message.sender_id`, `CalendarBlock.user_id`: re-point.
+      `PushSubscription` (one per user) and `DeviceToken` (unique per user and token): the
+      claimant's row is kept and the placeholder's duplicate dropped.
    f. Delete the placeholder Player row; disable the placeholder User the way
       `delete_account_service` does (status `disabled`, name "Merged user", email/phone null,
       username replaced by a fresh placeholder so the original one is free). Never hard-delete
@@ -130,6 +139,10 @@ asks by exact username and the student accepts.
    i. **The audit row (PAD-528).** The merge writes one `PlayerMerge` row in its own
       transaction, with the counters of rule 5j as executed. It is the only record that the
       placeholder existed; there is no undo, and the apps say so before the confirm.
+   k. **Unique keys (PAD-528 review).** Every unique constraint or index on a table the merge
+      writes is either handled by a–j or listed as impossible with its reason
+      (`MERGE_UNIQUE_KEYS_HANDLED` / `MERGE_UNIQUE_KEYS_IMPOSSIBLE`);
+      `test_every_unique_key_the_merge_touches_is_accounted_for` fails on a new one.
    j. **Dry run (PAD-528).** `GET /api/app/player/<player_id>/merge-preview?targetPlayerId=`
       (the requesting coach, 403 otherwise) and `GET /api/app/player-claim-requests/<id>/preview`
       (the target student) return the merge's plan without running it:
@@ -243,6 +256,23 @@ asks by exact username and the student accepts.
 - **Then** the request is `accepted`, the merge has run, and `player_merges` has one row with
   `confirmed_by_user_id` = Maria's user and `trigger` = `coach_request`
 - **And** unpatched, the same call leaves the request `pending` and nothing merged
+
+#### Two active standing entries with one coach (rule 5b, PAD-528 review)
+- **Given** `P1` and `ana` each hold an active standing waiting-list entry with Maria
+- **When** the merge runs
+- **Then** it succeeds, the preview counts 1 in `dropped.standing_waiting_list_entries`, and `ana`
+  holds both entries with only her own active
+
+#### Two open vacancies on one class (rule 5d, PAD-528 review)
+- **Given** `P1` and `ana` both left Tuesday's 10:00 class, each with an open vacancy
+- **When** the merge runs (and its preview first)
+- **Then** both succeed, two open vacancies remain on that class, one names `ana` and the other
+  names nobody, and the preview counts 1 in `merged.vacancies`
+
+#### A placeholder never absorbs another placeholder (rule 2)
+- **Given** placeholders `P1` and `P4` on Maria's roster
+- **When** the merge targets `P4`'s user, or Maria picks `P4`
+- **Then** the merge is 403 and the pick is 404; both records are unchanged
 
 #### Soft references follow the merge (rule 5h)
 - **Given** Maria's `excludedPlayers.playerIds` = [`P1`] and a class request by `ana` inviting `P1`

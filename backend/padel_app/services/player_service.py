@@ -153,11 +153,16 @@ def possible_duplicates_for(coach, relations):
     claimable = [rel for rel in relations if rel.player is not None and _is_claimable_user(rel.player.user)]
     if not claimable or coach is None:
         return {}
+    from padel_app.models import Coach
+
+    # The picker's exclusions (rule 4b): an active student account, not a coach, not
+    # claimable — so a flag never points at someone the merge would refuse.
     rows = (
         db.session.query(Player.id, User)
         .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
         .join(User, Player.user_id == User.id)
-        .filter(Association_CoachPlayer.coach_id == coach.id, User.status != "disabled")
+        .outerjoin(Coach, Coach.user_id == User.id)
+        .filter(Association_CoachPlayer.coach_id == coach.id, User.status == "active", Coach.id.is_(None))
         .all()
     )
     by_name = {}

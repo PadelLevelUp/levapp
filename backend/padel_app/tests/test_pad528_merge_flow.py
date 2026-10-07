@@ -277,3 +277,151 @@ def test_the_edit_response_keeps_the_duplicate_flag(app, client, world):
         info = Player.query.get(dup).coach_player_info(world["coach"])
         assert info["possibleDuplicateOf"] == {"playerId": world["st_player"], "name": "Ana Silva"}
         assert Player.query.get(world["st_player"]).coach_player_info(world["coach"])["possibleDuplicateOf"] is None
+
+
+# ── #563 review: unique keys, refusals, one commit, flag exclusions ─────────
+
+def _merge_now(app, world):
+    from padel_app.models import Player, User
+    from padel_app.services.player_claim_service import merge_placeholder_player_into
+
+    with app.app_context():
+        merge_placeholder_player_into(Player.query.get(world["ph_player"]), User.query.get(world["st_user"]))
+
+
+def test_both_active_standing_entries_keep_the_students_active(app, client, world):
+    """uq_standing_entries_active_coach_player: both hold an active standing entry with
+    Maria. The merge used to 500; the student's stays active, the placeholder's moves inactive."""
+    from padel_app.models import StandingWaitingListEntry as S
+
+    with app.app_context():
+        for pid in (world["ph_player"], world["st_player"]):
+            db.session.add(S(coach_id=world["coach"], player_id=pid, credits_total=3,
+                             expires_at=datetime(2030, 1, 1), is_active=True))
+        db.session.commit()
+        mine = S.query.filter_by(player_id=world["st_player"]).one().id
+    req_id = _request(client, app, world)
+    preview = client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, world["st_user"]))
+    assert preview.status_code == 200 and preview.json["dropped"]["standing_waiting_list_entries"] == 1
+    assert client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, world["st_user"])).status_code == 200
+    with app.app_context():
+        rows = S.query.filter_by(player_id=world["st_player"]).all()
+        assert len(rows) == 2
+        assert [r.id for r in rows if r.is_active] == [mine]
+
+
+def test_both_open_vacancies_on_one_class_keep_both_spots(app, client, world):
+    """uq_vacancies_open_original_player: both left the same occurrence. The merge and the
+    dry run used to 500; both spots stay open, the placeholder's loses only its attribution."""
+    from padel_app.models import Vacancy
+
+    _, inst = _lesson_with_instance(app, world["club"], world["coach"])
+    with app.app_context():
+        for pid in (world["ph_player"], world["st_player"]):
+            db.session.add(Vacancy(lesson_instance_id=inst, coach_id=world["coach"], original_player_id=pid, status="open"))
+        db.session.commit()
+    req_id = _request(client, app, world)
+    preview = client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, world["st_user"]))
+    assert preview.status_code == 200 and preview.json["merged"]["vacancies"] == 1
+    assert client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, world["st_user"])).status_code == 200
+    with app.app_context():
+        opened = Vacancy.query.filter_by(lesson_instance_id=inst, status="open").all()
+        assert len(opened) == 2
+        assert sorted([v.original_player_id for v in opened], key=lambda x: x or 0) == [None, world["st_player"]]
+
+
+def test_push_subscription_and_device_token_collisions_keep_the_students(app, world):
+    from padel_app.models import DeviceToken, PushSubscription
+
+    with app.app_context():
+        for uid in (world["ph_user"], world["st_user"]):
+            db.session.add(PushSubscription(user_id=uid, subscription_json=f'{{"u": {uid}}}'))
+            db.session.add(DeviceToken(user_id=uid, token="same-device", platform="ios"))
+        db.session.commit()
+    _merge_now(app, world)
+    with app.app_context():
+        assert PushSubscription.query.count() == 1
+        assert PushSubscription.query.one().subscription_json == f'{{"u": {world["st_user"]}}}'
+        assert DeviceToken.query.filter_by(user_id=world["st_user"], token="same-device").count() == 1
+
+
+def test_every_unique_key_the_merge_touches_is_accounted_for(app):
+    """The guard B-361's FK guards missed: every unique constraint or index on a table the
+    merge writes is either handled or listed as impossible with a reason."""
+    from sqlalchemy import UniqueConstraint
+    from padel_app.services.player_claim_service import (
+        MERGE_UNIQUE_KEYS_HANDLED, MERGE_UNIQUE_KEYS_IMPOSSIBLE,
+        MERGED_PLAYER_FK_TABLES, MERGED_RELATION_FK_TABLES,
+    )
+    user_tables = {"conversation_participants", "conversations", "messages", "message_reactions",
+                   "message_reports", "calendar_blocks", "push_subscriptions", "device_tokens",
+                   "blocked_users", "notification_configs", "evaluation_shares"}
+    written = MERGED_PLAYER_FK_TABLES | MERGED_RELATION_FK_TABLES | user_tables
+    found = set()
+    with app.app_context():
+        for name in written:
+            table = db.metadata.tables[name]
+            for c in table.constraints:
+                if isinstance(c, UniqueConstraint):
+                    found.add(f"{name}.{c.name or '_'.join(col.name for col in c.columns)}")
+            for i in table.indexes:
+                if i.unique:
+                    found.add(f"{name}.{i.name}" if not (len(i.columns) == 1 and list(i.columns)[0].unique)
+                              else f"{name}.{list(i.columns)[0].name}")
+            for col in table.columns:
+                if col.unique:
+                    found.add(f"{name}.{col.name}")
+    known = set(MERGE_UNIQUE_KEYS_HANDLED) | set(MERGE_UNIQUE_KEYS_IMPOSSIBLE)
+    assert found - known == set(), f"unique keys the merge does not account for: {sorted(found - known)}"
+    assert known - found == set(), f"stale entries: {sorted(known - found)}"
+    assert all(MERGE_UNIQUE_KEYS_IMPOSSIBLE.values())
+
+
+def test_a_placeholder_cannot_be_merged_into_another_placeholder(app, client, world):
+    from padel_app.models import Player, User
+    from padel_app.services.player_claim_service import merge_placeholder_player_into
+    from werkzeug.exceptions import Forbidden
+
+    ou, other = _placeholder(app, world["coach"], world["club"], name="Other S.")
+    with app.app_context():
+        with pytest.raises(Forbidden):
+            merge_placeholder_player_into(Player.query.get(world["ph_player"]), User.query.get(ou))
+        assert Player.query.get(world["ph_player"]) is not None and Player.query.get(other) is not None
+    res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
+                      json={"targetPlayerId": other}, headers=_auth(app, world["coach_user"]))
+    assert res.status_code == 404
+
+
+def test_an_inactive_account_is_neither_a_candidate_nor_a_pick_nor_a_flag(app, client, world):
+    from padel_app.models import User
+
+    iu, inactive = _student(app, username="ana3", name="Ana S.")      # namesake of the placeholder
+    _relation(app, world["coach"], inactive)
+    with app.app_context():
+        User.query.get(iu).status = "inactive"            # has a password: not claimable, not active
+        db.session.commit()
+    cands = client.get(f"/api/app/player/{world['ph_player']}/claim-candidates", headers=_auth(app, world["coach_user"]))
+    assert inactive not in [c["playerId"] for c in cands.json]
+    res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
+                      json={"targetPlayerId": inactive}, headers=_auth(app, world["coach_user"]))
+    assert res.status_code == 404
+    rows = client.get("/api/app/coach_players", headers=_auth(app, world["coach_user"])).json
+    assert {r["name"]: r["possibleDuplicateOf"] for r in rows if r["playerId"] == world["ph_player"]} == {"Ana S.": None}
+
+
+def test_consent_off_is_one_commit_a_failed_merge_leaves_no_request(app, client, world, monkeypatch):
+    from padel_app.models import Player, PlayerClaimRequest, PlayerMerge
+    from padel_app.services import player_claim_service as svc
+
+    monkeypatch.setattr(svc, "claim_consent_required", lambda coach, placeholder, target: False)
+
+    def boom(*a, **k):
+        raise RuntimeError("merge failed")
+    monkeypatch.setattr(svc, "_repoint_soft_references", boom)
+    with pytest.raises(RuntimeError):
+        client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
+                    json={"targetPlayerId": world["st_player"]}, headers=_auth(app, world["coach_user"]))
+    with app.app_context():
+        assert PlayerClaimRequest.query.count() == 0
+        assert PlayerMerge.query.count() == 0
+        assert Player.query.get(world["ph_player"]) is not None
