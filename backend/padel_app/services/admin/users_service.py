@@ -85,6 +85,25 @@ def _score(user, needle):
     return best
 
 
+class BadCursor(UsersError):
+    code = "BAD_CURSOR"
+
+
+def _cursor(raw):
+    """The offset a `nextCursor` names; anything else is 400 (never a 500, never a negative slice).
+    It is an offset into a ranking recomputed per request: a sign-up between two pages can shift a
+    row, which a staff search tolerates."""
+    if raw in (None, ""):
+        return 0
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise BadCursor()
+    if value < 0:
+        raise BadCursor()
+    return value
+
+
 def search(q, cursor=None):
     """Rule 4. Matching runs on folded text in Python: accent-insensitive on both databases."""
     needle = _fold((q or "").strip())
@@ -96,7 +115,7 @@ def search(q, cursor=None):
         if score is not None:
             hits.append((score, -(user.created_at.timestamp() if user.created_at else 0), -user.id, user))
     hits.sort(key=lambda h: h[:3])
-    start = int(cursor or 0)
+    start = _cursor(cursor)
     page = [h[3] for h in hits[start:start + PAGE_SIZE]]
     next_cursor = str(start + PAGE_SIZE) if len(hits) > start + PAGE_SIZE else None
     return [row(u) for u in page], next_cursor
@@ -136,8 +155,11 @@ def view(user_id):
     body["isSuperadmin"] = bool(user.is_superadmin)
     role = AdminRole.query.filter(db.func.lower(AdminRole.email) == (user.email or "").lower()).first() if user.email else None
     body["adminRole"] = role.to_dict() if role is not None else None
+    targets = [db.and_(AdminAuditLog.target_type == "user", AdminAuditLog.target_id == str(user.id))]
+    if coach is not None:  # approvals are targeted at the coach (rule 2): they are this user's rows too
+        targets.append(db.and_(AdminAuditLog.target_type == "coach", AdminAuditLog.target_id == str(coach.id)))
     audit = (
-        AdminAuditLog.query.filter_by(target_type="user", target_id=str(user.id))
+        AdminAuditLog.query.filter(db.or_(*targets))
         .order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
         .limit(20)
         .all()
@@ -170,8 +192,11 @@ def enable(user_id):
     """Rule 6: never changes a coach's approval_status (a rejected coach is re-approved, not enabled)."""
     user = _user(user_id)
     before = {"status": user.status}
-    user.status = "active"
-    db.session.flush()
+    # Rule 6 undoes a disable, nothing else: an `inactive` account (coach-created, not yet
+    # activated by its owner) stays inactive. Idempotent either way.
+    if user.status == "disabled":
+        user.status = "active"
+        db.session.flush()
     _audit(user, before, {"status": user.status})
     return user
 
@@ -183,7 +208,7 @@ def resend_verification(user_id):
     user = _user(user_id)
     g.audit.target("user", user.id)
     try:
-        body = send_code(user, commit=False)
+        body = send_code(user, defer=g.audit.defer)
     except EmailVerificationError as exc:
         err = UsersError()
         err.status, err.code = exc.status, exc.payload().get("error", "VERIFICATION_ERROR")

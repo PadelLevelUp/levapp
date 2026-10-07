@@ -188,3 +188,9 @@ def test_the_pending_coach_alert_points_at_the_console(app, captured):
     admin_mail = [body for subject, to, body in captured["mail"] if to == ["admin@levapp.app"]]
     assert len(admin_mail) == 1 and "https://admin.staging.levapp.app/approvals" in admin_mail[0]
     assert "Settings → Admin" not in admin_mail[0]
+    # The alert mail each recipient gets carries the same console link, absolute, not glued to the
+    # product origin (review finding 1: "https://staging.levapp.apphttps://admin…").
+    alert_mail = [body for subject, to, body in captured["mail"] if to == ["own@levapp.app"]]
+    assert len(alert_mail) == 1
+    assert ": https://admin.staging.levapp.app/approvals" in alert_mail[0]
+    assert "apphttps" not in alert_mail[0]

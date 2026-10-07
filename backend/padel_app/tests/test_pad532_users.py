@@ -125,6 +125,62 @@ def test_resend_verification_follows_the_product_limits(app, client, op, monkeyp
     assert client.post(f"/admin/api/users/{noemail}/resend-verification", headers=bearer(op)).get_json()["error"] == "NO_EMAIL"
 
 
+def test_a_bad_cursor_is_400_not_500(app, client, sup):
+    make_user(app, "pager01", "pager01@example.com")
+    for cursor in ("abc", "-5"):
+        r = client.get(f"/admin/api/users?q=pager&cursor={cursor}", headers=bearer(sup))
+        assert r.status_code == 400 and r.get_json() == {"error": "BAD_CURSOR"}, cursor
+
+
+def test_enable_only_undoes_a_disable(app, client, op):
+    from padel_app.models import User
+
+    invited = make_user(app, "invited", "invited@example.com", status="inactive")
+    r = client.post(f"/admin/api/users/{invited}/enable", headers=bearer(op))
+    assert r.status_code == 200
+    with app.app_context():
+        assert User.query.get(invited).status == "inactive"
+
+
+def test_resend_mails_only_after_the_audit_commit(app, client, op, monkeypatch):
+    from padel_app.models import User
+    from padel_app.services.admin import audit_service
+    from padel_app.tools import email_tools
+
+    sent = []
+    monkeypatch.setattr(email_tools, "send_email", lambda subject, recipients, body=None, html=None: sent.append(recipients))
+    real = audit_service.record
+
+    def refuse(ctx, outcome, request_id):
+        if outcome == "ok":
+            raise RuntimeError("audit insert refused")
+        return real(ctx, outcome, request_id)
+
+    monkeypatch.setattr(audit_service, "record", refuse)
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+    rita = make_user(app, "rita", "rita@example.com")
+    assert client.post(f"/admin/api/users/{rita}/resend-verification", headers=bearer(op)).status_code == 500
+    assert sent == []
+    with app.app_context():
+        assert User.query.get(rita).email_verification_sent_at is None
+
+
+def test_a_coach_view_lists_its_approval_rows(app, client, op, monkeypatch):
+    from padel_app.models import Coach
+    from padel_app.tools import email_tools
+
+    monkeypatch.setattr(email_tools, "send_email", lambda *a, **k: None)
+    rui = make_user(app, "rui", "rui@example.com")
+    with app.app_context():
+        coach = Coach(user_id=rui, approval_status="pending")
+        db.session.add(coach)
+        db.session.commit()
+        coach_id = coach.id
+    client.post(f"/admin/api/coach-approvals/{coach_id}/approve", headers=bearer(op))
+    body = client.get(f"/admin/api/users/{rui}", headers=bearer(op)).get_json()
+    assert "coach.approve" in [a["action"] for a in body["audit"]]
+
+
 def test_support_reads_but_cannot_change_users(app, client, sup):
     pedro = make_user(app, "pedro", "pedro@example.com")
     for path in ("disable", "enable", "resend-verification"):

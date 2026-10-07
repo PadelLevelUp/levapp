@@ -187,10 +187,10 @@ def notify_admin_of_pending_coach(coach):
     user = coach.user
     try:
         from padel_app.services.request_alert_service import (
-            notify_request_event, superadmin_users,
+            notify_request_event, pending_coach_recipients,
         )
         notify_request_event(
-            "coach_approval.received", superadmin_users(),
+            "coach_approval.received", pending_coach_recipients(),
             actor=user.name if user else "",
         )
     except Exception as exc:  # noqa: BLE001 — never fail the signup

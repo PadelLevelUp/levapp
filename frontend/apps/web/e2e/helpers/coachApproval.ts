@@ -35,7 +35,7 @@ function psql(sql: string, vars: Record<string, string>): string {
 /** What the staff console's approve does to the row (approved_by stays null). */
 export function approveCoachInDb(username: string): void {
   const out = psql(
-    `UPDATE coaches SET approval_status = 'approved', approved_at = now(), rejection_reason = NULL
+    `UPDATE coaches SET approval_status = 'approved', approved_at = (now() AT TIME ZONE 'utc'), rejection_reason = NULL
        FROM users WHERE coaches.user_id = users.id AND users.username = :'u' RETURNING coaches.id;`,
     { u: username },
   );
@@ -45,8 +45,12 @@ export function approveCoachInDb(username: string): void {
 /** What the staff console's reject does to the row. */
 export function rejectCoachInDb(username: string, reason: string): void {
   const out = psql(
-    `UPDATE coaches SET approval_status = 'rejected', rejection_reason = :'r'
-       FROM users WHERE coaches.user_id = users.id AND users.username = :'u' RETURNING coaches.id;`,
+    // The product's reject also disables the login (auth.coach-approval rule 10): same state here.
+    `WITH c AS (
+       UPDATE coaches SET approval_status = 'rejected', rejection_reason = :'r'
+         FROM users WHERE coaches.user_id = users.id AND users.username = :'u' RETURNING coaches.id, coaches.user_id
+     )
+     UPDATE users SET status = 'disabled' FROM c WHERE users.id = c.user_id RETURNING c.id;`,
     { u: username, r: reason },
   );
   if (!out) throw new Error(`rejectCoachInDb: no coach for username ${username}`);

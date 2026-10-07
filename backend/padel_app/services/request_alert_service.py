@@ -170,7 +170,7 @@ def destination(kind: str) -> str:
     return path
 
 
-def superadmin_users():
+def pending_coach_recipients():
     """Who hears about a pending coach (decision 2026-10-07, PAD-532): every active owner or
     operator console role with a linked product account, plus — during the transition, until the
     console is live — the users still flagged ``is_superadmin``. Support never does."""

@@ -8,11 +8,12 @@ import { adminApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Badge, Button, Select } from "./ui";
+import { APPROVALS_KEY } from "@/pages/ApprovalsPage";
 
 export function Shell() {
   const { t, i18n } = useTranslation();
   const { session, signOut } = useAuth();
-  const pending = useQuery({ queryKey: ["admin", "coach-approvals"], queryFn: adminApi.coachApprovals, enabled: !!session });
+  const pending = useQuery({ queryKey: APPROVALS_KEY, queryFn: adminApi.coachApprovals, enabled: !!session });
   const pendingCount = pending.data?.items.length ?? 0;
   const items = [
     { to: "/", icon: Home, label: t("admin.shell.nav.home"), end: true },

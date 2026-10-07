@@ -189,7 +189,8 @@ with app.app_context(), unit_of_work():
         username="e2e-coach-rejected",
         email="e2e-coach-rejected@test.com",
         password=generate_password_hash("E2eCoach123!"),
-        status="active",
+        # A rejection disables the login (auth.coach-approval rule 10); login still says why.
+        status="disabled",
         language="en",
     )
     db.session.add(rejected_coach_user)

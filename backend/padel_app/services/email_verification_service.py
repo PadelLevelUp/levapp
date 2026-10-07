@@ -101,9 +101,13 @@ def _deliver(user, code):
     send_email(subject, [user.email], body=text, html=html)
 
 
-def send_code(user, now=None, *, commit=True):
-    """Rule 4: issue a fresh code and mail it. Commits (unless ``commit=False``: the staff
-    console commits it with its audit row, PAD-532). Returns the 200 body."""
+def send_code(user, now=None, *, commit=True, defer=None):
+    """Rule 4: issue a fresh code and mail it. Commits. Returns the 200 body.
+
+    ``defer`` (the staff console, PAD-532): the code is flushed, not committed, so it commits with
+    the console's audit row, and the mail goes out after that commit (admin.foundation rule 8). A
+    mail that then fails clears the code again, in its own commit.
+    """
     now = now or utcnow_naive()
     if user.email_verified_at is not None:
         raise EmailVerificationError("ALREADY_VERIFIED", 409)
@@ -116,6 +120,15 @@ def send_code(user, now=None, *, commit=True):
 
     user.email_verification_required = True
     code = _issue(user, now)
+    if defer is not None:
+        db.session.flush()
+        user_id = user.id
+        defer(lambda: _deliver_after_commit(user_id, code))
+        return {
+            "email": user.email,
+            "expiresInSeconds": int(CODE_TTL.total_seconds()),
+            "resendAvailableInSeconds": int(RESEND_COOLDOWN.total_seconds()),
+        }
     try:
         _deliver(user, code)
     except Exception as exc:  # noqa: BLE001 — surface as 503, never 500
@@ -132,6 +145,22 @@ def send_code(user, now=None, *, commit=True):
         "expiresInSeconds": int(CODE_TTL.total_seconds()),
         "resendAvailableInSeconds": int(RESEND_COOLDOWN.total_seconds()),
     }
+
+
+def _deliver_after_commit(user_id, code):
+    """The console's resend, after its commit: mail the code, or clear it if the mail fails."""
+    from padel_app.models import User
+
+    user = User.query.get(user_id)
+    if user is None:
+        return
+    try:
+        _deliver(user, code)
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning("verification mail to user %s failed: %s", user.id, type(exc).__name__)
+        _clear_code(user)
+        user.email_verification_sent_at = None
+        db.session.commit()
 
 
 def forget_verification(user):
