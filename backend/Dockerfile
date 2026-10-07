@@ -28,6 +28,12 @@ COPY --from=builder /install /usr/local
 
 COPY . .
 
+# PAD-534 (admin.engine-health rule 4): the commit this image was built from, read by the admin
+# API's deploy identity. Declared after the code copy so it never invalidates a cached layer.
+# A build without the argument (local runs) answers "unknown".
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=app.py
 
