@@ -71,7 +71,10 @@
         "ready": "Prontas a confirmar ({{count}})"
       },
       "triggerEmpty": "Nada por validar",
-      "needsDecision": "Precisa de decisão"
+      "needsDecision": "Precisa de decisão",
+      "presentCount_one": "{{count}} presente",
+      "presentCount_other": "{{count}} presentes",
+      "presentCountNone": "0 presentes"
     },
     "column": {
       "name": "Jogador",
