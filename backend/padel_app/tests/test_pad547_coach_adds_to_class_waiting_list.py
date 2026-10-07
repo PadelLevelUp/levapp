@@ -276,3 +276,33 @@ def test_an_accepted_join_request_never_spends_another_series_entry(app, monkeyp
         used = {e.id: e.credits_used for e in StandingWaitingListEntry.query.all()}
     assert used[other_series] == 0, used
     assert used[coach_wide] == 1, used
+
+
+# ── rule 19: the scoped unique index, by behaviour (flask db check skips expression indexes) ──
+
+def test_one_active_standing_entry_per_coach_player_and_scope(app):
+    from datetime import datetime
+
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+
+    ids = _setup(app)
+    a = _add_class(app, ids, days=3, title="Series A", recurring=True)
+    b = _add_class(app, ids, days=4, title="Series B", recurring=True)
+    pid = _student(app, ids, "carla")
+
+    def entry(lesson_id):
+        return StandingWaitingListEntry(
+            coach_id=ids["coach_id"], player_id=pid, lesson_id=lesson_id, credits_total=3,
+            credits_used=0, expires_at=datetime.utcnow() + timedelta(days=30), is_active=True,
+        )
+
+    with app.app_context():
+        db.session.add_all([entry(None), entry(a["lesson_id"]), entry(b["lesson_id"])])
+        db.session.commit()  # coach-wide + two different series coexist
+        for lesson_id in (None, a["lesson_id"]):
+            db.session.add(entry(lesson_id))
+            with pytest.raises(IntegrityError):
+                db.session.commit()  # a second active entry in the same scope is refused
+            db.session.rollback()
