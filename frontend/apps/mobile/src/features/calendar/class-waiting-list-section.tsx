@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   DEFAULT_STANDING_PRESET,
   STANDING_PRESETS,
+  isStandingEndAllowed,
   describeIneligible,
   lightTheme,
   resolveText,
@@ -22,10 +23,14 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Button } from "@/components/ui/button";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useCoachPlayers } from "@/features/players/hooks";
+
+/** B-295: the date picker's own dialog renders inside this dialog's overlay, above it. */
+const DIALOG_PORTAL_HOST = "class-waiting-list-dialog-host";
 
 interface Props {
   event: { model: string; originalId: string | number; date?: string | null };
@@ -166,9 +171,10 @@ function AddDialog({
     return map;
   }, [ineligible, t]);
   const preset = standingPresetOf(expiresOn, today);
+  const endValid = scope === "occurrence" || isStandingEndAllowed(expiresOn, today);
 
   const confirm = async () => {
-    if (!playerId) return;
+    if (!playerId || !endValid) return;
     setSaving(true);
     try {
       const result = await notificationEngineApi.addToClassWaitingList({
@@ -190,7 +196,7 @@ function AddDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !saving) onClose(); }}>
-      <DialogContent testID="class-waiting-list-dialog">
+      <DialogContent testID="class-waiting-list-dialog" innerPortalHost={DIALOG_PORTAL_HOST}>
         <DialogHeader>
           <DialogTitle>{t("calendar.detail.waitingListAdd")}</DialogTitle>
         </DialogHeader>
@@ -259,6 +265,14 @@ function AddDialog({
                   </Pressable>
                 ))}
               </View>
+              {/* Any date today through 12 months ahead, as the standing-list dialog (PAD-507). */}
+              <DatePickerInput
+                testID="class-waiting-list-end-date"
+                value={expiresOn}
+                onChange={setExpiresOn}
+                portalHost={DIALOG_PORTAL_HOST}
+                error={endValid ? undefined : t("players.endDateInvalid")}
+              />
               <Text className="text-sm font-medium">{t("players.maxClassesToFill")}</Text>
               <View className="flex-row items-center gap-3">
                 <Button size="sm" variant="outline" testID="class-waiting-list-credits-minus" onPress={() => setCredits((c) => Math.max(1, c - 1))}>
@@ -276,7 +290,7 @@ function AddDialog({
           <Button variant="outline" onPress={onClose} disabled={saving}>
             <Text>{t("common.cancel")}</Text>
           </Button>
-          <Button testID="class-waiting-list-confirm" onPress={() => void confirm()} disabled={saving || !playerId}>
+          <Button testID="class-waiting-list-confirm" onPress={() => void confirm()} disabled={saving || !playerId || !endValid}>
             <Text>{t("calendar.detail.waitingListAdd")}</Text>
           </Button>
         </DialogFooter>
