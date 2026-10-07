@@ -215,3 +215,12 @@ def test_the_console_sends_its_security_headers_on_every_location():
     dockerfile = (ROOT / "frontend/Dockerfile.admin").read_text()
     assert "apps/admin/security-headers.conf /etc/nginx/snippets/security-headers.conf" in dockerfile
     assert "FROM node:22-alpine" in dockerfile
+
+
+def test_a_non_staff_owner_row_never_counts_as_the_last_owner(app, client):
+    """A staging database whose prod sync failed may keep an old seeded owner row for a
+    non-@levapp.app email. It can never sign in, so it must not let the last real owner go."""
+    boss = make_role(app, "boss@levapp.app", "owner")
+    make_role(app, "old@gmail.com", "owner")
+    r = client.delete(f"/admin/api/roles/{boss}", headers=bearer(admin_token(app, boss)))
+    assert r.status_code == 409 and r.get_json() == {"error": "LAST_OWNER"}
