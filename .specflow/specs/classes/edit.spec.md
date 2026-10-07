@@ -62,7 +62,56 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    rule 7d). An edit that changes only the participants is an edit, never dropped as "no changes".
    The picker applies no cap at `maxPlayers`; it shows the count.
 
+10. **Leaving a class ends its edit; leaving with unsaved changes asks first (PAD-525, B-341; rule
+   number unconfirmed).** Edit mode and its draft belong to ONE class on ONE opening of its
+   panel (web `ClassDetailSheet`, iOS `app/class/[id]`). They never outlive it: closing the web
+   sheet (its X, Escape, a click outside) or opening another class in it, and leaving the iOS
+   screen (its back button, a swipe back, a navigation that replaces it) or arriving at another
+   class on it, all end edit mode and drop the draft, so the next class opens in view mode showing
+   its own values. Before PAD-525 the web sheet stayed mounted across a close with `isEditing` and
+   the old draft intact, and the next class rendered over the previous class's edits.
+   - **Unsaved means different from the loaded class, by value** (`settings.unsaved-edits`
+     rule 2): the fields of `EDITABLE_FIELDS` plus the participant diff — the same comparison the
+     save makes (`diffInstance`/`diffParticipants` on web, `hasClassEditChanges` on iOS). An edit
+     undone by hand is clean. The explicit Cancel button never asks: cancelling is the answer.
+   - **With unsaved changes, leaving asks** "Descartar alterações?" / "Discard changes?", a
+     sentence saying this class's changes are not saved, and two actions: **Descartar** /
+     Discard (leave; the draft is dropped, nothing is sent) and **Continuar a editar** / Keep
+     editing (stay; the panel stays open on the same class, every edit where it was). Copy
+     `classDetail.unsavedChanges.*`, pt and en, both shells; the dialog and its actions carry the
+     test ids `class-unsaved-dialog`, `class-unsaved-discard`, `class-unsaved-keep`.
+   - **There is no Save in the prompt**, although the report asked for "guardar ou sair sem
+     guardar". A save has its own sequence — the scope choice for a recurring class (rule 3), the
+     overlap warning (PAD-159), the eligibility warning on added students
+     (rule 9) — and a Save in a leave prompt would either skip those or nest them. The coach
+     keeps editing and presses Save. Decided by the coordinator for the owner, 2026-10-07.
+   - **With nothing unsaved, leaving asks nothing**, exactly as before.
+   - **iOS:** while a draft is unsaved, swipe-back is off and the screen's own back button asks;
+     any other removal is held by `usePreventRemove` and runs once Discard is chosen
+     (`settings.unsaved-edits` rule 3's mechanism).
+   - **Web limit, named:** the browser's Back/Forward and a programmatic `navigate()` do not ask
+     (`settings.unsaved-edits` rule 6); the page unmounts and the draft goes with it.
+
 ### Acceptance Criteria
+
+#### An edit never follows the coach to another class (rule 10, PAD-525)
+- **Given** classes "A" and "B" on the same day, and the coach editing "A" in the web sheet with
+  its name changed to "A changed"
+- **When** they close the sheet and choose **Descartar**, then open "B"
+- **Then** "B" opens in view mode, titled "B"; the Edit button is offered and no Save button is
+
+#### Leaving with an unsaved change asks; Keep editing keeps everything (rule 10)
+- **Given** the coach editing "A" with its name changed
+- **When** they press Escape (web) or the back button (iOS)
+- **Then** "Descartar alterações?" opens and the panel stays on "A"; **Continuar a editar**
+  closes the question, and the name field still reads "A changed"
+- **When** they leave again and choose **Descartar**
+- **Then** the panel is gone, and "A" still has its saved name on the server
+
+#### Nothing unsaved, nothing asked (rule 10)
+- **Given** the coach pressed Edit on "A" and changed nothing, or changed the name and typed it back
+- **When** they close the sheet or go back
+- **Then** no question appears, the panel closes, and reopening "A" shows view mode
 
 #### The coach adds and removes students in an edit (rule 9, PAD-474)
 - **Given** a class with Ana

@@ -38,7 +38,8 @@ import type {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
-import { router, useLocalSearchParams } from "expo-router";
+import { CommonActions, usePreventRemove, useNavigation } from "@react-navigation/native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
@@ -48,6 +49,7 @@ import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -263,6 +265,42 @@ export default function ClassDetailScreen() {
   const { data: coachPlayers, isLoading: coachPlayersLoading } = useCoachPlayers({ enabled: isCoach && isEditing });
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
+  // classes.edit rule 10: leaving with an unsaved draft — different from the loaded class by
+  // value, the save's own comparison — asks "Descartar alterações?" first. While a draft is
+  // unsaved, swipe-back is off and the screen's own back button asks (settings.unsaved-edits
+  // rule 3's mechanism: a native back usePreventRemove has stopped once never reaches JS
+  // again); any other removal is held by usePreventRemove and runs once Discard is chosen.
+  // There is no Save in the question: a save has its own sequence (scope, overlap, eligibility).
+  const [discardAskOpen, setDiscardAskOpen] = React.useState(false);
+  // classes.edit rule 10 (PAD-525, B-341): an edit belongs to ONE class on ONE opening of this
+  // screen. Arriving at another class on it (new params) ends edit mode and drops the draft.
+  React.useEffect(() => {
+    setIsEditing(false);
+    setDraft(null);
+    setDiscardAskOpen(false);
+  }, [event?.id]);
+  const navigation = useNavigation();
+  const [pendingLeave, setPendingLeave] = React.useState<Parameters<typeof navigation.dispatch>[0] | null>(null);
+  const hasUnsavedEdit = isEditing && draft !== null && instance != null && hasClassEditChanges(instance, draft);
+  usePreventRemove(hasUnsavedEdit, ({ data }) => {
+    setPendingLeave(data.action);
+    setDiscardAskOpen(true);
+  });
+  const [leaveAfterDiscard, setLeaveAfterDiscard] = React.useState<typeof pendingLeave>(null);
+  React.useEffect(() => {
+    if (leaveAfterDiscard && !hasUnsavedEdit) {
+      setLeaveAfterDiscard(null);
+      navigation.dispatch(leaveAfterDiscard);
+    }
+  }, [leaveAfterDiscard, hasUnsavedEdit, navigation]);
+  const requestBack = () => {
+    if (hasUnsavedEdit) {
+      setPendingLeave(CommonActions.goBack());
+      setDiscardAskOpen(true);
+      return;
+    }
+    router.back();
+  };
 
   // PAD-159: the day's other events, for the overlap check on a timing edit.
   // Keyed off the DRAFT's date so moving the class to another day checks the
@@ -884,13 +922,14 @@ export default function ClassDetailScreen() {
 
   return (
     <Screen edges={["top"]} testID="class-detail">
+      <Stack.Screen options={{ gestureEnabled: !hasUnsavedEdit }} />
       {/* Header */}
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
           testID="class-detail-back"
           accessibilityLabel={t("common.back")}
           role="button"
-          onPress={() => router.back()}
+          onPress={requestBack}
           className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
         >
           <Ionicons name="chevron-back" size={22} color={lightTheme.foreground} />
@@ -1805,6 +1844,44 @@ export default function ClassDetailScreen() {
           onSent={() => setInvitationsOpen(true)}
         />
       ) : null}
+
+      {/* classes.edit rule 10 (PAD-525, B-341): "Descartar alterações?" — Discard (leave; the draft is
+          dropped, nothing is sent) or Keep editing (stay, every edit where it was). */}
+      <AlertDialog
+        open={discardAskOpen}
+        onOpenChange={(open) => {
+          setDiscardAskOpen(open);
+          if (!open) setPendingLeave(null);
+        }}
+      >
+        <AlertDialogContent testID="class-unsaved-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("classDetail.unsavedChanges.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("classDetail.unsavedChanges.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel testID="class-unsaved-keep" accessibilityLabel={t("classDetail.unsavedChanges.keepEditing")}>
+              <Text>{t("classDetail.unsavedChanges.keepEditing")}</Text>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              testID="class-unsaved-discard"
+              accessibilityLabel={t("classDetail.unsavedChanges.discard")}
+              className="bg-destructive"
+              onPress={() => {
+                setDiscardAskOpen(false);
+                setIsEditing(false);
+                setDraft(null);
+                // The stack action runs once the draft is gone — before that, usePreventRemove
+                // would stop it again.
+                setLeaveAfterDiscard(pendingLeave);
+                setPendingLeave(null);
+              }}
+            >
+              <Text>{t("classDetail.unsavedChanges.discard")}</Text>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation (scope choice for recurring classes) */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
