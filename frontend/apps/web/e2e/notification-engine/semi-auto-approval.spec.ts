@@ -360,9 +360,10 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
     approveNowBtn.first(),
     "approval card must offer a 'Yes, right now' action"
   ).toBeVisible({ timeout: 5000 });
+  // PAD-545 (rule 8): on the class, the card's way out is "Ignore" (in the conversation there is none).
   await expect(
-    page.getByRole("button", { name: /^no$/i }).first(),
-    "approval card must offer a 'No' action"
+    page.getByTestId("dismiss-invitations").first(),
+    "the class's approval card must offer 'Ignore'"
   ).toBeVisible();
 
   // No invitation may have been sent yet (no NEW invites beyond the baseline)
@@ -482,8 +483,6 @@ test("US-NSA-02: 'Ignore' on the class dismisses the prompt, sends nothing, the 
     page.getByText("E2E Student Two").first(),
     "the persisted prompt must include the ordered invite queue"
   ).toBeVisible();
-  // PAD-545 (rule 8): the conversation offers the send buttons only.
-  await expect(page.getByTestId("dismiss-invitations")).toHaveCount(0);
 
   // ── Step 6: back on the class, the ignored state survived; recompute asks again ─
   await openClassDetail(page, APPROVAL_CLASS_TITLE_B);
@@ -497,4 +496,16 @@ test("US-NSA-02: 'Ignore' on the class dismisses the prompt, sends nothing, the 
     await countInviteMessages(request, student2Token),
     "recomputing the suggestions must not send any invitations"
   ).toBe(inviteBaseline);
+
+
+  // ── Step 7: the recompute's NEW message in the Assistant conversation is unanswered and offers
+  // the send buttons only (PAD-545, rule 8). Checked on this message because the first one was
+  // already answered by the Ignore, so it shows a badge and no buttons at all.
+  await page.keyboard.press("Escape");
+  await openMessages(page);
+  await page.getByTestId("conversation-assistant").first().click();
+  const cards = page.getByTestId("replacement-approval-card");
+  await expect(cards.last()).toBeVisible({ timeout: 10_000 });
+  await expect(cards.last().getByTestId("approve-invitations-now")).toBeVisible();
+  await expect(cards.last().getByTestId("dismiss-invitations")).toHaveCount(0);
 });
