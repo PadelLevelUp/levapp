@@ -7,6 +7,7 @@ import {
   prefillMark,
   toMark,
   undecidedCount,
+  presentCount,
   presenceMarkTone,
   validationGroup,
 } from "./presence-status";
@@ -127,3 +128,26 @@ describe("presenceMarkTone (PAD-441)", () => {
     expect(presenceMarkTone("unjustified")).toBe("negative");
   });
 });
+
+describe("presentCount (PAD-538, attendance.validation rule 27)", () => {
+  const players = [
+    player({ playerId: 1, response: "confirmed" }), // prefill: present
+    player({ playerId: 2, response: "declined" }), // prefill: justified
+    player({ playerId: 3, status: "present", validated: true }), // stored: present
+    player({ playerId: 4 }), // undecided
+  ];
+
+  it("counts the rows the coach would see marked present", () => {
+    expect(presentCount(players, {})).toBe(2);
+  });
+
+  it("follows the coach's local marks, both ways", () => {
+    expect(presentCount(players, { 4: "present" })).toBe(3);
+    expect(presentCount(players, { 1: "unjustified" })).toBe(1);
+  });
+
+  it("is 0 for a class with nobody present", () => {
+    expect(presentCount([player({ response: "declined" })], {})).toBe(0);
+  });
+});
+

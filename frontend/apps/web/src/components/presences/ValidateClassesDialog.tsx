@@ -39,6 +39,7 @@ import {
   effectiveMark,
   fromMark,
   undecidedCount,
+  presentCount,
   validationGroup,
   type PresenceMark,
 } from "@levelup/config";
@@ -425,6 +426,7 @@ export function ValidateClassesDialog({
                       <span className="flex min-w-0 items-center gap-2 text-sm">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
                         <span className="truncate">{klass.title}</span>
+                        <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
                       </span>
                       <span className="flex shrink-0 gap-1">
                         <Button
@@ -561,6 +563,21 @@ function ClassList({
   );
 }
 
+/**
+ * PAD-538 (attendance.validation rule 27): how many the class has as present right now — the
+ * marks the rows show, local edits included. A single number, beside the class's time and title.
+ * Its own string for 0: pt's CLDR "one" covers 0, so a counted string reads "0 presente" (rule 14).
+ */
+function PresentCount({ players, edits }: { players: PendingValidationClass["players"]; edits: Record<number, PresenceMark> }) {
+  const { t } = useTranslation();
+  const count = presentCount(players, edits);
+  return (
+    <span data-testid="presences-class-present-count" data-count={count} className="shrink-0 text-xs font-medium text-success-strong">
+      {count === 0 ? t("presences.validate.presentCountNone") : t("presences.validate.presentCount", { count })}
+    </span>
+  );
+}
+
 function ClassCard({
   klass,
   selected,
@@ -614,8 +631,11 @@ function ClassCard({
           aria-label={t("presences.validate.selectClass", { name: klass.title })}
         />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">
-            {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="block truncate text-sm font-medium">
+              {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
+            </span>
+            <PresentCount players={klass.players} edits={edits} />
           </span>
           <span className="block text-xs text-muted-foreground">
             {klass.type ? t(`presences.type.${klass.type}`) : null}
@@ -764,6 +784,7 @@ function ClassDetail({
           <span className="truncate">
             {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} · {klass.title}
           </span>
+          <PresentCount players={klass.players} edits={edits} />
         </DialogTitle>
         <DialogDescription>
           {klass.type ? t(`presences.type.${klass.type}`) : null}
