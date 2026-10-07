@@ -107,3 +107,66 @@ def test_the_instance_path_still_reaches_the_current_occurrence(app):
     assert status == 201, result
     with app.app_context():
         assert bruno in _presences(instance_id)
+
+
+# ── #564 review: what a series edit must NOT do to the occurrences it walks ──
+
+
+def test_a_series_removal_keeps_a_validated_presence(app):
+    """The coach's validated record on an occurrence is theirs to change on the attendance
+    sheet; a "this and future" removal does not delete it."""
+    from padel_app.models import Presence
+
+    ana, bruno, lesson_id, day = _setup(app)
+    instance_id = _materialise(app, lesson_id, day)
+    with app.app_context():
+        row = Presence.query.filter_by(player_id=ana, lesson_instance_id=instance_id).one()
+        row.status = "present"
+        row.validated = True
+        db.session.commit()
+    result, status = _edit(app, "Lesson", lesson_id, day, "future", {"removePlayers": [ana]})
+    assert status == 201, result
+    with app.app_context():
+        assert ana not in _roster(lesson_id)
+        kept = Presence.query.filter_by(player_id=ana, lesson_instance_id=instance_id).one_or_none()
+        assert kept is not None and kept.validated and kept.status == "present"
+
+
+def test_a_series_edit_leaves_an_ended_occurrence_alone(app):
+    ana, bruno, lesson_id, day = _setup(app)
+    first = _materialise(app, lesson_id, day)
+    later = _materialise(app, lesson_id, day + timedelta(weeks=1))
+    after_first = datetime.combine(day, datetime.min.time()) + timedelta(days=1)
+    with patch("padel_app.utils.dates.club_now_naive", return_value=after_first):
+        result, status = _edit(app, "Lesson", lesson_id, day, "future", {"addPlayers": [bruno]})
+    assert status == 201, result
+    with app.app_context():
+        assert bruno not in _presences(first), "an ended occurrence is a record"
+        assert bruno in _presences(later)
+
+
+def test_a_series_edit_leaves_a_canceled_occurrence_alone(app):
+    from padel_app.models import LessonInstance
+
+    ana, bruno, lesson_id, day = _setup(app)
+    canceled = _materialise(app, lesson_id, day)
+    with app.app_context():
+        db.session.get(LessonInstance, canceled).status = "canceled"
+        db.session.commit()
+    result, status = _edit(app, "Lesson", lesson_id, day, "future", {"addPlayers": [bruno]})
+    assert status == 201, result
+    with app.app_context():
+        assert bruno not in _presences(canceled)
+
+
+def test_a_series_add_tells_the_student_once(app):
+    """PAD-330: added to the series, told once — not once more per materialised occurrence."""
+    from padel_app.tests.test_pad330_the_student_is_told import _added_messages
+
+    ana, bruno, lesson_id, day = _setup(app)
+    _materialise(app, lesson_id, day)
+    _materialise(app, lesson_id, day + timedelta(weeks=1))
+    before = len(_added_messages(app))
+    result, status = _edit(app, "Lesson", lesson_id, day, "future", {"addPlayers": [bruno]})
+    assert status == 201, result
+    assert len(_added_messages(app)) - before == 1

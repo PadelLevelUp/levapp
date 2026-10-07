@@ -623,7 +623,11 @@ def _court_override(data, lesson):
     return court if court != (lesson.court_id if lesson is not None else None) else None
 
 
-def edit_lesson_instance_helper(data, lesson_instance=None):
+def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
+    """Edit one occurrence. ``series=True`` (PAD-515 review, classes.edit rule 9): the edit is a
+    series edit reaching an occurrence already materialised, not the coach's hand on this one —
+    an added student is enrolled as ``roster`` (told once by the series add, not once per
+    occurrence), and a removal leaves a presence the coach has validated where it is."""
     if not lesson_instance and not data.get("lesson_instance_id"):
         raise ValueError("Need lesson_instance or lesson_instance_id")
 
@@ -679,9 +683,15 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
     # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
-        enrol(player_id, lesson_instance, "coach")
+        enrol(player_id, lesson_instance, "roster" if series else "coach")
 
     for player_id in data.get("remove_player_ids", []):
+        if series:
+            kept = Presence.query.filter_by(
+                player_id=int(player_id), lesson_instance_id=lesson_instance.id, validated=True
+            ).first()
+            if kept is not None:
+                continue  # the coach's validated record is theirs to change, on the attendance sheet
         unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
@@ -1314,18 +1324,27 @@ def _apply_future_edit_to_lesson(*, lesson, event_date, new_date, payload):
 
 
 def _edit_future_instances_for_lesson(*, lesson, from_date, payload):
+    """A "this and future" edit reaching the occurrences already materialised from the boundary
+    (classes.edit rule 9; PAD-515). Occurrences that have ended or were canceled are left as they
+    were: an ended one is a record (its attendance is the coach's), a canceled one has nobody to
+    seat. The rest are edited as part of the series (``series=True``)."""
+    from padel_app.utils.dates import club_now_naive
+
     from_dt = datetime.combine(from_date, time.min)
+    now = club_now_naive()
     instances = (
         LessonInstance.query
         .filter(LessonInstance.lesson_id == lesson.id)
         .filter(LessonInstance.start_datetime >= from_dt)
+        .filter(LessonInstance.end_datetime > now)
+        .filter(LessonInstance.status != "canceled")
         .all()
     )
 
     for inst in instances:
         inst_payload = dict(payload)
         inst_payload["date"] = inst.start_datetime.date().strftime("%Y-%m-%d")
-        edit_lesson_instance_helper(inst_payload, inst)
+        edit_lesson_instance_helper(inst_payload, inst, series=True)
 
 
 def _clear_court_overrides(lesson, from_date):

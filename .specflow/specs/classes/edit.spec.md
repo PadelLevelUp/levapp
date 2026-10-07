@@ -72,6 +72,11 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    first. Occurrences before the boundary are untouched; a forked series takes its materialised
    occurrences with it. The change is one server path both shells call, so it ships to web and
    iOS at once.
+   **What the walk leaves alone (#564 review).** It is a series edit, not the coach's hand on
+   each occurrence: an occurrence that has **ended** is a record and is not touched, a
+   **canceled** one is not touched, a presence the coach has **validated** is not removed (it is
+   theirs to change on the attendance sheet), and an added student is enrolled as `roster` —
+   told once by the series add (PAD-330), never once more per materialised occurrence.
 
 ### Acceptance Criteria
 
@@ -166,3 +171,8 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 - **Given** the same class with today's and next week's occurrences materialised
 - **When** the coach adds Bruno with scope `future` on next week's occurrence
 - **Then** today's occurrence does not have Bruno; next week's and the forked series do
+- **Given** Ana's presence on today's occurrence validated "present"
+- **When** the coach removes Ana with scope `future`
+- **Then** Ana is off the series roster and her validated presence on today's occurrence stays
+- **Given** two materialised occurrences, when the coach adds Bruno with scope `future`
+- **Then** Bruno receives one "added to class" message
