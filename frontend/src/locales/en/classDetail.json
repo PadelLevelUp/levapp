@@ -47,6 +47,12 @@
     "couldNotCancelAttendance": "Could not cancel attendance",
     "deleteFailed": "The class could not be deleted",
     "yourAttendance": "Your attendance",
-    "classGone": "This class no longer exists."
+    "classGone": "This class no longer exists.",
+    "unsavedChanges": {
+      "title": "Discard changes?",
+      "body": "The changes you made to this class have not been saved.",
+      "discard": "Discard",
+      "keepEditing": "Keep editing"
+    }
   }
 }

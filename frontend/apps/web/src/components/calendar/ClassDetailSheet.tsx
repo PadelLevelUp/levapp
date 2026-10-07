@@ -157,6 +157,18 @@ export function ClassDetailSheet({
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ClassInstance | null>(null);
+  // classes.edit rule 10 (PAD-525, B-341): the "Descartar alterações?" question shown when a close
+  // would drop an unsaved draft.
+  const [discardAskOpen, setDiscardAskOpen] = useState(false);
+  // classes.edit rule 10 (PAD-525, B-341): an edit belongs to ONE class on ONE opening. The sheet
+  // stays mounted across a close, so a draft that outlived it rendered the NEXT class over the
+  // previous class's edits. Keyed on the id: a refetch after a save makes a new event object with
+  // the same id, and that must not drop an edit in progress.
+  useEffect(() => {
+    setIsEditing(false);
+    setDraft(null);
+    setDiscardAskOpen(false);
+  }, [event?.id]);
   // clubs.courts rule 7 (PAD-194; B-266): the editor offers the CLASS's club's courts — what
   // edit_class validates against — not the coach's current club's.
   const [courts, setCourts] = useState<Court[]>([]);
@@ -631,6 +643,35 @@ export function ClassDetailSheet({
     "autoInvites",
   ] as const;
 
+  /** classes.edit rule 10: unsaved means different from the loaded class, by value — the same
+   *  comparison the save makes (fields of EDITABLE_FIELDS plus the participant diff). */
+  const hasUnsavedEdit = () => {
+    if (!isEditing || !draft || !classInstance) return false;
+    if (Object.keys(diffInstance(classInstance, draft, EDITABLE_FIELDS)).length > 0) return true;
+    const { addPlayers, removePlayers } = diffParticipants(classInstance.participants, draft.participants);
+    return addPlayers.length > 0 || removePlayers.length > 0;
+  };
+
+  /** classes.edit rule 10 (PAD-525): every close of the sheet (X, Escape, click outside) comes
+   *  through here. With an unsaved draft it asks first; otherwise it ends edit mode and closes.
+   *  There is no Save in the question — a save has its own sequence (scope, overlap, eligibility). */
+  const requestClose = () => {
+    if (hasUnsavedEdit()) {
+      setDiscardAskOpen(true);
+      return;
+    }
+    setIsEditing(false);
+    setDraft(null);
+    onClose();
+  };
+
+  const discardAndClose = () => {
+    setDiscardAskOpen(false);
+    setIsEditing(false);
+    setDraft(null);
+    onClose();
+  };
+
   /** The save itself, once any eligibility warning has been answered. */
   const finalizeEdit = (changes: Record<string, unknown>, scope: ApplyScope) => {
     if (!onEdit || !event) return;
@@ -884,7 +925,7 @@ export function ClassDetailSheet({
 
   if (showEvaluations && evaluationsRef && evaluationsAction === "available") {
     return (
-      <Sheet open={open} onOpenChange={onClose}>
+      <Sheet open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="sr-only">
             <SheetTitle>{t("players.classEvaluations.title", { name: active.name })}</SheetTitle>
@@ -896,7 +937,7 @@ export function ClassDetailSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
+    <Sheet open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center justify-between gap-2">
@@ -1737,6 +1778,29 @@ export function ClassDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      {/* classes.edit rule 10 (PAD-525, B-341): "Descartar alterações?" — Discard (leave; the
+          draft is dropped, nothing is sent) or Keep editing (stay, every edit where it was). */}
+      <AlertDialog open={discardAskOpen} onOpenChange={setDiscardAskOpen}>
+        <AlertDialogContent data-testid="class-unsaved-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("classDetail.unsavedChanges.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("classDetail.unsavedChanges.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="class-unsaved-keep">
+              {t("classDetail.unsavedChanges.keepEditing")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="class-unsaved-discard"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={discardAndClose}
+            >
+              {t("classDetail.unsavedChanges.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* PAD-46: confirm student cancellation, with deadline-aware messaging */}
       {!canManage && (
