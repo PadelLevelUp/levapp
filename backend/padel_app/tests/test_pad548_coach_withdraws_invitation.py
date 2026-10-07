@@ -302,3 +302,60 @@ def test_a_withdrawal_racing_a_yes_waits_for_the_lock_and_the_yes_wins(app, monk
         assert results["yes"]["action"] == "confirmed", results
         assert a in _instance(instance_id).enrolled_player_ids
         assert (event.status, event.answer, event.withdrawn_by_coach_at) == ("confirmed", "yes", None)
+
+
+@_POSTGRES_ONLY
+def test_a_yes_racing_a_withdrawal_waits_for_the_lock_and_the_withdrawal_wins(app, monkeypatch):
+    """The other order: the withdrawal holds rule 10's locks, its retire flushed; the student's
+    yes reaches its own vacancy lock and waits. After the withdrawal's commit the yes re-reads
+    the invitation, finds it withdrawn and answers `spot_filled` — nobody enrolled."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.players import Player
+    from padel_app.services import notification_service as ns
+    from padel_app.services.notification_service import respond_to_notification, trigger_invitations, withdraw_invitation
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (a, b) = _seed(enrolled=0, candidates=2, max_players=1, max_sim=1)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        event_id = _event_of(instance_id, a).id
+        user_id = Player.query.get(a).user_id
+
+    in_locked_section, yes_at_the_lock = threading.Event(), threading.Event()
+    real_settle, real_repeated = ns._settle_waiting_list_entry, ns._repeated_answer
+
+    def gated_settle(*args, **kwargs):
+        if threading.current_thread().name == "withdraw":
+            in_locked_section.set()
+            yes_at_the_lock.wait(timeout=1.5)  # the yes is now about to wait on this lock
+        return real_settle(*args, **kwargs)
+
+    def gated_repeated(*args, **kwargs):
+        if threading.current_thread().name == "yes":
+            yes_at_the_lock.set()
+        return real_repeated(*args, **kwargs)
+
+    monkeypatch.setattr(ns, "_settle_waiting_list_entry", gated_settle)
+    monkeypatch.setattr(ns, "_repeated_answer", gated_repeated)
+    results = {}
+
+    def withdraw():
+        threading.current_thread().name = "withdraw"
+        results["withdraw"] = withdraw_invitation(event_id, coach_id, now=NOW + timedelta(minutes=1))
+
+    def yes():
+        threading.current_thread().name = "yes"
+        in_locked_section.wait(timeout=5)
+        results["yes"] = respond_to_notification(event_id, "yes", user_id, now=NOW + timedelta(minutes=1))
+
+    with _io():
+        _race(app, [withdraw, yes])
+    with app.app_context():
+        db.session.expire_all()
+        event = db.session.get(NotificationEvent, event_id)
+        assert results["withdraw"] == {"action": "withdrawn"}, results
+        assert results["yes"]["action"] == "spot_filled", results
+        assert a not in _instance(instance_id).enrolled_player_ids
+        assert (event.status, event.answer) == ("expired", None) and event.withdrawn_by_coach_at is not None
