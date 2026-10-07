@@ -62,6 +62,15 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
    (`calendar.view` rule 9 forbids patching that per-surface). It does NOT enrol
    the player in the parent lesson, so they are still counted as a guest
    (rule 10).
+8a. **(PAD-537; number unconfirmed) The walk-in picker is a search.** Adding a player to a past
+    class (rule 8), on both shells and both places the validate view offers it (a class card's
+    "Adicionar jogador" and the drill-in's "Entrou algum jogador à última hora?"), lists the
+    players not yet in the class alphabetically (accents and case ignored, Portuguese order) and
+    narrows them as the coach types, with the app's one name rule: every typed word, in any
+    order (`nameMatchesQuery`, PAD-516). One helper, `walkInOptions(roster, query)` in
+    `@levelup/config`. Before, web showed a plain dropdown in roster order with no way to type;
+    iOS had a search that matched the typed text as one substring. Test ids
+    `presences-walk-in-search`, `presences-walk-in-option-<playerId>` on web.
 9. **Validation does not lock the record.** A validated class can be reopened
    (`validated=False` on its rows) and re-validated. Status and justification
    survive a reopen — undo makes the record editable again, it does not erase it.
@@ -532,3 +541,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the badge is read on a Tuesday
 - **Then** `count` is their number, `weekOffset` is -3 and `href` is `/presences?validate=1&week=-3`,
   and following it opens the tab on that week with the validate view open and those classes listed
+
+#### The walk-in picker sorts and searches (rule 8a, PAD-537)
+- **Given** a coach whose roster outside the class is "Zé Costa", "ana silva" and "Bruno Silva Ramos"
+- **When** they open "Adicionar jogador" on a past class
+- **Then** the list reads ana silva, Bruno Silva Ramos, Zé Costa
+- **When** they type "silva ana"
+- **Then** only "ana silva" is listed
