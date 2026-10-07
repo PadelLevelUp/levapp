@@ -340,6 +340,15 @@ test("US-74: exclude inactive accounts toggle is present (PAD-132 relabel)", asy
   await expect(page.getByTestId("restriction-row-exclude-unpaid")).toBeVisible({ timeout: 3000 });
 });
 
+test("PAD-523: the same-day class toggle is present and off by default", async ({ page }) => {
+  await openNotificationsTab(page);
+  await openSection(page, /^restrictions$/i);
+
+  const row = page.getByTestId("restriction-row-no-same-day-class");
+  await expect(row).toBeVisible({ timeout: 3000 });
+  await expect(row.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+});
+
 test("US-75: max inactive time stepper is functional when enabled", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /^restrictions$/i);

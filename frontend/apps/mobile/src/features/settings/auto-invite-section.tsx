@@ -55,6 +55,7 @@ const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
   maxInactiveTime: { enabled: false, value: 120 },
   excludedPlayers: { enabled: false, playerIds: [] },
   excludeUnpaidSubscription: { enabled: false },
+  noSameDayClass: { enabled: false },
   cancellationDeadlineHours: 24,
 };
 
