@@ -374,13 +374,16 @@ def assert_production_secrets(environ=None):
     # admin.foundation rule 13 (PAD-531): the admin blueprint must know its
     # hosts. The Google client id is deliberately NOT asserted here — an empty
     # value degrades to "not configured" instead of crash-looping a deploy.
-    if not (environ.get("ADMIN_HOSTS") or "").strip():
-        missing.append("ADMIN_HOSTS")
     if missing:
         raise RuntimeError(
             "Refusing to start with FLASK_ENV=production: "
             + ", ".join(missing)
             + " unset or equal to a development fallback. Set real values in the deploy environment."
+        )
+    if not (environ.get("ADMIN_HOSTS") or "").strip():
+        raise RuntimeError(
+            "Refusing to start with FLASK_ENV=production: ADMIN_HOSTS is unset. The tracked "
+            "backend/.env.<environment> template names the console host (admin.foundation rule 13)."
         )
 
 
