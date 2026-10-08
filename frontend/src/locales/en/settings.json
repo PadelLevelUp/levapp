@@ -505,6 +505,8 @@
       "searchPlayers": "Search players…",
       "excludeUnpaid": "Exclude inactive accounts",
       "excludeUnpaidDescription": "Don't invite students whose account is not active yet (they have not finished setting up their login). This is account status, not payment.",
+      "noSameDayClass": "Skip students who already have a class that day",
+      "noSameDayClassDescription": "Don't automatically invite a student who already holds a place in another class on the same day (any coach). Classes they declined or were marked absent from do not count. Your own manual invitations are not affected.",
       "hours": "hours",
       "cancellationDeadline": "Cancellation deadline",
       "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"

@@ -79,13 +79,16 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
      capability kill-switches.
    - `owner`: everything, plus `POST|DELETE /admin/api/roles/*` (grant, change, revoke a role) and
      `PUT /admin/api/settings/capabilities/*` (`admin.clubs-and-switches` rule 6).
+   - A token issued before the role row's latest grant or change (`granted_at`) is refused, so
+     re-granting a revoked email (which re-activates its row) never revives an older token
+     (hardening 2026-10-07). The last-owner check of rule 7 locks the active owner rows.
    - One exception to the order: `POST /admin/api/users/<id>/view-as` needs the `operator` role
      exactly (`admin.approvals-and-users` rule 9).
 6. **`admin_roles` replaces `is_superadmin` for new code.** The migration creates both tables and
    seeds one `owner` row for `admin@levapp.app` and one `owner` row for the email of every user
-   with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null. A seeded
-   email outside `@levapp.app` can never sign in (rule 1); it is kept so the owner sees it and
-   revokes it. No new code checks `is_superadmin`; a guard test fails when a file outside the
+   with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null, **only
+   for emails in `@levapp.app`** (hardening 2026-10-07: any other email could never sign in,
+   rule 1, so its row would only be something to clean up). No new code checks `is_superadmin`; a guard test fails when a file outside the
    existing allow-list (the files that read it on the day this spec is implemented) gains a read
    of `is_superadmin`.
 7. **There is always an owner.** Revoking or downgrading the last active `owner` row answers 409
@@ -121,6 +124,12 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     staging's database and staging's `admin_roles`; the two environments share no role or audit
     data. No new VM, database or deploy workflow. Operational identifiers (machine names,
     addresses, ports, accounts) are kept out of this spec and out of tracked files (R-036).
+12a. **Hardening (coordinator review, 2026-10-07).** `POST auth/google` is rate-limited per IP
+    (`AUTH_RATE_LIMIT_ADMIN_SIGN_IN`, default 10 per 60 s; 429 `RATE_LIMITED`). Google's signing
+    certificates are cached for the max-age Google sends. The console image sends a
+    Content-Security-Policy that allows Google Identity Services (`accounts.google.com/gsi/`) for
+    script, frame and connect and sets `frame-ancestors 'none'`, plus `Referrer-Policy:
+    no-referrer`, `X-Content-Type-Options: nosniff` and HSTS, on every location.
 13. **Configuration.** `ADMIN_GOOGLE_CLIENT_ID` (public; the browser needs it too) and
     `ADMIN_HOSTS` are set per environment in the tracked env templates; no new deploy secret
     exists for the console. The Google OAuth client is of type "Internal" to the Workspace, with

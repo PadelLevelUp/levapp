@@ -92,7 +92,7 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 10. **The coach chooses the students when creating a class, on web and in the mobile app (iOS and
     Android) (PAD-474, B-239).** Both create forms carry a participant picker (web: the add-class
     sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
-    search, a filter by level, and a mark on any student outside the class's level. A chosen student
+    search (every typed word, in any order: `players.list` rule 3, PAD-516), a filter by level, and a mark on any student outside the class's level. A chosen student
     is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
     tells them. The picker applies no cap at `maxPlayers`; it shows the count. **Every student
     in the list can be reached (PAD-502, B-271):** the list has a fixed height and scrolls inside

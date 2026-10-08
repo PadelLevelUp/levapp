@@ -1,3 +1,4 @@
+import { nameMatchesQuery } from "@levelup/config";
 import type { CoachPlayer } from "@levelup/types";
 
 /**
@@ -7,14 +8,6 @@ import type { CoachPlayer } from "@levelup/types";
  * API serialises some as numbers.
  */
 
-/** Accents, case and punctuation never stop a search ("alvares" finds "Álvares"). */
-export function normalizeName(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9\s]/g, "")
-    .toLowerCase();
-}
 
 /** A search overrides the level filter, as on web. */
 export function filterPlayers(
@@ -22,8 +15,8 @@ export function filterPlayers(
   { search, levelId }: { search: string; levelId: string | null }
 ): CoachPlayer[] {
   if (search.trim().length > 0) {
-    const q = normalizeName(search);
-    return players.filter((p) => normalizeName(p.name).includes(q));
+    // PAD-516: every typed word, in any order.
+    return players.filter((p) => nameMatchesQuery(p.name, search));
   }
   if (levelId) {
     return players.filter((p) => String(p.levelId) === String(levelId));
