@@ -61,6 +61,22 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    series roster. Adding students runs the eligibility warning first (`eligibility.enforcement`
    rule 7d). An edit that changes only the participants is an edit, never dropped as "no changes".
    The picker applies no cap at `maxPlayers`; it shows the count.
+   **(PAD-515, B-343; wording unconfirmed) `future` starts at the occurrence the coach is on,
+   whichever model the client names.** Both shells keep `event.model = "Lesson"` for an
+   occurrence of a series after it has been materialised under them (a read, an attendance
+   confirm, an auto-invite — the seam B-046 named for `single`). On that path a future edit
+   changed the series only, so an added student appeared from the next *virtual* occurrence on
+   and the class on screen kept its old roster. Now the `Lesson` path, like the `LessonInstance`
+   path, also applies the edit — roster, title, time, every sent field, rule 4's overrides
+   included — to every occurrence already materialised from the boundary on, the current one
+   first. Occurrences before the boundary are untouched; a forked series takes its materialised
+   occurrences with it. The change is one server path both shells call, so it ships to web and
+   iOS at once.
+   **What the walk leaves alone (#564 review).** It is a series edit, not the coach's hand on
+   each occurrence: an occurrence that has **ended** is a record and is not touched, a
+   **canceled** one is not touched, a presence the coach has **validated** is not removed (it is
+   theirs to change on the attendance sheet), and an added student is enrolled as `roster` —
+   told once by the series add (PAD-330), never once more per materialised occurrence.
 
 10. **Leaving a class ends its edit; leaving with unsaved changes asks first (PAD-525, B-341; rule
    number unconfirmed).** Edit mode and its draft belong to ONE class on ONE opening of its
@@ -192,3 +208,20 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 - **Given** an occurrence renamed "Just today" through a single-scope edit
 - **When** the coach edits that occurrence's capacity only
 - **Then** it is still called "Just today"
+
+#### "This and future" reaches the occurrence the coach is on (rule 9, PAD-515)
+- **Given** a weekly class with Ana whose occurrence today is already materialised, and the
+  client naming the series (`model: "Lesson"`) with today's date
+- **When** the coach adds Bruno with scope `future`
+- **Then** Bruno is on today's occurrence, on every later materialised occurrence, and on the
+  series roster
+- **When** the coach instead removes Ana with scope `future`
+- **Then** Ana is off today's occurrence and off the series roster
+- **Given** the same class with today's and next week's occurrences materialised
+- **When** the coach adds Bruno with scope `future` on next week's occurrence
+- **Then** today's occurrence does not have Bruno; next week's and the forked series do
+- **Given** Ana's presence on today's occurrence validated "present"
+- **When** the coach removes Ana with scope `future`
+- **Then** Ana is off the series roster and her validated presence on today's occurrence stays
+- **Given** two materialised occurrences, when the coach adds Bruno with scope `future`
+- **Then** Bruno receives one "added to class" message

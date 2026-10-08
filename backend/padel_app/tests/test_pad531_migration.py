@@ -60,11 +60,10 @@ def test_the_migration_seeds_the_existing_superadmin_as_owner_sqlite():
     cols = {c["name"] for c in sa.inspect(conn).get_columns("admin_audit_log")}
     assert {"created_at", "updated_at", "before", "after", "request_id", "outcome"} <= cols
     owners = _owners(conn)
-    # Lower-cased, deduplicated; the non-company superadmin is kept for the owner to revoke.
+    # Lower-cased, deduplicated, staff-domain only (hardening 2026-10-07: old@gmail.com is not seeded).
     assert [(e, r, g, rv) for e, r, _u, g, rv in owners] == [
         ("admin@levapp.app", "owner", None, None),
         ("boss@levapp.app", "owner", None, None),
-        ("old@gmail.com", "owner", None, None),
     ]
     assert owners[1][2] in (1, 4)  # linked to a product account with that email
     assert owners[0][2] is None
