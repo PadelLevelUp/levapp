@@ -104,7 +104,9 @@ def test_support_cannot_write(app, client):
     token = admin_token(app, support)
     seen = 0
     for rule, methods in _write_rules(app):
-        path = rule.rule.replace("<int:role_id>", str(target))
+        # Every integer path parameter (role_id, club_id, court_id, coach_id …) gets a real id, so
+        # the role check — not a 404 from the URL converter — is what answers (PAD-533).
+        path = re.sub(r"<int:[a-z_]+>", str(target), rule.rule)
         for method in methods:
             r = client.open(path, method=method, headers=bearer(token), json={"email": "x@levapp.app", "role": "support"})
             assert r.status_code == 403 and r.get_json() == {"error": "ADMIN_ROLE_TOO_LOW"}, (path, method, r.get_json())

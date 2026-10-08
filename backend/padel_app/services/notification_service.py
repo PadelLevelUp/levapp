@@ -4705,6 +4705,43 @@ def _close_vacancy(
     return retired
 
 
+def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
+                               now: datetime | None = None) -> None:
+    """PAD-552 (notifications.invitations rule 13a): bring a class's vacancies in line with a
+    coach's edit at once, instead of at the next tick.
+
+    - Always: ``reconcile_vacancies`` — a capacity lowered below the open vacancies closes the surplus
+      and retires their live invitations (rule 13, in rule 10's order: it locks only the vacancy it
+      closes, skipping one an answer holds; that answer re-checks capacity under the class lock).
+    - When the edit freed a place (a higher capacity, a student taken off) and the coach's
+      invitation window is open: the missing never-filled vacancies are created
+      (``_create_structural_vacancies``, under the class lock) and ``trigger_invitations`` starts
+      them, so every gate applies — engine on, automatic invitations, semi-automatic approval,
+      restrictions and the quiet-hours hold, the start-once claim. Before the window opens nothing
+      is created here: the class's ``invite_start`` job opens the place when the window does.
+    """
+    reconcile_vacancies(instance)
+    if not place_freed or _instance_is_over(instance, now):
+        return
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)
+    if coach is None:
+        return
+    config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    if config is None or not config.auto_notify_enabled or not instance.notifications_enabled:
+        return
+    if not effective_auto_invites(instance):
+        return
+    _now = now or utcnow_naive()
+    opens_at = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
+    if opens_at is None or _now < opens_at:
+        return
+    _create_structural_vacancies(instance, coach.id)
+    trigger_invitations(instance, coach.id, now=_now)
+
+
 def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:
     """Close the open vacancies capacity no longer supports (PAD-271, invitations rule 13).
 
@@ -5088,6 +5125,11 @@ def respond_to_notification(
         if _effective_filled_spots(instance) >= instance.effective_max_players:
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
+            # PAD-552 (rule 13a): the class is full but this spot is still open — a capacity drop
+            # whose reconcile passed over it because this answer held its lock. Close it now, under
+            # this answer's own locks (SKIP LOCKED never skips a row this transaction holds), so
+            # the other offers for the missing seat are retired at once, not at the next tick.
+            reconcile_vacancies(instance)
             event.save()
             # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
