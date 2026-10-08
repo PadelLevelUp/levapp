@@ -40,3 +40,12 @@ right and stated; the code broke it in a path no test drove, a coach with no con
 
 ## Resolution
 The read moved above `_lock_instance`; the cell above added. No spec change: rule 10 already says it.
+
+**Follow-up found by #592's Postgres lane (CI, 1 failed / 3687 passed):** with the read before the lock,
+two creators on a config-less coach both ran `get_or_create_config` and both inserted; the second hit
+`notification_configs_coach_id_key` (UniqueViolation). The local 2/2 green had won that race.
+`get_or_create_config` now inserts inside a SAVEPOINT: a concurrent insert rolls back only the
+savepoint (never the caller's pending work) and the committed row is re-read. This covers every caller,
+including Session-B's `_create_vacancy_for_absent_player` (B-322, #591), which reads the configuration
+before its lock the same way. Cell `test_two_concurrent_get_or_create_config_make_one_row_and_both_return_it`
+(barrier between the read and the insert): 8/8 green with the fix; the old unguarded insert red 6/6.

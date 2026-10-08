@@ -79,3 +79,43 @@ def test_two_creators_on_a_config_less_coach_open_each_place_once(app, monkeypat
     with app.app_context():
         n = Vacancy.query.filter_by(lesson_instance_id=instance_id, status="open").count()
     assert n == 2, f"{n} vacancies for a 2-place class: the second creator did not see the first's rows"
+
+
+def test_two_concurrent_get_or_create_config_make_one_row_and_both_return_it(app, monkeypatch):
+    """#592's Postgres lane: moving the read before the lock exposed the next race. Two callers for a
+    coach with no row both read "none" and both insert; the second hit the unique key on coach_id.
+    Both are held at a barrier between the read and the insert; neither may raise, both get the one
+    row, and it is created once."""
+    from padel_app.models import NotificationConfig as Real
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.test_pad493_starts_and_pacing import _race
+
+    coach_id, _instance_id = _seed(app)
+    gate = threading.Barrier(2)
+
+    class _HeldConstructor:
+        """`NotificationConfig` for the service, except that constructing one (after the read said
+        "none") waits for the other caller to have read "none" too."""
+
+        def __getattr__(self, name):
+            return getattr(Real, name)
+
+        def __call__(self, **kwargs):
+            try:
+                gate.wait(timeout=1.5)
+            except threading.BrokenBarrierError:
+                pass
+            return Real(**kwargs)
+
+    monkeypatch.setattr(ns, "NotificationConfig", _HeldConstructor())
+    got = []
+
+    def get():
+        got.append(ns.get_or_create_config(coach_id).id)
+
+    _race(app, [get, get])
+
+    with app.app_context():
+        rows = Real.query.filter_by(coach_id=coach_id).all()
+    assert len(rows) == 1
+    assert got == [rows[0].id, rows[0].id], got

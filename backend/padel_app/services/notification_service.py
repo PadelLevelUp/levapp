@@ -91,13 +91,31 @@ _BLOCKABLE_MESSAGE_TYPES = frozenset({
 # ---------------------------------------------------------------------------
 
 def get_or_create_config(coach_id: int) -> NotificationConfig:
+    """The coach's configuration, creating the row (engine off) when there is none.
+
+    Race-safe (B-302 follow-up; #592's Postgres lane): two callers for a coach with no row can both
+    read "none" and both insert, and the second hits the unique key on `coach_id`. The insert runs in
+    a SAVEPOINT, so that violation rolls back only the savepoint (never the caller's own pending
+    work) and the row the other caller committed is read instead. Covers every caller, including the
+    config-before-lock reads in `_create_structural_vacancies` and `_create_vacancy_for_absent_player`.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.tools.unit_of_work import commit_or_flush
+
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
-    if config is None:
-        config = NotificationConfig(
-            coach_id=coach_id,
-            auto_notify_enabled=False,
+    if config is not None:
+        return config
+    config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
+    try:
+        with db.session.begin_nested():
+            db.session.add(config)
+    except IntegrityError:
+        # Another caller created it between our read and our insert; the savepoint is rolled back.
+        return (
+            NotificationConfig.query.filter_by(coach_id=coach_id).populate_existing().one()
         )
-        config.create()
+    commit_or_flush()
     return config
 
 
