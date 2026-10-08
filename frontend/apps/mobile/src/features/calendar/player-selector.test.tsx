@@ -93,3 +93,32 @@ describe("PlayerSelector (classes.create rule 10, classes.edit rule 9)", () => {
     expect(n.byTestId("player-selector-search").props.value).toBe("Student 3");
   });
 });
+
+describe("PlayerSelector shows every student's level (PAD-527)", () => {
+  const LEVELS = [
+    { id: "1", code: "I1", label: "Intermédio" },
+    { id: "2", code: "B2", label: "Base" },
+  ];
+  const levelled = (id: string, name: string, levelId: string | null): CoachPlayer =>
+    ({ id: `cp-${id}`, playerId: id, name, levelId }) as unknown as CoachPlayer;
+  const STUDENTS = [levelled("1", "Rui", "1"), levelled("2", "Sara", "2"), levelled("3", "Tomé", null)];
+
+  async function chips(classLevelId: string | null) {
+    const n = await renderNative(
+      createElement(PlayerSelector, {
+        players: STUDENTS, levels: LEVELS, selectedPlayerIds: [], classLevelId, onToggle: () => {},
+      } as never)
+    );
+    await n.press("player-selector-tab-all");
+    const read = (id: string) => n.queryByTestId(`player-level-chip-${id}`)?.props.accessibilityLabel ?? null;
+    return { rui: read("1"), sara: read("2"), tome: read("3") };
+  }
+
+  it("marks the class's level as same, another level or none as other", async () => {
+    expect(await chips("1")).toEqual({ rui: "level-same", sara: "level-other", tome: "level-other" });
+  });
+
+  it("is neutral for a class with no level, and a student with no level shows no chip", async () => {
+    expect(await chips(null)).toEqual({ rui: "level-none", sara: "level-none", tome: null });
+  });
+});
