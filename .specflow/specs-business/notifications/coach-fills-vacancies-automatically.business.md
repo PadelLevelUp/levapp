@@ -52,6 +52,10 @@ the waiting list.
 - When a class has spots that were never filled, the app aims to balance left- and right-side
   players: each open spot looks for the side the class is short of first, and falls back to any
   side, so no spot stays empty for lack of the "right" side.
+- The same holds when students cancel (PAD-541): a freed spot first asks the side the class is now
+  short of, not automatically the side of whoever left. When the sides are even, it keeps the
+  leaver's side. Two left-side students leaving a 6-left / 3-right class are replaced by one right
+  and one left, so the class can end 5 / 4.
 - A student marked "both sides" is a match for either a left or right vacancy, and a "both" vacancy
   accepts a player of any side; when both an exact-side and a "both" candidate are available, the
   exact-side player is offered first.
