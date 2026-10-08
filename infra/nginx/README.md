@@ -45,7 +45,8 @@ two files are hand-applied like the others, and only AFTER the certificates exis
 refuses a server block whose `ssl_certificate` files are missing, and a refused test leaves the
 running config untouched.
 
-Order, once the DNS records (`admin`, `admin.staging`, proxied like `staging`) resolve:
+Order, once the DNS records (`admin`, `admin.staging`, with the same Cloudflare proxy setting as
+`staging`; either setting works with these blocks) resolve:
 
 ```bash
 # 1. certificates (certbot writes a temporary block of its own and removes it)
