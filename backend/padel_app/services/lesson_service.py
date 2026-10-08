@@ -19,7 +19,7 @@ from padel_app.models import (
 )
 from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
-from padel_app.tools.calendar_tools import build_datetime, _format_time, _format_date
+from padel_app.tools.calendar_tools import build_datetime, build_end_datetime, _format_time, _format_date
 from padel_app.helpers.calendar_helpers import (
     load_lessons_for_coach,
     load_lesson_instances_for_coach,
@@ -303,7 +303,7 @@ def transform_to_datetime(obj, data):
     end_time = data.get('end_time') if data.get('end_time') else _format_time(obj.end_datetime)
 
     data["start_datetime"] = build_datetime(date, start_time)
-    data["end_datetime"] = build_datetime(date, end_time)
+    data["end_datetime"] = build_end_datetime(date, start_time, end_time)  # PAD-553: 00:00 is the next day
     return data
 
 
@@ -1083,7 +1083,7 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
         "level": data.get("levelId"),
         "is_recurring": data.get("isRecurring", False),
         "start_datetime": build_datetime(data["date"], data["startTime"]),
-        "end_datetime": build_datetime(data["date"], data["endTime"]),
+        "end_datetime": build_end_datetime(data["date"], data["startTime"], data["endTime"]),  # PAD-553
         "club": club.id,
         "coach": coach.id,
         "player_ids": data.get("playerIds", []),

@@ -232,3 +232,4 @@ whether a failure mode has been seen before.
 - [B-365](B-365-picker-hides-the-level-equal-to-the-class.md) — Participant picker hid a student's level when it equalled the class's level (incomplete-rule, low, resolved in PAD-527)
 - [B-345](B-345-dashboard-new-class-opened-only-the-calendar.md) — Web dashboard: 'Nova aula' opened the calendar with nothing open; the calendar never read ?new=1 (missing-criterion, medium, resolved in PAD-520)
 - [B-344](B-344-web-calendar-kept-stale-cards-after-a-class-write.md) — Web calendar: after creating, editing or deleting a class only the clicked card changed; other occurrences stayed stale until a reload (incomplete-rule, medium, resolved in PAD-526)
+- [B-346](B-346-midnight-end-stored-before-the-start.md) — A class ending at midnight was stored ending at 00:00 of its own day, before it started; now the next day, and a migration repairs stored rows (incomplete-rule, high, resolved in PAD-553)
