@@ -52,6 +52,8 @@ that what the tutorial shows and what the engine does can never disagree.
    - `excluded_by_coach` — `restrictions.excludedPlayers`
    - `inactive_account` — `restrictions.excludeUnpaidSubscription` (reads `users.status`, which is
      account activation, not payment — `notifications.config` rule 7c)
+   - `has_class_same_day` — `restrictions.noSameDayClass`: holds a spot in another class that
+     club-local day (`notifications.config` rule 6e, PAD-523)
    - `unavailable` — an availability blocker overlaps the class window
      (`calendar.student-blockers` rule 5)
    - `auto_invites_off` — the student switched automatic invitations off

@@ -50,6 +50,8 @@ function readDeepLink(search: string) {
     date: parsedDate && isValid(parsedDate) ? parsedDate : null,
     // PAD-285 (dashboard.blocks rule 10): "Convidar" opens the class with Notificar open.
     notify: params.get("notify") === "1",
+    // PAD-520 (dashboard.navigation rule 12): the dashboard's "Nova aula" opens the new-class sheet.
+    newClass: params.get("new") === "1",
   };
 }
 
@@ -140,6 +142,13 @@ export default function CalendarPage() {
     if (mine === latestRead.current) setAllEvents(data);
   }, [fetchFrom, fetchTo]);
 
+  // calendar.view rule 18 (PAD-526, B-344): after a class write, re-read the range on screen. The
+  // local patch shows the clicked card at once; this brings the occurrences only the server knows.
+  // A failed re-read keeps the local patch (the write itself succeeded).
+  const refreshAfterClassWrite = useCallback(() => {
+    readRange().catch(() => {});
+  }, [readRange]);
+
   // A local edit (add, delete, drop) retires any read in flight: that answer was taken before
   // the edit and would otherwise erase it when it lands.
   const editEvents = useCallback((update: (prev: CalendarEvent[]) => CalendarEvent[]) => {
@@ -177,12 +186,13 @@ export default function CalendarPage() {
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.
   useEffect(() => {
-    if (!searchParams.has("classId") && !searchParams.has("date")) return;
+    if (!searchParams.has("classId") && !searchParams.has("date") && !searchParams.has("new")) return;
 
     const next = new URLSearchParams(searchParams);
     next.delete("classId");
     next.delete("notify");
     next.delete("date");
+    next.delete("new");
     setSearchParams(next, { replace: true });
     // Runs once — the guard above makes it a no-op afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -267,6 +277,17 @@ export default function CalendarPage() {
     setAddClassOpen(true);
   };
 
+  // PAD-520 (dashboard.navigation rule 12, B-345): `?new=1` — the dashboard's "Nova aula" — opens
+  // the new-class sheet once, for a coach, exactly as the toolbar's own button does. Before, the
+  // page never read the param and the coach landed on the calendar with nothing open.
+  const newClassFromLink = useRef(deepLink.newClass);
+  useEffect(() => {
+    if (!newClassFromLink.current || !canManageClasses) return;
+    newClassFromLink.current = false;
+    openAddClass();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageClasses]);
+
   const handleSlotClick = (date: Date, time: string) => {
     setNewClassDate(date);
     setNewClassTime(time);
@@ -295,6 +316,8 @@ export default function CalendarPage() {
 
       editEvents(prev => prev.filter(e => e.id !== event.id));
       setSelectedClassEvent(null);
+      // calendar.view rule 18 (PAD-526, B-344): a "this and future" delete removes later cards too.
+      refreshAfterClassWrite();
 
       toast({
         title: t("calendar.page.classDeleted"),
@@ -360,6 +383,9 @@ export default function CalendarPage() {
         )
       );
       setSelectedClassEvent(null);
+      // calendar.view rule 18 (PAD-526, B-344): the clicked card is patched at once; the re-read
+      // brings every other occurrence the edit reached (a "this and future" edit, a moved series).
+      refreshAfterClassWrite();
 
       toast({
         title: t("calendar.page.classUpdated"),
@@ -445,6 +471,8 @@ export default function CalendarPage() {
       const created = await addClass(data);
 
       editEvents(prev => [...prev, created]);
+      // calendar.view rule 18 (PAD-526, B-344): a recurring class has more occurrences on screen.
+      refreshAfterClassWrite();
 
       toast({
         title: t("calendar.page.classCreated"),

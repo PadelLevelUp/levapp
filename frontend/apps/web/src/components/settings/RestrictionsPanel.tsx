@@ -471,6 +471,16 @@ export function RestrictionsPanel({ restrictions, excludedPlayerNames = {}, onCh
         testId="restriction-row-exclude-unpaid"
       />
 
+      <RestrictionRow
+        label={t("settings.restrictions.noSameDayClass")}
+        description={t("settings.restrictions.noSameDayClassDescription")}
+        enabled={restrictions.noSameDayClass.enabled}
+        showValue={false}
+        disabled={disabled}
+        onToggle={() => update("noSameDayClass", { enabled: !restrictions.noSameDayClass.enabled })}
+        testId="restriction-row-no-same-day-class"
+      />
+
       <ScalarStepperRow
         label={t("settings.restrictions.cancellationDeadline")}
         description={t("settings.restrictions.cancellationDeadlineDescription")}

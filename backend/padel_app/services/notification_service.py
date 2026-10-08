@@ -1219,6 +1219,7 @@ CANDIDATE_STAGES = (
     "eligibility",
     "excluded_by_coach",
     "inactive_account",
+    "has_class_same_day",  # PAD-523 (config rule 6e): holds a spot in another class that club-local day
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
@@ -1256,6 +1257,41 @@ def _wave_rules(config: NotificationConfig, wave: tuple) -> list | None:
     if idx < 0 or idx >= len(groups):
         return None
     return groups[idx].get("rules", []) or []
+
+
+def _players_with_a_class_that_day(player_ids, instance: LessonInstance) -> set:
+    """PAD-523 (notifications.config rule 6e): of ``player_ids``, those who hold a spot in ANOTHER
+    class on the same club-local day as ``instance``, with any coach.
+
+    "Holds a spot" is the engine's own meaning (PAD-259): a presence row that is not marked absent
+    and whose response is not a decline ("no", a cancellation, a proactive decline). The other
+    class must not be cancelled. Class times are the club's wall clock (R-023), so the day is the
+    wall date of ``instance.start_datetime``: [00:00, next 00:00) on that date.
+    """
+    if not player_ids or instance.start_datetime is None:
+        return set()
+    from sqlalchemy import or_
+
+    from padel_app.services.presence_response import DECLINING
+
+    day_start = datetime.combine(instance.start_datetime.date(), time.min)
+    day_end = day_start + timedelta(days=1)
+    rows = (
+        db.session.query(Presence.player_id)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .filter(
+            Presence.player_id.in_(list(player_ids)),
+            Presence.lesson_instance_id != instance.id,
+            or_(Presence.status.is_(None), Presence.status != "absent"),
+            Presence.response.notin_(DECLINING),
+            LessonInstance.status != "canceled",
+            LessonInstance.start_datetime >= day_start,
+            LessonInstance.start_datetime < day_end,
+        )
+        .distinct()
+        .all()
+    )
+    return {pid for (pid,) in rows}
 
 
 def evaluate_candidates(
@@ -1334,6 +1370,7 @@ def evaluate_candidates(
     if restrictions["excludedPlayers"]["enabled"]:
         excluded_player_ids = set(restrictions["excludedPlayers"]["playerIds"])
     exclude_inactive = bool(restrictions["excludeUnpaidSubscription"]["enabled"])
+    no_same_day_class = bool(restrictions.get("noSameDayClass", {}).get("enabled"))
 
     group_rules = _wave_rules(config, wave)
     wave_exists = group_rules is not None
@@ -1369,6 +1406,11 @@ def evaluate_candidates(
         [cp.player.user_id for cp in roster if cp.player is not None],
         instance.start_datetime,
         instance.end_datetime,
+    )
+    # PAD-523 (rule 6e): one query for the roster, only when the coach switched it on.
+    busy_same_day_ids = (
+        _players_with_a_class_that_day([cp.player_id for cp in roster], instance)
+        if no_same_day_class else set()
     )
 
     verdicts: list[CandidateVerdict] = []
@@ -1408,6 +1450,9 @@ def evaluate_candidates(
             if not user or user.status != "active":
                 verdicts.append(CandidateVerdict(cp, "inactive_account"))
                 continue
+        if pid in busy_same_day_ids:
+            verdicts.append(CandidateVerdict(cp, "has_class_same_day"))
+            continue
         user_id = cp.player.user_id if cp.player else None
         if user_id in blocked_user_ids:
             verdicts.append(CandidateVerdict(cp, "unavailable"))
@@ -1562,7 +1607,8 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     presence = Presence.query.filter_by(
         lesson_instance_id=instance.id, player_id=player_id
     ).first()
-    if presence is None or presence.confirmed or presence.status == "absent":
+    # PAD-546 (reminders rule 23): a coach's mark either way means nothing to ask.
+    if presence is None or presence.confirmed or presence.status is not None:
         return None
     if attempts.pending_attempts(instance.id, player_id):
         return None
@@ -1858,6 +1904,12 @@ _CLASS_TYPE_WORDS = {
 }
 
 
+def _format_day_month(dt) -> str:
+    """The ``dd/mm`` day of a class start (notifications.message-templates rule 13), shared by the
+    ``{date}`` placeholder and the dated class-when suffix (rule 17) so the two never drift."""
+    return dt.strftime("%d/%m") if dt else ""
+
+
 def class_placeholders(source, locale) -> dict:
     """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
 
@@ -1877,7 +1929,7 @@ def class_placeholders(source, locale) -> dict:
     lesson_type = getattr(lesson, "type", None) if lesson is not None else None
     return {
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
-        "date": start.strftime("%d/%m") if start else "",
+        "date": _format_day_month(start),
         "court": (getattr(court, "name", None) or "") if court is not None else "",
     }
 
@@ -2224,8 +2276,15 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_when(dt, locale: str = "en") -> str:
-    """Human-readable ' on <weekday> at <time>' suffix for a datetime.
+def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
+    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default, and
+    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``.
+
+    PAD-519 (notifications.message-templates rule 17): ``dated=True`` names the day of the
+    month as well — ' no dia 10/04 (sábado) às 18:00' / ' on 10/04 (Saturday) at 18:00'. A
+    weekday alone told a coach with a weekly class nothing about which week was meant. The
+    default stays weekday-only for a series (a Lesson, whose start is only its first
+    occurrence): a recurring enrolment must not be dated.
 
     PAD-100: fully localized. For Portuguese coaches this renders
     ' na <weekday> às <time>' (or ' no <weekday> …' for sábado/domingo, which
@@ -2241,7 +2300,12 @@ def _format_when(dt, locale: str = "en") -> str:
         return ""
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
-    if (locale or "").startswith("pt"):
+    is_pt = (locale or "").startswith("pt")
+    if dated:
+        # "dia" is masculine, so the day form needs no na/no switch on the weekday.
+        day = _format_day_month(dt) + (f" ({weekday})" if weekday else "")
+        return f" no dia {day} às {time_str}" if is_pt else f" on {day} at {time_str}"
+    if is_pt:
         if weekday:
             # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6)
             # are masculine ("no").
@@ -2254,8 +2318,9 @@ def _format_when(dt, locale: str = "en") -> str:
 
 
 def _format_class_when(instance: LessonInstance, locale: str = "en") -> str:
-    """The ' on <weekday> at <time>' suffix for a class instance."""
-    return _format_when(getattr(instance, "start_datetime", None), locale)
+    """The ' on <day> (<weekday>) at <time>' suffix for a class instance — one occurrence, so
+    always dated (rule 17)."""
+    return _format_when(getattr(instance, "start_datetime", None), locale, dated=True)
 
 
 def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=None, counted_as_coming=False):
@@ -2322,7 +2387,8 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
                 "name": first_name,
                 # `class` is a keyword, so the placeholder is passed by name.
                 "class": getattr(source, "title", None) or "",
-                "when": _format_when(started_at, locale),
+                # Dated for one occurrence, weekday-only for the whole series (rule 17).
+                "when": _format_when(started_at, locale, dated=instance is not None),
                 # Every other template describes a class as level + weekday +
                 # time, so a coach editing this one finds the vocabulary they
                 # already know. `{class}` and `{when}` are the additions: the
@@ -2910,6 +2976,11 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         # Stop reminding a student as soon as they have responded.
         # Both "yes" and "no" responses set ``confirmed`` (see respond_to_reminder).
         if existing_presence.confirmed:
+            continue
+        # PAD-546 (rule 23): the coach already marked them present or absent (justified or not).
+        # `status` is the coach's record only (attendance.presence rule 7); read at send time, on
+        # every pass, so a mark cleared before the next pass brings the reminder back.
+        if existing_presence.status is not None:
             continue
 
         # Count reminders already sent to THIS player for THIS instance —
