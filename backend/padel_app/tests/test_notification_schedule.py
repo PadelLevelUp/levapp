@@ -526,6 +526,12 @@ class TestProcessInvitationBatches:
             # test_pad451_quiet_hours_hold_the_sweep.py.
             "padel_app.services.notification_service._check_restrictions",
             return_value=True,
+        ), patch(
+            # PAD-540 (invitations rule 1c): the tick also opens never-filled places, a real
+            # query over future classes. Stubbed for the same reason; DB-backed coverage in
+            # test_pad540_never_filled_spots_start.py.
+            "padel_app.services.notification_service._open_never_filled_places",
+            return_value=0,
         ):
             yield
 

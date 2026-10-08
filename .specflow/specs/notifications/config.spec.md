@@ -125,7 +125,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    answers with the defaults. A job whose new fire time
    is in the future replaces the old one. A job whose new fire time is already past, or whose
    timing is `none`, is removed: that class gets no automatic reminder (or no invitation start)
-   from that job. The class gets nothing from the save itself; rule 10f says how the coach can have it sent. A
+   from that job. For a never-filled place whose window is already open, invitations rule 1c
+   (PAD-540) says what opens it instead: the next tick, once the class exists; the save itself
+   still sends nothing. The class gets nothing from the save itself; rule 10f says how the coach can have it sent. A
    job already armed at exactly the implied time is left alone, even when that time has just
    passed, so it fires or expires inside its grace time. No job armed from a previous or an
    intermediate value remains. The startup re-arm and the daily window pass use the same
