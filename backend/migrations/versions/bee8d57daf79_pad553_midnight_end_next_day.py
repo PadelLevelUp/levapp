@@ -1,7 +1,7 @@
 """PAD-553 (B-346): a class ending at midnight ends at 00:00 of the NEXT day
 
 Revision ID: bee8d57daf79
-Revises: e4381787870f
+Revises: f831df5ef8d7
 Create Date: 2026-10-08
 
 Classes and occurrences ending at midnight were stored with the end at 00:00 of their own date,
@@ -18,7 +18,7 @@ and moving them back would only recreate the defect.
 from alembic import op
 
 revision = "bee8d57daf79"
-down_revision = "e4381787870f"
+down_revision = "f831df5ef8d7"
 branch_labels = None
 depends_on = None
 
