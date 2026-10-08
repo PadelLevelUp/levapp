@@ -1,3 +1,4 @@
+import { walkInOptions } from "@levelup/config";
 import {
   effectiveMark,
   fromMark,
@@ -110,17 +111,9 @@ export function filterRoster(
   roster: RosterOption[],
   query: string
 ): RosterOption[] {
-  const needle = normalize(query);
-  if (!needle) return roster;
-  return roster.filter((option) => normalize(option.name).includes(needle));
-}
-
-function normalize(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+  // PAD-537 (attendance.validation rule 8a): alphabetical, then the app's one name rule (PAD-516),
+  // from the helper web reads too.
+  return walkInOptions(roster, query);
 }
 
 /** How many players still have no determination — what blocks validating (rule 5). */

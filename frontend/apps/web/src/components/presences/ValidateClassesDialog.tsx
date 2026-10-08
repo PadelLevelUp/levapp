@@ -20,13 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { PendingValidationClass, PendingValidationPlayer } from "@/types";
@@ -39,6 +33,7 @@ import {
   effectiveMark,
   fromMark,
   undecidedCount,
+  walkInOptions,
   presentCount,
   validationGroup,
   type PresenceMark,
@@ -71,6 +66,7 @@ export function ValidateClassesDialog({
   pending,
   validated,
   pendingCount,
+  pendingTotal,
   weekOffset,
   onWeekChange,
   loading,
@@ -84,11 +80,16 @@ export function ValidateClassesDialog({
   pending: PendingValidationClass[];
   validated: PendingValidationClass[];
   /**
-   * The trigger's number, from `/pending_validation/count` — the helper the
-   * dashboard card reads too (attendance.validation rule 18). `null` while
-   * loading; the list below it is the same week's classes.
+   * The shown week's count, from `/pending_validation/count` (attendance.validation rule 18):
+   * the list below the trigger is the same week's classes. `null` while loading.
    */
   pendingCount: number | null;
+  /**
+   * PAD-539 (B-342): the trigger's number — the coach's whole backlog, the same `pendingTotal`
+   * the dashboard card and the Presences badge show (rule 23). Before, the trigger showed the
+   * week's count, and classes left over from an earlier week read as nothing to validate.
+   */
+  pendingTotal: number | null;
   weekOffset: number;
   onWeekChange: (next: number) => void;
   loading?: boolean;
@@ -266,14 +267,23 @@ export function ValidateClassesDialog({
           <span className="block text-sm font-semibold" data-testid="presences-validate-count">
             {/* Not a plural form: pt's CLDR "one" category covers 0, so the
                 counted string renders "0 aula por validar". An empty queue
-                deserves its own sentence anyway. */}
-            {pendingCount == null
+                deserves its own sentence anyway. PAD-539: the whole backlog. */}
+            {pendingTotal == null
               ? "…"
-              : pendingCount === 0
+              : pendingTotal === 0
                 ? t("presences.validate.triggerEmpty")
-                : t("presences.validate.trigger", { count: pendingCount })}
+                : t("presences.validate.trigger", { count: pendingTotal })}
           </span>
           <span className="block text-xs text-muted-foreground">
+            {/* PAD-539: how many of them fall in the week shown. */}
+            <span data-testid="presences-validate-week">
+              {pendingCount == null
+                ? "…"
+                : pendingCount === 0
+                  ? t(weekOffset === 0 ? "presences.validate.triggerWeekEmpty" : "presences.validate.triggerWeekShownEmpty")
+                  : t(weekOffset === 0 ? "presences.validate.triggerWeek" : "presences.validate.triggerWeekShown", { count: pendingCount })}
+            </span>
+            {" · "}
             {t("presences.validate.triggerHint")}
           </span>
         </span>
@@ -578,6 +588,68 @@ function PresentCount({ players, edits }: { players: PendingValidationClass["pla
   );
 }
 
+/**
+ * PAD-537 (attendance.validation rule 8a): the walk-in picker — a search over the players who
+ * are not in the class yet, listed alphabetically and narrowed with the app's one name rule
+ * (`walkInOptions`, PAD-516: every typed word, in any order). It replaces a plain dropdown that
+ * listed the roster unsorted, with no way to type. iOS's WalkInPicker reads the same helper.
+ */
+function WalkInSearch({
+  available,
+  placeholder,
+  onPick,
+  onCancel,
+}: {
+  available: RosterOption[];
+  placeholder: string;
+  onPick: (playerId: number) => void;
+  onCancel?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState("");
+  const options = walkInOptions(available, query);
+  return (
+    <div className="space-y-1.5" data-testid="presences-walk-in">
+      <div className="flex items-center gap-2">
+        <Input
+          autoFocus={Boolean(onCancel)}
+          data-testid="presences-walk-in-search"
+          className="h-8 flex-1 text-sm"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {onCancel && (
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            {t("common.cancel", "Cancel")}
+          </Button>
+        )}
+      </div>
+      <ul className="max-h-44 overflow-y-auto overscroll-contain rounded-md border border-border" data-testid="presences-walk-in-list">
+        {options.length === 0 ? (
+          <li className="px-3 py-2 text-xs text-muted-foreground">{t("presences.validate.noPlayerMatches")}</li>
+        ) : (
+          options.map((option) => (
+            <li key={option.id}>
+              <button
+                type="button"
+                data-testid={`presences-walk-in-option-${option.id}`}
+                className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
+                onClick={() => {
+                  onPick(option.id);
+                  setQuery("");
+                }}
+              >
+                {option.name}
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+}
+
 function ClassCard({
   klass,
   selected,
@@ -698,22 +770,13 @@ function ClassCard({
       </ul>
 
       {adding ? (
-        <div className="mt-3 flex items-center gap-2">
-          <Select onValueChange={(v) => { onAddWalkIn(Number(v)); setAdding(false); }}>
-            <SelectTrigger className="h-8 flex-1 text-sm">
-              <SelectValue placeholder={t("presences.validate.choosePlayer")} />
-            </SelectTrigger>
-            <SelectContent>
-              {available.map((option) => (
-                <SelectItem key={option.id} value={String(option.id)}>
-                  {option.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
-            {t("common.cancel", "Cancel")}
-          </Button>
+        <div className="mt-3">
+          <WalkInSearch
+            available={available}
+            placeholder={t("presences.validate.choosePlayer")}
+            onPick={(id) => { onAddWalkIn(id); setAdding(false); }}
+            onCancel={() => setAdding(false)}
+          />
         </div>
       ) : (
         available.length > 0 && (
@@ -857,20 +920,11 @@ function ClassDetail({
       </ul>
 
       {available.length > 0 && (
-        <div className="flex items-center gap-2">
-          <Select onValueChange={(v) => onAddWalkIn(Number(v))}>
-            <SelectTrigger className="h-9 flex-1 text-sm">
-              <SelectValue placeholder={t("presences.validate.lastMinute")} />
-            </SelectTrigger>
-            <SelectContent>
-              {available.map((option) => (
-                <SelectItem key={option.id} value={String(option.id)}>
-                  {option.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <WalkInSearch
+          available={available}
+          placeholder={t("presences.validate.lastMinute")}
+          onPick={(id) => onAddWalkIn(id)}
+        />
       )}
 
       <div className="flex flex-wrap justify-end gap-2">

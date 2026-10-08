@@ -398,6 +398,17 @@ export default function PlayersPage() {
                             {t("players.pendingRegistration")}
                           </Badge>
                         )}
+                        {/* players.claim rule 4c (PAD-528): the server's duplicate flag on a claimable row; nothing re-sorts. */}
+                        {cs.possibleDuplicateOf && (
+                          <Badge
+                            variant="outline"
+                            className="border-warning/40 text-warning text-xs"
+                            data-testid={`player-duplicate-${cs.playerId}`}
+                            title={t("players.claim.possibleDuplicateHint", { name: cs.possibleDuplicateOf.name })}
+                          >
+                            {t("players.claim.possibleDuplicate")}
+                          </Badge>
+                        )}
                         {/* evaluations.reminders rule 4 (PAD-404): the server's `due`; the list is not re-sorted by it. */}
                         {cs.due === true && (
                           <Badge

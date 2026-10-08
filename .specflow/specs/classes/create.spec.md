@@ -57,7 +57,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      nothing is sent ("A hora de fim tem de ser depois da hora de início"), as iOS's new-class
      screen already does.
    - **Never empty, never zero:** text that is not a time — an emptied field included, however
-     long it is left — puts the last valid time back. Leaving the field (Tab, a click elsewhere)
+     long it is left — puts the last valid time back. **One exception (PAD-524):** a clone opens with the start
+     empty until the coach first sets it, and Create waits for it (`classes.clone` rule 5). Leaving the field (Tab, a click elsewhere)
      commits what was typed, whether or not the list is open. This replaces the browser's native time
      input, whose cleared segment read as empty and fell back to "zero" (the report behind PAD-508
      and B-275).
@@ -67,6 +68,16 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      other web time fields (events, blockers, working hours) are unchanged.
    - **Not this ticket:** moving through the list with the arrow keys (the list is pointer and
      typing only).
+8c. **(PAD-553, B-346; number unconfirmed) A class that ends at midnight ends the next day.** An end
+   of exactly 00:00 after a later start is 00:00 of the NEXT day, on every path that writes a class
+   or an occurrence (create, materialisation, an edit, the import), and the calendar's
+   "completed" status reads it the same way. It was stored at 00:00 of the
+   class's own day, before its start, so every "has it ended" reader (attendance validation, the
+   pending count, the "this and future" walk) treated it as over from midnight. Any other end at or
+   before the start is a typed mistake, not a midnight class, and is not moved (B-294 refuses it).
+   A repair migration moved the stored rows that end at 00:00 before their start; its downgrade
+   is a no-op, because a repaired row cannot be told from a correct one.
+
 9. **How a recurring series ends: a date, a number of classes, or the season (PAD-463, D151).**
    Class creation on web (add-class sheet) and iOS (new class) offers one choice of three, the
    first selected by default:
@@ -91,7 +102,11 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 10. **The coach chooses the students when creating a class, on web and in the mobile app (iOS and
     Android) (PAD-474, B-239).** Both create forms carry a participant picker (web: the add-class
     sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
-    search, a filter by level, and a mark on any student outside the class's level. A chosen student
+    search (every typed word, in any order: `players.list` rule 3, PAD-516), a filter by level, and a
+    mark on any student outside the class's level. **Every student's level is visible (PAD-527):** a
+    chip with the level code, in the primary colour when it is the class's level, amber when it is
+    another level or none ("No level"), neutral when the class has no level; one rule for both shells
+    (`@levelup/config` `classLevelMatch`). A chosen student
     is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
     tells them. The picker applies no cap at `maxPlayers`; it shows the count. **Every student
     in the list can be reached (PAD-502, B-271):** the list has a fixed height and scrolls inside
@@ -107,6 +122,12 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     editor (`classes.edit` rule 9), so both get it, on both shells.
 
 ### Acceptance Criteria
+
+#### The picker shows every student's level, coloured by the class's level (PAD-527)
+- **Given** a class at level I1 and students Rui (I1), Sara (B2) and Tomé (no level)
+- **When** the coach opens the participant picker, on web or iOS
+- **Then** Rui's chip reads I1 in the primary colour, Sara's reads B2 in amber and Tomé's reads "No level" in amber
+- **And** for a class with no level, Rui's and Sara's chips are neutral and Tomé has none
 
 #### An invalid time is refused by the server (rule 8a, B-275)
 - **Given** `POST /api/app/add_class` or `/edit_class` with `startTime: ""` (or null, absent, "9",
@@ -177,3 +198,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **Then** Ana is chosen and the search is empty (web: with the cursor still in it)
 - **When** the coach searches "Ana" again and unticks her
 - **Then** the search still reads "Ana"
+
+#### A class that ends at midnight ends the next day (rule 8c, PAD-553)
+- **Given** a coach creating a class on 5 Nov from 22:00 to 00:00
+- **Then** it is stored ending at 00:00 on 6 Nov, and its occurrences end an hour after they start
+- **Given** a class typed from 18:00 to 17:00
+- **Then** its end is not moved (B-294's)
+

@@ -63,7 +63,7 @@ export function clearSession() {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   auth?: boolean;
   fetchImpl?: typeof fetch;
@@ -123,7 +123,93 @@ export const adminApi = {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "")).toString();
     return api<{ items: AuditRow[]; page: number; hasMore: boolean }>(`/audit${query ? `?${query}` : ""}`);
   },
+  // admin.engine-health (PAD-534): read-only.
+  engineHealth: () => api<EngineHealth>("/engine-health"),
+  engineHealthCoaches: (q: string) =>
+    api<{ coaches: { coachId: number; name: string }[] }>(`/engine-health/coaches?q=${encodeURIComponent(q)}`),
+  engineHealthCoach: (coachId: number) => api<CoachEngine>(`/engine-health/coaches/${coachId}`),
+  // ── clubs and switches (PAD-533, admin.clubs-and-switches rules 1–3, 5, 6) ──
+  clubs: (q: string, page = 1) =>
+    api<{ items: ClubRow[]; page: number; hasMore: boolean }>(`/clubs?${new URLSearchParams({ q, page: String(page) }).toString()}`),
+  club: (id: number) => api<ClubDetail>(`/clubs/${id}`),
+  editClub: (id: number, body: Partial<Pick<ClubRow, "name" | "description" | "location">>) =>
+    api<ClubDetail>(`/clubs/${id}`, { method: "PATCH", body }),
+  addCourt: (clubId: number, name: string) => api<CourtRow>(`/clubs/${clubId}/courts`, { method: "POST", body: { name } }),
+  renameCourt: (id: number, name: string) => api<CourtRow>(`/courts/${id}`, { method: "PATCH", body: { name } }),
+  deleteCourt: (id: number) => api<{ deleted: boolean }>(`/courts/${id}`, { method: "DELETE" }),
+  reorderCourts: (clubId: number, ids: number[]) => api<CourtRow[]>(`/clubs/${clubId}/courts/order`, { method: "PUT", body: { ids } }),
+  linkCoach: (clubId: number, coachId: number) =>
+    api<{ linked: boolean; changed: boolean }>(`/clubs/${clubId}/coaches`, { method: "POST", body: { coachId } }),
+  unlinkCoach: (clubId: number, coachId: number) =>
+    api<{ unlinked: boolean; warning?: "COACH_HAS_NO_CLUB" }>(`/clubs/${clubId}/coaches/${coachId}`, { method: "DELETE" }),
+  capabilities: () => api<{ items: CapabilityRow[] }>("/settings/capabilities"),
+  setCapability: (capability: string, off: boolean, reason: string | null) =>
+    api<{ items: CapabilityRow[] }>(`/settings/capabilities/${capability}`, { method: "PUT", body: { off, reason } }),
 };
+
+export type DeployIdentity = { gitSha: string; alembicHead: string | null };
+export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due";
+
+export interface EngineHealth {
+  computedAt: string;
+  vacancies: {
+    open: number;
+    byRoundAndBatch: { round: number; batch: number; count: number }[];
+    pendingApproval: number;
+    oldestOpenAgeSeconds: number | null;
+  };
+  invitations: { live: number; byRound: { round: number | null; count: number }[] };
+  scheduler:
+    | { available: false }
+    | { available: true; total: number; byFamily: Record<string, number>; overdue: number; singletons: Record<string, boolean> };
+  incidents: {
+    last24h: Record<IncidentKind, number>;
+    last7d: Record<IncidentKind, number>;
+    recent: { id: number; createdAt: string; kind: IncidentKind; channel: string; userId: number | null; subjectType: string | null; subjectId: number | null; errorClass: string | null; detail: string | null }[];
+  };
+  accounts: { users: Record<string, number>; coaches: Record<string, number>; players: number; createdLast7d: number };
+  deploy: { this: DeployIdentity; other: DeployIdentity | string };
+}
+
+export interface CoachEngine {
+  coachId: number;
+  name: string;
+  settings: Record<string, unknown> & { autoNotifyEnabled: boolean; invitationMode: string };
+  openVacancies: number;
+  liveInvitations: number;
+  scheduledJobs: { id: string; nextRunTime: string | null }[];
+}
+
+export interface ClubRow {
+  id: number;
+  name: string;
+  description: string | null;
+  location: string | null;
+  coaches: number;
+  players: number;
+  courts: number;
+  lessons: number;
+}
+
+export interface CourtRow {
+  id: number;
+  name: string;
+  position: number;
+}
+
+export interface ClubDetail extends ClubRow {
+  courtsList: CourtRow[];
+  coachesList: { coachId: number; name: string | null; email: string | null; linkedAt: string | null }[];
+}
+
+export interface CapabilityRow {
+  capability: string;
+  kind: "feature" | "compat";
+  off: boolean;
+  reason: string | null;
+  changedAt: string | null;
+  changedBy: string | null;
+}
 
 export interface AdminRoleRow {
   id: number;

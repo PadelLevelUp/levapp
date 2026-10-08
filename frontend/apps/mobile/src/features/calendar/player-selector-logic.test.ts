@@ -73,3 +73,12 @@ describe("togglePlayerId", () => {
     expect(togglePlayerId([1 as unknown as string], "1")).toEqual([]);
   });
 });
+
+describe("filterPlayers matches every word in any order (PAD-516)", () => {
+  const pedro = player("9", "Pedro Mesquita e Sousa");
+  const alves = player("10", "Pedro Alves");
+  it("finds the name with the words out of order and skips one missing a word", () => {
+    expect(filterPlayers([pedro, alves], { search: "pedro sousa", levelId: null })).toEqual([pedro]);
+    expect(filterPlayers([pedro, alves], { search: "sousa pedro", levelId: null })).toEqual([pedro]);
+  });
+});

@@ -132,7 +132,9 @@ export function approvalRespondOutcome(
   vacancies:
     | { vacancyId: number; result: ApprovalVacancyResult }[]
     | null
-    | undefined
+    | undefined,
+  /** PAD-545: the server says a recompute replaced this bundle. */
+  superseded = false
 ): ApprovalRespondOutcome {
   const list = vacancies ?? [];
   const staleVacancyIds = list
@@ -143,8 +145,10 @@ export function approvalRespondOutcome(
   return {
     staleVacancyIds,
     allStale,
-    toastKey: allStale
-      ? "notificationsUi.replacementApproval.spotsFilledOrExpired"
-      : null,
+    toastKey: superseded
+      ? "notificationsUi.replacementApproval.superseded"
+      : allStale
+        ? "notificationsUi.replacementApproval.spotsFilledOrExpired"
+        : null,
   };
 }

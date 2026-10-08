@@ -1,4 +1,5 @@
 import "@/api/client";
+import { nameMatchesQuery } from "@levelup/config";
 import type { Player, CoachPlayer, PlayerProfile, CoachNote } from "@/types";
 import type { PlayerRemovalAction, PlayerRemovalImpact } from "@levelup/types";
 import * as playersApi from "@levelup/api/src/resources/players";
@@ -42,8 +43,7 @@ export async function getCoachPlayersPaginated(
   if (USE_MOCK_DATA) {
     let filtered = mockCoachPlayers;
     if (search) {
-      const q = search.toLowerCase();
-      filtered = mockCoachPlayers.filter((p) => (p.name ?? "").toLowerCase().includes(q));
+      filtered = mockCoachPlayers.filter((p) => nameMatchesQuery(p.name, search));
     }
     const total = filtered.length;
     const start = (page - 1) * perPage;

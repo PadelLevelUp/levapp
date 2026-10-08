@@ -2,9 +2,20 @@
   "admin": {
     "shell": {
       "title": "LevApp Staff",
-      "nav": { "home": "Home", "roles": "Access", "audit": "Audit log" },
+      "nav": {
+        "home": "Home",
+        "roles": "Access",
+        "audit": "Audit log",
+        "clubs": "Clubs",
+        "switches": "Switches",
+        "engineHealth": "Engine health"
+      },
       "signOut": "Sign out",
-      "role": { "owner": "owner", "operator": "operator", "support": "support" },
+      "role": {
+        "owner": "owner",
+        "operator": "operator",
+        "support": "support"
+      },
       "readOnly": "Read only",
       "language": "Language"
     },
@@ -58,14 +69,160 @@
     "audit": {
       "title": "Audit log",
       "lead": "Who changed what, before and after, and when. It cannot be edited or deleted.",
-      "filters": { "actor": "Who", "action": "Action", "targetType": "Target type", "targetId": "Target id", "apply": "Filter", "clear": "Clear" },
-      "columns": { "when": "When", "who": "Who", "action": "Action", "target": "Target", "outcome": "Outcome", "change": "Before → after" },
-      "outcome": { "ok": "ok", "denied": "denied", "error": "error" },
+      "filters": {
+        "actor": "Who",
+        "action": "Action",
+        "targetType": "Target type",
+        "targetId": "Target id",
+        "apply": "Filter",
+        "clear": "Clear"
+      },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "action": "Action",
+        "target": "Target",
+        "outcome": "Outcome",
+        "change": "Before → after"
+      },
+      "outcome": {
+        "ok": "ok",
+        "denied": "denied",
+        "error": "error"
+      },
       "empty": "No rows for these filters.",
       "prev": "Previous",
       "next": "Next",
       "page": "Page {{page}}"
     },
-    "common": { "loading": "Loading…", "error": "Something went wrong.", "cancel": "Cancel", "confirm": "Confirm" }
+    "common": {
+      "loading": "Loading…",
+      "error": "Something went wrong.",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "clubs": {
+      "title": "Clubs",
+      "lead": "Fix a club, its courts and which coaches belong to it. Clubs are never created or deleted here.",
+      "search": "Search by name",
+      "empty": "No club matches.",
+      "name": "Name",
+      "description": "Description",
+      "location": "Location",
+      "coaches": "Coaches",
+      "players": "Players",
+      "courts": "Courts",
+      "lessons": "Classes",
+      "detailLead": "Every change is recorded in the audit log.",
+      "fields": "Details",
+      "save": "Save",
+      "saved": "Saved.",
+      "up": "Move up",
+      "down": "Move down",
+      "rename": "Rename",
+      "renamePrompt": "New court name",
+      "delete": "Delete",
+      "deleteConfirm": "Delete {{name}}? Classes on it keep running with no court.",
+      "newCourt": "New court name",
+      "addCourt": "Add court",
+      "unlink": "Unlink",
+      "coachId": "Coach id",
+      "link": "Link coach",
+      "coachHasNoClub": "Done. That coach now belongs to no club."
+    },
+    "switches": {
+      "title": "Switches",
+      "lead": "Switch a client capability off for everyone, without a release. Takes effect within 30 seconds.",
+      "on": "On",
+      "off": "Off",
+      "kind": {
+        "feature": "Feature",
+        "compat": "Compatibility"
+      },
+      "effect": {
+        "open-spots": "Off: no student sees open spots in their calendar.",
+        "evaluations": "Off: the shared-evaluation block disappears from the student dashboard.",
+        "class-type-defaults": "Off: every app is told a class's open-spot setting comes from the coach, as old apps are. The value shown is the same.",
+        "coach-invite-email": "Off: accepting a coach invitation no longer requires an email, as in old apps.",
+        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident."
+      },
+      "reasonShown": "Reason: {{reason}}",
+      "changed": "Last changed {{at}} by {{by}}",
+      "reasonPlaceholder": "Why (required to switch off)",
+      "reasonRequired": "Write a reason of at least 5 characters.",
+      "turnOff": "Switch off",
+      "turnOn": "Switch on",
+      "ownerOnly": "Only the owner can change this.",
+      "confirmOff": {
+        "terms-acceptance": "Switching this off means new accounts are created without accepting the Terms, and no acceptance is recorded for them. That has legal impact. Switch it off only for an incident, and switch it back on as soon as it is fixed. Continue?"
+      }
+    },
+    "engineHealth": {
+      "title": "Engine health",
+      "lead": "What the invitation and reminder engine holds right now, and what each environment runs. Read only.",
+      "refresh": "Refresh",
+      "computedAt": "Computed {{when}}",
+      "vacancies": {
+        "title": "Open vacancies",
+        "open": "Open",
+        "pending": "Awaiting approval",
+        "oldest": "Oldest open",
+        "round": "Round {{round}}, batch {{batch}}"
+      },
+      "invitations": {
+        "title": "Live invitations",
+        "live": "Live",
+        "round": "Round {{round}}",
+        "waitingList": "Waiting list"
+      },
+      "scheduler": {
+        "title": "Scheduler",
+        "unavailable": "The scheduler is not running in this process.",
+        "total": "Jobs",
+        "overdue": "Overdue (>5 min)",
+        "present": "present",
+        "missing": "missing"
+      },
+      "incidents": {
+        "title": "Failed sends and skipped reminders",
+        "last24h": "Last 24 h",
+        "last7d": "Last 7 days",
+        "recent": "Most recent",
+        "none": "None recorded.",
+        "kind": {
+          "email_failed": "Email failed",
+          "push_failed": "Push failed",
+          "reminder_skipped_past_due": "Reminder skipped (past due)"
+        }
+      },
+      "accounts": {
+        "title": "Accounts",
+        "users": "Users",
+        "coaches": "Coaches",
+        "players": "Players",
+        "new7d": "New in 7 days"
+      },
+      "deploy": {
+        "title": "Deploys",
+        "this": "This environment",
+        "other": "Other environment",
+        "sha": "Commit",
+        "head": "Migration head",
+        "notConfigured": "Not configured",
+        "unreachable": "Unreachable"
+      },
+      "coaches": {
+        "title": "A coach's engine settings",
+        "search": "Search a coach by name",
+        "none": "No coach found.",
+        "openVacancies": "Open vacancies",
+        "liveInvitations": "Live invitations",
+        "jobs": "Scheduled jobs",
+        "settings": "Settings (read only)"
+      },
+      "minutes": "{{n}} min",
+      "hours": "{{n}} h",
+      "days": "{{n}} d"
+    }
   }
 }

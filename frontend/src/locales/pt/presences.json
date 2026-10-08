@@ -74,7 +74,14 @@
       "needsDecision": "Precisa de decisão",
       "presentCount_one": "{{count}} presente",
       "presentCount_other": "{{count}} presentes",
-      "presentCountNone": "0 presentes"
+      "presentCountNone": "0 presentes",
+      "triggerWeek_one": "{{count}} nesta semana",
+      "triggerWeek_other": "{{count}} nesta semana",
+      "triggerWeekEmpty": "Nada nesta semana",
+      "triggerWeekShown_one": "{{count}} na semana mostrada",
+      "triggerWeekShown_other": "{{count}} na semana mostrada",
+      "triggerWeekShownEmpty": "Nada na semana mostrada",
+      "noPlayerMatches": "Nenhum jogador corresponde à pesquisa."
     },
     "column": {
       "name": "Jogador",
