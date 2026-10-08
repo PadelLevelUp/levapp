@@ -310,3 +310,34 @@ describe("the trigger shows the backlog and the week's share (PAD-539)", () => {
     expect(screen.getByTestId("presences-validate-count").textContent).toBe("presences.validate.triggerEmpty");
   });
 });
+
+// PAD-537 (attendance.validation rule 8a): the walk-in picker lists the roster alphabetically and
+// filters by every typed word, in any order.
+describe("the walk-in picker searches and sorts (PAD-537)", () => {
+  it("is sorted and narrows by typed words in any order", () => {
+    const k = klass(1, "First");
+    render(
+      <Dialog
+        pending={[k]}
+        validated={[]}
+        pendingCount={1}
+        weekOffset={0}
+        onWeekChange={() => {}}
+        roster={[
+          { id: 91, name: "Zé Costa" },
+          { id: 92, name: "ana silva" },
+          { id: 93, name: "Bruno Silva Ramos" },
+        ]}
+        onValidate={vi.fn()}
+        onUnvalidate={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId("presences-validate-trigger"));
+    fireEvent.click(screen.getByText("presences.validate.addPlayer"));
+    const list = screen.getByTestId("presences-walk-in-list");
+    const ids = () => Array.from(list.querySelectorAll("button")).map((b) => b.getAttribute("data-testid"));
+    expect(ids()).toEqual(["presences-walk-in-option-92", "presences-walk-in-option-93", "presences-walk-in-option-91"]);
+    fireEvent.change(screen.getByTestId("presences-walk-in-search"), { target: { value: "silva ana" } });
+    expect(ids()).toEqual(["presences-walk-in-option-92"]);
+  });
+});
