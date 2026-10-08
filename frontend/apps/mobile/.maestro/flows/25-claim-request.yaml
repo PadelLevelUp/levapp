@@ -56,6 +56,10 @@ appId: com.padellevelup.app
     id: "player-claim-link"
 - assertVisible:
     id: "player-claim-dialog"
+# PAD-528 (players.claim rule 4b): the dialog opens on "From your students"; switch to the
+# username tab before typing.
+- tapOn:
+    id: "player-claim-tab-username"
 - tapOn:
     id: "player-claim-username"
 - inputText: "nobody-has-this-username"

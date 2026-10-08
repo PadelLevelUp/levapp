@@ -112,6 +112,10 @@ executionOrder:
     # fixtures (27 needs the fresh seed's e2e-student-3), positions not load bearing.
     - 24-join-by-link
     - 25-claim-request
+    # 189 (PAD-528) adds a placeholder named like e2e-student in onFlowStart, asserts the
+    # duplicate badge, the one-tap merge dialog, preselection and the dry run, never sends the
+    # request, and deletes the placeholder in onFlowComplete (R-040).
+    - 189-merge-duplicate-preview
     - 26-message-by-username
     - 27-unknown-sender-block
     # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in

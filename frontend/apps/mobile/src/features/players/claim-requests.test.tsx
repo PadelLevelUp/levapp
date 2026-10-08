@@ -10,8 +10,10 @@ import { renderNative } from "@/test/render-native";
 const listMyClaimRequests = vi.fn();
 const acceptClaimRequest = vi.fn();
 const rejectClaimRequest = vi.fn();
+const previewClaimRequest = vi.fn();
 vi.mock("@levelup/api", () => ({
   playerClaimsApi: {
+    previewClaimRequest: (...a: unknown[]) => previewClaimRequest(...a),
     listMyClaimRequests: (...a: unknown[]) => listMyClaimRequests(...a),
     acceptClaimRequest: (...a: unknown[]) => acceptClaimRequest(...a),
     rejectClaimRequest: (...a: unknown[]) => rejectClaimRequest(...a),
@@ -46,6 +48,7 @@ beforeEach(() => {
   acceptClaimRequest.mockReset().mockResolvedValue(REQ);
   rejectClaimRequest.mockReset().mockResolvedValue(REQ);
   refreshUser.mockReset().mockResolvedValue({ coaches: [{ id: 1 }] });
+  previewClaimRequest.mockReset().mockResolvedValue({ moves: { presences: 2 }, dropped: { presences: 1 }, merged: {} });
 });
 
 async function mount() {
@@ -68,5 +71,19 @@ describe("ClaimRequests re-reads /me after an accepted claim (PAD-444)", () => {
     await n.press("claim-reject-5");
     await n.flush();
     expect(refreshUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("ClaimRequests shows the dry run before the accept (PAD-528, players.claim rule 5j)", () => {
+  it("asks for the preview of each request and renders its lines", async () => {
+    const n = await mount();
+    await n.flush();
+    expect(previewClaimRequest).toHaveBeenCalledWith("5");
+    const textOf = (inst: any): string =>
+      inst.children.map((c: any) => (typeof c === "string" ? c : textOf(c))).join("");
+    const text = textOf(n.byTestId("claim-preview-5"));
+    expect(text).toContain("players.claim.previewMovesYours");
+    expect(text).toContain("players.claim.previewKeptYours");
+    expect(text).toContain("players.claim.previewIrreversible");
   });
 });

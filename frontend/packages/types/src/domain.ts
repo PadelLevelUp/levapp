@@ -338,6 +338,12 @@ export interface CoachPlayer {
    */
   due?: boolean,
   /**
+   * players.claim rule 4c (PAD-528): on a claimable row only, the coach's student with the
+   * same normalised name — the account this record is probably a duplicate of. `null` or
+   * absent otherwise; never on a non-claimable row.
+   */
+  possibleDuplicateOf?: { playerId: string | number; name: string } | null,
+  /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
    * their own username at account activation. Do not render it in coach UI.

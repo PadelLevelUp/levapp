@@ -168,7 +168,10 @@ class Player(db.Model, model.Model):
         # the same helper. `add_player`/`edit_player` return THIS dict, so the
         # coach's "notifications cut" signal would disappear right after an edit
         # if the two ever drifted.
-        from padel_app.services.player_service import _activation_token_if_inactive
+        from padel_app.services.player_service import (
+            _activation_token_if_inactive,
+            possible_duplicates_for,
+        )
         from padel_app.services.student_notification_preferences import (
             notification_block_payload,
         )
@@ -179,6 +182,7 @@ class Player(db.Model, model.Model):
         rel = next((r for r in self.coaches_relations if r.coach_id == coach_id), None)
         coach = db.session.get(Coach, coach_id)
         due = due_for_links(coach, [rel]) if coach is not None and rel is not None else {}
+        duplicates = possible_duplicates_for(coach, [rel]) if coach is not None and rel is not None else {}
         return {
             **notification_block_payload(self.user),
             "id": f"p-{self.id}_c-{coach_id}",
@@ -207,4 +211,7 @@ class Player(db.Model, model.Model):
             "deletable": _is_deletable_by_coach(self),
             # evaluations.reminders rule 4 (PAD-404): the roster serializer's key.
             "due": bool(due.get(rel.id, False)) if rel is not None else False,
+            # players.claim rule 4c (PAD-528): the roster serializer's key, so an edit's
+            # response never drops the flag.
+            "possibleDuplicateOf": duplicates.get(rel.id) if rel is not None else None,
         }
