@@ -393,13 +393,15 @@ test("US-56: variable chips are shown and insert text at cursor", async ({ page 
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  // The invite template textarea should have variable chips below it
-  await expect(page.getByText(/\{name\}/).first()).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/\{time\}/).first()).toBeVisible();
+  // The chips sit under each class template. Scoped to one row: the page's help panel (PAD-549)
+  // also prints "{name}" and "{time}", so a page-wide first match is not a chip.
+  const row = page.getByTestId("template-row-reminder");
+  await expect(row.getByText("{name}", { exact: true })).toBeVisible({ timeout: 3000 });
+  await expect(row.getByText("{time}", { exact: true })).toBeVisible();
 
-  // Click {name} chip to insert into the first textarea with that chip
-  const nameChip = page.getByText(/\{name\}/).first();
-  const inviteTextarea = page.locator("textarea").first();
+  // Click {name} chip to insert into that row's textarea
+  const nameChip = row.getByText("{name}", { exact: true });
+  const inviteTextarea = row.locator("textarea");
 
   await inviteTextarea.fill("Hey ");
   await inviteTextarea.click();
