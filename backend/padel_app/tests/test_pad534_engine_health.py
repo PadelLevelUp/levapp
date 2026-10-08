@@ -201,8 +201,12 @@ def test_deploy_identity_for_both_environments(app, client, monkeypatch):
     monkeypatch.setenv("GIT_SHA", "abc1234")
     with app.app_context():
         with db.engine.begin() as conn:
+            # A migrated database (Postgres) already holds its head; one built from the models
+            # (SQLite) has no table, so give it one. Either way the API must report what is there.
             conn.exec_driver_sql("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32))")
-            conn.exec_driver_sql("INSERT INTO alembic_version VALUES ('e33b118e4205')")
+            if conn.exec_driver_sql("SELECT count(*) FROM alembic_version").scalar() == 0:
+                conn.exec_driver_sql("INSERT INTO alembic_version VALUES ('e33b118e4205')")
+            db_head = conn.exec_driver_sql("SELECT version_num FROM alembic_version").scalar()
     app.config.update(ADMIN_PEER_URL="https://admin.staging.example", ADMIN_PEER_TOKEN="peer-secret")
 
     class _Ok:
@@ -214,7 +218,7 @@ def test_deploy_identity_for_both_environments(app, client, monkeypatch):
 
     with patch("requests.get", return_value=_Ok()) as get:
         body = client.get("/admin/api/engine-health", headers=headers).get_json()["deploy"]
-    assert body["this"] == {"gitSha": "abc1234", "alembicHead": "e33b118e4205"}
+    assert body["this"] == {"gitSha": "abc1234", "alembicHead": db_head}
     assert body["other"] == {"gitSha": "def5678", "alembicHead": "x1"}
     assert get.call_args.kwargs["timeout"] == 2
     assert get.call_args.kwargs["headers"] == {"Authorization": "Peer peer-secret"}
