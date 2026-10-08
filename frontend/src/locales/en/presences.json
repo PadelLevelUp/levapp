@@ -74,7 +74,14 @@
       "needsDecision": "Needs a decision",
       "presentCount_one": "{{count}} present",
       "presentCount_other": "{{count}} present",
-      "presentCountNone": "0 present"
+      "presentCountNone": "0 present",
+      "triggerWeek_one": "{{count}} this week",
+      "triggerWeek_other": "{{count}} this week",
+      "triggerWeekEmpty": "Nothing this week",
+      "triggerWeekShown_one": "{{count}} in the week shown",
+      "triggerWeekShown_other": "{{count}} in the week shown",
+      "triggerWeekShownEmpty": "Nothing in the week shown",
+      "noPlayerMatches": "No player matches the search."
     },
     "column": {
       "name": "Player",

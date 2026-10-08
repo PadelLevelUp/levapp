@@ -388,6 +388,7 @@ export function RestrictionsSection({
         }
       />
       {toggleRow("excludeUnpaidSubscription", t(`${r}.excludeUnpaid`), t(`${r}.excludeUnpaidDescription`))}
+      {toggleRow("noSameDayClass", t(`${r}.noSameDayClass`), t(`${r}.noSameDayClassDescription`))}
       <View testID="restriction-row-cancellationDeadlineHours" className="gap-2">
         <RowText label={t(`${r}.cancellationDeadline`)} description={t(`${r}.cancellationDeadlineDescription`)} />
         <Stepper

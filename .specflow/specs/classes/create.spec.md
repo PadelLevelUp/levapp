@@ -57,7 +57,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      nothing is sent ("A hora de fim tem de ser depois da hora de início"), as iOS's new-class
      screen already does.
    - **Never empty, never zero:** text that is not a time — an emptied field included, however
-     long it is left — puts the last valid time back. Leaving the field (Tab, a click elsewhere)
+     long it is left — puts the last valid time back. **One exception (PAD-524):** a clone opens with the start
+     empty until the coach first sets it, and Create waits for it (`classes.clone` rule 5). Leaving the field (Tab, a click elsewhere)
      commits what was typed, whether or not the list is open. This replaces the browser's native time
      input, whose cleared segment read as empty and fell back to "zero" (the report behind PAD-508
      and B-275).
@@ -100,7 +101,11 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 10. **The coach chooses the students when creating a class, on web and in the mobile app (iOS and
     Android) (PAD-474, B-239).** Both create forms carry a participant picker (web: the add-class
     sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
-    search, a filter by level, and a mark on any student outside the class's level. A chosen student
+    search (every typed word, in any order: `players.list` rule 3, PAD-516), a filter by level, and a
+    mark on any student outside the class's level. **Every student's level is visible (PAD-527):** a
+    chip with the level code, in the primary colour when it is the class's level, amber when it is
+    another level or none ("No level"), neutral when the class has no level; one rule for both shells
+    (`@levelup/config` `classLevelMatch`). A chosen student
     is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
     tells them. The picker applies no cap at `maxPlayers`; it shows the count. **Every student
     in the list can be reached (PAD-502, B-271):** the list has a fixed height and scrolls inside
@@ -116,6 +121,12 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     editor (`classes.edit` rule 9), so both get it, on both shells.
 
 ### Acceptance Criteria
+
+#### The picker shows every student's level, coloured by the class's level (PAD-527)
+- **Given** a class at level I1 and students Rui (I1), Sara (B2) and Tomé (no level)
+- **When** the coach opens the participant picker, on web or iOS
+- **Then** Rui's chip reads I1 in the primary colour, Sara's reads B2 in amber and Tomé's reads "No level" in amber
+- **And** for a class with no level, Rui's and Sara's chips are neutral and Tomé has none
 
 #### An invalid time is refused by the server (rule 8a, B-275)
 - **Given** `POST /api/app/add_class` or `/edit_class` with `startTime: ""` (or null, absent, "9",

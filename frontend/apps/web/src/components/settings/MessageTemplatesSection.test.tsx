@@ -12,6 +12,11 @@ vi.mock("@/api/notificationEngine", () => ({
   updateNotificationConfig: (...a: unknown[]) => updateNotificationConfig(...a),
 }));
 
+const previewTemplate = vi.fn();
+vi.mock("@/api/templatePreview", () => ({
+  previewTemplate: (...a: unknown[]) => previewTemplate(...a),
+}));
+
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 vi.mock("sonner", () => ({
@@ -23,6 +28,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { MessageTemplatesSection } from "./MessageTemplatesSection";
+import { waitFor } from "@testing-library/react";
 import { SettingsUnsavedTestHarness } from "@/test/settingsUnsavedTestHarness";
 
 const TEMPLATES: MessageTemplates = {
@@ -156,5 +162,38 @@ describe("MessageTemplatesSection — placeholder hints (PAD-430, message-templa
     );
     fireEvent.click(within(screen.getByTestId("template-row-reminder")).getByText("{court}"));
     expect(reminderTextarea().value).toContain("{court}");
+  });
+});
+
+
+describe("MessageTemplatesSection explains templates and previews them (PAD-549)", () => {
+  beforeEach(() => {
+    previewTemplate.mockReset().mockImplementation(async (template: string) => ({
+      text: template.replace("{day}", "amanhã").replace("{name}", "Ana"),
+      examples: { name: "Ana", day: "amanhã", date: "09/10" },
+    }));
+  });
+
+  it("lists every field with its meaning and the server's example", async () => {
+    render(<Wrapper />);
+    expect(screen.getByTestId("template-help-field-day").textContent).toContain("settings.templates.help.fields.day");
+    await waitFor(() => expect(screen.getByTestId("template-help-example-day").textContent).toBe("amanhã"));
+    expect(screen.getByTestId("template-help-example-court").textContent).toBe("—");
+  });
+
+  it("offers {day} on the class templates", () => {
+    render(<Wrapper />);
+    expect(within(screen.getByTestId("template-row-invite")).getByText("{day}")).toBeTruthy();
+  });
+
+  it("previews a class template through the server's formatter", async () => {
+    render(<Wrapper />);
+    const row = screen.getByTestId("template-row-invite");
+    fireEvent.change(within(row).getByRole("textbox"), { target: { value: "vaga para {day}, {name}" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("template-preview-invite").textContent).toContain("vaga para amanhã, Ana"),
+      { timeout: 2000 }
+    );
+    expect(previewTemplate).toHaveBeenCalledWith("vaga para {day}, {name}");
   });
 });

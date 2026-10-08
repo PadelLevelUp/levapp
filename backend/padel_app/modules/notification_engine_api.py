@@ -12,6 +12,7 @@ from padel_app.modules.frontend_api import (
 from padel_app.utils.dates import club_now_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
+    withdraw_invitation,
     get_config_dict,
     update_config,
     send_class_reminders,
@@ -64,6 +65,31 @@ def _resolve_instance(model: str, original_id: int, date_str: str | None) -> Les
         abort(400, "date is required for Lesson events")
     date = datetime.strptime(date_str, "%Y-%m-%d").date()
     return get_or_materialize_instance(lesson, date)
+
+
+@bp.post("/template_preview")
+@jwt_required()
+def template_preview():
+    """PAD-549 (notifications.message-templates rule 19): the settings help's live preview — the
+    coach's template rendered by the real formatter with example values, plus each example."""
+    from padel_app.services.notification_service import (
+        _resolve_locale,
+        render_template_preview,
+        template_preview_examples,
+    )
+
+    coach = _current_coach()
+    data = request.get_json(silent=True) or {}
+    template = data.get("template")
+    if template is not None and not isinstance(template, str):
+        abort(400, "template must be a string")
+    if template is not None and len(template) > 2000:
+        abort(400, "template is too long")
+    locale = _resolve_locale(coach)
+    return jsonify({
+        "text": render_template_preview(template or "", locale),
+        "examples": template_preview_examples(locale),
+    })
 
 
 @bp.get("/player_search")
@@ -492,6 +518,14 @@ def coach_respond():
     action = data.get("action")  # "yes" | "no"
     result = coach_respond_to_notification(notification_event_id, action, coach.id)
     return jsonify(result)
+
+
+@bp.delete("/invitations/<int:event_id>")
+@jwt_required()
+def withdraw_invitation_route(event_id: int):
+    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation."""
+    coach = _current_coach()
+    return jsonify(withdraw_invitation(event_id, coach.id))
 
 
 @bp.post("/approval/respond")

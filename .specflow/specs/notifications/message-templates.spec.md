@@ -54,8 +54,46 @@ Customize the text of notification messages sent to players.
     cannot name it is ` no dia 10/04 às 18:00` / ` on 10/04 at 18:00`. The
     coach-editable templates are untouched: `{date}` stays opt-in there (rule 14), and the
     built-in defaults still read weekday-only unless the owner decides otherwise.
+18. **`{day}` says the class's day naturally (PAD-549; numbering unconfirmed).** Accepted by every
+    template that describes a class (rule 3). It is computed when the message is rendered — in the
+    engine, the moment it is sent, so a message held by quiet hours past midnight is right — on the
+    club's wall clock, in the coach's locale, with **no preposition inside it** (the coach writes
+    "para {day} às {time}"; a preposition inside read "para na próxima segunda-feira"). Weeks run
+    Monday to Sunday:
+    | The class is | pt | en |
+    |---|---|---|
+    | the same day | hoje | today |
+    | the next day | amanhã | tomorrow |
+    | two days on | depois de amanhã | the day after tomorrow |
+    | later this week | esta sexta-feira / este sábado | this Friday |
+    | any day next week | a próxima segunda-feira / o próximo domingo | next Monday |
+    | later, or past | dia 23/02 | 23/02 |
+    The four choices (name, no preposition, week boundary, send time) were the coordinator's, from
+    the ticket's "to validate" table, and were relayed to the owner as information (2026-10-08).
+    No built-in default uses `{day}`; it is opt-in like rule 14's.
+19. **The editor explains templates and previews them (PAD-549; numbering unconfirmed).** The web
+    settings editor opens with how a template is built (free text plus fields replaced when the
+    message is sent) and a table of every field with what it means and an example, and shows a live
+    preview under each class template. Examples and previews come from
+    `POST /api/app/notify/template_preview` (coach only): the template rendered by the real
+    formatter with example values for a sample class tomorrow at 18:00, plus each example — so the
+    help cannot drift from what is sent. iOS has no template editor (Notes, PAD-430), so this is web
+    only; `{day}` itself renders server-side and reaches every recipient.
 
 ### Acceptance Criteria
+
+#### `{day}` reads like a person would (rule 18)
+- **Given** a Wednesday, 10:00 on the club clock
+- **When** an invite for a class on Thursday renders `"Abriu uma vaga para {day} às {time}!"` for a pt coach
+- **Then** it reads "Abriu uma vaga para amanhã às 18:00!"; a Saturday class reads "este sábado", the
+  next Monday "a próxima segunda-feira", a class two weeks on "dia 19/10"
+- **And** the same Thursday class rendered at 00:30 on Thursday reads "hoje"
+
+#### The editor explains and previews (rule 19)
+- **Given** a coach on Settings → Message templates (web)
+- **When** the page opens and they type "vaga para {day}, {name}" into the invite template
+- **Then** the help lists every field with its meaning and the server's example ({day} → "amanhã")
+- **And** the preview under the invite reads "vaga para amanhã, Ana"
 
 #### Declining a reminder with a blank template still sends the default confirmation
 - **Given** a coach whose `message_templates` has `reminder_declined` saved as an empty string (or whitespace only), and an enrolled player with a pending reminder for an upcoming class
