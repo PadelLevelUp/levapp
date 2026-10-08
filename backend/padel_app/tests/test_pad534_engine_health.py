@@ -235,23 +235,29 @@ def test_deploy_identity_for_both_environments(app, client, monkeypatch):
     assert body["other"] == "unreachable — not configured"
 
 
-def test_the_peer_token_opens_deploy_identity_only_and_is_logged(app, client, caplog):
-    import logging
+def test_the_peer_token_opens_deploy_identity_only_and_is_audited(app, client):
+    from padel_app.models.admin_audit_log import AdminAuditLog
 
     make_role(app, "seed@levapp.app", "support")  # the signing secret
     app.config.update(ADMIN_PEER_INBOUND_TOKEN="inbound-secret")
     peer = {"Authorization": "Peer inbound-secret"}
-    with caplog.at_level(logging.INFO):
-        r = client.get("/admin/api/deploy-identity", headers=peer)
+    r = client.get("/admin/api/deploy-identity", headers=peer)
     assert r.status_code == 200 and set(r.get_json()) == {"gitSha", "alembicHead"}
-    assert any("admin peer read" in m for m in caplog.messages), "a peer read is visible in the log"
+    with app.app_context():
+        rows = AdminAuditLog.query.filter_by(action="deploy_identity.peer_read").all()
+        assert [(x.actor_email, x.outcome) for x in rows] == [("peer", "ok")], "a peer read is audited"
+        # A support session's own read is not a peer read and writes no such row.
+    client.get("/admin/api/deploy-identity", headers=_support(app))
+    with app.app_context():
+        assert AdminAuditLog.query.filter_by(action="deploy_identity.peer_read").count() == 1
 
 
-@pytest.mark.parametrize("case", ["no header", "wrong token", "token unset", "other endpoint",
-                                  "other admin endpoint", "non-GET"])
+@pytest.mark.parametrize("case", ["no header", "wrong token", "token unset", "empty token, unset",
+                                  "other endpoint", "other admin endpoint", "non-GET"])
 def test_every_peer_refusal(app, client, case):
     make_role(app, "seed2@levapp.app", "support")
-    app.config.update(ADMIN_PEER_INBOUND_TOKEN="" if case == "token unset" else "inbound-secret")
+    app.config.update(ADMIN_PEER_INBOUND_TOKEN="" if case in ("token unset", "empty token, unset")
+                      else "inbound-secret")
     peer = {"Authorization": "Peer inbound-secret"}
     if case == "no header":
         r = client.get("/admin/api/deploy-identity")
@@ -259,6 +265,9 @@ def test_every_peer_refusal(app, client, case):
         r = client.get("/admin/api/deploy-identity", headers={"Authorization": "Peer wrong"})
     elif case == "token unset":
         r = client.get("/admin/api/deploy-identity", headers=peer)
+    elif case == "empty token, unset":
+        # #589 review: "" must never equal an unset "" and open the door.
+        r = client.get("/admin/api/deploy-identity", headers={"Authorization": "Peer "})
     elif case == "other endpoint":
         r = client.get("/admin/api/engine-health", headers=peer)
     elif case == "other admin endpoint":
@@ -316,3 +325,19 @@ def test_a_failing_insert_never_logs_the_send_failures_text(app, caplog):
             assert pn._deliver_web_push(987654, 1, "{}", "{}", "key", {}) is False
     assert "could not be recorded" in caplog.text
     assert "cap-0123456789" not in caplog.text and "fcm.googleapis.com" not in caplog.text
+
+
+def test_a_raising_device_lookup_never_breaks_an_expo_send(app):
+    """#589 review blocker: the incident's device lookup sat outside the guard and escaped
+    `send_expo_push`. A lookup that raises is swallowed; the send's own answer is unchanged."""
+    from padel_app.tests.test_native_push import _mock_response
+    from padel_app.utils import expo_push
+
+    token = "ExponentPushToken[lookup-raises-0000]"
+    with app.app_context():
+        broken = SimpleNamespace(filter_by=lambda **k: (_ for _ in ()).throw(RuntimeError("db gone")))
+        with patch("padel_app.utils.expo_push.requests.post") as post, \
+                patch.object(expo_push.DeviceToken, "query", broken):
+            post.return_value = _mock_response({"data": [{"status": "error",
+                                                          "details": {"error": "MessageRateExceeded"}}]})
+            assert expo_push.send_expo_push([token], "Title", "Body", {}) is False

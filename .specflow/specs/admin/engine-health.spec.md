@@ -78,8 +78,9 @@ database query or a log search, and failed sends are only in the logs.
    Mechanics (PAD-534; coordinator, 2026-10-07): the console calls the other environment with
    `ADMIN_PEER_URL` and `Authorization: Peer <ADMIN_PEER_TOKEN>`; that environment's blueprint gate
    accepts a peer token for `GET /admin/api/deploy-identity` ONLY, compared in constant time with
-   its `ADMIN_PEER_INBOUND_TOKEN` (unset refuses every peer read), and logs each peer read naming
-   "peer". Every other admin route still needs an admin session (its `require_role` is a second
+   its `ADMIN_PEER_INBOUND_TOKEN` (unset, or an empty presented token, refuses every peer read),
+   and writes an audit row for each peer read (`deploy_identity.peer_read`, actor `peer`, in its
+   own transaction). Every other admin route still needs an admin session (its `require_role` is a second
    wall). With `ADMIN_PEER_URL`/`ADMIN_PEER_TOKEN` unset the console answers
    `"unreachable — not configured"`. Provisioning the three secrets per environment is the owner's.
 6. **Per-coach engine settings, read-only.** `GET /admin/api/engine-health/coaches?q=` lists

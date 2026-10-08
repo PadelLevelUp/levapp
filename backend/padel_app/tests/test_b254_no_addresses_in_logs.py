@@ -353,6 +353,11 @@ def _incident_text():
     )
 
 
+# #589 review: a real subscription's keys, so a stored subscription is caught too.
+P256DH = "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM"
+AUTH = "tBHItJI5svbpez7KI4CCXg"
+
+
 def test_the_incident_rows_hold_no_endpoint_address_or_token(app, monkeypatch):
     """admin.engine-health rule 3 under B-254: every failure path that now writes a
     `delivery_incidents` row is driven with an exception or receipt quoting the secret it must not
@@ -380,8 +385,9 @@ def test_the_incident_rows_hold_no_endpoint_address_or_token(app, monkeypatch):
         for exc in (WebPushException(f"500 for {ENDPOINT}", response=SimpleNamespace(status_code=500)),
                     RuntimeError(f"reset talking to {ENDPOINT}")):
             monkeypatch.setattr(push_notifications, "webpush", lambda exc=exc, **k: (_ for _ in ()).throw(exc))
-            push_notifications._deliver_web_push(u.id, 1, json.dumps({"endpoint": ENDPOINT, "keys": {}}),
-                                                 "{}", "key", {"sub": "mailto:x@y"})
+            push_notifications._deliver_web_push(
+                u.id, 1, json.dumps({"endpoint": ENDPOINT, "keys": {"p256dh": P256DH, "auth": AUTH}}),
+                "{}", "key", {"sub": "mailto:x@y"})
 
         # Email: the transport's error quotes the recipient.
         with patch.object(email_tools, "debug_endpoints_enabled", return_value=False), \
@@ -403,5 +409,5 @@ def test_the_incident_rows_hold_no_endpoint_address_or_token(app, monkeypatch):
         from padel_app.models.delivery_incident import DeliveryIncident
         assert DeliveryIncident.query.count() >= 4, "every failure path wrote its row"
         for secret in (ENDPOINT, "cap-abcdef0123456789", "fcm.googleapis.com", address, "victim.b254",
-                       TOKEN, "abcdefghij"):
+                       TOKEN, "abcdefghij", P256DH, AUTH):
             assert secret not in text, f"an incident row holds {secret!r}"

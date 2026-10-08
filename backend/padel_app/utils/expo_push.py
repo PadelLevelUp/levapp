@@ -145,13 +145,18 @@ def send_expo_push(
 
 
 def _record_expo_failure(token, error_type) -> None:
-    from padel_app.services import delivery_incidents
+    """admin.engine-health rule 3: never into the send path. The device lookup is inside the guard
+    too (#589 review: a raising lookup escaped `send_expo_push`)."""
+    try:
+        from padel_app.services import delivery_incidents
 
-    row = DeviceToken.query.filter_by(token=token).first()
-    platform = (getattr(row, "platform", None) or "").lower()
-    channel = "apns" if platform == "ios" else "fcm" if platform == "android" else "expo"
-    delivery_incidents.record("push_failed", channel, user_id=getattr(row, "user_id", None),
-                              detail=f"error={error_type}")
+        row = DeviceToken.query.filter_by(token=token).first()
+        platform = (getattr(row, "platform", None) or "").lower()
+        channel = "apns" if platform == "ios" else "fcm" if platform == "android" else "expo"
+        delivery_incidents.record("push_failed", channel, user_id=getattr(row, "user_id", None),
+                                  detail=f"error={error_type}")
+    except Exception as exc:  # noqa: BLE001 — B-254: the class only
+        logger.warning("expo push incident could not be recorded: %s", type(exc).__name__)
 
 
 def send_expo_push_to_user(

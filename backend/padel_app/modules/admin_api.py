@@ -36,9 +36,6 @@ def _gate():
     if (scheme.lower() == "peer" and request.endpoint == "admin_api.deploy_identity"
             and request.method == "GET" and _peer_token_ok(token.strip())):
         g.peer = True
-        # Visible like every other admin read (#PAD-534 review): a log line naming the peer.
-        current_app.logger.info("admin peer read: %s %s request_id=%s", request.method, request.path,
-                                g.request_id)
         return None
     if scheme.lower() != "bearer" or not token.strip():
         return error("ADMIN_TOKEN_REQUIRED", 401)
@@ -226,7 +223,18 @@ def deploy_identity():
             return error("ADMIN_TOKEN_REQUIRED", 401)
         if not role_at_least(g.admin.role, "support"):
             return error("ADMIN_ROLE_TOO_LOW", 403)
-    return jsonify(svc.this_identity())
+        return jsonify(svc.this_identity())
+    identity = svc.this_identity()
+    # Rule 5 (coordinator's approved design, #589 review): a peer read is audited like a write, in its
+    # own transaction, naming "peer" as the actor. An INFO log line never reached prod's stderr.
+    from padel_app.utils.admin_auth import AuditContext, _record_alone
+
+    ctx = AuditContext("deploy_identity.peer_read")
+    ctx.actor_email = "peer"
+    ctx.target("environment", None)
+    ctx.after = identity
+    _record_alone(ctx, "ok")
+    return jsonify(identity)
 
 
 # ── clubs and switches (PAD-533, admin.clubs-and-switches rules 1–3, 5, 6) ────────────────────
