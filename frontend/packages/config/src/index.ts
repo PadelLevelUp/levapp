@@ -60,4 +60,5 @@ export function profileIncompleteBodyKey(missing: readonly ("level" | "side")[])
 }
 export * from "./waiting-list-first";
 export * from "./name-search";
+export * from "./class-level-match";
 export * from "./walk-in-options";
