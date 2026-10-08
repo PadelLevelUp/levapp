@@ -91,13 +91,31 @@ _BLOCKABLE_MESSAGE_TYPES = frozenset({
 # ---------------------------------------------------------------------------
 
 def get_or_create_config(coach_id: int) -> NotificationConfig:
+    """The coach's configuration, creating the row (engine off) when there is none.
+
+    Race-safe (B-302 follow-up; #592's Postgres lane): two callers for a coach with no row can both
+    read "none" and both insert, and the second hits the unique key on `coach_id`. The insert runs in
+    a SAVEPOINT, so that violation rolls back only the savepoint (never the caller's own pending
+    work) and the row the other caller committed is read instead. Covers every caller, including the
+    config-before-lock reads in `_create_structural_vacancies` and `_create_vacancy_for_absent_player`.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.tools.unit_of_work import commit_or_flush
+
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
-    if config is None:
-        config = NotificationConfig(
-            coach_id=coach_id,
-            auto_notify_enabled=False,
+    if config is not None:
+        return config
+    config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
+    try:
+        with db.session.begin_nested():
+            db.session.add(config)
+    except IntegrityError:
+        # Another caller created it between our read and our insert; the savepoint is rolled back.
+        return (
+            NotificationConfig.query.filter_by(coach_id=coach_id).populate_existing().one()
         )
-        config.create()
+    commit_or_flush()
     return config
 
 
@@ -2927,14 +2945,17 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
 
     if _spots_to_create() == 0:
         return []
+    # B-302 (the twin of B-322): read the configuration BEFORE the lock. For a coach with no row,
+    # `get_or_create_config` creates one and commits, and a commit inside the section ends the lock
+    # before the rows below are added, so a concurrent caller would count the same spots.
+    config = get_or_create_config(coach_id)
+    approval_status = "pending" if _is_semi_auto(config) else "not_required"
+
     # PAD-261 (invitations rule 10): count again under the class lock, and add
     # every new row in one commit, so a concurrent caller waits and then
     # counts them instead of adding its own.
     instance = _lock_instance(instance)
     spots_to_create = _spots_to_create()
-
-    config = get_or_create_config(coach_id)
-    approval_status = "pending" if _is_semi_auto(config) else "not_required"
 
     vacancies = []
     # PAD-421 (rule 2b): each never-filled spot looks for the side the class is short of first.
