@@ -2822,6 +2822,9 @@ def _create_vacancy_for_absent_player(
     existing = _open_vacancy_for(instance.id, absent_player_id)
     if existing is not None:
         return existing
+    # Read (or create) the coach's config BEFORE the lock: creating it commits, and a commit inside
+    # the locked section ends the lock early (rule 10; the handoff's "newcomer error" 1).
+    config = get_or_create_config(coach_id)
     instance = _lock_instance(instance)
     existing = _open_vacancy_for(instance.id, absent_player_id)
     if existing is not None:
@@ -2833,8 +2836,6 @@ def _create_vacancy_for_absent_player(
     )
     # PAD-541 (rule 2c): the side the class is short of, chosen here under the class lock.
     side = freed_spot_side(instance, coach_id, absent_player_id, side)
-
-    config = get_or_create_config(coach_id)
 
     vacancy = Vacancy(
         lesson_instance_id=instance.id,
@@ -2889,6 +2890,8 @@ def freed_spot_side(instance: LessonInstance, coach_id: int, leaver_id: int, lea
     side (which may be ``both`` or none), as does a roster with no sided player. Call it under the
     class lock (rule 10) so two cancellations at once see each other's spot."""
     counts = _side_counts(instance, coach_id, leaver_id=leaver_id)
+    # A roster with no sided player is named on purpose (rule 2c), though its 0 / 0 count would
+    # also fall to the tie below.
     if counts is None or counts["left"] == counts["right"]:
         return leaver_side
     return "left" if counts["left"] < counts["right"] else "right"

@@ -75,15 +75,17 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    way that makes the class simetrical if possible") named none, so balancing is the default for
    every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
 2c. **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
-   option A; numbering unconfirmed).** When a player's cancellation opens a vacancy, the vacancy's
+   option A).** When a player's cancellation opens a vacancy, the vacancy's
    side is the side the class needs, not automatically the leaver's. It is counted as rule 2b counts:
    the players still holding a spot, minus the leaver, plus the sides of the class's other open
    vacancies. The spot takes `left` or `right`, whichever has fewer. **On a tie it keeps the
    leaver's side**, which may be `both` or none. So several freed spots balance across one another,
    each counted as its side for the next, whether they open together or one by one. A class of 6 left
-   and 3 right whose two leavers both played left ends 5 / 4: the first spot asks right (4 / 3), and
-   the second, now tied 4 / 4, keeps left. The side is chosen under the class lock that already
-   serialises vacancy creation (rule 10), so two cancellations at once still see each other's spot.
+   and 3 right whose two leavers both played left ends 5 / 4: the first spot asks right (it counts
+   5 / 3 if the second leaver still holds their place, 4 / 3 if both are already out), and the second
+   counts 4 / 4 with that spot and keeps left. The side is chosen under the class lock that already
+   serialises vacancy creation (rule 10), so two cancellations at once still see each other's spot;
+   nothing in that section commits before the new vacancy does (the coach's settings are read first).
    As in rule 2b, if no player on the coach's roster plays `left` or `right`, the leaver's side is
    kept as before; balancing ranks and orders and is never an eligibility bar. Open vacancies created
    before this rule keep their side. The invite simulation shows the side this rule would choose
@@ -775,7 +777,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 #### A freed spot asks the side the class is short of (rule 2c, PAD-541)
 - **Given** a class of 9 whose players play 6 left and 3 right, and two left-side players who cancel
 - **When** their vacancies open, one after the other or at the same time
-- **Then** the first asks `right` (4 left / 3 right still coming) and the second asks `left` (4 / 4, a tie keeps the leaver's side), so the class can end 5 / 4
+- **Then** the first asks `right` (5 / 3 one at a time, 4 / 3 with both already out) and the second asks `left` (4 / 4 counting that spot; a tie keeps the leaver's side), so the class can end 5 / 4
 
 #### A tie keeps the leaver's side (rule 2c)
 - **Given** a class of 3 left and 3 right still coming, and a right-side leaver
