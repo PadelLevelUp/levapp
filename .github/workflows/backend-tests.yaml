@@ -33,7 +33,9 @@ jobs:
   sqlite:
     name: pytest (sqlite, FK on)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Raised 45 -> 60 (2026-10-08): the suite grows; the Postgres lane already ran into its cap.
+    # test_backend_ci_timeouts.py pins both values.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,7 +60,9 @@ jobs:
   postgres:
     name: pytest (postgres, real migrations)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Raised 45 -> 75 (2026-10-08): the lane takes 44-45 min. #558's run reached [100%] with no
+    # failures at 10:18:00Z and was cancelled by the 45-minute cap at 10:18:04Z.
+    timeout-minutes: 75
     services:
       postgres:
         image: postgres:15
