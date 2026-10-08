@@ -505,6 +505,8 @@
       "searchPlayers": "Procurar jogadores…",
       "excludeUnpaid": "Excluir contas inativas",
       "excludeUnpaidDescription": "Não convidar alunos cuja conta ainda não está ativa (não terminaram de criar o acesso). É o estado da conta, não o pagamento.",
+      "noSameDayClass": "Não convidar quem já tem aula nesse dia",
+      "noSameDayClassDescription": "Não convidar automaticamente um aluno que já tem lugar noutra aula no mesmo dia (de qualquer treinador). Aulas que recusou ou em que foi marcado como ausente não contam. Os convites manuais não são afetados.",
       "hours": "horas",
       "cancellationDeadline": "Prazo de cancelamento",
       "cancellationDeadlineDescription": "Cancelamentos dentro deste número de horas antes do início da aula são marcados como tardios"

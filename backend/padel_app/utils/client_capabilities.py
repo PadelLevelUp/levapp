@@ -43,6 +43,48 @@ COACH_INVITE_EMAIL = "coach-invite-email"
 TERMS_ACCEPTANCE = "terms-acceptance"
 
 
+# PAD-533 (admin.clubs-and-switches rule 6): every capability the server knows, with its kind.
+# "feature": switching it off hides a feature from every client. "compat": switching it off sends
+# every client down the old-client path (the legacy shape, or the legacy, looser request check).
+# A capability constant above that is missing here fails test_every_capability_is_registered.
+CAPABILITIES = {
+    OPEN_SPOTS: "feature",
+    EVALUATIONS: "feature",
+    CLASS_TYPE_DEFAULTS: "compat",
+    COACH_INVITE_EMAIL: "compat",
+    TERMS_ACCEPTANCE: "compat",
+}
+
+# Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.
+SWITCH_CACHE_SECONDS = 30
+_switch_cache = {"value": None, "read_at": None}
+
+
+def reset_switch_cache():
+    """Forget the cached switches (a write in this worker, or a test)."""
+    _switch_cache["value"] = None
+    _switch_cache["read_at"] = None
+
+
+def switched_off() -> dict:
+    """``{capability: {"off": True, "reason": ...}}`` for every capability switched off. Read from
+    ``app_settings`` at most every 30 s per worker; outside an app context nothing is switched off."""
+    from flask import has_app_context
+
+    if not has_app_context():
+        return {}
+    from padel_app.utils import dates
+
+    now = dates.utcnow_naive()
+    read_at = _switch_cache["read_at"]
+    if read_at is None or (now - read_at).total_seconds() >= SWITCH_CACHE_SECONDS or now < read_at:
+        from padel_app.services.app_settings_service import capability_kill_switches
+
+        _switch_cache["value"] = capability_kill_switches()
+        _switch_cache["read_at"] = now
+    return _switch_cache["value"] or {}
+
+
 def declared_capabilities() -> frozenset:
     """The tokens the current request declares, lower-cased; empty outside a request."""
     if not has_request_context():
@@ -52,5 +94,10 @@ def declared_capabilities() -> frozenset:
 
 
 def client_declares(capability: str) -> bool:
-    """True only when the current request lists `capability`."""
-    return capability.lower() in declared_capabilities()
+    """True only when the current request lists `capability` and no kill-switch has turned it off
+    (PAD-533 rule 5): a switched-off capability is withheld exactly as from a client that never
+    declared it — the fail-closed path every feature already has."""
+    name = capability.lower()
+    if name not in declared_capabilities():
+        return False
+    return not (switched_off().get(name) or {}).get("off")

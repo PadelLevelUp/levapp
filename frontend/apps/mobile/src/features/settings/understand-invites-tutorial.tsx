@@ -20,7 +20,7 @@ import type {
 } from "@levelup/types";
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
-import { clubTodayISO } from "@levelup/config";
+import { classDayParts, clubTodayISO } from "@levelup/config";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +66,7 @@ function playerName(player: Player): string {
 }
 
 export function UnderstandInvitesTutorial() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [selectedClass, setSelectedClass] = React.useState<CalendarEvent | null>(null);
   const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(null);
 
@@ -159,7 +159,8 @@ export function UnderstandInvitesTutorial() {
                 >
                   <Text className="text-sm font-medium">{event.title}</Text>
                   <Text className="text-xs text-muted-foreground">
-                    {event.date} · {event.startTime}
+                    {/* PAD-517: the weekday too — "Qua, 14/10 às 18:00". */}
+                        {t("tutorials.understandInvites.classWhen", { ...classDayParts(event.date, i18n.language), time: event.startTime })}
                   </Text>
                 </Pressable>
               );
