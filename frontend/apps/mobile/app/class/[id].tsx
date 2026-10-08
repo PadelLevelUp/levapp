@@ -265,6 +265,47 @@ export default function ClassDetailScreen() {
   // the presence-confirm call; it is only ever set by that response.
   const [approvalBundle, setApprovalBundle] =
     React.useState<ApprovalBundle | null>(null);
+  // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
+  // a pending list survives leaving the screen, and an ignored one offers a fresh computation.
+  const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
+  const [semiAutomatic, setSemiAutomatic] = React.useState(false);
+  const [recomputing, setRecomputing] = React.useState(false);
+  const suggestionsInstanceId = React.useMemo(() => {
+    const fromPresence = instance?.presences?.[0]?.lessonInstanceId;
+    if (fromPresence != null) return Number(fromPresence);
+    if (event?.model === "LessonInstance") return Number(event.originalId);
+    return null;
+  }, [instance, event]);
+  React.useEffect(() => {
+    setSuggestionsIgnored(false);
+    if (!isCoach || suggestionsInstanceId == null) return;
+    let cancelled = false;
+    notificationEngineApi
+      .getApprovalSuggestions(suggestionsInstanceId)
+      .then((s) => {
+        if (cancelled) return;
+        setSemiAutomatic(!!s.semiAutomatic);
+        if (s.state === "pending" && s.bundle) setApprovalBundle(s.bundle);
+        setSuggestionsIgnored(s.state === "dismissed");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isCoach, suggestionsInstanceId]);
+  const recomputeSuggestions = async () => {
+    if (suggestionsInstanceId == null || recomputing) return;
+    setRecomputing(true);
+    try {
+      const s = await notificationEngineApi.recomputeApprovalSuggestions(suggestionsInstanceId);
+      if (s.state === "pending" && s.bundle) setApprovalBundle(s.bundle);
+      setSuggestionsIgnored(false);
+    } catch {
+      toast.error(t("notificationsUi.replacementApproval.genericError"));
+    } finally {
+      setRecomputing(false);
+    }
+  };
 
   // ── Edit mode (coach only) ──
   const [isEditing, setIsEditing] = React.useState(false);
@@ -1435,10 +1476,53 @@ export default function ClassDetailScreen() {
           {/* Replacement approval (semi-automatic mode, PAD-168) — mirrors
               web's ClassDetailSheet, which renders the same card between the
               attendance block and the Invited list. */}
+          {isCoach && !isEditing && confirmPresences.isPending && semiAutomatic ? (
+            // PAD-542: the confirm computes the suggestions; say so while it runs.
+            <>
+              <Separator />
+              <View testID="suggestions-preparing" className="flex-row items-center gap-2">
+                <Spinner />
+                <Text className="text-sm text-muted-foreground">
+                  {t("notificationsUi.replacementApproval.preparing")}
+                </Text>
+              </View>
+            </>
+          ) : null}
+
           {isCoach && !isEditing && approvalBundle ? (
             <>
               <Separator />
-              <ReplacementApprovalCard bundle={approvalBundle} />
+              <ReplacementApprovalCard
+                key={approvalBundle.bundleId}
+                bundle={approvalBundle}
+                allowDismiss
+                onResult={(action) => {
+                  // PAD-545: an ignored list leaves the class; a fresh one can be asked for.
+                  if (action === "dismiss") {
+                    setApprovalBundle(null);
+                    setSuggestionsIgnored(true);
+                  }
+                }}
+              />
+            </>
+          ) : null}
+
+          {isCoach && !isEditing && !approvalBundle && suggestionsIgnored ? (
+            <>
+              <Separator />
+              <Button
+                testID="recompute-suggestions"
+                variant="outline"
+                disabled={recomputing}
+                onPress={() => void recomputeSuggestions()}
+              >
+                {recomputing ? <Spinner /> : null}
+                <Text>
+                  {recomputing
+                    ? t("notificationsUi.replacementApproval.preparing")
+                    : t("notificationsUi.replacementApproval.recompute")}
+                </Text>
+              </Button>
             </>
           ) : null}
 

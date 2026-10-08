@@ -3,6 +3,7 @@ import type {
   EligibilityImpact,
   ApprovalAction,
   ApprovalVacancyResult,
+  ApprovalSuggestionState,
   InviteExplain,
   InviteSimulation,
   InviteSimulationRequest,
@@ -244,9 +245,23 @@ export async function respondToApproval(
   action: ApprovalAction
 ): Promise<{
   action: ApprovalAction;
+  /** PAD-545: the bundle was replaced by a recompute; every vacancy answers "stale". */
+  superseded?: boolean;
   vacancies: { vacancyId: number; result: ApprovalVacancyResult }[];
 }> {
   const res = await getApi().post("/app/notify/approval/respond", { bundleId, action });
+  return res.data;
+}
+
+/** PAD-545 (semi-auto-approval rule 12): the class's suggestion state, for its coach. */
+export async function getApprovalSuggestions(instanceId: number): Promise<ApprovalSuggestionState> {
+  const res = await getApi().get(`/app/notify/approval/instance/${instanceId}`);
+  return res.data;
+}
+
+/** PAD-545: recompute the class's suggestions from its state now; sends nothing. */
+export async function recomputeApprovalSuggestions(instanceId: number): Promise<ApprovalSuggestionState> {
+  const res = await getApi().post(`/app/notify/approval/instance/${instanceId}/recompute`);
   return res.data;
 }
 

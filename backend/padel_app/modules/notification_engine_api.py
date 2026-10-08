@@ -589,6 +589,26 @@ def approval_respond():
     return jsonify(result)
 
 
+@bp.get("/approval/instance/<int:instance_id>")
+@jwt_required()
+def approval_instance_state(instance_id: int):
+    """PAD-545 (semi-auto-approval rule 12): the class's suggestion state for its coach —
+    ``{"state": "pending", "bundle"}`` | ``{"state": "dismissed"}`` | ``{"state": "none"}``."""
+    coach = _current_coach()
+    from padel_app.services.replacement_approval_service import instance_suggestions
+    return jsonify(instance_suggestions(instance_id, coach.id))
+
+
+@bp.post("/approval/instance/<int:instance_id>/recompute")
+@jwt_required()
+def approval_instance_recompute(instance_id: int):
+    """PAD-545 (rule 12): recompute the class's suggestions from its state now and ask again.
+    Sends nothing; the coach decides on the new bundle it returns."""
+    coach = _current_coach()
+    from padel_app.services.replacement_approval_service import recompute_suggestions
+    return jsonify(recompute_suggestions(instance_id, coach.id))
+
+
 @bp.post("/process_rounds")
 @jwt_required()
 def process_rounds():

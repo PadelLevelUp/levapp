@@ -21,6 +21,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from padel_app.models import Vacancy
 from padel_app.sql_db import db
 from padel_app.realtime import publish
 from padel_app.services.conversation_access import message_recipient_ids
@@ -222,6 +223,15 @@ def create_approval_prompts(
         })
 
     db.session.flush()
+    return _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts)
+
+
+def _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts) -> dict:
+    """Persist ``vacancies_payload`` as ONE approval message in the coach's Assistant conversation
+    (rule 6), point ``prompts`` at it, and commit: the prompts' writes and the message land in the
+    caller's one commit. The push and the live event go out after it."""
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
 
     bundle = {
         "bundleId": bundle_id,
@@ -302,9 +312,18 @@ def respond_to_approval(
 
     prompts = ReplacementApprovalPrompt.query.filter_by(bundle_id=bundle_id).all()
     if not prompts:
-        abort(404, "Approval bundle not found")
+        # PAD-545: a recompute moved this bundle's prompts to a newer bundle. The old message's
+        # buttons decide nothing and say so (every vacancy "stale"), instead of a 404.
+        superseded = _superseded_bundle(bundle_id, coach_id)
+        if superseded is None:
+            abort(404, "Approval bundle not found")
+        return {"action": action, "superseded": True, "vacancies": [
+            {"vacancyId": v.get("vacancyId"), "result": "stale"} for v in superseded.get("vacancies", [])
+        ]}
     if any(p.coach_id != coach_id for p in prompts):
         abort(403, "Not authorized")
+    # One order for every multi-vacancy locker (recompute too): ascending vacancy id.
+    prompts.sort(key=lambda p: p.vacancy_id or 0)
 
     _now = now or utcnow_naive()
     config = get_or_create_config(coach_id)
@@ -312,8 +331,18 @@ def respond_to_approval(
     results = []
     instances_to_trigger = {}
     for prompt in prompts:
-        vacancy = prompt.vacancy
+        # PAD-545 (rule 12): the engine's one lock order starts with the vacancy. Lock it, then
+        # re-read the prompt: a recompute that committed first moved the prompt to a newer bundle,
+        # and this decision is then a no-op for it.
+        vacancy = (
+            Vacancy.query.filter_by(id=prompt.vacancy_id).with_for_update().populate_existing().first()
+            if prompt.vacancy_id is not None else None
+        )
+        db.session.refresh(prompt)
         instance = vacancy.lesson_instance if vacancy else None
+        if prompt.bundle_id != bundle_id:
+            results.append({"vacancyId": prompt.vacancy_id, "result": "stale"})
+            continue
 
         is_stale = (
             prompt.status != "pending"
@@ -331,8 +360,9 @@ def respond_to_approval(
             continue
 
         if action == "dismiss":
-            # Terminal: the engine never sends for this vacancy, but the
-            # vacancy REMAINS OPEN for the manual flow.
+            # The engine never sends for this vacancy on its own, and the vacancy REMAINS OPEN for
+            # the manual flow. PAD-545 (rule 12): the coach can bring it back only by recomputing
+            # the suggestions from the class.
             vacancy.approval_status = "dismissed"
             prompt.status = "dismissed"
             prompt.decided_at = _now
@@ -361,7 +391,10 @@ def respond_to_approval(
     db.session.commit()
 
     # Mark the persisted assistant message as responded
-    message_ids = {p.message_id for p in prompts if p.message_id}
+    # #573 review: only the prompts still on THIS bundle. A recompute that committed while this
+    # answer waited moved some prompts to a new bundle and a new message; marking that message
+    # answered would leave the coach a pending vacancy behind an "answered" card.
+    message_ids = {p.message_id for p in prompts if p.message_id and p.bundle_id == bundle_id}
     for message_id in message_ids:
         msg = Message.query.get(message_id)
         if msg and msg.msg_metadata is not None:
@@ -382,3 +415,144 @@ def respond_to_approval(
         trigger_invitations(instance, coach_id, now=now)
 
     return {"action": action, "vacancies": results}
+
+
+# ---------------------------------------------------------------------------
+# PAD-545 / PAD-542: the class's suggestions, and recomputing them
+# ---------------------------------------------------------------------------
+
+def _superseded_bundle(bundle_id: str, coach_id: int) -> dict | None:
+    """The metadata of a bundle a recompute replaced, if this coach's Assistant conversation holds it."""
+    from padel_app.models import Coach, Message
+
+    coach = Coach.query.get(coach_id)
+    if coach is None:
+        return None
+    conv, _assistant = _get_or_create_assistant_conversation(coach.user_id)
+    for msg in Message.query.filter_by(conversation_id=conv.id, message_type="replacement_approval").all():
+        if (msg.msg_metadata or {}).get("bundleId") == bundle_id:
+            return msg.msg_metadata
+    return None
+
+
+def _coached_instance(instance_id: int, coach_id: int):
+    from flask import abort
+
+    from padel_app.models import LessonInstance
+    from padel_app.services.lesson_service import coach_instance_ids
+
+    instance = LessonInstance.query.get(instance_id)
+    if instance is None:
+        abort(404, "Class not found")
+    if instance.id not in set(coach_instance_ids(coach_id)):
+        abort(403, "Not authorized")
+    return instance
+
+
+def instance_suggestions(instance_id: int, coach_id: int) -> dict:
+    """What the class view shows about semi-automatic suggestions (rule 12).
+
+    ``{"state": "pending", "bundle": {...}}`` — a decision is waiting (the newest pending bundle);
+    ``{"state": "dismissed"}`` — the coach ignored them and can recompute;
+    ``{"state": "none"}`` — nothing to suggest (no open vacancy awaiting a decision).
+    Each answer carries ``semiAutomatic`` (PAD-542: the class view's loader is for that mode).
+    """
+    from padel_app.models import Message
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+
+    from padel_app.services.notification_service import _is_semi_auto, get_or_create_config
+
+    instance = _coached_instance(instance_id, coach_id)
+    # PAD-542: the class view shows "preparing suggestions" only for a semi-automatic coach.
+    semi = _is_semi_auto(get_or_create_config(coach_id))
+    vacancies = Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").all()
+    pending = [v for v in vacancies if v.approval_status == "pending"]
+    if pending:
+        prompts = (
+            ReplacementApprovalPrompt.query
+            .filter(ReplacementApprovalPrompt.vacancy_id.in_([v.id for v in pending]),
+                    ReplacementApprovalPrompt.status == "pending")
+            .order_by(ReplacementApprovalPrompt.id.desc())
+            .all()
+        )
+        for prompt in prompts:
+            msg = Message.query.get(prompt.message_id) if prompt.message_id else None
+            if msg is not None and (msg.msg_metadata or {}).get("bundleId") == prompt.bundle_id:
+                return {"state": "pending", "bundle": msg.msg_metadata, "semiAutomatic": semi}
+    if any(v.approval_status == "dismissed" for v in vacancies):
+        return {"state": "dismissed", "semiAutomatic": semi}
+    return {"state": "none", "semiAutomatic": semi}
+
+
+def recompute_suggestions(instance_id: int, coach_id: int, *, now: datetime | None = None) -> dict:
+    """PAD-545 (rule 12): build the class's suggestions again from its state NOW, and ask again.
+
+    Every open vacancy of the class still awaiting a decision (``pending``) or ignored by the coach
+    (``dismissed``) is locked (the engine's lock order starts with the vacancy), set back to
+    ``pending``, and its one prompt is moved to a NEW bundle with a freshly computed queue; one new
+    message carries that bundle to the Assistant conversation. All of it is one commit. Nothing is
+    sent: the coach decides on the new bundle. An older message's buttons then answer "stale"
+    (``respond_to_approval``), so a list computed before cannot be approved.
+
+    Returns ``{"state": "pending", "bundle": ...}``, or ``{"state": "none"}`` when no open vacancy
+    awaits a decision.
+    """
+    from flask import abort
+
+    from padel_app.models import Coach
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.notification_service import _instance_is_over, get_or_create_config
+
+    instance = _coached_instance(instance_id, coach_id)
+    _now = now or utcnow_naive()
+    if _instance_is_over(instance, _now):
+        abort(409, "The class is over")
+    # #573 review: suggestions are a semi-automatic mode's; an automatic coach has nothing to ask.
+    from padel_app.services.notification_service import _is_semi_auto
+    if not _is_semi_auto(get_or_create_config(coach_id)):
+        abort(409, "Suggestions are for the semi-automatic mode")
+
+    vacancies = (
+        Vacancy.query
+        .filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open",
+                Vacancy.approval_status.in_(("pending", "dismissed")))
+        .order_by(Vacancy.id.asc())
+        .with_for_update()
+        .populate_existing()
+        .all()
+    )
+    if not vacancies:
+        db.session.commit()  # release the locks; nothing was written
+        return {"state": "none"}
+
+    config = get_or_create_config(coach_id)
+    coach = Coach.query.get(coach_id)
+    window_open_dt = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
+    bundle_id = str(uuid.uuid4())
+    prompts, payload = [], []
+    for vacancy in vacancies:
+        vacancy.approval_status = "pending"
+        queue = compute_full_invite_queue(vacancy, instance, coach_id, config)
+        prompt = ReplacementApprovalPrompt.query.filter_by(vacancy_id=vacancy.id).first()
+        if prompt is None:
+            prompt = ReplacementApprovalPrompt(coach_id=coach_id, vacancy_id=vacancy.id,
+                                               declined_player_id=vacancy.original_player_id)
+            db.session.add(prompt)
+        prompt.bundle_id = bundle_id
+        prompt.status = "pending"
+        prompt.decided_at = None
+        prompt.queue_snapshot = queue
+        prompt.waiting_list_player_id = None
+        prompts.append(prompt)
+        payload.append({
+            "vacancyId": vacancy.id,
+            "declinedPlayerId": vacancy.original_player_id,
+            "declinedPlayerName": _player_name(vacancy.original_player_id),
+            "queue": queue,
+            "waitingListPlayerId": None,
+            "waitingListPlayerName": None,
+        })
+    db.session.flush()
+    bundle = _post_bundle(bundle_id, instance, coach.user_id if coach else None, window_open_dt, payload, prompts)
+    return {"state": "pending", "bundle": bundle}

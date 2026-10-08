@@ -1504,6 +1504,14 @@ export interface ApprovalVacancyInfo {
   waitingListPlayerName?: string;
 }
 
+/** PAD-545 / PAD-542 (semi-auto-approval rule 12): a class's suggestion state for its coach. */
+export interface ApprovalSuggestionState {
+  state: "pending" | "dismissed" | "none";
+  bundle?: ApprovalBundle;
+  /** The coach's engine is semi-automatic: the class view shows "preparing suggestions" then. */
+  semiAutomatic?: boolean;
+}
+
 export interface ApprovalBundle {
   bundleId: string;
   lessonInstanceId: number;
