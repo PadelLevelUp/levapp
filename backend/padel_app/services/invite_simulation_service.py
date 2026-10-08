@@ -73,11 +73,14 @@ def _hypothetical_vacancy(instance, coach_id: int, departing_player_id: int):
     would snapshot it (notifications.invitations rules 2/2a)."""
     from padel_app.models.coach_levels import CoachLevel
     from padel_app.models.vacancy import Vacancy
-    from padel_app.services.notification_service import vacancy_snapshot_for_player
+    from padel_app.services.notification_service import freed_spot_side, vacancy_snapshot_for_player
 
     side, level_id, level_source = vacancy_snapshot_for_player(
         instance, coach_id, departing_player_id
     )
+    # PAD-541 (invitations rule 2c, invite-simulation rule 9): the side the engine would give the
+    # departing player's spot, the player counted out though they still hold it here.
+    side = freed_spot_side(instance, coach_id, departing_player_id, side)
     vacancy = Vacancy(
         lesson_instance_id=instance.id,
         coach_id=coach_id,
