@@ -2905,14 +2905,17 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
 
     if _spots_to_create() == 0:
         return []
+    # B-302 (the twin of B-322): read the configuration BEFORE the lock. For a coach with no row,
+    # `get_or_create_config` creates one and commits, and a commit inside the section ends the lock
+    # before the rows below are added, so a concurrent caller would count the same spots.
+    config = get_or_create_config(coach_id)
+    approval_status = "pending" if _is_semi_auto(config) else "not_required"
+
     # PAD-261 (invitations rule 10): count again under the class lock, and add
     # every new row in one commit, so a concurrent caller waits and then
     # counts them instead of adding its own.
     instance = _lock_instance(instance)
     spots_to_create = _spots_to_create()
-
-    config = get_or_create_config(coach_id)
-    approval_status = "pending" if _is_semi_auto(config) else "not_required"
 
     vacancies = []
     # PAD-421 (rule 2b): each never-filled spot looks for the side the class is short of first.
