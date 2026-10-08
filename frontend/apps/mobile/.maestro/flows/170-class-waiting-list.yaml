@@ -47,10 +47,19 @@ onFlowComplete:
 # ── rule 20: add for this class only ──
 - tapOn:
     id: "class-waiting-list-add"
+# The picker lists the roster in a 360pt scroll box; "E2E Student Two" is its last row. iOS
+# reports a clipped row as visible, so swipe the box to its end before tapping (2026-10-08).
 - extendedWaitUntil:
     visible:
-      id: "class-waiting-list-candidate-${output.two.playerId}"
+      id: "class-waiting-list-dialog"
     timeout: 15000
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: "50%, 55%"
+          end: "50%, 27%"
+          duration: 300
 - assertNotVisible:
     id: "class-waiting-list-candidate-${output.enrolled.playerId}"
 - tapOn:
