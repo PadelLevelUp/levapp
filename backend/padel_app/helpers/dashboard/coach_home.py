@@ -56,7 +56,10 @@ from padel_app.helpers.calendar_helpers import (
     load_lesson_instances_for_player,
 )
 from padel_app.helpers.dashboard.snooze import snoozed_item_ids
-from padel_app.services.presence_overview_service import count_pending_validation
+from padel_app.services.presence_overview_service import (
+    count_pending_validation_total,
+    latest_pending_start,
+)
 from padel_app.tools.tools import _safe_int
 from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
 # PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
@@ -76,7 +79,6 @@ HERO_AVATAR_LIMIT = 2
 ACTIVE_PLAYER_DAYS = 30
 # The current week, then the previous one. Two, not more: anything older is a
 # backlog the tab's week control reaches, not this week's chore.
-VALIDATION_WEEK_OFFSETS = (0, -1)
 
 _EPOCH = datetime(1970, 1, 1)
 
@@ -435,23 +437,30 @@ def validation_href(week_offset: int) -> str:
     return "/presences?validate=1" if week_offset == 0 else f"/presences?validate=1&week={week_offset}"
 
 
-def validation_badge(*, coach_id: int, now: datetime) -> Dict[str, Any]:
-    """Classes still to validate, for the tab's week (dashboard.blocks rule 3).
+def week_offset_of(moment: datetime, now: datetime) -> int:
+    """How many weeks ``moment``'s Monday–Sunday week lies from ``now``'s (0 = this week, -1 = last)."""
+    monday_now = now.date() - timedelta(days=now.weekday())
+    monday_then = moment.date() - timedelta(days=moment.weekday())
+    return (monday_then - monday_now).days // 7
 
-    One helper — ``count_pending_validation`` — so this is the number the
+
+def validation_badge(*, coach_id: int, now: datetime) -> Dict[str, Any]:
+    """Classes still to validate — the whole backlog (dashboard.blocks rule 3).
+
+    One helper — ``count_pending_validation_total`` — so this is the number the
     Presences trigger shows once the card opens it (B-045). PAD-443
     (attendance.validation rule 23): the dashboard card, the web sidebar badge and
-    the iOS tab badge all show it, so it is the only derivation; ``count`` is 0 when
-    both weeks are clean.
+    the iOS tab badge all show it, so it is the only derivation. PAD-539 (B-342):
+    it counts every pending class, however old, and lands on the most recent week
+    that has one; before, it counted the current week, else the previous, and read
+    0 with older classes still waiting. ``count`` is 0 when nothing is pending.
     """
-    for offset in VALIDATION_WEEK_OFFSETS:
-        start, end = week_bounds(now, offset)
-        count = count_pending_validation(
-            coach_id=coach_id, range_start=start, range_end=end, now=now
-        )
-        if count:
-            return {"count": int(count), "weekOffset": offset, "href": validation_href(offset)}
-    return {"count": 0, "weekOffset": 0, "href": validation_href(0)}
+    total = count_pending_validation_total(coach_id=coach_id, now=now)
+    if not total:
+        return {"count": 0, "weekOffset": 0, "href": validation_href(0)}
+    latest = latest_pending_start(coach_id=coach_id, now=now)
+    offset = week_offset_of(latest, now) if latest is not None else 0
+    return {"count": int(total), "weekOffset": offset, "href": validation_href(offset)}
 
 
 def _validation_item(*, coach_id: int, now: datetime) -> Optional[Dict[str, Any]]:

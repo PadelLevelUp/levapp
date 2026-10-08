@@ -73,6 +73,18 @@ export function effectiveMark(
   return toMark(player.status, player.justification) ?? prefillMark(player.response);
 }
 
+/**
+ * PAD-538 (attendance.validation rule 27): how many players the class has as present right now —
+ * the same mark each row shows (`effectiveMark`: the coach's local mark, else what is stored,
+ * else the prefill). It moves as the coach marks; on a validated class it is the recorded number.
+ */
+export function presentCount(
+  players: PendingValidationPlayer[],
+  edits: Record<number, PresenceMark>
+): number {
+  return players.filter((p) => effectiveMark(p, edits[p.playerId]) === "present").length;
+}
+
 /** A class can be validated once every player has a determination. */
 export function undecidedCount(
   players: PendingValidationPlayer[],

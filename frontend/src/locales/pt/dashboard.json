@@ -73,6 +73,8 @@
         "title_other": "Tens {{count}} aulas por validar",
         "thisWeek": "Esta semana",
         "lastWeek": "Semana passada",
+        "weeksAgo_one": "Há {{count}} semana",
+        "weeksAgo_other": "Há {{count}} semanas",
         "review": "Rever"
       },
       "invite": {

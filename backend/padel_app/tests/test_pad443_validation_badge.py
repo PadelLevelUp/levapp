@@ -1,12 +1,17 @@
 """
 PAD-443 — attendance.validation rule 23: the Presences badge is the dashboard's number.
 
-`validation_badge(coach_id, now)` is the dashboard validation item's derivation (the current
-Monday–Sunday week, else the previous one) with `count` 0 when both weeks are clean, and
+`validation_badge(coach_id, now)` is the dashboard validation item's derivation and
 `GET /class_instances/pending_validation/badge` serves it. The dashboard item, the web sidebar
 badge and the iOS tab badge all read it, so there is one number (rule 18).
 
-Criterion: "The Presences badge is the dashboard's number, with its tier".
+Amended by PAD-539 (B-342): the number is the coach's WHOLE backlog, not the current week's
+(else the previous week's), and `weekOffset` is the most recent week with something pending, so
+`count` is never 0 while an older class still waits. The tests below carry the amended rule;
+their PAD-443 shapes (`-1` fallback, "0 three weeks on") were the defect.
+
+Criterion: "The Presences badge is the dashboard's number, with its tier";
+"The deep link lands on the most recent week with work" (PAD-539).
 
 Run:
     pytest padel_app/tests/test_pad443_validation_badge.py -v
@@ -21,7 +26,8 @@ from padel_app.tests.test_dashboard_coach_home import (
 TUESDAY = datetime(2026, 8, 4, 10, 0)  # the seed leaves one pending class last week (Sun 2 Aug)
 
 
-def test_badge_prefers_the_current_week(app):
+def test_badge_counts_this_week_and_the_backlog_and_lands_on_this_week(app):
+    """PAD-539: this week's class AND last week's are both counted; the link lands on this week."""
     from padel_app.helpers.dashboard.coach_home import validation_badge
 
     coach_id, _, _ = _seed(app, now=TUESDAY)
@@ -30,10 +36,10 @@ def test_badge_prefers_the_current_week(app):
     )
     with app.app_context():
         badge = validation_badge(coach_id=coach_id, now=TUESDAY)
-    assert badge == {"count": 1, "weekOffset": 0, "href": "/presences?validate=1"}
+    assert badge == {"count": 2, "weekOffset": 0, "href": "/presences?validate=1"}
 
 
-def test_badge_falls_back_to_last_week(app):
+def test_badge_lands_on_last_week_when_this_week_is_clean(app):
     from padel_app.helpers.dashboard.coach_home import validation_badge
 
     coach_id, _, _ = _seed(app, now=TUESDAY)
@@ -42,13 +48,26 @@ def test_badge_falls_back_to_last_week(app):
     assert badge == {"count": 1, "weekOffset": -1, "href": "/presences?validate=1&week=-1"}
 
 
-def test_badge_is_zero_when_both_weeks_are_clean(app):
+def test_badge_keeps_an_old_backlog_and_lands_on_its_week(app):
+    """PAD-539 (B-342): three weeks on, the seed's class still waits — before, this read 0."""
     from padel_app.helpers.dashboard.coach_home import validation_badge
 
     coach_id, _, _ = _seed(app, now=TUESDAY)
     three_weeks_on = TUESDAY + timedelta(weeks=3)
     with app.app_context():
         badge = validation_badge(coach_id=coach_id, now=three_weeks_on)
+    # By then the seed's two "upcoming" classes (Tue 4, Wed 5 Aug) have run too, unvalidated:
+    # three pending, the most recent in the week of Mon 3 Aug — three weeks before Mon 24 Aug.
+    assert badge == {"count": 3, "weekOffset": -3, "href": "/presences?validate=1&week=-3"}
+
+
+def test_badge_is_zero_when_nothing_is_pending(app):
+    from padel_app.helpers.dashboard.coach_home import validation_badge
+
+    coach_id, _, _ = _seed(app, now=TUESDAY)
+    before_anything = datetime(2026, 7, 1, 10, 0)  # nothing has ended yet
+    with app.app_context():
+        badge = validation_badge(coach_id=coach_id, now=before_anything)
     assert badge == {"count": 0, "weekOffset": 0, "href": "/presences?validate=1"}
 
 
@@ -68,7 +87,7 @@ def test_badge_is_the_dashboard_items_number(app):
     assert (badge["count"], badge["weekOffset"], badge["href"]) == (
         item["count"], item["weekOffset"], item["href"]
     )
-    assert badge["count"] == 2
+    assert badge["count"] == 3  # the two added this week plus the seed's one last week (PAD-539)
 
 
 def test_route_serves_the_badge_to_a_coach_and_refuses_a_student(app, client):

@@ -1,0 +1,49 @@
+# PAD-539 (attendance.validation rules 18 and 23; B-342): the Presences trigger's number is the
+# coach's whole backlog, with the shown week's share on the line under it. On a week two weeks
+# ahead nothing has run, so the second line says nothing is in the week shown while the number
+# stays — before PAD-539 the trigger read "Nothing to validate" there. The tab badge is the same
+# number as the count endpoint's pendingTotal (asserted through the API).
+#
+# Mirrors: apps/web/e2e/attendance/pad539-backlog-count.spec.ts
+# Flow number 180 self-assigned from Session C's range 179–188 (2026-10-07), unconfirmed.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.badge = json(http.get(output.api + '/api/app/class_instances/pending_validation/badge', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).count}"
+- evalScript: "${output.total = json(http.get(output.api + '/api/app/class_instances/pending_validation/count', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).pendingTotal}"
+- assertTrue: "${output.badge > 0 && output.badge == output.total}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-presences"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-trigger"
+    timeout: 20000
+# The trigger's number is the backlog.
+# The trigger is one pressable, so iOS reads its texts as one label: match inside it.
+- assertVisible:
+    id: "presences-validate-trigger"
+    text: "${'(.*[^0-9])?' + output.total + ' (classes|aulas|class|aula) (to validate|por validar).*'}"
+- assertVisible:
+    id: "presences-validate-week"
+
+# Two weeks ahead: nothing has run, the number stays.
+- tapOn:
+    id: "presences-validate-trigger"
+- extendedWaitUntil:
+    visible:
+      id: "presences-week-next"
+    timeout: 15000
+- tapOn:
+    id: "presences-week-next"
+- tapOn:
+    id: "presences-week-next"
+- extendedWaitUntil:
+    visible:
+      text: ".*\\+2.*"
+    timeout: 15000
+- assertNotVisible:
+    text: "(Nothing to validate|Nada por validar)"

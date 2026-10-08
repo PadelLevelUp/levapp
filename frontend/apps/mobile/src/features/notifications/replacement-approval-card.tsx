@@ -27,6 +27,9 @@ type Props = {
   readOnly?: boolean;
   /** Fires after the server records an answer, for cache/toast follow-up. */
   onResult?: (action: ApprovalAction) => void;
+  /** PAD-545 (semi-auto-approval rule 8): "Ignorar" exists only on the class's card; the
+   * conversation offers the send buttons alone. */
+  allowDismiss?: boolean;
 };
 
 /**
@@ -43,6 +46,7 @@ export function ReplacementApprovalCard({
   bundle,
   readOnly = false,
   onResult,
+  allowDismiss = false,
 }: Props) {
   const { t } = useTranslation();
   const locale = useDateLocale();
@@ -80,7 +84,7 @@ export function ReplacementApprovalCard({
       // answers in message-bubble.tsx.
       const recorded = result?.action ?? action;
       setLocalResponse(recorded);
-      const outcome = approvalRespondOutcome(result?.vacancies);
+      const outcome = approvalRespondOutcome(result?.vacancies, !!result?.superseded);
       setStaleVacancyIds(outcome.staleVacancyIds);
       // The mobile toast primitive has no `info` variant (success/error only);
       // "these spots are gone" is news the coach did not want, so error fits.
@@ -255,21 +259,23 @@ export function ReplacementApprovalCard({
               </Pressable>
             ) : null}
 
-            <Pressable
-              testID="dismiss-invitations"
-              accessibilityLabel={t("notificationsUi.replacementApproval.no")}
-              role="button"
-              disabled={responding}
-              onPress={() => void handleRespond("dismiss")}
-              className={cn(
-                "min-w-16 flex-1 items-center rounded-xl bg-muted px-3 py-1.5",
-                responding && "opacity-50"
-              )}
-            >
-              <Text className="text-sm font-medium text-foreground">
-                {t("notificationsUi.replacementApproval.no")}
-              </Text>
-            </Pressable>
+            {allowDismiss ? (
+              <Pressable
+                testID="dismiss-invitations"
+                accessibilityLabel={t("notificationsUi.replacementApproval.ignore")}
+                role="button"
+                disabled={responding}
+                onPress={() => void handleRespond("dismiss")}
+                className={cn(
+                  "min-w-16 flex-1 items-center rounded-xl bg-muted px-3 py-1.5",
+                  responding && "opacity-50"
+                )}
+              >
+                <Text className="text-sm font-medium text-foreground">
+                  {t("notificationsUi.replacementApproval.ignore")}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       ) : null}

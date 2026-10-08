@@ -157,7 +157,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    run is asked on the next batch, ahead of the group. A group-0 invitation is answered through the
    same paths (rules 9, 10, 17, 18); its yes and its no also settle the waiting-list entry
    (`notifications.waiting-list` rule 15).
-9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+9. Coach can manually record response: `POST /api/app/notify/coach_respond` with `{notificationEventId, action: "yes" | "no"}` (path corrected, PAD-548). The answer stamps `NotificationEvent.answered_by = "coach"`; a student's own answer stamps `"student"` (PAD-548), and the class detail says which (`calendar.event-detail` rule 16)
 10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
@@ -226,7 +226,29 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      is full or over, and then closes like any other.
    - A vacancy on a started, cancelled or completed class expires (rule 5 today, unchanged).
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
-     decline, cancellation and structural paths.
+     decline, cancellation and structural paths, and (rule 13a) a coach's edit.
+
+13a. **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
+   numbering unconfirmed).** `edit_class_service` (`POST /edit_class`), once the WHOLE edit is
+   written — capacity, the roster, and the class's own flags (automatic invitations, notifications,
+   eligibility) on every occurrence it reached — runs `vacancies_after_class_edit` on each of the
+   class's future occurrences. An occurrence counts as having a place freed when it has more free
+   places (capacity minus filled spots) than before the edit, read per occurrence before anything is
+   written, so a "this and future" edit (the lesson is edited before its occurrences) sees the rise
+   too (#577 review):
+   - it always reconciles (rule 13), so a capacity lowered below the open vacancies closes the
+     surplus and retires their live invitations now, not at the next tick;
+   - when the edit freed a place (a higher capacity, a student taken off) and the coach's invitation
+     window is open (rule 11), it creates the missing never-filled vacancies (under the class lock)
+     and calls `trigger_invitations`, so every gate applies: engine on, automatic invitations,
+     semi-automatic approval (an approval prompt, not an invitation), the restrictions and the
+     quiet-hours hold, the start-once claim. Before the window opens it creates nothing: the class's
+     `invite_start` job opens the place when the window does. An edit that frees nothing sends
+     nothing.
+   A "yes" that finds the class full while its own spot is still open (a capacity drop whose
+   reconcile passed over that spot because the answer held its lock, rule 10) is refused as before
+   and also closes that spot under its own locks, so the other offers for the missing seat are
+   retired at once. Before PAD-552 the tick closed it.
 
 14. **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
     B-046 step 5 / B-051; numbered 14 after PAD-271's 13 and before PAD-317's 15).** `vacancies` has a partial unique index
@@ -294,7 +316,8 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     student gives is stored on the invitation (`NotificationEvent.answer`, `yes`|`no`), written by
     the student's own answer and by the coach recording it for them (rule 9). Only an answer is a
     "no": an invitation retired because someone else took the spot, expired with the class, or
-    never answered is not one. Then, for every automatic path of that occurrence:
+    never answered is not one. A coach's withdrawal of an invitation (rule 19) is treated as a
+    "no" by every automatic path, though it is not the student's answer and `answer` stays NULL. Then, for every automatic path of that occurrence:
     - a student who answered "no" to any of its invitations is never invited again — not in a
       later round, not for another spot, not by a re-created vacancy, not as a waiting-list
       student (group 0, rule 8a), and their waiting-list entry for the class closes
@@ -361,6 +384,43 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     **A coach-recorded "no"** (rule 9) is final in the same way. Its only undo is the coach
     recording a "yes" on that invitation; removing the student and adding them back does not clear
     it. The coach recording the same answer twice changes nothing (rule 17).
+
+19. **A coach withdraws a live invitation (PAD-548).** `DELETE
+    /api/app/notify/invitations/<event_id>` by the invitation's coach (403 for any other coach,
+    404 for an unknown id).
+    - **Live (`sent` or `queued`):** under rule 10's locks — the vacancy, then its class; a manual
+      invitation locks its own row, as rule 17's guard does — the invitation is re-read. If the
+      student's yes won meanwhile, the answer is `{"action": "confirmed"}` and nothing is written.
+      Otherwise, in ONE commit: `status = "expired"`, `answer` stays NULL,
+      `withdrawn_by_coach_at` is stamped, the invitation message is retired with flushes only (its
+      bubble reads "Vaga preenchida" on both shells and the buttons are gone — the same retire as
+      rule 15), the bubble edit is queued with `on_commit` BEFORE that commit, the student's
+      waiting-list entry for the class is closed like a "no" (`notifications.waiting-list` rule 15,
+      no credit spent) and the vacancy's `last_activity_at` is stamped. After the commit the
+      decline follow-up runs: the vacancy stays open and the next candidate is asked at once —
+      the same message volume as a student's decline (one next invitation), unlike the
+      coach-recorded "no", which waits for the tick (rule 16). The coach's live event is
+      `notification_responded` with `response: "withdrawn"`; the student gets no message (the
+      retired bubble is the telling, PAD-501). Answer `{"action": "withdrawn"}`.
+    - **For the engine it is a "no" (rule 18):** `_declined_player_ids` and `_still_invitable`
+      count `withdrawn_by_coach_at IS NOT NULL` exactly as `answer == "no"`, so no automatic path
+      asks the student again for that occurrence — any spot, any round, group 0 included. The coach
+      may still invite them by hand.
+    - **A late yes is refused:** a student's yes on a withdrawn invitation changes nothing and sends
+      nothing — no enrolment, no decline notice, no waiting-list offer (the coach removed them) —
+      and answers `spot_filled`; both shells already show "Vaga preenchida". Rule 17's guard decides
+      it under its lock, keyed on `withdrawn_by_coach_at` — a late yes on a spot that went to
+      someone else keeps rule 17's waiting-list offer.
+    - **Not live:** `confirmed` → `{"action": "confirmed"}`, nothing written, whether the yes landed
+      before the first read or under the lock — one answer for one state (a student leaves a class
+      through attendance); already `expired` → `{"action": "<outcome>"}` as
+      `calendar.event-detail` rule 16 computes it, nothing written, so a repeated delete is a
+      no-op; a class that is over → `{"action": "expired"}` after the stale sweep, as rule 9's coach
+      answer does.
+    - **Proven on Postgres:** a withdrawal racing the student's yes ends in exactly one of two
+      states — enrolled and `confirmed` (the withdrawal answered `confirmed`), or withdrawn and not
+      enrolled (the yes answered `spot_filled`) — never both and never neither; the mutant with the
+      withdrawal's locks dropped fails that cell.
 
 ### Acceptance Criteria
 
@@ -674,3 +734,26 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** a student answering yes on spot V1 while the engine is choosing another student for V1
 - **When** the accept holds V1 and the sender reaches its lock section
 - **Then** both finish without a database deadlock: the sender waits for V1 (rule 10's order) and then finds the spot taken
+
+#### A coach withdraws a pending invitation (rule 19, PAD-548)
+- **Given** a class with one open vacancy whose current invitation to Dinis is `sent`, Dinis also on the class's waiting list, and Eva the next eligible candidate
+- **When** the coach calls `DELETE /api/app/notify/invitations/<Dinis's event id>`
+- **Then** the answer is `{"action": "withdrawn"}`, Dinis's invitation is `expired` with `answer` NULL and `withdrawn_by_coach_at` set, his bubble's metadata is `responded: true` with a non-answer response, his waiting-list entry is inactive with no credit spent
+- **And** the vacancy is still `open` and Eva holds a new `sent` invitation, created after the withdrawal's commit
+- **And** the coach received `notification_responded` with `response: "withdrawn"` and Dinis received no new message
+
+#### A withdrawn student is not asked again (rule 19)
+- **Given** Dinis's invitation for the occurrence was withdrawn and a second vacancy opens on the same occurrence
+- **When** the engine sends the next batch for that occurrence
+- **Then** Dinis is tagged `declined_this_class` in `evaluate_candidates` and receives no invitation, while a manual invitation from the coach still reaches him
+
+#### A late yes on a withdrawn invitation is refused (rule 19)
+- **Given** Dinis's invitation was withdrawn and the vacancy is still open
+- **When** Dinis answers "yes" on his invitation
+- **Then** the answer is `spot_filled`, nothing is written, Dinis is not enrolled, and no message or waiting-list offer is sent
+
+#### A withdrawal racing the student's yes ends in one state (rule 19, Postgres)
+- **Given** Dinis's invitation is `sent` on an open vacancy
+- **When** the coach's withdrawal and Dinis's yes run at once on two connections
+- **Then** either Dinis is enrolled, the invitation is `confirmed` and the withdrawal answered `confirmed`, or Dinis is not enrolled, the invitation is withdrawn and the yes answered `spot_filled`
+- **And** the same cell fails when the withdrawal takes no vacancy or class lock

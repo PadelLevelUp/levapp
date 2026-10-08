@@ -24,16 +24,16 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
      `href`. `count` is `items.length`. Item kinds, in fixed server order:
      - coach: `empty_seats` (soonest first) → `reply` → `validation`
-     A `validation` item (PAD-190 / PAD-201, B-045) carries `count` — the number of **classes**
-     with at least one unvalidated presence, derived by `attendance.validation` rule 18's
-     `count_pending_validation` for one Monday–Sunday UTC week — plus `weekOffset` (`0` for the
-     current week, `-1` for the previous) and `href` (`/presences?validate=1` or
-     `/presences?validate=1&week=-1`). The
-     server counts the current week first and falls back to the previous week when the current
-     one has nothing pending, so a Monday-morning coach still sees the weekend's backlog. The
-     item is omitted when both weeks are clean. Both shells open the Presences tab **on that
-     week, inside the validate view** (rule 10), and the tab's own trigger reads the same
-     endpoint for the same bounds, so the two numbers are one number.
+     A `validation` item (PAD-190 / PAD-201, B-045; amended by PAD-539) carries `count` — the
+     number of **classes** with at least one unvalidated presence, the coach's whole backlog as
+     `attendance.validation` rule 18 defines it (`count_pending_validation_total`, no lower bound
+     on the date) — plus `weekOffset` (the most recent week that has something pending: `0` for
+     the current week, negative for earlier ones) and `href` (`/presences?validate=1` or
+     `/presences?validate=1&week=<offset>`). The item is omitted when nothing is pending. Before
+     PAD-539 it counted one Monday–Sunday week (the current, else the previous) and was omitted
+     when both were clean, however many older classes waited. Both shells open the Presences tab
+     **on that week, inside the validate view** (rule 10), and the tab's own trigger reads the
+     same total, so the two numbers are one number.
      - student: the **asks** — `invite`, `vacancy_invite`, `waiting_list_offer` — merged and
        ordered soonest class first, together capped at 5 → `reply`
      A `reply` is one unread inbound message per conversation, most recent first, capped at 3.
@@ -208,7 +208,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    for the request alerts. It returns null for a path it does not know, and both callers treat
    null as "go nowhere".
    Per kind:
-   - `validation` → `/presences?validate=1` (or `…&week=-1`): the Presences tab on that week
+   - `validation` → `/presences?validate=1` (or `…&week=<offset>`): the Presences tab on that week
      **with the validate view already open** (`attendance.validation` rule 19), so the coach
      is one tap from validating, not two.
    - `reply` → `/messages/<conversationId>`: **that conversation**, on the thread (web route
