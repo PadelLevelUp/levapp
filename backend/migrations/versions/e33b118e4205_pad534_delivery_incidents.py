@@ -1,7 +1,7 @@
 """PAD-534: delivery_incidents (admin.engine-health)
 
 Revision ID: e33b118e4205
-Revises: f831df5ef8d7
+Revises: e22cb56a3aee
 Create Date: 2026-10-08
 
 One table, created only when absent (idempotent): failed emails and pushes and reminders skipped
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "e33b118e4205"
-down_revision = "f831df5ef8d7"
+down_revision = "e22cb56a3aee"
 branch_labels = None
 depends_on = None
 
