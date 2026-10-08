@@ -29,7 +29,15 @@ def build_dashboard_payload(
         Dashboard payload dict. The ``id`` is how the client tells the two homes
         apart (dashboard.blocks rule 3b) — both now share block types.
     """
-    unread_messages, conversations_to_reply, latest = compute_message_overview(user_id=user.id)
+    from padel_app.utils import view_as
+
+    if view_as.active():
+        # admin.approvals-and-users rule 9 (PAD-532, #584 review): private messages are never shown
+        # under a view-as token, and the dashboard's overview carries their text (latest preview,
+        # reply items). The block stays, empty, so the layout renders as for a user with no messages.
+        unread_messages, conversations_to_reply, latest = 0, [], None
+    else:
+        unread_messages, conversations_to_reply, latest = compute_message_overview(user_id=user.id)
 
     # Emitted for every dashboard because the layout's unread badge feeds off
     # it; neither home renders it as a card.

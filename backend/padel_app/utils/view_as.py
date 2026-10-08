@@ -55,6 +55,13 @@ def gate():
         return None  # an invalid token is the route's business, not ours
     if not claims.get(VIEW_AS_CLAIM):
         return None
+    # #584 review: the view lasts only while its actor is still an operator. A revoked or changed
+    # console role ends it on the next request, not 30 minutes later.
+    from padel_app.models.admin_role import AdminRole
+
+    actor = AdminRole.active_by_email(claims.get("actor"))
+    if actor is None or actor.role != "operator":
+        return jsonify({"error": "VIEW_AS_REVOKED"}), 401
     g.view_as = True
     g.view_as_actor = claims.get("actor")
     SUPPRESSED_LAST_REQUEST.clear()

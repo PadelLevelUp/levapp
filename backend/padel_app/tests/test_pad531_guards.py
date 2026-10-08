@@ -27,6 +27,8 @@ IS_SUPERADMIN_READERS = {
     # PAD-532, admin.approvals-and-users rule 5: the console's user view SHOWS the product flag
     # (read-only display, no decision is taken on it).
     "services/admin/users_service.py",
+    # PAD-532 rule 9 (#584 review): view-as refuses staff targets, the product superadmins included.
+    "services/admin/view_as_service.py",
 }
 
 

@@ -20,6 +20,14 @@ class UserDisabled(UsersError):
     code = "USER_DISABLED"
 
 
+class TargetIsStaff(UsersError):
+    """#584 review: staff accounts are never viewed as: a product superadmin, or an account whose
+    email holds an active console role."""
+
+    status = 403
+    code = "VIEW_AS_TARGET_STAFF"
+
+
 def mint(user_id, actor_email):
     from padel_app.models import User
 
@@ -29,6 +37,10 @@ def mint(user_id, actor_email):
         raise UserNotFound()
     if user.status == "disabled":
         raise UserDisabled()  # the product would refuse the token anyway
+    from padel_app.models.admin_role import AdminRole
+
+    if user.is_superadmin or (user.email and AdminRole.active_by_email(user.email) is not None):
+        raise TargetIsStaff()
     now = datetime.now(timezone.utc)
     token = create_access_token(
         identity=str(user.id),
