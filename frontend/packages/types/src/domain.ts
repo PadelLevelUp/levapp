@@ -551,6 +551,8 @@ export interface ClassInstance {
   effectiveAutoInvites?: boolean;
   autoInvitesSource?: "instance" | "lesson" | "type";
   invitations?: ClassInvitation[];
+  /** PAD-547: coach only — the class's waiting list (calendar.event-detail rule 19). */
+  waitingList?: CoachClassWaitingListRow[];
   /** PAD-131: coach only — the pending join requests for this class. */
   joinRequests?: ClassJoinRequest[];
   /** PAD-131: student only — their latest join request for this class, or null. */
@@ -1523,6 +1525,23 @@ export interface StandingWaitingListEntry {
   expiresOn: string | null;
   createdAt: string;
   activeClassCount: number;
+  /** PAD-547 (waiting-list rule 19): set when the entry is scoped to one series. */
+  lessonId?: number | null;
+  lessonTitle?: string | null;
+}
+
+/** PAD-547 (waiting-list rule 20): where a class's waiting-list row came from. */
+export type WaitingListOrigin = "standing" | "student" | "coach";
+
+/** PAD-547: one row of a class's waiting list, in the order the engine asks them. */
+export interface CoachClassWaitingListRow {
+  id: number;
+  playerId: number;
+  playerName: string | null;
+  joinedAt: string | null;
+  origin: WaitingListOrigin;
+  standingEntryId: number | null;
+  seriesScoped: boolean;
 }
 
 export interface NotificationEventItem {

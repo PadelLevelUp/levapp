@@ -63,6 +63,7 @@ import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
+import { ClassWaitingListSection } from "./ClassWaitingListSection";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
 
 import { Button } from "@/components/ui/button";
@@ -445,7 +446,7 @@ export function ClassDetailSheet({
 
         // PAD-131: a student asked to join, or the class filled and their
         // requests closed → re-fetch so the requests block is current.
-        if (data.type === "join_request_created" || data.type === "join_requests_superseded") {
+        if (data.type === "join_request_created" || data.type === "join_requests_superseded" || data.type === "waiting_list_changed") {
           const ev = eventRef.current;
           if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
         }
@@ -1694,6 +1695,23 @@ export function ClassDetailSheet({
                   </div>
                 )}
               </div>
+            </>
+          )}
+
+          {/* PAD-547 (calendar.event-detail rules 19–20): the class's waiting list, coach only. */}
+          {canManage && !isEditing && (
+            <>
+              <Separator />
+              <ClassWaitingListSection
+                event={event}
+                rows={classInstance.waitingList ?? []}
+                roster={players}
+                enrolledIds={(classInstance.participants ?? []).map((p) => p.id)}
+                onChanged={() => {
+                  const ev = eventRef.current;
+                  if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
+                }}
+              />
             </>
           )}
 

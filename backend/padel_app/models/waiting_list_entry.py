@@ -1,5 +1,5 @@
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from padel_app import model
@@ -33,6 +33,9 @@ class WaitingListEntry(db.Model, model.Model):
         Integer, ForeignKey("standing_waiting_list_entries.id", ondelete="SET NULL"), nullable=True
     )
     is_active = Column(Boolean, default=True, nullable=False)
+    # PAD-547 (notifications.waiting-list rule 20): who put a non-standing row here — 'student'
+    # (their own offer answer or wizard join) | 'coach'. NULL on older rows, read as 'student'.
+    added_by = Column(String(8), nullable=True)
     joined_at = Column(DateTime, default=lambda: utcnow_naive())
 
     lesson_instance = relationship("LessonInstance")

@@ -187,6 +187,12 @@ def overridden_fields_for(instance) -> list:
     return out
 
 
+def _class_waiting_list(instance_id):
+    from padel_app.services.notification_service import get_waiting_list
+
+    return get_waiting_list(instance_id)
+
+
 def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -> dict:
     """
     Serialize Lesson or LessonInstance into ClassInstance-specific fields.
@@ -352,6 +358,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                     }
                     for ev in notification_events
                 ],
+                # PAD-547 (calendar.event-detail rule 19): the class's waiting list, coach only.
+                **({} if is_student else {"waitingList": _class_waiting_list(obj.id)}),
                 "plannedExerciseIds": [str(t.exercise_id) for t in training_rows],
                 "cancellationDeadlineHours": deadline_hours,
                 "cancellationDeadline": cancellation_deadline,
