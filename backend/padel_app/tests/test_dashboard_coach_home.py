@@ -227,7 +227,7 @@ def _add_past_class_with_unvalidated_presence(app, *, coach_id, ended_at, title)
 
 
 def test_validation_item_prefers_the_current_week(app):
-    """dashboard.blocks rule 3: the current week wins whenever it has work."""
+    """dashboard.blocks rule 3: the link lands on the most recent week with work (PAD-539)."""
     from padel_app.helpers.dashboard.coach_home import build_needs_you_block
 
     now = datetime(2026, 8, 4, 10, 0)  # Tuesday
@@ -240,7 +240,9 @@ def test_validation_item_prefers_the_current_week(app):
         block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
 
     validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
-    assert validation["count"] == 1, "only this week's class, not last week's too"
+    # PAD-539 (B-342): the whole backlog — this week's class AND last week's — and the link
+    # lands on the most recent week with work, this one.
+    assert validation["count"] == 2
     assert validation["weekOffset"] == 0
     assert validation["href"] == "/presences?validate=1"  # PAD-283: validate view open
 
@@ -269,16 +271,33 @@ def test_validation_item_counts_classes_not_presences(app):
     assert validation["count"] == 1
 
 
-def test_validation_item_is_omitted_when_both_weeks_are_clean(app):
+def test_validation_item_keeps_an_old_backlog(app):
+    """PAD-539 (B-342): three weeks after the seed's past class the card is still there,
+    counting it, and lands on its week. Before PAD-539 this asserted the card was OMITTED
+    (dashboard.blocks rule 3 counted the current week, else the previous)."""
     from padel_app.helpers.dashboard.coach_home import build_needs_you_block
 
-    # Three weeks after the seed's past class: outside both the current and
-    # the previous week, so there is a backlog but no card.
     now = datetime(2026, 8, 25, 10, 0)
     coach_id, user_id, _ = _seed(app, now=datetime(2026, 8, 4, 10, 0))
 
     with app.app_context():
         block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=now)
+
+    validation = next(i for i in block["data"]["items"] if i["kind"] == "validation")
+    # The seed's two "upcoming" classes have run by then too: three pending, the most recent
+    # in the week of Mon 3 Aug, three weeks before Mon 24 Aug.
+    assert validation["count"] == 3
+    assert validation["weekOffset"] == -3
+    assert validation["href"] == "/presences?validate=1&week=-3"
+
+
+def test_validation_item_is_omitted_when_nothing_is_pending(app):
+    from padel_app.helpers.dashboard.coach_home import build_needs_you_block
+
+    # Before any seeded class has ended: nothing to validate, no card.
+    coach_id, user_id, _ = _seed(app, now=datetime(2026, 8, 4, 10, 0))
+    with app.app_context():
+        block = build_needs_you_block(coach_id=coach_id, user_id=user_id, now=datetime(2026, 7, 1, 10, 0))
 
     assert "validation" not in [i["kind"] for i in block["data"]["items"]]
 
