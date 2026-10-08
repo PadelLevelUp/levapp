@@ -16,6 +16,7 @@ import {
   standingPresetOf,
   waitingListCandidates,
   waitingListOriginKey,
+  waitingListPickerOptions,
 } from "@levelup/config";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import type { CoachClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
@@ -24,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
@@ -139,6 +141,12 @@ function AddDialog({
     [roster, enrolledIds, rows]
   );
   const [playerId, setPlayerId] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState("");
+  // PAD-558 (rule 20): the search narrows what is offered; the chosen student stays listed.
+  const offered = React.useMemo(
+    () => waitingListPickerOptions(candidates, search, playerId),
+    [candidates, search, playerId]
+  );
   const [scope, setScope] = React.useState<"occurrence" | "series">("occurrence");
   const [today, setToday] = React.useState(() => new Date());
   const [expiresOn, setExpiresOn] = React.useState(() => standingEndFor(DEFAULT_STANDING_PRESET, new Date()));
@@ -152,6 +160,7 @@ function AddDialog({
     setToday(now);
     setExpiresOn(standingEndFor(DEFAULT_STANDING_PRESET, now));
     setPlayerId(null);
+    setSearch("");
     setScope("occurrence");
     setCredits(3);
     setIneligible([]);
@@ -201,9 +210,17 @@ function AddDialog({
         <DialogHeader>
           <DialogTitle>{t("calendar.detail.waitingListAdd")}</DialogTitle>
         </DialogHeader>
-        <ScrollView style={{ maxHeight: 360 }}>
+        <Input
+          testID="class-waiting-list-search"
+          placeholder={t("calendar.detail.waitingListSearch")}
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+        <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
           <View className="gap-1">
-            {candidates.map((c) => {
+            {offered.map((c) => {
               const reasons = reasonsById.get(String(c.playerId));
               const chosen = playerId === String(c.playerId);
               return (

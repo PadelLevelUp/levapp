@@ -144,7 +144,11 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     picks "Só esta aula" / "This class only" or, for a recurring class, "Toda a série" / "The
     whole series", which shows the standing list's credits and end-date fields
     (`notifications.waiting-list` rules 2 and 19). Web: a dialog; iOS: a sheet. Both refresh the
-    list from the server's answer and the `waiting_list_changed` event.
+    list from the server's answer and the `waiting_list_changed` event. The picker has a name
+    search above the list (PAD-558), under the class editor's student-picker rule
+    (`nameMatchesQuery`, PAD-516): every typed word must appear in the name, in any order, and
+    accents, case and punctuation don't matter. A blank search offers everyone. The search
+    only narrows what is offered: a student already chosen stays chosen and stays listed.
 
 ### Acceptance Criteria
 
@@ -218,3 +222,9 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Then** the picker marks Carla with the level reason and still lets the coach choose her
 - **And** the list then reads Bruno "Lista permanente" and Carla "Adicionado pelo treinador"
 - **And** removing Carla's row takes her off the list at once
+#### The waiting-list picker searches by name (rule 20, PAD-558)
+- **Given** the add picker of a class whose candidates include "Álvaro Sousa", "Ana Pinto" and "Bruno Álves", on web and on iOS
+- **When** the coach types "sousa alv" in its search
+- **Then** only Álvaro Sousa is offered
+- **And** clearing the search offers all three again
+- **And** a student chosen before the search changed stays chosen and listed even when the search no longer matches them

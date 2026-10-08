@@ -79,7 +79,12 @@ test("PAD-547: the coach adds a student to one class's waiting list and removes 
   await expect(
     page.getByTestId("class-waiting-list-player").locator(`option[value="${enrolled.playerId}"]`),
   ).toHaveCount(0);
-  await page.getByTestId("class-waiting-list-player").selectOption(String(listed.playerId));
+  // PAD-558: the search narrows the offered names; others drop out, the searched one stays.
+  const picker = page.getByTestId("class-waiting-list-player");
+  await page.getByTestId("class-waiting-list-search").fill(listed.name);
+  await expect(picker.locator(`option[value="${listed.playerId}"]`)).toHaveCount(1);
+  await expect(picker.locator("option:not([value=''])")).toHaveCount(1);
+  await picker.selectOption(String(listed.playerId));
   await page.getByTestId("class-waiting-list-scope-occurrence").click();
   await page.getByTestId("class-waiting-list-confirm").click();
 

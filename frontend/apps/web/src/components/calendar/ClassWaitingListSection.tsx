@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Plus, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Plus, Search, X } from "lucide-react";
 import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } from "@levelup/types";
 import {
   DEFAULT_STANDING_PRESET,
@@ -16,6 +16,7 @@ import {
   standingEndFor,
   waitingListCandidates,
   waitingListOriginKey,
+  waitingListPickerOptions,
 } from "@levelup/config";
 import { addToClassWaitingList, checkEligibility, removeFromClassWaitingList } from "@/api/notificationEngine";
 import { Button } from "@/components/ui/button";
@@ -136,6 +137,7 @@ function AddToClassWaitingListDialog({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [playerId, setPlayerId] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [scope, setScope] = useState<"occurrence" | "series">("occurrence");
   const [today, setToday] = useState(() => new Date());
   const [expiresOn, setExpiresOn] = useState(() => standingEndFor(DEFAULT_STANDING_PRESET, new Date()));
@@ -149,6 +151,7 @@ function AddToClassWaitingListDialog({
     setToday(now);
     setExpiresOn(standingEndFor(DEFAULT_STANDING_PRESET, now));
     setPlayerId("");
+    setSearch("");
     setScope("occurrence");
     setIneligible([]);
     // Rule 20: mark who would fail the class's bar today, as the class editor's picker does.
@@ -167,6 +170,8 @@ function AddToClassWaitingListDialog({
   const { min, max } = standingEndBounds(today);
   const seriesValid = scope === "occurrence" || isStandingEndAllowed(expiresOn, today);
   const chosenReasons = playerId ? reasonsById.get(playerId) : undefined;
+  // PAD-558 (rule 20): the search narrows what is offered; the chosen student stays listed.
+  const offered = useMemo(() => waitingListPickerOptions(candidates, search, playerId || null), [candidates, search, playerId]);
 
   const confirm = async () => {
     if (!playerId || !seriesValid) return;
@@ -196,6 +201,17 @@ function AddToClassWaitingListDialog({
           <DialogTitle>{t("calendar.detail.waitingListAdd")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-1">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              data-testid="class-waiting-list-search"
+              aria-label={t("calendar.detail.waitingListSearch")}
+              placeholder={t("calendar.detail.waitingListSearch")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 pl-8 text-sm"
+            />
+          </div>
           <label className="block space-y-1">
             <span className="text-sm font-medium">{t("calendar.detail.waitingListPickStudent")}</span>
             <select
@@ -205,7 +221,7 @@ function AddToClassWaitingListDialog({
               className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
             >
               <option value="" />
-              {candidates.map((c) => (
+              {offered.map((c) => (
                 <option key={c.playerId} value={String(c.playerId)} data-ineligible={reasonsById.has(String(c.playerId)) || undefined}>
                   {reasonsById.has(String(c.playerId)) ? `⚠ ${c.name}` : c.name}
                 </option>

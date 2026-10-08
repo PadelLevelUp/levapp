@@ -47,10 +47,17 @@ onFlowComplete:
 # ── rule 20: add for this class only ──
 - tapOn:
     id: "class-waiting-list-add"
+# PAD-558: the picker's name search brings the student up; the list is a clipped scroll box that
+# iOS reports as visible past its edge, so the flow never scrolls it.
+- tapOn:
+    id: "class-waiting-list-search"
+- inputText: "Student Two"
 - extendedWaitUntil:
     visible:
       id: "class-waiting-list-candidate-${output.two.playerId}"
     timeout: 15000
+- assertNotVisible:
+    id: "class-waiting-list-candidate-${output.filler.playerId}"
 - assertNotVisible:
     id: "class-waiting-list-candidate-${output.enrolled.playerId}"
 - tapOn:

@@ -3,6 +3,7 @@
  * a class's waiting-list row, read by both shells.
  */
 import type { CoachClassWaitingListRow } from "@levelup/types";
+import { nameMatchesQuery } from "./name-search";
 
 export function waitingListOriginKey(row: Pick<CoachClassWaitingListRow, "origin" | "seriesScoped">): string {
   if (row.origin === "standing") {
@@ -21,4 +22,17 @@ export function waitingListCandidates<P extends { playerId: number | string }>(
 ): P[] {
   const taken = new Set([...enrolledIds.map(String), ...rows.map((r) => String(r.playerId))]);
   return roster.filter((p) => !taken.has(String(p.playerId)));
+}
+
+/**
+ * PAD-558 (calendar.event-detail rule 20): the picker's name search, under the class editor's
+ * rule (`nameMatchesQuery`, PAD-516). It only narrows what is offered: the chosen student stays
+ * listed, so the choice the confirm button acts on is always on screen.
+ */
+export function waitingListPickerOptions<P extends { playerId: number | string; name?: string | null }>(
+  candidates: P[],
+  query: string,
+  chosenId: string | null,
+): P[] {
+  return candidates.filter((p) => String(p.playerId) === chosenId || nameMatchesQuery(p.name, query));
 }
