@@ -4901,6 +4901,78 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
     return closed
 
 
+def _open_never_filled_places(*, now: datetime) -> int:
+    """PAD-540 / B-301 (notifications.invitations rule 1c): open the never-filled places of every
+    materialised class the engine can see but nothing has started.
+
+    An absence writes its vacancy row and the tick below starts it; a place nobody ever filled had
+    only the one-shot ``invite_start_<instance>`` job, derived at materialisation and only for a
+    future time, so a class materialised inside its window (created late, opened by the coach), an
+    invitation start earlier than the first reminder, reminders off, or a restart across the fire
+    time left it silent. This scan is the missing event: for each future class (club clock), not
+    canceled or completed, notifications on, with NO vacancy of any status, automatic invitations on,
+    free capacity and a primary coach whose SAVED configuration has the engine on and whose
+    invitation window (rule 11) has opened, it calls ``trigger_invitations`` — so every existing
+    gate applies (semi-automatic approval, restrictions and the quiet-hours hold, the start-once
+    claim) and the places are created under the class lock (PAD-261), which is what makes a tick
+    racing a start job or an absence on the same class create them once. A class whose vacancies
+    are all filled or expired is not reopened; capacity changes are rule 13's. An invitation start
+    of type ``none`` opens nothing, as it arms no job. A coach with no saved configuration has the
+    engine off (the column default) and is skipped without creating one.
+
+    Returns the number of classes handed to ``trigger_invitations``. Each class runs in its own
+    try/except: one failure is logged and the next tick retries it.
+    """
+    from sqlalchemy import exists
+
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.lesson_service import primary_coach
+
+    wall_now = utc_to_wall_naive(now)
+    candidates = (
+        LessonInstance.query
+        .filter(
+            LessonInstance.start_datetime > wall_now,
+            LessonInstance.status.notin_(("canceled", "completed")),
+            LessonInstance.notifications_enabled.is_(True),
+            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id),
+        )
+        .order_by(LessonInstance.start_datetime.asc(), LessonInstance.id.asc())
+        .all()
+    )
+    configs: dict[int, NotificationConfig | None] = {}
+    opened = 0
+    for instance in candidates:
+        try:
+            # A deploy watermark, if the staging count asks for one, goes here:
+            # `if instance.id < NEVER_FILLED_WATERMARK_ID: continue`.
+            if not effective_auto_invites(instance):
+                continue
+            if (instance.effective_max_players or 0) - _effective_filled_spots(instance) <= 0:
+                continue
+            coach = primary_coach(instance)
+            if coach is None:
+                continue
+            if coach.id not in configs:
+                configs[coach.id] = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+            config = configs[coach.id]
+            if config is None or not config.auto_notify_enabled:
+                continue
+            opens_at = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
+            if opens_at is None or now < opens_at:
+                continue
+            trigger_invitations(instance, coach.id, now=now)
+            opened += 1
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            from flask import current_app, has_app_context
+            if has_app_context():
+                current_app.logger.exception(
+                    "never-filled places: opening class %s failed", getattr(instance, "id", "?")
+                )
+    return opened
+
+
 def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     For each open vacancy, check if enough time has passed since last activity.
@@ -4918,6 +4990,17 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     _now = now or utcnow_naive()
     expire_stale_invitations(now=_now)
+    # PAD-540 / B-301 (rule 1c): a class with a never-filled place and no vacancy of any status
+    # whose window is open is started here, since no absence and no one-shot job will do it.
+    # Its own try (#558 review): a scan that raises (its candidate query included) is logged and
+    # the tick goes on to the open vacancies below; the next tick scans again.
+    try:
+        _open_never_filled_places(now=_now)
+    except Exception:  # noqa: BLE001 — logged, the next tick retries
+        db.session.rollback()
+        from flask import current_app, has_app_context
+        if has_app_context():
+            current_app.logger.exception("never-filled places: the scan failed")
     open_vacancies = Vacancy.query.filter_by(status="open").all()
     processed = 0
 
