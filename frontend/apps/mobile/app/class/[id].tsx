@@ -10,6 +10,12 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  INVITATION_OUTCOME_KEY,
+  INVITATION_OUTCOME_TONE,
+  inviteeActionsFor,
+  outcomeAfterCoachAction,
+  outcomeAfterResponse,
+  statusForOutcome,
   errorStatusOf,
   lisbonNowMs,
   wallClockISOMs,
@@ -33,12 +39,14 @@ import type {
   Court,
   ApprovalBundle,
   ClassInstance,
+  ClassInvitation,
   PresenceStatus,
 } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
-import { router, useLocalSearchParams } from "expo-router";
+import { CommonActions, usePreventRemove, useNavigation } from "@react-navigation/native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
@@ -48,6 +56,7 @@ import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -95,6 +104,7 @@ import {
 } from "@/features/calendar/edit-class-diff";
 import { PlayerSelector } from "@/features/calendar/player-selector";
 import { useCoachPlayers } from "@/features/players/hooks";
+import { ClassWaitingListSection } from "@/features/calendar/class-waiting-list-section";
 import {
   useCancelAttendance,
   useConfirmClassTraining,
@@ -263,6 +273,42 @@ export default function ClassDetailScreen() {
   const { data: coachPlayers, isLoading: coachPlayersLoading } = useCoachPlayers({ enabled: isCoach && isEditing });
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
+  // classes.edit rule 10: leaving with an unsaved draft — different from the loaded class by
+  // value, the save's own comparison — asks "Descartar alterações?" first. While a draft is
+  // unsaved, swipe-back is off and the screen's own back button asks (settings.unsaved-edits
+  // rule 3's mechanism: a native back usePreventRemove has stopped once never reaches JS
+  // again); any other removal is held by usePreventRemove and runs once Discard is chosen.
+  // There is no Save in the question: a save has its own sequence (scope, overlap, eligibility).
+  const [discardAskOpen, setDiscardAskOpen] = React.useState(false);
+  // classes.edit rule 10 (PAD-525, B-341): an edit belongs to ONE class on ONE opening of this
+  // screen. Arriving at another class on it (new params) ends edit mode and drops the draft.
+  React.useEffect(() => {
+    setIsEditing(false);
+    setDraft(null);
+    setDiscardAskOpen(false);
+  }, [event?.id]);
+  const navigation = useNavigation();
+  const [pendingLeave, setPendingLeave] = React.useState<Parameters<typeof navigation.dispatch>[0] | null>(null);
+  const hasUnsavedEdit = isEditing && draft !== null && instance != null && hasClassEditChanges(instance, draft);
+  usePreventRemove(hasUnsavedEdit, ({ data }) => {
+    setPendingLeave(data.action);
+    setDiscardAskOpen(true);
+  });
+  const [leaveAfterDiscard, setLeaveAfterDiscard] = React.useState<typeof pendingLeave>(null);
+  React.useEffect(() => {
+    if (leaveAfterDiscard && !hasUnsavedEdit) {
+      setLeaveAfterDiscard(null);
+      navigation.dispatch(leaveAfterDiscard);
+    }
+  }, [leaveAfterDiscard, hasUnsavedEdit, navigation]);
+  const requestBack = () => {
+    if (hasUnsavedEdit) {
+      setPendingLeave(CommonActions.goBack());
+      setDiscardAskOpen(true);
+      return;
+    }
+    router.back();
+  };
 
   // PAD-159: the day's other events, for the overlap check on a timing edit.
   // Keyed off the DRAFT's date so moving the class to another day checks the
@@ -309,7 +355,7 @@ export default function ClassDetailScreen() {
         if (!isCoach || !event) return;
         // PAD-131: a student asked to join, or the class filled and the
         // requests closed → refetch so the requests block is current.
-        if (evt.type === "join_request_created" || evt.type === "join_requests_superseded") {
+        if (evt.type === "join_request_created" || evt.type === "join_requests_superseded" || evt.type === "waiting_list_changed") {
           void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
           return;
         }
@@ -324,17 +370,13 @@ export default function ClassDetailScreen() {
               old
                 ? {
                     ...old,
-                    invitations: (old.invitations ?? []).map((inv) =>
-                      inv.id === payload.notificationEventId
-                        ? {
-                            ...inv,
-                            status:
-                              payload.response === "yes"
-                                ? ("confirmed" as const)
-                                : ("expired" as const),
-                          }
-                        : inv
-                    ),
+                    // PAD-548 (calendar.event-detail rule 16): the row renders `outcome`;
+                    // `status` is kept in step. An unknown response leaves the row alone.
+                    invitations: (old.invitations ?? []).map((inv) => {
+                      if (inv.id !== payload.notificationEventId) return inv;
+                      const outcome = outcomeAfterResponse(payload.response);
+                      return outcome ? { ...inv, outcome, status: statusForOutcome(outcome) } : inv;
+                    }),
                   }
                 : old
           );
@@ -372,6 +414,13 @@ export default function ClassDetailScreen() {
     changes: Record<string, unknown>;
     scope: "single" | "future";
   } | null>(null);
+
+  // PAD-548 — above `if (!event)`: hooks must run on every render (class-screen-hooks guard).
+  // PAD-548 (calendar.event-detail rules 17–18): the row whose actions are open, and the
+  // invitation awaiting the delete warning. In-app controls with ids, not native alerts, so the
+  // Maestro flow asserts by id (PAD-320).
+  const [inviteeMenuFor, setInviteeMenuFor] = React.useState<number | null>(null);
+  const [inviteeToDelete, setInviteeToDelete] = React.useState<ClassInvitation | null>(null);
 
   if (!event) {
     // PAD-325: none of these states had a way out but the swipe gesture (the
@@ -479,6 +528,64 @@ export default function ClassDetailScreen() {
     levels?.find((level) => level.id === active?.levelId)?.code ?? "—";
 
   const invitations = instance?.invitations ?? [];
+
+  // PAD-548 (calendar.event-detail rules 17–18): the coach's actions on an invitee row. The row
+  // shows the outcome the server answered; an accepted or withdrawn one re-reads the class (the
+  // roster changed, the next candidate was asked).
+  const applyInviteeAnswer = (inv: ClassInvitation, action: string, byCoach: boolean) => {
+    const outcome = outcomeAfterCoachAction(action);
+    if (outcome) {
+      queryClient.setQueryData<ClassInstance>(queryKeys.classInstance(event), (old) =>
+        old
+          ? {
+              ...old,
+              invitations: (old.invitations ?? []).map((row) =>
+                row.id !== inv.id
+                  ? row
+                  : {
+                      ...row,
+                      outcome,
+                      status: statusForOutcome(outcome),
+                      answeredBy:
+                        byCoach && (outcome === "accepted" || outcome === "declined") ? "coach" : row.answeredBy,
+                    }
+              ),
+            }
+          : old
+      );
+    }
+    if (action === "spot_filled") toast.warning(t("calendar.detail.inviteeClassFull"));
+    else if (action === "expired") toast.warning(t("calendar.detail.inviteeClassOver"));
+    if (outcome === "accepted" || outcome === "withdrawn") {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+    }
+  };
+
+  const respondForInvitee = async (inv: ClassInvitation, action: "yes" | "no") => {
+    try {
+      const result = await notificationEngineApi.coachRespondToNotification(inv.id, action);
+      applyInviteeAnswer(inv, result.action, true);
+    } catch {
+      toast.error(t("calendar.detail.inviteeActionFailed"));
+    }
+  };
+
+  const withdrawForInvitee = async (inv: ClassInvitation) => {
+    try {
+      const result = await notificationEngineApi.withdrawInvitation(inv.id);
+      if (result.action === "confirmed") toast.warning(t("calendar.detail.inviteeAlreadyAccepted"));
+      applyInviteeAnswer(inv, result.action, false);
+    } catch {
+      toast.error(t("calendar.detail.inviteeActionFailed"));
+    }
+  };
+
+  // The Badge has no "muted" variant; the quiet outcomes (withdrawn, expired) read as secondary.
+  const inviteeBadgeVariant = (outcome: ClassInvitation["outcome"]) => {
+    const tone = INVITATION_OUTCOME_TONE[outcome];
+    return tone === "muted" ? "secondary" : tone;
+  };
+
 
   const hasMarkedAttendance = Object.values(attendance).some(
     (state) => state.status !== null
@@ -884,13 +991,14 @@ export default function ClassDetailScreen() {
 
   return (
     <Screen edges={["top"]} testID="class-detail">
+      <Stack.Screen options={{ gestureEnabled: !hasUnsavedEdit }} />
       {/* Header */}
       <View className="flex-row items-center gap-2 border-b border-border px-2 py-2">
         <Pressable
           testID="class-detail-back"
           accessibilityLabel={t("common.back")}
           role="button"
-          onPress={() => router.back()}
+          onPress={requestBack}
           className="h-10 w-10 items-center justify-center rounded-md active:bg-accent"
         >
           <Ionicons name="chevron-back" size={22} color={lightTheme.foreground} />
@@ -1412,35 +1520,106 @@ export default function ClassDetailScreen() {
                 {invitationsOpen ? (
                   <View className="gap-1.5">
                     {invitations.map((inv) => (
+                      <View key={inv.id}>
                       <View
-                        key={inv.id}
+                        testID={`invitee-row-${inv.playerId}`}
                         className="flex-row items-center justify-between py-1"
                       >
                         <Text className="flex-1 text-sm" numberOfLines={1}>
                           {inv.playerName}
                         </Text>
-                        {inv.status === "confirmed" ? (
-                          <Badge variant="success">
-                            <Text>{t("calendar.detail.accepted")}</Text>
+                        {/* PAD-548 (calendar.event-detail rules 16–17): one outcome word, decided
+                            by the server; actions only on a pending or declined row. */}
+                        <View className="items-end">
+                          <Badge variant={inviteeBadgeVariant(inv.outcome)}>
+                            <Text testID={`invitee-outcome-${inv.playerId}-${inv.outcome}`}>
+                              {t(INVITATION_OUTCOME_KEY[inv.outcome])}
+                            </Text>
                           </Badge>
-                        ) : inv.status === "expired" ? (
-                          <Badge variant="destructive">
-                            <Text>{t("calendar.detail.declined")}</Text>
-                          </Badge>
-                        ) : inv.status === "queued" ? (
-                          <Badge variant="secondary">
-                            <Text>{t("calendar.detail.queued")}</Text>
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">
-                            <Text>{t("calendar.detail.pending")}</Text>
-                          </Badge>
-                        )}
+                          {inv.answeredBy === "coach" ? (
+                            <Text
+                              testID={`invitee-recorded-by-coach-${inv.playerId}`}
+                              className="text-[10px] text-muted-foreground"
+                            >
+                              {t("calendar.detail.recordedByCoach")}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {inviteeActionsFor(inv.outcome).length > 0 ? (
+                          <Pressable
+                            testID={`invitee-actions-${inv.playerId}`}
+                            accessibilityLabel={t("calendar.detail.inviteeActions")}
+                            role="button"
+                            hitSlop={8}
+                            onPress={() => setInviteeMenuFor((open) => (open === inv.id ? null : inv.id))}
+                            className="ml-2 h-7 w-7 items-center justify-center rounded-full"
+                          >
+                            <Ionicons name="ellipsis-horizontal" size={18} color={lightTheme.mutedForeground} />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      {inviteeMenuFor === inv.id && inviteeActionsFor(inv.outcome).length > 0 ? (
+                        <View className="flex-row flex-wrap justify-end gap-2 pb-1">
+                          {inviteeActionsFor(inv.outcome).includes("accept") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              testID={`invitee-mark-accepted-${inv.playerId}`}
+                              onPress={() => {
+                                setInviteeMenuFor(null);
+                                void respondForInvitee(inv, "yes");
+                              }}
+                            >
+                              <Text>{t("calendar.detail.markAccepted")}</Text>
+                            </Button>
+                          ) : null}
+                          {inviteeActionsFor(inv.outcome).includes("decline") ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              testID={`invitee-mark-declined-${inv.playerId}`}
+                              onPress={() => {
+                                setInviteeMenuFor(null);
+                                void respondForInvitee(inv, "no");
+                              }}
+                            >
+                              <Text>{t("calendar.detail.markDeclined")}</Text>
+                            </Button>
+                          ) : null}
+                          {inviteeActionsFor(inv.outcome).includes("delete") ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              testID={`invitee-delete-${inv.playerId}`}
+                              onPress={() => {
+                                setInviteeMenuFor(null);
+                                setInviteeToDelete(inv);
+                              }}
+                            >
+                              <Text>{t("calendar.detail.deleteInvitation")}</Text>
+                            </Button>
+                          ) : null}
+                        </View>
+                      ) : null}
                       </View>
                     ))}
                   </View>
                 ) : null}
               </View>
+            </>
+          ) : null}
+
+          {/* PAD-547 (calendar.event-detail rules 19–20): the class's waiting list, coach only. */}
+          {isCoach && !isEditing && instance ? (
+            <>
+              <Separator />
+              <ClassWaitingListSection
+                event={event}
+                isRecurring={isRecurring}
+                rows={instance.waitingList ?? []}
+                enrolledIds={(instance.participants ?? []).map((p) => p.id)}
+                onChanged={() => void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) })}
+              />
             </>
           ) : null}
 
@@ -1643,6 +1822,22 @@ export default function ClassDetailScreen() {
                 </Button>
                 {event.type === "class" ? (
                   <>
+                    {/* classes.clone (PAD-524): the new-class screen, prefilled from the server's template. */}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      testID="class-clone"
+                      accessibilityLabel={t("calendar.detail.clone")}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/class/new",
+                          params: { cloneModel: String(event.model), cloneId: String(event.originalId), cloneDate: event.date },
+                        })
+                      }
+                    >
+                      <Ionicons name="copy-outline" size={16} color={lightTheme.foreground} />
+                      <Text>{t("calendar.detail.clone")}</Text>
+                    </Button>
                     <Button
                       variant="outline"
                       className="flex-1"
@@ -1789,6 +1984,70 @@ export default function ClassDetailScreen() {
           onSent={() => setInvitationsOpen(true)}
         />
       ) : null}
+
+      {/* PAD-548 (calendar.event-detail rule 18): the warning before a withdrawal. */}
+      <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("calendar.detail.deleteInvitation")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("calendar.detail.deleteInvitationWarning")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              testID="invitee-delete-confirm"
+              variant="destructive"
+              onPress={() => {
+                const inv = inviteeToDelete;
+                setInviteeToDelete(null);
+                if (inv) void withdrawForInvitee(inv);
+              }}
+            >
+              <Text>{t("calendar.detail.deleteInvitationConfirm")}</Text>
+            </Button>
+            <AlertDialogCancel testID="invitee-delete-cancel">
+              <Text>{t("common.cancel")}</Text>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* classes.edit rule 10 (PAD-525, B-341): "Descartar alterações?" — Discard (leave; the draft is
+          dropped, nothing is sent) or Keep editing (stay, every edit where it was). */}
+      <AlertDialog
+        open={discardAskOpen}
+        onOpenChange={(open) => {
+          setDiscardAskOpen(open);
+          if (!open) setPendingLeave(null);
+        }}
+      >
+        <AlertDialogContent testID="class-unsaved-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("classDetail.unsavedChanges.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("classDetail.unsavedChanges.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel testID="class-unsaved-keep" accessibilityLabel={t("classDetail.unsavedChanges.keepEditing")}>
+              <Text>{t("classDetail.unsavedChanges.keepEditing")}</Text>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              testID="class-unsaved-discard"
+              accessibilityLabel={t("classDetail.unsavedChanges.discard")}
+              className="bg-destructive"
+              onPress={() => {
+                setDiscardAskOpen(false);
+                setIsEditing(false);
+                setDraft(null);
+                // The stack action runs once the draft is gone — before that, usePreventRemove
+                // would stop it again.
+                setLeaveAfterDiscard(pendingLeave);
+                setPendingLeave(null);
+              }}
+            >
+              <Text>{t("classDetail.unsavedChanges.discard")}</Text>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation (scope choice for recurring classes) */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

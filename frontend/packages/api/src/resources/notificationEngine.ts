@@ -224,8 +224,18 @@ export async function respondToNotification(
 export async function coachRespondToNotification(
   notificationEventId: number,
   action: "yes" | "no"
-): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
+): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "expired" | "unknown" }> {
   const res = await getApi().post("/app/notify/coach_respond", { notificationEventId, action });
+  return res.data;
+}
+
+/** PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation. The answer
+ * is `withdrawn` for a live one; `confirmed` when the student's yes won the lock; otherwise the
+ * invitation's outcome as the class detail shows it (a repeated delete is a no-op). */
+export async function withdrawInvitation(
+  notificationEventId: number
+): Promise<{ action: "withdrawn" | "confirmed" | "accepted" | "declined" | "spot_filled" | "expired" | "pending" }> {
+  const res = await getApi().delete(`/app/notify/invitations/${notificationEventId}`);
   return res.data;
 }
 
@@ -349,5 +359,27 @@ export async function explainInviteCandidate(
   req: InviteSimulationRequest & { playerId: string | number },
 ): Promise<InviteExplain> {
   const res = await getApi().post("/app/notify/invite_simulation/explain", req);
+  return res.data;
+}
+
+/** PAD-547 (notifications.waiting-list rules 18–19): the coach adds a roster student to this
+ * class's waiting list — this occurrence, or the whole series (credits + end date, like the
+ * standing list). `already_on_list` when an active row exists. */
+export async function addToClassWaitingList(req: {
+  model: string;
+  originalId: string | number;
+  date: string | null | undefined;
+  playerId: number;
+  scope: "occurrence" | "series";
+  credits?: number;
+  expiresOn?: string;
+}): Promise<{ action: "added" | "already_on_list"; entryId: number | null; standingEntryId?: number }> {
+  const res = await getApi().post("/app/notify/class_waiting_list", { ...req, date: req.date ?? null });
+  return res.data;
+}
+
+/** PAD-547 (rule 21): take one row off one class's waiting list. */
+export async function removeFromClassWaitingList(entryId: number): Promise<{ action: "removed"; entryId: number }> {
+  const res = await getApi().delete(`/app/notify/class_waiting_list/${entryId}`);
   return res.data;
 }

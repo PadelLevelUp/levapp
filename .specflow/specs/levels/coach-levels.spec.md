@@ -40,6 +40,9 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
    (`display_order` ascending, unset/`0` last, `id` ascending as a stable tie-break) rather than
    comparing raw `display_order` integers, so duplicated or sparse values cannot corrupt
    "one level above/below" adjacency (see notifications.invitations rule 4c).
+   `GET /api/app/coach_levels` returns the levels in this order (PAD-522): every level picker on
+   web and iOS — the player profile editor, the add and edit sheets — lists the strongest first
+   and renders the list as received.
 11. **Deleting a level unassigns it; it never deletes what held it** (PAD-255, B-035, audit C2).
     `POST /api/app/delete/coach_level` goes through `delete_coach_level_service`, which sets
     `level_id` to `NULL` on the coach's roster rows, lessons, instances and vacancies at that level
@@ -62,6 +65,12 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
     old client) still sorts last and is renumbered on the next write. It is never `NULL`.
 
 ### Acceptance Criteria
+
+#### The levels list comes strongest first, whatever order they were created in (PAD-522)
+- **Given** Maria created Iniciação, then Competição, then Avançado, and ordered them in Settings as
+  Competição (1), Avançado (2), Iniciação (3)
+- **When** she GETs `/api/app/coach_levels`
+- **Then** the codes come in the order Competição, Avançado, Iniciação
 
 #### Create level
 - **Given** an authenticated coach

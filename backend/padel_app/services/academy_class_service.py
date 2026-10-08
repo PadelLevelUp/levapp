@@ -135,12 +135,14 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     if entry is not None and entry.is_active:
         return entry, False
     if entry is None:
-        entry = WaitingListEntry(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id)
+        entry = WaitingListEntry(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id,
+                                 added_by="student")  # PAD-547 (rule 20)
         db.session.add(entry)
     else:
         # Reactivated by the student: it is theirs now, never a standing fan-out row.
         entry.is_active = True
         entry.standing_entry_id = None
+        entry.added_by = "student"  # PAD-547 (rule 20)
     try:
         db.session.commit()
     except IntegrityError:

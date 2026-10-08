@@ -167,6 +167,12 @@ export function StandingWaitingListSection() {
                 >
                   {entry.playerName ?? t("settings.standingList.unknown")}
                 </p>
+                {/* PAD-547 (waiting-list rule 19): a series-scoped entry names its class. */}
+                {entry.lessonId ? (
+                  <p data-testid="standing-wl-series" className="text-xs text-muted-foreground truncate">
+                    {entry.lessonTitle}
+                  </p>
+                ) : null}
                 <div className="flex items-center gap-2 mt-0.5">
                   <Badge variant="secondary" className="text-xs">
                     {t("settings.standingList.credits", { used: entry.creditsUsed, total: entry.creditsTotal })}

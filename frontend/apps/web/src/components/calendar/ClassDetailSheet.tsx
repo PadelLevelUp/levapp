@@ -19,8 +19,11 @@ import {
   Loader2,
   AlertTriangle,
   UserX,
+  Copy,
+  MoreHorizontal,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
@@ -52,16 +55,19 @@ import {
   rejectClassJoinRequest,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
-import { sendClassReminders, cancelAttendance, respondToReminder } from "@/api/notificationEngine";
+import { sendClassReminders, cancelAttendance, respondToReminder, coachRespondToNotification, withdrawInvitation } from "@/api/notificationEngine";
+import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
+import { ClassWaitingListSection } from "./ClassWaitingListSection";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -132,6 +138,8 @@ interface ClassDetailSheetProps {
   saving?: boolean;
   /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
   existingEvents?: CalendarEvent[];
+  /** classes.clone (PAD-524): "Clonar aula" — the page opens the new-class sheet prefilled. */
+  onClone?: (event: CalendarEvent) => void;
 }
 
 export function ClassDetailSheet({
@@ -147,6 +155,7 @@ export function ClassDetailSheet({
   deleting = false,
   saving = false,
   existingEvents = [],
+  onClone,
 }: ClassDetailSheetProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -157,6 +166,18 @@ export function ClassDetailSheet({
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ClassInstance | null>(null);
+  // classes.edit rule 10 (PAD-525, B-341): the "Descartar alterações?" question shown when a close
+  // would drop an unsaved draft.
+  const [discardAskOpen, setDiscardAskOpen] = useState(false);
+  // classes.edit rule 10 (PAD-525, B-341): an edit belongs to ONE class on ONE opening. The sheet
+  // stays mounted across a close, so a draft that outlived it rendered the NEXT class over the
+  // previous class's edits. Keyed on the id: a refetch after a save makes a new event object with
+  // the same id, and that must not drop an edit in progress.
+  useEffect(() => {
+    setIsEditing(false);
+    setDraft(null);
+    setDiscardAskOpen(false);
+  }, [event?.id]);
   // clubs.courts rule 7 (PAD-194; B-266): the editor offers the CLASS's club's courts — what
   // edit_class validates against — not the coach's current club's.
   const [courts, setCourts] = useState<Court[]>([]);
@@ -227,6 +248,12 @@ export function ClassDetailSheet({
   }, [open, event?.id]);
 
   const [localInvitations, setLocalInvitations] = useState<ClassInvitation[]>([]);
+  // PAD-548 (calendar.event-detail rules 17–18): the coach's actions on an invitee row.
+  const [inviteeToDelete, setInviteeToDelete] = useState<ClassInvitation | null>(null);
+  const [inviteeBusyId, setInviteeBusyId] = useState<number | null>(null);
+  // A coach action re-reads the class (the roster changed, the next candidate was asked); the
+  // reset effect below must not fold the invited section the coach is working in.
+  const keepInvitationsOpenRef = useRef(false);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
   const [approvalBundle, setApprovalBundle] = useState<ApprovalBundle | null>(null);
   const [plannedExerciseIds, setPlannedExerciseIds] = useState<string[]>([]);
@@ -277,6 +304,71 @@ export function ClassDetailSheet({
     };
   }, [event]);
 
+
+  // PAD-548 (calendar.event-detail rule 17): the row shows the outcome the server answered.
+  const applyInviteeAnswer = (inv: ClassInvitation, action: string, byCoach: boolean) => {
+    const outcome = outcomeAfterCoachAction(action);
+    if (outcome) {
+      setLocalInvitations((prev) =>
+        prev.map((row) =>
+          row.id !== inv.id
+            ? row
+            : {
+                ...row,
+                outcome,
+                status: statusForOutcome(outcome),
+                answeredBy:
+                  byCoach && (outcome === "accepted" || outcome === "declined") ? "coach" : row.answeredBy,
+              }
+        )
+      );
+    }
+    if (action === "spot_filled") toast({ title: t("calendar.detail.inviteeClassFull") });
+    else if (action === "expired") toast({ title: t("calendar.detail.inviteeClassOver") });
+    if (outcome === "accepted" || outcome === "withdrawn") {
+      // The roster changed, or the next candidate was asked: re-read the class, keeping the
+      // invited section open.
+      const ev = eventRef.current;
+      if (ev) {
+        keepInvitationsOpenRef.current = true;
+        // A failed re-read never reaches the reset effect, so clear the flag here; a successful
+        // one is consumed (and cleared) by that effect.
+        getClassInstance(ev).then(setClassInstance).catch(() => {
+          keepInvitationsOpenRef.current = false;
+        });
+      }
+    }
+  };
+
+  const handleInviteeRespond = async (inv: ClassInvitation, action: "yes" | "no") => {
+    setInviteeBusyId(inv.id);
+    try {
+      const result = await coachRespondToNotification(inv.id, action);
+      applyInviteeAnswer(inv, result.action, true);
+    } catch {
+      toast({ title: t("calendar.detail.inviteeActionFailed"), variant: "destructive" });
+    } finally {
+      setInviteeBusyId(null);
+    }
+  };
+
+  // PAD-548 (rule 18): the warning was confirmed; withdraw.
+  const handleInviteeDelete = async () => {
+    const inv = inviteeToDelete;
+    setInviteeToDelete(null);
+    if (!inv) return;
+    setInviteeBusyId(inv.id);
+    try {
+      const result = await withdrawInvitation(inv.id);
+      if (result.action === "confirmed") toast({ title: t("calendar.detail.inviteeAlreadyAccepted") });
+      applyInviteeAnswer(inv, result.action, false);
+    } catch {
+      toast({ title: t("calendar.detail.inviteeActionFailed"), variant: "destructive" });
+    } finally {
+      setInviteeBusyId(null);
+    }
+  };
+
   useEffect(() => {
     if (!classInstance?.participants) return;
 
@@ -294,7 +386,8 @@ export function ClassDetailSheet({
     setIsValidating(false);
     setSavingAttendance(false);
     setLocalInvitations(classInstance.invitations ?? []);
-    setInvitationsOpen(false);
+    setInvitationsOpen(keepInvitationsOpenRef.current);
+    keepInvitationsOpenRef.current = false;
     setApprovalBundle(null);
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
@@ -331,9 +424,10 @@ export function ClassDetailSheet({
             setLocalInvitations((prev) =>
               prev.map((inv) => {
                 if (inv.id !== notificationEventId) return inv;
-                if (response === "yes") return { ...inv, status: "confirmed" as const };
-                if (response === "no" || response === "spot_filled") return { ...inv, status: "expired" as const };
-                return inv;
+                // PAD-548 (rule 16): the row renders `outcome`; `status` is kept in step.
+                const outcome = outcomeAfterResponse(response);
+                if (!outcome) return inv;
+                return { ...inv, outcome, status: statusForOutcome(outcome) };
               })
             );
           } else if (lessonInstanceId) {
@@ -352,7 +446,7 @@ export function ClassDetailSheet({
 
         // PAD-131: a student asked to join, or the class filled and their
         // requests closed → re-fetch so the requests block is current.
-        if (data.type === "join_request_created" || data.type === "join_requests_superseded") {
+        if (data.type === "join_request_created" || data.type === "join_requests_superseded" || data.type === "waiting_list_changed") {
           const ev = eventRef.current;
           if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
         }
@@ -631,6 +725,36 @@ export function ClassDetailSheet({
     "autoInvites",
   ] as const;
 
+  /** classes.edit rule 10: unsaved means different from the loaded class, by value — the same
+   *  comparison the save makes (fields of EDITABLE_FIELDS plus the participant diff). */
+  const hasUnsavedEdit = () =>
+    isEditing && !!draft && !!classInstance &&
+    hasUnsavedClassEdit(
+      classInstance as unknown as Record<string, unknown> & { participants?: { id: string }[] },
+      draft as unknown as Record<string, unknown> & { participants?: { id: string }[] },
+      EDITABLE_FIELDS as unknown as readonly string[]
+    );
+
+  /** classes.edit rule 10 (PAD-525): every close of the sheet (X, Escape, click outside) comes
+   *  through here. With an unsaved draft it asks first; otherwise it ends edit mode and closes.
+   *  There is no Save in the question — a save has its own sequence (scope, overlap, eligibility). */
+  const requestClose = () => {
+    if (hasUnsavedEdit()) {
+      setDiscardAskOpen(true);
+      return;
+    }
+    setIsEditing(false);
+    setDraft(null);
+    onClose();
+  };
+
+  const discardAndClose = () => {
+    setDiscardAskOpen(false);
+    setIsEditing(false);
+    setDraft(null);
+    onClose();
+  };
+
   /** The save itself, once any eligibility warning has been answered. */
   const finalizeEdit = (changes: Record<string, unknown>, scope: ApplyScope) => {
     if (!onEdit || !event) return;
@@ -884,7 +1008,7 @@ export function ClassDetailSheet({
 
   if (showEvaluations && evaluationsRef && evaluationsAction === "available") {
     return (
-      <Sheet open={open} onOpenChange={onClose}>
+      <Sheet open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="sr-only">
             <SheetTitle>{t("players.classEvaluations.title", { name: active.name })}</SheetTitle>
@@ -896,20 +1020,21 @@ export function ClassDetailSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
+    <Sheet open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center justify-between gap-2">
             <SheetTitle className="flex-1 min-w-0">
               {isEditing ? (
                 <Input
+                  data-testid="class-edit-name"
                   value={active.name}
                   onChange={(e) =>
                     setDraft((d) => (d ? { ...d, name: e.target.value } : d))
                   }
                 />
               ) : (
-                <span className="truncate">{active.name}</span>
+                <span className="truncate" data-testid="class-detail-title">{active.name}</span>
               )}
             </SheetTitle>
           </div>
@@ -1467,6 +1592,7 @@ export function ClassDetailSheet({
               <div>
                 <button
                   type="button"
+                  data-testid="class-invited-toggle"
                   className="flex items-center justify-between w-full text-sm font-medium py-1"
                   onClick={() => setInvitationsOpen((o) => !o)}
                 >
@@ -1480,44 +1606,112 @@ export function ClassDetailSheet({
 
                 {invitationsOpen && (
                   <div className="mt-2 space-y-1">
-                    {localInvitations.map((inv) => (
-                      <div key={inv.id} className="flex items-center justify-between py-1.5">
-                        <span className="text-sm">{inv.playerName}</span>
-                        {inv.status === "confirmed" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-success/15 text-success">
-                            <Check className="w-3 h-3" />
-                            {t("calendar.detail.accepted")}
-                          </span>
-                        ) : inv.status === "expired" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-destructive/15 text-destructive">
-                            <X className="w-3 h-3" />
-                            {t("calendar.detail.declined")}
-                          </span>
-                        ) : inv.status === "queued" ? (
-                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                            {t("calendar.detail.queued")}
-                          </span>
-                        ) : (
-                          <div className="flex gap-1.5">
-                            <Button size="sm" variant="outline" disabled
-                              className="h-7 gap-1 text-xs border-success/40 text-success opacity-50 cursor-not-allowed"
-                            >
-                              <Check className="w-3 h-3" />
-                              {t("calendar.detail.yes")}
-                            </Button>
-                            <Button size="sm" variant="outline" disabled
-                              className="h-7 gap-1 text-xs border-destructive/40 text-destructive opacity-50 cursor-not-allowed"
-                            >
-                              <X className="w-3 h-3" />
-                              {t("calendar.detail.no")}
-                            </Button>
+                    {localInvitations.map((inv) => {
+                      // PAD-548 (calendar.event-detail rules 16–17): one outcome word, decided by the
+                      // server; actions only on a pending or declined row.
+                      const tone = INVITATION_OUTCOME_TONE[inv.outcome];
+                      const actions = canManage ? inviteeActionsFor(inv.outcome) : [];
+                      const toneClass =
+                        tone === "success"
+                          ? "bg-success/15 text-success"
+                          : tone === "destructive"
+                            ? "bg-destructive/15 text-destructive"
+                            : tone === "warning"
+                              ? "bg-warning/15 text-warning"
+                              : tone === "outline"
+                                ? "border border-border text-foreground"
+                                : "bg-muted text-muted-foreground";
+                      return (
+                        <div
+                          key={inv.id}
+                          data-testid={`invitee-row-${inv.playerId}`}
+                          data-outcome={inv.outcome}
+                          className="flex items-center justify-between gap-2 py-1.5"
+                        >
+                          <span className="text-sm">{inv.playerName}</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex flex-col items-end">
+                              <span
+                                data-testid={`invitee-outcome-${inv.playerId}`}
+                                className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full", toneClass)}
+                              >
+                                {inv.outcome === "accepted" ? <Check className="w-3 h-3" /> : null}
+                                {inv.outcome === "declined" ? <X className="w-3 h-3" /> : null}
+                                {t(INVITATION_OUTCOME_KEY[inv.outcome])}
+                              </span>
+                              {inv.answeredBy === "coach" ? (
+                                <span
+                                  data-testid={`invitee-recorded-by-coach-${inv.playerId}`}
+                                  className="text-[10px] text-muted-foreground"
+                                >
+                                  {t("calendar.detail.recordedByCoach")}
+                                </span>
+                              ) : null}
+                            </div>
+                            {actions.length > 0 ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    disabled={inviteeBusyId === inv.id}
+                                    data-testid={`invitee-actions-${inv.playerId}`}
+                                    aria-label={t("calendar.detail.inviteeActions")}
+                                  >
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {actions.includes("accept") ? (
+                                    <DropdownMenuItem data-testid="invitee-mark-accepted" onClick={() => handleInviteeRespond(inv, "yes")}>
+                                      <Check className="w-4 h-4 mr-2" />
+                                      {t("calendar.detail.markAccepted")}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("decline") ? (
+                                    <DropdownMenuItem data-testid="invitee-mark-declined" onClick={() => handleInviteeRespond(inv, "no")}>
+                                      <X className="w-4 h-4 mr-2" />
+                                      {t("calendar.detail.markDeclined")}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("delete") ? (
+                                    <DropdownMenuItem
+                                      data-testid="invitee-delete"
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setInviteeToDelete(inv)}
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      {t("calendar.detail.deleteInvitation")}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : null}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
+            </>
+          )}
+
+          {/* PAD-547 (calendar.event-detail rules 19–20): the class's waiting list, coach only. */}
+          {canManage && !isEditing && (
+            <>
+              <Separator />
+              <ClassWaitingListSection
+                event={event}
+                rows={classInstance.waitingList ?? []}
+                roster={players}
+                enrolledIds={(classInstance.participants ?? []).map((p) => p.id)}
+                onChanged={() => {
+                  const ev = eventRef.current;
+                  if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
+                }}
+              />
             </>
           )}
 
@@ -1570,6 +1764,17 @@ export function ClassDetailSheet({
                     <Edit className="w-4 h-4 mr-2" />
                     {t("calendar.detail.edit")}
                   </Button>
+                  {onClone && event?.type === "class" && (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      data-testid="class-clone"
+                      onClick={() => event && onClone(event)}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      {t("calendar.detail.clone")}
+                    </Button>
+                  )}
                   {event?.type === "class" && (
                     <>
                       <Button
@@ -1643,6 +1848,7 @@ export function ClassDetailSheet({
                   <Button
                     variant="outline"
                     className="text-destructive"
+                    data-testid="class-delete"
                     onClick={handleDeleteClick}
                     disabled={isValidating || deleting}
                     aria-label={t("calendar.detail.deleteClass")}
@@ -1735,6 +1941,48 @@ export function ClassDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      {/* PAD-548 (calendar.event-detail rule 18): the warning before a withdrawal. */}
+      <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>
+        <AlertDialogContent data-testid="invitee-delete-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("calendar.detail.deleteInvitation")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("calendar.detail.deleteInvitationWarning")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="invitee-delete-cancel">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="invitee-delete-confirm"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleInviteeDelete}
+            >
+              {t("calendar.detail.deleteInvitationConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* classes.edit rule 10 (PAD-525, B-341): "Descartar alterações?" — Discard (leave; the
+          draft is dropped, nothing is sent) or Keep editing (stay, every edit where it was). */}
+      <AlertDialog open={discardAskOpen} onOpenChange={setDiscardAskOpen}>
+        <AlertDialogContent data-testid="class-unsaved-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("classDetail.unsavedChanges.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("classDetail.unsavedChanges.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="class-unsaved-keep">
+              {t("classDetail.unsavedChanges.keepEditing")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="class-unsaved-discard"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={discardAndClose}
+            >
+              {t("classDetail.unsavedChanges.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* PAD-46: confirm student cancellation, with deadline-aware messaging */}
       {!canManage && (

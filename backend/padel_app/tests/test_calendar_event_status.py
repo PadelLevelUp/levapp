@@ -149,3 +149,28 @@ def test_serialize_threads_now_for_today_ended_instance(app):
         event = serialize_calendar_event(instance, now=NOW)
 
         assert event["status"] == "completed"
+
+
+# PAD-553 (classes.create rule 8c, B-346): a class that ends at midnight is not "completed" while
+# it runs. Stored repaired (end 00:00 of the NEXT day) or as an old row whose end time reads 00:00,
+# its effective end is midnight at the END of its day. A typed-backwards end (18:00-17:00, B-294)
+# keeps its old reading.
+def test_a_midnight_class_is_scheduled_while_it_runs():
+    from padel_app.serializers.calendar_event import _compute_status
+
+    day = NOW_WALL.date()
+    start = datetime.combine(day, datetime.min.time()) + timedelta(hours=22)
+    end_next_day = datetime.combine(day + timedelta(days=1), datetime.min.time())
+    during = wall_to_utc_naive(datetime.combine(day, datetime.min.time()) + timedelta(hours=23, minutes=30))
+    after = wall_to_utc_naive(end_next_day + timedelta(minutes=30))
+    assert _compute_status(start, end_next_day, now=during) == "scheduled"
+    assert _compute_status(start, end_next_day, now=after) == "completed"
+
+
+def test_a_backwards_end_keeps_its_old_reading():
+    from padel_app.serializers.calendar_event import _compute_status
+
+    day = NOW_WALL.date()
+    start = datetime.combine(day, datetime.min.time()) + timedelta(hours=18)
+    end = datetime.combine(day, datetime.min.time()) + timedelta(hours=17)
+    assert _compute_status(start, end, now=wall_to_utc_naive(start - timedelta(minutes=30))) == "completed"

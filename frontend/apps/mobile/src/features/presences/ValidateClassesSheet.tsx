@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
-import { effectiveMark, validationGroup, type PresenceMark } from "@levelup/config";
+import { effectiveMark, presentCount, validationGroup, type PresenceMark } from "@levelup/config";
 import type { PendingValidationClass } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
@@ -461,6 +461,7 @@ export function ValidateClassesSheet({
                         <Text className="flex-1 text-sm" numberOfLines={1}>
                           {klass.title}
                         </Text>
+                        <PresentCount players={klass.players} edits={edits[klass.lessonInstanceId] ?? {}} />
                       </View>
                       <View className="flex-row items-center gap-1">
                         <Button
@@ -599,6 +600,21 @@ function WalkInPicker({
 }
 
 /**
+ * PAD-538 (attendance.validation rule 27): how many the class has as present right now — the marks
+ * the rows show, local edits included — beside the class's time and title. Its own string for 0
+ * (pt's CLDR "one" covers 0, rule 14). Web's PresentCount twin, from the same shared helper.
+ */
+function PresentCount({ players, edits }: { players: PendingValidationClass["players"]; edits: Record<number, PresenceMark> }) {
+  const { t } = useTranslation();
+  const count = presentCount(players, edits);
+  return (
+    <Text testID="presences-class-present-count" className="text-xs font-sans-semibold text-success">
+      {count === 0 ? t("presences.validate.presentCountNone") : t("presences.validate.presentCount", { count })}
+    </Text>
+  );
+}
+
+/**
  * PAD-443 (attendance.validation rule 24): the alert before an undecided player's name — a player
  * with no mark yet (`effectiveMark` null, rule 5). Yellow, never the warning amber "Justificada"
  * uses (PAD-441), and it names itself for VoiceOver so the colour is never the only signal.
@@ -696,6 +712,7 @@ function ClassCard({
                 ? ` · ${t("presences.validate.awaiting", { count: remaining })}`
                 : null}
             </Text>
+            <PresentCount players={klass.players} edits={edits} />
           </View>
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
@@ -837,6 +854,7 @@ function ClassDetail({
             {timeFmt.format(new Date(`${klass.startDatetime.slice(0, 19)}Z`))} ·{" "}
             {klass.title}
           </DialogTitle>
+          <PresentCount players={klass.players} edits={edits} />
         </View>
       </DialogHeader>
 
