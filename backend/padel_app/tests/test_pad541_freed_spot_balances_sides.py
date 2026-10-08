@@ -97,15 +97,35 @@ def test_a_roster_with_no_sided_player_keeps_the_leavers_side(app):
 
 
 def test_the_simulation_shows_the_side_the_engine_would_choose(app):
-    """invite-simulation rule 9: the leaver is still in the class when the coach asks; the spot's side
-    is still the one rule 2c would give their vacancy."""
+    """invite-simulation rule 9 (#591 review): 6L/3R with a left leaver still in the class asks
+    `right`; without the simulation's rule-2c call it would show the leaver's `left`."""
     from padel_app.services.invite_simulation_service import simulate_vacancy
 
     with app.app_context():
-        # 4L/3R with a left leaver still in the class: counted out, 3 / 3 ties and keeps `left`;
-        # counted in (the bug this pins), 4 / 3 would ask `right` (#PAD-541 review).
-        coach, instance, pids = _class("b541-sim", ["left"] * 4 + ["right"] * 3)
+        coach, instance, pids = _class("b541-sim", ["left"] * 6 + ["right"] * 3)
+        assert simulate_vacancy(instance, coach.id, pids[0])["spot"]["side"] == "right"
+
+
+def test_the_simulation_counts_the_leaver_out(app):
+    """4L/3R with a left leaver still in the class: counted out, 3 / 3 ties and keeps `left`;
+    counted in, 4 / 3 would ask `right`."""
+    from padel_app.services.invite_simulation_service import simulate_vacancy
+
+    with app.app_context():
+        coach, instance, pids = _class("b541-simx", ["left"] * 4 + ["right"] * 3)
         assert simulate_vacancy(instance, coach.id, pids[0])["spot"]["side"] == "left"
+
+
+def test_a_both_side_player_counts_on_neither_side(app):
+    """Rules 2b/2c (#591 review): a `both` holder is on neither side. With a left, a right and a
+    `both` still coming and a `both` leaver, the count is 1 / 1 and the tie keeps `both`; counting
+    the holder as left would ask `right`, as right would ask `left`."""
+    from padel_app.services.notification_service import _create_vacancy_for_absent_player
+
+    with app.app_context():
+        coach, instance, pids = _class("b541-both-holder", ["left", "right", "both", "both"])
+        _absent(instance, pids[3])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[3]).side == "both"
 
 
 def test_the_leaver_is_counted_out_even_while_still_holding(app):
