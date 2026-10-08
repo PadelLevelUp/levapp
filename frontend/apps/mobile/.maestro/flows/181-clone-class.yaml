@@ -27,8 +27,11 @@ appId: com.padellevelup.app
     visible:
       text: "E2E Academy Class"
     timeout: 15000
+# The time field's accessibility label is "<label>: <value or placeholder>" and Maestro's
+# text: must match the whole label, so the placeholder is matched inside it.
 - assertVisible:
-    text: "(Escolhe a hora de início|Choose the start time)"
+    id: "class-start-time"
+    text: ".*(Escolhe a hora de início|Choose the start time).*"
 - scrollUntilVisible:
     element:
       id: "class-save"
