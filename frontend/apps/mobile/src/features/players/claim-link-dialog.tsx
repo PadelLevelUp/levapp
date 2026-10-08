@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +36,7 @@ type Tab = "roster" | "username";
 export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState<Tab>("roster");
   const [username, setUsername] = React.useState("");
@@ -119,17 +121,25 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
     setSubmitting(true);
     setError(null);
     try {
+      let req;
       if (tab === "roster") {
         if (targetId === null) return;
-        await playerClaimsApi.createClaimRequestByPick(player.playerId, targetId);
+        req = await playerClaimsApi.createClaimRequestByPick(player.playerId, targetId);
       } else {
         const value = username.trim();
         if (!value) return;
-        await playerClaimsApi.createClaimRequest(player.playerId, value);
+        req = await playerClaimsApi.createClaimRequest(player.playerId, value);
       }
       void queryClient.invalidateQueries({ queryKey: coachPlayersKey });
-      setPending(true);
       setOpen(false);
+      // players.claim rule 4d (owner, 2026-10-08): a student already on this coach's roster is
+      // merged at once — the server answers "accepted". Otherwise the student was asked.
+      if (req.status === "accepted") {
+        toast.success(t("players.claim.merged"));
+        router.replace({ pathname: "/player/[playerId]", params: { playerId: String(req.playerId) } });
+        return;
+      }
+      setPending(true);
       toast.success(t("players.claim.requestSent"));
     } catch (err: any) {
       fail(err);
@@ -268,7 +278,11 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
           ) : null}
           <DialogFooter>
             <Button testID="player-claim-submit" disabled={submitting || !canSubmit} onPress={() => void submit()}>
-              <Text>{submitting ? t("players.claim.submitting") : t("players.claim.submit")}</Text>
+              <Text>
+                {submitting
+                  ? t("players.claim.submitting")
+                  : t(tab === "roster" ? "players.claim.mergeSubmit" : "players.claim.submit")}
+              </Text>
             </Button>
           </DialogFooter>
         </DialogContent>

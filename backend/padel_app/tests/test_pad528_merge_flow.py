@@ -62,17 +62,47 @@ def test_candidates_need_the_placeholders_coach(app, client, world):
     assert res.status_code == 403
 
 
-def test_a_roster_pick_creates_the_same_pending_request(app, client, world):
-    from padel_app.models import PlayerClaimRequest
+def _alerts(monkeypatch):
+    """Every request alert sent (PAD-232 notify_request_event), recorded instead of delivered."""
+    from padel_app.services import request_alert_service
 
+    sent = []
+    monkeypatch.setattr(request_alert_service, "notify_request_event",
+                        lambda event, users, **kw: sent.append((event, [getattr(u, "id", None) for u in users])))
+    return sent
+
+
+def test_a_roster_pick_merges_at_once_and_never_asks_or_warns_the_student(app, client, world, monkeypatch):
+    """Rule 4d, owner decision 2026-10-08 (option B): the student is on Maria's roster, so the
+    coach merges alone — the request is accepted in the same call, the student gets no request,
+    no alert and nothing in their inbox, and the coach is who confirmed."""
+    from padel_app.models import Player, PlayerClaimRequest, PlayerMerge
+
+    sent = _alerts(monkeypatch)
     res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
                       json={"targetPlayerId": world["st_player"]}, headers=_auth(app, world["coach_user"]))
-    assert res.status_code == 201, res.json
+    assert res.status_code == 201 and res.json["status"] == "accepted"
+    assert str(res.json["playerId"]) == str(world["st_player"])   # the clients open the student's page
     with app.app_context():
-        req = PlayerClaimRequest.query.one()
-        assert req.status == "pending" and req.target_user_id == world["st_user"]
-    mine = client.get("/api/app/player-claim-requests", headers=_auth(app, world["st_user"]))
-    assert [r["placeholderName"] for r in mine.json] == ["Ana S."]
+        assert Player.query.get(world["ph_player"]) is None
+        assert PlayerClaimRequest.query.one().status == "accepted"
+        audit = PlayerMerge.query.one()
+        assert audit.trigger == "coach_request"
+        assert audit.confirmed_by_user_id == world["coach_user"] and audit.requested_by_coach_id == world["coach"]
+    assert sent == []
+    assert client.get("/api/app/player-claim-requests", headers=_auth(app, world["st_user"])).json == []
+
+
+def test_consent_is_needed_only_for_a_student_not_on_the_coachs_roster(app, world):
+    """The one function of rule 4d."""
+    from padel_app.models import Coach, Player, User
+    from padel_app.services.player_claim_service import claim_consent_required
+
+    ou, _ = _student(app, username="zeca", name="Zeca")
+    with app.app_context():
+        coach, placeholder = Coach.query.get(world["coach"]), Player.query.get(world["ph_player"])
+        assert claim_consent_required(coach, placeholder, User.query.get(world["st_user"])) is False
+        assert claim_consent_required(coach, placeholder, User.query.get(ou)) is True
 
 
 def test_a_pick_outside_the_roster_is_404(app, client, world):
@@ -105,33 +135,31 @@ def test_the_roster_flags_the_likely_duplicate_on_the_placeholder_row_only(app, 
 
 # ── rule 4d: consent is one function ────────────────────────────────────────
 
-def test_consent_off_merges_in_the_same_call_and_records_the_coach(app, client, world, monkeypatch):
-    from padel_app.models import Player, PlayerClaimRequest, PlayerMerge
-    from padel_app.services import player_claim_service as svc
+def _outsider(app):
+    """A student with an account who is NOT on Maria's roster."""
+    return _student(app, username="zeca", name="Zeca")
 
-    monkeypatch.setattr(svc, "claim_consent_required", lambda coach, placeholder, target: False)
+
+def _outsider_request(client, app, world):
+    """Rule 4: the coach asks a student who is not theirs by exact username — the student accepts."""
+    ou, op = _outsider(app)
     res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
-                      json={"targetPlayerId": world["st_player"]}, headers=_auth(app, world["coach_user"]))
-    assert res.status_code == 201 and res.json["status"] == "accepted"
-    with app.app_context():
-        assert Player.query.get(world["ph_player"]) is None
-        assert PlayerClaimRequest.query.one().status == "accepted"
-        audit = PlayerMerge.query.one()
-        assert audit.trigger == "coach_request"
-        assert audit.confirmed_by_user_id == world["coach_user"]
-        assert audit.requested_by_coach_id == world["coach"]
+                      json={"username": "zeca"}, headers=_auth(app, world["coach_user"]))
+    assert res.status_code == 201 and res.json["status"] == "pending", res.json
+    return res.json["id"], ou, op
 
 
-def test_consent_on_leaves_the_request_pending_and_nothing_merged(app, client, world):
+def test_a_student_not_on_the_roster_is_asked_and_nothing_merges_until_they_accept(app, client, world, monkeypatch):
     from padel_app.models import Player, PlayerClaimRequest, PlayerMerge
 
-    res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
-                      json={"targetPlayerId": world["st_player"]}, headers=_auth(app, world["coach_user"]))
-    assert res.status_code == 201 and res.json["status"] == "pending"
+    sent = _alerts(monkeypatch)
+    req_id, ou, _ = _outsider_request(client, app, world)
     with app.app_context():
         assert Player.query.get(world["ph_player"]) is not None
         assert PlayerClaimRequest.query.one().status == "pending"
         assert PlayerMerge.query.count() == 0
+    assert sent == [("claim.received", [ou])]
+    assert [r["id"] for r in client.get("/api/app/player-claim-requests", headers=_auth(app, ou)).json] == [req_id]
 
 
 # ── rule 5h: soft references ────────────────────────────────────────────────
@@ -185,34 +213,40 @@ def _expected_plan(world):
     }
 
 
-def _request(client, app, world):
+def _merge_by_pick(client, app, world):
+    """The coach's own dedupe (rule 4d): the pick merges in the same call."""
     res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
                       json={"targetPlayerId": world["st_player"]}, headers=_auth(app, world["coach_user"]))
-    assert res.status_code == 201, res.json
+    assert res.status_code == 201 and res.json["status"] == "accepted", res.json
     return res.json["id"]
+
+
+def _coach_preview(client, app, world):
+    res = client.get(f"/api/app/player/{world['ph_player']}/merge-preview?targetPlayerId={world['st_player']}",
+                     headers=_auth(app, world["coach_user"]))
+    assert res.status_code == 200, res.json
+    return res.json
 
 
 def test_the_preview_counts_what_the_merge_then_does(app, client, world):
     from padel_app.models import Player, PlayerMerge, Presence
 
     _overlapping_world(app, world)
-    req_id = _request(client, app, world)
-
-    preview = client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, world["st_user"]))
-    assert preview.status_code == 200
-    assert preview.json == _expected_plan(world)
+    preview = _coach_preview(client, app, world)
+    plan = _expected_plan(world)
+    plan["moves"].pop("player_claim_requests")               # the request is made by the merge call
+    assert preview == plan
     with app.app_context():                                   # a dry run: nothing moved
         assert Player.query.get(world["ph_player"]) is not None
         assert Presence.query.filter_by(player_id=world["ph_player"]).count() == 3
         assert PlayerMerge.query.count() == 0
 
-    accept = client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, world["st_user"]))
-    assert accept.status_code == 200
+    _merge_by_pick(client, app, world)
     with app.app_context():
         audit = PlayerMerge.query.one()
-        assert audit.counts == preview.json
+        assert audit.counts == _expected_plan(world)          # the preview, plus the request it made
         assert audit.placeholder_player_id == world["ph_player"] and audit.target_player_id == world["st_player"]
-        assert audit.trigger == "coach_request" and audit.confirmed_by_user_id == world["st_user"]
+        assert audit.trigger == "coach_request" and audit.confirmed_by_user_id == world["coach_user"]
         assert Presence.query.filter_by(player_id=world["st_player"]).count() == 3
 
 
@@ -232,22 +266,25 @@ def test_the_coach_previews_before_sending(app, client, world):
 
 
 def test_only_the_target_previews_a_request(app, client, world):
-    req_id = _request(client, app, world)
+    req_id, _, _ = _outsider_request(client, app, world)
     other, _ = _student(app, username="bruno", name="Bruno")
     assert client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, other)).status_code == 403
 
 
-def test_the_preview_can_run_twice_and_the_merge_still_works(app, client, world):
-    """The savepoint rollback leaves the session usable."""
-    from padel_app.models import Player
+def test_the_students_preview_can_run_twice_and_their_accept_still_merges(app, client, world):
+    """The savepoint rollback leaves the session usable; the student's preview counts what moves."""
+    from padel_app.models import Player, PlayerMerge
 
     _overlapping_world(app, world)
-    req_id = _request(client, app, world)
-    for _ in range(2):
-        assert client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, world["st_user"])).status_code == 200
-    assert client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, world["st_user"])).status_code == 200
+    req_id, ou, _ = _outsider_request(client, app, world)
+    previews = [client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, ou)) for _ in range(2)]
+    assert [r.status_code for r in previews] == [200, 200] and previews[0].json == previews[1].json
+    assert previews[0].json["moves"]["presences"] == 3      # the outsider shares nothing with the placeholder
+    assert client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, ou)).status_code == 200
     with app.app_context():
         assert Player.query.get(world["ph_player"]) is None
+        audit = PlayerMerge.query.one()
+        assert audit.confirmed_by_user_id == ou and audit.counts == previews[0].json
 
 
 def test_the_invite_link_claim_writes_an_invite_link_audit_row(app, client, world):
@@ -300,10 +337,9 @@ def test_both_active_standing_entries_keep_the_students_active(app, client, worl
                              expires_at=datetime(2030, 1, 1), is_active=True))
         db.session.commit()
         mine = S.query.filter_by(player_id=world["st_player"]).one().id
-    req_id = _request(client, app, world)
-    preview = client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, world["st_user"]))
-    assert preview.status_code == 200 and preview.json["dropped"]["standing_waiting_list_entries"] == 1
-    assert client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, world["st_user"])).status_code == 200
+    preview = _coach_preview(client, app, world)
+    assert preview["dropped"]["standing_waiting_list_entries"] == 1
+    _merge_by_pick(client, app, world)
     with app.app_context():
         rows = S.query.filter_by(player_id=world["st_player"]).all()
         assert len(rows) == 2
@@ -320,10 +356,9 @@ def test_both_open_vacancies_on_one_class_keep_both_spots(app, client, world):
         for pid in (world["ph_player"], world["st_player"]):
             db.session.add(Vacancy(lesson_instance_id=inst, coach_id=world["coach"], original_player_id=pid, status="open"))
         db.session.commit()
-    req_id = _request(client, app, world)
-    preview = client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, world["st_user"]))
-    assert preview.status_code == 200 and preview.json["merged"]["vacancies"] == 1
-    assert client.post(f"/api/app/player-claim-requests/{req_id}/accept", headers=_auth(app, world["st_user"])).status_code == 200
+    preview = _coach_preview(client, app, world)
+    assert preview["merged"]["vacancies"] == 1
+    _merge_by_pick(client, app, world)
     with app.app_context():
         opened = Vacancy.query.filter_by(lesson_instance_id=inst, status="open").all()
         assert len(opened) == 2
@@ -413,8 +448,6 @@ def test_consent_off_is_one_commit_a_failed_merge_leaves_no_request(app, client,
     from padel_app.models import Player, PlayerClaimRequest, PlayerMerge
     from padel_app.services import player_claim_service as svc
 
-    monkeypatch.setattr(svc, "claim_consent_required", lambda coach, placeholder, target: False)
-
     def boom(*a, **k):
         raise RuntimeError("merge failed")
     monkeypatch.setattr(svc, "_repoint_soft_references", boom)
@@ -438,3 +471,21 @@ def test_the_standing_pass_keys_on_coach_and_scope(app, world):
     assert _standing_scope(SimpleNamespace(coach_id=7, lesson_id=None)) == (7, 0)   # coach-wide
     assert _standing_scope(SimpleNamespace(coach_id=7, lesson_id=12)) == (7, 12)    # one series
     assert _standing_scope(SimpleNamespace(coach_id=7, lesson_id=12)) != _standing_scope(SimpleNamespace(coach_id=7))
+
+
+def test_active_standing_entries_of_different_series_both_stay_active(app, world):
+    """PAD-547's scoped index: an active coach-wide entry and an active entry for one series do not
+    collide, so the merge keeps both active; only the same coach AND scope collide."""
+    from padel_app.models import StandingWaitingListEntry as S
+
+    lesson_id, _ = _lesson_with_instance(app, world["club"], world["coach"])
+    with app.app_context():
+        db.session.add(S(coach_id=world["coach"], player_id=world["ph_player"], credits_total=3,
+                         expires_at=datetime(2030, 1, 1), is_active=True, lesson_id=lesson_id))
+        db.session.add(S(coach_id=world["coach"], player_id=world["st_player"], credits_total=3,
+                         expires_at=datetime(2030, 1, 1), is_active=True))
+        db.session.commit()
+    _merge_now(app, world)
+    with app.app_context():
+        rows = S.query.filter_by(player_id=world["st_player"]).all()
+        assert len(rows) == 2 and all(r.is_active for r in rows)

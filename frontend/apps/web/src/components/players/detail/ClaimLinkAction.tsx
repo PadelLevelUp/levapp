@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { GitMerge, Link2, Loader2 } from "lucide-react";
 import type { CoachPlayer } from "@/types";
@@ -39,6 +40,7 @@ import {
 export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"roster" | "username">("roster");
   const [username, setUsername] = useState("");
@@ -126,16 +128,24 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
     setSubmitting(true);
     setError(null);
     try {
+      let req;
       if (tab === "roster") {
         if (targetId === null) return;
-        await createClaimRequestByPick(player.playerId, targetId);
+        req = await createClaimRequestByPick(player.playerId, targetId);
       } else {
         const value = username.trim();
         if (!value) return;
-        await createClaimRequest(player.playerId, value);
+        req = await createClaimRequest(player.playerId, value);
+      }
+      setOpen(false);
+      // players.claim rule 4d (owner, 2026-10-08): a student already on this coach's roster is
+      // merged at once — the server answers "accepted". Otherwise the student was asked.
+      if (req.status === "accepted") {
+        toast({ title: t("players.claim.merged") });
+        navigate(`/players/${req.playerId}`);
+        return;
       }
       setPending(true);
-      setOpen(false);
       toast({ title: t("players.claim.requestSent") });
     } catch (err: any) {
       fail(err);
@@ -293,7 +303,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                     {t("players.claim.submitting")}
                   </>
                 ) : (
-                  t("players.claim.submit")
+                  t(tab === "roster" ? "players.claim.mergeSubmit" : "players.claim.submit")
                 )}
               </Button>
             </DialogFooter>

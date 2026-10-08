@@ -110,7 +110,7 @@ MERGE_UNIQUE_KEYS_HANDLED = {
     "player_in_club.uq_player_club": "_repoint_unique_pairs on club_id: the claimant's row is kept",
     "player_in_lesson.uq_player_lesson": "_repoint_unique_pairs on lesson_id",
     "waiting_list_entries.uq_waiting_session_player": "_repoint_unique_pairs on lesson_instance_id",
-    "standing_waiting_list_entries.uq_standing_entries_active_coach_player":
+    "standing_waiting_list_entries.uq_standing_entries_active_coach_player_scope":
         "_merge_standing_entries: both active with one coach → the claimant's stays active, the placeholder's moves inactive",
     "presences.uq_presence_player_lesson_instance": "_repoint_unique_pairs on lesson_instance_id (R-018)",
     "vacancies.uq_vacancies_open_original_player":
@@ -612,9 +612,16 @@ def _coach_relation(coach, player_id):
 
 def claim_consent_required(coach, placeholder_player, target_user):
     """Rule 4d (PAD-528): whether the student must accept before the merge runs.
-    One function, so the owner's decision on a same-roster target (option B) is
-    a one-line change here and nowhere else. Today: always."""
-    return True
+
+    Owner decision 2026-10-08 (option B, "basically a dedupe from the coach's side"): when the
+    active student is already on THIS coach's roster, the coach merges alone — no request, no
+    notification, the student is never asked or warned. Otherwise the student accepts, as
+    before (trigger A and the username request of rule 4); a coach never attaches a student
+    who is not already theirs."""
+    target_player = getattr(target_user, "player", None)
+    if coach is None or target_player is None:
+        return True
+    return _coach_relation(coach, target_player.id) is None
 
 
 def _candidate_rows(coach, placeholder_player):

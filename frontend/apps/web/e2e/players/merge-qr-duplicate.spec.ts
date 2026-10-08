@@ -10,9 +10,10 @@ import { ui } from "../helpers/i18n";
  * signs up on their own, and the roster holds two people with one name.
  *
  *   US-528: the roster flags the placeholder as a possible duplicate; the coach
- *           merges it into the student in one tap, sees the dry run first; the
- *           student sees the same dry run on the dashboard banner and accepts;
- *           one record remains, with the coach's level.
+ *           merges it into the student in one tap, after the dry run, and the merge
+ *           runs at once (rule 4d, owner 2026-10-08: the coach's own dedupe); the
+ *           student is never asked — no request reaches their dashboard; one record
+ *           remains.
  *
  * Timestamps keep every name and username unique across re-runs.
  */
@@ -114,19 +115,13 @@ test.describe("players.claim — merge a placeholder into the student who joined
     await expect(preview).toBeVisible({ timeout: 10_000 });
     await expect(preview).toContainText(ui("players.claim.previewIrreversible", { exact: false }));
     await page.getByTestId("player-claim-submit").click();
-    await expect(page.getByTestId("player-claim-pending")).toBeVisible({ timeout: 10_000 });
 
-    // 5. The student sees the request with the same dry run and accepts.
+    // 5. The merge ran at once: the coach lands on the student's page. The student was not asked.
+    await expect(page).not.toHaveURL(new RegExp(`/players/${placeholderId}(?:$|[/?#])`), { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/players\/\d+(?:$|[/?#])/);
     await student.goto("/dashboard");
-    const banner = student.getByTestId("claim-request-banner");
-    await expect(banner).toBeVisible({ timeout: 10_000 });
-    await expect(banner).toContainText(name);
-    await expect(banner.locator('[data-testid^="claim-preview-"]')).toContainText(
-      ui("players.claim.previewIrreversible", { exact: false }),
-      { timeout: 10_000 },
-    );
-    await student.locator('[data-testid^="claim-accept-"]').first().click();
-    await expect(student.getByTestId("claim-request-banner")).toHaveCount(0, { timeout: 15_000 });
+    await expect(student.getByTestId("student-dashboard")).toBeVisible({ timeout: 10_000 });
+    await expect(student.getByTestId("claim-request-banner")).toHaveCount(0);
 
     // 6. One record remains, and it is the student's; no badge is left.
     await searchRoster(page, name);

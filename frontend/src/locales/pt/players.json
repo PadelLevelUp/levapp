@@ -257,7 +257,7 @@
     "claim": {
       "linkAction": "Associar a conta existente",
       "dialogTitle": "Associar a uma conta existente",
-      "dialogDescription": "Se este aluno já criou a sua própria conta LevApp, escreve o username exato. O aluno terá de confirmar antes de os registos serem unidos.",
+      "dialogDescription": "Se este aluno tem a sua própria conta LevApp mas ainda não é teu aluno, escreve o username exato. O aluno terá de confirmar antes de os registos serem unidos.",
       "usernameLabel": "Username do aluno",
       "usernamePlaceholder": "username exato",
       "submit": "Enviar pedido de associação",
@@ -284,7 +284,7 @@
       "settingsEmpty": "Sem pedidos de associação pendentes.",
       "tabRoster": "Dos teus alunos",
       "tabUsername": "Por username",
-      "rosterHint": "Escolhe o aluno a quem este registo pertence. O aluno terá de confirmar antes de os registos serem unidos.",
+      "rosterHint": "Escolhe o aluno a quem este registo pertence. Os registos são unidos de imediato: é arrumar os teus próprios alunos, por isso o aluno não é questionado.",
       "searchRoster": "Procurar nos teus alunos",
       "noCandidates": "Nenhum aluno corresponde.",
       "sameName": "Mesmo nome",
@@ -314,7 +314,9 @@
         "messages_other": "{{count}} conversas",
         "other_one": "{{count}} outro item",
         "other_other": "{{count}} outros itens"
-      }
+      },
+      "mergeSubmit": "Unir registos",
+      "merged": "Registos unidos"
     },
     "disconnectPlayer": "Desassociar",
     "disconnect": "Desassociar",

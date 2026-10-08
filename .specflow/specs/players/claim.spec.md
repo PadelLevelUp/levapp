@@ -68,9 +68,10 @@ asks by exact username and the student accepts.
    normalisation), then alphabetical, at most 50; a coach without a `coach_in_player`
    relation to `<player_id>` is 403. Choosing one calls the rule-4 endpoint with
    `{"targetPlayerId"}` instead of `{"username"}`; the target must be one of those
-   candidates (404 otherwise) and the request is created exactly as in rule 4 — the student
-   still accepts from their own app. Web dialog and iOS sheet both carry a search field over
-   the list and keep the username field as a second tab.
+   candidates (404 otherwise). Because the target is already on the coach's roster, rule 4d
+   makes this the coach's own dedupe: the merge runs in the same call, the student is never
+   asked. Web dialog and iOS sheet both carry a search field over the list and keep the
+   username field as a second tab.
 4c. **The duplicate flag (PAD-528).** The roster rows of `players.list` rules 1–2 carry
    `possibleDuplicateOf: {playerId, name} | null` on every **claimable** row: the coach's
    non-claimable student whose normalised name equals the placeholder's (casefold, accents
@@ -81,14 +82,17 @@ asks by exact username and the student accepts.
    not claimable can be named), and, on the placeholder's page, a one-tap "Merge into {name}" that opens rule 4b's
    dialog with that student preselected and the preview of rule 5j already shown. Nothing
    moves under the finger: the flag changes no order, filter or sort.
-4d. **One consent function.** Whether the student's accept is required is decided in one place,
-   `claim_consent_required(coach, placeholder, target) -> bool`, which today returns `True` for
-   every trigger (decision 2026-09-06 item 4: a coach never attaches a registered student
-   unilaterally). The owner may decide (PAD-528 decision 1, option B) that a target already on
-   the requesting coach's roster needs no accept; that is a change to this one function and
-   its criterion, nowhere else. When it returns `False` the request is created and accepted in
-   the same call and the same commit, with `confirmed_by_user_id` the coach's user; a failed
-   merge leaves no request behind.
+4d. **One consent function — the coach's own dedupe needs no accept (owner, 2026-10-08).**
+   Whether the student's accept is required is decided in one place,
+   `claim_consent_required(coach, placeholder, target) -> bool`. It is `False` when the target
+   student is already on the requesting coach's roster: then the coach merges alone — the request
+   is created and accepted in the same call and the same commit, with `confirmed_by_user_id` the
+   coach's user, and the student gets **no request, no alert and nothing in their inbox**; a
+   failed merge leaves no request behind. The owner's words: "it's basically a dedupe from the
+   coach's side" — the student connected to the coach, who already held a placeholder for them.
+   It is `True` for a student who is not on that coach's roster (rule 4's username request, which
+   the student accepts or rejects): a coach never attaches a student who is not already theirs
+   (decision 2026-09-06 item 4). Trigger A (the invite link) is the student's own act.
 5. **Merge** — one service, `merge_placeholder_player_into(placeholder_player, claimant_user)`,
    one transaction, in this order:
    a. `Association_CoachPlayer`: for each placeholder relation, if the claimant already has a
@@ -238,7 +242,7 @@ asks by exact username and the student accepts.
 - **When** Maria GETs `/api/app/player/<P1>/claim-candidates`
 - **Then** `ana` is listed with `sameName: false`, and `P1` itself is not
 - **When** Maria POSTs `/api/app/player/<P1>/claim-requests` with `{"targetPlayerId": <ana>}`
-- **Then** a pending request targets `ana`'s user, and `ana` sees it exactly as in rule 4
+- **Then** the merge has run in that call (rule 4d): `P1` is gone and the request is `accepted`
 
 #### A pick outside the roster is refused (rule 4b)
 - **Given** student `bruno` who is not on Maria's roster
@@ -252,12 +256,18 @@ asks by exact username and the student accepts.
 - **Then** the placeholder's row carries `possibleDuplicateOf: {playerId: <ana>, name: "ana silva"}`,
   "Rui" and the active student carry `null`, and the page took one query for the flags
 
-#### Consent is one function (rule 4d)
-- **Given** `claim_consent_required` patched to return `False`
-- **When** Maria POSTs `{"targetPlayerId": <ana>}` for `P1`
+#### The coach dedupes alone; the student is never asked or warned (rule 4d)
+- **Given** placeholder `P1` and student `ana`, both on Maria's roster
+- **When** Maria picks `ana` for `P1`
 - **Then** the request is `accepted`, the merge has run, and `player_merges` has one row with
   `confirmed_by_user_id` = Maria's user and `trigger` = `coach_request`
-- **And** unpatched, the same call leaves the request `pending` and nothing merged
+- **And** `ana` received no request alert and `GET /api/app/player-claim-requests` lists nothing for her
+
+#### A student who is not on the roster is still asked (rule 4d)
+- **Given** placeholder `P1` on Maria's roster and student `zeca`, who is not
+- **When** Maria asks for `zeca` by username
+- **Then** a `pending` request exists, nothing has merged, and `zeca` got the `claim.received` alert;
+  only `zeca`'s accept runs the merge
 
 #### Two active standing entries with one coach (rule 5b, PAD-528 review)
 - **Given** `P1` and `ana` each hold an active standing waiting-list entry with Maria
@@ -320,10 +330,11 @@ asks by exact username and the student accepts.
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 4.
 - PAD-528 (2026-10-07): rules 4b–4d, 5h–5j and B-361 came from the ticket "merge an inactive
-  coach-created profile with the active profile created via QR". Decisions pending the owner:
-  (1) consent for a same-roster target — option A (keep the accept, add the picker) is built,
-  option B flips rule 4d's function; (2) the duplicate flag. Decision 3 (audit row, no undo) is
-  the coordinator's, final.
+  coach-created profile with the active profile created via QR". The owner decided on 2026-10-08:
+  (1) option B — a same-roster target is the coach's own dedupe, merged without asking or warning
+  the student (rule 4d); a student not on the roster is still asked; (2) the duplicate flag stays,
+  coach-facing only (roster rows and the placeholder's page; students see nothing). Decision 3
+  (audit row, no undo) is the coordinator's, final.
 - Push + email to the invited account on a request and to the coach on the decision:
   `notifications.request-alerts` (PAD-232).
 - Merge tests must cover every FK listed under Entities; when a new `players.id` **or
