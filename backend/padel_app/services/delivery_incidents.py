@@ -40,8 +40,12 @@ def record(kind: str, channel: str, *, user_id=None, subject_type=None, subject_
                 error_class=(type(error).__name__ if error is not None else None),
                 detail=_scrub(detail),
             ))
-    except Exception:  # noqa: BLE001 — rule 3: never into the send path
-        logger.warning("delivery incident %s/%s could not be recorded", kind, channel, exc_info=True)
+    except Exception as exc:  # noqa: BLE001 — rule 3: never into the send path
+        # B-254: the class only, never a traceback. This runs inside the caller's `except`, so a
+        # traceback would chain the ORIGINAL send failure, whose text quotes a push endpoint or a
+        # mail address (caught by test_b254_no_addresses_in_logs on the first full run).
+        logger.warning("delivery incident %s/%s could not be recorded: %s", kind, channel,
+                       type(exc).__name__)
 
 
 def user_id_for_email(address) -> int | None:

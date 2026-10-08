@@ -297,3 +297,22 @@ def test_no_write_route_on_the_page(app):
     assert len(rules) == 4
     for rule in rules:
         assert set(rule.methods) <= {"GET", "HEAD", "OPTIONS"}, rule
+
+
+def test_a_failing_insert_never_logs_the_send_failures_text(app, caplog):
+    """B-254 with rule 3: the incident insert fails (no such user) while a push failure that quotes
+    its endpoint is being handled. The log names the insert's class and nothing of the endpoint."""
+    import logging
+
+    from pywebpush import WebPushException
+
+    from padel_app.utils import push_notifications as pn
+
+    endpoint = "https://fcm.googleapis.com/fcm/send/cap-0123456789"
+    caplog.set_level(logging.WARNING)
+    with app.app_context():
+        exc = WebPushException(f"500 for {endpoint}", response=SimpleNamespace(status_code=500))
+        with patch.object(pn, "webpush", side_effect=exc):
+            assert pn._deliver_web_push(987654, 1, "{}", "{}", "key", {}) is False
+    assert "could not be recorded" in caplog.text
+    assert "cap-0123456789" not in caplog.text and "fcm.googleapis.com" not in caplog.text
