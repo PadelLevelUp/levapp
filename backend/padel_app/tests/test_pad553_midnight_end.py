@@ -78,3 +78,12 @@ def test_an_occurrence_of_a_midnight_series_ends_after_it_starts(app):
         inst = db.session.get(LessonInstance, instance_id)
         assert inst.end_datetime > inst.start_datetime
         assert inst.end_datetime - inst.start_datetime == timedelta(hours=1)
+
+
+def test_an_imported_midnight_class_ends_the_next_day(app):
+    """The class import builds its end with the same helper (classes.create rule 8c)."""
+    from padel_app.services import import_service
+
+    src = open(import_service.__file__).read()
+    assert 'build_end_datetime(day, row.get("start_time"), row.get("end_time"))' in src
+    assert 'build_datetime(day, row.get("end_time"))' not in src

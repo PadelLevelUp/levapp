@@ -70,7 +70,8 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      typing only).
 8c. **(PAD-553, B-346; number unconfirmed) A class that ends at midnight ends the next day.** An end
    of exactly 00:00 after a later start is 00:00 of the NEXT day, on every path that writes a class
-   or an occurrence (create, materialisation, an edit, the import). It was stored at 00:00 of the
+   or an occurrence (create, materialisation, an edit, the import), and the calendar's
+   "completed" status reads it the same way. It was stored at 00:00 of the
    class's own day, before its start, so every "has it ended" reader (attendance validation, the
    pending count, the "this and future" walk) treated it as over from midnight. Any other end at or
    before the start is a typed mistake, not a midnight class, and is not moved (B-294 refuses it).
