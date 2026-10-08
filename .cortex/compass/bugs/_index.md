@@ -227,6 +227,8 @@ whether a failure mode has been seen before.
 - [B-381](B-381-product-api-accepted-a-token-carrying-an-audience.md) — The product API accepted a token carrying an `aud` claim as the user whose id equals `sub`: Flask-JWT-Extended verifies no audience unless one is configured (wrong-rule, high, open)
 - [B-361](B-361-merge-drops-evaluations-when-claimant-already-has-the-coach.md) — Claim merge deleted the placeholder's evaluations and notes when the student already had the coach: the dropped coach relation cascaded its children (incomplete-rule, high, resolved in PAD-528)
 - [B-362](B-362-player-search-needs-the-words-in-order.md) — Player search found a name only when the typed words came in the name's own order (incomplete-rule, medium, resolved in PAD-516)
+- [B-363](B-363-level-high-low-sort-lists-the-weakest-first.md) — Players tab: "Level High→Low" listed the weakest level first (layer-drift, medium, resolved in PAD-521)
+- [B-364](B-364-level-pickers-list-levels-in-insertion-order.md) — Level pickers listed the coach's levels in creation order, not ladder order (layer-drift, medium, resolved in PAD-522)
 - [B-365](B-365-picker-hides-the-level-equal-to-the-class.md) — Participant picker hid a student's level when it equalled the class's level (incomplete-rule, low, resolved in PAD-527)
 - [B-345](B-345-dashboard-new-class-opened-only-the-calendar.md) — Web dashboard: 'Nova aula' opened the calendar with nothing open; the calendar never read ?new=1 (missing-criterion, medium, resolved in PAD-520)
 - [B-344](B-344-web-calendar-kept-stale-cards-after-a-class-write.md) — Web calendar: after creating, editing or deleting a class only the clicked card changed; other occurrences stayed stale until a reload (incomplete-rule, medium, resolved in PAD-526)

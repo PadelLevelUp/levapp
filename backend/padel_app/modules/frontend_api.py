@@ -962,7 +962,12 @@ def coach_players_paginated():
 @jwt_required()
 def get_coach_levels():
     coach = require_coach()
-    return jsonify([serialize_coach_level(l) for l in coach.levels])
+    # levels rule 10 (PAD-522, B-364): the canonical ladder, strongest first. The
+    # relationship is unordered, so a reordered ladder came back in insertion order
+    # and every level picker (profile editor, add/edit sheets, web and iOS) showed it.
+    from padel_app.services.level_ladder import sort_ladder
+
+    return jsonify([serialize_coach_level(l) for l in sort_ladder(coach.levels)])
 
 
 @bp.get("/seasons")
