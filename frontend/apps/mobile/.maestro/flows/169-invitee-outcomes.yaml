@@ -45,6 +45,10 @@ onFlowComplete:
 # ── rule 18: the actions, the warning, the withdrawal ──
 - tapOn:
     id: "invitee-actions-${output.pid}"
+- scrollUntilVisible:
+    element:
+      id: "invitee-delete-${output.pid}"
+    direction: DOWN
 - tapOn:
     id: "invitee-delete-${output.pid}"
 - tapOn:
@@ -53,6 +57,10 @@ onFlowComplete:
     id: "invitee-outcome-${output.pid}-pending"
 - tapOn:
     id: "invitee-actions-${output.pid}"
+- scrollUntilVisible:
+    element:
+      id: "invitee-delete-${output.pid}"
+    direction: DOWN
 - tapOn:
     id: "invitee-delete-${output.pid}"
 - tapOn:
