@@ -47,19 +47,19 @@ onFlowComplete:
 # ── rule 20: add for this class only ──
 - tapOn:
     id: "class-waiting-list-add"
-# The picker lists the roster in a 360pt scroll box; "E2E Student Two" is its last row. iOS
-# reports a clipped row as visible, so swipe the box to its end before tapping (2026-10-08).
+# PAD-558: the picker's name search brings the student up; the list is a clipped scroll box that
+# iOS reports as visible past its edge, so the flow never scrolls it.
+- tapOn:
+    id: "class-waiting-list-search"
+- inputText: "Student Two"
+# Close the keyboard first: it can cover the sheet's scope and confirm buttons (Session D, 2026-10-08).
+- pressKey: Enter
 - extendedWaitUntil:
     visible:
-      id: "class-waiting-list-dialog"
+      id: "class-waiting-list-candidate-${output.two.playerId}"
     timeout: 15000
-- repeat:
-    times: 6
-    commands:
-      - swipe:
-          start: "50%, 55%"
-          end: "50%, 27%"
-          duration: 300
+- assertNotVisible:
+    id: "class-waiting-list-candidate-${output.filler.playerId}"
 - assertNotVisible:
     id: "class-waiting-list-candidate-${output.enrolled.playerId}"
 - tapOn:
