@@ -58,6 +58,36 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    but only as many as the absences free (places minus filled spots minus open vacancies): an
    absence on an over-full roster creates none (rule 13); never-filled places get theirs, as before, when the class has no
    open vacancy.
+1c. **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
+   An absence opens its vacancy the moment it is recorded, and the tick (rule 5) starts it once
+   the window is open. A place nobody ever filled has no such moment, and before this rule it was
+   opened only by the one-shot `invite_start_<instance>` job, which exists only for a materialised
+   occurrence and is armed only for a future time (`notifications.config` rule 10). An
+   invitation start earlier than or equal to the first reminder, reminders off, a class created
+   or opened inside its window, or a restart across the fire time therefore left the place
+   silent (B-301). Two paths now open it, at the later of the window opening (rule 11) and the
+   moment the engine can see the class:
+   - **an occurrence not yet materialised** carries a lesson-level
+     `invite_start_lesson_<lesson>_<date>` job beside its reminder job, derived by the same walk
+     (`schedule_lesson_reminder_jobs`), under the lesson's primary coach, removed and pruned with
+     it. When it fires it materialises the occurrence and calls `trigger_invitations`. Materialising
+     an occurrence removes that job and leaves the instance's `invite_start_<instance>` as the
+     occurrence's only start job (the reminders rule 20 shape), so the two never both fire;
+   - **a materialised class** whose window is open, which is still ahead on the club's clock, has
+     free capacity, automatic invitations on (`toggle-class` rule 5), notifications on and **no
+     vacancy of any status** is opened by the next tick through `trigger_invitations`, so every
+     gate applies unchanged: the engine switch, semi-automatic approval (an approval prompt, not an
+     invitation), the restrictions and quiet-hours hold (config rule 6d), the start-once claim
+     (rule 1b), and the creation under the class lock (rule 10, PAD-261) â€” a tick and a start job
+     or an absence racing on one class create its places once and start them once. A class whose
+     vacancies are all filled or expired is not reopened by the tick; capacity changes are rule 13's.
+     Named limit of that filter: a class whose one absence vacancy was filled before the window
+     while another place was never filled is skipped by the tick (the filled row counts as "a
+     vacancy"); a start job or a hand trigger still opens the remaining place.
+     An invitation start of type `none` opens nothing from the tick, as it arms no job.
+   The tick opens every such class it can see, so a deploy or a save that lands inside open
+   windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
+   measured on staging before merge). A save still sends nothing itself (config rule 10).
 2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
 2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
@@ -423,6 +453,50 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
       withdrawal's locks dropped fails that cell.
 
 ### Acceptance Criteria
+
+#### A window that opens before the first reminder still invites (rule 1c)
+- **Given** a one-off class Monday 18:00 Lisbon with `max_players=2`, one roster student enrolled and
+  one free roster student, the coach's invitation start 72 h before and first reminder 48 h before,
+  the occurrence not materialised, and the lesson walk run four days out
+- **When** the `invite_start_lesson_<lesson>_<date>` job fires at 72 h before the class
+- **Then** the occurrence is materialised, one structural vacancy is open and the free student holds
+  one invitation; the reminder at 48 h then reminds the enrolled student and arms no second start
+
+#### A class materialised inside its window is opened by the next tick (rule 1c)
+- **Given** the same class with the default timings (reminder 48 h, invitations 24 h), materialised
+  12 h before the class (created late, or opened), so `schedule_instance_jobs` arms no start job
+- **When** `process_invitation_batches()` runs
+- **Then** one structural vacancy is open and the free student holds one invitation; a second tick
+  sends nothing more for that place
+
+#### Materialising removes the lesson-level start job (rule 1c)
+- **Given** an occurrence with `invite_start_lesson_<lesson>_<date>` armed
+- **When** the occurrence is materialised
+- **Then** the lesson-level job is gone and `invite_start_<instance>` is the occurrence's only
+  start job; cancelling or moving the series' occurrence jobs removes or moves both families
+
+#### The tick does not reopen a class whose vacancy was filled or expired (rule 1c)
+- **Given** a future class inside its window with one free place and one `expired` vacancy
+- **When** `process_invitation_batches()` runs
+- **Then** no vacancy is created and nothing is sent
+
+#### A tick and a start racing on one class open it once (rule 1c, Postgres)
+- **Given** a materialised class inside its window with one free place and no vacancy
+- **When** the tick's scan and `trigger_invitations` run at once on two connections
+- **Then** exactly one vacancy exists for the class and the free student holds exactly one
+  invitation; a mutant that counts the places outside the class lock creates two
+
+#### With reminders off, the window opens the places and asks nobody on the roster (rule 1c)
+- **Given** the class of the first criterion with the coach's first reminder of type `none` and the
+  invitation start 72 h before, the occurrence not materialised
+- **When** the `invite_start_lesson_<lesson>_<date>` job fires
+- **Then** the free student holds one invitation and no `ask_<instance>_<student>_*` job is armed for
+  the enrolled student: the job touches never-filled places only; the roster is asked by reminders
+
+#### The engine itself opens the place when called (control for rule 1c)
+- **Given** the class of the second criterion
+- **When** `trigger_invitations` is called by hand inside the window
+- **Then** one structural vacancy is open and the free student holds one invitation
 
 #### A coach add closes the open vacancy (rule 13)
 - **Given** instance 10 with `max_players=2`, Alice enrolled, Bob declined (his vacancy open with

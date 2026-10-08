@@ -60,6 +60,7 @@ from .guardian_consent import GuardianConsent
 # so create_all and Alembic see them; deliberately NOT in MODELS — the generic
 # editor is retired (PAD-532) and staff tables never go through it.
 from .admin_role import AdminRole
+from .delivery_incident import DeliveryIncident
 from .admin_audit_log import AdminAuditLog
 
 MODELS = {
