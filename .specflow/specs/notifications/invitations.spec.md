@@ -226,7 +226,29 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      is full or over, and then closes like any other.
    - A vacancy on a started, cancelled or completed class expires (rule 5 today, unchanged).
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
-     decline, cancellation and structural paths.
+     decline, cancellation and structural paths, and (rule 13a) a coach's edit.
+
+13a. **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
+   numbering unconfirmed).** `edit_class_service` (`POST /edit_class`), once the WHOLE edit is
+   written — capacity, the roster, and the class's own flags (automatic invitations, notifications,
+   eligibility) on every occurrence it reached — runs `vacancies_after_class_edit` on each of the
+   class's future occurrences. An occurrence counts as having a place freed when it has more free
+   places (capacity minus filled spots) than before the edit, read per occurrence before anything is
+   written, so a "this and future" edit (the lesson is edited before its occurrences) sees the rise
+   too (#577 review):
+   - it always reconciles (rule 13), so a capacity lowered below the open vacancies closes the
+     surplus and retires their live invitations now, not at the next tick;
+   - when the edit freed a place (a higher capacity, a student taken off) and the coach's invitation
+     window is open (rule 11), it creates the missing never-filled vacancies (under the class lock)
+     and calls `trigger_invitations`, so every gate applies: engine on, automatic invitations,
+     semi-automatic approval (an approval prompt, not an invitation), the restrictions and the
+     quiet-hours hold, the start-once claim. Before the window opens it creates nothing: the class's
+     `invite_start` job opens the place when the window does. An edit that frees nothing sends
+     nothing.
+   A "yes" that finds the class full while its own spot is still open (a capacity drop whose
+   reconcile passed over that spot because the answer held its lock, rule 10) is refused as before
+   and also closes that spot under its own locks, so the other offers for the missing seat are
+   retired at once. Before PAD-552 the tick closed it.
 
 14. **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
     B-046 step 5 / B-051; numbered 14 after PAD-271's 13 and before PAD-317's 15).** `vacancies` has a partial unique index
