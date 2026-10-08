@@ -55,6 +55,8 @@ interface TimeSelectProps {
   "data-testid"?: string;
   "aria-label"?: string;
   "aria-invalid"?: boolean;
+  /** classes.clone (PAD-524): shown while the field is still empty (a clone's start). */
+  placeholder?: string;
 }
 
 export function TimeSelect({ value, onChange, from, ...rest }: TimeSelectProps) {

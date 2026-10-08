@@ -327,12 +327,21 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     # Sorting
     if sort_by == "level":
         query = query.outerjoin(CoachLevel, Association_CoachPlayer.level_id == CoachLevel.id)
-        # Use case() to push NULLs last (portable across SQLite and PostgreSQL)
-        null_last = case((CoachLevel.display_order.is_(None), 1), else_=0)
+        # players.list rule 4 (PAD-521, B-363): "desc" is Level High→Low, i.e. the ladder
+        # strongest first — and LOWER display_order is STRONGER (levels rule 3). The canonical
+        # key (levels rule 10): ordered levels by display_order, unordered (NULL/0) levels at
+        # the weak end, id as tie-break. "asc" (Low→High) is that ladder reversed. Players with
+        # no level stay last either way. case() keeps it portable across SQLite and Postgres.
+        no_level = case((Association_CoachPlayer.level_id.is_(None), 1), else_=0)
+        unordered = case(
+            (or_(CoachLevel.display_order.is_(None), CoachLevel.display_order <= 0), 1), else_=0
+        )
         if sort_dir == "desc":
-            query = query.order_by(null_last, CoachLevel.display_order.desc(), User.name.asc())
+            query = query.order_by(no_level, unordered.asc(), CoachLevel.display_order.asc(),
+                                   CoachLevel.id.asc(), User.name.asc())
         else:
-            query = query.order_by(null_last, CoachLevel.display_order.asc(), User.name.asc())
+            query = query.order_by(no_level, unordered.desc(), CoachLevel.display_order.desc(),
+                                   CoachLevel.id.desc(), User.name.asc())
     else:
         if sort_dir == "desc":
             query = query.order_by(User.name.desc())

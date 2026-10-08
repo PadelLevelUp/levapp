@@ -1,3 +1,4 @@
+import type { CloneTemplate } from "@levelup/types";
 import { useState, useEffect, useMemo } from 'react';
 import type { Court } from '@/types';
 import { listCurrentClubCourts } from '@/api/courts';
@@ -85,6 +86,12 @@ interface AddClassSheetProps {
   loading?: boolean;
   /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
   existingEvents?: CalendarEvent[];
+  /**
+   * classes.clone (PAD-524): open as a clone of an existing class — every field from the server's
+   * template, the start left empty for the coach (classes.create rule 8b's one exception) and
+   * Create disabled until it is chosen. The save is the ordinary create, with all its checks.
+   */
+  clone?: CloneTemplate | null;
 }
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
@@ -96,6 +103,13 @@ const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
 
 /** How long a class lasts when nothing says otherwise. */
 const DEFAULT_DURATION_MIN = 90;
+
+/** `start` + `minutes`, clamped to 23:59 — a clone's end from its length (classes.clone rule 5). */
+function addMinutesClamped(start: string, minutes: number) {
+  const [h, m] = start.split(':').map(Number);
+  const total = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
 
 /** `start` + 90 min, clamped to the same day — the sheet's long-standing default. */
 function defaultEndTime(start: string) {
@@ -117,6 +131,7 @@ export function AddClassSheet({
   levels,
   loading = false,
   existingEvents = [],
+  clone = null,
 }: AddClassSheetProps) {
   const { t, i18n } = useTranslation();
   const autoInviteEnabled = useAutoInviteEnabled(open);
@@ -186,8 +201,33 @@ export function AddClassSheet({
     );
   };
 
+  // classes.clone rule 5 (PAD-524): the clone's length, applied when the coach picks its start.
+  const [cloneDuration, setCloneDuration] = useState<number | null>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open || !clone) {
+      setCloneDuration(null);
+      return;
+    }
+    setCloneDuration(clone.durationMinutes);
+    setClassType(clone.classType);
+    setName(clone.name);
+    setDate(clone.date);
+    setStartTime('');
+    setEndTime('');
+    setMaxPlayers(clone.maxPlayers);
+    setSelectedColor(clone.color ?? COLORS[0]);
+    setSelectedLevel(clone.levelId ?? '');
+    setSelectedCourt(clone.courtId != null ? String(clone.courtId) : '');
+    setSelectedPlayers(clone.playerIds);
+    setNotificationsEnabled(clone.notificationsEnabled);
+    setIsRecurring(clone.isRecurring);
+    setSelectedDays(clone.recurrenceRule?.daysOfWeek ?? []);
+    setEndMode(clone.recursUntilSeasonEnd ? 'season' : 'date');
+    setEndDate(clone.endDate ?? '');
+  }, [open, clone]);
+
+  useEffect(() => {
+    if (!open || clone) return;
     setDate(initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : '');
     const nextStart = initialTime || '09:00';
     setStartTime(nextStart);
@@ -196,6 +236,7 @@ export function AddClassSheet({
     // reopening the sheet deterministic — otherwise the end time of a previous
     // drag would leak into the next single-slot click.
     setEndTime(initialEndTime || defaultEndTime(nextStart));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate, initialTime, initialEndTime]);
 
   useEffect(() => {
@@ -218,9 +259,15 @@ export function AddClassSheet({
 
   useEffect(() => {
     if (!startTime) return;
+    if (cloneDuration != null && !endTime) {
+      // classes.clone rule 5: the clone keeps the original's length.
+      setEndTime(addMinutesClamped(startTime, cloneDuration));
+      return;
+    }
     if (endTime <= startTime) {
       setEndTime(defaultEndTime(startTime));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startTime]);
 
   // classes.create rule 9 (PAD-463): the payload for the chosen end, and the last class of a count.
@@ -346,6 +393,10 @@ export function AddClassSheet({
         : null,
       recursUntilSeasonEnd: isRecurring ? recursUntilSeasonEnd : false,
       endDate: recursUntilSeasonEnd ? null : computedEndDate,
+      // classes.clone rule 4 (PAD-524): the original series' own engine overrides travel with it.
+      ...(clone
+        ? { eligibilityRules: clone.eligibilityRules, openSpotsVisible: clone.openSpotsVisible, autoInvites: clone.autoInvites }
+        : {}),
     };
 
     // PAD-90: the save is awaited so a rejection the coach can fix (e.g. "recurs
@@ -446,11 +497,17 @@ export function AddClassSheet({
                 {/* PAD-508 (classes.create rule 8b): the desktop time field never holds an empty time. */}
                 <TimeSelect
                   data-testid="add-class-start-time"
+                  placeholder={clone ? t("calendar.addClass.chooseStart") : undefined}
                   aria-label={t("calendar.addClass.timeStart")}
                   aria-invalid={errors.time ? true : undefined}
                   value={startTime}
                   onChange={setStartTime}
                 />
+                {clone && !isHhMm(startTime) && (
+                  <p className="text-xs text-muted-foreground" data-testid="add-class-start-hint">
+                    {t("calendar.addClass.cloneStartHint")}
+                  </p>
+                )}
                 <TimeSelect
                   data-testid="add-class-end-time"
                   aria-label={t("calendar.addClass.timeEnd")}
@@ -689,7 +746,11 @@ export function AddClassSheet({
 
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={handleClose} disabled={loading}>{t("common.cancel")}</Button>
-          <Button onClick={handleSave} disabled={loading} data-testid="add-class-create">
+          <Button
+            onClick={handleSave}
+            disabled={loading || (clone != null && !isHhMm(startTime))}
+            data-testid="add-class-create"
+          >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {loading ? t("calendar.addClass.creating") : t("calendar.addClass.createClass")}
           </Button>

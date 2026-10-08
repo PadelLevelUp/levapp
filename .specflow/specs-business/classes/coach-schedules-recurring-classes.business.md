@@ -6,6 +6,7 @@ implemented_by:
   - ../../specs/classes/edit.spec.md
   - ../../specs/classes/delete.spec.md
   - ../../specs/classes/recurrence.spec.md
+  - ../../specs/classes/clone.spec.md
 ---
 
 # Coach Schedules Recurring Classes
@@ -31,6 +32,9 @@ Coaches who run padel lessons at a club and need to build and maintain their tea
 4. When a class is no longer needed, the coach deletes it — either a single upcoming occurrence
    or the whole future series.
 5. If the coach adjusts the weekly day, the schedule going forward reflects the new day.
+6. To set up a class just like one they already have, the coach clones it: the new-class form
+   opens filled in — same group, level, capacity and days — and the coach only chooses the start
+   time. The copy is a separate class; the original is untouched.
 
 ## Business Rules
 

@@ -1916,8 +1916,79 @@ def _format_day_month(dt) -> str:
     return dt.strftime("%d/%m") if dt else ""
 
 
+def format_relative_day(start, locale, now=None) -> str:
+    """PAD-549 (notifications.message-templates rule 18; numbering unconfirmed): the ``{day}``
+    placeholder — the class's day said the way a person would, relative to when the message is
+    rendered, which in the engine is the moment it is sent (so a message held by quiet hours past
+    midnight still says "hoje" correctly). Both ``start`` and ``now`` are club wall-clock times.
+
+    No preposition is inside it; the coach writes "para {day} às {time}":
+        same day → "hoje" / "today"; next day → "amanhã" / "tomorrow";
+        two days → "depois de amanhã" / "the day after tomorrow";
+        later this week (Monday–Sunday) → "esta sexta-feira" / "this Friday";
+        any day of next week → "a próxima segunda-feira" / "next Monday";
+        anything else, past included → "dia 23/02" / "23/02".
+    Saturday and Sunday are masculine in Portuguese: "este sábado", "o próximo domingo".
+    """
+    if start is None:
+        return ""
+    if now is None:
+        now = utc_to_wall_naive(utcnow_naive())
+    is_pt = (locale or "").startswith("pt")
+    days = (start.date() - now.date()).days
+    if days == 0:
+        return "hoje" if is_pt else "today"
+    if days == 1:
+        return "amanhã" if is_pt else "tomorrow"
+    if days == 2:
+        return "depois de amanhã" if is_pt else "the day after tomorrow"
+    week_start = now.date() - timedelta(days=now.weekday())
+    weeks_ahead = (start.date() - week_start).days // 7
+    weekday = _format_weekday(start, locale)
+    masculine = start.weekday() >= 5
+    if days > 2 and weeks_ahead == 0:
+        if is_pt:
+            return f"{'este' if masculine else 'esta'} {weekday}"
+        return f"this {weekday}"
+    if days > 0 and weeks_ahead == 1:
+        if is_pt:
+            return f"{'o próximo' if masculine else 'a próxima'} {weekday}"
+        return f"next {weekday}"
+    date = _format_day_month(start)
+    return f"dia {date}" if is_pt else date
+
+
+def template_preview_examples(locale, now=None) -> dict:
+    """PAD-549 (message-templates rule 19; numbering unconfirmed): one example value per
+    placeholder, for the settings help and live preview — a sample class tomorrow at 18:00 at
+    level "Intermédio" on court "Campo 2", built from the same formatters a real message uses,
+    so the example cannot drift from what is sent. Coach's locale, like every placeholder."""
+    if now is None:
+        now = utc_to_wall_naive(utcnow_naive())
+    start = (now + timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
+    is_pt = (locale or "").startswith("pt")
+    return {
+        "name": "Ana",
+        "level": "Intermédio" if is_pt else "Intermediate",
+        "weekday": _format_weekday(start, locale),
+        "time": start.strftime("%H:%M"),
+        "type": _CLASS_TYPE_WORDS.get("pt" if is_pt else "en", {}).get("academy", ""),
+        "date": _format_day_month(start),
+        "court": "Campo 2" if is_pt else "Court 2",
+        "day": format_relative_day(start, locale, now=now),
+        "class": "Treino de grupo" if is_pt else "Group training",
+        "when": _format_when(start, locale, dated=True).strip(),
+        "side": _side_phrase("left", locale),
+    }
+
+
+def render_template_preview(template, locale, now=None) -> str:
+    """PAD-549: the coach's template rendered through ``_format_template`` with the examples."""
+    return _format_template(template or "", **template_preview_examples(locale, now=now))
+
+
 def class_placeholders(source, locale) -> dict:
-    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
+    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders; PAD-549 adds ``{day}``.
 
     ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
     locale like every other placeholder (notifications.message-templates rule 12);
@@ -1937,6 +2008,8 @@ def class_placeholders(source, locale) -> dict:
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
         "date": _format_day_month(start),
         "court": (getattr(court, "name", None) or "") if court is not None else "",
+        # PAD-549: computed now, i.e. when the message is rendered and sent.
+        "day": format_relative_day(start, locale),
     }
 
 
@@ -5670,6 +5743,10 @@ def respond_to_waiting_list(
             player_id=player.id,
         ).first()
         if existing:
+            if not existing.is_active:
+                # PAD-547 (rule 20): reactivated by the student's own yes, the row is theirs now.
+                existing.standing_entry_id = None
+                existing.added_by = "student"
             existing.is_active = True
             existing.save()
         else:
@@ -5677,6 +5754,7 @@ def respond_to_waiting_list(
                 lesson_instance_id=lesson_instance_id,
                 player_id=player.id,
                 coach_id=coach.id,
+                added_by="student",  # PAD-547 (rule 20)
             ).create()
 
         if coach.user_id:
@@ -5694,23 +5772,107 @@ def respond_to_waiting_list(
     return {"action": "unknown"}
 
 
-def get_waiting_list(instance_id: int, coach_id: int) -> list[dict]:
-    entries = WaitingListEntry.query.filter_by(
-        lesson_instance_id=instance_id,
-        coach_id=coach_id,
-        is_active=True,
-    ).all()
-    result = []
-    for e in entries:
+def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict]:
+    """A class's active waiting list (notifications.waiting-list rules 5 and 20, PAD-547): each row
+    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation)."""
+    query = WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, is_active=True)
+    if coach_id is not None:
+        query = query.filter_by(coach_id=coach_id)
+    rows = []
+    for e in query.all():
+        standing = (
+            db.session.get(StandingWaitingListEntry, e.standing_entry_id) if e.standing_entry_id else None
+        )
         player = e.player
         user = player.user if player else None
-        result.append({
+        origin = "standing" if standing is not None else ("coach" if e.added_by == "coach" else "student")
+        key = (standing.created_at if standing else e.joined_at) or datetime.min
+        rows.append((key, e.id, {
             "id": e.id,
             "playerId": e.player_id,
             "playerName": user.name if user else None,
             "joinedAt": e.joined_at.isoformat() if e.joined_at else None,
-        })
-    return result
+            "origin": origin,
+            "standingEntryId": standing.id if standing else None,
+            "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
+        }))
+    return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
+
+
+def add_to_class_waiting_list(
+    coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
+    credits: int | None = None, expires_at: datetime | None = None,
+) -> dict:
+    """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
+    class's waiting list — this occurrence, or the whole series as a standing entry scoped to it.
+    No full-class or eligibility check (the engine decides when a spot opens); nothing is sent to
+    the student; the coach's views get ``waiting_list_changed``."""
+    from flask import abort, jsonify, make_response
+
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    if Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first() is None:
+        abort(404, "Not on your roster")
+    if player_id in set(instance.enrolled_player_ids):
+        abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
+
+    if scope == "series":
+        lesson = instance.lesson
+        if lesson is None or not lesson.is_recurring:
+            abort(400, "Only a recurring class has a series")
+        if credits is None or int(credits) < 1 or expires_at is None:
+            # #588 review: a series entry is paid for in whole classes, at least one.
+            abort(400, "credits (at least 1) and an end date are required")
+        entry = add_standing_waiting_list_entry(
+            coach_id, player_id, int(credits), expires_at=expires_at, lesson_id=lesson.id
+        )
+        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        if row is not None:
+            _publish_waiting_list_changed(row)
+        return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
+    if scope != "occurrence":
+        abort(400, "scope must be occurrence or series")
+
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+    if row is not None and row.is_active:
+        return {"action": "already_on_list", "entryId": row.id}
+    if row is None:
+        row = WaitingListEntry(lesson_instance_id=instance.id, player_id=player_id, coach_id=coach_id)
+        db.session.add(row)
+    row.is_active = True
+    row.coach_id = coach_id
+    row.standing_entry_id = None
+    row.added_by = "coach"
+    row.joined_at = utcnow_naive()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Two adds at once: the other committed the unique (instance, player) row first.
+        db.session.rollback()
+        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        return {"action": "already_on_list", "entryId": row.id if row else None}
+    _publish_waiting_list_changed(row)
+    return {"action": "added", "entryId": row.id}
+
+
+def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
+    """PAD-547 (notifications.waiting-list rule 21): the class's coach takes one row off; a
+    standing entry stays for its other classes; nothing is sent to the student."""
+    from flask import abort
+
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    row = WaitingListEntry.query.get_or_404(entry_id)
+    if row.coach_id != coach_id:
+        abort(403, "Not authorized")
+    if row.is_active:
+        row.is_active = False
+        db.session.commit()
+        _publish_waiting_list_changed(row)
+    return {"action": "removed", "entryId": row.id}
 
 
 def _waiting_list_candidates(
@@ -5974,6 +6136,8 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
+        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+            continue  # PAD-547 (rule 19): a series entry reaches only its series
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
@@ -6066,13 +6230,14 @@ def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
 
 def add_standing_waiting_list_entry(
     coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
-    *, expires_at: datetime | None = None,
+    *, expires_at: datetime | None = None, lesson_id: int | None = None,
 ) -> StandingWaitingListEntry:
     """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
-    (or, for the legacy callers, `duration_days` from now)."""
-    # Deactivate any existing active entry for this coach/player pair
+    (or, for the legacy callers, `duration_days` from now). PAD-547 (rule 19): ``lesson_id``
+    scopes it to one series; one active entry per coach, player and scope."""
+    # Deactivate any existing active entry for this coach/player pair in the same scope
     existing = StandingWaitingListEntry.query.filter_by(
-        coach_id=coach_id, player_id=player_id, is_active=True
+        coach_id=coach_id, player_id=player_id, is_active=True, lesson_id=lesson_id
     ).first()
     if existing:
         _deactivate_standing_entry(existing)
@@ -6080,6 +6245,7 @@ def add_standing_waiting_list_entry(
     entry = StandingWaitingListEntry(
         coach_id=coach_id,
         player_id=player_id,
+        lesson_id=lesson_id,
         credits_total=credits_total,
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
@@ -6142,6 +6308,9 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "expiresOn": standing_end_on(e),
             "createdAt": e.created_at.isoformat() if e.created_at else None,
             "activeClassCount": active_class_count,
+            # PAD-547 (rule 19): a series-scoped entry names its class.
+            "lessonId": e.lesson_id,
+            "lessonTitle": (e.lesson.title if e.lesson else None) if e.lesson_id else None,
         })
     return result
 
@@ -6166,6 +6335,8 @@ def _sync_standing_entries_for_new_instance(instance: LessonInstance, coach_id: 
         # B-293: an expired entry, or one that ends before this class, queues nothing.
         if entry.expires_at <= now or instance.start_datetime >= utc_to_wall_naive(entry.expires_at):
             continue
+        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+            continue  # PAD-547 (rule 19): a series entry reaches only its series
         existing = WaitingListEntry.query.filter_by(
             lesson_instance_id=instance.id,
             player_id=entry.player_id,
@@ -6214,3 +6385,4 @@ def get_notification_activity(coach_id: int, limit: int = 20) -> list[dict]:
             },
         })
     return result
+

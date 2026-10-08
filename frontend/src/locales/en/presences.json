@@ -80,7 +80,8 @@
       "triggerWeekEmpty": "Nothing this week",
       "triggerWeekShown_one": "{{count}} in the week shown",
       "triggerWeekShown_other": "{{count}} in the week shown",
-      "triggerWeekShownEmpty": "Nothing in the week shown"
+      "triggerWeekShownEmpty": "Nothing in the week shown",
+      "noPlayerMatches": "No player matches the search."
     },
     "column": {
       "name": "Player",

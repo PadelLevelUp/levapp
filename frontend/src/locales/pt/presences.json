@@ -80,7 +80,8 @@
       "triggerWeekEmpty": "Nada nesta semana",
       "triggerWeekShown_one": "{{count}} na semana mostrada",
       "triggerWeekShown_other": "{{count}} na semana mostrada",
-      "triggerWeekShownEmpty": "Nada na semana mostrada"
+      "triggerWeekShownEmpty": "Nada na semana mostrada",
+      "noPlayerMatches": "Nenhum jogador corresponde à pesquisa."
     },
     "column": {
       "name": "Jogador",
