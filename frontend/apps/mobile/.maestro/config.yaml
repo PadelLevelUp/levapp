@@ -112,6 +112,10 @@ executionOrder:
     # fixtures (27 needs the fresh seed's e2e-student-3), positions not load bearing.
     - 24-join-by-link
     - 25-claim-request
+    # 189 (PAD-528) adds a placeholder named like e2e-student in onFlowStart, asserts the
+    # duplicate badge, the one-tap merge dialog, preselection and the dry run, never sends the
+    # request, and deletes the placeholder in onFlowComplete (R-040).
+    - 189-merge-duplicate-preview
     - 26-message-by-username
     - 27-unknown-sender-block
     # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in
@@ -302,6 +306,17 @@ executionOrder:
     # 141 (PAD-487, mobile.android-runtime rule 2): the bottom field of the two native-header screens
     # stays above the keyboard; evidence is the screenshots (Maestro cannot see the keyboard).
     - 141-keyboard-clears-fields-under-native-header
+    - 169-invitee-outcomes
+    # 179 (PAD-525, classes.edit rule 10): going back mid-edit with an unsaved change asks
+    # "Descartar alterações?"; Discard leaves without saving; nothing unsaved asks nothing.
+    - 179-class-edit-leave-asks
+    # 180 (PAD-539, attendance.validation rule 18): the Presences trigger counts the whole
+    # backlog and names the shown week's share; a clean week does not read "nothing to validate".
+    - 180-presences-backlog-count
+    # 181 (PAD-524, classes.clone): "Clonar aula" opens the new-class screen prefilled, start
+    # empty, Create disabled; goes back without saving.
+    - 181-clone-class
+    - 170-class-waiting-list
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

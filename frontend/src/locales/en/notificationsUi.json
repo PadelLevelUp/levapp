@@ -18,7 +18,11 @@
       "yesRightNow": "Yes, right now",
       "yesAt": "Yes, at {{window}}",
       "approveAtWindowAria": "Approve invitations at window open",
-      "no": "No"
+      "no": "No",
+      "ignore": "Ignore",
+      "superseded": "These suggestions were recalculated — use the latest message.",
+      "recompute": "Suggest automatic invitations",
+      "preparing": "Preparing invitation suggestions…"
     }
   }
 }

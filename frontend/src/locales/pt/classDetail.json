@@ -47,6 +47,12 @@
     "couldNotCancelAttendance": "Não foi possível cancelar a presença",
     "deleteFailed": "Não foi possível eliminar a aula",
     "yourAttendance": "A tua presença",
-    "classGone": "Esta aula já não existe."
+    "classGone": "Esta aula já não existe.",
+    "unsavedChanges": {
+      "title": "Descartar alterações?",
+      "body": "As alterações que fizeste a esta aula ainda não foram guardadas.",
+      "discard": "Descartar",
+      "keepEditing": "Continuar a editar"
+    }
   }
 }

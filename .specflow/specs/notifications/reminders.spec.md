@@ -145,7 +145,30 @@ Automatically send class reminders to enrolled players at a configured time befo
     all counted as coming has nobody still owed a reminder, so `notifications.config` rule 10f's
     dialog never lists it.
 
+23. **No reminder for a student the coach already marked (PAD-546; numbering unconfirmed).** A
+    reminder pass skips a student whose attendance the coach has already recorded, present or
+    absent (justified or not): `Presence.status` is set, which only the coach's attendance mark
+    writes (`attendance.presence` rule 7). It is read by `_reminder_recipients` when the pass runs,
+    not when the job is armed, so it applies to every pass of the chain (the first reminder and each
+    follow-up), and a mark the coach clears before a pass brings that student's reminder back. The
+    late ask (rule 18) is not armed for a marked student either. A student's own answer already
+    stops reminders (`confirmed`, rule 3); a "no" sets `status` too, which changes nothing. The
+    past-due listing (`notifications.config` rule 10f) reads the same list, so a class whose only
+    owed students are marked is not listed.
+
 ### Acceptance Criteria
+
+#### A student the coach marked present or absent is not reminded (rule 23)
+- **Given** a class 48 h out with three enrolled students, the coach having marked Ana present and
+  Bruno absent (justified), Carla unmarked
+- **When** the reminder pass runs
+- **Then** only Carla receives a reminder
+
+#### The mark is read at send time (rule 23)
+- **Given** the same class with the reminder count 2, after the first pass reminded Carla only
+- **When** the coach clears Bruno's mark and marks Carla present, and the follow-up pass runs
+- **Then** Bruno receives his first reminder and Carla none
+
 
 #### A class created after its reminder time counts its students as coming (PAD-489)
 - **Given** a coach with the default timing (48 h before) and a student

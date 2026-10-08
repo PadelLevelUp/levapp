@@ -33,7 +33,8 @@ about anyone who is missing. Web and iOS ship it together (R-024).
    **Understand invites**. The list is a static registry in code, mirrored on both apps, not
    server data.
 3. **Understand invites** is a three-step flow on one screen:
-   - **Pick a class** — the coach's upcoming classes for the next 4 weeks, read from the existing
+   - **Pick a class** — the coach's upcoming classes for the next 4 weeks (each row names the class
+     and its weekday, day/month and time — "Qua, 14/10 às 18:00", PAD-517), read from the existing
      calendar feed (`calendar.view`), including non-materialized occurrences, filtered to those
      with at least one enrolled player. Selecting an occurrence resolves it to a `LessonInstance`
      through `get_or_materialize_instance` (R-001, `classes.instances` rule 1), exactly as opening

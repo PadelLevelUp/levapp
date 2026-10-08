@@ -7,9 +7,12 @@ import { useAuth } from "@/auth/AuthContext";
 import {
   acceptClaimRequest,
   listMyClaimRequests,
+  previewClaimRequest,
   rejectClaimRequest,
+  type MergePreview,
   type PlayerClaimRequest,
 } from "@/api/playerClaims";
+import { describeMergePlan } from "@levelup/config";
 import { cn } from "@/lib/utils";
 
 /**
@@ -157,7 +160,10 @@ function ClaimRequestRow({
       )}
       data-testid={`claim-request-${req.id}`}
     >
-      <p className="text-sm">{text}</p>
+      <div className="space-y-1">
+        <p className="text-sm">{text}</p>
+        <MergePreviewLines requestId={req.id} />
+      </div>
       <div className="flex shrink-0 gap-2">
         <Button size="sm" onClick={onAccept} disabled={busy} data-testid={`claim-accept-${req.id}`}>
           {busy ? t("players.claim.working") : t("players.claim.accept")}
@@ -172,6 +178,38 @@ function ClaimRequestRow({
           {t("players.claim.reject")}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * players.claim rule 5j (PAD-528): the dry run of this request, in words, above the
+ * accept button — what moves to this account and what the student already had. The
+ * merge cannot be undone, and the line says so. Silent while loading or on failure:
+ * the banner's own hint still describes the merge.
+ */
+function MergePreviewLines({ requestId }: { requestId: string }) {
+  const { t } = useTranslation();
+  const [plan, setPlan] = useState<MergePreview | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => previewClaimRequest(requestId))
+      .then((p) => {
+        if (!cancelled) setPlan(p);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId]);
+  if (!plan) return null;
+  const described = describeMergePlan(plan, t, "yours");
+  return (
+    <div className="text-xs text-muted-foreground" data-testid={`claim-preview-${requestId}`}>
+      <p>{described.moves ?? t("players.claim.previewNothing")}</p>
+      {described.kept && <p>{described.kept}</p>}
+      <p className="font-medium text-foreground">{t("players.claim.previewIrreversible")}</p>
     </div>
   );
 }

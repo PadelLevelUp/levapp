@@ -189,7 +189,9 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     - **no:** the "no" is final for the class (`notifications.invitations` rule 18), so the entry for
       that class is closed too, in the decline's commit. No credit is spent. A standing entry stays
       active for its other classes.
-    The coach recording the answer for the student settles the entry the same way.
+    The coach recording the answer for the student settles the entry the same way, and so does the
+    coach withdrawing the invitation (`notifications.invitations` rule 19, PAD-548): the entry
+    closes as on a "no", no credit is spent.
 16. **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado
@@ -199,6 +201,42 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     `waiting_list_filled` live event are retired: a waiting-list student who says yes gets the
     accept's `confirm` message, and the coach sees the same `notification_responded` event as for any
     invitation.
+
+18. **The coach adds a student to one class's waiting list (PAD-547; numbering unconfirmed).**
+    `POST /api/app/notify/class_waiting_list` with `{model, originalId, date, playerId, scope:
+    "occurrence"}`, addressed like a class edit (a virtual occurrence is materialised). The
+    student must be on the coach's roster (404 otherwise) and not in the class (409
+    `already_enrolled`). It is allowed **whether or not the class is full** and **without an
+    eligibility check**: being on the list means being asked first when a spot opens (rule 4),
+    and rules 4a–4c still decide at that moment. It writes, or reactivates, the
+    `(instance, player)` row with `added_by = "coach"`, `standing_entry_id` NULL and `joined_at`
+    now; a row already active (any origin) is left as it is and the answer says
+    `already_on_list`. It sends the student nothing — the invitation, if a spot opens, is the first
+    they hear (coordinator, 2026-10-07: no change of message volume). The coach's class views get
+    the `waiting_list_changed` live event.
+19. **…or to the whole series, as a standing entry scoped to that series (PAD-547; numbering
+    unconfirmed).** The same request with `scope: "series"`, `credits` and `expiresOn` creates a
+    standing entry (rule 2: same credits, same end date window, renewable) whose `lesson_id` is
+    the class's series. A scoped entry fans out (rules 3, 10) only to that series' upcoming
+    occurrences, existing and later materialised, never to the coach's other classes; a NULL
+    `lesson_id` keeps rule 3a's coach-wide reach. One active standing entry per coach, student
+    **and scope** (coach-wide, or one per series): adding a second for the same scope replaces the
+    first as before; a coach-wide entry and a series entry for the same student coexist, and a
+    class both reach holds one row (rule 10's reactivation). The series option is offered only for
+    a recurring class. The standing list (rule 6) shows a scoped entry with its class's title.
+20. **Each row says where it came from (PAD-547; numbering unconfirmed).** A row's `origin` is
+    `standing` when it came from a standing entry (coach-wide or series), else `coach` when
+    `added_by` is `coach`, else `student` (the student's own offer answer or wizard join, rules 1
+    and 14; rows from before PAD-547 read `student`). `added_by` is `student` on those two paths.
+    The class's list (`GET /api/app/notify/waiting_list/{instance_id}`, rule 5, and the class
+    detail payload's `waitingList`, coach only) carries `origin`, `playerId`, `playerName`,
+    `joinedAt` and, for a standing row, `standingEntryId` and `seriesScoped`, ordered as rule 4
+    asks them (join time).
+21. **The coach removes a row from one class's list (PAD-547; numbering unconfirmed).** `DELETE
+    /api/app/notify/class_waiting_list/{entry_id}` by the class's coach deactivates that row only,
+    whatever its origin — like the student's own leave (rule 14) — and a standing entry, coach-wide
+    or series, stays for its other classes. It sends the student nothing and publishes
+    `waiting_list_changed`. A row already inactive answers the same, writing nothing.
 
 ### Acceptance Criteria
 
@@ -379,3 +417,23 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **Given** a waiting-list student picked for a spot
 - **When** before the invitation takes its lock they answer "no" to an invitation for the class, or leave the waiting list
 - **Then** they are not invited and the spot stays open
+
+#### The coach puts a student on one class's waiting list (rule 18, PAD-547)
+- **Given** coach Ana's class "Terça 18h" on 2026-10-13 with one free place, and roster student Carla who is not in it
+- **When** Ana adds Carla to that class's waiting list for this class only
+- **Then** one active `WaitingListEntry` exists for that occurrence and Carla, `added_by = "coach"`, `standing_entry_id` NULL
+- **And** Carla receives no message, and when a place opens on that occurrence she is asked first (group 0)
+- **And** adding her again answers `already_on_list` and writes nothing
+
+#### The coach puts a student on a whole series (rule 19)
+- **Given** Ana's weekly series "Terça 18h" and another class of Ana's, "Quinta 19h"
+- **When** Ana adds Carla to "Terça 18h"'s waiting list for the whole recurrence, 3 credits, until 2026-12-31
+- **Then** a standing entry with `lesson_id` = that series exists, and Carla has an active row on every upcoming "Terça 18h" occurrence up to 2026-12-31 and none on "Quinta 19h"
+- **And** an occurrence of "Terça 18h" materialised later gains her row too
+- **And** a coach-wide standing entry Carla already had stays active beside it
+
+#### The class's list says where each student came from, and the coach removes one (rules 20–21)
+- **Given** an occurrence with three active rows: Bruno from a standing entry, Carla added by the coach, Dinis who joined from the wizard
+- **When** the coach reads the class's waiting list
+- **Then** their `origin` is `standing`, `coach` and `student`
+- **And** removing Bruno's row deactivates it, sends nothing, and leaves his standing entry active with its rows on his other classes

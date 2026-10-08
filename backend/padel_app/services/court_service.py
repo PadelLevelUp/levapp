@@ -48,25 +48,27 @@ def _clean_name(club_id, raw, *, exclude_id=None):
     return name
 
 
-def create_court(club_id, data):
+def create_court(club_id, data, *, commit=True):
     from padel_app.models import Court
 
     name = _clean_name(club_id, (data or {}).get("name"))
     existing = list_courts(club_id)
     court = Court(club_id=club_id, name=name, position=len(existing))
     db.session.add(court)
-    db.session.commit()
+    # PAD-533: the admin console passes commit=False; its @audited commits once.
+    db.session.commit() if commit else db.session.flush()
     return court
 
 
-def rename_court(court, data):
+def rename_court(court, data, *, commit=True):
     if "name" in (data or {}):
         court.name = _clean_name(court.club_id, data.get("name"), exclude_id=court.id)
-    db.session.commit()
+    # PAD-533: the admin console passes commit=False; its @audited commits once.
+    db.session.commit() if commit else db.session.flush()
     return court
 
 
-def delete_court(court):
+def delete_court(court, *, commit=True):
     """Rule 4: classes on the court keep running with no court (FK SET NULL is
     also applied explicitly, for SQLite in tests)."""
     from padel_app.models import Lesson, LessonInstance
@@ -77,10 +79,11 @@ def delete_court(court):
     for instance in LessonInstance.query.filter_by(court_id=court.id).all():
         instance.court_id = None
     db.session.delete(court)
-    db.session.commit()
+    # PAD-533: the admin console passes commit=False; its @audited commits once.
+    db.session.commit() if commit else db.session.flush()
 
 
-def reorder_courts(club_id, ids):
+def reorder_courts(club_id, ids, *, commit=True):
     """Rule 5: `ids` must be exactly the club's court ids."""
     courts = {c.id: c for c in list_courts(club_id)}
     try:
@@ -91,7 +94,8 @@ def reorder_courts(club_id, ids):
         raise InvalidCourtError("ids must list every court of the club exactly once")
     for position, court_id in enumerate(wanted):
         courts[court_id].position = position
-    db.session.commit()
+    # PAD-533: the admin console passes commit=False; its @audited commits once.
+    db.session.commit() if commit else db.session.flush()
     return list_courts(club_id)
 
 

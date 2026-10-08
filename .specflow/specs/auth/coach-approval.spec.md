@@ -189,8 +189,15 @@ it is designed to be switched off later without a data change.
   there can only ever reach the team.
 - Superadmins also get a native push for a pending coach, and the coach a push on approval:
   `notifications.request-alerts` (PAD-232).
-- OPEN: who the LevApp admin is operationally — today the only `is_superadmin` account is the
-  owner's. If a second admin is needed, flip the flag in the editor; no UI for that in v1.
+- Decision 2026-10-07 (owner): the approving staff are the `owner` and `operator` roles of
+  `admin.foundation` (`support` cannot approve); the pending-coach push goes to all of them. The
+  `/editor` data browser that used to flip `is_superadmin` is retired; roles are granted in the
+  console (`admin.foundation` rule 7).
 - Decision 2026-09-09 (owner, PAD-233): rejection disables the login (rules 10–13) and the
   coach may ask again. The `disabled` status is reused rather than a new column so no migration
   was needed; a deleted account cannot re-apply because deletion clears the email.
+- **Surface moving (2026-10-06, PAD-532, draft):** the approving surface of rules 2, 3, 7 and 9
+  (Settings → Admin and `/api/app/admin/*`) moves to the staff console and is removed from web
+  and iOS; the approval rules themselves are unchanged and the console calls the same services.
+  See `admin.approvals-and-users` (approvals) and `admin.clubs-and-switches` rule 4 (the gate).
+  Until that ships, the rules above describe production.

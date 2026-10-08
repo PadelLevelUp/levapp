@@ -28,11 +28,27 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 8. Coach actions (three):
    - **"Yes, right now"** → approval_status "approved" and invitations are sent right away, bypassing the invitation window
    - **"Yes, at {window open time}"** → approval_status "approved"; invitations are sent when the invitation window opens (per `invitation_start_timing`). The button label shows the concrete window-open datetime. `windowOpenAt` is sent as a naive ISO string on the club's wall clock (`notifications.invitations` rule 11, PAD-256); the clients decide "window still ahead" against the club's clock (`lisbonNow()`), not the device's (PAD-295)
-   - **"No"** → approval_status "dismissed"; the prompt is closed. The vacancy REMAINS OPEN (Vacancy.status unchanged) but the engine never sends invitations for it; the coach can still use the manual invitation flow (notifications.manual). Dismissal is terminal — the prompt cannot be re-approved
-   When the invitation window is already open, only **"Yes, right now"** and **"No"** are offered (the scheduled option is meaningless)
+   - **"Ignorar"** (action `dismiss`) → approval_status "dismissed"; the prompt is closed. The vacancy REMAINS OPEN (Vacancy.status unchanged) but the engine never sends invitations for it on its own; the coach can still use the manual invitation flow (notifications.manual). That prompt cannot be re-approved; the coach brings the vacancy back only by recomputing the suggestions from the class (rule 12). **PAD-545 (coordinator, 2026-10-07):** the chat message offers only the two send buttons — there is no "No" in the conversation, a coach who does not want to send simply does not press; "Ignorar" lives on the class's card
+   When the invitation window is already open, only **"Yes, right now"** is offered in the conversation (and "Ignorar" on the class card)
 9. Gating: `process_invitation_batches()` and the `invite_start` scheduler job skip vacancies with approval_status "pending" or "dismissed"; only "not_required" and "approved" vacancies are processed
 10. The waiting list waits for approval like everyone else: its group-0 invitations are invitations, so rule 9's gate holds them until the coach approves, and a dismissed vacancy never invites from the waiting list either
 11. If a vacancy is filled or expired before the coach decides (e.g. via the manual flow), the pending prompt becomes stale and any decision on it is a no-op
+12. **Recomputing the suggestions from the class (PAD-545, PAD-542; coordinator, 2026-10-07; numbering unconfirmed).**
+   The class view reads the class's suggestion state (`GET /api/app/notify/approval/instance/<id>`,
+   the class's coach only): `pending` with the newest pending bundle, `dismissed` when the coach
+   ignored them, or `none`. With `dismissed` it shows a **"Sugestão de convites automáticos"** button
+   instead of the names. Pressing it (`POST …/recompute`) computes the list **from scratch with the
+   class as it is now** — never the old list — and asks again: every open vacancy of the class that
+   is `pending` or `dismissed` is locked (the engine's lock order starts with the vacancy, ascending
+   id) and set back to `pending`, its one prompt is moved to a NEW bundle with the fresh queue, and one
+   new message carries that bundle to the Assistant conversation (rule 6), all in **one commit**.
+   Nothing is sent by the recompute: the coach decides on the new bundle as on any other. An
+   `approved` vacancy is never re-opened. A decision on an OLDER bundle answers `stale` for each of its
+   vacancies and changes nothing, so a message pressed long after cannot send a list computed
+   before; `respond_to_approval` locks each vacancy in the same order and re-reads its prompt before
+   deciding, so a decision racing a recompute is decided on one side of it. While the suggestions are
+   being computed (confirming presences, recomputing), both clients show "A preparar sugestões de
+   convites…" (PAD-542).
 
 ### Acceptance Criteria
 
@@ -81,6 +97,18 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **And** the engine never sends invitations for it (batch processor and scheduler skip it)
 - **And** the coach can still send manual notifications for the instance
 - **And** the prompt cannot be re-approved afterwards
+
+#### Ignored suggestions are recomputed from the class (rule 12)
+- **Given** a dismissed vacancy, and a student added to the roster since the first list
+- **When** the coach presses "Sugestão de convites automáticos"
+- **Then** the vacancy is "pending" again, a new bundle whose queue includes the new student is
+  posted to the Assistant conversation, and no invitation is sent
+
+#### An old message's yes after a recompute does nothing and says so (rule 12)
+- **Given** a recompute has replaced bundle A with bundle B
+- **When** the coach presses "Sim, agora mesmo" on bundle A's message
+- **Then** every vacancy answers "stale", nothing is sent, and the vacancy stays "pending"; a yes on
+  bundle B sends
 
 #### Batch processor skips unapproved vacancies
 - **Given** vacancies with approval_status "pending" and "dismissed"

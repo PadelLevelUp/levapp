@@ -622,6 +622,9 @@ class TestReminderSupersede:
                     lesson_instance_id=instance_id, player_id=ids["student_id"]
                 ).first()
                 presence.confirmed = False
+                # PAD-546 (reminders rule 23): the "no" also wrote `status = absent`, which a pass
+                # now reads as an attendance mark and skips; clear it too so the row is owed again.
+                presence.status = None
                 presence.save()
 
                 send_class_reminders(instance_id, now=t0 + timedelta(hours=1))

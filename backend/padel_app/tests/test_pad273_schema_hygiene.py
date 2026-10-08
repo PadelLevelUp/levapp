@@ -117,7 +117,7 @@ def test_the_migration_is_guarded_never_deletes_and_follows_pad_260():
     assert module.down_revision == "4ac05ae43639"
     assert {t for t, *_ in module.DEFAULTED} == {"presences", "lessons", "coach_levels", "evaluation_entries"}
     assert len(module.ASSOCIATIONS) == 9
-    assert {name for _t, name, _c, _p in module.UNIQUES} == UNIQUE_INDEXES
+    assert {name for _t, name, _c, _p in module.UNIQUES} == PAD273_MIGRATION_INDEXES
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +130,10 @@ def test_the_migration_is_guarded_never_deletes_and_follows_pad_260():
 UNIQUE_INDEXES = {
     "uq_coach_levels_coach_code",
     "uq_evaluation_categories_coach_name",
+    "uq_standing_entries_active_coach_player_scope",  # PAD-547: per coach, player and scope
+}
+# What PAD-273's own migration created; PAD-547's migration replaced the standing-list one.
+PAD273_MIGRATION_INDEXES = (UNIQUE_INDEXES - {"uq_standing_entries_active_coach_player_scope"}) | {
     "uq_standing_entries_active_coach_player",
 }
 

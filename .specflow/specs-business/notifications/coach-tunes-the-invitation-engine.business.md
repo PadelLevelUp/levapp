@@ -30,7 +30,8 @@ students, and occasionally auditing what the engine has done.
 1. The coach opens Settings → Notifications and turns on the automatic invitation engine.
 2. They set timing (how long before invitations start, how soon reminders go out), restrictions
    (max simultaneous invites, max per student per day, quiet hours — a window they choose, 22:00–07:00 unless they change it, on the club's clock — minimum
-   time before class), and tiebreakers (level, attendance, side, subscription status) for who gets
+   time before class, and — if they want — not inviting a student who already has a class that
+   day), and tiebreakers (level, attendance, side, subscription status) for who gets
    asked first.
 3. They define notification groups — ordered, rule-based buckets (level, side, subscription
    status) that shape the multi-round matching the engine uses when a spot opens. These are the

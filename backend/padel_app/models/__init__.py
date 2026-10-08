@@ -27,6 +27,7 @@ from .club_join_request import ClubJoinRequest
 from .player_invitation import PlayerInvitation
 from .coach_join_token import CoachJoinToken
 from .player_claim_request import PlayerClaimRequest
+from .player_merge import PlayerMerge
 from .evaluation_category import EvaluationCategory
 from .evaluation_entry import EvaluationEntry
 from .evaluation_record import EvaluationRecord
@@ -55,6 +56,12 @@ from .class_join_request import ClassJoinRequest
 from .digital_consent_age import DigitalConsentAge
 from .app_setting import AppSetting
 from .guardian_consent import GuardianConsent
+# admin.foundation (PAD-531): console roles and the append-only audit log. Imported
+# so create_all and Alembic see them; deliberately NOT in MODELS — the generic
+# editor is retired (PAD-532) and staff tables never go through it.
+from .admin_role import AdminRole
+from .delivery_incident import DeliveryIncident
+from .admin_audit_log import AdminAuditLog
 
 MODELS = {
     # NOTE: TokenBlocklist is deliberately excluded — it's internal JWT
@@ -89,6 +96,7 @@ MODELS = {
     "playerinvitation": PlayerInvitation,
     "coachjointoken": CoachJoinToken,
     "playerclaimrequest": PlayerClaimRequest,
+    "playermerge": PlayerMerge,
     "evaluationcategory": EvaluationCategory,
     "evaluationentry": EvaluationEntry,
     "evaluationrecord": EvaluationRecord,

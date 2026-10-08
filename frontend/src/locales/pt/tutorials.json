@@ -34,7 +34,8 @@
       "invitedPosition": "Convidado(a) na ronda {{round}}, posição {{rank}} — {{status}}",
       "roundReason": "Ronda {{round}}: {{reason}}",
       "changeClass": "Mudar de aula",
-      "changePlayer": "Mudar de aluno"
+      "changePlayer": "Mudar de aluno",
+      "classWhen": "{{weekday}}, {{day}} às {{time}}"
     },
     "rounds": {
       "everyone": "Todos os alunos elegíveis",
@@ -72,6 +73,7 @@
       "eligibility": "Está abaixo da barra de elegibilidade desta aula:",
       "excluded_by_coach": "Excluíste este aluno dos convites automáticos (Definições › Notificações › Restrições).",
       "inactive_account": "A conta não está ativa e as contas inativas estão excluídas.",
+      "has_class_same_day": "Já tem outra aula nesse dia e os alunos com aula nesse dia estão excluídos.",
       "unavailable": "Marcou-se como indisponível à hora desta aula.",
       "auto_invites_off": "Desligou os convites automáticos.",
       "no_round_matched": "Não cumpre os critérios de nenhuma ronda:",
