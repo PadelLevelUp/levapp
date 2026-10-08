@@ -78,6 +78,20 @@ describe("PlayerSelector (classes.create rule 10, classes.edit rule 9)", () => {
     expect(n.queryByTestId("player-selector-loading")).toBeNull();
     expect(rendered(n)).toContain("calendar.playerSelector.noParticipantsSelected");
   });
+
+  it("PAD-518: picking a student from search results clears the search; unticking does not", async () => {
+    const n = await renderNative(createElement(Holder, { players: ROSTER }));
+    await n.press("player-selector-tab-all");
+    await n.changeText("player-selector-search", "Student 3");
+    await n.press("player-selector-row-3");
+    expect(n.byTestId("player-selector-search").props.value).toBe("");
+    await n.press("player-selector-tab-participants");
+    expect(n.queryByTestId("player-selector-row-3")).not.toBeNull();
+    await n.press("player-selector-tab-all");
+    await n.changeText("player-selector-search", "Student 3");
+    await n.press("player-selector-row-3"); // unticks
+    expect(n.byTestId("player-selector-search").props.value).toBe("Student 3");
+  });
 });
 
 describe("PlayerSelector shows every student's level (PAD-527)", () => {

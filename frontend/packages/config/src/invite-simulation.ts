@@ -44,6 +44,27 @@ export function formatClubTime(iso: string | null | undefined): string {
   }
 }
 
+/**
+ * PAD-517 (settings.tutorials rule 3a): a calendar day ("yyyy-MM-dd") as the short weekday and
+ * "dd/mm" in the user's language — `{ weekday: "Qua", day: "14/10" }` / `{ weekday: "Wed", ... }` —
+ * for the tutorial's class list. Pure date arithmetic on the day itself: no time zone can move it.
+ */
+// A fixed table, not Intl: ICU's short weekday differs by runtime ("Quarta" on Node, other forms
+// on Hermes), and web and iOS must say the same thing. Sunday first, as Date.getUTCDay counts.
+const SHORT_WEEKDAYS = {
+  pt: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+} as const;
+
+export function classDayParts(date: string, language: string | undefined): { weekday: string; day: string } {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? "");
+  if (!m) return { weekday: "", day: date ?? "" };
+  const [, y, mo, d] = m;
+  const dow = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d))).getUTCDay();
+  const table = (language ?? "pt").startsWith("en") ? SHORT_WEEKDAYS.en : SHORT_WEEKDAYS.pt;
+  return { weekday: table[dow], day: `${d}/${mo}` };
+}
+
 /** Club-local "DD/MM HH:MM" for a naive-UTC ISO instant. */
 export function formatClubDateTime(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -136,7 +157,7 @@ export function sortGates(gates: InviteSimulationGate[]): InviteSimulationGate[]
  * rather than showing its raw i18n key (PAD-497: builds before it show the raw key). */
 const KNOWN_STAGES: ReadonlySet<string> = new Set<InviteExplain["stage"]>([
   "departing_player", "already_enrolled", "declined_this_class", "already_invited", "eligibility",
-  "excluded_by_coach", "inactive_account", "unavailable", "auto_invites_off", "no_round_matched",
+  "excluded_by_coach", "inactive_account", "has_class_same_day", "unavailable", "auto_invites_off", "no_round_matched",
   "offered_another_spot", "invited",
 ]);
 

@@ -46,6 +46,7 @@ const BASE: NotificationRestrictions = {
   quietHours: { enabled: true },
   excludedPlayers: { enabled: true, playerIds: ["42"] },
   excludeUnpaidSubscription: { enabled: false },
+  noSameDayClass: { enabled: false },
   cancellationDeadlineHours: 24,
 };
 
@@ -78,10 +79,11 @@ const ROWS = [
   "quietHours",
   "excludedPlayers",
   "excludeUnpaidSubscription",
+  "noSameDayClass",
   "cancellationDeadlineHours",
 ];
 
-describe("iOS shows the same nine restriction controls as web (PAD-433)", () => {
+describe("iOS shows the same ten restriction controls as web (PAD-433)", () => {
   it("renders every row of rule 14, in web's order", async () => {
     const { n } = await mount();
     const order = n.root.root
@@ -125,6 +127,13 @@ describe("edits report the whole restrictions object (PAD-433)", () => {
     const { n, onChange } = await mount();
     await n.toggle("restriction-quietHours-toggle");
     expect(onChange).toHaveBeenCalledWith({ ...BASE, quietHours: { enabled: false } });
+  });
+
+  it("the same-day switch is off and flips only its own flag (PAD-523, rule 6e)", async () => {
+    const { n, onChange } = await mount();
+    expect(n.byTestId("restriction-noSameDayClass-toggle").props["aria-checked"]).toBe(false);
+    await n.toggle("restriction-noSameDayClass-toggle");
+    expect(onChange).toHaveBeenCalledWith({ ...BASE, noSameDayClass: { enabled: true } });
   });
 
   it("the cancellation deadline is a plain scalar", async () => {

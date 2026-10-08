@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
-import { describeGate, describePriority, describeRules, describeSendStatus, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
+import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
 
 import type {
   CalendarEvent,
@@ -53,7 +53,7 @@ function playerName(player: Player): string {
 type Step = "class" | "player" | "results";
 
 export function UnderstandInvitesTutorial() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [classes, setClasses] = useState<CalendarEvent[] | null>(null);
   const [selectedClass, setSelectedClass] = useState<CalendarEvent | null>(null);
@@ -184,7 +184,8 @@ export function UnderstandInvitesTutorial() {
                     >
                       <span className="block font-medium">{event.title}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {event.date} · {event.startTime}
+                        {/* PAD-517: the weekday too — "Qua, 14/10 às 18:00". */}
+                        {t("tutorials.understandInvites.classWhen", { ...classDayParts(event.date, i18n.language), time: event.startTime })}
                       </span>
                     </button>
                   );

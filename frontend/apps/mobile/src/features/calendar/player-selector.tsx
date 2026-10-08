@@ -51,6 +51,8 @@ export function PlayerSelector({
   const { t } = useTranslation();
   const [tab, setTab] = React.useState("participants");
   const [search, setSearch] = React.useState("");
+  // PAD-518 (classes.create rule 10): picking a student from search results clears the
+  // search, so the coach can type the next name at once.
   const [filterLevelId, setFilterLevelId] = React.useState<string | null>(null);
 
   const isSearching = search.trim().length > 0;
@@ -89,7 +91,10 @@ export function PlayerSelector({
         accessibilityLabel={player.name}
         role="checkbox"
         accessibilityState={{ checked: isSelected }}
-        onPress={() => onToggle(playerId)}
+        onPress={() => {
+          onToggle(playerId);
+          if (isSearching && !isSelected) setSearch("");
+        }}
         className={cn(
           "flex-row items-center gap-3 rounded-lg p-2",
           isSelected && (outOfLevel ? "bg-warning/15" : "bg-primary/10"),

@@ -91,10 +91,11 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 10. **The coach chooses the students when creating a class, on web and in the mobile app (iOS and
     Android) (PAD-474, B-239).** Both create forms carry a participant picker (web: the add-class
     sheet's `PlayerSelector`; mobile: the new-class screen). It lists the coach's students, with a
-    search, a filter by level, and a mark on any student outside the class's level. **Every student's
-    level is visible (PAD-527):** a chip with the level code, in the primary colour when it is the
-    class's level, amber when it is another level or none ("No level"), neutral when the class has
-    no level; one rule for both shells (`@levelup/config` `classLevelMatch`). A chosen student
+    search (every typed word, in any order: `players.list` rule 3, PAD-516), a filter by level, and a
+    mark on any student outside the class's level. **Every student's level is visible (PAD-527):** a
+    chip with the level code, in the primary colour when it is the class's level, amber when it is
+    another level or none ("No level"), neutral when the class has no level; one rule for both shells
+    (`@levelup/config` `classLevelMatch`). A chosen student
     is sent in `playerIds` and joins the series roster (rule 5); `classes.instance-enrollment` rule 11
     tells them. The picker applies no cap at `maxPlayers`; it shows the count. **Every student
     in the list can be reached (PAD-502, B-271):** the list has a fixed height and scrolls inside
@@ -104,6 +105,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     chosen, the PAD-107 warning (`calendar.student-blockers` rule 9) runs before saving, after the
     overlap warning; if that lookup fails, the class still saves. Create runs no eligibility check
     (`eligibility.enforcement` rule 7d covers an edit that adds students).
+    **Picking from a search clears it (PAD-518).** When the coach ticks a student in the search
+    results, the search empties so the next name can be typed at once; on web the cursor stays in
+    the field. Unticking a student leaves the search as it was. The same picker serves the class
+    editor (`classes.edit` rule 9), so both get it, on both shells.
 
 ### Acceptance Criteria
 
@@ -175,3 +180,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **Then** the answer is 400 with `fields` `["max_players"]` / `["title"]` — both when both — and no class exists
 - **When** it is sent with `"maxPlayers": "6"`
 - **Then** the class is created with capacity 6
+
+#### Picking a student from a search clears it (rule 10, PAD-518)
+- **Given** the picker's search reads "Ana"
+- **When** the coach ticks Ana
+- **Then** Ana is chosen and the search is empty (web: with the cursor still in it)
+- **When** the coach searches "Ana" again and unticks her
+- **Then** the search still reads "Ana"

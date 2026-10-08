@@ -296,6 +296,79 @@ def _serialize_pending_player(presence: Presence, *, is_guest: bool) -> Dict[str
     }
 
 
+def _ended_instances_query(
+    coach_id: int,
+    cutoff: datetime,
+    *,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+):
+    """This coach's occurrences that have already run (``attendance.validation`` rule 3).
+
+    ``end_datetime <= cutoff``, not canceled, optionally inside ``[start, end]`` by start. The
+    listing loads these with their rows; the counts below filter them further. One place, so
+    the listing and every count agree on what "has already run" means.
+    """
+    q = (
+        db.session.query(LessonInstance)
+        .join(Lesson, LessonInstance.lesson_id == Lesson.id)
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        .filter(Association_CoachLesson.coach_id == coach_id)
+        .filter(LessonInstance.end_datetime <= cutoff)
+        .filter(LessonInstance.status != "canceled")
+    )
+    if start is not None:
+        q = q.filter(LessonInstance.start_datetime >= start)
+    if end is not None:
+        q = q.filter(LessonInstance.start_datetime <= end)
+    return q
+
+
+def _has_unvalidated_presence():
+    """The pending predicate (``attendance.validation`` rule 18, PAD-539): at least one presence
+    row on the occurrence that is not validated. ``IS NOT TRUE`` on purpose — the listing's
+    Python split treats anything but ``True`` as pending, and this must be the same test.
+    An occurrence with no rows has nothing to validate and is never pending (rule 1)."""
+    return (
+        db.session.query(Presence.id)
+        .filter(Presence.lesson_instance_id == LessonInstance.id)
+        .filter(Presence.validated.isnot(True))
+        .exists()
+    )
+
+
+def count_pending_validation_total(*, coach_id: int, now: Optional[datetime] = None) -> int:
+    """The coach's whole backlog of classes to validate (``attendance.validation`` rule 18,
+    PAD-539, B-342): every ended, non-canceled occurrence with an unvalidated presence row, no
+    lower bound on the date.
+
+    A count over the indexes (coach → lessons → occurrences → ``ix_presences_lesson_instance_id``),
+    never the listing's row load: the tab's trigger, the Presences badge and the dashboard's
+    validation item all read this one number (rule 23). Before PAD-539 each of them counted one
+    week, so classes left over from an earlier week read as nothing to validate.
+    """
+    cutoff = _as_club_wall(now or datetime.now(timezone.utc))
+    return int(
+        _ended_instances_query(coach_id, cutoff)
+        .filter(_has_unvalidated_presence())
+        .with_entities(func.count(func.distinct(LessonInstance.id)))
+        .scalar()
+        or 0
+    )
+
+
+def latest_pending_start(*, coach_id: int, now: Optional[datetime] = None) -> Optional[datetime]:
+    """When the most recent pending class started — the week the badge's deep link lands on
+    (``attendance.validation`` rule 23, PAD-539). ``None`` when nothing is pending."""
+    cutoff = _as_club_wall(now or datetime.now(timezone.utc))
+    return (
+        _ended_instances_query(coach_id, cutoff)
+        .filter(_has_unvalidated_presence())
+        .with_entities(func.max(LessonInstance.start_datetime))
+        .scalar()
+    )
+
+
 def list_pending_validation(
     *,
     coach_id: int,
@@ -318,20 +391,13 @@ def list_pending_validation(
     cutoff = _as_club_wall(now or datetime.now(timezone.utc))
 
     instances = (
-        db.session.query(LessonInstance)
-        .join(Lesson, LessonInstance.lesson_id == Lesson.id)
-        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Lesson.id)
+        _ended_instances_query(coach_id, cutoff, start=start, end=end)
         .options(
             joinedload(LessonInstance.lesson),
             joinedload(LessonInstance.presences)
             .joinedload(Presence.player)
             .joinedload(Player.user),
         )
-        .filter(Association_CoachLesson.coach_id == coach_id)
-        .filter(LessonInstance.start_datetime >= start)
-        .filter(LessonInstance.start_datetime <= end)
-        .filter(LessonInstance.end_datetime <= cutoff)
-        .filter(LessonInstance.status != "canceled")
         .order_by(LessonInstance.start_datetime.asc())
         .all()
     )
