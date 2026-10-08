@@ -489,3 +489,23 @@ def test_active_standing_entries_of_different_series_both_stay_active(app, world
     with app.app_context():
         rows = S.query.filter_by(player_id=world["st_player"]).all()
         assert len(rows) == 2 and all(r.is_active for r in rows)
+
+
+def test_a_placeholder_another_coach_also_holds_falls_back_to_the_students_accept(app, client, world, monkeypatch):
+    """#563 review: P1 is also on coach Rui's roster. A coach-alone merge would move Rui's relation
+    onto ana — ana joining Rui's roster unasked and Rui's record vanishing. So even though ana is on
+    Maria's roster, ana is asked, and nothing merges until she accepts."""
+    from padel_app.models import Association_CoachPlayer, Player, PlayerClaimRequest, PlayerMerge
+
+    _, rui, _, _ = _coach(app, username="rui528", club_name="Rui Club")
+    _relation(app, rui, world["ph_player"])
+    sent = _alerts(monkeypatch)
+    res = client.post(f"/api/app/player/{world['ph_player']}/claim-requests",
+                      json={"targetPlayerId": world["st_player"]}, headers=_auth(app, world["coach_user"]))
+    assert res.status_code == 201 and res.json["status"] == "pending", res.json
+    with app.app_context():
+        assert Player.query.get(world["ph_player"]) is not None
+        assert PlayerClaimRequest.query.one().status == "pending"
+        assert PlayerMerge.query.count() == 0
+        assert Association_CoachPlayer.query.filter_by(coach_id=rui, player_id=world["st_player"]).count() == 0
+    assert sent == [("claim.received", [world["st_user"]])]

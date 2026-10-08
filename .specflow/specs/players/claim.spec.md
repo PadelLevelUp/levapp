@@ -92,7 +92,10 @@ asks by exact username and the student accepts.
    coach's side" — the student connected to the coach, who already held a placeholder for them.
    It is `True` for a student who is not on that coach's roster (rule 4's username request, which
    the student accepts or rejects): a coach never attaches a student who is not already theirs
-   (decision 2026-09-06 item 4). Trigger A (the invite link) is the student's own act.
+   (decision 2026-09-06 item 4). It is also `True` when **another coach also holds the
+   placeholder** (coordinator, #563 review): rule 5a moves every coach relation of the placeholder
+   onto the student, so a coach-alone merge would put the student on that other coach's roster
+   unasked; the student decides instead. Trigger A (the invite link) is the student's own act.
 5. **Merge** — one service, `merge_placeholder_player_into(placeholder_player, claimant_user)`,
    one transaction, in this order:
    a. `Association_CoachPlayer`: for each placeholder relation, if the claimant already has a
@@ -262,6 +265,12 @@ asks by exact username and the student accepts.
 - **Then** the request is `accepted`, the merge has run, and `player_merges` has one row with
   `confirmed_by_user_id` = Maria's user and `trigger` = `coach_request`
 - **And** `ana` received no request alert and `GET /api/app/player-claim-requests` lists nothing for her
+
+#### A placeholder another coach also holds goes to the student (rule 4d)
+- **Given** placeholder `P1` on Maria's and Rui's rosters, and student `ana` on Maria's
+- **When** Maria picks `ana` for `P1`
+- **Then** the request is `pending`, nothing has merged, `ana` got the `claim.received` alert, and
+  `ana` is not on Rui's roster
 
 #### A student who is not on the roster is still asked (rule 4d)
 - **Given** placeholder `P1` on Maria's roster and student `zeca`, who is not

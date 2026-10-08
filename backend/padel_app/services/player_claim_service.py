@@ -621,7 +621,16 @@ def claim_consent_required(coach, placeholder_player, target_user):
     target_player = getattr(target_user, "player", None)
     if coach is None or target_player is None:
         return True
-    return _coach_relation(coach, target_player.id) is None
+    if _coach_relation(coach, target_player.id) is None:
+        return True
+    # #563 review (coordinator): the merge moves every coach relation of the placeholder onto the
+    # student (rule 5a). If another coach also holds this placeholder, a coach-alone merge would put
+    # the student on THAT coach's roster unasked — so the student decides, as for a non-roster target.
+    others = Association_CoachPlayer.query.filter(
+        Association_CoachPlayer.player_id == placeholder_player.id,
+        Association_CoachPlayer.coach_id != coach.id,
+    ).count()
+    return others > 0
 
 
 def _candidate_rows(coach, placeholder_player):
