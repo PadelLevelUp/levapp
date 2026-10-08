@@ -1,4 +1,4 @@
-import { Building2, ClipboardList, Home, LogOut, Shield, ToggleLeft } from "lucide-react";
+import { Activity, Building2, ClipboardList, Home, LogOut, Shield, ToggleLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet } from "react-router-dom";
 import clsx from "clsx";
@@ -14,6 +14,7 @@ export function Shell() {
     { to: "/", icon: Home, label: t("admin.shell.nav.home"), end: true },
     { to: "/roles", icon: Shield, label: t("admin.shell.nav.roles") },
     { to: "/audit", icon: ClipboardList, label: t("admin.shell.nav.audit") },
+    { to: "/engine-health", icon: Activity, label: t("admin.shell.nav.engineHealth") },
     // PAD-533
     { to: "/clubs", icon: Building2, label: t("admin.shell.nav.clubs") },
     { to: "/switches", icon: ToggleLeft, label: t("admin.shell.nav.switches") },

@@ -269,6 +269,12 @@ class Config:
     # 11); production refuses to start without it.
     ADMIN_GOOGLE_CLIENT_ID = (os.getenv("ADMIN_GOOGLE_CLIENT_ID") or "").strip()
     ADMIN_HOSTS = parse_admin_hosts(os.getenv("ADMIN_HOSTS", ""))
+    # admin.engine-health rule 5 (PAD-534): the other environment's admin API and the token this
+    # console presents to it; and the token this environment accepts from the other one. All three
+    # unset (the default) means the console shows the other environment as "not configured".
+    ADMIN_PEER_URL = os.getenv("ADMIN_PEER_URL", "")
+    ADMIN_PEER_TOKEN = os.getenv("ADMIN_PEER_TOKEN", "")
+    ADMIN_PEER_INBOUND_TOKEN = os.getenv("ADMIN_PEER_INBOUND_TOKEN", "")
     ADMIN_STAFF_DOMAIN = ADMIN_STAFF_DOMAIN_DEFAULT
     ADMIN_JWT_AUDIENCE = ADMIN_JWT_AUDIENCE_DEFAULT
     # Rule 3 (owner decision 2026-10-07): 12 hours, no silent refresh.

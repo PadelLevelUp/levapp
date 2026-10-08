@@ -88,7 +88,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    The tick opens every such class it can see, so a deploy or a save that lands inside open
    windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
    measured on staging before merge). A save still sends nothing itself (config rule 10).
-2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
+2. Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
 2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
    class as close to even as possible. The count is the players holding a spot (`effective_filled_spots`'s predicate: an
@@ -104,6 +104,22 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    not rewritten. There is no per-class or coach-wide opt-out: the owner's words ("invite players in a
    way that makes the class simetrical if possible") named none, so balancing is the default for
    every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
+2c. **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
+   option A).** When a player's cancellation opens a vacancy, the vacancy's
+   side is the side the class needs, not automatically the leaver's. It is counted as rule 2b counts:
+   the players still holding a spot, minus the leaver, plus the sides of the class's other open
+   vacancies. The spot takes `left` or `right`, whichever has fewer. **On a tie it keeps the
+   leaver's side**, which may be `both` or none. So several freed spots balance across one another,
+   each counted as its side for the next, whether they open together or one by one. A class of 6 left
+   and 3 right whose two leavers both played left ends 5 / 4: the first spot asks right (it counts
+   5 / 3 if the second leaver still holds their place, 4 / 3 if both are already out), and the second
+   counts 4 / 4 with that spot and keeps left. The side is chosen under the class lock that already
+   serialises vacancy creation (rule 10), so two cancellations at once still see each other's spot;
+   nothing in that section commits before the new vacancy does (the coach's settings are read first).
+   As in rule 2b, if no player on the coach's roster plays `left` or `right`, the leaver's side is
+   kept as before; balancing ranks and orders and is never an eligibility bar. Open vacancies created
+   before this rule keep their side. The invite simulation shows the side this rule would choose
+   (`notifications.invite-simulation` rule 9).
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -831,3 +847,23 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **When** the coach's withdrawal and Dinis's yes run at once on two connections
 - **Then** either Dinis is enrolled, the invitation is `confirmed` and the withdrawal answered `confirmed`, or Dinis is not enrolled, the invitation is withdrawn and the yes answered `spot_filled`
 - **And** the same cell fails when the withdrawal takes no vacancy or class lock
+
+#### A freed spot asks the side the class is short of (rule 2c, PAD-541)
+- **Given** a class of 9 whose players play 6 left and 3 right, and two left-side players who cancel
+- **When** their vacancies open, one after the other or at the same time
+- **Then** the first asks `right` (5 / 3 one at a time, 4 / 3 with both already out) and the second asks `left` (4 / 4 counting that spot; a tie keeps the leaver's side), so the class can end 5 / 4
+
+#### A tie keeps the leaver's side (rule 2c)
+- **Given** a class of 3 left and 3 right still coming, and a right-side leaver
+- **When** the leaver's vacancy opens
+- **Then** it asks `right`, as before PAD-541
+
+#### No sided roster keeps the leaver's side (rule 2c)
+- **Given** a coach whose roster has no `left` or `right` player
+- **When** a player cancels
+- **Then** the vacancy keeps the leaver's side (none), exactly as before
+
+#### Two cancellations at once still balance (rule 2c, Postgres)
+- **Given** the 6 left / 3 right class above
+- **When** both left-side leavers' vacancies are created on two connections at once
+- **Then** the two vacancies are one `right` and one `left`, never two `right`
