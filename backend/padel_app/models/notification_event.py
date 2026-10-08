@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -41,6 +41,12 @@ class NotificationEvent(db.Model, model.Model):
     # unanswered or when the invitation ended without one (retired, class over). A "no" is final
     # for the class occurrence; only this column says a "no" was given.
     answer = Column(String(8), nullable=True)
+    # PAD-548 (invitations rule 9): who recorded ``answer`` — 'student' | 'coach'; NULL while
+    # unanswered. PAD-548 (rule 19): when the coach withdrew a live invitation. The row is then
+    # ``expired`` with ``answer`` NULL, like a retired one; this stamp is the difference, and the
+    # engine reads it as a "no" for the occurrence (rule 18).
+    answered_by = Column(String(8), nullable=True)
+    withdrawn_by_coach_at = Column(DateTime, nullable=True)
 
     lesson_instance = relationship("LessonInstance")
     player = relationship("Player")

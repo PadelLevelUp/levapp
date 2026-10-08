@@ -251,6 +251,8 @@ class Config:
     LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # auth.email-verification rule 13 (PAD-269): send and confirm share one bucket.
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
+    # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
+    AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.

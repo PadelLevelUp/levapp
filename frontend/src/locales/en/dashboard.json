@@ -73,6 +73,8 @@
         "title_other": "You have {{count}} classes to validate",
         "thisWeek": "This week",
         "lastWeek": "Last week",
+        "weeksAgo_one": "{{count}} week ago",
+        "weeksAgo_other": "{{count}} weeks ago",
         "review": "Review"
       },
       "invite": {

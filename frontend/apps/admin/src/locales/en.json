@@ -6,6 +6,8 @@
         "home": "Home",
         "roles": "Access",
         "audit": "Audit log",
+        "clubs": "Clubs",
+        "switches": "Switches",
         "engineHealth": "Engine health"
       },
       "signOut": "Sign out",
@@ -98,6 +100,62 @@
       "error": "Something went wrong.",
       "cancel": "Cancel",
       "confirm": "Confirm"
+    },
+    "clubs": {
+      "title": "Clubs",
+      "lead": "Fix a club, its courts and which coaches belong to it. Clubs are never created or deleted here.",
+      "search": "Search by name",
+      "empty": "No club matches.",
+      "name": "Name",
+      "description": "Description",
+      "location": "Location",
+      "coaches": "Coaches",
+      "players": "Players",
+      "courts": "Courts",
+      "lessons": "Classes",
+      "detailLead": "Every change is recorded in the audit log.",
+      "fields": "Details",
+      "save": "Save",
+      "saved": "Saved.",
+      "up": "Move up",
+      "down": "Move down",
+      "rename": "Rename",
+      "renamePrompt": "New court name",
+      "delete": "Delete",
+      "deleteConfirm": "Delete {{name}}? Classes on it keep running with no court.",
+      "newCourt": "New court name",
+      "addCourt": "Add court",
+      "unlink": "Unlink",
+      "coachId": "Coach id",
+      "link": "Link coach",
+      "coachHasNoClub": "Done. That coach now belongs to no club."
+    },
+    "switches": {
+      "title": "Switches",
+      "lead": "Switch a client capability off for everyone, without a release. Takes effect within 30 seconds.",
+      "on": "On",
+      "off": "Off",
+      "kind": {
+        "feature": "Feature",
+        "compat": "Compatibility"
+      },
+      "effect": {
+        "open-spots": "Off: no student sees open spots in their calendar.",
+        "evaluations": "Off: the shared-evaluation block disappears from the student dashboard.",
+        "class-type-defaults": "Off: every app is told a class's open-spot setting comes from the coach, as old apps are. The value shown is the same.",
+        "coach-invite-email": "Off: accepting a coach invitation no longer requires an email, as in old apps.",
+        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident."
+      },
+      "reasonShown": "Reason: {{reason}}",
+      "changed": "Last changed {{at}} by {{by}}",
+      "reasonPlaceholder": "Why (required to switch off)",
+      "reasonRequired": "Write a reason of at least 5 characters.",
+      "turnOff": "Switch off",
+      "turnOn": "Switch on",
+      "ownerOnly": "Only the owner can change this.",
+      "confirmOff": {
+        "terms-acceptance": "Switching this off means new accounts are created without accepting the Terms, and no acceptance is recorded for them. That has legal impact. Switch it off only for an incident, and switch it back on as soon as it is fixed. Continue?"
+      }
     },
     "engineHealth": {
       "title": "Engine health",

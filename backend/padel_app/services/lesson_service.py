@@ -623,7 +623,11 @@ def _court_override(data, lesson):
     return court if court != (lesson.court_id if lesson is not None else None) else None
 
 
-def edit_lesson_instance_helper(data, lesson_instance=None):
+def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
+    """Edit one occurrence. ``series=True`` (PAD-515 review, classes.edit rule 9): the edit is a
+    series edit reaching an occurrence already materialised, not the coach's hand on this one —
+    an added student is enrolled as ``roster`` (told once by the series add, not once per
+    occurrence), and a removal leaves a presence the coach has validated where it is."""
     if not lesson_instance and not data.get("lesson_instance_id"):
         raise ValueError("Need lesson_instance or lesson_instance_id")
 
@@ -679,9 +683,15 @@ def edit_lesson_instance_helper(data, lesson_instance=None):
     # PAD-259 (classes.instance-enrollment rules 4 and 7): one writer, and a
     # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
-        enrol(player_id, lesson_instance, "coach")
+        enrol(player_id, lesson_instance, "roster" if series else "coach")
 
     for player_id in data.get("remove_player_ids", []):
+        if series:
+            kept = Presence.query.filter_by(
+                player_id=int(player_id), lesson_instance_id=lesson_instance.id, validated=True
+            ).first()
+            if kept is not None:
+                continue  # the coach's validated record is theirs to change, on the attendance sheet
         unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
@@ -1314,18 +1324,27 @@ def _apply_future_edit_to_lesson(*, lesson, event_date, new_date, payload):
 
 
 def _edit_future_instances_for_lesson(*, lesson, from_date, payload):
+    """A "this and future" edit reaching the occurrences already materialised from the boundary
+    (classes.edit rule 9; PAD-515). Occurrences that have ended or were canceled are left as they
+    were: an ended one is a record (its attendance is the coach's), a canceled one has nobody to
+    seat. The rest are edited as part of the series (``series=True``)."""
+    from padel_app.utils.dates import club_now_naive
+
     from_dt = datetime.combine(from_date, time.min)
+    now = club_now_naive()
     instances = (
         LessonInstance.query
         .filter(LessonInstance.lesson_id == lesson.id)
         .filter(LessonInstance.start_datetime >= from_dt)
+        .filter(LessonInstance.end_datetime > now)
+        .filter(LessonInstance.status != "canceled")
         .all()
     )
 
     for inst in instances:
         inst_payload = dict(payload)
         inst_payload["date"] = inst.start_datetime.date().strftime("%Y-%m-%d")
-        edit_lesson_instance_helper(inst_payload, inst)
+        edit_lesson_instance_helper(inst_payload, inst, series=True)
 
 
 def _clear_court_overrides(lesson, from_date):
@@ -1416,7 +1435,77 @@ def _is_hh_mm(value):
     return isinstance(value, str) and _HH_MM.match(value) is not None
 
 
+def _free_places(instance) -> int:
+    return (instance.effective_max_players or 0) - instance.effective_filled_spots
+
+
+def _future_occurrences(lesson_ids) -> list:
+    from padel_app.utils.dates import club_now_naive
+
+    ids = [i for i in lesson_ids if i is not None]
+    if not ids:
+        return []
+    return (
+        LessonInstance.query
+        .filter(LessonInstance.lesson_id.in_(ids),
+                LessonInstance.start_datetime > club_now_naive(),
+                LessonInstance.status.notin_(("canceled", "completed")))
+        .all()
+    )
+
+
 def edit_class_service(data):
+    """Scope-aware class edit. Returns (result_dict, http_status_code).
+
+    PAD-552 (notifications.invitations rule 13a): once the WHOLE edit is written — capacity, the
+    roster, and the class's own flags (automatic invitations, notifications, eligibility), on
+    every occurrence it reached — each of the class's future occurrences brings its vacancies in
+    line (`vacancies_after_class_edit`): the reconcile runs, and an occurrence with more free
+    places than before the edit (a higher capacity, a student taken off) opens them under the
+    engine's gates. The free places are read before anything is written, per occurrence, so a
+    "this and future" edit (the lesson is edited before its occurrences) still sees the rise.
+    """
+    event = data.get("event") or {}
+    lesson_id = None
+    try:
+        if event.get("model") == "LessonInstance":
+            _target = LessonInstance.query.get(event.get("originalId"))
+            lesson_id = _target.lesson_id if _target else None
+        elif event.get("model") == "Lesson":
+            lesson_id = int(event.get("originalId"))
+    except (TypeError, ValueError):
+        lesson_id = None
+    _lesson = Lesson.query.get(lesson_id) if lesson_id else None
+    lesson_cap_before = (_lesson.max_players or 0) if _lesson else 0
+    free_before = {inst.id: _free_places(inst) for inst in _future_occurrences([lesson_id])}
+
+    result, status = _edit_class_service(data)
+    if status not in (200, 201):
+        return result, status
+
+    from padel_app.services.notification_service import vacancies_after_class_edit
+
+    db.session.expire_all()
+    seen = set()
+    candidates = _future_occurrences([lesson_id, result.get("id") if isinstance(result, dict) else None])
+    candidates += [i for i in (LessonInstance.query.get(k) for k in free_before) if i is not None]
+    for inst in candidates:
+        if inst.id in seen:
+            continue
+        seen.add(inst.id)
+        before = free_before.get(inst.id)
+        if before is None:
+            # Materialised by this edit: before it, the occurrence had the lesson's capacity.
+            before = lesson_cap_before - inst.effective_filled_spots
+        try:
+            vacancies_after_class_edit(inst, place_freed=_free_places(inst) > before)
+        except Exception:  # noqa: BLE001 — the edit is committed; the tick reconciles later
+            db.session.rollback()
+            _log_exception("PAD-552: vacancies after the edit of instance %s failed", inst.id)
+    return result, status
+
+
+def _edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
     scope = data.get("scope")
@@ -1662,6 +1751,18 @@ def edit_class_service(data):
             lesson=lesson,
             event_date=event_date,
             new_date=new_date,
+            payload=payload,
+        )
+        # PAD-515 (classes.edit rule 9; B-343): the occurrence the coach is on, and any
+        # later one, may already be materialised — both shells keep event.model="Lesson"
+        # for an occurrence of a series after a read or an attendance confirm materialised
+        # it (the PAD-335 seam B-046 named for the single scope). A future edit that only
+        # touched the series left those occurrences — the current one first — with the old
+        # roster, title and time, so an added student appeared from the next virtual
+        # occurrence on. Walk them from the boundary, as the LessonInstance path does.
+        _edit_future_instances_for_lesson(
+            lesson=lesson_to_edit,
+            from_date=from_date,
             payload=payload,
         )
         if "court" in payload:

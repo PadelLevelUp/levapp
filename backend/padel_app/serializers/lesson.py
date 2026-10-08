@@ -1,3 +1,4 @@
+from sqlalchemy.orm import selectinload
 import json
 from padel_app.tools.tools import iso_date
 from padel_app.serializers.player import serialize_player
@@ -17,6 +18,26 @@ _INVITATION_STATUS_RANK = {
     "sent": 1,
     "queued": 0,
 }
+
+
+def invitation_outcome(event) -> str:
+    """PAD-548 (calendar.event-detail rule 16): the one word both shells render for an invitee,
+    decided here so no client derives a label from ``status``. First match wins:
+    confirmed → accepted; a recorded "no" → declined; withdrawn by the coach → withdrawn;
+    still live → pending; a late yes, or the spot went to someone else → spot_filled;
+    otherwise (the class started, a manual invitation lapsed) → expired."""
+    if event.status == "confirmed":
+        return "accepted"
+    if event.answer == "no":
+        return "declined"
+    if getattr(event, "withdrawn_by_coach_at", None) is not None:
+        return "withdrawn"
+    if event.status in ("sent", "queued"):
+        return "pending"
+    vacancy = getattr(event, "vacancy", None)
+    if event.answer == "yes" or (vacancy is not None and vacancy.status == "filled"):
+        return "spot_filled"
+    return "expired"
 
 
 def _invitation_precedence(event):
@@ -252,7 +273,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             )
         # One row per STUDENT, not per invite record (PAD-72).
         notification_events = dedupe_invitation_events(
-            notification_query.order_by(NotificationEvent.id).all()
+            # PAD-548: `invitation_outcome` reads each row's vacancy; load them in one query.
+            notification_query.options(selectinload(NotificationEvent.vacancy)).order_by(NotificationEvent.id).all()
         )
 
         training_rows = LessonInstanceTraining.query.filter_by(
@@ -323,6 +345,10 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                             else "Unknown"
                         ),
                         "status": ev.status,
+                        # PAD-548 (calendar.event-detail rule 16)
+                        "outcome": invitation_outcome(ev),
+                        "answer": ev.answer,
+                        "answeredBy": ev.answered_by,
                     }
                     for ev in notification_events
                 ],
