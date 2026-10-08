@@ -52,6 +52,8 @@ onFlowComplete:
 - tapOn:
     id: "class-waiting-list-search"
 - inputText: "Student Two"
+# Close the keyboard first: it can cover the sheet's scope and confirm buttons (Session D, 2026-10-08).
+- pressKey: Enter
 - extendedWaitUntil:
     visible:
       id: "class-waiting-list-candidate-${output.two.playerId}"
