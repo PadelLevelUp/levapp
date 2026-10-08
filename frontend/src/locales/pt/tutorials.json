@@ -34,7 +34,8 @@
       "invitedPosition": "Convidado(a) na ronda {{round}}, posição {{rank}} — {{status}}",
       "roundReason": "Ronda {{round}}: {{reason}}",
       "changeClass": "Mudar de aula",
-      "changePlayer": "Mudar de aluno"
+      "changePlayer": "Mudar de aluno",
+      "classWhen": "{{weekday}}, {{day}} às {{time}}"
     },
     "rounds": {
       "everyone": "Todos os alunos elegíveis",

@@ -60,3 +60,4 @@ export function profileIncompleteBodyKey(missing: readonly ("level" | "side")[])
 }
 export * from "./waiting-list-first";
 export * from "./invitation-outcome";
+export * from "./name-search";
