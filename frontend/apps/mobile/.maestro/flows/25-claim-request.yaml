@@ -39,10 +39,27 @@ appId: com.padellevelup.app
     visible:
       id: "player-invite-link"
     timeout: 20000
-- back
-# Open the player we just created.
+# PAD-556: `back` is Android-only (a no-op on iOS), so close the invite dialog by its
+# close button; closing it returns to the roster.
 - tapOn:
-    text: "Maestro Claimable"
+    id: "dialog-close"
+# Open the player we just created. The roster is paginated A-Z and a new row can sit on a
+# later page, so filter by name first. Tap a row by id, not by text: the search field
+# holds the same text.
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "Maestro Claimable"
+- extendedWaitUntil:
+    notVisible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn:
+    id: "player-card-.*"
 - extendedWaitUntil:
     visible:
       id: "player-detail"
