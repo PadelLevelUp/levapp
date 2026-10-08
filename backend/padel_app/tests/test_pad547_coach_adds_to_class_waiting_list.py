@@ -306,3 +306,32 @@ def test_one_active_standing_entry_per_coach_player_and_scope(app):
             with pytest.raises(IntegrityError):
                 db.session.commit()  # a second active entry in the same scope is refused
             db.session.rollback()
+
+
+# ── #588 review: a coach-added row is group 0; credits below 1 are refused ───
+
+def test_a_coach_added_row_is_asked_first_as_group_zero(app, monkeypatch):
+    from padel_app.tests.helpers import pin_clock
+    from padel_app.tests.test_pad446_waiting_list_group_zero import NOW as WL_NOW, _invites, _io, _seed, _trigger
+
+    pin_clock(monkeypatch, WL_NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, (r0, r1, carla) = _seed(enrolled=0, candidates=3, max_players=1, max_sim=1)
+        assert _add(coach_id, instance_id, carla, scope="occurrence")["action"] == "added"
+        _trigger(instance_id, coach_id)
+        assert _invites(instance_id) == [(carla, 0)], _invites(instance_id)
+
+
+def test_a_series_entry_needs_at_least_one_credit(app, monkeypatch):
+    from padel_app.utils.dates import utcnow_naive
+
+    _quiet(monkeypatch)
+    ids = _setup(app)
+    series = _add_class(app, ids, days=3, title="Terça 18h", recurring=True)
+    carla = _student(app, ids, "carla")
+    with app.app_context():
+        for credits in (0, -3):
+            with pytest.raises(HTTPException) as e:
+                _add(ids["coach_id"], series["instance_id"], carla, scope="series", credits=credits,
+                     expires_at=utcnow_naive() + timedelta(days=10))
+            assert e.value.code == 400

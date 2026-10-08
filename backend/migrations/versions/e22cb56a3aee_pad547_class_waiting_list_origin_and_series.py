@@ -14,7 +14,8 @@ Create Date: 2026-10-07
   ``uq_standing_entries_active_coach_player_scope`` (coach_id, player_id, COALESCE(lesson_id, 0))
   WHERE is_active.
 
-Idempotent: each step checks what is there first.
+Idempotent: each step checks what is there first; the indexes use IF [NOT] EXISTS, since the
+inspector cannot reflect an expression index (#588 review).
 """
 import sqlalchemy as sa
 from alembic import op
@@ -45,21 +46,17 @@ def upgrade():
             batch.create_foreign_key(
                 "standing_waiting_list_entries_lesson_id_fkey", "lessons", ["lesson_id"], ["id"], ondelete="CASCADE"
             )
-    indexes = _indexes("standing_waiting_list_entries")
-    if OLD_INDEX in indexes:
-        op.drop_index(OLD_INDEX, table_name="standing_waiting_list_entries")
-    if NEW_INDEX not in indexes:
-        op.create_index(
-            NEW_INDEX, "standing_waiting_list_entries",
-            ["coach_id", "player_id", sa.text("COALESCE(lesson_id, 0)")], unique=True,
-            postgresql_where=sa.text("is_active"), sqlite_where=sa.text("is_active"),
-        )
+    # Raw IF [NOT] EXISTS: the inspector cannot reflect an expression index (#588 review), so a
+    # `_indexes()` guard never sees NEW_INDEX and a second run failed with "already exists".
+    op.execute(f"DROP INDEX IF EXISTS {OLD_INDEX}")
+    op.execute(
+        f"CREATE UNIQUE INDEX IF NOT EXISTS {NEW_INDEX} ON standing_waiting_list_entries "
+        "(coach_id, player_id, COALESCE(lesson_id, 0)) WHERE is_active"
+    )
 
 
 def downgrade():
-    indexes = _indexes("standing_waiting_list_entries")
-    if NEW_INDEX in indexes:
-        op.drop_index(NEW_INDEX, table_name="standing_waiting_list_entries")
+    op.execute(f"DROP INDEX IF EXISTS {NEW_INDEX}")
     if "lesson_id" in _columns("standing_waiting_list_entries"):
         # Series-scoped entries cannot survive the old one-per-coach-and-player index. Their
         # fanned-out rows go first, or SET NULL would leave them looking like student requests.
@@ -71,11 +68,10 @@ def downgrade():
         with op.batch_alter_table("standing_waiting_list_entries") as batch:
             batch.drop_constraint("standing_waiting_list_entries_lesson_id_fkey", type_="foreignkey")
             batch.drop_column("lesson_id")
-    if OLD_INDEX not in _indexes("standing_waiting_list_entries"):
-        op.create_index(
-            OLD_INDEX, "standing_waiting_list_entries", ["coach_id", "player_id"], unique=True,
-            postgresql_where=sa.text("is_active"), sqlite_where=sa.text("is_active"),
-        )
+    op.execute(
+        f"CREATE UNIQUE INDEX IF NOT EXISTS {OLD_INDEX} ON standing_waiting_list_entries "
+        "(coach_id, player_id) WHERE is_active"
+    )
     if "added_by" in _columns("waiting_list_entries"):
         with op.batch_alter_table("waiting_list_entries") as batch:
             batch.drop_column("added_by")

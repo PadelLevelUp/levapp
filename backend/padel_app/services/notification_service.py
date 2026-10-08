@@ -5823,8 +5823,9 @@ def add_to_class_waiting_list(
         lesson = instance.lesson
         if lesson is None or not lesson.is_recurring:
             abort(400, "Only a recurring class has a series")
-        if not credits or expires_at is None:
-            abort(400, "credits and an end date are required")
+        if credits is None or int(credits) < 1 or expires_at is None:
+            # #588 review: a series entry is paid for in whole classes, at least one.
+            abort(400, "credits (at least 1) and an end date are required")
         entry = add_standing_waiting_list_entry(
             coach_id, player_id, int(credits), expires_at=expires_at, lesson_id=lesson.id
         )
