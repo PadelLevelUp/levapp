@@ -12,6 +12,7 @@ from padel_app.modules.frontend_api import (
 from padel_app.utils.dates import club_now_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
+    withdraw_invitation,
     get_config_dict,
     update_config,
     send_class_reminders,
@@ -492,6 +493,14 @@ def coach_respond():
     action = data.get("action")  # "yes" | "no"
     result = coach_respond_to_notification(notification_event_id, action, coach.id)
     return jsonify(result)
+
+
+@bp.delete("/invitations/<int:event_id>")
+@jwt_required()
+def withdraw_invitation_route(event_id: int):
+    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation."""
+    coach = _current_coach()
+    return jsonify(withdraw_invitation(event_id, coach.id))
 
 
 @bp.post("/approval/respond")
