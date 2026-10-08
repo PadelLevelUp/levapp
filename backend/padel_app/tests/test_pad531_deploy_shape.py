@@ -69,6 +69,8 @@ def test_the_tracked_nginx_block_routes_the_admin_host(env):
     api = re.search(r"location /admin/api/ \{(.*?)\}", text, re.S)
     assert api and f"proxy_pass http://127.0.0.1:{cfg['backend_port']};" in api.group(1)
     assert "proxy_set_header Host $host;" in api.group(1), "the blueprint's host check needs the real Host"
+    # PAD-554: the rate limits key on X-Real-IP alone; every proxied location must set it.
+    assert "proxy_set_header X-Real-IP $remote_addr;" in api.group(1)
     root = re.search(r"location / \{(.*?)\}", text, re.S)
     assert root and f"proxy_pass http://127.0.0.1:{cfg['admin_port']};" in root.group(1)
     assert "access_log /var/log/nginx/access.log redacted;" in text  # B-182
