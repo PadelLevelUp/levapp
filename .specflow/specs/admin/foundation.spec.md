@@ -43,22 +43,29 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 ### Rules
 1. **Sign-in is Google only.** The console uses Google Identity Services in the browser to obtain
    a Google ID token and posts it to `POST /admin/api/auth/google` `{credential}`. The backend
-   verifies it with `google-auth` against `ADMIN_GOOGLE_CLIENT_ID` and accepts it only when all
-   hold: the signature and expiry are valid, `email_verified` is true, the `hd` claim is
-   `levapp.app`, and the email ends with `@levapp.app`. Otherwise it answers 403
-   `{"error": "NOT_STAFF_DOMAIN"}`. There is no console password, no password reset and no
-   sign-up.
+   verifies it with `google-auth` and accepts it only when all five hold, **in our code**, whatever
+   the Google console's consent-screen setting ("Internal") says: (a) the signature verifies
+   against Google's published keys and the token has not expired; (b) `aud` equals
+   `ADMIN_GOOGLE_CLIENT_ID`; (c) `iss` is `accounts.google.com` or `https://accounts.google.com`;
+   (d) `email_verified` is true; (e) the `hd` claim is `levapp.app` and the email ends with
+   `@levapp.app`. A token failing (a), (b) or (c) is 401 `{"error": "GOOGLE_TOKEN_INVALID"}`; one
+   failing (d) or (e) is 403 `{"error": "NOT_STAFF_DOMAIN"}`. There is no console password, no
+   password reset and no sign-up. (Decision 2026-10-07, coordinator: the domain check lives in
+   the backend too, because the "Internal" setting could be loosened by accident.)
 2. **A domain account still needs a role.** A verified `@levapp.app` email with no active
-   `admin_roles` row answers 403 `{"error": "NO_ADMIN_ROLE"}`. Both refusals write an audit row
+   `admin_roles` row answers 403 `{"error": "NO_ADMIN_ROLE"}`; no role is ever assumed by
+   default. Both refusals write an audit row
    (`action = auth.sign_in`, `outcome = denied`, `actor_email` = the email Google asserted, or
    `unknown` when the token did not verify).
 3. **The admin token is a separate audience.** On success the backend issues a JWT with
    `aud = "levapp-admin"`, `sub` = the `admin_roles.id`, a `role` claim, an `email` claim and an
    expiry of 12 hours. There is no silent refresh; after 12 hours the staff member signs in with
-   Google again. Every `/admin/api/*` route except `auth/google` requires a token whose `aud` is
-   `levapp-admin` and answers 401 `{"error": "ADMIN_TOKEN_REQUIRED"}` for a missing token or any
-   other token, a product token included. Every product route (`/api/*`, `/auth/*`, the SSE
-   stream) answers 401 for a token whose `aud` is `levapp-admin`. Product tokens keep their
+   Google again. Every `/admin/api/*` route except the two unauthenticated ones, `auth/google` and
+   `GET auth/config` (rule 13), requires a token whose `aud` is `levapp-admin` and answers 401
+   `{"error": "ADMIN_TOKEN_REQUIRED"}` for a missing token or any other token, a product token
+   included. `POST auth/logout` is the third session route: every role may call it (it ends the
+   caller's own session and writes nothing else). Every product route (`/api/*`, `/auth/*`, the SSE
+   stream) answers 401 for a token that carries any `aud` claim. Product tokens keep their
    current shape (no `aud`), so no product session is affected.
 4. **The role is read on every request.** The token's `role` claim is only a hint for the UI; the
    backend loads the `admin_roles` row by `sub` on each request and answers 401 when the row is
@@ -72,13 +79,16 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
      capability kill-switches.
    - `owner`: everything, plus `POST|DELETE /admin/api/roles/*` (grant, change, revoke a role) and
      `PUT /admin/api/settings/capabilities/*` (`admin.clubs-and-switches` rule 6).
+   - A token issued before the role row's latest grant or change (`granted_at`) is refused, so
+     re-granting a revoked email (which re-activates its row) never revives an older token
+     (hardening 2026-10-07). The last-owner check of rule 7 locks the active owner rows.
    - One exception to the order: `POST /admin/api/users/<id>/view-as` needs the `operator` role
      exactly (`admin.approvals-and-users` rule 9).
 6. **`admin_roles` replaces `is_superadmin` for new code.** The migration creates both tables and
    seeds one `owner` row for `admin@levapp.app` and one `owner` row for the email of every user
-   with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null. A seeded
-   email outside `@levapp.app` can never sign in (rule 1); it is kept so the owner sees it and
-   revokes it. No new code checks `is_superadmin`; a guard test fails when a file outside the
+   with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null, **only
+   for emails in `@levapp.app`** (hardening 2026-10-07: any other email could never sign in,
+   rule 1, so its row would only be something to clean up). No new code checks `is_superadmin`; a guard test fails when a file outside the
    existing allow-list (the files that read it on the day this spec is implemented) gains a read
    of `is_superadmin`.
 7. **There is always an owner.** Revoking or downgrading the last active `owner` row answers 409
@@ -114,11 +124,25 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     staging's database and staging's `admin_roles`; the two environments share no role or audit
     data. No new VM, database or deploy workflow. Operational identifiers (machine names,
     addresses, ports, accounts) are kept out of this spec and out of tracked files (R-036).
+12a. **Hardening (coordinator review, 2026-10-07).** `POST auth/google` is rate-limited per IP
+    (`AUTH_RATE_LIMIT_ADMIN_SIGN_IN`, default 10 per 60 s; 429 `RATE_LIMITED`). Google's signing
+    certificates are cached for the max-age Google sends. The console image sends a
+    Content-Security-Policy that allows Google Identity Services (`accounts.google.com/gsi/`) for
+    script, frame and connect and sets `frame-ancestors 'none'`, plus `Referrer-Policy:
+    no-referrer`, `X-Content-Type-Options: nosniff` and HSTS, on every location.
 13. **Configuration.** `ADMIN_GOOGLE_CLIENT_ID` (public; the browser needs it too) and
-    `ADMIN_HOSTS` are set per environment in the tracked env templates. The Google OAuth client is
-    of type "Internal" to the Workspace, with both admin origins authorised. No client secret is
-    needed for the ID-token flow; none is stored. `assert_production_secrets` fails start-up in
-    production when `ADMIN_GOOGLE_CLIENT_ID` or `ADMIN_HOSTS` is empty.
+    `ADMIN_HOSTS` are set per environment in the tracked env templates; no new deploy secret
+    exists for the console. The Google OAuth client is of type "Internal" to the Workspace, with
+    both admin origins authorised as JavaScript origins (no redirect URI: the ID-token flow has
+    none). No client secret is needed for the ID-token flow; none is stored.
+    `assert_production_secrets` fails start-up in production when `ADMIN_HOSTS` is empty. An
+    empty `ADMIN_GOOGLE_CLIENT_ID` does **not** stop start-up (it would crash-loop the next deploy
+    before the owner has created the client): the backend logs a warning, `GET
+    /admin/api/auth/config` (unauthenticated, host-checked) answers `{"googleClientId": "",
+    "configured": false, "staffDomain": "levapp.app"}`, `POST auth/google` answers 503
+    `{"error": "ADMIN_NOT_CONFIGURED"}`, and the console shows a "sign-in not configured" page.
+    The console reads the client id from `auth/config` at run time, so the admin image needs no
+    rebuild when the value arrives. (Decision 2026-10-07, coordinator.)
 14. **No admin code in the product apps.** Admin API clients, screens and strings live only in
     `frontend/apps/admin`. Nothing under `frontend/apps/web`, `frontend/apps/mobile` or
     `frontend/packages/*` imports from `frontend/apps/admin`, references `/admin/api`, or holds an
@@ -156,6 +180,21 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 - **When** each is posted
 - **Then** both are 403 `NOT_STAFF_DOMAIN`
 
+#### A token that does not verify is refused (rule 1 a–c)
+- **Given** the verifier raises for a bad signature, and separately returns `{email: "ana@levapp.app", email_verified: true, hd: "levapp.app", aud: "other-client", iss: "accounts.google.com"}`, and separately the same claims with `iss: "https://evil.example"`
+- **When** each is posted to `auth/google`
+- **Then** all three are 401 `GOOGLE_TOKEN_INVALID`, no token is issued, and each writes an audit row `auth.sign_in` with `outcome = denied`
+
+#### An unverified email is refused (rule 1 d)
+- **Given** the verifier returns `{email: "ana@levapp.app", email_verified: false, hd: "levapp.app"}` for an active `operator`
+- **When** it is posted
+- **Then** the response is 403 `NOT_STAFF_DOMAIN` and no token is issued
+
+#### Sign-in degrades when the client id is empty (rule 13)
+- **Given** `ADMIN_GOOGLE_CLIENT_ID` empty and `ADMIN_HOSTS = ["localhost"]`
+- **When** the console GETs `auth/config` and POSTs a credential to `auth/google`
+- **Then** the first is 200 `{configured: false}`, the second is 503 `ADMIN_NOT_CONFIGURED`, and the verifier was never called
+
 #### A domain account without a role is refused (rule 2)
 - **Given** no `admin_roles` row for `rui@levapp.app`
 - **When** a valid `rui@levapp.app` credential is posted
@@ -173,7 +212,7 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 
 #### Support cannot write (rule 5)
 - **Given** a `support` token
-- **When** it posts to any non-`GET` route of the blueprint (each one, enumerated from the URL map)
+- **When** it posts to any non-`GET` route of the blueprint (each one, enumerated from the URL map, except the session routes `auth/google` and `auth/logout`)
 - **Then** every response is 403 `ADMIN_ROLE_TOO_LOW` and every target row is unchanged
 
 #### Only the owner manages roles (rules 5, 7)
@@ -226,10 +265,10 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 - **When** `GET /admin/api/audit` is sent with `Host: levapp.app`, and again with `Host: admin.levapp.app` and an admin token
 - **Then** the first is 404 and the second is 200
 
-#### Production refuses to start without the admin configuration (rule 13)
-- **Given** a production config with `ADMIN_GOOGLE_CLIENT_ID` empty
+#### Production refuses to start without the admin hosts (rule 13)
+- **Given** a production config with `ADMIN_HOSTS` empty and the signing secrets set
 - **When** `assert_production_secrets` runs
-- **Then** it raises naming `ADMIN_GOOGLE_CLIENT_ID`
+- **Then** it raises naming `ADMIN_HOSTS`; with `ADMIN_HOSTS` set and `ADMIN_GOOGLE_CLIENT_ID` empty it does not raise
 
 #### The deploy builds and runs the admin image in both environments (rule 12)
 - **Given** `deploy-prod.yaml` and `deploy-staging.yaml`
@@ -262,9 +301,17 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
   no new `is_superadmin` reader) are the enforcement for the business rules "every change is
   recorded" and "the product apps carry no staff code"; they belong in the backend pytest lane,
   which already reads frontend files (as `test_pad327` does).
-- PyJWT rejects a token that carries an `aud` when the verifier expects none, so the product side
-  may need no change for rule 3; the criterion "Tokens do not cross" pins the behaviour either
-  way.
+- Probe 2026-10-07 (Session E): Flask-JWT-Extended 4.6 does NOT verify `aud` when no audience is
+  configured, so a token carrying `aud = "levapp-admin"` signed with `JWT_SECRET_KEY` was accepted
+  by `GET /api/auth/me` as the user whose id equals `sub`. The product side therefore needs an
+  explicit refusal of any token with an `aud` claim (the JWT blocklist loader); "Tokens do not
+  cross" pins it.
 - Decision 2026-10-07 (owner): the admin session is 12 hours with no silent refresh.
+- `admin_roles.email` is unique, so granting a role to an email whose row is revoked re-activates
+  that row (new `role`, `granted_by_email`, `granted_at`, `revoked_at` null) rather than inserting.
+- Audit `outcome`: 2xx → `ok`; 401 and 403 → `denied`; any other status or an exception → `error`.
+  A request refused for lack of a token (401 `ADMIN_TOKEN_REQUIRED`) is not audited: there is no
+  actor to name.
+- Numbering of the new criteria is unconfirmed (Session E, 2026-10-07).
 - OPEN: whether the Google client allows only the Workspace ("Internal" consent screen) is a
   console setting outside the repo; rule 1's `hd` and email checks hold either way.

@@ -1,7 +1,7 @@
 """PAD-547: who put a student on a class's waiting list, and standing entries scoped to a series
 
 Revision ID: e22cb56a3aee
-Revises: 0d2107f3fa7b
+Revises: bee8d57daf79
 Create Date: 2026-10-07
 
 - ``waiting_list_entries.added_by`` (String(8), nullable): 'student' | 'coach' — the origin of a
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "e22cb56a3aee"
-down_revision = "0d2107f3fa7b"
+down_revision = "bee8d57daf79"
 branch_labels = None
 depends_on = None
 

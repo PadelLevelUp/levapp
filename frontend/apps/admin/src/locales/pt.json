@@ -1,0 +1,160 @@
+{
+  "admin": {
+    "shell": {
+      "title": "LevApp Staff",
+      "nav": {
+        "home": "Início",
+        "roles": "Acessos",
+        "audit": "Registo de alterações",
+        "clubs": "Clubes",
+        "switches": "Interruptores"
+      },
+      "signOut": "Terminar sessão",
+      "role": {
+        "owner": "owner",
+        "operator": "operator",
+        "support": "support"
+      },
+      "readOnly": "Só leitura",
+      "language": "Idioma"
+    },
+    "signIn": {
+      "title": "Consola de staff",
+      "lead": "Entra com a tua conta Google da LevApp.",
+      "loading": "A carregar o início de sessão…",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Só contas @levapp.app podem entrar. Usa a conta da empresa.",
+        "NO_ADMIN_ROLE": "A tua conta não tem acesso à consola. Pede ao owner para te dar um papel.",
+        "GOOGLE_TOKEN_INVALID": "A Google não validou o início de sessão. Tenta outra vez.",
+        "ADMIN_NOT_CONFIGURED": "O início de sessão ainda não está configurado.",
+        "NETWORK": "Não foi possível falar com o servidor.",
+        "generic": "Não foi possível entrar."
+      }
+    },
+    "notConfigured": {
+      "title": "Início de sessão por configurar",
+      "body": "Este ambiente ainda não tem o cliente Google OAuth. Falta preencher ADMIN_GOOGLE_CLIENT_ID no ambiente do servidor; a consola fica disponível assim que o valor existir.",
+      "retry": "Verificar outra vez"
+    },
+    "home": {
+      "welcome": "Olá, {{email}}",
+      "yourRole": "O teu papel: {{role}}",
+      "sessionEnds": "A sessão termina às {{time}}",
+      "empty": "As operações (aprovações, utilizadores, clubes, saúde do motor) chegam nas próximas partes."
+    },
+    "roles": {
+      "title": "Acessos à consola",
+      "lead": "Quem pode entrar e com que papel. Só o owner altera isto.",
+      "grant": "Dar acesso",
+      "email": "Email @levapp.app",
+      "role": "Papel",
+      "add": "Adicionar",
+      "change": "Mudar papel",
+      "revoke": "Revogar",
+      "revoked": "Revogado",
+      "active": "Ativo",
+      "grantedBy": "Dado por {{email}}",
+      "seeded": "Semeado pela migração",
+      "none": "Ainda não há acessos.",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Só emails @levapp.app.",
+        "INVALID_ROLE": "Papel desconhecido.",
+        "ROLE_EXISTS": "Esse email já tem acesso.",
+        "LAST_OWNER": "Tem de existir sempre um owner.",
+        "ADMIN_ROLE_TOO_LOW": "Só o owner pode fazer isto.",
+        "generic": "Não foi possível guardar."
+      }
+    },
+    "audit": {
+      "title": "Registo de alterações",
+      "lead": "Quem mudou o quê, antes e depois, e quando. Não se pode editar nem apagar.",
+      "filters": {
+        "actor": "Quem",
+        "action": "Ação",
+        "targetType": "Tipo de alvo",
+        "targetId": "Id do alvo",
+        "apply": "Filtrar",
+        "clear": "Limpar"
+      },
+      "columns": {
+        "when": "Quando",
+        "who": "Quem",
+        "action": "Ação",
+        "target": "Alvo",
+        "outcome": "Resultado",
+        "change": "Antes → depois"
+      },
+      "outcome": {
+        "ok": "ok",
+        "denied": "negado",
+        "error": "erro"
+      },
+      "empty": "Sem registos para estes filtros.",
+      "prev": "Anteriores",
+      "next": "Seguintes",
+      "page": "Página {{page}}"
+    },
+    "common": {
+      "loading": "A carregar…",
+      "error": "Algo correu mal.",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar"
+    },
+    "clubs": {
+      "title": "Clubes",
+      "lead": "Corrige um clube, os seus campos e os treinadores que lhe pertencem. Aqui nunca se cria nem apaga um clube.",
+      "search": "Procurar pelo nome",
+      "empty": "Nenhum clube corresponde.",
+      "name": "Nome",
+      "description": "Descrição",
+      "location": "Localização",
+      "coaches": "Treinadores",
+      "players": "Alunos",
+      "courts": "Campos",
+      "lessons": "Aulas",
+      "detailLead": "Cada alteração fica no registo de auditoria.",
+      "fields": "Detalhes",
+      "save": "Guardar",
+      "saved": "Guardado.",
+      "up": "Subir",
+      "down": "Descer",
+      "rename": "Mudar o nome",
+      "renamePrompt": "Novo nome do campo",
+      "delete": "Apagar",
+      "deleteConfirm": "Apagar {{name}}? As aulas nesse campo continuam, sem campo.",
+      "newCourt": "Nome do novo campo",
+      "addCourt": "Adicionar campo",
+      "unlink": "Desassociar",
+      "coachId": "Id do treinador",
+      "link": "Associar treinador",
+      "coachHasNoClub": "Feito. Esse treinador já não pertence a nenhum clube."
+    },
+    "switches": {
+      "title": "Interruptores",
+      "lead": "Desliga uma capacidade das apps para todos, sem nova versão. Tem efeito em 30 segundos.",
+      "on": "Ligado",
+      "off": "Desligado",
+      "kind": {
+        "feature": "Funcionalidade",
+        "compat": "Compatibilidade"
+      },
+      "effect": {
+        "open-spots": "Desligado: nenhum aluno vê vagas abertas no calendário.",
+        "evaluations": "Desligado: o bloco da avaliação partilhada desaparece do painel do aluno.",
+        "class-type-defaults": "Desligado: todas as apps recebem que a regra de vagas da aula vem do treinador, como as apps antigas. O valor mostrado é o mesmo.",
+        "coach-invite-email": "Desligado: aceitar um convite de treinador deixa de exigir email, como nas apps antigas.",
+        "terms-acceptance": "Desligado: o registo deixa de exigir aceitar os Termos e nenhuma aceitação fica registada. Impacto legal: desliga só num incidente."
+      },
+      "reasonShown": "Motivo: {{reason}}",
+      "changed": "Última alteração {{at}} por {{by}}",
+      "reasonPlaceholder": "Porquê (obrigatório para desligar)",
+      "reasonRequired": "Escreve um motivo com pelo menos 5 caracteres.",
+      "turnOff": "Desligar",
+      "turnOn": "Ligar",
+      "ownerOnly": "Só o owner pode alterar isto.",
+      "confirmOff": {
+        "terms-acceptance": "Desligar isto faz com que novas contas sejam criadas sem aceitar os Termos, e nenhuma aceitação fica registada. Isso tem impacto legal. Desliga só num incidente e volta a ligar assim que estiver resolvido. Continuar?"
+      }
+    }
+  }
+}

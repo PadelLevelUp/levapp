@@ -90,7 +90,9 @@
       "fieldTime": "Hora",
       "timeStart": "Hora de início",
       "timeEnd": "Hora de fim",
-      "endBeforeStart": "A hora de fim tem de ser depois da hora de início."
+      "endBeforeStart": "A hora de fim tem de ser depois da hora de início.",
+      "chooseStart": "Escolhe a hora de início",
+      "cloneStartHint": "Escolhe a hora de início para criar a aula."
     },
     "overlap": {
       "title": "Horário sobreposto",
@@ -183,6 +185,23 @@
       "pending": "Pendente",
       "yes": "Sim",
       "no": "Não",
+      "outcomeAccepted": "Aceitou",
+      "outcomeDeclined": "Recusou",
+      "outcomeWithdrawn": "Convite retirado",
+      "outcomePending": "Ainda sem resposta",
+      "outcomeSpotFilled": "Vaga preenchida",
+      "outcomeExpired": "Expirou",
+      "recordedByCoach": "registado pelo treinador",
+      "inviteeActions": "Ações do convidado",
+      "markAccepted": "Marcar como aceitou",
+      "markDeclined": "Marcar como recusou",
+      "deleteInvitation": "Eliminar convite",
+      "deleteInvitationWarning": "A pessoa convidada vai ver a mensagem do convite na mesma, mas como vaga ocupada.",
+      "deleteInvitationConfirm": "Eliminar",
+      "inviteeClassFull": "A aula já está cheia.",
+      "inviteeClassOver": "A aula já aconteceu.",
+      "inviteeAlreadyAccepted": "O aluno já tinha aceitado o convite.",
+      "inviteeActionFailed": "Não foi possível atualizar o convite.",
       "saving": "A guardar…",
       "confirm": "Confirmar",
       "edit": "Editar",
@@ -229,7 +248,9 @@
       "comeBack": "Afinal já posso ir",
       "comeBackHint": "Se a tua vaga ainda estiver livre, voltas a ficar inscrito.",
       "spotFilled": "A tua vaga já foi ocupada.",
-      "comeBackDone": "Estás de volta a esta aula."
+      "comeBackDone": "Estás de volta a esta aula.",
+      "clone": "Clonar aula",
+      "cloneFailed": "Não foi possível clonar a aula"
     },
     "planning": {
       "title": "Planeamento ({{count}})",

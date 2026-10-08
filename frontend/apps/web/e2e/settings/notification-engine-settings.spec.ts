@@ -340,6 +340,15 @@ test("US-74: exclude inactive accounts toggle is present (PAD-132 relabel)", asy
   await expect(page.getByTestId("restriction-row-exclude-unpaid")).toBeVisible({ timeout: 3000 });
 });
 
+test("PAD-523: the same-day class toggle is present and off by default", async ({ page }) => {
+  await openNotificationsTab(page);
+  await openSection(page, /^restrictions$/i);
+
+  const row = page.getByTestId("restriction-row-no-same-day-class");
+  await expect(row).toBeVisible({ timeout: 3000 });
+  await expect(row.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+});
+
 test("US-75: max inactive time stepper is functional when enabled", async ({ page }) => {
   await openNotificationsTab(page);
   await openSection(page, /^restrictions$/i);
@@ -393,13 +402,15 @@ test("US-56: variable chips are shown and insert text at cursor", async ({ page 
   await openNotificationsTab(page);
   await openSection(page, /message templates/i);
 
-  // The invite template textarea should have variable chips below it
-  await expect(page.getByText(/\{name\}/).first()).toBeVisible({ timeout: 3000 });
-  await expect(page.getByText(/\{time\}/).first()).toBeVisible();
+  // The chips sit under each class template. Scoped to one row: the page's help panel (PAD-549)
+  // also prints "{name}" and "{time}", so a page-wide first match is not a chip.
+  const row = page.getByTestId("template-row-reminder");
+  await expect(row.getByText("{name}", { exact: true })).toBeVisible({ timeout: 3000 });
+  await expect(row.getByText("{time}", { exact: true })).toBeVisible();
 
-  // Click {name} chip to insert into the first textarea with that chip
-  const nameChip = page.getByText(/\{name\}/).first();
-  const inviteTextarea = page.locator("textarea").first();
+  // Click {name} chip to insert into that row's textarea
+  const nameChip = row.getByText("{name}", { exact: true });
+  const inviteTextarea = row.locator("textarea");
 
   await inviteTextarea.fill("Hey ");
   await inviteTextarea.click();

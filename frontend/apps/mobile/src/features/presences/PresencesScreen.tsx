@@ -159,6 +159,9 @@ export function PresencesScreen() {
 
   // From the count endpoint, never `pending.length` (B-045).
   const pendingCount = pendingCountQuery.data?.pendingCount;
+  // PAD-539 (attendance.validation rule 18): the trigger's number is the whole backlog, the
+  // same `pendingTotal` the tab badge and the dashboard card show; the week's count sits under it.
+  const pendingTotal = pendingCountQuery.data?.pendingTotal;
 
   return (
     <ScrollView className="flex-1 bg-background" contentContainerClassName="p-4 gap-4">
@@ -175,13 +178,19 @@ export function PresencesScreen() {
           <Text className="text-sm font-sans-bold">
             {/* Not a plural form: pt's CLDR "one" category covers 0, so a
                 counted string renders "0 aula". */}
+            {pendingTotal == null
+              ? "…"
+              : pendingTotal === 0
+                ? t("presences.validate.triggerEmpty")
+                : t("presences.validate.trigger", { count: pendingTotal })}
+          </Text>
+          <Text className="text-xs text-muted-foreground" testID="presences-validate-week">
             {pendingCount == null
               ? "…"
               : pendingCount === 0
-                ? t("presences.validate.triggerEmpty")
-                : t("presences.validate.trigger", { count: pendingCount })}
-          </Text>
-          <Text className="text-xs text-muted-foreground">
+                ? t(weekOffset === 0 ? "presences.validate.triggerWeekEmpty" : "presences.validate.triggerWeekShownEmpty")
+                : t(weekOffset === 0 ? "presences.validate.triggerWeek" : "presences.validate.triggerWeekShown", { count: pendingCount })}
+            {" · "}
             {t("presences.validate.triggerHint")}
           </Text>
         </View>

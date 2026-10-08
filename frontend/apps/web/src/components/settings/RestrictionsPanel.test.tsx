@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { NotificationRestrictions } from "@/types";
 
 vi.mock("react-i18next", () => ({
@@ -32,6 +32,7 @@ const RESTRICTIONS: NotificationRestrictions = {
   quietHours: { enabled: true },
   excludedPlayers: { enabled: true, playerIds: ["42"] },
   excludeUnpaidSubscription: { enabled: false },
+  noSameDayClass: { enabled: false },
   cancellationDeadlineHours: 24,
 };
 
@@ -98,3 +99,16 @@ describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications
   });
 });
 
+
+describe("RestrictionsPanel — no class the same day (PAD-523, notifications.config rule 6e)", () => {
+  it("shows the toggle off and flips only its own flag", () => {
+    const onChange = vi.fn();
+    render(<RestrictionsPanel restrictions={RESTRICTIONS} onChange={onChange} />);
+    const row = screen.getByTestId("restriction-row-no-same-day-class");
+    expect(row.textContent).toContain("settings.restrictions.noSameDayClass");
+    const toggle = within(row).getByRole("switch");
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith({ ...RESTRICTIONS, noSameDayClass: { enabled: true } });
+  });
+});

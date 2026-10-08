@@ -189,7 +189,9 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     - **no:** the "no" is final for the class (`notifications.invitations` rule 18), so the entry for
       that class is closed too, in the decline's commit. No credit is spent. A standing entry stays
       active for its other classes.
-    The coach recording the answer for the student settles the entry the same way.
+    The coach recording the answer for the student settles the entry the same way, and so does the
+    coach withdrawing the invitation (`notifications.invitations` rule 19, PAD-548): the entry
+    closes as on a "no", no credit is spent.
 16. **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado

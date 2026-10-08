@@ -139,6 +139,18 @@ def sse_keepalive_seconds(environ=None):
     return value if value > 0 else DEFAULT_SSE_KEEPALIVE_SECONDS
 
 
+# admin.foundation (PAD-531). Test apps load their config from a mapping, so the
+# services read these with these defaults rather than trusting the class.
+ADMIN_STAFF_DOMAIN_DEFAULT = "levapp.app"
+ADMIN_JWT_AUDIENCE_DEFAULT = "levapp-admin"
+ADMIN_TOKEN_EXPIRES_DEFAULT = timedelta(hours=12)
+
+
+def parse_admin_hosts(raw):
+    """``ADMIN_HOSTS`` as a tuple of lower-cased hostnames (rule 11); blanks dropped."""
+    return tuple(item.strip().lower() for item in (raw or "").split(",") if item.strip())
+
+
 class Config:
     """Base config (shared defaults).
 
@@ -239,6 +251,8 @@ class Config:
     LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # auth.email-verification rule 13 (PAD-269): send and confirm share one bucket.
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
+    # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
+    AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
@@ -247,6 +261,18 @@ class Config:
     # messaging.sse-realtime rules 11-12 (PAD-277): SSE stream caps.
     SSE_MAX_STREAMS, SSE_MAX_STREAMS_PER_USER = sse_stream_limits()
     SSE_KEEPALIVE_SECONDS = sse_keepalive_seconds()
+
+    # admin.foundation (PAD-531): the staff console. The Google OAuth client id
+    # is public (the browser needs it too) and lives in the tracked env
+    # templates; empty means "sign-in not configured" (rule 13), never a crash.
+    # ADMIN_HOSTS is the only hosts the /admin/api blueprint answers on (rule
+    # 11); production refuses to start without it.
+    ADMIN_GOOGLE_CLIENT_ID = (os.getenv("ADMIN_GOOGLE_CLIENT_ID") or "").strip()
+    ADMIN_HOSTS = parse_admin_hosts(os.getenv("ADMIN_HOSTS", ""))
+    ADMIN_STAFF_DOMAIN = ADMIN_STAFF_DOMAIN_DEFAULT
+    ADMIN_JWT_AUDIENCE = ADMIN_JWT_AUDIENCE_DEFAULT
+    # Rule 3 (owner decision 2026-10-07): 12 hours, no silent refresh.
+    ADMIN_TOKEN_EXPIRES = ADMIN_TOKEN_EXPIRES_DEFAULT
 
     # Sessions
     SESSION_PERMANENT = False
@@ -347,11 +373,19 @@ def assert_production_secrets(environ=None):
     jwt = environ.get("JWT_SECRET_KEY") or ""
     missing = [name for name, value in (("SECRET_KEY/FLASK_SECRET_KEY", secret), ("JWT_SECRET_KEY", jwt))
                if value in DEV_SECRET_FALLBACKS]
+    # admin.foundation rule 13 (PAD-531): the admin blueprint must know its
+    # hosts. The Google client id is deliberately NOT asserted here — an empty
+    # value degrades to "not configured" instead of crash-looping a deploy.
     if missing:
         raise RuntimeError(
             "Refusing to start with FLASK_ENV=production: "
             + ", ".join(missing)
             + " unset or equal to a development fallback. Set real values in the deploy environment."
+        )
+    if not (environ.get("ADMIN_HOSTS") or "").strip():
+        raise RuntimeError(
+            "Refusing to start with FLASK_ENV=production: ADMIN_HOSTS is unset. The tracked "
+            "backend/.env.<environment> template names the console host (admin.foundation rule 13)."
         )
 
 

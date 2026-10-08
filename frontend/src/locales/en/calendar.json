@@ -90,7 +90,9 @@
       "fieldTime": "Time",
       "timeStart": "Start time",
       "timeEnd": "End time",
-      "endBeforeStart": "The end time must be after the start time."
+      "endBeforeStart": "The end time must be after the start time.",
+      "chooseStart": "Choose the start time",
+      "cloneStartHint": "Choose the start time to create the class."
     },
     "overlap": {
       "title": "Overlapping event",
@@ -183,6 +185,23 @@
       "pending": "Pending",
       "yes": "Yes",
       "no": "No",
+      "outcomeAccepted": "Accepted",
+      "outcomeDeclined": "Declined",
+      "outcomeWithdrawn": "Invitation withdrawn",
+      "outcomePending": "No answer yet",
+      "outcomeSpotFilled": "Spot filled",
+      "outcomeExpired": "Expired",
+      "recordedByCoach": "recorded by the coach",
+      "inviteeActions": "Invitee actions",
+      "markAccepted": "Mark as accepted",
+      "markDeclined": "Mark as declined",
+      "deleteInvitation": "Delete invitation",
+      "deleteInvitationWarning": "The invited person will still see the invitation message, but as spot filled.",
+      "deleteInvitationConfirm": "Delete",
+      "inviteeClassFull": "The class is already full.",
+      "inviteeClassOver": "The class has already happened.",
+      "inviteeAlreadyAccepted": "The student had already accepted the invitation.",
+      "inviteeActionFailed": "Could not update the invitation.",
       "saving": "Saving…",
       "confirm": "Confirm",
       "edit": "Edit",
@@ -229,7 +248,9 @@
       "comeBack": "Actually, I can come",
       "comeBackHint": "If your spot is still free, you'll be signed up again.",
       "spotFilled": "Your spot has already been taken.",
-      "comeBackDone": "You're back in this class."
+      "comeBackDone": "You're back in this class.",
+      "clone": "Clone class",
+      "cloneFailed": "Could not clone the class"
     },
     "planning": {
       "title": "Planning ({{count}})",

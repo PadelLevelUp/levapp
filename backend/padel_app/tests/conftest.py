@@ -46,6 +46,9 @@ MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parents[2] / "migrations"
 BASE_TEST_CONFIG = {
     "TESTING": True,
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+    # admin.foundation rule 11 (PAD-531): the test client's default Host.
+    "ADMIN_HOSTS": ("localhost",),
+    "ADMIN_GOOGLE_CLIENT_ID": "test-google-client-id.apps.googleusercontent.com",
 }
 
 

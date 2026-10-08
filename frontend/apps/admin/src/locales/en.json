@@ -1,0 +1,160 @@
+{
+  "admin": {
+    "shell": {
+      "title": "LevApp Staff",
+      "nav": {
+        "home": "Home",
+        "roles": "Access",
+        "audit": "Audit log",
+        "clubs": "Clubs",
+        "switches": "Switches"
+      },
+      "signOut": "Sign out",
+      "role": {
+        "owner": "owner",
+        "operator": "operator",
+        "support": "support"
+      },
+      "readOnly": "Read only",
+      "language": "Language"
+    },
+    "signIn": {
+      "title": "Staff console",
+      "lead": "Sign in with your LevApp Google account.",
+      "loading": "Loading sign-in…",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Only @levapp.app accounts can sign in. Use the company account.",
+        "NO_ADMIN_ROLE": "Your account has no console access. Ask the owner for a role.",
+        "GOOGLE_TOKEN_INVALID": "Google did not validate the sign-in. Try again.",
+        "ADMIN_NOT_CONFIGURED": "Sign-in is not configured yet.",
+        "NETWORK": "Could not reach the server.",
+        "generic": "Could not sign in."
+      }
+    },
+    "notConfigured": {
+      "title": "Sign-in not configured",
+      "body": "This environment has no Google OAuth client yet. ADMIN_GOOGLE_CLIENT_ID is empty in the server environment; the console opens as soon as the value exists.",
+      "retry": "Check again"
+    },
+    "home": {
+      "welcome": "Hello, {{email}}",
+      "yourRole": "Your role: {{role}}",
+      "sessionEnds": "Session ends at {{time}}",
+      "empty": "Operations (approvals, users, clubs, engine health) arrive in the next parts."
+    },
+    "roles": {
+      "title": "Console access",
+      "lead": "Who can sign in, and as what. Only the owner changes this.",
+      "grant": "Grant access",
+      "email": "Email @levapp.app",
+      "role": "Role",
+      "add": "Add",
+      "change": "Change role",
+      "revoke": "Revoke",
+      "revoked": "Revoked",
+      "active": "Active",
+      "grantedBy": "Granted by {{email}}",
+      "seeded": "Seeded by the migration",
+      "none": "No access rows yet.",
+      "error": {
+        "NOT_STAFF_DOMAIN": "Only @levapp.app emails.",
+        "INVALID_ROLE": "Unknown role.",
+        "ROLE_EXISTS": "That email already has access.",
+        "LAST_OWNER": "There must always be an owner.",
+        "ADMIN_ROLE_TOO_LOW": "Only the owner can do this.",
+        "generic": "Could not save."
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "lead": "Who changed what, before and after, and when. It cannot be edited or deleted.",
+      "filters": {
+        "actor": "Who",
+        "action": "Action",
+        "targetType": "Target type",
+        "targetId": "Target id",
+        "apply": "Filter",
+        "clear": "Clear"
+      },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "action": "Action",
+        "target": "Target",
+        "outcome": "Outcome",
+        "change": "Before → after"
+      },
+      "outcome": {
+        "ok": "ok",
+        "denied": "denied",
+        "error": "error"
+      },
+      "empty": "No rows for these filters.",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
+    },
+    "common": {
+      "loading": "Loading…",
+      "error": "Something went wrong.",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "clubs": {
+      "title": "Clubs",
+      "lead": "Fix a club, its courts and which coaches belong to it. Clubs are never created or deleted here.",
+      "search": "Search by name",
+      "empty": "No club matches.",
+      "name": "Name",
+      "description": "Description",
+      "location": "Location",
+      "coaches": "Coaches",
+      "players": "Players",
+      "courts": "Courts",
+      "lessons": "Classes",
+      "detailLead": "Every change is recorded in the audit log.",
+      "fields": "Details",
+      "save": "Save",
+      "saved": "Saved.",
+      "up": "Move up",
+      "down": "Move down",
+      "rename": "Rename",
+      "renamePrompt": "New court name",
+      "delete": "Delete",
+      "deleteConfirm": "Delete {{name}}? Classes on it keep running with no court.",
+      "newCourt": "New court name",
+      "addCourt": "Add court",
+      "unlink": "Unlink",
+      "coachId": "Coach id",
+      "link": "Link coach",
+      "coachHasNoClub": "Done. That coach now belongs to no club."
+    },
+    "switches": {
+      "title": "Switches",
+      "lead": "Switch a client capability off for everyone, without a release. Takes effect within 30 seconds.",
+      "on": "On",
+      "off": "Off",
+      "kind": {
+        "feature": "Feature",
+        "compat": "Compatibility"
+      },
+      "effect": {
+        "open-spots": "Off: no student sees open spots in their calendar.",
+        "evaluations": "Off: the shared-evaluation block disappears from the student dashboard.",
+        "class-type-defaults": "Off: every app is told a class's open-spot setting comes from the coach, as old apps are. The value shown is the same.",
+        "coach-invite-email": "Off: accepting a coach invitation no longer requires an email, as in old apps.",
+        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident."
+      },
+      "reasonShown": "Reason: {{reason}}",
+      "changed": "Last changed {{at}} by {{by}}",
+      "reasonPlaceholder": "Why (required to switch off)",
+      "reasonRequired": "Write a reason of at least 5 characters.",
+      "turnOff": "Switch off",
+      "turnOn": "Switch on",
+      "ownerOnly": "Only the owner can change this.",
+      "confirmOff": {
+        "terms-acceptance": "Switching this off means new accounts are created without accepting the Terms, and no acceptance is recorded for them. That has legal impact. Switch it off only for an incident, and switch it back on as soon as it is fixed. Continue?"
+      }
+    }
+  }
+}

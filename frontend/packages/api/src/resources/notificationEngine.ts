@@ -224,8 +224,18 @@ export async function respondToNotification(
 export async function coachRespondToNotification(
   notificationEventId: number,
   action: "yes" | "no"
-): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "unknown" }> {
+): Promise<{ action: "confirmed" | "declined" | "spot_filled" | "expired" | "unknown" }> {
   const res = await getApi().post("/app/notify/coach_respond", { notificationEventId, action });
+  return res.data;
+}
+
+/** PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation. The answer
+ * is `withdrawn` for a live one; `confirmed` when the student's yes won the lock; otherwise the
+ * invitation's outcome as the class detail shows it (a repeated delete is a no-op). */
+export async function withdrawInvitation(
+  notificationEventId: number
+): Promise<{ action: "withdrawn" | "confirmed" | "accepted" | "declined" | "spot_filled" | "expired" | "pending" }> {
+  const res = await getApi().delete(`/app/notify/invitations/${notificationEventId}`);
   return res.data;
 }
 
