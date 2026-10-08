@@ -1,6 +1,6 @@
 ---
 id: admin.clubs-and-switches
-status: draft
+status: implementing
 depends_on: [admin.foundation, clubs.crud, clubs.courts, clubs.membership, auth.coach-approval, eligibility.open-spot-visibility]
 implements: ../../specs-business/admin/staff-operate-the-platform-without-the-database.business.md
 governed_by: [R-003, R-004, R-005, R-022]
@@ -9,7 +9,10 @@ governed_by: [R-003, R-004, R-005, R-022]
 # admin.clubs-and-switches
 
 > Linear: PAD-533 (this spec), epic PAD-530; builds on PAD-531 (`admin.foundation`). Owner
-> decisions 2026-10-06. Draft: no code exists.
+> decisions 2026-10-06.
+>
+> **Status (2026-10-08):** rules 1–3, 5 and 6 are built by PAD-533 (Session-D); rules 4 and 7
+> shipped early with PAD-532 (#568). The leaf reads `implemented` once both are in staging.
 
 ### Intent
 Let staff fix clubs, their courts and the coach↔club links without the database, and hold every
@@ -133,6 +136,14 @@ switched off for everyone without a release. Every change is audited (`admin.fou
   `utils/client_capabilities.py`); rule 5 adds the server-side "off" without changing the header
   or any client.
 - Decision 2026-10-07 (coordinator default, confirmed): capability kill-switches are `owner`-only.
+- PAD-533 build notes: audit actions this spec does not name are `club.edit`, `court.create`,
+  `court.rename`, `court.delete`, `court.reorder`. Each capability in `CAPABILITIES`
+  (`utils/client_capabilities.py`) carries a kind — `feature` (off hides a feature: `open-spots`,
+  `evaluations`) or `compat` (off sends every client down the old-client path:
+  `class-type-defaults`, `coach-invite-email`, `terms-acceptance`) — and the switch screen says in one
+  sentence what switching each off does; `terms-acceptance`'s says it stops recording Terms acceptance.
+  The club edit validates here (name 1–255, location ≤ 255): the product's `edit_club_service` loads a
+  `User` by the club's id and has no caller, so it is not reused (reported, not fixed here).
 - Note: some capabilities guard protocol compatibility (an old client must not receive a shape
   it cannot read) rather than a feature; switching those off is safe (it is the old-client
   path) but may hide a feature from every client. The switch screen should say so per capability;
