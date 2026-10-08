@@ -78,7 +78,8 @@ def test_the_verifier_checks_against_the_cached_certificates(monkeypatch):
         seen.update(token=token, certs=certs, audience=audience)
         return {"email": "a@levapp.app"}
 
-    monkeypatch.setattr(google_verifier, "google_certs", lambda now=None: {"k": "cert"})
+    monkeypatch.setattr(google_verifier, "google_certs", lambda now=None, force=False: {"k": "cert"})
+    monkeypatch.setattr(google_verifier, "_token_kid", lambda token: "k")
     monkeypatch.setattr(google_verifier, "_jwt_decode", fake_decode)
     assert google_verifier.verify("tok", "client") == {"email": "a@levapp.app"}
     assert seen == {"token": "tok", "certs": {"k": "cert"}, "audience": "client"}
@@ -224,3 +225,57 @@ def test_a_non_staff_owner_row_never_counts_as_the_last_owner(app, client):
     make_role(app, "old@gmail.com", "owner")
     r = client.delete(f"/admin/api/roles/{boss}", headers=bearer(admin_token(app, boss)))
     assert r.status_code == 409 and r.get_json() == {"error": "LAST_OWNER"}
+
+
+# PAD-554 follow-up (#581 review): a key rotation is picked up at once, but not on every request.
+
+
+def _fake_certs_server(monkeypatch, google_verifier, bodies):
+    calls = []
+
+    class Resp:
+        status_code = 200
+        headers = {"Cache-Control": "public, max-age=3600"}
+
+        def __init__(self, body):
+            self._body = body
+
+        def json(self):
+            return self._body
+
+    def get(url, timeout):
+        calls.append(url)
+        return Resp(bodies[min(len(calls) - 1, len(bodies) - 1)])
+
+    monkeypatch.setattr(google_verifier, "_http_get", get)
+    google_verifier._CERTS.clear()
+    return calls
+
+
+def test_an_unknown_key_id_refetches_the_certificates_once(monkeypatch):
+    from padel_app.services.admin import google_verifier
+
+    calls = _fake_certs_server(monkeypatch, google_verifier, [{"old": "c-old"}, {"old": "c-old", "new": "c-new"}])
+    seen = []
+    monkeypatch.setattr(google_verifier, "_token_kid", lambda token: "new")
+    monkeypatch.setattr(google_verifier, "_jwt_decode", lambda token, certs, audience, clock_skew_in_seconds=0: seen.append(dict(certs)) or {"ok": True})
+    google_verifier.google_certs(now=1000)  # cache holds only "old"
+    assert google_verifier.verify("tok", "client", now=1001) == {"ok": True}
+    assert len(calls) == 2, "the unknown kid refetched"
+    assert "new" in seen[-1]
+
+
+def test_unknown_key_ids_refetch_at_most_once_a_minute(monkeypatch):
+    from padel_app.services.admin import google_verifier
+
+    calls = _fake_certs_server(monkeypatch, google_verifier, [{"old": "c-old"}])
+    monkeypatch.setattr(google_verifier, "_token_kid", lambda token: "forged")
+    monkeypatch.setattr(google_verifier, "_jwt_decode", lambda *a, **k: (_ for _ in ()).throw(ValueError("no cert for kid")))
+    google_verifier.google_certs(now=1000)
+    for t in (1001, 1002, 1030):
+        with pytest.raises(google_verifier.GoogleTokenInvalid):
+            google_verifier.verify("tok", "client", now=t)
+    assert len(calls) == 2, "one refetch for a burst of forged key ids"
+    with pytest.raises(google_verifier.GoogleTokenInvalid):
+        google_verifier.verify("tok", "client", now=1062)
+    assert len(calls) == 3, "the next minute may refetch again"
