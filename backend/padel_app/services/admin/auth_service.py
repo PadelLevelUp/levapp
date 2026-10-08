@@ -175,6 +175,12 @@ def load_role_for_claims(claims):
     role = AdminRole.query.get(role_id)
     if role is None or role.revoked_at is not None:
         raise AdminTokenInvalid("role revoked")
+    # Hardening: a token older than the role's latest grant or change is dead, so re-granting a
+    # revoked email (which re-activates the same row) never revives a token issued before it.
+    # `iat` is whole seconds; the grant time is floored to match (naive UTC, R-023).
+    granted = int(role.granted_at.replace(tzinfo=timezone.utc).timestamp()) if role.granted_at else 0
+    if int(claims.get("iat") or 0) < granted:
+        raise AdminTokenInvalid("issued before the latest grant")
     return role
 
 

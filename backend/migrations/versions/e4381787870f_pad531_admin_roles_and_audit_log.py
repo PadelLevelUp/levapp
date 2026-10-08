@@ -66,14 +66,17 @@ def upgrade():
         op.create_index("ix_admin_audit_log_action", "admin_audit_log", ["action"])
         op.create_index("ix_admin_audit_log_target", "admin_audit_log", ["target_type", "target_id"])
 
-    # Seed (rule 6). Lower-cased, deduplicated; a non-company email is kept so the
-    # owner sees it in the roles screen and revokes it (it can never sign in, rule 1).
+    # Seed (rule 6). Lower-cased, deduplicated, and staff-domain only (hardening 2026-10-07: a
+    # non-company superadmin email can never sign in, rule 1, and an owner row it cannot use is
+    # only something to clean up). Staging re-syncs from production and re-runs this migration
+    # on every deploy, and production has not run it yet, so no database keeps the old seed.
     emails = {SEED_OWNER}
     rows = bind.execute(
         sa.text("SELECT email FROM users WHERE is_superadmin = :t AND email IS NOT NULL AND email <> ''"),
         {"t": True},
     ).fetchall()
     emails.update(r[0].strip().lower() for r in rows if r[0] and r[0].strip())
+    emails = {e for e in emails if e.endswith("@levapp.app")}
     existing = {r[0] for r in bind.execute(sa.text("SELECT email FROM admin_roles")).fetchall()}
     now = datetime.utcnow().replace(microsecond=0)
     for email in sorted(emails - existing):
