@@ -149,6 +149,10 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:${{ github.sha }}
         platforms: linux/amd64
+        # PAD-534 (admin.engine-health rule 4): the image knows its commit. A rollback reuses an
+        # existing image, which carries the sha it was built from.
+        build-args: |
+          GIT_SHA=${{ github.sha }}
     - name: Copy .env.prod to VM
       uses: appleboy/scp-action@v0.1.4
       with:

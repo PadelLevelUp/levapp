@@ -67,3 +67,10 @@ def test_the_levels_list_comes_strongest_first(client, maria):
     res = client.get("/api/app/coach_levels", headers=maria["headers"])
     assert res.status_code == 200
     assert [lvl["code"] for lvl in res.json] == ["COMP", "ADV", "INI"]
+
+
+def test_a_search_keeps_the_level_order(client, maria):
+    """PAD-516 + PAD-521: the search filters in Python after the SQL sort, so High→Low still holds."""
+    res = client.get("/api/app/coach_players_paginated?per_page=50&sort_by=level&sort_dir=desc&search=a",
+                     headers=maria["headers"])
+    assert [r["name"] for r in res.json["items"]] == ["Ana", "Rita", "Bia"]

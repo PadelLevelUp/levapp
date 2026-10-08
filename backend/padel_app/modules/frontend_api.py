@@ -80,6 +80,7 @@ from padel_app.services.presence_overview_service import (
     default_overview_range,
     list_pending_validation,
     count_pending_validation,
+    count_pending_validation_total,
     unvalidate_instance,
 )
 from padel_app.services.class_request_service import (
@@ -1400,10 +1401,12 @@ def class_instances_pending_validation():
 @bp.get("/class_instances/pending_validation/count")
 @jwt_required()
 def class_instances_pending_validation_count():
-    """How many classes in the window still need validating (PAD-190 / PAD-201).
+    """How many classes still need validating (PAD-190 / PAD-201; PAD-539).
 
-    `attendance.validation` rule 18: the same helper the coach dashboard's
-    validation card reads, so the tab trigger and the card show one number.
+    `attendance.validation` rule 18: ``pendingCount`` is the window's count (the week the tab
+    shows, ``len(pending)`` of the listing by construction); ``pendingTotal`` is the coach's
+    whole backlog, the number the dashboard card and the badge show (rule 23), so the tab's
+    trigger and they show one number.
     """
     coach = require_coach()
     range_start, range_end = _presence_overview_range()
@@ -1414,6 +1417,7 @@ def class_instances_pending_validation_count():
             "pendingCount": count_pending_validation(
                 coach_id=coach.id, range_start=range_start, range_end=range_end
             ),
+            "pendingTotal": count_pending_validation_total(coach_id=coach.id),
         }
     )
 
@@ -1421,11 +1425,11 @@ def class_instances_pending_validation_count():
 @bp.get("/class_instances/pending_validation/badge")
 @jwt_required()
 def class_instances_pending_validation_badge():
-    """The Presences badge (PAD-443, `attendance.validation` rule 23).
+    """The Presences badge (PAD-443, `attendance.validation` rule 23; PAD-539).
 
-    The dashboard validation item's own derivation — the current week, else the
-    previous one — so the badge, the card and the tab's trigger show one number.
-    ``count`` is 0 when both weeks are clean.
+    The dashboard validation item's own derivation — the whole backlog, landing on the most
+    recent week that has something pending — so the badge, the card and the tab's trigger show
+    one number. ``count`` is 0 when nothing is pending.
     """
     from padel_app.helpers.dashboard.coach_home import validation_badge
 

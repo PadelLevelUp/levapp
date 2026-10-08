@@ -15,7 +15,13 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 ### Rules
 1. `GET /api/app/coach_players` returns all coach-player pairs for the authenticated coach (with evaluations, notes)
 2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side, incomplete
-3. Search matches against player name (case-insensitive)
+3. Search matches against player name (case-insensitive). **Every typed word must appear in the
+   name, in any order** (PAD-516): "pedro sousa" finds "Pedro Mesquita e Sousa". Words are split on
+   whitespace and each matches as a substring. Accents, case and punctuation are folded ("joao"
+   finds "João"), with one rule on the server (`player_service.name_matches_query`, applied after
+   the coach scope and the other filters, before pagination) and in the apps' local pickers
+   (`@levelup/config` `nameMatchesQuery`). A blank query matches everyone; a query with text but
+   no searchable characters ("%", "_") matches nobody, so a wildcard never lists the roster.
 4. Sort options: name-asc, name-desc, level-asc, level-desc. **`level-desc` is "Level High→Low": the
    coach's ladder strongest first** (`levels.coach-levels` rules 3 and 10: lower `display_order` is
    stronger; unordered levels are the weakest; `id` breaks ties); `level-asc` is the reverse. Players
@@ -81,6 +87,12 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 - **Given** a coach with players "Alice", "Bob", "Alice B"
 - **When** they GET `/api/app/coach_players_paginated?search=alice`
 - **Then** only "Alice" and "Alice B" are returned
+
+#### Search matches every word in any order (PAD-516)
+- **Given** a coach with players "Pedro Mesquita e Sousa", "Sousa Pedrosa" and "Pedro Alves"
+- **When** they GET `/api/app/coach_players_paginated?search=pedro sousa`
+- **Then** "Pedro Mesquita e Sousa" and "Sousa Pedrosa" are returned and "Pedro Alves" is not
+- **And** `search=joao alvares` returns "João Álvares", and a search still paginates (total, pages)
 
 #### Level High→Low lists the strongest level first (PAD-521)
 - **Given** Maria's ladder Competição (`display_order` 1), Avançado (2), Iniciação (3), and players
