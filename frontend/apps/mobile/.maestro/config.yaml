@@ -309,6 +309,10 @@ executionOrder:
     # 180 (PAD-539, attendance.validation rule 18): the Presences trigger counts the whole
     # backlog and names the shown week's share; a clean week does not read "nothing to validate".
     - 180-presences-backlog-count
+    # 181 (PAD-524, classes.clone): "Clonar aula" opens the new-class screen prefilled, start
+    # empty, Create disabled; goes back without saving.
+    - 181-clone-class
+    - 170-class-waiting-list
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

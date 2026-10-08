@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { courtsApi, invitationsApi, seasonsApi } from "@levelup/api";
+import * as classesApi from "@levelup/api/src/resources/classes";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import {
   CLASS_COLOR_SWATCHES,
@@ -82,9 +83,16 @@ type FieldErrors = Partial<
   Record<"name" | "date" | "startTime" | "endTime" | "maxPlayers" | "days" | "endDate" | "count", string>
 >;
 
+/** `start` + `minutes`, clamped to 23:59 — a clone's end from its length (classes.clone rule 5). */
+function addMinutesClamped(start: string, minutes: number): string {
+  const [h, m] = start.split(":").map(Number);
+  const total = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export default function NewClassScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ date?: string }>();
+  const params = useLocalSearchParams<{ date?: string; cloneModel?: string; cloneId?: string; cloneDate?: string }>();
   const { user } = useAuth();
   const { data: levels } = useCoachLevels();
   const addClass = useAddClass();
@@ -108,6 +116,20 @@ export default function NewClassScreen() {
   const [startTime, setStartTime] = React.useState("09:00");
   const [endTime, setEndTime] = React.useState("10:30");
   const [maxPlayers, setMaxPlayers] = React.useState("4");
+  // classes.clone (PAD-524): opened as a clone of an existing class. The server derives the
+  // prefill (rule 1); the start is left to the coach (rule 5) and Create waits for it.
+  const cloneRef =
+    typeof params.cloneModel === "string" && typeof params.cloneId === "string" && typeof params.cloneDate === "string"
+      ? { model: params.cloneModel, originalId: params.cloneId, date: params.cloneDate }
+      : null;
+  const cloneQuery = useQuery({
+    queryKey: ["class-clone-template", cloneRef?.model, cloneRef?.originalId, cloneRef?.date],
+    queryFn: () => classesApi.getCloneTemplate(cloneRef!),
+    enabled: cloneRef !== null,
+    staleTime: Infinity,
+  });
+  const clone = cloneQuery.data ?? null;
+  const [cloneDuration, setCloneDuration] = React.useState<number | null>(null);
   const [color, setColor] = React.useState(COLORS[0]);
   const [levelOption, setLevelOption] = React.useState<Option>(undefined);
   // clubs.courts rule 7 (PAD-194): the coach's current club's courts.
@@ -252,6 +274,37 @@ export default function NewClassScreen() {
   };
 
   // classes.create rule 10 (PAD-474): the save sequence lives in
+  // classes.clone (PAD-524): fill the form once from the server's template — the start empty,
+  // the end set from the original's length when the coach picks the start.
+  const clonedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!clone || clonedRef.current) return;
+    clonedRef.current = true;
+    setName(clone.name);
+    setClassTypeValue(clone.classType);
+    setDate(clone.date);
+    setStartTime("");
+    setEndTime("");
+    setCloneDuration(clone.durationMinutes);
+    setMaxPlayers(String(clone.maxPlayers));
+    if (clone.color) setColor(clone.color);
+    setSelectedPlayers(clone.playerIds);
+    setIsRecurring(clone.isRecurring);
+    setSelectedDays(clone.recurrenceRule?.daysOfWeek ?? []);
+    setEndMode(clone.recursUntilSeasonEnd ? "season" : "date");
+    setEndDate(clone.endDate ?? "");
+  }, [clone]);
+  React.useEffect(() => {
+    if (!clone?.levelId || !levels) return;
+    const level = levels.find((l) => String(l.id) === clone.levelId);
+    if (level) setLevelOption({ value: String(level.id), label: level.label || level.code });
+  }, [clone, levels]);
+  React.useEffect(() => {
+    if (clone?.courtId == null || !clubCourts) return;
+    const court = clubCourts.find((c) => c.id === clone.courtId);
+    if (court) setCourtOption({ value: String(court.id), label: court.name });
+  }, [clone, clubCourts]);
+
   // createClassCreateFlow — the overlap warning (PAD-159), then the
   // unavailable-student warning (PAD-107), then save, as web's AddClassSheet.
   // This screen validates, answers the flow's questions, and saves only when
@@ -291,7 +344,11 @@ export default function NewClassScreen() {
         levelId: levelOption?.value || null,
         courtId: courtOption?.value ? Number(courtOption.value) : null,
         playerIds: selectedPlayers,
-        notificationsEnabled: false,
+        notificationsEnabled: clone ? clone.notificationsEnabled : false,
+        // classes.clone rule 4 (PAD-524): the original series' own engine overrides travel with it.
+        ...(clone
+          ? { eligibilityRules: clone.eligibilityRules, openSpotsVisible: clone.openSpotsVisible, autoInvites: clone.autoInvites }
+          : {}),
         recurrenceRule: isRecurring
           ? { frequency: "weekly", daysOfWeek: selectedDays }
           : null,
@@ -424,9 +481,12 @@ export default function NewClassScreen() {
                 testID="class-start-time"
                 label={t("calendar.addEvent.startShort")}
                 value={startTime}
+                placeholder={clone ? t("calendar.addClass.chooseStart") : undefined}
                 error={errors.startTime}
                 onChange={(value) => {
                   setStartTime(value);
+                  // classes.clone rule 5: the clone keeps the original's length.
+                  if (cloneDuration != null && !endTime) setEndTime(addMinutesClamped(value, cloneDuration));
                   setErrors((prev) => ({ ...prev, startTime: undefined }));
                 }}
               />
@@ -665,7 +725,7 @@ export default function NewClassScreen() {
             testID="class-save"
             accessibilityLabel={t("calendar.addClass.createClass")}
             onPress={handleSave}
-            disabled={addClass.isPending}
+            disabled={addClass.isPending || (clone !== null && !TIME_RE.test(startTime)) || (cloneRef !== null && !clone)}
           >
             {addClass.isPending ? (
               <Spinner color={lightTheme.primaryForeground} />

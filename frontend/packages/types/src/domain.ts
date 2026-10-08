@@ -551,6 +551,8 @@ export interface ClassInstance {
   effectiveAutoInvites?: boolean;
   autoInvitesSource?: "instance" | "lesson" | "type";
   invitations?: ClassInvitation[];
+  /** PAD-547: coach only — the class's waiting list (calendar.event-detail rule 19). */
+  waitingList?: CoachClassWaitingListRow[];
   /** PAD-131: coach only — the pending join requests for this class. */
   joinRequests?: ClassJoinRequest[];
   /** PAD-131: student only — their latest join request for this class, or null. */
@@ -1523,6 +1525,23 @@ export interface StandingWaitingListEntry {
   expiresOn: string | null;
   createdAt: string;
   activeClassCount: number;
+  /** PAD-547 (waiting-list rule 19): set when the entry is scoped to one series. */
+  lessonId?: number | null;
+  lessonTitle?: string | null;
+}
+
+/** PAD-547 (waiting-list rule 20): where a class's waiting-list row came from. */
+export type WaitingListOrigin = "standing" | "student" | "coach";
+
+/** PAD-547: one row of a class's waiting list, in the order the engine asks them. */
+export interface CoachClassWaitingListRow {
+  id: number;
+  playerId: number;
+  playerName: string | null;
+  joinedAt: string | null;
+  origin: WaitingListOrigin;
+  standingEntryId: number | null;
+  seriesScoped: boolean;
 }
 
 export interface NotificationEventItem {
@@ -1860,3 +1879,29 @@ export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;
 }
+
+/**
+ * `GET /class_instance/clone_template` — `classes.clone` (PAD-524): the new-class form's prefill for
+ * "Clonar aula", shaped as POST /add_class takes it minus the times. The start is the coach's to
+ * pick; `durationMinutes` sets the end from it.
+ */
+export interface CloneTemplate {
+  name: string;
+  classType: "academy" | "private";
+  levelId: string | null;
+  maxPlayers: number;
+  color: string | null;
+  courtId: number | null;
+  date: string;
+  durationMinutes: number;
+  notificationsEnabled: boolean;
+  eligibilityRules: GroupRule[] | null;
+  openSpotsVisible: boolean | null;
+  autoInvites: boolean | null;
+  isRecurring: boolean;
+  recurrenceRule: { frequency: string; daysOfWeek: number[] } | null;
+  recursUntilSeasonEnd: boolean;
+  endDate: string | null;
+  playerIds: string[];
+}
+

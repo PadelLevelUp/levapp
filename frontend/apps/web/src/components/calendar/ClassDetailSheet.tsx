@@ -19,9 +19,11 @@ import {
   Loader2,
   AlertTriangle,
   UserX,
+  Copy,
   MoreHorizontal,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
 
@@ -61,6 +63,7 @@ import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
+import { ClassWaitingListSection } from "./ClassWaitingListSection";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
 
 import { Button } from "@/components/ui/button";
@@ -135,6 +138,8 @@ interface ClassDetailSheetProps {
   saving?: boolean;
   /** Events already loaded for the visible week — used to warn on overlap (PAD-99). */
   existingEvents?: CalendarEvent[];
+  /** classes.clone (PAD-524): "Clonar aula" — the page opens the new-class sheet prefilled. */
+  onClone?: (event: CalendarEvent) => void;
 }
 
 export function ClassDetailSheet({
@@ -150,6 +155,7 @@ export function ClassDetailSheet({
   deleting = false,
   saving = false,
   existingEvents = [],
+  onClone,
 }: ClassDetailSheetProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -440,7 +446,7 @@ export function ClassDetailSheet({
 
         // PAD-131: a student asked to join, or the class filled and their
         // requests closed → re-fetch so the requests block is current.
-        if (data.type === "join_request_created" || data.type === "join_requests_superseded") {
+        if (data.type === "join_request_created" || data.type === "join_requests_superseded" || data.type === "waiting_list_changed") {
           const ev = eventRef.current;
           if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
         }
@@ -721,12 +727,13 @@ export function ClassDetailSheet({
 
   /** classes.edit rule 10: unsaved means different from the loaded class, by value — the same
    *  comparison the save makes (fields of EDITABLE_FIELDS plus the participant diff). */
-  const hasUnsavedEdit = () => {
-    if (!isEditing || !draft || !classInstance) return false;
-    if (Object.keys(diffInstance(classInstance, draft, EDITABLE_FIELDS)).length > 0) return true;
-    const { addPlayers, removePlayers } = diffParticipants(classInstance.participants, draft.participants);
-    return addPlayers.length > 0 || removePlayers.length > 0;
-  };
+  const hasUnsavedEdit = () =>
+    isEditing && !!draft && !!classInstance &&
+    hasUnsavedClassEdit(
+      classInstance as unknown as Record<string, unknown> & { participants?: { id: string }[] },
+      draft as unknown as Record<string, unknown> & { participants?: { id: string }[] },
+      EDITABLE_FIELDS as unknown as readonly string[]
+    );
 
   /** classes.edit rule 10 (PAD-525): every close of the sheet (X, Escape, click outside) comes
    *  through here. With an unsaved draft it asks first; otherwise it ends edit mode and closes.
@@ -1691,6 +1698,23 @@ export function ClassDetailSheet({
             </>
           )}
 
+          {/* PAD-547 (calendar.event-detail rules 19–20): the class's waiting list, coach only. */}
+          {canManage && !isEditing && (
+            <>
+              <Separator />
+              <ClassWaitingListSection
+                event={event}
+                rows={classInstance.waitingList ?? []}
+                roster={players}
+                enrolledIds={(classInstance.participants ?? []).map((p) => p.id)}
+                onChanged={() => {
+                  const ev = eventRef.current;
+                  if (ev) getClassInstance(ev).then(setClassInstance).catch(() => {});
+                }}
+              />
+            </>
+          )}
+
           <Separator />
 
           <ClassPlanningSection
@@ -1740,6 +1764,17 @@ export function ClassDetailSheet({
                     <Edit className="w-4 h-4 mr-2" />
                     {t("calendar.detail.edit")}
                   </Button>
+                  {onClone && event?.type === "class" && (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      data-testid="class-clone"
+                      onClick={() => event && onClone(event)}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      {t("calendar.detail.clone")}
+                    </Button>
+                  )}
                   {event?.type === "class" && (
                     <>
                       <Button

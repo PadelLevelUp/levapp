@@ -962,7 +962,12 @@ def coach_players_paginated():
 @jwt_required()
 def get_coach_levels():
     coach = require_coach()
-    return jsonify([serialize_coach_level(l) for l in coach.levels])
+    # levels rule 10 (PAD-522, B-364): the canonical ladder, strongest first. The
+    # relationship is unordered, so a reordered ladder came back in insertion order
+    # and every level picker (profile editor, add/edit sheets, web and iOS) showed it.
+    from padel_app.services.level_ladder import sort_ladder
+
+    return jsonify([serialize_coach_level(l) for l in sort_ladder(coach.levels)])
 
 
 @bp.get("/seasons")
@@ -1638,6 +1643,32 @@ def add_class():
         # clubs.courts rule 6 (PAD-194); B-266: name the field.
         return jsonify({"error": str(e), "code": e.code, "fields": ["courtId"]}), 400
     return jsonify(serialize_calendar_event(lesson))
+
+
+@bp.get("/class_instance/clone_template")
+@jwt_required()
+def class_clone_template():
+    """The new-class form's prefill for "Clonar aula" (PAD-524, classes.clone).
+
+    `?model&id&date` names the class as the calendar does. Coach-only, and only a class the
+    coach may read. Both shells drop the answer into their ordinary create form; neither
+    computes a field (rule 1).
+    """
+    from padel_app.services.lesson_service import clone_template, parse_event_target
+
+    require_coach()
+    kind, target, occ_date = parse_event_target(
+        request.args.get("model"), request.args.get("id"), request.args.get("date")
+    )
+    require_readable_class(kind, target)
+    if kind == "lessoninstance":
+        lesson, instance = target.lesson, target
+        occ_date = target.original_lesson_occurence_date or target.start_datetime.date()
+    else:
+        lesson, instance = target, None
+    club = current_club()
+    return jsonify(clone_template(lesson, occurrence_date=occ_date, instance=instance,
+                                  club_id=getattr(club, "id", None)))
 
 
 @bp.post("/add_event")

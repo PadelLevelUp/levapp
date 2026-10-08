@@ -104,6 +104,7 @@ import {
 } from "@/features/calendar/edit-class-diff";
 import { PlayerSelector } from "@/features/calendar/player-selector";
 import { useCoachPlayers } from "@/features/players/hooks";
+import { ClassWaitingListSection } from "@/features/calendar/class-waiting-list-section";
 import {
   useCancelAttendance,
   useConfirmClassTraining,
@@ -354,7 +355,7 @@ export default function ClassDetailScreen() {
         if (!isCoach || !event) return;
         // PAD-131: a student asked to join, or the class filled and the
         // requests closed → refetch so the requests block is current.
-        if (evt.type === "join_request_created" || evt.type === "join_requests_superseded") {
+        if (evt.type === "join_request_created" || evt.type === "join_requests_superseded" || evt.type === "waiting_list_changed") {
           void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
           return;
         }
@@ -1608,6 +1609,20 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
+          {/* PAD-547 (calendar.event-detail rules 19–20): the class's waiting list, coach only. */}
+          {isCoach && !isEditing && instance ? (
+            <>
+              <Separator />
+              <ClassWaitingListSection
+                event={event}
+                isRecurring={isRecurring}
+                rows={instance.waitingList ?? []}
+                enrolledIds={(instance.participants ?? []).map((p) => p.id)}
+                onChanged={() => void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) })}
+              />
+            </>
+          ) : null}
+
           {/* PAD-131: a student outside the class asks for the open spot
               (rule 1) or withdraws their pending ask (rule 4). */}
           {!isCoach &&
@@ -1807,6 +1822,22 @@ export default function ClassDetailScreen() {
                 </Button>
                 {event.type === "class" ? (
                   <>
+                    {/* classes.clone (PAD-524): the new-class screen, prefilled from the server's template. */}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      testID="class-clone"
+                      accessibilityLabel={t("calendar.detail.clone")}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/class/new",
+                          params: { cloneModel: String(event.model), cloneId: String(event.originalId), cloneDate: event.date },
+                        })
+                      }
+                    >
+                      <Ionicons name="copy-outline" size={16} color={lightTheme.foreground} />
+                      <Text>{t("calendar.detail.clone")}</Text>
+                    </Button>
                     <Button
                       variant="outline"
                       className="flex-1"

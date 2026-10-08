@@ -23,3 +23,5 @@ The classes domain.
 ## Why it's grouped this way
 
 One domain of the LevelUp product, migrated 2026-09-03 from the legacy `specs/classes/spec.md` (one file per domain) into one leaf per behaviour. Leaves sit directly under the domain — no capability folders yet.
+
+- `clone` — "Clonar aula": the new-class form prefilled from an existing class (PAD-524).
