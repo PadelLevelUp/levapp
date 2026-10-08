@@ -1807,6 +1807,22 @@ export default function ClassDetailScreen() {
                 </Button>
                 {event.type === "class" ? (
                   <>
+                    {/* classes.clone (PAD-524): the new-class screen, prefilled from the server's template. */}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      testID="class-clone"
+                      accessibilityLabel={t("calendar.detail.clone")}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/class/new",
+                          params: { cloneModel: String(event.model), cloneId: String(event.originalId), cloneDate: event.date },
+                        })
+                      }
+                    >
+                      <Ionicons name="copy-outline" size={16} color={lightTheme.foreground} />
+                      <Text>{t("calendar.detail.clone")}</Text>
+                    </Button>
                     <Button
                       variant="outline"
                       className="flex-1"

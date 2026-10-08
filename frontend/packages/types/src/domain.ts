@@ -1860,3 +1860,29 @@ export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;
 }
+
+/**
+ * `GET /class_instance/clone_template` — `classes.clone` (PAD-524): the new-class form's prefill for
+ * "Clonar aula", shaped as POST /add_class takes it minus the times. The start is the coach's to
+ * pick; `durationMinutes` sets the end from it.
+ */
+export interface CloneTemplate {
+  name: string;
+  classType: "academy" | "private";
+  levelId: string | null;
+  maxPlayers: number;
+  color: string | null;
+  courtId: number | null;
+  date: string;
+  durationMinutes: number;
+  notificationsEnabled: boolean;
+  eligibilityRules: GroupRule[] | null;
+  openSpotsVisible: boolean | null;
+  autoInvites: boolean | null;
+  isRecurring: boolean;
+  recurrenceRule: { frequency: string; daysOfWeek: number[] } | null;
+  recursUntilSeasonEnd: boolean;
+  endDate: string | null;
+  playerIds: string[];
+}
+

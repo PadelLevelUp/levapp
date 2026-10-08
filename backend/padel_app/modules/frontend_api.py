@@ -1645,6 +1645,32 @@ def add_class():
     return jsonify(serialize_calendar_event(lesson))
 
 
+@bp.get("/class_instance/clone_template")
+@jwt_required()
+def class_clone_template():
+    """The new-class form's prefill for "Clonar aula" (PAD-524, classes.clone).
+
+    `?model&id&date` names the class as the calendar does. Coach-only, and only a class the
+    coach may read. Both shells drop the answer into their ordinary create form; neither
+    computes a field (rule 1).
+    """
+    from padel_app.services.lesson_service import clone_template, parse_event_target
+
+    require_coach()
+    kind, target, occ_date = parse_event_target(
+        request.args.get("model"), request.args.get("id"), request.args.get("date")
+    )
+    require_readable_class(kind, target)
+    if kind == "lessoninstance":
+        lesson, instance = target.lesson, target
+        occ_date = target.original_lesson_occurence_date or target.start_datetime.date()
+    else:
+        lesson, instance = target, None
+    club = current_club()
+    return jsonify(clone_template(lesson, occurrence_date=occ_date, instance=instance,
+                                  club_id=getattr(club, "id", None)))
+
+
 @bp.post("/add_event")
 @jwt_required()
 def add_event():
