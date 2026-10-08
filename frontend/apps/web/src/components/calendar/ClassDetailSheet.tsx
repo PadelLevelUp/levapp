@@ -55,7 +55,15 @@ import {
   rejectClassJoinRequest,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
-import { sendClassReminders, cancelAttendance, respondToReminder, coachRespondToNotification, withdrawInvitation } from "@/api/notificationEngine";
+import {
+  sendClassReminders,
+  cancelAttendance,
+  respondToReminder,
+  coachRespondToNotification,
+  withdrawInvitation,
+  getApprovalSuggestions,
+  recomputeApprovalSuggestions,
+} from "@/api/notificationEngine";
 import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
@@ -256,6 +264,51 @@ export function ClassDetailSheet({
   const keepInvitationsOpenRef = useRef(false);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
   const [approvalBundle, setApprovalBundle] = useState<ApprovalBundle | null>(null);
+  // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
+  // a pending list survives a reload, and an ignored one offers "Suggest automatic invitations".
+  const [suggestionsIgnored, setSuggestionsIgnored] = useState(false);
+  const [semiAutomatic, setSemiAutomatic] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
+  const suggestionsInstanceId = (() => {
+    const fromPresence = classInstance?.presences?.[0]?.lessonInstanceId;
+    if (fromPresence != null) return Number(fromPresence);
+    if (event?.model === "LessonInstance") return Number(event.originalId);
+    return null;
+  })();
+  useEffect(() => {
+    setSuggestionsIgnored(false);
+    if (!open || !canManage || suggestionsInstanceId == null) return;
+    let cancelled = false;
+    getApprovalSuggestions(suggestionsInstanceId)
+      .then((s) => {
+        if (cancelled) return;
+        setSemiAutomatic(!!s.semiAutomatic);
+        if (s.state === "pending" && s.bundle) setApprovalBundle(s.bundle);
+        setSuggestionsIgnored(s.state === "dismissed");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, canManage, suggestionsInstanceId]);
+
+  const handleRecomputeSuggestions = async () => {
+    if (suggestionsInstanceId == null || recomputing) return;
+    setRecomputing(true);
+    try {
+      const s = await recomputeApprovalSuggestions(suggestionsInstanceId);
+      if (s.state === "pending" && s.bundle) {
+        setApprovalBundle(s.bundle);
+        setSuggestionsIgnored(false);
+      } else {
+        setSuggestionsIgnored(false);
+      }
+    } catch {
+      toast({ title: t("notificationsUi.replacementApproval.genericError"), variant: "destructive" });
+    } finally {
+      setRecomputing(false);
+    }
+  };
   const [plannedExerciseIds, setPlannedExerciseIds] = useState<string[]>([]);
   const [isPlanningMode, setIsPlanningMode] = useState(false);
   const [savingTraining, setSavingTraining] = useState(false);
@@ -1579,10 +1632,50 @@ export function ClassDetailSheet({
             </>
           )}
 
+          {canManage && !isEditing && savingAttendance && semiAutomatic && (
+            // PAD-542: the confirm computes the suggestions; say so while it runs.
+            <>
+              <Separator />
+              <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="suggestions-preparing">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t("notificationsUi.replacementApproval.preparing")}
+              </p>
+            </>
+          )}
+
           {canManage && !isEditing && approvalBundle && (
             <>
               <Separator />
-              <ReplacementApprovalCard bundle={approvalBundle} />
+              <ReplacementApprovalCard
+                key={approvalBundle.bundleId}
+                bundle={approvalBundle}
+                allowDismiss
+                onResult={(action) => {
+                  // PAD-545: an ignored list leaves the class; the coach can ask for a fresh one.
+                  if (action === "dismiss") {
+                    setApprovalBundle(null);
+                    setSuggestionsIgnored(true);
+                  }
+                }}
+              />
+            </>
+          )}
+
+          {canManage && !isEditing && !approvalBundle && suggestionsIgnored && (
+            <>
+              <Separator />
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleRecomputeSuggestions}
+                disabled={recomputing}
+                data-testid="recompute-suggestions"
+              >
+                {recomputing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {recomputing
+                  ? t("notificationsUi.replacementApproval.preparing")
+                  : t("notificationsUi.replacementApproval.recompute")}
+              </Button>
             </>
           )}
 

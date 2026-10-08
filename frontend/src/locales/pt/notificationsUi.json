@@ -18,7 +18,11 @@
       "yesRightNow": "Sim, agora mesmo",
       "yesAt": "Sim, às {{window}}",
       "approveAtWindowAria": "Aprovar convites na abertura da janela",
-      "no": "Não"
+      "no": "Não",
+      "ignore": "Ignorar",
+      "superseded": "Estas sugestões foram recalculadas — usa a mensagem mais recente.",
+      "recompute": "Sugestão de convites automáticos",
+      "preparing": "A preparar sugestões de convites…"
     }
   }
 }
