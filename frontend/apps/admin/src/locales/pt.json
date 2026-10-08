@@ -7,7 +7,8 @@
         "roles": "Acessos",
         "audit": "Registo de alterações",
         "clubs": "Clubes",
-        "switches": "Interruptores"
+        "switches": "Interruptores",
+        "engineHealth": "Saúde do motor"
       },
       "signOut": "Terminar sessão",
       "role": {
@@ -155,6 +156,73 @@
       "confirmOff": {
         "terms-acceptance": "Desligar isto faz com que novas contas sejam criadas sem aceitar os Termos, e nenhuma aceitação fica registada. Isso tem impacto legal. Desliga só num incidente e volta a ligar assim que estiver resolvido. Continuar?"
       }
+    },
+    "engineHealth": {
+      "title": "Saúde do motor",
+      "lead": "O que o motor de convites e lembretes tem neste momento, e o que corre em cada ambiente. Só leitura.",
+      "refresh": "Atualizar",
+      "computedAt": "Calculado {{when}}",
+      "vacancies": {
+        "title": "Vagas abertas",
+        "open": "Abertas",
+        "pending": "À espera de aprovação",
+        "oldest": "Mais antiga",
+        "round": "Ronda {{round}}, lote {{batch}}"
+      },
+      "invitations": {
+        "title": "Convites ativos",
+        "live": "Ativos",
+        "round": "Ronda {{round}}",
+        "waitingList": "Lista de espera"
+      },
+      "scheduler": {
+        "title": "Agendador",
+        "unavailable": "O agendador não está a correr neste processo.",
+        "total": "Tarefas",
+        "overdue": "Em atraso (>5 min)",
+        "present": "presente",
+        "missing": "em falta"
+      },
+      "incidents": {
+        "title": "Envios falhados e lembretes saltados",
+        "last24h": "Últimas 24 h",
+        "last7d": "Últimos 7 dias",
+        "recent": "Mais recentes",
+        "none": "Nenhum registado.",
+        "kind": {
+          "email_failed": "Email falhou",
+          "push_failed": "Notificação falhou",
+          "reminder_skipped_past_due": "Lembrete saltado (fora de horas)"
+        }
+      },
+      "accounts": {
+        "title": "Contas",
+        "users": "Utilizadores",
+        "coaches": "Treinadores",
+        "players": "Alunos",
+        "new7d": "Novas em 7 dias"
+      },
+      "deploy": {
+        "title": "Versões",
+        "this": "Este ambiente",
+        "other": "Outro ambiente",
+        "sha": "Commit",
+        "head": "Migração",
+        "notConfigured": "Não configurado",
+        "unreachable": "Inacessível"
+      },
+      "coaches": {
+        "title": "Definições do motor de um treinador",
+        "search": "Procurar um treinador pelo nome",
+        "none": "Nenhum treinador encontrado.",
+        "openVacancies": "Vagas abertas",
+        "liveInvitations": "Convites ativos",
+        "jobs": "Tarefas agendadas",
+        "settings": "Definições (só leitura)"
+      },
+      "minutes": "{{n}} min",
+      "hours": "{{n}} h",
+      "days": "{{n}} d"
     }
   }
 }

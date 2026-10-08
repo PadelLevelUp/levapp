@@ -30,6 +30,13 @@ def _gate():
         return None
     header = request.headers.get("Authorization", "")
     scheme, _, token = header.partition(" ")
+    # admin.engine-health rule 5 (PAD-534): the other environment's console reads this one's deploy
+    # identity with a peer token instead of an admin session. That endpoint only; GET only.
+    g.peer = False
+    if (scheme.lower() == "peer" and request.endpoint == "admin_api.deploy_identity"
+            and request.method == "GET" and _peer_token_ok(token.strip())):
+        g.peer = True
+        return None
     if scheme.lower() != "bearer" or not token.strip():
         return error("ADMIN_TOKEN_REQUIRED", 401)
     try:
@@ -40,6 +47,13 @@ def _gate():
     g.admin = role
     g.admin_claims = claims
     return None
+
+
+def _peer_token_ok(token: str) -> bool:
+    import hmac
+
+    expected = current_app.config.get("ADMIN_PEER_INBOUND_TOKEN") or ""
+    return bool(expected) and bool(token) and hmac.compare_digest(token, expected)
 
 
 @bp.after_request
@@ -165,6 +179,62 @@ def list_audit():
         page = 1
     rows, has_more = audit_service.search(request.args, page)
     return jsonify({"items": [row.to_dict() for row in rows], "page": page, "hasMore": has_more})
+
+
+# ── engine health (PAD-534, admin.engine-health): read-only, support ─────────────────────────
+
+
+@bp.get("/engine-health")
+@require_role("support")
+def engine_health():
+    from padel_app.services.admin import engine_health as svc
+
+    return jsonify(svc.summary(current_app.config))
+
+
+@bp.get("/engine-health/coaches")
+@require_role("support")
+def engine_health_coaches():
+    from padel_app.services.admin import engine_health as svc
+
+    return jsonify({"coaches": svc.coaches(request.args.get("q"))})
+
+
+@bp.get("/engine-health/coaches/<int:coach_id>")
+@require_role("support")
+def engine_health_coach(coach_id):
+    from padel_app.services.admin import engine_health as svc
+
+    detail = svc.coach_detail(coach_id)
+    if detail is None:
+        return error("NOT_FOUND", 404)
+    return jsonify(detail)
+
+
+@bp.get("/deploy-identity")
+def deploy_identity():
+    """Rule 5: this environment's commit and migration head — for a support session, or for the
+    other environment's console presenting the peer token (`Authorization: Peer <token>`)."""
+    from padel_app.services.admin import engine_health as svc
+    from padel_app.utils.admin_auth import role_at_least
+
+    if not g.get("peer"):
+        if g.admin is None:
+            return error("ADMIN_TOKEN_REQUIRED", 401)
+        if not role_at_least(g.admin.role, "support"):
+            return error("ADMIN_ROLE_TOO_LOW", 403)
+        return jsonify(svc.this_identity())
+    identity = svc.this_identity()
+    # Rule 5 (coordinator's approved design, #589 review): a peer read is audited like a write, in its
+    # own transaction, naming "peer" as the actor. An INFO log line never reached prod's stderr.
+    from padel_app.utils.admin_auth import AuditContext, _record_alone
+
+    ctx = AuditContext("deploy_identity.peer_read")
+    ctx.actor_email = "peer"
+    ctx.target("environment", None)
+    ctx.after = identity
+    _record_alone(ctx, "ok")
+    return jsonify(identity)
 
 
 # ── clubs and switches (PAD-533, admin.clubs-and-switches rules 1–3, 5, 6) ────────────────────
