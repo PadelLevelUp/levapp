@@ -22,6 +22,7 @@ from padel_app.models.lesson_instances import LessonInstance
 from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
 from padel_app.models.presences import Presence
+from padel_app.models.reminder_attempts import ReminderAttempt
 from padel_app.services.lesson_service import enrol
 from padel_app.tools.unit_of_work import unit_of_work
 from padel_app.models.Association_CoachClub import Association_CoachClub
@@ -384,7 +385,19 @@ with app.app_context(), unit_of_work():
 
     # Enrol the student (mirrors materialisation: invited, not yet confirmed).
     # Needed so the confirm / cancel-attendance flow has a row to operate on.
-    _enrol(instance, student, invited=True, confirmed=False)
+    academy_presence = _enrol(instance, student, invited=True, confirmed=False)
+    # PAD-570 (attendance.confirm rule 27): the student may say "Vou" only once ASKED.
+    # The academy class sits 1-7 days out, so under the coach's 48 h timing the ask
+    # would open on some weekdays and not others. A counted reminder attempt — what a
+    # coach's manual "Enviar lembretes" leaves — makes it asked every day of the week,
+    # so the dashboard specs and Maestro flow 23 see Yes / No deterministically.
+    db.session.add(ReminderAttempt(
+        lesson_instance_id=instance.id,
+        player_id=student.id,
+        presence_id=academy_presence.id,
+        number=1,
+        sent_at=_utcnow_naive() - timedelta(hours=1),
+    ))
 
     # ── Declined-count class (PAD-71) ─────────────────────────────────────────
     # Next Thursday 16:00. 3 enrolled players out of 4 spots, of which 2 have

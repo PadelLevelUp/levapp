@@ -398,54 +398,10 @@ def _cancelled_then_back(app):
 
 
 @POSTGRES_ONLY
-def test_return_and_an_invitees_yes_on_the_returners_spot_neither_deadlocks_nor_overfills(app, monkeypatch):
-    """B-284: R takes the place back while I answers yes to the invitation for R's own spot. The
-    return locked the class and then wrote R's vacancy; I's yes locks that vacancy and then the
-    class — the opposite order. Forced: R pauses holding its first lock until I's answer is under
-    way. Same order (vacancy, then class) on both: one waits for the other, no deadlock, one seat."""
-    import time
-
-    from padel_app.services import notification_service as ns
-    from padel_app.services.notification_service import respond_to_notification, respond_to_reminder
-    from padel_app.tests.helpers import pin_clock
-    from padel_app.tests.test_pad493_starts_and_pacing import _race
-
-    pin_clock(monkeypatch, NOW)
-    instance_id, r_user, invite_id, i_user = _cancelled_then_back(app)
-    held, invitee_started = threading.Event(), threading.Event()
-    real_lock = ns._lock_instance
-
-    def lock(instance):
-        locked = real_lock(instance)
-        if threading.current_thread().name == "return" and not held.is_set():
-            held.set()
-            invitee_started.wait(timeout=5)
-            time.sleep(0.5)  # let I take what it can and block on the rest
-        return locked
-
-    monkeypatch.setattr(ns, "_lock_instance", lock)
-    results = {}
-
-    def back():
-        threading.current_thread().name = "return"
-        results["return"] = respond_to_reminder(instance_id, "yes", r_user, now=NOW + timedelta(minutes=2))
-
-    def invitee():
-        held.wait(timeout=5)
-        invitee_started.set()
-        results["invitee"] = respond_to_notification(invite_id, "yes", i_user, now=NOW + timedelta(minutes=2))
-
-    with _io():
-        _race(app, [back, invitee])
-    filled, places = _enrolled(app, instance_id)
-    assert filled <= places, f"class overfilled: {filled} on {places} places ({results})"
-    assert results["return"]["action"] == "confirmed"
-    assert results["invitee"]["action"] != "confirmed", results
+# PAD-570 (attendance.confirm rule 28): the return race test that lived here is gone with the
+# come-back it pinned — a yes after a cancellation is refused before any lock is taken.
 
 
-# ── #527 review item 5: the reconcile locks only the vacancy it closes ──────────────────────
-
-@POSTGRES_ONLY
 def test_reconcile_locks_only_the_vacancy_it_closes(app, monkeypatch):
     """Two open vacancies for one free place: the reconcile closes one. While it is closing it, an
     answer on the OTHER spot must be able to lock that spot — the reconcile has no business holding

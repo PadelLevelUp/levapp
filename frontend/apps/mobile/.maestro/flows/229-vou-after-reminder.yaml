@@ -1,21 +1,19 @@
-# PAD-315 — attendance.confirm rule 26: a student who said they are not coming
-# can say they can come after all, and gets their spot back while it is free.
+# PAD-570 — attendance.confirm rules 27-28: a student may say "Vou" only once
+# asked (the coach's first reminder, or one sent by hand), and "Não vou" is final.
 #
-# Why this flow exists when the logic already has unit tests: the affordance is
-# a BUTTON a student has to find and press on a phone. Unit tests cannot tell us
-# it is reachable — that it renders on the right state, in the right place, and
-# that pressing it changes what the screen offers.
-#
-# The refusal (`spot_filled`) is deliberately NOT here: forcing it means filling
-# the class from another account between two taps, which is a race to win rather
-# than an assertion. It is pinned by unit tests in @levelup/config.
+# Replaces 50-come-back (rule 26 is reversed by this ticket). The class is booked
+# eight to fourteen days out, so under the seeded coach's 48 h first reminder the
+# student has NOT been asked: the detail offers only the decline and no confirm.
+# The coach's manual reminder (API) is the ask; then "Vou" appears, records
+# `coming`, and after "Não vou" the hint shows and the confirm never comes back.
 #
 # Setup and teardown through the API exactly like 42-cancel-requested-class
 # (the request form is flow 13's subject): book the first free block eight to
-# fourteen days out, accept as the coach, cancel in the student UI, remove.
+# fourteen days out, accept as the coach, drive the student UI, remove.
 # Order: not load bearing. Backend: -e API_BASE=http://localhost:<port>, else :5001.
+# Flow number 229 is self-assigned from Session C's range (229-238), unconfirmed.
 #
-# Mirrors: apps/web/e2e/attendance/pad315-come-back.spec.ts
+# Mirrors: apps/web/e2e/attendance/pad570-vou-after-reminder.spec.ts
 appId: com.padellevelup.app
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
@@ -31,8 +29,11 @@ appId: com.padellevelup.app
 - evalScript: "${output.requestId = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.day, startTime: output.slot.startTime, endTime: output.endTime }) }).body).id}"
 - evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
 - assertTrue: "${output.accepted == true}"
+# The occurrence as the calendar addresses it (the manual reminder needs it).
+- evalScript: "${output.event = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
+- assertTrue: "${output.event != null}"
 
-# ── Student opens the class and says they are not coming ──
+# ── Rule 27, before the ask: the student sees only "Não vou" ──
 - runFlow: ../subflows/login-student.yaml
 - tapOn:
     id: "tab-calendar"
@@ -40,17 +41,8 @@ appId: com.padellevelup.app
     visible:
       id: "screen-calendar"
     timeout: 15000
-# The calendar remembers its MODE and its WEEK between runs, and that state lives
-# in the app rather than the database — F saw it survive a fresh seed twice. In
-# Dia mode `calendar-next-week` moves the SELECTED DAY by a week, so four blind
-# taps land on one weekday that is not the class's ("0 classes" on a Monday while
-# the class sits on another weekday inside the skipped weeks).
-#
-# So: reset the week in Semana (where `calendar-today` lives), switch to Dia,
-# then walk forward with a GUARDED repeat that stops as soon as the class's own
-# day cell is on the strip. Testids verified on staging: ViewModeControl emits
-# `calendar-view-{day,week,month}` and all three modes are enabled; WeekNav emits
-# `calendar-today`; DayStrip emits `calendar-day-{yyyy-MM-dd}`.
+# Same calendar walk as flow 48/50: reset the week in Semana, switch to Dia, then
+# step forward until the class's own day cell is on the strip.
 - tapOn:
     id: "calendar-view-week"
 - extendedWaitUntil:
@@ -66,7 +58,6 @@ appId: com.padellevelup.app
     visible:
       id: "calendar-next-week"
     timeout: 10000
-# The class is booked 8-14 days out, so at most three weeks forward from today.
 - repeat:
     times: 3
     while:
@@ -92,6 +83,50 @@ appId: com.padellevelup.app
       id: "class-cancel-attendance"
     direction: DOWN
     timeout: 30000
+- assertNotVisible:
+    id: "class-confirm-attendance"
+
+# ── The coach asks by hand (API): now "Vou" is offered ──
+- evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/send_reminders', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ model: output.event.model, originalId: String(output.event.originalId), date: output.day }) }).body).sent}"
+- assertTrue: "${output.sent >= 1}"
+# Leave and re-enter the class so the screen re-reads the payload.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-confirm-attendance"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-confirm-attendance"
+- extendedWaitUntil:
+    visible:
+      id: "attendance-state-coming"
+    timeout: 20000
+- assertNotVisible:
+    id: "class-confirm-attendance"
+
+# ── Rule 28: "Não vou" is final ──
+- scrollUntilVisible:
+    element:
+      id: "class-cancel-attendance"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: "class-cancel-attendance"
 - extendedWaitUntil:
@@ -100,40 +135,23 @@ appId: com.padellevelup.app
     timeout: 10000
 - tapOn:
     id: "class-cancel-attendance-confirm"
-# PAD-313 rule 25: the student's own state is ONE word on their own row; the
-# "not attending / justified absence" panel and its timestamp line are gone (the
-# time now sits on the coach's row, where we know who cancelled).
 - extendedWaitUntil:
     visible:
-      id: "attendance-state"
+      id: "attendance-state-not_coming"
     timeout: 20000
-# Ids, never rendered text: the seeded users are English (seed.py, PAD-40) and
-# the language switch is async, so a wrong-language assertion PASSES whenever it
-# runs before the switch lands — a flake, which is worse than a red. What the
-# state actually became is pinned through the API at the end
-# (`attendanceState === 'coming'`), which no rendering can flatter.
-
-# ── Rule 26: the way back is offered on that state ──
-- extendedWaitUntil:
-    visible:
-      id: "class-come-back"
-    timeout: 15000
-- tapOn:
-    id: "class-come-back"
-
-# The proof that the server re-seated them, without asserting rendered text: the
-# way back is gone and the decline action is back, which only happens when the
-# state left `not_coming` (rule 25 offers exactly one of the two at a time).
-- extendedWaitUntil:
-    visible:
-      id: "class-cancel-attendance"
-    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-declined-hint"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "class-chat-coach"
 - assertNotVisible:
-    id: "class-come-back"
+    id: "class-confirm-attendance"
+- assertNotVisible:
+    id: "class-cancel-attendance"
 
 # ── The server agrees, then clean up ──
-# Class detail is a root-stack screen: leave it before logout.yaml looks for
-# `header-account` (the trap flow 42 and flow 48 both hit).
 - tapOn:
     id: "class-detail-back"
 - extendedWaitUntil:
@@ -144,6 +162,8 @@ appId: com.padellevelup.app
 - evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
 - evalScript: "${output.instance = output.events.filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
 - evalScript: "${output.presences = json(http.get(output.api + '/api/app/lesson_instance/' + output.instance.originalId + '/presences', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
-- assertTrue: "${output.presences.length === 1 && output.presences[0].attendanceState === 'coming' && output.presences[0].cancelledByStudent === false}"
+- assertTrue: "${output.presences.length === 1 && output.presences[0].attendanceState === 'not_coming'}"
+- evalScript: "${output.lateYes = json(http.post(output.api + '/api/app/notify/respond_reminder', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ lessonInstanceId: output.instance.originalId, action: 'yes' }) }).body).action}"
+- assertTrue: "${output.lateYes === 'already_declined'}"
 - evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
 - assertTrue: "${output.removed >= 1}"

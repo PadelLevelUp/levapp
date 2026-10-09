@@ -246,12 +246,15 @@
       "club": "Club",
       "court": "Court",
       "noCourt": "No court",
-      "comeBack": "Actually, I can come",
-      "comeBackHint": "If your spot is still free, you'll be signed up again.",
       "spotFilled": "Your spot has already been taken.",
-      "comeBackDone": "You're back in this class.",
       "clone": "Clone class",
-      "cloneFailed": "Could not clone the class"
+      "cloneFailed": "Could not clone the class",
+      "confirmAttendance": "I'm coming",
+      "confirmAttendanceDone": "Confirmed — see you there.",
+      "notYetAsked": "You can't confirm yet: wait for your coach's reminder. If you can't make it, say so now.",
+      "alreadyMarked": "Your coach has already recorded your attendance for this class.",
+      "declinedFinalHint": "You said you're not coming. If you change your mind, talk to your coach.",
+      "declinedFinalChat": "Talk to the coach"
     },
     "planning": {
       "title": "Planning ({{count}})",

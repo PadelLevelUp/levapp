@@ -6,7 +6,7 @@ import {
   attendanceStateLabelKey,
   attendanceStateOf,
   attendanceStateTone,
-  canComeBack,
+  canConfirmAttendance,
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
@@ -94,6 +94,7 @@ import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import { messagesApi } from "@levelup/api";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
@@ -249,7 +250,8 @@ export default function ClassDetailScreen() {
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
-  const [comingBack, setComingBack] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+  const [openingChat, setOpeningChat] = React.useState(false);
   // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
   // confirmation, with no deadline warning, because by definition it happens
   // before the student was even reminded.
@@ -969,34 +971,33 @@ export default function ClassDetailScreen() {
   // longer a render condition; the server still classifies the decline.
   const myState = attendanceStateOf(myPresence);
 
-  // PAD-315 rule 26: the way back. Gated on the STATE alone — the client cannot
-  // know whether the spot is free without racing the invitation engine, so it
-  // offers, calls, and honours the server's reply.
-  const canReturn =
+  // PAD-570 (attendance.confirm rule 27): "Vou" is offered on the SERVER's
+  // `pendingConfirmation` — asked (the reminder instant, or a reminder sent by
+  // hand), still `planned`, not started — never on a date derived here.
+  // Rule 28: `not_coming` is final; the PAD-315 come-back that lived here is gone.
+  const canConfirm =
     isParticipant &&
     !isCoach &&
-    canComeBack({
+    canConfirmAttendance({
       state: myState,
+      pendingConfirmation: instance?.pendingConfirmation,
       classStarted: hasClassStarted(declineGate.date, declineGate.startTime),
     });
   const ownInstanceId = Number(myPresence?.lessonInstanceId);
 
-
-  const handleComeBack = async () => {
-    if (!Number.isFinite(ownInstanceId) || comingBack) return;
-    setComingBack(true);
+  const handleConfirmMyAttendance = async () => {
+    if (!Number.isFinite(ownInstanceId) || confirming) return;
+    setConfirming(true);
     setFeedback(null);
     try {
       const outcome = reminderAnswerOutcome(
         await notificationEngineApi.respondToReminder(ownInstanceId, "yes")
       );
       if (outcome.record === "confirmed") {
-        toast.success(t("calendar.detail.comeBackDone"));
+        toast.success(t("calendar.detail.confirmAttendanceDone"));
       } else if (outcome.messageKey) {
-        // A refused return is an OUTCOME, not an error: the seat went to
-        // somebody else, which is what freeing it was for (B-074).
-        // This shell's toast has no neutral variant; a refusal is not an error,
-        // so it takes the plain (success-styled) one rather than a red alarm.
+        // A refusal is an OUTCOME the server explains, not an error; this
+        // shell's toast has no neutral variant, so it takes the plain one.
         if (outcome.tone === "error") toast.error(t(outcome.messageKey));
         else toast.success(t(outcome.messageKey));
       }
@@ -1004,7 +1005,24 @@ export default function ClassDetailScreen() {
     } catch {
       toast.error(t("messages.somethingWentWrong"));
     } finally {
-      setComingBack(false);
+      setConfirming(false);
+    }
+  };
+
+  // PAD-570 rule 28: the way forward after "Não vou" is the coach's chat.
+  const openCoachChat = async () => {
+    const coachUserId = instance?.coachUserId;
+    if (!coachUserId || openingChat) return;
+    setOpeningChat(true);
+    try {
+      const conversation = await messagesApi.createConversation({
+        otherParticipants: [String(coachUserId)],
+      });
+      router.push(`/conversation/${conversation.id}`);
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setOpeningChat(false);
     }
   };
 
@@ -1789,20 +1807,36 @@ export default function ClassDetailScreen() {
                     panel and the separate early-decline button that used to sit
                     here are gone — the badge above is the state, and the one
                     action below is the only way to say it. */}
-                {canReturn ? (
-                  <View className="gap-1">
-                    <Button
-                      testID="class-come-back"
-                      accessibilityLabel={t("calendar.detail.comeBack")}
-                      variant="outline"
-                      onPress={handleComeBack}
-                      disabled={comingBack}
-                    >
-                      <Text>{t("calendar.detail.comeBack")}</Text>
-                    </Button>
+                {/* PAD-570 rule 27: "Vou" only once asked (the server's flag). */}
+                {canConfirm ? (
+                  <Button
+                    testID="class-confirm-attendance"
+                    accessibilityLabel={t("calendar.detail.confirmAttendance")}
+                    onPress={handleConfirmMyAttendance}
+                    disabled={confirming}
+                  >
+                    <Text>{t("calendar.detail.confirmAttendance")}</Text>
+                  </Button>
+                ) : null}
+
+                {/* PAD-570 rule 28: "Não vou" is final — the hint and the chat
+                    shortcut live where the come-back used to. */}
+                {declined ? (
+                  <View className="gap-2" testID="class-declined-hint">
                     <Text className="text-xs text-muted-foreground">
-                      {t("calendar.detail.comeBackHint")}
+                      {t("calendar.detail.declinedFinalHint")}
                     </Text>
+                    {instance?.coachUserId ? (
+                      <Button
+                        testID="class-chat-coach"
+                        accessibilityLabel={t("calendar.detail.declinedFinalChat")}
+                        variant="outline"
+                        onPress={openCoachChat}
+                        disabled={openingChat}
+                      >
+                        <Text>{t("calendar.detail.declinedFinalChat")}</Text>
+                      </Button>
+                    ) : null}
                   </View>
                 ) : null}
 

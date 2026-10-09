@@ -14,23 +14,32 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AvatarStack } from "./primitives";
-import { AnswerButtons } from "./AnswerButtons";
+import { AnswerButtons, DeclineButton, DeclinedHint } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
-import { weekdayLong } from "@levelup/config";
+import { useDeclineFromDashboard } from "./useDeclineFromDashboard";
+import { studentRowAction, weekdayLong } from "@levelup/config";
 
 export function NextClassHero({
   block,
   onAnswered,
+  student = false,
 }: {
   block: DashboardNextClassBlock;
   /** PAD-202 (student): refetch after answering the reminder from the hero. */
   onAnswered?: () => void | Promise<void>;
+  /** PAD-570: only a student's hero carries attendance actions; the coach's never does. */
+  student?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const d = block.data;
   const { answer, busyId } = useAnswerReminder(onAnswered);
-  const pending = d.pendingConfirmation === true && typeof d.lessonInstanceId === "number";
+  const { decline, busyKey } = useDeclineFromDashboard(onAnswered);
+  // PAD-570 (dashboard.blocks rule 3a): the server's flag and state word decide —
+  // Yes / No only while asked; one "Avisar que não vou" before that; a hint after a no.
+  const action = student ? studentRowAction(d) : "none";
+  const pending = action === "answer" && typeof d.lessonInstanceId === "number";
+  const declineTarget = typeof d.lessonInstanceId === "number" ? d.lessonInstanceId : d.declineTarget ?? null;
 
   const eyebrow = d.isToday
     ? t("dashboard.hero.upNext", { time: d.startTime })
@@ -73,6 +82,21 @@ export function NextClassHero({
             busy={busyId === d.lessonInstanceId}
             onAnswer={(action) => answer(d.lessonInstanceId as number, action)}
           />
+        </div>
+      )}
+      {action === "decline" && declineTarget !== null && (
+        <div className="mt-4">
+          <DeclineButton
+            className="flex items-center"
+            onNavy
+            busy={busyKey === "hero"}
+            onDecline={() => decline(declineTarget, "hero")}
+          />
+        </div>
+      )}
+      {action === "declined" && (
+        <div className="mt-4">
+          <DeclinedHint onNavy />
         </div>
       )}
 

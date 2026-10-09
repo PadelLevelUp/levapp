@@ -125,7 +125,14 @@
       "inviteDeclined": "Anotado — vamos perguntar a outra pessoa.",
       "spotFilled": "Essa vaga acabou de ser ocupada.",
       "joinedWaitingList": "Estás na lista de espera.",
-      "offerDeclined": "Anotado — não ficas na lista."
+      "offerDeclined": "Anotado — não ficas na lista.",
+      "notGoing": "Avisar que não vou",
+      "notGoingTitle": "Avisar que não vais poder ir?",
+      "notGoingBody": "A tua vaga é libertada já e o teu treinador é avisado. Depois disto não podes voltar a dizer que vais — se mudares de ideias, fala com o teu treinador.",
+      "notGoingConfirm": "Não vou",
+      "notGoingKeep": "Manter a minha vaga",
+      "notGoingDone": "Avisámos o teu treinador. A tua vaga foi libertada.",
+      "notGoingFailed": "Não foi possível avisar. A aula pode já ter começado."
     },
     "profileCompleteness": {
       "coachTitle": "Alunos com o perfil incompleto",
