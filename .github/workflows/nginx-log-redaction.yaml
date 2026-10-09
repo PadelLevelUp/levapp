@@ -36,5 +36,6 @@ jobs:
         run: bash infra/nginx/check-log-redaction.sh infra/nginx
       - name: Web image nginx (frontend/apps/web/nginx.conf)
         env:
-          NGINX_IMAGE: public.ecr.aws/docker/library/nginx:1.27
+          # The script's --web path reads NGINX_WEB_IMAGE (default nginx:1.27-alpine).
+          NGINX_WEB_IMAGE: public.ecr.aws/docker/library/nginx:1.27-alpine
         run: bash infra/nginx/check-log-redaction.sh --web frontend/apps/web/nginx.conf
