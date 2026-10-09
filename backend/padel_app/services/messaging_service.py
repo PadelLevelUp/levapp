@@ -48,48 +48,68 @@ def _is_blocked_either_way(user_a_id, user_b_id):
 def _messageable_target_ids_for(user):
     """The set of user ids `user` is allowed to START a new conversation with.
 
-    Coach -> the union of their own roster (`coach_in_player`) and the players
-    of every club they belong to (`player_in_club`).
-    Everyone else (student/player) -> the active coaches they are linked to
-    (`_linked_coach_user_ids`; messaging.conversations rule 7, B-267).
+    A link is one of two things, read the same way from both sides (messaging.conversations
+    rule 7): the coach has the player on their roster (`coach_in_player`), or the coach teaches
+    a class the player is in that is not yet over. Coach -> the users of their linked players
+    (`_linked_player_user_ids`); everyone else (student/player) -> the users of their linked,
+    active coaches (`_linked_coach_user_ids`). The two directions are symmetric by construction.
 
     PAD-205 / B-025: this read club membership alone. Outside `seed/mock_data.py`
-    nothing writes `player_in_club` — adding a player, importing one, or
+    nothing wrote `player_in_club` then — adding a player, importing one, or
     accepting an invitation all create a roster row instead — so a coach could
-    not message a student they had added through the app. The roster is the
-    record the app actually keeps; the club stays in the union so seeded and
-    club-wide links keep working.
+    not message a student they had added through the app; the roster joined the
+    set and the club stayed "so seeded and club-wide links keep working".
+    B-267 / PAD-483 mirrored that union on the student side.
+    PAD-568 / B-461: the club arm is gone from both sides. `accept_join_token_service`
+    (players.join-token rule 5) puts every joiner in the coach's club, so one join
+    made a student "linked" to every coach of that club and every coach of that
+    club "linked" to every joiner. Club membership still feeds the "you don't share
+    a club" banner (messaging.block-and-report rule 7); that is a different question.
+    Anyone else stays reachable by exact username (messaging.direct-by-username).
     """
     coach = getattr(user, "coach", None)
     if coach:
-        players = list(coach.players)
-        for club in coach.clubs:
-            players.extend(club.players)
-        # A player awaiting activation can exist without a user row yet.
-        return {player.user_id for player in players if player.user_id}
+        return _linked_player_user_ids(coach.id)
 
-    # B-267 / PAD-483: a student reaches only the active coaches they are linked
-    # to — on the coach's roster, a shared club, or a class the coach teaches
-    # (rule 7). Anyone else stays reachable by exact username.
     player = getattr(user, "player", None)
     if player is None:
         return set()
     return _linked_coach_user_ids(player.id)
 
 
+def _live_series_filter(now):
+    """A series with an occurrence still ahead (one-off: its end is in the future; recurring:
+    no `recurrence_end`, or one not yet passed)."""
+    from padel_app.models.lessons import Lesson
+
+    return or_(
+        and_(Lesson.is_recurring.is_(False), Lesson.end_datetime > now),
+        and_(
+            Lesson.is_recurring.is_(True),
+            or_(Lesson.recurrence_end.is_(None), Lesson.recurrence_end >= now.date()),
+        ),
+    )
+
+
+def _live_occurrence_filter(now):
+    """An occurrence that has not ended and is not cancelled."""
+    from padel_app.models.lesson_instances import LessonInstance
+
+    return and_(LessonInstance.end_datetime > now, LessonInstance.status != "canceled")
+
+
 def _linked_coach_user_ids(player_id, wall_now=None):
-    """Rule 7's student side. A class links only while it is not over (#514 review): an
-    occurrence the student is enrolled in that has not ended and is not cancelled (a declined
-    "not coming" enrolment still counts — the student is still enrolled), or a series with an
-    occurrence still ahead. A class taught months ago is not a link.
+    """Rule 7's student side: the active coaches who have the player on their roster or teach
+    a class the player is in that is not over (#514 review): an occurrence the student is
+    enrolled in that has not ended and is not cancelled (a declined "not coming" enrolment
+    still counts — the student is still enrolled), or a series with an occurrence still ahead.
+    A class taught months ago is not a link. A shared club is not a link (PAD-568, B-461).
 
     Class times are stored on the club's wall clock, so "not over" compares them with
     `club_now_naive()`, never with UTC now (R-023, PAD-256)."""
-    from padel_app.models.Association_CoachClub import Association_CoachClub
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
-    from padel_app.models.Association_PlayerClub import Association_PlayerClub
     from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.lessons import Lesson
@@ -99,37 +119,19 @@ def _linked_coach_user_ids(player_id, wall_now=None):
     roster = db.session.query(Association_CoachPlayer.coach_id).filter(
         Association_CoachPlayer.player_id == player_id
     )
-    shared_club = (
-        db.session.query(Association_CoachClub.coach_id)
-        .join(Association_PlayerClub, Association_PlayerClub.club_id == Association_CoachClub.club_id)
-        .filter(Association_PlayerClub.player_id == player_id)
-    )
     series = (
         db.session.query(Association_CoachLesson.coach_id)
         .join(Association_PlayerLesson, Association_PlayerLesson.lesson_id == Association_CoachLesson.lesson_id)
         .join(Lesson, Lesson.id == Association_CoachLesson.lesson_id)
-        .filter(
-            Association_PlayerLesson.player_id == player_id,
-            or_(
-                and_(Lesson.is_recurring.is_(False), Lesson.end_datetime > now),
-                and_(
-                    Lesson.is_recurring.is_(True),
-                    or_(Lesson.recurrence_end.is_(None), Lesson.recurrence_end >= now.date()),
-                ),
-            ),
-        )
+        .filter(Association_PlayerLesson.player_id == player_id, _live_series_filter(now))
     )
     occurrence = (
         db.session.query(Association_CoachLessonInstance.coach_id)
         .join(Presence, Presence.lesson_instance_id == Association_CoachLessonInstance.lesson_instance_id)
         .join(LessonInstance, LessonInstance.id == Association_CoachLessonInstance.lesson_instance_id)
-        .filter(
-            Presence.player_id == player_id,
-            LessonInstance.end_datetime > now,
-            LessonInstance.status != "canceled",
-        )
+        .filter(Presence.player_id == player_id, _live_occurrence_filter(now))
     )
-    coach_ids = roster.union(shared_club, series, occurrence)
+    coach_ids = roster.union(series, occurrence)
     return {
         row.user_id
         for row in (
@@ -137,6 +139,43 @@ def _linked_coach_user_ids(player_id, wall_now=None):
             .filter(User.status == "active", Coach.id.in_(coach_ids))
             .all()
         )
+    }
+
+
+def _linked_player_user_ids(coach_id, wall_now=None):
+    """Rule 7's coach side, the mirror of `_linked_coach_user_ids`: the players on the coach's
+    roster or in a class the coach teaches that is not over (same tense rules). A player
+    awaiting activation can exist without a user row yet; those have no id to return."""
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.players import Player
+    from padel_app.models.presences import Presence
+
+    now = wall_now or club_now_naive()
+    roster = db.session.query(Association_CoachPlayer.player_id).filter(
+        Association_CoachPlayer.coach_id == coach_id
+    )
+    series = (
+        db.session.query(Association_PlayerLesson.player_id)
+        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Association_PlayerLesson.lesson_id)
+        .join(Lesson, Lesson.id == Association_PlayerLesson.lesson_id)
+        .filter(Association_CoachLesson.coach_id == coach_id, _live_series_filter(now))
+    )
+    occurrence = (
+        db.session.query(Presence.player_id)
+        .join(Association_CoachLessonInstance,
+              Association_CoachLessonInstance.lesson_instance_id == Presence.lesson_instance_id)
+        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+        .filter(Association_CoachLessonInstance.coach_id == coach_id, _live_occurrence_filter(now))
+    )
+    player_ids = roster.union(series, occurrence)
+    return {
+        row.user_id
+        for row in Player.query.filter(Player.id.in_(player_ids), Player.user_id.isnot(None)).all()
     }
 
 

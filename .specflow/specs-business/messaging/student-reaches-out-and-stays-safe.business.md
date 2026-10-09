@@ -47,8 +47,9 @@ from someone they don't recognise; and, indirectly, coaches — who keep their e
   a coach who is not theirs, coach to anyone (amended 2026-09-07).
 - Nobody is listed or searchable beyond the people you are already connected with; the picker's
   search only filters that list.
-- Coaches keep today's reach — the players of their clubs — and are not opened up further by this
-  outcome.
+- Coaches keep their reach — their own students and the students of classes they teach — and are
+  not opened up further by this outcome. (Since PAD-568 the players of a club a coach merely
+  belongs to are not part of that reach.)
 - A conversation is "unknown" to a viewer when the other person is not one of their coaches,
   shares no club with them, and the viewer has never written in it. The banner shows exactly
   then, and only then.

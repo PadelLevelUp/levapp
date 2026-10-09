@@ -7,9 +7,11 @@ and `POST /api/app/conversation` accepted any of them. messaging.conversations
 rule 7 now scopes the student side to linked coaches, mirroring the coach side:
 
 - the coach has the student on their roster (`coach_in_player`), or
-- they share a club (`coach_in_club` × `player_in_club`), or
 - the coach teaches a class the student is in (`coach_in_lesson` ×
   `player_in_lesson`, or `coach_in_lesson_instance` × `presences`).
+
+A shared club (`coach_in_club` × `player_in_club`) was a link too until PAD-568 / B-461:
+a coach's join link puts every joiner in the club, so one join exposed every coach of it.
 
 Unchanged on purpose: the exact-username path (messaging.direct-by-username),
 sending inside a conversation that already exists (rule 8), and automatic
@@ -115,7 +117,7 @@ def scope(app):
         }
 
 
-LINKED = ["roster", "club", "lesson", "instance"]
+LINKED = ["roster", "lesson", "instance"]  # "club" left the set in PAD-568 (B-461)
 
 
 def _messageable_ids(client, app, user_id):
@@ -126,6 +128,13 @@ def _messageable_ids(client, app, user_id):
 
 def _start(client, app, user_id, body):
     return client.post("/api/app/conversation", json=body, headers=_auth_header(app, user_id))
+
+
+def test_a_shared_club_alone_is_not_a_link(client, app, scope):
+    """PAD-568 / B-461: coach "club" shares club S483 Club with the student and nothing else."""
+    assert scope["user_ids"]["club"] not in _messageable_ids(client, app, scope["student_user_id"])
+    resp = _start(client, app, scope["student_user_id"], {"otherParticipants": [scope["user_ids"]["club"]]})
+    assert resp.status_code == 403
 
 
 def test_student_picker_lists_only_linked_coaches(client, app, scope):
@@ -209,7 +218,7 @@ def test_a_join_request_still_reaches_the_coach(app):
 
 
 def test_coach_side_is_unchanged(client, app, scope):
-    """A coach still cannot start a conversation with a student off their roster and clubs."""
+    """A coach still cannot start a conversation with a student off their roster and live classes."""
     resp = _start(client, app, scope["user_ids"]["stranger"],
                   {"otherParticipants": [scope["student_user_id"]]})
     assert resp.status_code == 403
