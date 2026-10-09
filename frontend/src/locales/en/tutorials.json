@@ -171,6 +171,18 @@
       "both": "both",
       "none": "any"
     },
+    "sideReason": {
+      "noSides": "Nobody on your roster plays a set side, so the spot keeps the leaving player's side.",
+      "fewer": {
+        "left": "The class has {{left}} left and {{right}} right going. To balance the sides, left players are asked first.",
+        "right": "The class has {{left}} left and {{right}} right going. To balance the sides, right players are asked first."
+      },
+      "tie": {
+        "left": "The class has {{left}} left and {{right}} right going and the leaving player played left, so left players are asked first to keep it balanced.",
+        "right": "The class has {{left}} left and {{right}} right going and the leaving player played right, so right players are asked first to keep it balanced."
+      },
+      "balancedAny": "The class is balanced ({{left}} left + {{right}} right) and the leaving player had no set side, so the side did not influence this choice."
+    },
     "levelSource": {
       "player": "level taken from the student who cancels",
       "class": "level taken from the class (the student has none)",

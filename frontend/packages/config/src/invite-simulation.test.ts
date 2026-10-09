@@ -5,6 +5,7 @@ import {
   describeGate,
   describePriority,
   describeRules,
+  describeSideReasoning,
   describeSendStatus,
   describeStage,
   describeVerdict,
@@ -109,6 +110,29 @@ describe("gates", () => {
       "auto_notify_disabled",
       "class_over",
     ]);
+  });
+});
+
+describe("PAD-566 why the spot asks for its side (settings.tutorials rule 4.4)", () => {
+  const counts = (left: number, right: number, leaverSide: "left" | "right" | "both" | null, chosen: "left" | "right" | "both" | null) =>
+    ({ sideCounts: { left, right, leaverSide, chosen } });
+
+  it("names the side with fewer players going, with the engine's numbers", () => {
+    expect(describeSideReasoning(counts(6, 2, "left", "right"))).toEqual({ key: "tutorials.sideReason.fewer.right", params: { left: 6, right: 2 } });
+    expect(describeSideReasoning(counts(1, 2, "left", "left"))).toEqual({ key: "tutorials.sideReason.fewer.left", params: { left: 1, right: 2 } });
+  });
+
+  it("on a tie, says the leaver's side is kept", () => {
+    expect(describeSideReasoning(counts(2, 2, "left", "left"))).toEqual({ key: "tutorials.sideReason.tie.left", params: { left: 2, right: 2 } });
+  });
+
+  it("on a tie with no side to keep, says the side did not decide", () => {
+    expect(describeSideReasoning(counts(3, 3, "both", "both"))).toEqual({ key: "tutorials.sideReason.balancedAny", params: { left: 3, right: 3 } });
+    expect(describeSideReasoning(counts(3, 3, null, null))).toEqual({ key: "tutorials.sideReason.balancedAny", params: { left: 3, right: 3 } });
+  });
+
+  it("says so when the roster has no sided player (no counts)", () => {
+    expect(describeSideReasoning({ sideCounts: null })).toEqual({ key: "tutorials.sideReason.noSides" });
   });
 });
 

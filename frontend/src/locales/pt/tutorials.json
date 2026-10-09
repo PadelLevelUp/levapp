@@ -171,6 +171,18 @@
       "both": "ambos",
       "none": "indiferente"
     },
+    "sideReason": {
+      "noSides": "Ninguém no teu plantel joga de um lado definido, por isso a vaga mantém o lado de quem faltou.",
+      "fewer": {
+        "left": "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de esquerda.",
+        "right": "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de direita."
+      },
+      "tie": {
+        "left": "A aula tem {{left}} de esquerda e {{right}} de direita a ir e faltou um jogador de esquerda, por isso damos prioridade a esquerda para manter a aula equilibrada.",
+        "right": "A aula tem {{left}} de esquerda e {{right}} de direita a ir e faltou um jogador de direita, por isso damos prioridade a direita para manter a aula equilibrada."
+      },
+      "balancedAny": "A aula já está equilibrada ({{left}} esquerda + {{right}} direita) e quem faltou não tinha lado definido, por isso o lado não influenciou esta escolha."
+    },
     "levelSource": {
       "player": "nível do aluno que falta",
       "class": "nível da aula (o aluno não tem nível)",

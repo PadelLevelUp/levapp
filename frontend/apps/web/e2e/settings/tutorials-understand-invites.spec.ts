@@ -92,6 +92,8 @@ test.describe("PAD-196: Settings › Tutorials › Understand invites", () => {
 
     const results = page.getByTestId("tutorial-results");
     await expect(results.getByTestId("tutorial-spot")).toBeVisible();
+    // PAD-566 (rule 4.4): the spot says why its side, from the engine's own counts.
+    await expect(results.getByTestId("tutorial-spot-side-reason")).toBeVisible();
     await expect(results.getByTestId("tutorial-round-1")).toBeVisible();
 
     // Round 1 = same level + same side as the spot (B1 / right): only students

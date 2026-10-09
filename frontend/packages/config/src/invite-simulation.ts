@@ -5,6 +5,7 @@ import type {
   InviteSimulationGate,
   InviteSimulationPriority,
   InviteSimulationRule,
+  InviteSimulationSpot,
 } from "@levelup/types";
 
 /**
@@ -172,6 +173,27 @@ export function describeRules(rules: InviteSimulationRule[]): I18nText[] {
     key: `${NS}.rules.${r.attribute}.${r.operation}`,
     params: { value: r.value ?? "" },
   }));
+}
+
+/**
+ * PAD-566 (settings.tutorials rule 4.4): why the spot asks for its side, in the engine's own
+ * numbers (`spot.sideCounts`, notifications.invite-simulation rule 9 — never recounted here).
+ * `null` when the simulation gave no counts (the roster has no left/right player).
+ */
+export function describeSideReasoning(
+  spot: Pick<InviteSimulationSpot, "sideCounts">,
+): I18nText | null {
+  const counts = spot.sideCounts;
+  if (!counts) return { key: `${NS}.sideReason.noSides` };
+  const params = { left: counts.left, right: counts.right };
+  if (counts.left !== counts.right) {
+    const fewer = counts.left < counts.right ? "left" : "right";
+    return { key: `${NS}.sideReason.fewer.${fewer}`, params };
+  }
+  if (counts.chosen === "left" || counts.chosen === "right") {
+    return { key: `${NS}.sideReason.tie.${counts.chosen}`, params };
+  }
+  return { key: `${NS}.sideReason.balancedAny`, params };
 }
 
 export function describeSendStatus(status: InviteSendStatus): I18nText {

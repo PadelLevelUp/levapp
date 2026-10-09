@@ -64,6 +64,13 @@ appId: com.padellevelup.app
 # an in-place wait and a scroll to it fail — the in-place wait failed on
 # origin/staging 80a377091 (2026-09-16 21:36Z). Round 1 below proves the
 # results rendered.
+# PAD-566 (settings.tutorials rule 4.4): the spot line says why its side, from the engine's own
+# counts; it sits above round 1, so it is reached first.
+- scrollUntilVisible:
+    element:
+      id: "tutorial-spot-side-reason"
+    direction: DOWN
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: "tutorial-round-1"
