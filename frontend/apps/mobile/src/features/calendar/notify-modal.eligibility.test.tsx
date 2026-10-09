@@ -8,6 +8,7 @@ import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarEvent, CoachPlayer, StudentGroup } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
+import { act } from "react-test-renderer";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -128,7 +129,7 @@ describe("NotifyModal: inviting below the bar", () => {
     // model `disabled`, so the guard in handleSend is what this pins).
     await ui.press("class-notify-send");
     resolveCheck({ ineligible: failingRita });
-    await new Promise((r) => setTimeout(r, 0));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(checkEligibility).toHaveBeenCalledTimes(1);
     expect(ui.byTestId("eligibility-confirm")).toBeTruthy();
     expect(mutateAsync).not.toHaveBeenCalled();
