@@ -5,7 +5,7 @@ export function Button({ className, variant = "primary", ...props }: ButtonHTMLA
   return (
     <button
       className={clsx(
-        "inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-11 md:h-9 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" && "bg-primary text-primary-foreground hover:bg-primary/90",
         variant === "secondary" && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         variant === "destructive" && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
@@ -18,16 +18,16 @@ export function Button({ className, variant = "primary", ...props }: ButtonHTMLA
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={clsx("h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring", className)} {...props} />;
+  return <input className={clsx("h-11 md:h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring", className)} {...props} />;
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={clsx("h-9 rounded-md border border-input bg-card px-2 text-sm outline-none focus:ring-2 focus:ring-ring", className)} {...props} />;
+  return <select className={clsx("h-11 md:h-9 rounded-md border border-input bg-card px-2 text-sm outline-none focus:ring-2 focus:ring-ring", className)} {...props} />;
 }
 
 export function Card({ children, className, ...rest }: HTMLAttributes<HTMLElement> & { children: ReactNode }) {
   return (
-    <section className={clsx("rounded-lg border bg-card p-5 shadow-sm", className)} {...rest}>
+    <section className={clsx("min-w-0 rounded-lg border bg-card p-4 shadow-sm md:p-5", className)} {...rest}>
       {children}
     </section>
   );

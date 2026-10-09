@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { ScrollTable } from "@/components/ScrollTable";
 import { adminApi, ApiError, type AuditRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { statusTone } from "./UsersPage";
@@ -13,8 +14,8 @@ const KNOWN = ["REASON_REQUIRED", "NO_EMAIL", "ALREADY_VERIFIED", "RESEND_TOO_SO
 function Field({ label, children, testId }: { label: string; children: React.ReactNode; testId?: string }) {
   return (
     <div className="flex gap-3 border-t py-2 text-sm first:border-t-0" data-testid={testId}>
-      <dt className="w-48 shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 flex-1">{children}</dd>
+      <dt className="w-32 shrink-0 md:w-48 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words">{children}</dd>
     </div>
   );
 }
@@ -67,7 +68,7 @@ export function UserPage() {
   const busy = disable.isPending || enable.isPending || resend.isPending || viewAs.isPending;
 
   const back = (
-    <Link to="/users" className="mb-4 inline-block text-sm text-primary hover:underline">
+    <Link to="/users" className="mb-4 inline-flex min-h-11 items-center text-sm text-primary hover:underline md:min-h-0">
       {t("admin.user.back")}
     </Link>
   );
@@ -194,7 +195,7 @@ export function UserPage() {
         <h2 className="mb-3 text-sm font-semibold">{t("admin.user.audit")}</h2>
         {u.audit.length === 0 ? <p className="text-sm text-muted-foreground">{t("admin.user.auditEmpty")}</p> : null}
         {u.audit.length > 0 ? (
-          <table className="w-full text-sm" data-testid="admin-user-audit">
+          <ScrollTable testId="admin-user-audit">
             <tbody>
               {u.audit.map((row: AuditRow) => (
                 <tr key={row.id} className="border-t align-top">
@@ -207,7 +208,7 @@ export function UserPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ScrollTable>
         ) : null}
       </Card>
     </div>

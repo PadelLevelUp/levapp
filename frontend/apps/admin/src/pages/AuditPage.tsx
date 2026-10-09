@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
+import { ScrollTable } from "@/components/ScrollTable";
 import { adminApi, type AuditRow } from "@/lib/api";
 
 const EMPTY = { actorEmail: "", action: "", targetType: "", targetId: "" };
@@ -43,7 +44,7 @@ export function AuditPage() {
           {(Object.keys(EMPTY) as (keyof typeof EMPTY)[]).map((key) => (
             <label key={key} className="text-xs text-muted-foreground">
               {t(`admin.audit.filters.${key === "actorEmail" ? "actor" : key}`)}
-              <Input value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} data-testid={`admin-audit-filter-${key}`} className="w-44" />
+              <Input value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} data-testid={`admin-audit-filter-${key}`} className="w-full sm:w-44" />
             </label>
           ))}
           <Button type="submit" variant="secondary" data-testid="admin-audit-apply">
@@ -67,7 +68,7 @@ export function AuditPage() {
         {query.isError ? <p className="text-sm text-destructive">{t("admin.common.error")}</p> : null}
         {query.data && query.data.items.length === 0 ? <p className="text-sm text-muted-foreground">{t("admin.audit.empty")}</p> : null}
         {query.data && query.data.items.length > 0 ? (
-          <table className="w-full text-sm" data-testid="admin-audit-table">
+          <ScrollTable testId="admin-audit-table">
             <thead className="text-left text-xs text-muted-foreground">
               <tr>
                 <th className="py-2 pr-4">{t("admin.audit.columns.when")}</th>
@@ -97,7 +98,7 @@ export function AuditPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ScrollTable>
         ) : null}
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} data-testid="admin-audit-prev">
