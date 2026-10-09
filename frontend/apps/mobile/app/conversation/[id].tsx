@@ -684,11 +684,9 @@ export default function ConversationScreen() {
       const height = event.nativeEvent.layout.height;
       const previous = viewportHeightRef.current;
       viewportHeightRef.current = height;
-      if (!anchored) {
-        dispatchAnchor({ type: "layout", viewportHeight: height });
-        return;
-      }
-      if (previous > 0 && height < previous) {
+      // Rule 9's reducer records the list's height in every phase, as before this change.
+      dispatchAnchor({ type: "layout", viewportHeight: height });
+      if (anchored && previous > 0 && height < previous) {
         if (dispatchFollow({ type: "viewportShrank" }).effect === "scrollToEnd") {
           requestAnimationFrame(() => {
             listRef.current?.scrollToEnd({ animated: false });
