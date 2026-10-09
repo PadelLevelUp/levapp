@@ -65,3 +65,4 @@ export * from "./name-search";
 export * from "./class-level-match";
 export * from "./walk-in-options";
 export * from "./waiting-list-origin";
+export * from "./install-suggestion";

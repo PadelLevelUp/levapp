@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
+import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
@@ -493,6 +494,10 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+
+        {/* PAD-573 (mobile.install-suggestion rule 4): a student on an iPhone is offered the iOS
+            app above the page — pushes the content down, never overlays it. */}
+        <InstallAppBanner />
 
         {/* Page Content */}
         <main
