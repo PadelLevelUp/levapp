@@ -57,16 +57,19 @@ Customize the text of notification messages sent to players.
 18. **`{day}` says the class's day naturally (PAD-549; numbering unconfirmed).** Accepted by every
     template that describes a class (rule 3). It is computed when the message is rendered — in the
     engine, the moment it is sent, so a message held by quiet hours past midnight is right — on the
-    club's wall clock, in the coach's locale, with **no preposition inside it** (the coach writes
-    "para {day} às {time}"; a preposition inside read "para na próxima segunda-feira"). Weeks run
-    Monday to Sunday:
+    club's wall clock, in the coach's locale. **Only the next-week form carries a preposition in
+    Portuguese** — "na próxima segunda-feira" / "no próximo domingo" (owner decision, PAD-561,
+    B-463; it reversed PAD-549's "no preposition inside"); "hoje", "amanhã", "esta sexta-feira" and
+    "dia 23/10" carry none. The field therefore fits sentences like "A aula é {day} às {time}" and
+    "Lembrete: {day} às {time}"; "para {day}" reads "para na próxima…" for a next-week class, and
+    the help (rule 19) says so. Weeks run Monday to Sunday:
     | The class is | pt | en |
     |---|---|---|
     | the same day | hoje | today |
     | the next day | amanhã | tomorrow |
     | two days on | depois de amanhã | the day after tomorrow |
     | later this week | esta sexta-feira / este sábado | this Friday |
-    | any day next week | a próxima segunda-feira / o próximo domingo | next Monday |
+    | any day next week | na próxima segunda-feira / no próximo domingo | next Monday |
     | later, or past | dia 23/02 | 23/02 |
     The four choices (name, no preposition, week boundary, send time) were the coordinator's, from
     the ticket's "to validate" table, and were relayed to the owner as information (2026-10-08).
@@ -86,7 +89,8 @@ Customize the text of notification messages sent to players.
 - **Given** a Wednesday, 10:00 on the club clock
 - **When** an invite for a class on Thursday renders `"Abriu uma vaga para {day} às {time}!"` for a pt coach
 - **Then** it reads "Abriu uma vaga para amanhã às 18:00!"; a Saturday class reads "este sábado", the
-  next Monday "a próxima segunda-feira", a class two weeks on "dia 19/10"
+  next Monday "na próxima segunda-feira" (and "A aula é {day}" reads "A aula é na próxima
+  segunda-feira"), a class two weeks on "dia 19/10"
 - **And** the same Thursday class rendered at 00:30 on Thursday reads "hoje"
 
 #### The editor explains and previews (rule 19)

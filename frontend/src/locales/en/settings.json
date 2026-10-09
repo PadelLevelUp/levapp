@@ -595,7 +595,7 @@
           "level": "The class's level",
           "weekday": "The day of the week of the class",
           "time": "The class's start time",
-          "day": "The class's day said naturally, relative to when the message is sent: today, tomorrow, this Friday, next Monday, or the date",
+          "day": "The class's day said naturally, relative to when the message is sent: today, tomorrow, this Friday, next Monday, or 23/10. Fits sentences like \"The class is {day} at {time}\"",
           "date": "The class's date as day/month",
           "type": "The kind of class: academy or private",
           "court": "The class's court (empty when it has none)",
