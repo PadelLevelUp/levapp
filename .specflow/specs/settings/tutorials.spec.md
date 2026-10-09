@@ -53,7 +53,8 @@ about anyone who is missing. Web and iOS ship it together (R-024).
    4. **The spot** — side and level and where the level came from ("a left-side, level 5 spot —
       level taken from the player").
    5. **The rounds**, in order. Each round is headed by its rules rendered in words ("Same level
-      and same side as the spot", "Same level", "Everyone eligible"). Each candidate row shows
+      and balance the class sides", "Same level", "Everyone eligible"; the side words are PAD-564's,
+      `notifications.groups` rule 6). Each candidate row shows
       rank, name, level, side, the enabled priority values in the coach's configured order
       ("level: same", "attendance 92%", "justified misses 5%", "side: exact match"), and a
       send-status badge: **first batch**, **waiting**, or **over today's limit**. A round with no

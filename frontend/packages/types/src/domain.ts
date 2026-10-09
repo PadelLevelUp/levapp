@@ -1401,6 +1401,11 @@ export interface InviteSimulationSpot {
   levelId: string | null;
   levelCode: string | null;
   levelSource: "player" | "class" | "none";
+  /** notifications.invite-simulation rule 9 (PAD-565): the numbers rule 2c used to pick `side`
+   *  (players going minus the departing player, plus the class's other open freed spots;
+   *  never-filled spots are not counted); `chosen` equals `side`. `null` when the coach's roster
+   *  has no left/right player. A tutorial shows these, never a recount. */
+  sideCounts: { left: number; right: number; leaverSide: PlayerSide | null; chosen: PlayerSide | null } | null;
 }
 
 export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";

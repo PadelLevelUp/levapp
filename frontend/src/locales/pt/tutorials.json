@@ -97,8 +97,8 @@
         "within_n_below_class": "até {{value}} níveis abaixo (inclui o nível da aula)"
       },
       "side": {
-        "same_as_vacancy": "mesmo lado que a vaga",
-        "same_side": "mesmo lado que a vaga"
+        "same_as_vacancy": "equilibrar lados da aula",
+        "same_side": "equilibrar lados da aula"
       },
       "unjustified_absences": {
         "max_unjustified_absences": "no máximo {{value}} faltas injustificadas",

@@ -455,6 +455,7 @@
       },
       "operations": {
         "sameAsVacancy": "Same as vacancy",
+        "balanceSides": "Balance the class sides",
         "oneAboveVacancy": "One level above vacancy",
         "oneBelowVacancy": "One level below vacancy",
         "allAboveVacancy": "All levels above vacancy",
@@ -466,6 +467,13 @@
         "greaterThan": "Greater than",
         "atLeast": "At least",
         "is": "Is"
+      },
+      "sideBalanceHelp": {
+        "intro": "When a spot opens, the side with fewer players going is asked first, so the class stays balanced:",
+        "example1": "2 left + 2 right, 1 left leaves → invites left.",
+        "example2": "2 left + 2 right, 1 right leaves → invites right.",
+        "example3": "3 left + 1 right, 1 left leaves → invites right (ends 2 + 2).",
+        "special": "Spots other students have already freed count for their side too. A player with no side, or who plays both, counts for neither and can be invited either way; an already balanced class keeps the leaving player's side."
       },
       "subscriptionActive": "Active",
       "subscriptionInactive": "Inactive"
