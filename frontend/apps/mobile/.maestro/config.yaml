@@ -114,6 +114,9 @@ executionOrder:
     # duplicate badge, the one-tap merge dialog, preselection and the dry run, never sends the
     # request, and deletes the placeholder in onFlowComplete (R-040).
     - 189-merge-duplicate-preview
+    # 239 (PAD-568, B-461): a student with no coach opens the picker and is offered
+    # "Ligar-me a um treinador"; tapping it lands on the connect screen.
+    - 239-no-coach-connect-shortcut
     - 26-message-by-username
     - 27-unknown-sender-block
     # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in

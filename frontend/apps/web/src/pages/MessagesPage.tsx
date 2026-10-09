@@ -562,6 +562,11 @@ export default function MessagesPage() {
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}
                 onNewConversationByUsername={handleNewConversationByUsername}
+                // PAD-568: a student with no linked coach is sent to "Connect with a coach"
+                // (players.join-token rule 8); coaches never see the shortcut.
+                onConnectWithCoach={
+                  user?.roles?.includes("coach") ? undefined : () => navigate("/connect")
+                }
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}
