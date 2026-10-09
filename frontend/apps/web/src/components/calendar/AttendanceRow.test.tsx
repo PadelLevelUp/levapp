@@ -133,3 +133,20 @@ describe("B-017's reminder signal, demoted and conditional", () => {
     expect(screen.queryByTestId("attendance-reminder-hint")).toBeNull();
   });
 });
+
+describe("PAD-567: pressing the selected status clears the row", () => {
+  it("present pressed again reports status null; absent pressed again too", () => {
+    const onChange = vi.fn();
+    const player = { id: "7", name: "Rui Santos" } as unknown as Player;
+    const { rerender } = render(
+      <AttendanceRow player={player} attendance={{ status: "present" }} onChange={onChange} />
+    );
+    screen.getByTestId("attendance-present").click();
+    expect(onChange).toHaveBeenLastCalledWith({ status: null, justification: undefined });
+    rerender(
+      <AttendanceRow player={player} attendance={{ status: "absent", justification: "justified" }} onChange={onChange} />
+    );
+    screen.getByTestId("attendance-absent").click();
+    expect(onChange).toHaveBeenLastCalledWith({ status: null, justification: undefined });
+  });
+});

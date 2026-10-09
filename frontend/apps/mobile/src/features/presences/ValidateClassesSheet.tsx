@@ -106,7 +106,7 @@ export function ValidateClassesSheet({
   const remainingFor = (klass: PendingValidationClass) =>
     remainingIn(klass, edits);
 
-  function setMark(classId: number, playerId: number, mark: PresenceMark) {
+  function setMark(classId: number, playerId: number, mark: PresenceMark | null) {
     setEdits((prev) => ({
       ...prev,
       [classId]: { ...(prev[classId] ?? {}), [playerId]: mark },
@@ -604,7 +604,7 @@ function WalkInPicker({
  * the rows show, local edits included — beside the class's time and title. Its own string for 0
  * (pt's CLDR "one" covers 0, rule 14). Web's PresentCount twin, from the same shared helper.
  */
-function PresentCount({ players, edits }: { players: PendingValidationClass["players"]; edits: Record<number, PresenceMark> }) {
+function PresentCount({ players, edits }: { players: PendingValidationClass["players"]; edits: Record<number, PresenceMark | null> }) {
   const { t } = useTranslation();
   const count = presentCount(players, edits);
   return (
@@ -657,14 +657,14 @@ function ClassCard({
 }: {
   klass: PendingValidationClass;
   remaining: number;
-  edits: Record<number, PresenceMark>;
+  edits: Record<number, PresenceMark | null>;
   roster: RosterOption[];
   expanded: boolean;
   selected: boolean;
   busy?: boolean;
   onToggleExpand: () => void;
   onToggleSelect: () => void;
-  onMark: (playerId: number, mark: PresenceMark) => void;
+  onMark: (playerId: number, mark: PresenceMark | null) => void;
   onAddWalkIn: (option: RosterOption) => void;
   onOpen: () => void;
   onValidate: () => void;
@@ -814,11 +814,11 @@ function ClassDetail({
   klass: PendingValidationClass;
   isValidated: boolean;
   remaining: number;
-  edits: Record<number, PresenceMark>;
+  edits: Record<number, PresenceMark | null>;
   roster: RosterOption[];
   busy?: boolean;
   maxHeight: number;
-  onMark: (playerId: number, mark: PresenceMark) => void;
+  onMark: (playerId: number, mark: PresenceMark | null) => void;
   onAddWalkIn: (option: RosterOption) => void;
   onBack: () => void;
   onValidate: () => void;

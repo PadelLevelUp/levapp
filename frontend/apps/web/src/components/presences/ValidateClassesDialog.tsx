@@ -39,7 +39,8 @@ import {
   type PresenceMark,
 } from "@levelup/config";
 
-type Edits = Record<number, Record<number, PresenceMark>>;
+// PAD-567: `null` is a cleared mark (undecided again); absent = no edit.
+type Edits = Record<number, Record<number, PresenceMark | null>>;
 type Extras = Record<number, PendingValidationPlayer[]>;
 
 export interface RosterOption {
@@ -159,7 +160,7 @@ export function ValidateClassesDialog({
     .filter((c) => remainingFor(c) === 0)
     .map((c) => c.lessonInstanceId);
 
-  function setMark(classId: number, playerId: number, mark: PresenceMark) {
+  function setMark(classId: number, playerId: number, mark: PresenceMark | null) {
     setEdits((prev) => ({
       ...prev,
       [classId]: { ...(prev[classId] ?? {}), [playerId]: mark },
@@ -578,7 +579,7 @@ function ClassList({
  * marks the rows show, local edits included. A single number, beside the class's time and title.
  * Its own string for 0: pt's CLDR "one" covers 0, so a counted string reads "0 presente" (rule 14).
  */
-function PresentCount({ players, edits }: { players: PendingValidationClass["players"]; edits: Record<number, PresenceMark> }) {
+function PresentCount({ players, edits }: { players: PendingValidationClass["players"]; edits: Record<number, PresenceMark | null> }) {
   const { t } = useTranslation();
   const count = presentCount(players, edits);
   return (
@@ -666,7 +667,7 @@ function ClassCard({
   klass: PendingValidationClass;
   selected: boolean;
   remaining: number;
-  edits: Record<number, PresenceMark>;
+  edits: Record<number, PresenceMark | null>;
   roster: RosterOption[];
   busy?: boolean;
   onToggleSelect: () => void;
@@ -811,7 +812,7 @@ function ClassDetail({
   klass: PendingValidationClass;
   isValidated: boolean;
   remaining: number;
-  edits: Record<number, PresenceMark>;
+  edits: Record<number, PresenceMark | null>;
   roster: RosterOption[];
   busy?: boolean;
   onMark: (playerId: number, mark: PresenceMark) => void;
@@ -950,7 +951,7 @@ function ClassDetail({
 /** Undecided players first — the coach should see what's blocking them. */
 function sortPlayers(
   players: PendingValidationPlayer[],
-  edits: Record<number, PresenceMark>
+  edits: Record<number, PresenceMark | null>
 ) {
   return [...players].sort((a, b) => {
     const aDone = effectiveMark(a, edits[a.playerId]) !== null;

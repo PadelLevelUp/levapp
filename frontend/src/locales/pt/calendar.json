@@ -251,7 +251,11 @@
       "spotFilled": "A tua vaga já foi ocupada.",
       "comeBackDone": "Estás de volta a esta aula.",
       "clone": "Clonar aula",
-      "cloneFailed": "Não foi possível clonar a aula"
+      "cloneFailed": "Não foi possível clonar a aula",
+      "clearOverCapacityTitle": "A vaga já foi ocupada",
+      "clearOverCapacityBody": "Entretanto outro jogador ficou com a vaga. Se limpares a ausência, a aula fica com {{filled}}/{{capacity}}. Limpar na mesma?",
+      "clearOverCapacityConfirm": "Limpar na mesma",
+      "clearOverCapacityKeep": "Manter a ausência"
     },
     "planning": {
       "title": "Planeamento ({{count}})",

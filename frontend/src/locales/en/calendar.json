@@ -251,7 +251,11 @@
       "spotFilled": "Your spot has already been taken.",
       "comeBackDone": "You're back in this class.",
       "clone": "Clone class",
-      "cloneFailed": "Could not clone the class"
+      "cloneFailed": "Could not clone the class",
+      "clearOverCapacityTitle": "The spot has been taken",
+      "clearOverCapacityBody": "Another player took the spot in the meantime. Clearing the absence puts the class at {{filled}}/{{capacity}}. Clear it anyway?",
+      "clearOverCapacityConfirm": "Clear anyway",
+      "clearOverCapacityKeep": "Keep the absence"
     },
     "planning": {
       "title": "Planning ({{count}})",

@@ -42,3 +42,14 @@ describe("PresenceMarkToggle colours (PAD-441)", () => {
     }
   });
 });
+
+describe("PAD-567: pressing the selected mark clears it", () => {
+  it("reports null for the active option and the option for the others", () => {
+    const onChange = vi.fn();
+    render(<PresenceMarkToggle value="present" onChange={onChange} playerName="Rui" />);
+    screen.getByTestId("presence-mark-present").click();
+    expect(onChange).toHaveBeenLastCalledWith(null);
+    screen.getByTestId("presence-mark-justified").click();
+    expect(onChange).toHaveBeenLastCalledWith("justified");
+  });
+});

@@ -246,8 +246,10 @@ export function useConfirmClassTraining() {
 
 export type AttendancePayloadItem = {
   playerId: string;
-  status: PresenceStatus;
+  status?: PresenceStatus;
   justification?: AbsenceJustification;
+  /** PAD-567: clear this row back to "no answer" (attendance.validation rule 26). */
+  clear?: true;
 };
 
 export function useConfirmPresences() {
