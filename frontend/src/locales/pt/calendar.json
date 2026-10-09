@@ -429,7 +429,10 @@
       "title": "Adicionar alunos que não cumprem a fasquia?",
       "body": "A inscrição é decisão tua — isto só te diz o que a fasquia diz.",
       "confirm": "Adicionar mesmo assim",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "inviteTitle": "Convidar alunos que não cumprem a fasquia?",
+      "inviteBody": "O convite é decisão tua — isto só te diz o que a fasquia diz.",
+      "inviteConfirm": "Convidar mesmo assim"
     },
     "eligibility": {
       "title": "Elegibilidade",

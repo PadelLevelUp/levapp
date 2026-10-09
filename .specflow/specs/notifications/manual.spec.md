@@ -21,6 +21,10 @@ Coaches manually select players to notify about a class, bypassing the automatic
 7. **Owner and roster only (PAD-258).** The caller must own the class instance, and every
    `playerId` must be on the caller's roster (`Association_CoachPlayer`); otherwise 403 and no
    NotificationEvent or message is created.
+8. **Inviting below the bar warns first (PAD-562).** Before `POST /api/app/notify/manual`, the
+   modal runs `eligibility_check` for the selection and, when any selected student fails the
+   class's bar, opens the same confirmation the manual add uses, with the invite verb
+   (`eligibility.enforcement` rule 6a). Cancel sends nothing; confirm sends as before. Web and iOS.
 6. Selection rows (both search results and rows inside a notification group) are a single click target: clicking the checkbox, the avatar or the name each produce exactly one toggle of that player's selection. The row must not carry a click handler that competes with the checkbox's own change handler
 
 ### Acceptance Criteria
