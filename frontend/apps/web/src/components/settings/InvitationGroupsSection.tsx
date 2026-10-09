@@ -22,7 +22,8 @@ const AVAILABLE_ATTRIBUTES = [
     id: "side",
     labelKey: "settings.invitationGroups.attributes.side",
     operations: [
-      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.sameAsVacancy" },
+      // PAD-564: the stored operation stays `same_as_vacancy`; the copy is SideBalanceHelp's.
+      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.balanceSides" },
     ],
     valueType: "none" as const,
   },
@@ -136,6 +137,24 @@ export const DEFAULT_INVITATION_GROUPS: InvitationGroup[] = [
   },
 ];
 
+/** PAD-564 (notifications.groups rule 6a): the balancing examples under a side rule. */
+export const SIDE_BALANCE_EXAMPLES = ["example1", "example2", "example3"] as const;
+
+function SideBalanceHelp() {
+  const { t } = useTranslation();
+  return (
+    <div data-testid="invitation-group-side-help" className="basis-full text-[11px] text-muted-foreground space-y-0.5 pl-1">
+      <p>{t("settings.invitationGroups.sideBalanceHelp.intro")}</p>
+      <ul className="list-disc ml-4">
+        {SIDE_BALANCE_EXAMPLES.map((k) => (
+          <li key={k}>{t(`settings.invitationGroups.sideBalanceHelp.${k}`)}</li>
+        ))}
+      </ul>
+      <p>{t("settings.invitationGroups.sideBalanceHelp.special")}</p>
+    </div>
+  );
+}
+
 function RuleRow({
   rule,
   onChange,
@@ -241,6 +260,7 @@ function RuleRow({
       >
         <X className="w-3.5 h-3.5" />
       </button>
+      {rule.attribute === "side" && <SideBalanceHelp />}
     </div>
   );
 }
