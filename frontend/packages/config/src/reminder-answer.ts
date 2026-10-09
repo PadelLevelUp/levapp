@@ -46,18 +46,40 @@ const SETTLED: Record<string, AnswerRecord> = {
 };
 
 /**
- * Whether to offer "actually, I can come" (rule 26).
+ * Whether to offer "Vou" on the class detail (`attendance.confirm` rule 27, PAD-570).
  *
- * Deliberately takes NO capacity argument. The client cannot know whether the
- * spot is still free without racing the invitation engine, and hiding a working
- * action from a student whose seat is in fact free is worse than offering one
- * the server may refuse. Offer it, call, honour the reply.
+ * Deliberately takes the SERVER's `pendingConfirmation` and never a date: the ask
+ * (the reminder instant, or a reminder the coach sent by hand) is computed in one
+ * place on the server and this gate cannot re-derive it. `not_coming` is final
+ * (rule 28) — the PAD-315 `canComeBack` that lived here is gone with it.
  */
-export function canComeBack(input: {
+export function canConfirmAttendance(input: {
   state: AttendanceState;
+  pendingConfirmation: boolean | null | undefined;
   classStarted: boolean;
 }): boolean {
-  return input.state === "not_coming" && !input.classStarted;
+  return input.state === "planned" && input.pendingConfirmation === true && !input.classStarted;
+}
+
+/** What a dashboard row, hero or card offers a student (`dashboard.blocks` rule 3a). */
+export type StudentRowAction = "answer" | "decline" | "declined" | "none";
+
+/**
+ * - `answer`: Yes / No — the server says the student is asked (`pendingConfirmation`).
+ * - `decline`: one "Avisar que não vou" — not asked yet, or already coming.
+ * - `declined`: no button, the hint pointing to the coach's chat — "Não vou" is final.
+ * - `none`: the coach's record stands (attended / missed).
+ * A settled state always beats a stale flag; an absent state reads as `planned`.
+ */
+export function studentRowAction(input: {
+  pendingConfirmation?: boolean | null;
+  attendanceState?: AttendanceState | null;
+}): StudentRowAction {
+  const state = input.attendanceState ?? "planned";
+  if (state === "not_coming") return "declined";
+  if (state === "attended" || state === "missed") return "none";
+  if (state === "planned" && input.pendingConfirmation === true) return "answer";
+  return "decline";
 }
 
 /**
@@ -84,6 +106,18 @@ export function reminderAnswerOutcome(
   // the row stays exactly as it was.
   if (action === "spot_filled") {
     return { record: null, messageKey: "calendar.detail.spotFilled", tone: "info" };
+  }
+
+  // PAD-570 (attendance.confirm rules 27-29): a "yes" the server would not take.
+  // Nothing was recorded; the screen says why, in the student's own words.
+  if (action === "not_yet_asked") {
+    return { record: null, messageKey: "calendar.detail.notYetAsked", tone: "info" };
+  }
+  if (action === "already_declined") {
+    return { record: null, messageKey: "calendar.detail.declinedFinalHint", tone: "info" };
+  }
+  if (action === "already_marked") {
+    return { record: null, messageKey: "calendar.detail.alreadyMarked", tone: "info" };
   }
 
   // PAD-68: the class already started, so nothing was recorded.

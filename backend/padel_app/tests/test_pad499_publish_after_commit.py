@@ -169,18 +169,8 @@ def test_join_accept_publishes_at_its_commit(app, trail):
     _published_at_the_closing_commit(trail, retired_message)
 
 
-def test_the_return_publishes_at_its_commit(app, monkeypatch, trail):
-    from padel_app.services.notification_service import respond_to_reminder
-    from padel_app.tests.helpers import pin_clock
-    from padel_app.tests.test_pad499_accept_lock_ends_early import _cancelled_then_back
-
-    pin_clock(monkeypatch, NOW)
-    instance_id, r_user, invite_id, _i_user = _cancelled_then_back(app)
-    with app.app_context(), patch(PATCHES[1]):
-        retired_message = _message_of(invite_id)
-        trail.clear()
-        assert respond_to_reminder(instance_id, "yes", r_user, now=NOW + timedelta(minutes=2))["action"] == "confirmed"
-        _published_at_the_closing_commit(trail, retired_message)
+# PAD-570: `test_the_return_publishes_at_its_commit` is gone with the come-back it pinned
+# (attendance.confirm rule 28): a yes after a cancellation is refused and commits nothing.
 
 
 def test_reconcile_publishes_at_its_commit(app, trail):

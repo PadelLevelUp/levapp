@@ -146,9 +146,6 @@ executionOrder:
     # 48 books, cancels and removes its own class through the API (PAD-288), so its
     # position is not load bearing.
     - 48-early-cancellation
-    # 50 books, cancels, comes back and removes its own class through the API
-    # (PAD-315), so its position is not load bearing.
-    - 50-come-back
     # 53 creates, marks and deletes its own one-off class (PAD-335); the delete
     # is the subject, so it leaves nothing behind and its position is not load
     # bearing.
@@ -319,6 +316,10 @@ executionOrder:
     # 181 (PAD-524, classes.clone): "Clonar aula" opens the new-class screen prefilled, start
     # empty, Create disabled; goes back without saving.
     - 181-clone-class
+    # 229 (PAD-570, attendance.confirm rules 27-28; number self-assigned, unconfirmed): books,
+    # is asked by the coach's manual reminder, confirms, declines and removes its own class
+    # through the API, so its position is not load bearing. Replaces 50-come-back.
+    - 229-vou-after-reminder
     - 170-class-waiting-list
     # 230 (PAD-567, attendance.validation rule 26; number self-assigned, unconfirmed): books,
     # marks, clears and removes its own class through the API, so its position is not load

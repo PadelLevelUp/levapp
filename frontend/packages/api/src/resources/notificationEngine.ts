@@ -279,7 +279,17 @@ export async function respondToReminder(
   // branching per call site: four sites branched on three values and turned a
   // refusal into a confident "declined".
 ): Promise<{
-  action: "confirmed" | "declined" | "expired" | "not_enrolled" | "spot_filled";
+  // PAD-570: a "yes" refused because the student was not asked yet, said no already,
+  // or the coach's record stands. Nothing recorded; `reminderAnswerOutcome` explains it.
+  action:
+    | "confirmed"
+    | "declined"
+    | "expired"
+    | "not_enrolled"
+    | "spot_filled"
+    | "not_yet_asked"
+    | "already_declined"
+    | "already_marked";
   duplicate?: boolean;
 }> {
   const res = await getApi().post("/app/notify/respond_reminder", { lessonInstanceId, action });

@@ -37,8 +37,11 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      - student: the **asks** — `invite`, `vacancy_invite`, `waiting_list_offer` — merged and
        ordered soonest class first, together capped at 5 → `reply`
      A `reply` is one unread inbound message per conversation, most recent first, capped at 3.
-     An `invite` (PAD-202) is a `Presence` row for the student with `invited = true`,
-     `confirmed = false` on a `LessonInstance` that has not started, soonest first, capped at 5,
+     An `invite` (PAD-202) is a class the student has been **asked** to confirm and has not
+     answered — `attendance.confirm` rule 27's `pendingConfirmation` (PAD-570), computed by the
+     same server predicate as the rows below; before PAD-570 it read `invited = true`,
+     `confirmed = false`, which `enrol()` writes at enrolment (B-441) — on a `LessonInstance`
+     that has not started, soonest first, capped at 5,
      carrying `classTitle`, ISO `date`, `timeLabel`, `filled`, `capacity` and the calendar deep link.
      **(PAD-236) The other two asks come from the messaging layer, not from `Presence`:**
      - a `vacancy_invite` is an open `NotificationEvent` (`status = sent`) for the student on a
@@ -78,16 +81,24 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      student sees the **next 30 days** (PAD-202 correction — a student with one class a week
      otherwise met an empty section), the same window the dashboard fetch already asks for.
      **Student rows and the student hero also carry `lessonInstanceId` (materialised instances
-     only, else `null`) and `pendingConfirmation`** — `true` when the student's `Presence` on that
-     instance is `invited` and not yet `confirmed`, i.e. they have been asked to confirm and have
-     not answered (both answers set `confirmed`, see `notifications.reminders`).
+     only, else `null`), `pendingConfirmation`, `attendanceState` and `declineTarget`** —
+     `pendingConfirmation` is `attendance.confirm` rule 27's predicate (PAD-570): the student has
+     been asked (the first-reminder instant has passed or a reminder was sent to them), the
+     class would ask (coach engine on, occurrence notifications on), their `attendanceState` is
+     `planned` and the class has not started. Before PAD-570 it read `invited` and not
+     `confirmed`, which is true from enrolment (B-441). `attendanceState` is the student's own
+     one word (`attendance.presence` rule 9; `planned` when the occurrence has no row yet) and
+     `declineTarget` is `{model, originalId, date}` for `cancel_attendance`, so a projected
+     occurrence can be declined from the row (`attendance.confirm` rules 18–20).
    - `week_pulse` (coach only): two metrics with denominators — seats filled this week and active
      players — never a third. A deleted account is not counted as a player, in the count or the
      denominator (`auth.account-deletion` rule 8).
    - `kpi_grid` (student only): Attended / Missed / Upcoming lessons / Invites. Every item carries
      the context that gives the number meaning: `total` (attended + missed) on Attended and
      Missed, so the tile can read "12 · of 15 lessons"; Upcoming reads against the 30-day window;
-     Invites reads "to confirm". `href` policy is `dashboard.navigation` rules 6–7.
+     Invites reads "to confirm" and counts the classes whose `pendingConfirmation` is `true`
+     (PAD-570) — the same predicate as the queue, never a raw `invited` count. `href` policy is
+     `dashboard.navigation` rules 6–7.
    - `evaluations` (student only, **PAD-402**): `{cards: [Card]}` — the newest **3** shared
      evaluation cards (`evaluations.sharing` rule 3's `Card`, served from the stored snapshot),
      newest `sharedAt` first, plus the way to the full list (`href: /evaluations`). Appended
@@ -137,8 +148,18 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      row's `lessonInstanceId`; the answer is recorded exactly as if given in the chat
      (`notifications.reminders` rules 4–6, 10–12), the dashboard refetches so the buttons
      disappear and the queue count drops, and the reminder message is marked read
-     (`notifications.reminders` rule 13) so the unread badge falls with it. A row without
-     `pendingConfirmation` has no buttons. Nothing about a *coach's* rows changes.
+     (`notifications.reminders` rule 13) so the unread badge falls with it. **(PAD-570,
+     `attendance.confirm` rules 27–28)** A row, the hero or the invite card shows Yes / No only
+     while `pendingConfirmation` is `true`. Without it, a row whose `attendanceState` is
+     `planned` or `coming` on a class that has not started shows ONE outline button, "Avisar que
+     não vou" (`dashboard.answer.notGoing`; the ticket's own words for the dashboard), which
+     confirms in a dialog and calls `POST /app/notify/cancel_attendance` with the row's
+     `lessonInstanceId` or `declineTarget`, so the server classifies the decline (rule 11); the
+     hero shows the same. A row whose state is `not_coming` shows no button and the one-line hint
+     "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador."
+     (`calendar.detail.declinedFinalHint`); the chat shortcut itself lives on the class detail,
+     which the row opens (`attendance.confirm` rule 28). A class with reminders off is never in "Precisa de
+     ti" and never shows Yes / No. Nothing about a *coach's* rows changes.
    - Every number ships with its denominator or context; every time, date and x/y count is
      tabular.
    - 44px touch targets on mobile; `sm` density is desktop-only.
@@ -389,9 +410,19 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the number on the "Upcoming lessons" tile equals the `totalCount` of the
   `schedule_7d` block in the same payload
 
+#### Before the first reminder the dashboard offers only "Avisar que não vou" (PAD-570)
+- **Given** a student enrolled (`planned`) in a class whose first-reminder instant is still ahead
+- **When** they GET `/api/app/dashboard`
+- **Then** the row and the hero carry `pendingConfirmation: false`, `attendanceState: "planned"` and a `declineTarget`; `needs_you` has no `invite` for it; the Invites tile does not count it; both shells render one "Avisar que não vou" button and no Yes / No
+
+#### After "Não vou" the dashboard row shows the hint, not buttons (PAD-570)
+- **Given** a student whose `attendanceState` is `not_coming` on an upcoming class
+- **When** they open `/`
+- **Then** the row shows no Yes / No and no "Avisar que não vou", and shows the hint (the chat shortcut is on the class detail the row opens)
+
 #### Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`
-  invited, not confirmed) and an unread reminder message
+  `planned`, the reminder instant passed — PAD-570) and an unread reminder message
 - **When** they open `/` and press **Yes** on that class's row in the upcoming list
 - **Then** their `Presence.confirmed` is `true`, the row shows no Yes/No, the queue count drops by
   one, and the dashboard's `messages_overview.unreadMessages` is lower than before

@@ -125,7 +125,14 @@
       "inviteDeclined": "Noted — we'll ask someone else.",
       "spotFilled": "Sorry, that spot was just filled.",
       "joinedWaitingList": "You're on the waiting list.",
-      "offerDeclined": "Noted — you're not on the list."
+      "offerDeclined": "Noted — you're not on the list.",
+      "notGoing": "Say I can't come",
+      "notGoingTitle": "Tell your coach you can't come?",
+      "notGoingBody": "Your spot is freed right away and your coach is told. After this you can't say you're coming again — if you change your mind, talk to your coach.",
+      "notGoingConfirm": "I can't come",
+      "notGoingKeep": "Keep my spot",
+      "notGoingDone": "Your coach has been told. Your spot has been freed.",
+      "notGoingFailed": "Could not send it. The class may have started already."
     },
     "profileCompleteness": {
       "coachTitle": "Students with an incomplete profile",

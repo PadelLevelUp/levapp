@@ -278,6 +278,24 @@ export function useCancelAttendance() {
   });
 }
 
+/**
+ * PAD-570 (dashboard.blocks rule 3a): "Avisar que não vou" from the dashboard. The
+ * same `cancel_attendance` as the class detail, so the SERVER classifies it; the
+ * dashboard and the chat refetch like after a reminder answer.
+ */
+export function useDeclineFromDashboard() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: (target: number | notificationEngineApi.CancelAttendanceTarget) =>
+      notificationEngineApi.cancelAttendance(target),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
+  });
+}
+
 /** Student action (PAD-236): answer an engine invitation (POST /app/notify/respond). */
 export function useRespondInvite() {
   const queryClient = useQueryClient();

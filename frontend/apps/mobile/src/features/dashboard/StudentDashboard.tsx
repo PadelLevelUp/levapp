@@ -64,7 +64,7 @@ export function StudentDashboard({ blocks }: { blocks: DashboardBlock[] }) {
         </View>
       ) : null}
       {profileIncomplete && <ProfileIncompleteBlock block={profileIncomplete} />}
-      {hero && <NextClassHero block={hero} />}
+      {hero && <NextClassHero block={hero} student />}
       {needsYou && <NeedsYouQueue block={needsYou} />}
       {schedule && <Schedule7Days block={schedule} role="student" />}
       {kpis && <KpiTiles block={kpis} />}
