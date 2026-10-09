@@ -28,6 +28,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      # PAD-598: the check script pulls nginx:1.27 from Docker Hub; anonymous pulls share one
+      # per-IP quota across GitHub's runners and fail with `toomanyrequests`.
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Host nginx (infra/nginx)
         run: bash infra/nginx/check-log-redaction.sh infra/nginx
       - name: Web image nginx (frontend/apps/web/nginx.conf)
