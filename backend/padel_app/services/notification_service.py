@@ -5962,21 +5962,79 @@ def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict
 
 
 def _waiting_list_row_scope(standing: "StandingWaitingListEntry | None") -> str:
-    """PAD-560 (rule 20): ``occurrence`` | ``period`` | ``standing``; ``series`` once the scope
-    change can mark a whole-series entry (every series-scoped entry today is a dated window)."""
+    """PAD-560 (rule 20): ``occurrence`` | ``series`` (a series-scoped entry marked whole-series)
+    | ``period`` (a series-scoped window) | ``standing`` (coach-wide)."""
     if standing is None:
         return "occurrence"
-    return "period" if standing.lesson_id is not None else "standing"
+    if standing.lesson_id is None:
+        return "standing"
+    return "series" if standing.whole_series else "period"
+
+
+def _series_scope_end(lesson, instance: LessonInstance, scope: str, *, classes=None, expires_at=None) -> datetime:
+    """PAD-560 (notifications.waiting-list rules 19, 19a): the UTC expiry instant of a series-scoped
+    entry. ``series``: the series' end date, capped at 12 months from today (rule 2; never
+    open-ended), fixed at creation. ``period``: exactly one of ``classes`` (the club day of the X-th
+    occurrence of this series that has not started, this class included; the series' end or the
+    cap when fewer remain) or ``expires_at`` (already rule 2's instant)."""
+    from flask import abort
+
+    from dateutil.relativedelta import relativedelta
+
+    from padel_app.utils.dates import club_now_naive
+
+    now_wall = club_now_naive()
+    today = now_wall.date()
+    cap_day = today + relativedelta(months=STANDING_MAX_MONTHS)
+    series_end = lesson.recurrence_end
+    end_day = min(series_end, cap_day) if series_end is not None and series_end >= today else cap_day
+
+    if scope == "series":
+        if classes is not None or expires_at is not None:
+            pass  # old builds sent credits/expiresOn with "series"; the whole series asks nothing (rule 19)
+    else:
+        if (classes is None) == (expires_at is None):
+            abort(400, "a period is exactly one of classes or expiresOn")
+        if expires_at is not None:
+            return expires_at
+        try:
+            count = int(classes)
+        except (TypeError, ValueError):
+            count = 0
+        if count < 1 or count > 52:
+            abort(400, "classes must be between 1 and 52")
+        range_end = datetime.combine(end_day + timedelta(days=1), time.min)
+        upcoming = sorted(
+            occ.replace(tzinfo=None) if getattr(occ, "tzinfo", None) else occ
+            for occ in lesson.occurrences_between(now_wall, range_end)
+        )
+        upcoming = [occ for occ in upcoming if occ > now_wall]
+        if len(upcoming) >= count:
+            end_day = upcoming[count - 1].date()
+    return wall_to_utc_naive(datetime.combine(end_day + timedelta(days=1), time.min))
+
+
+def _repoint_class_row(instance: LessonInstance, player_id: int, entry: StandingWaitingListEntry):
+    """PAD-560 (rule 19): the row this class already holds for the student follows the new entry,
+    keeping its join time, so the class's list shows the new scope."""
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+    if row is not None and row.is_active and row.standing_entry_id != entry.id:
+        row.standing_entry_id = entry.id
+        row.coach_id = entry.coach_id
+        db.session.commit()
+    return row
 
 
 def add_to_class_waiting_list(
     coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
-    credits: int | None = None, expires_at: datetime | None = None,
+    credits: int | None = None, expires_at: datetime | None = None, classes: int | None = None,
 ) -> dict:
     """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
-    class's waiting list — this occurrence, or the whole series as a standing entry scoped to it.
-    No full-class or eligibility check (the engine decides when a spot opens); nothing is sent to
-    the student; the coach's views get ``waiting_list_changed``."""
+    class's waiting list — this occurrence, the whole series (PAD-560: no credit limit, to the
+    series' capped end) or a period (rule 19a: X classes or an end date), the last two as a
+    standing entry scoped to the series. No full-class or eligibility check (the engine decides
+    when a spot opens); nothing is sent to the student; the coach's views get
+    ``waiting_list_changed``. ``credits`` is accepted and ignored (old builds sent it)."""
     from flask import abort, jsonify, make_response
 
     from sqlalchemy.exc import IntegrityError
@@ -5989,22 +6047,21 @@ def add_to_class_waiting_list(
     if player_id in set(instance.enrolled_player_ids):
         abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
 
-    if scope == "series":
+    if scope in ("series", "period"):
         lesson = instance.lesson
         if lesson is None or not lesson.is_recurring:
             abort(400, "Only a recurring class has a series")
-        if credits is None or int(credits) < 1 or expires_at is None:
-            # #588 review: a series entry is paid for in whole classes, at least one.
-            abort(400, "credits (at least 1) and an end date are required")
+        # PAD-560 (rules 19, 19a): no credit limit; the end is the series' (capped) or the window's.
+        end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         entry = add_standing_waiting_list_entry(
-            coach_id, player_id, int(credits), expires_at=expires_at, lesson_id=lesson.id
+            coach_id, player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=scope == "series",
         )
-        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        row = _repoint_class_row(instance, player_id, entry)
         if row is not None:
             _publish_waiting_list_changed(row)
         return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
     if scope != "occurrence":
-        abort(400, "scope must be occurrence or series")
+        abort(400, "scope must be occurrence, series or period")
 
     row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
     if row is not None and row.is_active:
@@ -6026,6 +6083,64 @@ def add_to_class_waiting_list(
         return {"action": "already_on_list", "entryId": row.id if row else None}
     _publish_waiting_list_changed(row)
     return {"action": "added", "entryId": row.id}
+
+
+def change_class_waiting_list_scope(
+    entry_id: int, coach_id: int, *, scope: str, classes: int | None = None, expires_at: datetime | None = None,
+) -> dict:
+    """PAD-560 (notifications.waiting-list rule 22): the class's coach moves one active row between
+    this class only, the whole series and a period. A coach-wide standing row answers 409
+    ``coach_wide`` (managed in Settings). Nothing outside this series' occurrences changes; nothing
+    is sent to the student."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    row = WaitingListEntry.query.get_or_404(entry_id)
+    if row.coach_id != coach_id:
+        abort(403, "Not authorized")
+    if not row.is_active:
+        abort(404, "Not on the list")
+    standing = db.session.get(StandingWaitingListEntry, row.standing_entry_id) if row.standing_entry_id else None
+    if standing is not None and standing.lesson_id is None:
+        abort(make_response(jsonify({"code": "coach_wide", "message": "Managed in Settings"}), 409))
+    instance = row.lesson_instance
+    lesson = instance.lesson if instance is not None else None
+
+    if scope == "occurrence":
+        if standing is not None:
+            _deactivate_standing_entry(standing)
+            row.is_active = True
+            row.standing_entry_id = None
+            row.added_by = "coach"
+            db.session.commit()
+            _publish_waiting_list_changed(row)
+    elif scope in ("series", "period"):
+        if lesson is None or not lesson.is_recurring:
+            abort(400, "Only a recurring class has a series")
+        end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
+        if standing is not None:
+            standing.expires_at = end
+            standing.whole_series = scope == "series"
+            standing.credits_total = None
+            standing.save()
+            end_wall = utc_to_wall_naive(end)
+            for other in WaitingListEntry.query.filter_by(standing_entry_id=standing.id, is_active=True).all():
+                inst = LessonInstance.query.get(other.lesson_instance_id)
+                if inst is not None and inst.start_datetime >= end_wall and other.id != row.id:
+                    other.is_active = False
+            db.session.commit()
+            _fan_out_standing_entry(standing)
+        else:
+            entry = add_standing_waiting_list_entry(
+                coach_id, row.player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=scope == "series",
+            )
+            _repoint_class_row(instance, row.player_id, entry)
+        _publish_waiting_list_changed(row)
+    else:
+        abort(400, "scope must be occurrence, series or period")
+    db.session.expire_all()
+    return next(r for r in get_waiting_list(row.lesson_instance_id) if r["id"] == row.id)
 
 
 def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
@@ -6142,7 +6257,8 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
             standing = StandingWaitingListEntry.query.get(row.standing_entry_id)
             if standing is not None and standing.is_active:
                 standing.credits_used += 1
-                if standing.credits_used >= standing.credits_total:
+                # PAD-560 (rules 19, 19a): no credit limit (NULL) never closes the entry.
+                if standing.credits_total is not None and standing.credits_used >= standing.credits_total:
                     standing.is_active = False
                     for other in WaitingListEntry.query.filter_by(
                         standing_entry_id=standing.id, is_active=True
@@ -6399,12 +6515,13 @@ def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
 
 
 def add_standing_waiting_list_entry(
-    coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
-    *, expires_at: datetime | None = None, lesson_id: int | None = None,
+    coach_id: int, player_id: int, credits_total: int | None, duration_days: int | None = None,
+    *, expires_at: datetime | None = None, lesson_id: int | None = None, whole_series: bool = False,
 ) -> StandingWaitingListEntry:
     """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
     (or, for the legacy callers, `duration_days` from now). PAD-547 (rule 19): ``lesson_id``
-    scopes it to one series; one active entry per coach, player and scope."""
+    scopes it to one series; one active entry per coach, player and scope. PAD-560: a NULL
+    ``credits_total`` is no credit limit; ``whole_series`` marks rule 19's entry."""
     # Deactivate any existing active entry for this coach/player pair in the same scope
     existing = StandingWaitingListEntry.query.filter_by(
         coach_id=coach_id, player_id=player_id, is_active=True, lesson_id=lesson_id
@@ -6417,6 +6534,7 @@ def add_standing_waiting_list_entry(
         player_id=player_id,
         lesson_id=lesson_id,
         credits_total=credits_total,
+        whole_series=whole_series,
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
         is_active=True,
@@ -6472,7 +6590,8 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "playerId": e.player_id,
             "playerName": user.name if user else None,
             "creditsUsed": e.credits_used,
-            "creditsTotal": e.credits_total,
+            "creditsTotal": e.credits_total,  # PAD-560: null is no credit limit
+            "wholeSeries": bool(e.whole_series),
             "expiresAt": e.expires_at.isoformat() if e.expires_at else None,
             # PAD-507: the club date the entry runs to, inclusive.
             "expiresOn": standing_end_on(e),

@@ -502,11 +502,10 @@ def respond_waiting_list_endpoint():
 @bp.post("/class_waiting_list")
 @jwt_required()
 def class_waiting_list_add():
-    """PAD-547 (notifications.waiting-list rules 18–19): the coach adds a roster student to this
-    class's waiting list — `scope` "occurrence", or "series" with `credits` and `expiresOn`."""
-    from padel_app.services.notification_service import (
-        InvalidStandingEndError, add_to_class_waiting_list, standing_end_from_date,
-    )
+    """PAD-547 (notifications.waiting-list rules 18–19), PAD-560 (19a): the coach adds a roster
+    student to this class's waiting list — `scope` "occurrence"; "series" (asks nothing more);
+    "period" with exactly one of `classes` or `expiresOn`."""
+    from padel_app.services.notification_service import add_to_class_waiting_list
 
     coach = _current_coach()
     data = request.get_json() or {}
@@ -514,22 +513,53 @@ def class_waiting_list_add():
         original_id = int(data.get("originalId"))
         player_id = int(data.get("playerId"))
         credits = int(data["credits"]) if data.get("credits") is not None else None
+        classes = int(data["classes"]) if data.get("classes") is not None else None
     except (TypeError, ValueError):
-        return jsonify({"error": "originalId, playerId and credits must be integers"}), 400
+        return jsonify({"error": "originalId, playerId, credits and classes must be integers"}), 400
     instance = _resolve_instance(str(data.get("model", "")), original_id, data.get("date"))
     if not coach_owns_instance(coach, instance):
         return jsonify({"error": "Not your class"}), 403
     scope = data.get("scope", "occurrence")
-    expires_at = None
-    if scope == "series":
-        try:
-            expires_at = standing_end_from_date(data.get("expiresOn"))
-        except InvalidStandingEndError as exc:
-            return jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400
+    expires_at, err = _period_end(scope, data)
+    if err is not None:
+        return err
     result = add_to_class_waiting_list(
-        coach.id, instance, player_id, scope=scope, credits=credits, expires_at=expires_at,
+        coach.id, instance, player_id, scope=scope, credits=credits, expires_at=expires_at, classes=classes,
     )
     return jsonify(result), 201 if result["action"] == "added" else 200
+
+
+def _period_end(scope: str, data: dict):
+    """PAD-560 (rule 19a): `expiresOn` is read for a period only, under rule 2's window."""
+    from padel_app.services.notification_service import InvalidStandingEndError, standing_end_from_date
+
+    if scope != "period" or data.get("expiresOn") is None:
+        return None, None
+    try:
+        return standing_end_from_date(data.get("expiresOn")), None
+    except InvalidStandingEndError as exc:
+        return None, (jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400)
+
+
+@bp.patch("/class_waiting_list/<int:entry_id>")
+@jwt_required()
+def class_waiting_list_change_scope(entry_id: int):
+    """PAD-560 (notifications.waiting-list rule 22): the coach moves one row between this class
+    only, the whole series and a period; a coach-wide standing row answers 409 coach_wide."""
+    from padel_app.services.notification_service import change_class_waiting_list_scope
+
+    coach = _current_coach()
+    data = request.get_json() or {}
+    scope = data.get("scope", "")
+    try:
+        classes = int(data["classes"]) if data.get("classes") is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "classes must be an integer"}), 400
+    expires_at, err = _period_end(scope, data)
+    if err is not None:
+        return err
+    row = change_class_waiting_list_scope(entry_id, coach.id, scope=scope, classes=classes, expires_at=expires_at)
+    return jsonify(row), 200
 
 
 @bp.delete("/class_waiting_list/<int:entry_id>")
