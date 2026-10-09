@@ -47,6 +47,8 @@ export default function MessagesPage() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { user, token } = useAuth();
+  // PAD-568: only a student is ever offered the connect-with-a-coach shortcut.
+  const canConnectWithCoach = !(user?.roles?.includes("coach") ?? false);
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -563,6 +565,9 @@ export default function MessagesPage() {
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}
                 onNewConversationByUsername={handleNewConversationByUsername}
+                // PAD-568: a student with no linked coach is sent to "Connect with a coach"
+                // (players.join-token rule 8); coaches never see the shortcut.
+                onConnectWithCoach={canConnectWithCoach ? () => navigate("/connect") : undefined}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}

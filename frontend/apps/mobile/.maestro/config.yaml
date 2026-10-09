@@ -124,6 +124,9 @@ executionOrder:
     # on top of the notify modal; cancel sends nothing, confirm sends. Seeds and removes its own
     # class; position not load bearing.
     - 210-invite-below-bar-asks-first
+    # 239 (PAD-568, B-461): a student with no coach opens the picker and is offered
+    # "Ligar-me a um treinador"; tapping it lands on the connect screen.
+    - 239-no-coach-connect-shortcut
     - 26-message-by-username
     - 27-unknown-sender-block
     # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in
