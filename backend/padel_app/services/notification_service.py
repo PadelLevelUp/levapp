@@ -5900,7 +5900,11 @@ def respond_to_waiting_list(
 
 def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict]:
     """A class's active waiting list (notifications.waiting-list rules 5 and 20, PAD-547): each row
-    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation)."""
+    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation).
+    PAD-560: and its ``scope`` — how long the student is on this list — ``occurrence`` (no standing
+    entry), ``period`` (an entry scoped to this series, which today always runs to a date the coach
+    chose), ``standing`` (a coach-wide entry); ``series`` is reserved for the whole-series entries
+    PAD-560's scope change introduces — with the entry's ``expiresOn``."""
     query = WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, is_active=True)
     if coach_id is not None:
         query = query.filter_by(coach_id=coach_id)
@@ -5921,8 +5925,18 @@ def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict
             "origin": origin,
             "standingEntryId": standing.id if standing else None,
             "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
+            "scope": _waiting_list_row_scope(standing),
+            "expiresOn": standing_end_on(standing) if standing is not None else None,
         }))
     return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
+
+
+def _waiting_list_row_scope(standing: "StandingWaitingListEntry | None") -> str:
+    """PAD-560 (rule 20): ``occurrence`` | ``period`` | ``standing``; ``series`` once the scope
+    change can mark a whole-series entry (every series-scoped entry today is a dated window)."""
+    if standing is None:
+        return "occurrence"
+    return "period" if standing.lesson_id is not None else "standing"
 
 
 def add_to_class_waiting_list(

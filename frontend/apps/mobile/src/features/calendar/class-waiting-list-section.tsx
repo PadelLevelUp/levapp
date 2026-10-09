@@ -1,7 +1,8 @@
 /**
  * PAD-547 (calendar.event-detail rules 19–20, notifications.waiting-list rules 18–21) — iOS port of
- * web's ClassWaitingListSection: the class's waiting list with each row's origin, a remove control,
- * and "Add to waiting list" for this class only or the whole series. Coach only. In-app controls
+ * web's ClassWaitingListSection: the class's waiting list with each row's origin and (PAD-560,
+ * rule 19) how long the student is on it, a remove control, and "Add to waiting list" for this
+ * class only or the whole series. Coach only. In-app controls
  * with test ids throughout (PAD-320: Maestro asserts by id).
  */
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,8 @@ import {
   waitingListCandidates,
   waitingListOriginKey,
   waitingListPickerOptions,
+  waitingListRowIsManagedInSettings,
+  waitingListScopeLabel,
 } from "@levelup/config";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import type { CoachClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
@@ -72,7 +75,9 @@ export function ClassWaitingListSection({ event, isRecurring, rows, enrolledIds,
           {rows.length === 0 ? (
             <Text className="text-xs text-muted-foreground">{t("calendar.detail.waitingListEmpty")}</Text>
           ) : (
-            rows.map((row) => (
+            rows.map((row) => {
+              const scope = waitingListScopeLabel(row);
+              return (
               <View
                 key={row.id}
                 testID={`class-waiting-list-row-${row.playerId}-${row.origin}`}
@@ -80,7 +85,17 @@ export function ClassWaitingListSection({ event, isRecurring, rows, enrolledIds,
               >
                 <View className="flex-1">
                   <Text className="text-sm" numberOfLines={1}>{row.playerName}</Text>
-                  <Text className="text-[11px] text-muted-foreground">{t(waitingListOriginKey(row))}</Text>
+                  <Text
+                    testID={`class-waiting-list-row-scope-${row.playerId}-${row.scope}`}
+                    className="text-[11px] text-muted-foreground"
+                  >
+                    {t(waitingListOriginKey(row))} · {t(scope.key, scope.params)}
+                  </Text>
+                  {waitingListRowIsManagedInSettings(row) ? (
+                    <Text testID={`class-waiting-list-managed-${row.playerId}`} className="text-[11px] italic text-muted-foreground">
+                      {t("calendar.detail.waitingListManagedInSettings")}
+                    </Text>
+                  ) : null}
                 </View>
                 <Pressable
                   testID={`class-waiting-list-remove-${row.playerId}`}
@@ -93,7 +108,8 @@ export function ClassWaitingListSection({ event, isRecurring, rows, enrolledIds,
                   <Ionicons name="close" size={18} color={lightTheme.mutedForeground} />
                 </Pressable>
               </View>
-            ))
+              );
+            })
           )}
           <Button size="sm" variant="outline" testID="class-waiting-list-add" onPress={() => setAdding(true)}>
             <Text>{t("calendar.detail.waitingListAdd")}</Text>

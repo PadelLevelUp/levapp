@@ -230,8 +230,13 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     and 14; rows from before PAD-547 read `student`). `added_by` is `student` on those two paths.
     The class's list (`GET /api/app/notify/waiting_list/{instance_id}`, rule 5, and the class
     detail payload's `waitingList`, coach only) carries `origin`, `playerId`, `playerName`,
-    `joinedAt` and, for a standing row, `standingEntryId` and `seriesScoped`, ordered as rule 4
-    asks them (join time).
+    `joinedAt`, for a standing row `standingEntryId` and `seriesScoped`, and (PAD-560) `scope` —
+    `occurrence` (no standing entry), `period` (a series-scoped standing entry running to a date
+    the coach chose — every series-scoped entry rule 19 creates today), `series` (a series-scoped
+    entry covering the whole series: reserved here, written once PAD-560's scope change lands),
+    `standing` (a coach-wide one) — with `expiresOn`, the standing entry's rule-2 date, null for
+    `occurrence`.
+    Ordered as rule 4 asks them (join time).
 21. **The coach removes a row from one class's list (PAD-547; numbering unconfirmed).** `DELETE
     /api/app/notify/class_waiting_list/{entry_id}` by the class's coach deactivates that row only,
     whatever its origin — like the student's own leave (rule 14) — and a standing entry, coach-wide
@@ -436,4 +441,6 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **Given** an occurrence with three active rows: Bruno from a standing entry, Carla added by the coach, Dinis who joined from the wizard
 - **When** the coach reads the class's waiting list
 - **Then** their `origin` is `standing`, `coach` and `student`
+- **And** their `scope` is `standing`, `occurrence` and `occurrence`, Bruno's `expiresOn` is his entry's end date and the others' is null (PAD-560)
+- **And** a fourth row from a series-scoped entry with credits and an end date reads `scope: period` with that end date
 - **And** removing Bruno's row deactivates it, sends nothing, and leaves his standing entry active with its rows on his other classes

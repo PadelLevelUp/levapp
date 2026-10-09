@@ -1556,7 +1556,17 @@ export interface CoachClassWaitingListRow {
   origin: WaitingListOrigin;
   standingEntryId: number | null;
   seriesScoped: boolean;
+  /**
+   * PAD-560 (notifications.waiting-list rule 20): how long the student is on this list —
+   * `occurrence` (this class only), `series` (the whole series), `period` (a window: written once
+   * the scope change lands), `standing` (a coach-wide standing entry, managed in Settings).
+   */
+  scope: WaitingListScope;
+  /** The standing entry's end date (club day, inclusive, `YYYY-MM-DD`); null for `occurrence`. */
+  expiresOn: string | null;
 }
+
+export type WaitingListScope = 'occurrence' | 'series' | 'period' | 'standing';
 
 export interface NotificationEventItem {
   id: string;
