@@ -69,6 +69,7 @@ import { followReducer, initialFollowState, type FollowEvent } from "@/features/
 import { waitingListResponseOutcome } from "@/features/messages/waiting-list-state";
 import {
   invalidateMessagesLists,
+  mergeEditedMessage,
   messageCopyText,
   normalizeId,
   roleLabelKey,
@@ -337,11 +338,11 @@ export default function ConversationScreen() {
         if (evt.type === "message_edited") {
           const edited = evt.payload as Message;
           if (normalizeId(edited.conversationId) !== conversationId) return;
-          updateMessageInCache(queryClient, conversationId, edited.id, (m) => ({
-            ...m,
-            content: edited.content,
-            edited: true,
-          }));
+          // messaging.sse-realtime rule 18 (PAD-563): the metadata rides along, so a retired,
+          // withdrawn or coach-answered invite bubble changes without a refetch.
+          updateMessageInCache(queryClient, conversationId, edited.id, (m) =>
+            mergeEditedMessage(m, edited)
+          );
           return;
         }
 

@@ -770,6 +770,12 @@ export interface Message {
     lessonInstanceId?: number;
     responded?: boolean;
     response?: string;
+    /**
+     * notifications.invitations rule 9 (PAD-563): who gave the recorded answer. "coach" makes
+     * the invite bubble read "Marcado como aceite/recusado pelo treinador". Absent on older rows
+     * and on a student's own answer before PAD-563.
+     */
+    answeredBy?: "student" | "coach";
     /** ISO start time of the class (on reminder messages), used to gate cancel. */
     startsAt?: string;
     /**

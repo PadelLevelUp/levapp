@@ -1,0 +1,69 @@
+# PAD-563 — notifications.invitations rule 9 on iOS: the coach marks an invitation accepted on the
+# class screen, then opens the invitee's chat and sees the invitation bubble read "Marcado como
+# aceite pelo treinador" with no Yes/No buttons (the coach's own view shows the same badge; owner,
+# 2026-10-09). Seeded through the API (R-040): a class three days out with "E2E Student" enrolled
+# and a manual invitation to "E2E Student Two"; the class and the chat are opened by deep link.
+# Asserted by ids, never by rendered copy (PAD-320). The live merge over SSE (sse-realtime rule 18)
+# is pinned by utils.test.ts and the web Playwright spec; this flow pins the iOS bubble itself.
+# Flow number 209 is from 0910-SessionA's reserved block 209–218 (unconfirmed).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleanup && output.cleanup()}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.auth = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }}"
+- evalScript: "${output.players = (function (r) { return r.items ? r.items : r; })(json(http.get(output.api + '/api/app/coach_players', { headers: output.auth }).body))}"
+- evalScript: "${output.find = function (n) { return output.players.filter(function (p) { return p.name === n; })[0]; }}"
+- evalScript: "${output.enrolled = output.find('E2E Student')}"
+- evalScript: "${output.invitee = output.find('E2E Student Two')}"
+- assertTrue: "${output.enrolled != null && output.invitee != null}"
+- evalScript: "${output.day = (function (d) { var m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (x < 10 ? '0' + x : '' + x); })(new Date(Date.now() + 3 * 86400000))}"
+- evalScript: "${output.made = json(http.post(output.api + '/api/app/add_class', { headers: output.auth, body: JSON.stringify({ name: 'E2E Coach Answer Chat iOS', classType: 'academy', maxPlayers: 4, levelId: output.enrolled.levelId, date: output.day, startTime: '17:00', endTime: '18:00', playerIds: [output.enrolled.playerId], isRecurring: false, notificationsEnabled: true }) }).body)}"
+- evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day }, scope: 'single' }) }); }}"
+- evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/manual', { headers: output.auth, body: JSON.stringify({ model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day, playerIds: [output.invitee.playerId] }) }).body).sent}"
+- assertTrue: "${output.sent === 1}"
+- evalScript: "${output.instanceId = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: output.auth }).body).filter(function (e) { return e.title === 'E2E Coach Answer Chat iOS' && e.model === 'LessonInstance'; })[0].originalId}"
+- assertTrue: "${output.instanceId > 0}"
+- evalScript: "${output.pid = String(output.invitee.playerId)}"
+# The coach's conversation with the invitee: the manual invitation just posted into it.
+- evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations', { headers: output.auth }).body).conversations.filter(function (c) { return c.participantName === 'E2E Student Two'; })[0].id)}"
+- assertTrue: "${Number(output.convId) > 0}"
+
+# ── the class screen: the coach records the yes ──
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://class/${output.instanceId}"
+- scrollUntilVisible:
+    element:
+      id: "class-invited-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-invited-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "invitee-outcome-${output.pid}-pending"
+    timeout: 15000
+- tapOn:
+    id: "invitee-actions-${output.pid}"
+- scrollUntilVisible:
+    element:
+      id: "invitee-mark-accepted-${output.pid}"
+    direction: DOWN
+- tapOn:
+    id: "invitee-mark-accepted-${output.pid}"
+- extendedWaitUntil:
+    visible:
+      id: "invitee-outcome-${output.pid}-accepted"
+    timeout: 15000
+
+# ── the chat: the bubble says the coach answered, and offers nothing ──
+- openLink: "levelup://conversation/${output.convId}"
+- extendedWaitUntil:
+    visible:
+      id: "invite-recorded-by-coach"
+    timeout: 30000
+- assertNotVisible:
+    id: "message-respond-yes"
+- assertNotVisible:
+    id: "message-respond-no"

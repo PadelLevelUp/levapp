@@ -24,6 +24,7 @@ import {
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
+import { mergeEditedMessage } from "@/lib/mergeEditedMessage";
 import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
@@ -221,14 +222,14 @@ export default function MessagesPage() {
       // ---------------------------------------------------------------
       if (data.type === "message_edited") {
         const edited: Message = data.payload;
+        // messaging.sse-realtime rule 18 (PAD-563): the metadata rides along, so a retired,
+        // withdrawn or coach-answered invite bubble changes without a reload.
         setSelectedConversation((prev) =>
           prev
             ? {
                 ...prev,
                 messages: prev.messages.map((m) =>
-                  String(m.id) === String(edited.id)
-                    ? { ...m, content: edited.content, edited: true }
-                    : m
+                  String(m.id) === String(edited.id) ? mergeEditedMessage(m, edited) : m
                 ),
               }
             : prev

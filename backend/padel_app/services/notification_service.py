@@ -5121,24 +5121,36 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
 
-def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
-    """PAD-499 (#527 review item 3): record a student's "yes" — the answer, and the invite bubble's
-    state — under rule 10's lock, flushed into the commit that decides it, so a failed commit leaves
-    the bubble unanswered (the buttons back) rather than "Accepted" on a spot they do not hold.
-    ``response`` is what the bubble shows: "yes" (Accepted) or "spot_filled" when the yes was
-    refused. The bubble's live edit is published after that commit."""
+def _record_answer(
+    event: NotificationEvent, invite_msg, answer: str, response: str, *, by: str
+) -> None:
+    """PAD-499 (#527 review item 3) and PAD-563 (rule 9): record an answer — on the invitation and
+    on the invite bubble's state — under the lock, flushed into the commit that decides it, so a
+    failed commit leaves the bubble unanswered (the buttons back) rather than "Accepted" on a spot
+    they do not hold. ``answer`` is what the invitation stores ("yes" | "no"); ``response`` is what
+    the bubble shows ("yes", "no", or "spot_filled" when a yes was refused); ``by`` is who gave it
+    ("student" | "coach", PAD-548), kept on the bubble as ``answeredBy`` so both shells can say
+    "marcado pelo treinador". The bubble's live edit is published after that commit
+    (`messaging.sse-realtime` rule 18)."""
     from padel_app.serializers.message import serialize_message
     from padel_app.tools.after_commit import on_commit
 
-    event.answer = "yes"
-    event.answered_by = "student"  # PAD-548 (rule 9)
+    event.answer = answer
+    event.answered_by = by
     if invite_msg is not None and invite_msg.msg_metadata is not None:
-        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": response}
+        invite_msg.msg_metadata = {
+            **invite_msg.msg_metadata, "responded": True, "response": response, "answeredBy": by,
+        }
     db.session.flush()
     if invite_msg is not None:
         payload = {"type": "message_edited", "payload": serialize_message(invite_msg, None)}
         recipients = list(message_recipient_ids(invite_msg))
         on_commit(lambda: publish(payload, recipients))
+
+
+def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
+    """A student's "yes" (PAD-499); see `_record_answer`."""
+    _record_answer(event, invite_msg, "yes", response, by="student")
 
 
 def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = False) -> dict | None:
@@ -5245,7 +5257,9 @@ def respond_to_notification(
     invite_msg = Message.query.get(event.message_id) if event.message_id else None
     if action == "no" and invite_msg is not None and invite_msg.msg_metadata is not None:
         # Mark the invite message as answered (a "yes" does this under the lock, below).
-        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": "no"}
+        invite_msg.msg_metadata = {
+            **invite_msg.msg_metadata, "responded": True, "response": "no", "answeredBy": "student",
+        }
         invite_msg.save()
         publish(
             {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
@@ -5420,6 +5434,7 @@ def coach_respond_to_notification(
     now: datetime | None = None,
 ) -> dict:
     from flask import abort
+    from padel_app.models import Message
 
     event = NotificationEvent.query.get_or_404(notification_event_id)
     if event.coach_id != coach_id:
@@ -5439,16 +5454,18 @@ def coach_respond_to_notification(
 
     instance = event.lesson_instance
     vacancy = event.vacancy
+    invite_msg = Message.query.get(event.message_id) if event.message_id else None
 
     if action == "no":
-        event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
-        event.answered_by = "coach"  # PAD-548 (rule 9)
+        # PAD-497 (rule 18): the coach records the student's answer; PAD-548 (rule 9): stamped
+        # "coach"; PAD-563: the bubble's state goes into the same commit, its edit out after it.
+        _record_answer(event, invite_msg, "no", "no", by="coach")
         event.status = "expired"
         _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15)
-        event.save()
         if vacancy:
             vacancy.last_activity_at = utcnow_naive()
-            vacancy.save()
+        db.session.flush()
+        event.save()  # the ONE commit; it ends the lock and sends the bubble edit
         return {"action": "declined"}
 
     elif action == "yes":
@@ -5478,8 +5495,9 @@ def coach_respond_to_notification(
         # PAD-499: the answer and the confirmation are flushed first and land with the close and
         # the enrolment in ONE commit; a second coach yes waiting on the lock then finds it
         # confirmed.
-        event.answer = "yes"
-        event.answered_by = "coach"  # PAD-548 (rule 9)
+        # PAD-548 (rule 9): stamped "coach"; PAD-563: the winner's own bubble is marked in the
+        # same commit and its edit published after it, as the student's yes does.
+        _record_answer(event, invite_msg, "yes", "yes", by="coach")
         event.status = "confirmed"
         db.session.flush()
         retired = []
