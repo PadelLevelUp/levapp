@@ -14,6 +14,34 @@ export function waitingListOriginKey(row: Pick<CoachClassWaitingListRow, "origin
   return row.origin === "coach" ? "calendar.detail.waitingListOriginCoach" : "calendar.detail.waitingListOriginStudent";
 }
 
+/**
+ * PAD-560 (calendar.event-detail rule 19): how long the student is on this list, from the row's
+ * `scope` (the four values are described on `WaitingListScope` in @levelup/types) — a translation
+ * key, with the end date for the dated scopes formatted by the caller (`formatShortDate` in the
+ * account's locale). A coach-wide standing row (`standing`) is dated too;
+ * `waitingListManagedInSettings` says why the class offers no edit of it.
+ */
+export function waitingListScopeLabel(
+  row: Pick<CoachClassWaitingListRow, "scope" | "expiresOn">,
+  formatDate: (iso: string) => string,
+): { key: string; params?: { date: string } } {
+  switch (row.scope) {
+    case "occurrence":
+      return { key: "calendar.detail.waitingListScopeOccurrence" };
+    case "series":
+      return { key: "calendar.detail.waitingListScopeSeries" };
+    case "period":
+    case "standing":
+      // A standing entry always has an end (rule 2); "—" only if a payload ever omits it.
+      return { key: "calendar.detail.waitingListScopeUntil", params: { date: row.expiresOn ? formatDate(row.expiresOn) : "—" } };
+  }
+}
+
+/** A coach-wide standing row is changed in Settings, not from the class (rule 19). */
+export function waitingListRowIsManagedInSettings(row: Pick<CoachClassWaitingListRow, "scope">): boolean {
+  return row.scope === "standing";
+}
+
 /** Roster students the coach may add: not in the class and not already on its list. */
 export function waitingListCandidates<P extends { playerId: number | string }>(
   roster: P[],

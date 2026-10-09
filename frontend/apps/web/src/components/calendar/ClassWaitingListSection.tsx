@@ -1,7 +1,8 @@
 /**
  * PAD-547 (calendar.event-detail rules 19–20, notifications.waiting-list rules 18–21): the class's
- * waiting list on its detail sheet — who is on it and where each came from, a remove control per
- * row, and "Add to waiting list" for this class only or the whole series. Coach only.
+ * waiting list on its detail sheet — who is on it, where each came from and (PAD-560) for how long,
+ * a remove control per row, and "Add to waiting list" for this class only or the whole series.
+ * Coach only. The picker is one search above a list of rows (B-421: no native select).
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,6 +11,7 @@ import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } fro
 import {
   DEFAULT_STANDING_PRESET,
   describeIneligible,
+  formatShortDate,
   isStandingEndAllowed,
   resolveText,
   standingEndBounds,
@@ -17,6 +19,8 @@ import {
   waitingListCandidates,
   waitingListOriginKey,
   waitingListPickerOptions,
+  waitingListRowIsManagedInSettings,
+  waitingListScopeLabel,
 } from "@levelup/config";
 import { addToClassWaitingList, checkEligibility, removeFromClassWaitingList } from "@/api/notificationEngine";
 import { Button } from "@/components/ui/button";
@@ -34,7 +38,7 @@ interface Props {
 }
 
 export function ClassWaitingListSection({ event, rows, roster, enrolledIds, onChanged }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [open, setOpen] = useState(rows.length > 0);
   const [adding, setAdding] = useState(false);
@@ -69,16 +73,26 @@ export function ClassWaitingListSection({ event, rows, roster, enrolledIds, onCh
           {rows.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t("calendar.detail.waitingListEmpty")}</p>
           ) : (
-            rows.map((row) => (
+            rows.map((row) => {
+              const scope = waitingListScopeLabel(row, (iso) => formatShortDate(iso, i18n.language));
+              return (
               <div
                 key={row.id}
                 data-testid={`class-waiting-list-row-${row.playerId}`}
                 data-origin={row.origin}
+                data-scope={row.scope}
                 className="flex items-center justify-between gap-2 py-1"
               >
                 <div className="flex flex-col">
                   <span className="text-sm">{row.playerName}</span>
-                  <span className="text-[11px] text-muted-foreground">{t(waitingListOriginKey(row))}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t(waitingListOriginKey(row))} · {t(scope.key, scope.params)}
+                  </span>
+                  {waitingListRowIsManagedInSettings(row) ? (
+                    <span data-testid={`class-waiting-list-managed-${row.playerId}`} className="text-[11px] text-muted-foreground italic">
+                      {t("calendar.detail.waitingListManagedInSettings")}
+                    </span>
+                  ) : null}
                 </div>
                 <Button
                   variant="ghost"
@@ -92,7 +106,8 @@ export function ClassWaitingListSection({ event, rows, roster, enrolledIds, onCh
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-            ))
+              );
+            })
           )}
           <Button
             variant="outline"
@@ -169,7 +184,6 @@ function AddToClassWaitingListDialog({
 
   const { min, max } = standingEndBounds(today);
   const seriesValid = scope === "occurrence" || isStandingEndAllowed(expiresOn, today);
-  const chosenReasons = playerId ? reasonsById.get(playerId) : undefined;
   // PAD-558 (rule 20): the search narrows what is offered; the chosen student stays listed.
   const offered = useMemo(() => waitingListPickerOptions(candidates, search, playerId || null), [candidates, search, playerId]);
 
@@ -212,33 +226,44 @@ function AddToClassWaitingListDialog({
               className="h-9 pl-8 text-sm"
             />
           </div>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">{t("calendar.detail.waitingListPickStudent")}</span>
-            <select
-              data-testid="class-waiting-list-player"
-              value={playerId}
-              onChange={(e) => setPlayerId(e.target.value)}
-              className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
-            >
-              <option value="" />
-              {offered.map((c) => (
-                <option key={c.playerId} value={String(c.playerId)} data-ineligible={reasonsById.has(String(c.playerId)) || undefined}>
-                  {reasonsById.has(String(c.playerId)) ? `⚠ ${c.name}` : c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {chosenReasons ? (
-            <div data-testid="class-waiting-list-ineligible" className="rounded-md bg-warning/10 p-2 text-xs text-warning">
-              <p className="flex items-center gap-1 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {t("calendar.detail.waitingListIneligibleHint")}
-              </p>
-              <ul className="ml-4 list-disc">
-                {chosenReasons.map((r, i) => <li key={i}>{r}</li>)}
-              </ul>
-            </div>
-          ) : null}
+          {/* B-421 (rule 20): the offered students are visible rows the search narrows — no select. */}
+          <div data-testid="class-waiting-list-candidates" className="max-h-52 overflow-y-auto overscroll-contain space-y-1">
+            {offered.length === 0 ? (
+              <p className="text-xs text-muted-foreground px-1">{t("calendar.detail.waitingListNoMatch")}</p>
+            ) : (
+              offered.map((c) => {
+                const id = String(c.playerId);
+                const reasons = reasonsById.get(id);
+                const chosen = playerId === id;
+                return (
+                  <button
+                    type="button"
+                    key={id}
+                    data-testid={`class-waiting-list-candidate-${id}`}
+                    data-ineligible={reasons ? true : undefined}
+                    aria-pressed={chosen}
+                    onClick={() => setPlayerId(id)}
+                    className={`w-full text-left rounded-md border px-3 py-2 transition-colors ${
+                      chosen ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="text-sm">{c.name}</span>
+                    {reasons ? (
+                      <div data-testid={`class-waiting-list-ineligible-${id}`} className="mt-1 text-[11px] text-warning">
+                        <p className="flex items-center gap-1 font-medium">
+                          <AlertTriangle className="w-3 h-3" />
+                          {t("calendar.detail.waitingListIneligibleHint")}
+                        </p>
+                        <ul className="ml-4 list-disc text-muted-foreground">
+                          {reasons.map((r, i) => <li key={i}>{r}</li>)}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })
+            )}
+          </div>
           <div className="space-y-1">
             <span className="text-sm font-medium">{t("calendar.detail.waitingListScope")}</span>
             <div className="flex gap-2">
