@@ -128,13 +128,22 @@ appId: com.padellevelup.app
 # ── The coach asks by hand (API): now "Vou" is offered ──
 - evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/send_reminders', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ model: output.event.model, originalId: String(output.event.originalId), date: output.day }) }).body).sent}"
 - assertTrue: "${output.sent >= 1}"
-# Leave and re-enter the class so the screen re-reads the payload.
+# Leave and re-enter the class so the screen re-reads the payload. The class query keeps
+# its data for 30 s (staleTime, app/_layout.tsx); re-entering inside that window renders the
+# cached pre-ask payload (A's run at ccd74bb7d), so wait out the window first — the web spec's
+# `page.reload()` equivalent. The reminder's live event does not refetch the open class
+# detail; that is noted in the PR, not this flow's business.
 - tapOn:
     id: "class-detail-back"
 - extendedWaitUntil:
     visible:
       id: "screen-calendar"
     timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "pad570-stale-window-elapsed"
+    timeout: 31000
+    optional: true
 - tapOn:
     id: "calendar-day-${output.day}"
 - extendedWaitUntil:
