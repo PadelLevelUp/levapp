@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Message } from "@/types";
-import { mergeEditedMessage } from "./mergeEditedMessage";
+import type { Message } from "@levelup/types";
+
+import { mergeEditedMessage } from "./message-edits";
 
 // messaging.sse-realtime rule 18 (PAD-563): a live edit carries the whole message; the open
 // conversation takes its content, edited flag and metadata, and keeps what the viewer-less
-// payload cannot know.
+// payload cannot know. Shared by web and iOS, so one test.
 describe("mergeEditedMessage", () => {
   const cached: Message = {
     id: "7",
@@ -36,6 +37,11 @@ describe("mergeEditedMessage", () => {
     const merged = mergeEditedMessage(cached, { ...cached, content: "Convite (corrigido)", edited: true });
     expect(merged.content).toBe("Convite (corrigido)");
     expect(merged.edited).toBe(true);
+    expect(merged.metadata).toEqual(cached.metadata);
+  });
+
+  it("keeps the cached metadata when the payload carries none", () => {
+    const merged = mergeEditedMessage(cached, { ...cached, metadata: undefined });
     expect(merged.metadata).toEqual(cached.metadata);
   });
 });

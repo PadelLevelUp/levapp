@@ -24,7 +24,7 @@ import {
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
-import { mergeEditedMessage } from "@/lib/mergeEditedMessage";
+import { mergeEditedMessage } from "@levelup/api";
 import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,

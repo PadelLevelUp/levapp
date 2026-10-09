@@ -52,9 +52,11 @@ path end to end.
 ### Resolution
 
 - Spec changes: `messaging/sse-realtime.spec.md` rule 18 + criterion.
-- Tests: web `src/lib/mergeEditedMessage.test.ts`; iOS `features/messages/utils.test.ts`
-  (`mergeEditedMessage`); the PAD-563 E2E (live badge without reload).
-- Code: web `src/lib/mergeEditedMessage.ts` used by `MessagesPage.tsx`; iOS
-  `features/messages/utils.ts` used by `conversation/[id].tsx`.
+- Tests: `packages/api/src/message-edits.test.ts` (one merge for both shells; shown red against
+  the old merge — content only, `edited` forced — 1 of 3 failed, restored green); iOS
+  `features/messages/utils.test.ts` pins the screen's helper is the shared one; the PAD-563 E2E
+  (live badge without reload, on the spec's own bubble).
+- Code: `@levelup/api` `mergeEditedMessage`, used by web `MessagesPage.tsx` and by iOS
+  `conversation/[id].tsx` through `features/messages/utils.ts`.
 - Resolved: 2026-10-09 (PR for PAD-563). Reaches three features: PAD-499's retire, PAD-548's
   withdraw and PAD-563's coach answer were all not live before this.

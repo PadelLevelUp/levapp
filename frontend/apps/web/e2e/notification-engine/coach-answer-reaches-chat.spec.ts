@@ -13,14 +13,18 @@ import { loginAsCoach, loginAsStudent2 } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { findClassOnCalendar } from "../helpers/calendar-navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { removeClassesOnDay } from "../helpers/cleanup";
 
 const CLASS_TITLE = "E2E Coach Answer Reaches Chat";
 const ENROLLED = "E2E Student";
 const INVITEE = "E2E Student Two"; // e2e-student-2: on the roster, can log in
 const COACH_NAME = "E2E Coach";
 
-type ClassRef = { model: string; originalId: number; date: string };
-const created: ClassRef[] = [];
+type Created = { title: string; date: string; inviteMessageId: number | null };
+// R-040: what the spec wrote, by its own titles and ids — the class (re-read until gone) and the
+// invitation message it posted into e2e-student-2's chat with the coach (soft-deleted by its
+// sender, the coach, so no live or resolved invite bubble is left for the next spec).
+const created: Created[] = [];
 
 async function token(request: APIRequestContext): Promise<string> {
   const res = await request.post(`${API_AUTH}/login`, { data: { username: "e2e-coach", password: "E2eCoach123!" } });
@@ -63,24 +67,41 @@ async function seedInvitedClass(request: APIRequestContext, tok: string, suffix:
   });
   expect(add.ok(), `add_class: ${add.status()} ${await add.text()}`).toBeTruthy();
   const made = await add.json();
-  const ref: ClassRef = { model: made.model ?? "Lesson", originalId: made.originalId, date };
-  created.push(ref);
+  const title = `${CLASS_TITLE} ${suffix}`;
+  const record: Created = { title, date, inviteMessageId: null };
+  created.push(record);
   const notify = await request.post(`${API_APP}/notify/manual`, {
     headers: { Authorization: `Bearer ${tok}` },
-    data: { model: ref.model, originalId: ref.originalId, date, playerIds: [invitee.playerId] },
+    data: { model: made.model ?? "Lesson", originalId: made.originalId, date, playerIds: [invitee.playerId] },
   });
   expect(notify.ok(), `manual notify: ${notify.status()}`).toBeTruthy();
   expect((await notify.json()).sent).toBe(1);
-  return { invitee, title: `${CLASS_TITLE} ${suffix}` };
+  // The invitation message this spec just posted: the newest invite bubble in the coach's
+  // conversation with the invitee. Assertions and cleanup address it by this id (R-040 point 3).
+  const convs = await request.get(`${API_APP}/conversations`, { headers: { Authorization: `Bearer ${tok}` } });
+  expect(convs.ok()).toBeTruthy();
+  const conv = ((await convs.json()).conversations as Array<{ id: number; participantName: string }>)
+    .find((c) => c.participantName === INVITEE);
+  expect(conv, "the coach's conversation with the invitee").toBeTruthy();
+  const detail = await request.get(`${API_APP}/conversation/${conv!.id}`, { headers: { Authorization: `Bearer ${tok}` } });
+  expect(detail.ok()).toBeTruthy();
+  const invites = ((await detail.json()).messages as Array<{ id: number; messageType?: string }>)
+    .filter((m) => m.messageType === "notification_invite");
+  expect(invites.length, "the manual invitation is in the chat").toBeGreaterThan(0);
+  record.inviteMessageId = invites[invites.length - 1].id;
+  return { invitee, title, inviteMessageId: record.inviteMessageId };
 }
 
-/** The student's chat with the coach, open on the invitation bubble with its live buttons. */
-async function openStudentChat(page: Page) {
+/** The student's chat with the coach, open on this spec's invitation bubble with its live buttons. */
+async function openStudentChat(page: Page, inviteMessageId: number) {
   await loginAsStudent2(page);
   await page.goto("/messages");
   await page.getByTestId(/^conversation-row-/).filter({ hasText: COACH_NAME }).first().click();
   await expect(page.getByTestId("message-scroller")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByTestId("invite-respond-yes").last()).toBeVisible({ timeout: 10000 });
+  const bubble = page.getByTestId(`message-item-${inviteMessageId}`);
+  await bubble.scrollIntoViewIfNeeded();
+  await expect(bubble.getByTestId("invite-respond-yes")).toBeVisible({ timeout: 10000 });
+  return bubble;
 }
 
 async function openClass(page: Page, title: string) {
@@ -93,29 +114,27 @@ async function openClass(page: Page, title: string) {
 
 test.afterEach(async ({ request }) => {
   const tok = await token(request);
+  const auth = { Authorization: `Bearer ${tok}` };
   while (created.length) {
-    const event = created.pop()!;
-    await request
-      .post(`${API_APP}/remove_class`, { headers: { Authorization: `Bearer ${tok}` }, data: { event, scope: "single" } })
-      .catch(() => null);
+    const { title, date, inviteMessageId } = created.pop()!;
+    if (inviteMessageId !== null) {
+      const del = await request.delete(`${API_APP}/message/${inviteMessageId}`, { headers: auth }).catch(() => null);
+      expect(del?.ok(), `delete invitation message ${inviteMessageId}: ${del?.status()}`).toBeTruthy();
+    }
+    await removeClassesOnDay(request, auth, date, (e) => e.title === title);
   }
 });
 
 for (const [action, outcome] of [["accepted", "accepted"], ["declined", "declined"]] as const) {
   test(`PAD-563: the coach marks an invitation ${action}; the student's open chat flips live, buttons gone`, async ({ browser, page, request }) => {
     const tok = await token(request);
-    const { invitee, title } = await seedInvitedClass(request, tok, action);
+    const { invitee, title, inviteMessageId } = await seedInvitedClass(request, tok, action);
 
     // The student first: their chat is open and live before the coach does anything.
     const studentContext = await browser.newContext();
     const student = await studentContext.newPage();
     try {
-      await openStudentChat(student);
-      // Other specs may leave this student other live invitations in the same chat, so count
-      // deltas, never absolutes.
-      const bubblesBefore = await student.getByTestId("invite-recorded-by-coach").count();
-      const yesBefore = await student.getByTestId("invite-respond-yes").count();
-      const noBefore = await student.getByTestId("invite-respond-no").count();
+      const bubble = await openStudentChat(student, inviteMessageId!);
 
       await loginAsCoach(page);
       await openClass(page, title);
@@ -125,10 +144,11 @@ for (const [action, outcome] of [["accepted", "accepted"], ["declined", "decline
       await page.getByTestId(`invitee-mark-${action}`).click();
       await expect(row).toHaveAttribute("data-outcome", outcome, { timeout: 10000 });
 
-      // The student's page never navigated: the badge can only have come over SSE (rule 18).
-      await expect(student.getByTestId("invite-recorded-by-coach")).toHaveCount(bubblesBefore + 1, { timeout: 15000 });
-      await expect(student.getByTestId("invite-respond-yes")).toHaveCount(yesBefore - 1);
-      await expect(student.getByTestId("invite-respond-no")).toHaveCount(noBefore - 1);
+      // The student's page never navigated: the badge on THIS spec's bubble can only have come
+      // over SSE (rule 18). Other specs' invitations in the same chat are not looked at.
+      await expect(bubble.getByTestId("invite-recorded-by-coach")).toBeVisible({ timeout: 15000 });
+      await expect(bubble.getByTestId("invite-respond-yes")).toHaveCount(0);
+      await expect(bubble.getByTestId("invite-respond-no")).toHaveCount(0);
       expect(student.url()).toContain("/messages");
     } finally {
       await studentContext.close();

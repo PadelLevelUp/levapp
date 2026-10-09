@@ -855,7 +855,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** the coach records his "yes" (or his "no") from the class detail
 - **Then** the invitation message's metadata reads `responded: true`, `response: "yes"` (or `"no"`), `answeredBy: "coach"`, written in the one commit that records the answer
 - **And** a `message_edited` for that message is published to Dinis and the coach after that commit, never before it
-- **And** both shells show "Marcado como aceite pelo treinador" (or "… recusado …") with no buttons, to Dinis and to the coach, without a reload
+- **And** both shells show "Marcado como aceite pelo treinador" (or "… recusado …") with no buttons, to Dinis and to the coach, without a reload (test id `invite-recorded-by-coach` replaces `invite-accepted` / `invite-declined` on that bubble; the Yes/No buttons are `invite-respond-yes` / `invite-respond-no` on web, `message-respond-yes` / `-no` on iOS)
 
 #### A manual invitation's recorded answer reaches the chat too (rule 9, PAD-563)
 - **Given** a manual invitation (no vacancy) still `sent`

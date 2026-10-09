@@ -1,8 +1,6 @@
 import { enUS, pt } from "date-fns/locale";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Message } from "@levelup/types";
-
 import {
   formatConversationTime,
   formatMessageTime,
@@ -156,39 +154,11 @@ describe("messageCopyText", () => {
   });
 });
 
-// messaging.sse-realtime rule 18 (PAD-563): a live edit carries the whole message; the cache
-// takes its content, edited flag and metadata, and keeps what the viewer-less payload cannot know.
+// messaging.sse-realtime rule 18 (PAD-563): the merge itself is tested once in
+// @levelup/api (message-edits.test.ts); this pins that the screen's helper is that function.
 describe("mergeEditedMessage", () => {
-  const cached: Message = {
-    id: "7",
-    senderId: 2,
-    content: "Convite",
-    timestamp: "2026-10-09T18:00:00",
-    isRead: true,
-    status: "read",
-    edited: false,
-    messageType: "notification_invite",
-    metadata: { notificationEventId: 11, responded: false },
-  };
-
-  it("takes the payload's metadata and edited flag, so a coach-recorded answer retires the buttons live", () => {
-    const merged = mergeEditedMessage(cached, {
-      ...cached,
-      isRead: false,
-      status: "delivered",
-      edited: false,
-      metadata: { notificationEventId: 11, responded: true, response: "yes", answeredBy: "coach" },
-    });
-    expect(merged.metadata).toEqual({ notificationEventId: 11, responded: true, response: "yes", answeredBy: "coach" });
-    expect(merged.edited).toBe(false);
-    expect(merged.isRead).toBe(true);
-    expect(merged.status).toBe("read");
-  });
-
-  it("still applies a text edit as edited", () => {
-    const merged = mergeEditedMessage(cached, { ...cached, content: "Convite (corrigido)", edited: true });
-    expect(merged.content).toBe("Convite (corrigido)");
-    expect(merged.edited).toBe(true);
-    expect(merged.metadata).toEqual(cached.metadata);
+  it("is the shared @levelup/api merge", async () => {
+    const shared = await import("@levelup/api");
+    expect(mergeEditedMessage).toBe(shared.mergeEditedMessage);
   });
 });

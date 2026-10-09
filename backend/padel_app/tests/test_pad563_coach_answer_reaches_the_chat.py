@@ -49,6 +49,7 @@ def test_a_coach_recorded_no_marks_the_bubble_and_publishes_after_the_commit(app
         assert coach_respond_to_notification(event.id, "no", coach_id, now=NOW + timedelta(minutes=1)) == {"action": "declined"}
         assert _bubble(event) == {**_bubble(event), "responded": True, "response": "no", "answeredBy": "coach"}
         assert (event.answer, event.answered_by, event.status) == ("no", "coach", "expired")
+        assert event.vacancy is not None and event.vacancy.last_activity_at is not None  # same commit
 
     assert trail.count("commit") == 1, f"the coach's no must be ONE commit: {trail}"
     i_commit = trail.index("commit")
