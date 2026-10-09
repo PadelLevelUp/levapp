@@ -43,7 +43,9 @@ export default defineConfig({
   projects: [
     {
       name: "iphone-13",
-      use: { ...devices["iPhone 13"] },
+      // The descriptor's viewport, UA and touch, emulated in Chromium (its default is WebKit,
+      // which the CI lane does not install; the web suite is Chromium-only too).
+      use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" },
     },
   ],
 
