@@ -1940,13 +1940,14 @@ def format_relative_day(start, locale, now=None) -> str:
     rendered, which in the engine is the moment it is sent (so a message held by quiet hours past
     midnight still says "hoje" correctly). Both ``start`` and ``now`` are club wall-clock times.
 
-    No preposition is inside it; the coach writes "para {day} às {time}":
+    Only the next-week form carries a preposition in Portuguese (PAD-561, B-463: the owner
+    reversed PAD-549's "no preposition inside"), so the field fits "A aula é {day} às {time}":
         same day → "hoje" / "today"; next day → "amanhã" / "tomorrow";
         two days → "depois de amanhã" / "the day after tomorrow";
         later this week (Monday–Sunday) → "esta sexta-feira" / "this Friday";
-        any day of next week → "a próxima segunda-feira" / "next Monday";
+        any day of next week → "na próxima segunda-feira" / "next Monday";
         anything else, past included → "dia 23/02" / "23/02".
-    Saturday and Sunday are masculine in Portuguese: "este sábado", "o próximo domingo".
+    Saturday and Sunday are masculine in Portuguese: "este sábado", "no próximo domingo".
     """
     if start is None:
         return ""
@@ -1970,7 +1971,7 @@ def format_relative_day(start, locale, now=None) -> str:
         return f"this {weekday}"
     if days > 0 and weeks_ahead == 1:
         if is_pt:
-            return f"{'o próximo' if masculine else 'a próxima'} {weekday}"
+            return f"{'no próximo' if masculine else 'na próxima'} {weekday}"
         return f"next {weekday}"
     date = _format_day_month(start)
     return f"dia {date}" if is_pt else date

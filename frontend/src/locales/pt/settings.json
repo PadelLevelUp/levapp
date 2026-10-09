@@ -587,7 +587,7 @@
           "level": "O nível da aula",
           "weekday": "O dia da semana da aula",
           "time": "A hora de início da aula",
-          "day": "O dia da aula dito de forma natural, em relação ao momento do envio: hoje, amanhã, esta sexta-feira, a próxima segunda-feira, ou a data",
+          "day": "O dia da aula dito de forma natural, em relação ao momento do envio: hoje, amanhã, esta sexta-feira, na próxima segunda-feira, ou dia 23/10. Encaixa em frases como «A aula é {day} às {time}»",
           "date": "A data da aula em dia/mês",
           "type": "O tipo de aula: academia ou privada",
           "court": "O campo da aula (vazio quando não tem)",
