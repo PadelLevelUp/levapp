@@ -537,7 +537,8 @@ export default function ClassDetailScreen() {
   const title =
     active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
-  const isRecurring = event.isRecurring || instance?.isRecurring === true;
+  // B-422: a deep-linked open has no calendar event; the payload's flag (or its series end) says it.
+  const isRecurring = event.isRecurring || instance?.isRecurring === true || instance?.recurrenceEnd != null;
   // PAD-335 (`classes.delete` rule 7): the delete dialog says when the coach's
   // register goes with the class. Same helper as the web sheet.
   const attendanceRecorded = isCoach && hasRecordedAttendance(instance?.presences);
