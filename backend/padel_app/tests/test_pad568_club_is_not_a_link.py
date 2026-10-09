@@ -48,6 +48,11 @@ def world(app):
     - inclass:  enrolled in an occurrence B teaches that ends tomorrow; no roster, no club
     - inseries: enrolled in a recurring series B teaches with no end; no roster, no club
     - past:     enrolled in an occurrence B taught 30 days ago; no roster, no club
+    - declined: enrolled "not coming" in an occurrence B teaches tomorrow (still a link)
+    - cancelled: enrolled in an occurrence B teaches tomorrow that was cancelled
+    - ended:    enrolled in a recurring series of B's whose recurrence_end has passed
+    - oneoff:   enrolled in a one-off series of B's that ends tomorrow
+    - inactive_player: on B's roster, but the user is inactive (never messageable)
     - nobody:   no link to anyone
     """
     from padel_app.models import User
@@ -65,8 +70,10 @@ def world(app):
     from padel_app.models.presences import Presence
 
     with app.app_context():
-        names = ["coach_a", "coach_b", "joined", "clubonly", "inclass", "inseries", "past", "nobody"]
-        users = {n: User(name=f"P568 {n}", username=f"p568_{n}", password="x", status="active")
+        names = ["coach_a", "coach_b", "joined", "clubonly", "inclass", "inseries", "past",
+                 "declined", "cancelled", "ended", "oneoff", "inactive_player", "nobody"]
+        users = {n: User(name=f"P568 {n}", username=f"p568_{n}", password="x",
+                         status="inactive" if n == "inactive_player" else "active")
                  for n in names}
         db.session.add_all(users.values())
         db.session.flush()
@@ -97,23 +104,35 @@ def world(app):
             db.session.flush()
             return row
 
-        def occurrence(player, start):
+        def occurrence(player, start, *, status="scheduled", response="none"):
             parent = lesson(f"P568 {player} class", start)
             inst = LessonInstance(lesson_id=parent.id, start_datetime=start,
                                   end_datetime=start + timedelta(hours=1), max_players=4,
-                                  status="scheduled")
+                                  status=status)
             db.session.add(inst)
             db.session.flush()
             db.session.add(Association_CoachLessonInstance(coach_id=coaches["coach_b"].id,
                                                            lesson_instance_id=inst.id))
-            db.session.add(Presence(player_id=players[player].id, lesson_instance_id=inst.id))
+            db.session.add(Presence(player_id=players[player].id, lesson_instance_id=inst.id,
+                                    response=response))
             return inst
+
+        def series(player, start, *, recurring, recurrence_end=None):
+            row = lesson(f"P568 {player} series", start, recurring=recurring)
+            row.recurrence_end = recurrence_end
+            db.session.add(Association_CoachLesson(coach_id=coaches["coach_b"].id, lesson_id=row.id))
+            db.session.add(Association_PlayerLesson(player_id=players[player].id, lesson_id=row.id))
 
         inclass_inst = occurrence("inclass", now + timedelta(days=1))
         occurrence("past", now - timedelta(days=30))
-        series = lesson("P568 series", now - timedelta(days=100), recurring=True)
-        db.session.add(Association_CoachLesson(coach_id=coaches["coach_b"].id, lesson_id=series.id))
-        db.session.add(Association_PlayerLesson(player_id=players["inseries"].id, lesson_id=series.id))
+        occurrence("declined", now + timedelta(days=1), response="declined")
+        occurrence("cancelled", now + timedelta(days=1), status="canceled")
+        series("inseries", now - timedelta(days=100), recurring=True)
+        series("ended", now - timedelta(days=200), recurring=True,
+               recurrence_end=(now - timedelta(days=10)).date())
+        series("oneoff", now + timedelta(days=1), recurring=False)
+        db.session.add(Association_CoachPlayer(coach_id=coaches["coach_b"].id,
+                                               player_id=players["inactive_player"].id))
         db.session.commit()
 
         return {
@@ -192,17 +211,30 @@ def test_a_cancelled_occurrence_stops_linking(client, app, world):
 
 # ── symmetry ─────────────────────────────────────────────────────────────────
 
+PLAYERS = ["joined", "clubonly", "inclass", "inseries", "past", "declined", "cancelled", "ended",
+           "oneoff", "nobody"]
+
+
 def test_the_two_directions_agree(client, app, world):
-    """C is in a player's picker exactly when that player is in C's picker — for every link kind."""
+    """C is in a player's picker exactly when that player is in C's picker — for every link kind,
+    including the tenses where two hand-written mirrors could diverge (cancelled occurrence, ended
+    series, declined enrolment, live one-off). Active users only: an inactive user cannot call."""
     u = world["users"]
     coach_pickers = {c: _picker(client, app, u[c]) for c in ("coach_a", "coach_b")}
-    for player in ("joined", "clubonly", "inclass", "inseries", "past", "nobody"):
+    for player in PLAYERS:
         player_picker = _picker(client, app, u[player])
         for coach in ("coach_a", "coach_b"):
             assert (u[coach] in player_picker) == (u[player] in coach_pickers[coach]), (player, coach)
-    # and the set is not trivially empty: the roster and live-class links are there
-    assert u["joined"] in coach_pickers["coach_a"]
-    assert u["inclass"] in coach_pickers["coach_b"] and u["inseries"] in coach_pickers["coach_b"]
+    # and the set is exactly the live links, not trivially empty
+    assert coach_pickers["coach_a"] == {u["joined"]}
+    assert coach_pickers["coach_b"] == {u["inclass"], u["inseries"], u["declined"], u["oneoff"]}
+
+
+def test_an_inactive_player_is_not_messageable_even_from_the_roster(client, app, world):
+    """Mirror of PAD-483's inactive-coach case: both sides read the user's status."""
+    u = world["users"]
+    assert u["inactive_player"] not in _picker(client, app, u["coach_b"])
+    assert _start(client, app, u["coach_b"], {"otherParticipants": [u["inactive_player"]]}).status_code == 403
 
 
 def test_messageable_set_never_includes_other_coaches_or_other_students(client, app, world):

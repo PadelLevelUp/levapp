@@ -15,10 +15,11 @@ import { API_APP, API_AUTH } from "../helpers/api";
 /**
  * B-267 / PAD-483 — messaging.conversations rule 7.
  *
- * A student's picker lists only coaches they are linked to (roster, shared club, a class the
- * coach teaches). The seed puts `e2e-coach-nolevels` in the coach's club but no student in that
- * club and none on its roster, so for `e2e-student` it is an unlinked coach: absent from the
- * picker, refused on `otherParticipants`, still reachable by exact username.
+ * A student's picker lists only coaches they are linked to (roster, or a class the coach
+ * teaches that is not yet over; a shared club stopped counting in PAD-568). The seed puts
+ * `e2e-coach-nolevels` in the coach's club with nobody on its roster, so for `e2e-student` it is
+ * an unlinked coach: absent from the picker, refused on `otherParticipants`, still reachable by
+ * exact username.
  *
  * When the server refuses a picked row (a stale list), the dialog says why and stays open
  * instead of closing on nothing. The refusal is forced with a route stub: any role's picker

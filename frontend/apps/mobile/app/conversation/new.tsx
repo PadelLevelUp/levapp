@@ -90,7 +90,7 @@ export default function NewConversationScreen() {
 
   // PAD-568: a student linked to no coach gets "Ligar-me a um treinador" under the empty
   // state (players.join-token rule 8). Coaches never see it.
-  const isCoach = me?.roles?.includes("coach") ?? false;
+  const offersConnect = !(me?.roles?.includes("coach") ?? false);
 
   const connected = React.useMemo(
     () =>
@@ -184,7 +184,7 @@ export default function NewConversationScreen() {
       <Text className="text-center text-sm text-muted-foreground">
         {term ? t("messages.tryDifferentSearch") : t("messages.notConnectedYetHint")}
       </Text>
-      {!term && !isCoach && connected.length === 0 ? (
+      {!term && offersConnect && connected.length === 0 ? (
         <Button
           variant="outline"
           className="mt-3"

@@ -77,36 +77,18 @@ def _messageable_target_ids_for(user):
     return _linked_coach_user_ids(player.id)
 
 
-def _live_series_filter(now):
-    """A series with an occurrence still ahead (one-off: its end is in the future; recurring:
-    no `recurrence_end`, or one not yet passed)."""
-    from padel_app.models.lessons import Lesson
+def _link_sources(side, own_id, now):
+    """Rule 7's three link sources — roster, a series with an occurrence still ahead, an
+    occurrence not ended and not cancelled — as subqueries selecting the OTHER side's id.
+    `side="player"` takes a player id and yields coach ids; `side="coach"` takes a coach id and
+    yields player ids. One body for both directions is what makes the set symmetric by
+    construction, not by two parallel functions agreeing.
 
-    return or_(
-        and_(Lesson.is_recurring.is_(False), Lesson.end_datetime > now),
-        and_(
-            Lesson.is_recurring.is_(True),
-            or_(Lesson.recurrence_end.is_(None), Lesson.recurrence_end >= now.date()),
-        ),
-    )
-
-
-def _live_occurrence_filter(now):
-    """An occurrence that has not ended and is not cancelled."""
-    from padel_app.models.lesson_instances import LessonInstance
-
-    return and_(LessonInstance.end_datetime > now, LessonInstance.status != "canceled")
-
-
-def _linked_coach_user_ids(player_id, wall_now=None):
-    """Rule 7's student side: the active coaches who have the player on their roster or teach
-    a class the player is in that is not over (#514 review): an occurrence the student is
-    enrolled in that has not ended and is not cancelled (a declined "not coming" enrolment
-    still counts — the student is still enrolled), or a series with an occurrence still ahead.
-    A class taught months ago is not a link. A shared club is not a link (PAD-568, B-461).
-
-    Class times are stored on the club's wall clock, so "not over" compares them with
-    `club_now_naive()`, never with UTC now (R-023, PAD-256)."""
+    "Not over" (#514 review): a one-off series links while its end is in the future; a recurring
+    one while it has no `recurrence_end` or one not yet passed; an occurrence while it has not
+    ended and is not cancelled. A declined ("not coming") enrolment on a future class still counts:
+    the student is still enrolled. Class times are stored on the club's wall clock, so they are
+    compared with `club_now_naive()`, never with UTC now (R-023, PAD-256)."""
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
@@ -115,23 +97,47 @@ def _linked_coach_user_ids(player_id, wall_now=None):
     from padel_app.models.lessons import Lesson
     from padel_app.models.presences import Presence
 
-    now = wall_now or club_now_naive()
-    roster = db.session.query(Association_CoachPlayer.coach_id).filter(
-        Association_CoachPlayer.player_id == player_id
-    )
+    if side == "player":
+        roster_own, roster_other = Association_CoachPlayer.player_id, Association_CoachPlayer.coach_id
+        series_own, series_other = Association_PlayerLesson.player_id, Association_CoachLesson.coach_id
+        occ_own, occ_other = Presence.player_id, Association_CoachLessonInstance.coach_id
+    elif side == "coach":
+        roster_own, roster_other = Association_CoachPlayer.coach_id, Association_CoachPlayer.player_id
+        series_own, series_other = Association_CoachLesson.coach_id, Association_PlayerLesson.player_id
+        occ_own, occ_other = Association_CoachLessonInstance.coach_id, Presence.player_id
+    else:
+        raise ValueError(side)
+
+    roster = db.session.query(roster_other).filter(roster_own == own_id)
     series = (
-        db.session.query(Association_CoachLesson.coach_id)
+        db.session.query(series_other)
+        .select_from(Association_CoachLesson)
         .join(Association_PlayerLesson, Association_PlayerLesson.lesson_id == Association_CoachLesson.lesson_id)
         .join(Lesson, Lesson.id == Association_CoachLesson.lesson_id)
-        .filter(Association_PlayerLesson.player_id == player_id, _live_series_filter(now))
+        .filter(
+            series_own == own_id,
+            or_(
+                and_(Lesson.is_recurring.is_(False), Lesson.end_datetime > now),
+                and_(
+                    Lesson.is_recurring.is_(True),
+                    or_(Lesson.recurrence_end.is_(None), Lesson.recurrence_end >= now.date()),
+                ),
+            ),
+        )
     )
     occurrence = (
-        db.session.query(Association_CoachLessonInstance.coach_id)
+        db.session.query(occ_other)
+        .select_from(Association_CoachLessonInstance)
         .join(Presence, Presence.lesson_instance_id == Association_CoachLessonInstance.lesson_instance_id)
         .join(LessonInstance, LessonInstance.id == Association_CoachLessonInstance.lesson_instance_id)
-        .filter(Presence.player_id == player_id, _live_occurrence_filter(now))
+        .filter(occ_own == own_id, LessonInstance.end_datetime > now, LessonInstance.status != "canceled")
     )
-    coach_ids = roster.union(series, occurrence)
+    return roster.union(series, occurrence)
+
+
+def _linked_coach_user_ids(player_id, wall_now=None):
+    """Rule 7's student side: the user ids of the ACTIVE coaches linked to this player."""
+    coach_ids = _link_sources("player", player_id, wall_now or club_now_naive())
     return {
         row.user_id
         for row in (
@@ -143,39 +149,18 @@ def _linked_coach_user_ids(player_id, wall_now=None):
 
 
 def _linked_player_user_ids(coach_id, wall_now=None):
-    """Rule 7's coach side, the mirror of `_linked_coach_user_ids`: the players on the coach's
-    roster or in a class the coach teaches that is not over (same tense rules). A player
-    awaiting activation can exist without a user row yet; those have no id to return."""
-    from padel_app.models.Association_CoachLesson import Association_CoachLesson
-    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
-    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
-    from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
-    from padel_app.models.lesson_instances import LessonInstance
-    from padel_app.models.lessons import Lesson
+    """Rule 7's coach side, the mirror image: the user ids of the ACTIVE players linked to this
+    coach. A player awaiting activation can exist without a user row yet; those have no id."""
     from padel_app.models.players import Player
-    from padel_app.models.presences import Presence
 
-    now = wall_now or club_now_naive()
-    roster = db.session.query(Association_CoachPlayer.player_id).filter(
-        Association_CoachPlayer.coach_id == coach_id
-    )
-    series = (
-        db.session.query(Association_PlayerLesson.player_id)
-        .join(Association_CoachLesson, Association_CoachLesson.lesson_id == Association_PlayerLesson.lesson_id)
-        .join(Lesson, Lesson.id == Association_PlayerLesson.lesson_id)
-        .filter(Association_CoachLesson.coach_id == coach_id, _live_series_filter(now))
-    )
-    occurrence = (
-        db.session.query(Presence.player_id)
-        .join(Association_CoachLessonInstance,
-              Association_CoachLessonInstance.lesson_instance_id == Presence.lesson_instance_id)
-        .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
-        .filter(Association_CoachLessonInstance.coach_id == coach_id, _live_occurrence_filter(now))
-    )
-    player_ids = roster.union(series, occurrence)
+    player_ids = _link_sources("coach", coach_id, wall_now or club_now_naive())
     return {
         row.user_id
-        for row in Player.query.filter(Player.id.in_(player_ids), Player.user_id.isnot(None)).all()
+        for row in (
+            Player.query.join(User, Player.user_id == User.id)
+            .filter(User.status == "active", Player.id.in_(player_ids))
+            .all()
+        )
     }
 
 
