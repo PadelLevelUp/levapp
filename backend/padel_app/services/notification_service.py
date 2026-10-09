@@ -2819,12 +2819,32 @@ def _create_vacancy_for_absent_player(
     return vacancy
 
 
-def _side_counts(instance: LessonInstance, coach_id: int, *, leaver_id: int | None = None) -> dict | None:
+def _open_vacancy_sides(instance: LessonInstance, *, freed_only: bool) -> list:
+    """The sides the class's open vacancies carry. ``freed_only`` keeps the FREED spots — a vacancy
+    with a departing player (``original_player_id`` set), the spec's "vacancy with a departing
+    player" — and leaves out the never-filled ones (rule 2c, PAD-565 / B-401)."""
+    query = db.session.query(Vacancy.side).filter(
+        Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open"
+    )
+    if freed_only:
+        query = query.filter(Vacancy.original_player_id.isnot(None))
+    return [side for (side,) in query]
+
+
+def _side_counts(
+    instance: LessonInstance,
+    coach_id: int,
+    *,
+    leaver_id: int | None = None,
+    freed_only: bool = False,
+) -> dict | None:
     """Rules 2b and 2c: the class's ``left`` / ``right`` count — the players holding a spot (their
     side with this coach; ``both`` and no side count on neither), minus ``leaver_id``, plus the
-    sides its open vacancies carry. ``None`` when nobody on the coach's roster plays a side: a sided
-    spot would only empty round 1 (a side-less player matches no side, rule 4a) and delay the fill
-    by a tick (rule 3c)."""
+    sides its open vacancies carry: all of them for rule 2b, only the freed ones for rule 2c
+    (``freed_only``, PAD-565 / B-401: the never-filled spots carry rule 2b's capacity-projected
+    sides, and a freed spot that counted them balanced the projection instead of the roster).
+    ``None`` when nobody on the coach's roster plays a side: a sided spot would only empty round 1
+    (a side-less player matches no side, rule 4a) and delay the fill by a tick (rule 3c)."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 
     if Association_CoachPlayer.query.filter(
@@ -2843,27 +2863,37 @@ def _side_counts(instance: LessonInstance, coach_id: int, *, leaver_id: int | No
         ):
             if side in counts:
                 counts[side] += 1
-    for (side,) in (
-        db.session.query(Vacancy.side)
-        .filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open")
-    ):
+    for side in _open_vacancy_sides(instance, freed_only=freed_only):
         if side in counts:
             counts[side] += 1
     return counts
 
 
+def freed_spot_side_counts(
+    instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None
+) -> dict | None:
+    """PAD-541 / PAD-565 (notifications.invitations rule 2c; owner, 2026-10-09, option A): the side
+    of a spot a cancellation frees, with the numbers that chose it — ``{left, right, leaverSide,
+    chosen}`` — so the invite simulation and a tutorial show the engine's own count
+    (`notifications.invite-simulation` rule 9). The count is the players going without the leaver,
+    plus the class's other open freed spots; never-filled spots are not counted (B-401). A tie
+    keeps the leaver's side (which may be ``both`` or none). ``None`` when no player on the coach's
+    roster plays a side: the leaver's side is kept. Call it under the class lock (rule 10) so two
+    cancellations at once see each other's spot."""
+    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True)
+    if counts is None:
+        return None
+    if counts["left"] == counts["right"]:
+        chosen = leaver_side
+    else:
+        chosen = "left" if counts["left"] < counts["right"] else "right"
+    return {"left": counts["left"], "right": counts["right"], "leaverSide": leaver_side, "chosen": chosen}
+
+
 def freed_spot_side(instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None) -> str | None:
-    """PAD-541 (notifications.invitations rule 2c; owner, 2026-10-08, option A): the side of a spot
-    a cancellation frees — the side the class is short of without the leaver, counting its other
-    open vacancies, so several freed spots balance across one another. A tie keeps the leaver's
-    side (which may be ``both`` or none), as does a roster with no sided player. Call it under the
-    class lock (rule 10) so two cancellations at once see each other's spot."""
-    counts = _side_counts(instance, coach_id, leaver_id=leaver_id)
-    # A roster with no sided player is named on purpose (rule 2c), though its 0 / 0 count would
-    # also fall to the tie below.
-    if counts is None or counts["left"] == counts["right"]:
-        return leaver_side
-    return "left" if counts["left"] < counts["right"] else "right"
+    """The side `freed_spot_side_counts` chooses, or the leaver's when the roster plays no side."""
+    counts = freed_spot_side_counts(instance, coach_id, leaver_id, leaver_side)
+    return leaver_side if counts is None else counts["chosen"]
 
 
 def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> list[str | None]:

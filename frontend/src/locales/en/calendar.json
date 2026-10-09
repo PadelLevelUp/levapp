@@ -428,7 +428,10 @@
       "title": "Add students who don't meet the bar?",
       "body": "Enrolment is your call — this only tells you what the bar says.",
       "confirm": "Add anyway",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "inviteTitle": "Invite students who don't meet the bar?",
+      "inviteBody": "Inviting is your call — this only tells you what the bar says.",
+      "inviteConfirm": "Invite anyway"
     },
     "eligibility": {
       "title": "Eligibility",
