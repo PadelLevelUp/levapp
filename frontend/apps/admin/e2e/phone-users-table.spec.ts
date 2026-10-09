@@ -6,7 +6,7 @@ test.use({ viewport: { width: 375, height: 667 }, locale: "en-US" });
 const scrollWidth = (page: import("@playwright/test").Page) => page.evaluate(() => document.documentElement.scrollWidth);
 
 test.describe("phone tables", () => {
-  test("users results are cards with a tappable name", async ({ page, signedIn }) => {
+  test("PAD-572: users results are cards with a tappable name", async ({ page, signedIn }) => {
     expect(signedIn.email).toContain("@");
     await page.goto("/users");
     // The web seed holds "E2E Student", "E2E Student Two" and "E2E Student Three".
@@ -27,7 +27,7 @@ test.describe("phone tables", () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
 
-  test("the audit log scrolls inside its own container", async ({ page, signedIn }) => {
+  test("PAD-572: the audit log scrolls inside its own container", async ({ page, signedIn }) => {
     expect(signedIn.role).toBe("operator");
     await page.goto("/audit");
     const rows = page.locator('[data-testid^="admin-audit-row-"]');
@@ -40,7 +40,7 @@ test.describe("phone tables", () => {
     expect(await scrollWidth(page)).toBe(375);
   });
 
-  test("approvals keep both actions reachable", async ({ page, signedIn }) => {
+  test("PAD-572: approvals keep both actions reachable", async ({ page, signedIn }) => {
     const coachId = signedIn.pendingCoachIds[0];
     await page.goto("/approvals");
     const approve = page.getByTestId(`admin-approve-${coachId}`);
@@ -56,7 +56,7 @@ test.describe("phone tables", () => {
     expect(await scrollWidth(page)).toBe(375);
   });
 
-  test("tap targets in the drawer and on the users page are 44 px tall", async ({ page, signedIn }) => {
+  test("PAD-572: tap targets in the drawer and on the users page are 44 px tall", async ({ page, signedIn }) => {
     expect(signedIn.role).toBe("operator");
     await page.goto("/users");
     await page.getByTestId("admin-users-search").fill("E2E Student");

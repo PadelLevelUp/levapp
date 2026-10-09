@@ -10,7 +10,7 @@ whose `iat` is older than the role's `granted_at`.
 
 Run after reset-test-db.sh, with the backend's Python and the E2E database env set:
     python admin_session.py --db <name> --email staff.e2e@levapp.app --role operator
-The last stdout line is `{"token", "expiresAt", "role", "email", "roleId", "pendingCoachIds"}`.
+The last stdout line is `{"token", "expiresAt", "role", "email", "roleId", "pendingCoachIds", "userIds"}`.
 """
 import argparse
 import json
@@ -57,6 +57,7 @@ with app.app_context():
     # admin.phone-console "Approvals keep both actions reachable": coaches waiting for a decision.
     # A Coach row defaults to "approved" in Python, so the status is explicit.
     pending_ids = []
+    user_ids = []
     for name, username, user_email in PENDING_COACHES:
         user = User(
             name=name,
@@ -72,6 +73,7 @@ with app.app_context():
         db.session.add(coach)
         db.session.flush()
         pending_ids.append(coach.id)
+        user_ids.append(user.id)
 
     # "The audit log scrolls inside its own container": rows to render.
     for i, action in enumerate(AUDIT_ACTIONS):
@@ -97,6 +99,7 @@ with app.app_context():
                 "email": role.email,
                 "roleId": role.id,
                 "pendingCoachIds": pending_ids,
+                "userIds": user_ids,
             }
         )
     )

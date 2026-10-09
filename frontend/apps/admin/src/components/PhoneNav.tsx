@@ -1,13 +1,10 @@
 import { LogOut, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router-dom";
-import clsx from "clsx";
 
 import type { AdminSession } from "@/lib/api";
-import { SUPPORTED_LANGUAGES } from "@/i18n";
-import type { NavItem } from "./Shell";
-import { Badge, Button, Select } from "./ui";
+import { LanguagePicker, NavItems, SessionBlock, type NavItem } from "./ShellParts";
+import { Button } from "./ui";
 
 interface Props {
   items: NavItem[];
@@ -20,7 +17,7 @@ interface Props {
 // admin.phone-console rule 2: below `md` the sidebar is replaced by a top bar and a drawer
 // carrying the same nine items, the session block, the language picker and sign-out.
 export function PhoneNav({ items, session, onSignOut, title, pendingCount }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 
@@ -77,44 +74,11 @@ export function PhoneNav({ items, session, onSignOut, title, pendingCount }: Pro
               </button>
             </div>
             <div className="flex-1 px-2">
-              {items.map(({ to, icon: Icon, label, end, count }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={end}
-                  onClick={close}
-                  className={({ isActive }) =>
-                    clsx("mb-1 flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm", isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60")
-                  }
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="flex-1">{label}</span>
-                  {count ? <span className="rounded-full bg-sidebar-accent px-2 text-xs">{count}</span> : null}
-                </NavLink>
-              ))}
+              <NavItems items={items} onNavigate={close} itemClassName="min-h-11" />
             </div>
             <div className="space-y-2 px-4 py-4">
-              {session ? (
-                <div className="truncate text-xs opacity-80" data-testid="admin-session-email">
-                  {session.email}
-                </div>
-              ) : null}
-              {session ? (
-                <div className="flex items-center gap-2">
-                  <Badge tone="primary">{t(`admin.shell.role.${session.role}`)}</Badge>
-                  {session.role === "support" ? <Badge>{t("admin.shell.readOnly")}</Badge> : null}
-                </div>
-              ) : null}
-              <label className="flex items-center gap-2 text-xs opacity-80">
-                {t("admin.shell.language")}
-                <Select value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} className="bg-sidebar-accent text-sidebar-foreground">
-                  {SUPPORTED_LANGUAGES.map((lng) => (
-                    <option key={lng} value={lng}>
-                      {lng.toUpperCase()}
-                    </option>
-                  ))}
-                </Select>
-              </label>
+              <SessionBlock session={session} />
+              <LanguagePicker />
               <Button variant="ghost" className="min-h-11 w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent" onClick={onSignOut} data-testid="admin-sign-out">
                 <LogOut className="mr-2 h-4 w-4" />
                 {t("admin.shell.signOut")}

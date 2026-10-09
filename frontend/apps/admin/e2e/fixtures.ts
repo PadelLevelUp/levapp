@@ -13,6 +13,7 @@ export interface SeededSession {
   email: string;
   roleId: number;
   pendingCoachIds: number[];
+  userIds: number[];
 }
 
 export function readSeededSession(): SeededSession {

@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 
 // jsdom has no matchMedia. The stub answers "desktop" (matches: false) unless a test calls
-// setPhoneViewport(true) before rendering (admin.phone-console).
+// setPhoneViewport(true) (src/test/phoneViewport.ts) before rendering (admin.phone-console).
 declare global {
   interface Window {
     __phoneViewport?: boolean;
@@ -22,8 +22,4 @@ if (typeof window.matchMedia !== "function") {
       removeListener() {},
       dispatchEvent: () => false,
     }) as unknown as MediaQueryList;
-}
-
-export function setPhoneViewport(matches: boolean) {
-  window.__phoneViewport = matches;
 }

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "../i18n";
 import { clearSession, storeSession, type AdminRoleName } from "../lib/api";
 import { AuthProvider } from "../lib/auth";
-import { setPhoneViewport } from "../test/setup";
+import { setPhoneViewport } from "../test/phoneViewport";
 import { Shell } from "./Shell";
 
 const pendingCoach = (id: number) => ({ coachId: id, userId: id * 10, name: `Coach ${id}`, username: `c${id}`, email: `c${id}@example.com`, emailVerified: true, requestedAt: "2026-10-01T10:00:00Z" });
@@ -81,6 +81,15 @@ describe("phone navigation (admin.phone-console rule 2)", () => {
     expect(screen.queryByTestId("admin-nav-drawer")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("admin-menu-button"));
     fireEvent.click(screen.getByTestId("admin-menu-backdrop"));
+    expect(screen.queryByTestId("admin-nav-drawer")).not.toBeInTheDocument();
+  });
+
+  it("Escape closes the drawer", () => {
+    setPhoneViewport(true);
+    renderShell("operator");
+    fireEvent.click(screen.getByTestId("admin-menu-button"));
+    expect(screen.getByTestId("admin-nav-drawer")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByTestId("admin-nav-drawer")).not.toBeInTheDocument();
   });
 

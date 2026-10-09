@@ -61,8 +61,15 @@ jobs:
               - 'backend/padel_app/services/admin/**'
               - '.github/workflows/admin-e2e.yaml'
 
+      # Decided once; every later step reads it.
+      - name: Gate
+        id: gate
+        env:
+          RUN: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true' }}
+        run: echo "run=$RUN" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@v5
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         with:
           python-version: "3.10"
           cache: pip
@@ -70,31 +77,31 @@ jobs:
 
       # playwright.config.ts starts Flask from backend/.venv, and reset-test-db.sh activates it.
       - name: Backend venv
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         run: |
           python -m venv backend/.venv
           backend/.venv/bin/pip install --quiet ./backend
 
       - uses: actions/setup-node@v4
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: npm ci
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         working-directory: frontend
         run: npm ci --no-audit --no-fund
 
       - uses: actions/cache@v4
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
 
       - name: Chromium
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         working-directory: frontend/apps/admin
         run: npx playwright install --with-deps chromium
 
@@ -102,13 +109,15 @@ jobs:
       # boot against a database that does not exist yet and exit. Migrate and seed first, as
       # E2E subset does; globalSetup then resets it again for the run.
       - name: Migrate + seed the isolated database
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
         env:
           POSTGRES_DB: ${{ env.E2E_DB_NAME }}
         run: bash frontend/apps/web/e2e/scripts/reset-test-db.sh
 
+      # The subset lane's timing summary and alone-rerun are deliberately omitted here.
       - name: Run the phone specs
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.console == 'true'
+        if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 15
         working-directory: frontend/apps/admin
         run: npx playwright test
 
@@ -122,5 +131,5 @@ jobs:
             frontend/apps/admin/test-results
 
       - name: Skipped
-        if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.console != 'true'
+        if: steps.gate.outputs.run != 'true'
         run: echo "no console or admin-backend change in this pull request; nothing to run"

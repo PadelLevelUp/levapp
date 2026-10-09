@@ -14,6 +14,43 @@ function errorKey(err: unknown) {
   return ["NOT_STAFF_DOMAIN", "INVALID_ROLE", "ROLE_EXISTS", "LAST_OWNER", "ADMIN_ROLE_TOO_LOW"].includes(code) ? code : "generic";
 }
 
+type ChangeRole = (vars: { id: number; role: AdminRoleName }) => void;
+
+/** The role: a Select the owner can change on an active grant, a Badge otherwise. */
+function RoleCell({ row, owner, onChange }: { row: AdminRoleRow; owner: boolean; onChange: ChangeRole }) {
+  if (!(owner && row.active)) return <Badge tone="primary">{row.role}</Badge>;
+  return (
+    <Select value={row.role} onChange={(e) => onChange({ id: row.id, role: e.target.value as AdminRoleName })} data-testid={`admin-role-select-${row.id}`}>
+      {ROLES.map((r) => (
+        <option key={r} value={r}>
+          {r}
+        </option>
+      ))}
+    </Select>
+  );
+}
+
+function ActiveBadge({ row }: { row: AdminRoleRow }) {
+  const { t } = useTranslation();
+  return row.active ? <Badge tone="success">{t("admin.roles.active")}</Badge> : <Badge>{t("admin.roles.revoked")}</Badge>;
+}
+
+function GrantedBy({ row }: { row: AdminRoleRow }) {
+  const { t } = useTranslation();
+  return <>{row.grantedByEmail ? t("admin.roles.grantedBy", { email: row.grantedByEmail }) : t("admin.roles.seeded")}</>;
+}
+
+/** Revoke is the owner's, and only on an active grant. */
+function RevokeButton({ row, owner, onRevoke, pending, className }: { row: AdminRoleRow; owner: boolean; onRevoke: (id: number) => void; pending: boolean; className?: string }) {
+  const { t } = useTranslation();
+  if (!(owner && row.active)) return null;
+  return (
+    <Button variant="destructive" className={className} onClick={() => onRevoke(row.id)} disabled={pending} data-testid={`admin-role-revoke-${row.id}`}>
+      {t("admin.roles.revoke")}
+    </Button>
+  );
+}
+
 export function RolesPage() {
   const { t } = useTranslation();
   const phone = useIsPhone();
@@ -102,31 +139,13 @@ export function RolesPage() {
                 <li key={row.id} className="rounded-lg border bg-card p-4 text-sm" data-testid={`admin-role-row-${row.id}`}>
                   <div className="break-words font-medium">{row.email}</div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {owner && row.active ? (
-                      <Select
-                        value={row.role}
-                        onChange={(e) => change.mutate({ id: row.id, role: e.target.value as AdminRoleName })}
-                        data-testid={`admin-role-select-${row.id}`}
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                      </Select>
-                    ) : (
-                      <Badge tone="primary">{row.role}</Badge>
-                    )}
-                    {row.active ? <Badge tone="success">{t("admin.roles.active")}</Badge> : <Badge>{t("admin.roles.revoked")}</Badge>}
+                    <RoleCell row={row} owner={owner} onChange={change.mutate} />
+                    <ActiveBadge row={row} />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {row.grantedByEmail ? t("admin.roles.grantedBy", { email: row.grantedByEmail }) : t("admin.roles.seeded")}
+                    <GrantedBy row={row} />
                   </p>
-                  {owner && row.active ? (
-                    <Button variant="destructive" className="mt-3 w-full" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} data-testid={`admin-role-revoke-${row.id}`}>
-                      {t("admin.roles.revoke")}
-                    </Button>
-                  ) : null}
+                  <RevokeButton row={row} owner={owner} onRevoke={revoke.mutate} pending={revoke.isPending} className="mt-3 w-full" />
                 </li>
               ))}
             </ul>
@@ -137,28 +156,16 @@ export function RolesPage() {
                   <tr key={row.id} className="border-t" data-testid={`admin-role-row-${row.id}`}>
                     <td className="py-2 pr-4 font-medium">{row.email}</td>
                     <td className="py-2 pr-4">
-                      {owner && row.active ? (
-                        <Select value={row.role} onChange={(e) => change.mutate({ id: row.id, role: e.target.value as AdminRoleName })} data-testid={`admin-role-select-${row.id}`}>
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </Select>
-                      ) : (
-                        <Badge tone="primary">{row.role}</Badge>
-                      )}
+                      <RoleCell row={row} owner={owner} onChange={change.mutate} />
                     </td>
-                    <td className="py-2 pr-4">{row.active ? <Badge tone="success">{t("admin.roles.active")}</Badge> : <Badge>{t("admin.roles.revoked")}</Badge>}</td>
+                    <td className="py-2 pr-4">
+                      <ActiveBadge row={row} />
+                    </td>
                     <td className="py-2 pr-4 text-xs text-muted-foreground">
-                      {row.grantedByEmail ? t("admin.roles.grantedBy", { email: row.grantedByEmail }) : t("admin.roles.seeded")}
+                      <GrantedBy row={row} />
                     </td>
                     <td className="py-2 text-right">
-                      {owner && row.active ? (
-                        <Button variant="destructive" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} data-testid={`admin-role-revoke-${row.id}`}>
-                          {t("admin.roles.revoke")}
-                        </Button>
-                      ) : null}
+                      <RevokeButton row={row} owner={owner} onRevoke={revoke.mutate} pending={revoke.isPending} />
                     </td>
                   </tr>
                 ))}

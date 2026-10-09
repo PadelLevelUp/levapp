@@ -8,6 +8,26 @@ import { useIsPhone } from "@/lib/useIsPhone";
 
 export const statusTone = (s: UserStatus) => (s === "active" ? "success" : s === "disabled" ? "destructive" : "muted");
 
+function EmailWithBadge({ u }: { u: UserRow }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {u.email ?? "—"}{" "}
+      <Badge tone={u.emailVerified ? "success" : "warning"}>{t(u.emailVerified ? "admin.users.verified" : "admin.users.unverified")}</Badge>
+    </>
+  );
+}
+
+function RolesLabel({ u }: { u: UserRow }) {
+  const { t } = useTranslation();
+  return <>{u.roles.map((r) => t(`admin.users.role.${r}`)).join(", ") || "—"}</>;
+}
+
+function StatusBadge({ u }: { u: UserRow }) {
+  const { t } = useTranslation();
+  return <Badge tone={statusTone(u.status)}>{t(`admin.users.status.${u.status}`)}</Badge>;
+}
+
 export function UsersPage() {
   const { t } = useTranslation();
   const phone = useIsPhone();
@@ -94,18 +114,19 @@ export function UsersPage() {
                     <div>
                       <dt className="text-xs text-muted-foreground">{t("admin.users.columns.email")}</dt>
                       <dd className="break-words">
-                        {u.email ?? "—"}{" "}
-                        <Badge tone={u.emailVerified ? "success" : "warning"}>{t(u.emailVerified ? "admin.users.verified" : "admin.users.unverified")}</Badge>
+                        <EmailWithBadge u={u} />
                       </dd>
                     </div>
                     <div>
                       <dt className="text-xs text-muted-foreground">{t("admin.users.columns.roles")}</dt>
-                      <dd>{u.roles.map((r) => t(`admin.users.role.${r}`)).join(", ") || "—"}</dd>
+                      <dd>
+                        <RolesLabel u={u} />
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-xs text-muted-foreground">{t("admin.users.columns.status")}</dt>
                       <dd>
-                        <Badge tone={statusTone(u.status)}>{t(`admin.users.status.${u.status}`)}</Badge>
+                        <StatusBadge u={u} />
                       </dd>
                     </div>
                   </dl>
@@ -133,12 +154,13 @@ export function UsersPage() {
                     </td>
                     <td className="py-2 pr-4">{u.username}</td>
                     <td className="py-2 pr-4">
-                      {u.email ?? "—"}{" "}
-                      <Badge tone={u.emailVerified ? "success" : "warning"}>{t(u.emailVerified ? "admin.users.verified" : "admin.users.unverified")}</Badge>
+                      <EmailWithBadge u={u} />
                     </td>
-                    <td className="py-2 pr-4">{u.roles.map((r) => t(`admin.users.role.${r}`)).join(", ") || "—"}</td>
+                    <td className="py-2 pr-4">
+                      <RolesLabel u={u} />
+                    </td>
                     <td className="py-2">
-                      <Badge tone={statusTone(u.status)}>{t(`admin.users.status.${u.status}`)}</Badge>
+                      <StatusBadge u={u} />
                     </td>
                   </tr>
                 ))}

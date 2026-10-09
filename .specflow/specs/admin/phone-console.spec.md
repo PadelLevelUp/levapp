@@ -84,7 +84,7 @@ with nothing lost: the same navigation, the same badges, the same actions.
    calls after it has verified the Google credential), and the test puts it in `sessionStorage`
    before the first navigation. No test-only auth endpoint is added to the backend. Two specs ship
    with this leaf: `phone-navigation.spec.ts` (rules 1–2) and `phone-users-table.spec.ts` (rules
-   1, 3, 4). Names follow R-021; locators follow R-013 (test ids above, roles otherwise). The specs run in CI through `.github/workflows/admin-e2e.yaml` on every PR into `staging` that touches the console or its backend.
+   1, 3, 4). Names follow R-021; locators follow R-013 (test ids above, roles otherwise). The specs run in CI through `.github/workflows/admin-e2e.yaml` on every PR into `staging` that touches the console or its backend. (the console has no story ids, so names carry the ticket: `PAD-572: …`)
 8. **Language.** Every new string (menu, close, column captions where they are not the existing
    column labels) exists in `apps/admin/src/locales/en.json` and `pt.json` with identical key sets
    (`i18n.test.ts` keeps enforcing it).
