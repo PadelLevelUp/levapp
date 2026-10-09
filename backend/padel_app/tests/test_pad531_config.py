@@ -45,3 +45,15 @@ def test_admin_hosts_are_parsed_lower_cased():
     )
     assert parse_admin_hosts("") == () and parse_admin_hosts(None) == ()
     assert isinstance(Config.ADMIN_HOSTS, tuple)
+
+
+STAFF_CONSOLE_CLIENT_ID = "468098103039-hptfeqt5uss7uh1g45ska9vnjcu63vd5.apps.googleusercontent.com"
+
+
+@pytest.mark.parametrize("template", [".env.staging", ".env.prod"])
+def test_the_deployed_templates_carry_the_staff_console_client_id(template):
+    """admin.foundation rule 13: the "LevApp Staff Console web" client (in the
+    VM's GCP project), one id for both hosts; it is public, so it is tracked."""
+    text = (BACKEND / template).read_text()
+    lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in text.splitlines() if "=" in line and not line.startswith("#")}
+    assert lines.get("ADMIN_GOOGLE_CLIENT_ID") == STAFF_CONSOLE_CLIENT_ID
