@@ -2868,21 +2868,32 @@ def _create_vacancy_for_absent_player(
     return vacancy
 
 
+def _open_vacancy_sides(instance: LessonInstance, *, freed_only: bool) -> list:
+    """The sides the class's open vacancies carry. ``freed_only`` keeps the FREED spots — a vacancy
+    with a departing player (``original_player_id`` set), the spec's "vacancy with a departing
+    player" — and leaves out the never-filled ones (rule 2c, PAD-565 / B-401)."""
+    query = db.session.query(Vacancy.side).filter(
+        Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open"
+    )
+    if freed_only:
+        query = query.filter(Vacancy.original_player_id.isnot(None))
+    return [side for (side,) in query]
+
+
 def _side_counts(
     instance: LessonInstance,
     coach_id: int,
     *,
     leaver_id: int | None = None,
-    never_filled: bool = True,
+    freed_only: bool = False,
 ) -> dict | None:
     """Rules 2b and 2c: the class's ``left`` / ``right`` count — the players holding a spot (their
     side with this coach; ``both`` and no side count on neither), minus ``leaver_id``, plus the
-    sides its open vacancies carry. ``never_filled=False`` (rule 2c, PAD-565 / B-401) counts only
-    the open FREED spots (a vacancy with a departing player): the never-filled spots carry rule
-    2b's capacity-projected sides, and a freed spot that counted them balanced the projection
-    instead of the roster. ``None`` when nobody on the coach's roster plays a side: a sided spot
-    would only empty round 1 (a side-less player matches no side, rule 4a) and delay the fill by a
-    tick (rule 3c)."""
+    sides its open vacancies carry: all of them for rule 2b, only the freed ones for rule 2c
+    (``freed_only``, PAD-565 / B-401: the never-filled spots carry rule 2b's capacity-projected
+    sides, and a freed spot that counted them balanced the projection instead of the roster).
+    ``None`` when nobody on the coach's roster plays a side: a sided spot would only empty round 1
+    (a side-less player matches no side, rule 4a) and delay the fill by a tick (rule 3c)."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 
     if Association_CoachPlayer.query.filter(
@@ -2901,12 +2912,7 @@ def _side_counts(
         ):
             if side in counts:
                 counts[side] += 1
-    open_spots = db.session.query(Vacancy.side).filter(
-        Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open"
-    )
-    if not never_filled:
-        open_spots = open_spots.filter(Vacancy.original_player_id.isnot(None))
-    for (side,) in open_spots:
+    for side in _open_vacancy_sides(instance, freed_only=freed_only):
         if side in counts:
             counts[side] += 1
     return counts
@@ -2923,7 +2929,7 @@ def freed_spot_side_counts(
     keeps the leaver's side (which may be ``both`` or none). ``None`` when no player on the coach's
     roster plays a side: the leaver's side is kept. Call it under the class lock (rule 10) so two
     cancellations at once see each other's spot."""
-    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, never_filled=False)
+    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True)
     if counts is None:
         return None
     if counts["left"] == counts["right"]:
