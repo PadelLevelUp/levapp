@@ -44,14 +44,15 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 1. **Sign-in is Google only.** The console uses Google Identity Services in the browser to obtain
    a Google ID token and posts it to `POST /admin/api/auth/google` `{credential}`. The backend
    verifies it with `google-auth` and accepts it only when all five hold, **in our code**, whatever
-   the Google console's consent-screen setting ("Internal") says: (a) the signature verifies
+   the Google console's consent-screen setting says (External, Testing mode; see rule 13): (a) the signature verifies
    against Google's published keys and the token has not expired; (b) `aud` equals
    `ADMIN_GOOGLE_CLIENT_ID`; (c) `iss` is `accounts.google.com` or `https://accounts.google.com`;
    (d) `email_verified` is true; (e) the `hd` claim is `levapp.app` and the email ends with
    `@levapp.app`. A token failing (a), (b) or (c) is 401 `{"error": "GOOGLE_TOKEN_INVALID"}`; one
    failing (d) or (e) is 403 `{"error": "NOT_STAFF_DOMAIN"}`. There is no console password, no
    password reset and no sign-up. (Decision 2026-10-07, coordinator: the domain check lives in
-   the backend too, because the "Internal" setting could be loosened by accident.)
+   the backend too, because a consent-screen setting could be loosened by accident. Since
+   2026-10-09 the client is External in Testing mode, so these checks are the domain wall.)
 2. **A domain account still needs a role.** A verified `@levapp.app` email with no active
    `admin_roles` row answers 403 `{"error": "NO_ADMIN_ROLE"}`; no role is ever assumed by
    default. Both refusals write an audit row
@@ -132,8 +133,12 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     no-referrer`, `X-Content-Type-Options: nosniff` and HSTS, on every location.
 13. **Configuration.** `ADMIN_GOOGLE_CLIENT_ID` (public; the browser needs it too) and
     `ADMIN_HOSTS` are set per environment in the tracked env templates; no new deploy secret
-    exists for the console. The Google OAuth client is of type "Internal" to the Workspace, with
-    both admin origins authorised as JavaScript origins (no redirect URI: the ID-token flow has
+    exists for the console. The Google OAuth client is "LevApp Staff Console web" (Web
+    application, in the VM's GCP project), one client for both environments. Its consent screen is **External in
+    Testing mode**, with `admin@levapp.app` the only test user: Google refused "Internal" because
+    the project is not in a Workspace organisation (owner decision, 2026-10-09). Only listed test
+    users can complete Google's consent, and rule 1's `hd` and email checks hold whatever the
+    setting. Both admin origins and `http://localhost:8090` are authorised as JavaScript origins (no redirect URI: the ID-token flow has
     none). No client secret is needed for the ID-token flow; none is stored.
     `assert_production_secrets` fails start-up in production when `ADMIN_HOSTS` is empty. An
     empty `ADMIN_GOOGLE_CLIENT_ID` does **not** stop start-up (it would crash-loop the next deploy
@@ -313,5 +318,6 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
   A request refused for lack of a token (401 `ADMIN_TOKEN_REQUIRED`) is not audited: there is no
   actor to name.
 - Numbering of the new criteria is unconfirmed (Session E, 2026-10-07).
-- OPEN: whether the Google client allows only the Workspace ("Internal" consent screen) is a
-  console setting outside the repo; rule 1's `hd` and email checks hold either way.
+- Resolved 2026-10-09: the consent screen could not be "Internal" (the project is not in a
+  Workspace organisation); it is External in Testing mode with one test user. Each new staff
+  member must be added as a test user before they can sign in, until the app is published.
