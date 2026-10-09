@@ -124,6 +124,25 @@ def test_the_reminder_no_path_lands_in_the_same_place(app):
         assert leaver.side == "right"
 
 
+def test_two_left_leavers_with_the_never_filled_spots_open_balance_across_each_other(app):
+    """Rule 2c counts the other freed spots (and only those): 5 / 2 → right, then 4 / 2 + that
+    right spot = 4 / 3 → right again, so the class heads for 4 / 4. Counting the never-filled
+    spots too gave left for the first (7 / 8)."""
+    from padel_app.services.notification_service import (
+        _create_structural_vacancies,
+        _create_vacancy_for_absent_player,
+    )
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-two")
+        _create_structural_vacancies(instance, coach.id)
+        _absent(instance, pids[0])
+        first = _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side
+        _absent(instance, pids[1])
+        second = _create_vacancy_for_absent_player(instance, coach.id, pids[1]).side
+        assert (first, second) == ("right", "right")
+
+
 # ── the ticket's table rows 2 and 3 (full classes) already hold ─────────────────────────────────
 
 def test_a_full_class_of_two_two_losing_a_left_asks_left(app):
@@ -166,12 +185,17 @@ def test_the_simulation_shows_the_counts_behind_the_side(app):
     from padel_app.services.invite_simulation_service import simulate_vacancy
     from padel_app.services.notification_service import _create_structural_vacancies
 
+    from padel_app.services.notification_service import _create_vacancy_for_absent_player
+
     with app.app_context():
         coach, instance, pids = _ticket_class("b565-sim")
         _create_structural_vacancies(instance, coach.id)
         spot = simulate_vacancy(instance, coach.id, pids[0])["spot"]
         assert spot["side"] == "right"
         assert spot["sideCounts"] == {"left": 5, "right": 2, "leaverSide": "left", "chosen": "right"}
+        # The simulation and the engine agree (R-029): the live spot takes the simulated side.
+        _absent(instance, pids[0])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == spot["sideCounts"]["chosen"]
 
 
 def test_the_simulation_counts_are_null_when_the_roster_plays_no_side(app):

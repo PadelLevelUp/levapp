@@ -99,8 +99,7 @@ def _hypothetical_vacancy(instance, coach_id: int, departing_player_id: int):
     # object is never flushed, so SQLAlchemy would not resolve them.
     vacancy.lesson_instance = instance
     vacancy.level = CoachLevel.query.get(level_id) if level_id else None
-    vacancy.side_counts = side_counts  # read by `_spot`; never a column
-    return vacancy, level_source
+    return vacancy, level_source, side_counts
 
 
 def _to_local(now: datetime) -> datetime:
@@ -224,11 +223,11 @@ def _waiting_list_asked_first(vacancy, instance, coach_id: int, config) -> list[
     return asked
 
 
-def _spot(vacancy, level_source: str) -> dict:
+def _spot(vacancy, level_source: str, side_counts: dict | None) -> dict:
     return {
         "side": vacancy.side,
         # Rule 9 (PAD-565): the engine's own count behind `side`, for the tutorial.
-        "sideCounts": getattr(vacancy, "side_counts", None),
+        "sideCounts": side_counts,
         "levelId": str(vacancy.level_id) if vacancy.level_id else None,
         "levelCode": vacancy.level.code if vacancy.level else None,
         "levelSource": level_source,
@@ -358,7 +357,7 @@ def simulate_vacancy(instance, coach_id: int, departing_player_id: int, *, now: 
 
     _now = now or utcnow_naive()
     config = _config_for(coach_id)
-    vacancy, level_source = _hypothetical_vacancy(instance, coach_id, departing_player_id)
+    vacancy, level_source, side_counts = _hypothetical_vacancy(instance, coach_id, departing_player_id)
 
     rounds = ordered_invite_rounds(vacancy, instance, coach_id, config)
     waiting_list = _waiting_list_asked_first(vacancy, instance, coach_id, config)
@@ -378,7 +377,7 @@ def simulate_vacancy(instance, coach_id: int, departing_player_id: int, *, now: 
         # Always null since PAD-446 (nobody is placed); older builds read the field.
         "waitingListPlacement": None,
         "waitingList": waiting_list,
-        "spot": _spot(vacancy, level_source),
+        "spot": _spot(vacancy, level_source, side_counts),
         "rounds": _serialize_rounds(rounds, vacancy, instance, coach_id, config, _now),
     }
 
@@ -426,7 +425,7 @@ def explain_player(
                 }
 
     config = _config_for(coach_id)
-    vacancy, _ = _hypothetical_vacancy(instance, coach_id, departing_player_id)
+    vacancy, _, _ = _hypothetical_vacancy(instance, coach_id, departing_player_id)
     round_failures = []
     for number, kind, _rules in invitation_waves(config):
         wave = ("group", number)
