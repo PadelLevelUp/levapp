@@ -7,10 +7,12 @@ import type { MessageTemplates } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { TemplateHelp, TemplatePreview } from "@/components/settings/TemplateHelp";
 
 // notifications.message-templates rule 3: every template that describes a class
 // takes the same vocabulary. {type}, {date} (dd/mm) and {court} are PAD-430's.
-const CLASS_VARIABLES = ["{name}", "{level}", "{weekday}", "{time}", "{type}", "{date}", "{court}"];
+// PAD-549: {day} says the day naturally ("amanhã", "a próxima segunda-feira"), at send time.
+const CLASS_VARIABLES = ["{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}"];
 
 // PAD-489: the two "added to class" messages also take {class} (the title) and {when}.
 const ADDED_VARIABLES = [...CLASS_VARIABLES, "{class}", "{when}"];
@@ -109,6 +111,8 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* PAD-549: how a template is built, every field with an example. */}
+      <TemplateHelp />
       {GROUPS.map((group) => (
         <div key={group.labelKey}>
           <p className="text-sm font-medium mt-4 mb-2">{t(group.labelKey)}</p>
@@ -127,6 +131,8 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
                   rows={2}
                   className="text-sm resize-none"
                 />
+                {/* PAD-549: the live preview with example values (class templates only). */}
+                {VARIABLE_HINTS[key] && <TemplatePreview template={local[key] ?? ""} templateKey={key} />}
                 {VARIABLE_HINTS[key] && VARIABLE_HINTS[key]!.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-0.5">
                     {VARIABLE_HINTS[key]!.map((v) => (

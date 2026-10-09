@@ -80,6 +80,7 @@ from padel_app.services.presence_overview_service import (
     default_overview_range,
     list_pending_validation,
     count_pending_validation,
+    count_pending_validation_total,
     unvalidate_instance,
 )
 from padel_app.services.class_request_service import (
@@ -961,7 +962,12 @@ def coach_players_paginated():
 @jwt_required()
 def get_coach_levels():
     coach = require_coach()
-    return jsonify([serialize_coach_level(l) for l in coach.levels])
+    # levels rule 10 (PAD-522, B-364): the canonical ladder, strongest first. The
+    # relationship is unordered, so a reordered ladder came back in insertion order
+    # and every level picker (profile editor, add/edit sheets, web and iOS) showed it.
+    from padel_app.services.level_ladder import sort_ladder
+
+    return jsonify([serialize_coach_level(l) for l in sort_ladder(coach.levels)])
 
 
 @bp.get("/seasons")
@@ -1395,10 +1401,12 @@ def class_instances_pending_validation():
 @bp.get("/class_instances/pending_validation/count")
 @jwt_required()
 def class_instances_pending_validation_count():
-    """How many classes in the window still need validating (PAD-190 / PAD-201).
+    """How many classes still need validating (PAD-190 / PAD-201; PAD-539).
 
-    `attendance.validation` rule 18: the same helper the coach dashboard's
-    validation card reads, so the tab trigger and the card show one number.
+    `attendance.validation` rule 18: ``pendingCount`` is the window's count (the week the tab
+    shows, ``len(pending)`` of the listing by construction); ``pendingTotal`` is the coach's
+    whole backlog, the number the dashboard card and the badge show (rule 23), so the tab's
+    trigger and they show one number.
     """
     coach = require_coach()
     range_start, range_end = _presence_overview_range()
@@ -1409,6 +1417,7 @@ def class_instances_pending_validation_count():
             "pendingCount": count_pending_validation(
                 coach_id=coach.id, range_start=range_start, range_end=range_end
             ),
+            "pendingTotal": count_pending_validation_total(coach_id=coach.id),
         }
     )
 
@@ -1416,11 +1425,11 @@ def class_instances_pending_validation_count():
 @bp.get("/class_instances/pending_validation/badge")
 @jwt_required()
 def class_instances_pending_validation_badge():
-    """The Presences badge (PAD-443, `attendance.validation` rule 23).
+    """The Presences badge (PAD-443, `attendance.validation` rule 23; PAD-539).
 
-    The dashboard validation item's own derivation — the current week, else the
-    previous one — so the badge, the card and the tab's trigger show one number.
-    ``count`` is 0 when both weeks are clean.
+    The dashboard validation item's own derivation — the whole backlog, landing on the most
+    recent week that has something pending — so the badge, the card and the tab's trigger show
+    one number. ``count`` is 0 when nothing is pending.
     """
     from padel_app.helpers.dashboard.coach_home import validation_badge
 
@@ -1574,6 +1583,32 @@ def add_class():
         # clubs.courts rule 6 (PAD-194); B-266: name the field.
         return jsonify({"error": str(e), "code": e.code, "fields": ["courtId"]}), 400
     return jsonify(serialize_calendar_event(lesson))
+
+
+@bp.get("/class_instance/clone_template")
+@jwt_required()
+def class_clone_template():
+    """The new-class form's prefill for "Clonar aula" (PAD-524, classes.clone).
+
+    `?model&id&date` names the class as the calendar does. Coach-only, and only a class the
+    coach may read. Both shells drop the answer into their ordinary create form; neither
+    computes a field (rule 1).
+    """
+    from padel_app.services.lesson_service import clone_template, parse_event_target
+
+    require_coach()
+    kind, target, occ_date = parse_event_target(
+        request.args.get("model"), request.args.get("id"), request.args.get("date")
+    )
+    require_readable_class(kind, target)
+    if kind == "lessoninstance":
+        lesson, instance = target.lesson, target
+        occ_date = target.original_lesson_occurence_date or target.start_datetime.date()
+    else:
+        lesson, instance = target, None
+    club = current_club()
+    return jsonify(clone_template(lesson, occurrence_date=occ_date, instance=instance,
+                                  club_id=getattr(club, "id", None)))
 
 
 @bp.post("/add_event")
@@ -2293,8 +2328,41 @@ def create_player_claim_request(player_id):
 
     coach = require_coach()
     data = request.get_json(silent=True) or {}
-    req = create_claim_request_service(player_id, coach, data.get("username"))
+    # players.claim rule 4b (PAD-528): a roster pick instead of a username.
+    req = create_claim_request_service(
+        player_id, coach, data.get("username"), target_player_id=data.get("targetPlayerId"),
+    )
     return jsonify(serialize_claim_request(req)), 201
+
+
+@bp.get("/player/<int:player_id>/claim-candidates")
+@jwt_required()
+def list_player_claim_candidates(player_id):
+    """players.claim rule 4b (PAD-528): the coach's own students who could be
+    this placeholder's real account, same-name matches first."""
+    from padel_app.services.player_claim_service import list_claim_candidates_service
+
+    coach = require_coach()
+    return jsonify(list_claim_candidates_service(player_id, coach, request.args.get("search")))
+
+
+@bp.get("/player/<int:player_id>/merge-preview")
+@jwt_required()
+def preview_player_merge(player_id):
+    """players.claim rule 5j (PAD-528): the coach's dry run before sending."""
+    from padel_app.services.player_claim_service import preview_merge_for_coach_service
+
+    coach = require_coach()
+    return jsonify(preview_merge_for_coach_service(player_id, coach, request.args.get("targetPlayerId")))
+
+
+@bp.get("/player-claim-requests/<int:request_id>/preview")
+@jwt_required()
+def preview_player_claim_request(request_id):
+    """players.claim rule 5j (PAD-528): the student's dry run before accepting."""
+    from padel_app.services.player_claim_service import preview_claim_request_service
+
+    return jsonify(preview_claim_request_service(request_id, current_user()))
 
 
 @bp.get("/player-claim-requests")

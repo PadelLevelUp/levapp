@@ -25,6 +25,8 @@ DEFAULT_RESTRICTIONS = {
     "excludedPlayers": {"enabled": False, "playerIds": []},
     # PAD-132: "exclude inactive accounts" — reads users.status, never payment.
     "excludeUnpaidSubscription": {"enabled": False},
+    # PAD-523 (rule 6e): "do not invite a student who already has a class that day". Off.
+    "noSameDayClass": {"enabled": False},
     # Hours before class start after which a student cancellation is flagged
     # as a late cancellation (spot is still freed). Plain scalar (hours).
     "cancellationDeadlineHours": 24,
@@ -263,6 +265,8 @@ class NotificationConfig(db.Model, model.Model):
     min_time_before_class_value = Column(Integer, nullable=False, default=30, server_default="30")
     max_invites_per_student_per_day_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     max_invites_per_student_per_day_value = Column(Integer, nullable=False, default=3, server_default="3")
+    # PAD-523 (notifications.config rule 6e): off for every coach until they switch it on.
+    no_same_day_class_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     quiet_hours_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     # PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local.
     # NULL reads as the default 22:00 / 07:00.
@@ -350,6 +354,7 @@ class NotificationConfig(db.Model, model.Model):
         out["excludeUnpaidSubscription"] = {
             "enabled": bool(self._col(self.exclude_inactive_accounts, False))
         }
+        out["noSameDayClass"] = {"enabled": bool(self._col(self.no_same_day_class_enabled, False))}
         out["cancellationDeadlineHours"] = self.get_cancellation_deadline_hours()
         return out
 
@@ -381,6 +386,11 @@ class NotificationConfig(db.Model, model.Model):
                 self.quiet_hours_start = quiet["start"]
             if quiet.get("end"):
                 self.quiet_hours_end = quiet["end"]
+        # PAD-523 (rule 6e): a payload without the key (an app from before PAD-523 saving its
+        # Settings) keeps the stored value, so an older client cannot switch it off by omission.
+        same_day = data.get("noSameDayClass")
+        if isinstance(same_day, dict) and "enabled" in same_day:
+            self.no_same_day_class_enabled = _bool_or(same_day.get("enabled"), False)
         excl = data.get("excludeUnpaidSubscription")
         self.exclude_inactive_accounts = _bool_or(excl.get("enabled"), False) if isinstance(excl, dict) else False
         players = data.get("excludedPlayers")

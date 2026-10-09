@@ -149,6 +149,10 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:${{ github.sha }}
         platforms: linux/amd64
+        # PAD-534 (admin.engine-health rule 4): the image knows its commit. A rollback reuses an
+        # existing image, which carries the sha it was built from.
+        build-args: |
+          GIT_SHA=${{ github.sha }}
     - name: Copy .env.prod to VM
       uses: appleboy/scp-action@v0.1.4
       with:
@@ -349,6 +353,75 @@ jobs:
               ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:$TAG
             # PAD-338: keep the last three, as the backend deploy does.
             docker images "${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend" \
+              --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r \
+              | awk '!seen[$1]++' | awk 'NR>3 {print $1}' \
+              | xargs -r docker rmi 2>/dev/null || true
+            docker image prune -f || true
+
+  # PAD-531 (admin.foundation rule 12): the staff console image, one more container
+  # on the loopback interface. It needs `backend` only for ordering (the console
+  # calls /admin/api, which the backend serves); nothing depends on THIS job, so a
+  # failed console build can never hold the product back (the B-090 shape). The
+  # host nginx fronts it at the admin host (infra/nginx/sites-available/levapp-admin*,
+  # hand-applied); until those blocks are applied the container simply has no
+  # visitors. No secrets: the console reads the public Google client id from the
+  # backend at run time.
+  admin:
+    needs: [ changes, backend ]
+    if: >-
+      always() && needs.backend.result != 'failure' && needs.backend.result != 'cancelled' && (
+        (github.event_name == 'push' && (needs.changes.outputs.frontend == 'true' || github.event.before == '0000000000000000000000000000000000000000')) ||
+        (github.event_name == 'workflow_dispatch' && (inputs.target == 'both' || inputs.target == 'frontend'))
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_to || github.sha }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Build and push image
+        if: ${{ !inputs.rollback_to }}
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile.admin
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:${{ github.sha }}
+          platforms: linux/amd64
+      - name: Deploy on GCE
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            TAG="${{ inputs.rollback_to || github.sha }}"
+            # A rollback_to older than the console (PAD-531) has no levelup_admin
+            # image under that sha. A rollback is an incident moment: leave the
+            # running console as it is and say so, instead of painting the
+            # product's rollback red. A normal deploy still fails loudly on a
+            # missing image.
+            if [ -n "${{ inputs.rollback_to }}" ] && ! docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:$TAG; then
+              echo "::warning::no levelup_admin:$TAG image (rollback target predates the console); console container left unchanged"
+              exit 0
+            fi
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:$TAG
+            docker stop levelup_admin || true && docker rm levelup_admin || true
+            # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
+            docker run -d --name levelup_admin \
+              --restart unless-stopped \
+              --memory 100m \
+              -p 127.0.0.1:3200:80 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:$TAG
+            # PAD-338: keep the last three, as the other deploys do.
+            docker images "${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin" \
               --format '{{.ID}} {{.CreatedAt}}' | sort -k2 -r \
               | awk '!seen[$1]++' | awk 'NR>3 {print $1}' \
               | xargs -r docker rmi 2>/dev/null || true

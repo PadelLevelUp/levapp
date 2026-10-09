@@ -1,0 +1,69 @@
+# PAD-528 / players.claim rules 4b, 4c, 5j — the merge flow on iOS (flow number 189:
+# this session's reserved range, unconfirmed). Mirrors
+# apps/web/e2e/players/merge-qr-duplicate.spec.ts up to the irreversible step.
+#
+# What it proves, by test id — never rendered copy:
+# - a claimable placeholder with a student's exact name carries the "possible duplicate"
+#   badge on the roster, and the student's own row does not (one badge);
+# - the placeholder's page shows the duplicate hint and "Merge into {name}";
+# - one tap opens the link dialog with that student preselected and the dry run visible;
+# - the username tab is still there.
+# It never sends the request: a request would land in the seeded student's inbox and an
+# accept would merge seeded data (R-040). The merge itself is proven by the web spec and
+# the backend tests. Teardown deletes the placeholder.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad528-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad528-teardown.js
+---
+- assertTrue: "${output.placeholderId && String(output.placeholderId).length > 0}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "screen-players"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-duplicate-.*"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-duplicate-${output.placeholderId}"
+- assertNotVisible:
+    id: "player-duplicate-(?!${output.placeholderId}$).*"
+# The badge sits inside the row: tapping it opens the placeholder's page.
+- tapOn:
+    id: "player-duplicate-${output.placeholderId}"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "player-duplicate-hint"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-claim-merge-into"
+- tapOn:
+    id: "player-claim-merge-into"
+- extendedWaitUntil:
+    visible:
+      id: "player-claim-dialog"
+    timeout: 15000
+- assertVisible:
+    id: "player-claim-tab-username"
+- extendedWaitUntil:
+    visible:
+      id: "player-claim-candidates"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "player-claim-preview"
+    timeout: 15000
+- assertVisible:
+    id: "player-claim-submit"
+# Stop here: never send the request (see header). Teardown runs from onFlowComplete.

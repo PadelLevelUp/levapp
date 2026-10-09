@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 
 from padel_app.services.admin import audit_service, auth_service, role_service
 from padel_app.utils.admin_auth import audited, error, request_id_for, require_role
+from padel_app.utils.rate_limit import rate_limited
 from padel_app.utils.dates import to_utc_iso
 
 bp = Blueprint("admin_api", __name__, url_prefix="/admin/api")
@@ -29,6 +30,13 @@ def _gate():
         return None
     header = request.headers.get("Authorization", "")
     scheme, _, token = header.partition(" ")
+    # admin.engine-health rule 5 (PAD-534): the other environment's console reads this one's deploy
+    # identity with a peer token instead of an admin session. That endpoint only; GET only.
+    g.peer = False
+    if (scheme.lower() == "peer" and request.endpoint == "admin_api.deploy_identity"
+            and request.method == "GET" and _peer_token_ok(token.strip())):
+        g.peer = True
+        return None
     if scheme.lower() != "bearer" or not token.strip():
         return error("ADMIN_TOKEN_REQUIRED", 401)
     try:
@@ -39,6 +47,13 @@ def _gate():
     g.admin = role
     g.admin_claims = claims
     return None
+
+
+def _peer_token_ok(token: str) -> bool:
+    import hmac
+
+    expected = current_app.config.get("ADMIN_PEER_INBOUND_TOKEN") or ""
+    return bool(expected) and bool(token) and hmac.compare_digest(token, expected)
 
 
 @bp.after_request
@@ -58,6 +73,7 @@ def auth_config():
 
 
 @bp.post("/auth/google")
+@rate_limited("admin_sign_in")
 @audited("auth.sign_in")
 def auth_google():
     body = request.get_json(silent=True) or {}
@@ -335,3 +351,181 @@ def view_as_user(user_id):
         return jsonify(view_as_service.mint(user_id, g.admin.email))
     except users_service.UsersError as exc:
         return _users_error(exc)
+# ── engine health (PAD-534, admin.engine-health): read-only, support ─────────────────────────
+
+
+@bp.get("/engine-health")
+@require_role("support")
+def engine_health():
+    from padel_app.services.admin import engine_health as svc
+
+    return jsonify(svc.summary(current_app.config))
+
+
+@bp.get("/engine-health/coaches")
+@require_role("support")
+def engine_health_coaches():
+    from padel_app.services.admin import engine_health as svc
+
+    return jsonify({"coaches": svc.coaches(request.args.get("q"))})
+
+
+@bp.get("/engine-health/coaches/<int:coach_id>")
+@require_role("support")
+def engine_health_coach(coach_id):
+    from padel_app.services.admin import engine_health as svc
+
+    detail = svc.coach_detail(coach_id)
+    if detail is None:
+        return error("NOT_FOUND", 404)
+    return jsonify(detail)
+
+
+@bp.get("/deploy-identity")
+def deploy_identity():
+    """Rule 5: this environment's commit and migration head — for a support session, or for the
+    other environment's console presenting the peer token (`Authorization: Peer <token>`)."""
+    from padel_app.services.admin import engine_health as svc
+    from padel_app.utils.admin_auth import role_at_least
+
+    if not g.get("peer"):
+        if g.admin is None:
+            return error("ADMIN_TOKEN_REQUIRED", 401)
+        if not role_at_least(g.admin.role, "support"):
+            return error("ADMIN_ROLE_TOO_LOW", 403)
+        return jsonify(svc.this_identity())
+    identity = svc.this_identity()
+    # Rule 5 (coordinator's approved design, #589 review): a peer read is audited like a write, in its
+    # own transaction, naming "peer" as the actor. An INFO log line never reached prod's stderr.
+    from padel_app.utils.admin_auth import AuditContext, _record_alone
+
+    ctx = AuditContext("deploy_identity.peer_read")
+    ctx.actor_email = "peer"
+    ctx.target("environment", None)
+    ctx.after = identity
+    _record_alone(ctx, "ok")
+    return jsonify(identity)
+
+
+# ── clubs and switches (PAD-533, admin.clubs-and-switches rules 1–3, 5, 6) ────────────────────
+
+def _court_error(exc):
+    # Rule 2: the coach route's own answer (clubs.courts).
+    return jsonify({"error": str(exc), "code": exc.code}), 400
+
+
+@bp.get("/clubs")
+@require_role("support")
+def admin_list_clubs():
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.list_clubs(request.args.get("q"), request.args.get("page", 1)))
+
+
+@bp.get("/clubs/<int:club_id>")
+@require_role("support")
+def admin_club_detail(club_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.club_detail(club_id))
+
+
+@bp.patch("/clubs/<int:club_id>")
+@audited("club.edit")
+@require_role("operator")
+def admin_edit_club(club_id):
+    from padel_app.services.admin import clubs_service
+
+    try:
+        return jsonify(clubs_service.edit_club(club_id, request.get_json(silent=True) or {}))
+    except clubs_service.ClubFieldError as exc:
+        return jsonify({"error": str(exc), "code": "invalid_club"}), 400
+
+
+@bp.post("/clubs/<int:club_id>/courts")
+@audited("court.create")
+@require_role("operator")
+def admin_add_court(club_id):
+    from padel_app.services.admin import clubs_service
+    from padel_app.services.court_service import InvalidCourtError, serialize_court
+
+    try:
+        court = clubs_service.add_court(club_id, request.get_json(silent=True) or {})
+    except InvalidCourtError as exc:
+        return _court_error(exc)
+    return jsonify(serialize_court(court)), 201
+
+
+@bp.patch("/courts/<int:court_id>")
+@audited("court.rename")
+@require_role("operator")
+def admin_rename_court(court_id):
+    from padel_app.services.admin import clubs_service
+    from padel_app.services.court_service import InvalidCourtError, serialize_court
+
+    try:
+        court = clubs_service.rename_court(court_id, request.get_json(silent=True) or {})
+    except InvalidCourtError as exc:
+        return _court_error(exc)
+    return jsonify(serialize_court(court))
+
+
+@bp.delete("/courts/<int:court_id>")
+@audited("court.delete")
+@require_role("operator")
+def admin_delete_court(court_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.delete_court(court_id))
+
+
+@bp.put("/clubs/<int:club_id>/courts/order")
+@audited("court.reorder")
+@require_role("operator")
+def admin_reorder_courts(club_id):
+    from padel_app.services.admin import clubs_service
+    from padel_app.services.court_service import InvalidCourtError
+
+    try:
+        return jsonify(clubs_service.reorder_courts(club_id, (request.get_json(silent=True) or {}).get("ids")))
+    except InvalidCourtError as exc:
+        return _court_error(exc)
+
+
+@bp.post("/clubs/<int:club_id>/coaches")
+@audited("club.coach_link")
+@require_role("operator")
+def admin_link_coach(club_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.link_coach(club_id, (request.get_json(silent=True) or {}).get("coachId")))
+
+
+@bp.delete("/clubs/<int:club_id>/coaches/<int:coach_id>")
+@audited("club.coach_unlink")
+@require_role("operator")
+def admin_unlink_coach(club_id, coach_id):
+    from padel_app.services.admin import clubs_service
+
+    return jsonify(clubs_service.unlink_coach(club_id, coach_id))
+
+
+@bp.get("/settings/capabilities")
+@require_role("support")
+def admin_list_capabilities():
+    from padel_app.services.admin import switches_service
+
+    return jsonify(switches_service.list_capabilities())
+
+
+@bp.put("/settings/capabilities/<capability>")
+@audited("capability.switch")
+@require_role("owner")
+def admin_set_capability(capability):
+    """Rule 6: owner only (decision 2026-10-07); a reason of at least 5 characters to switch off."""
+    from padel_app.services.admin import switches_service
+
+    body, problem = switches_service.set_switch(capability, request.get_json(silent=True) or {})
+    if problem:
+        return error(problem, 400)
+    return jsonify(body)

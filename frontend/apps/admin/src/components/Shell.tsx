@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, Home, LogOut, Settings, Shield, UserCheck, Users } from "lucide-react";
+import { Activity, Building2, ClipboardList, Home, LogOut, Settings, Shield, ToggleLeft, UserCheck, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet } from "react-router-dom";
 import clsx from "clsx";
@@ -14,7 +14,8 @@ export function Shell() {
   const { t, i18n } = useTranslation();
   const { session, signOut } = useAuth();
   const pending = useQuery({ queryKey: APPROVALS_KEY, queryFn: adminApi.coachApprovals, enabled: !!session });
-  const pendingCount = pending.data?.items.length ?? 0;
+  // A nav badge never takes the console down: any answer without a list counts as none.
+  const pendingCount = Array.isArray(pending.data?.items) ? pending.data.items.length : 0;
   const items = [
     { to: "/", icon: Home, label: t("admin.shell.nav.home"), end: true },
     { to: "/approvals", icon: UserCheck, label: t("admin.shell.nav.approvals"), count: pendingCount },
@@ -22,6 +23,10 @@ export function Shell() {
     { to: "/settings", icon: Settings, label: t("admin.shell.nav.settings") },
     { to: "/roles", icon: Shield, label: t("admin.shell.nav.roles") },
     { to: "/audit", icon: ClipboardList, label: t("admin.shell.nav.audit") },
+    { to: "/engine-health", icon: Activity, label: t("admin.shell.nav.engineHealth") },
+    // PAD-533
+    { to: "/clubs", icon: Building2, label: t("admin.shell.nav.clubs") },
+    { to: "/switches", icon: ToggleLeft, label: t("admin.shell.nav.switches") },
   ];
   return (
     <div className="flex min-h-screen">

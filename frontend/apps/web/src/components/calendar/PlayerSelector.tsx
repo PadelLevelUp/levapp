@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { classLevelMatch, nameMatchesQuery } from "@levelup/config";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -24,12 +25,6 @@ const getInitials = (name: string) =>
     .toUpperCase()
     .slice(0, 2);
 
-const normalize = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9\s]/g, "")
-    .toLowerCase();
 
 export function PlayerSelector({
   players,
@@ -40,6 +35,9 @@ export function PlayerSelector({
 }: PlayerSelectorProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
+  // PAD-518 (classes.create rule 10): picking a student from search results clears the
+  // search and keeps the cursor in the field, so the coach can type the next name at once.
+  const searchRef = useRef<HTMLInputElement>(null);
   const [filterLevelId, setFilterLevelId] = useState<string | null>(null);
 
   const isSearching = search.trim().length > 0;
@@ -61,8 +59,8 @@ export function PlayerSelector({
     let result = players;
 
     if (isSearching) {
-      const q = normalize(search);
-      result = result.filter((p) => normalize(p.name).includes(q));
+      // PAD-516: every typed word, in any order (shared with iOS).
+      result = result.filter((p) => nameMatchesQuery(p.name, search));
     } else if (filterLevelId) {
       result = result.filter((p) => String(p.levelId) === String(filterLevelId));
     }
@@ -122,6 +120,8 @@ export function PlayerSelector({
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={searchRef}
+            data-testid="player-selector-search"
             placeholder={t("calendar.playerSelector.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -167,15 +167,20 @@ export function PlayerSelector({
               const playerId = String(player.playerId);
               const playerLevel = getPlayerLevel(player);
               const selected = normalizedSelectedPlayerIds.has(playerId);
-              const isOutOfLevel =
-                normalizedClassLevelId !== null &&
-                String(player.levelId) !== normalizedClassLevelId;
+              const match = classLevelMatch(player.levelId, normalizedClassLevelId);
+              const isOutOfLevel = match === "other";
 
               return (
                 <div
                   key={playerId}
                   data-testid={`player-selector-row-${playerId}`}
-                  onClick={() => onToggle(playerId)}
+                  onClick={() => {
+                    onToggle(playerId);
+                    if (isSearching && !selected) {
+                      setSearch("");
+                      searchRef.current?.focus();
+                    }
+                  }}
                   className={cn(
                     "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
                     selected && !isOutOfLevel && "bg-primary/10",
@@ -190,10 +195,19 @@ export function PlayerSelector({
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-sm truncate">{player.name}</span>
-                    {isOutOfLevel && (
+                    {/* PAD-527: the level is always shown — primary when it is the class's
+                        level, amber when it is another (or none), neutral without a class level. */}
+                    {(isOutOfLevel || playerLevel?.code) && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] border-warning/50 text-warning bg-warning/10 shrink-0"
+                        data-testid={`player-level-chip-${playerId}`}
+                        data-level-match={match}
+                        className={cn(
+                          "text-[10px] shrink-0",
+                          match === "same" && "border-primary/50 text-primary bg-primary/10",
+                          match === "other" && "border-warning/50 text-warning bg-warning/10",
+                          match === "none" && "border-border text-muted-foreground bg-muted"
+                        )}
                       >
                         {playerLevel?.code ?? t("calendar.playerSelector.noLevel")}
                       </Badge>

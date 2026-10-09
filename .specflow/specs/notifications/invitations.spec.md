@@ -58,7 +58,37 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    but only as many as the absences free (places minus filled spots minus open vacancies): an
    absence on an over-full roster creates none (rule 13); never-filled places get theirs, as before, when the class has no
    open vacancy.
-2. Vacancy snapshots the departing player's side and level for matching (the snapshotted side may be `left`, `right`, or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
+1c. **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
+   An absence opens its vacancy the moment it is recorded, and the tick (rule 5) starts it once
+   the window is open. A place nobody ever filled has no such moment, and before this rule it was
+   opened only by the one-shot `invite_start_<instance>` job, which exists only for a materialised
+   occurrence and is armed only for a future time (`notifications.config` rule 10). An
+   invitation start earlier than or equal to the first reminder, reminders off, a class created
+   or opened inside its window, or a restart across the fire time therefore left the place
+   silent (B-301). Two paths now open it, at the later of the window opening (rule 11) and the
+   moment the engine can see the class:
+   - **an occurrence not yet materialised** carries a lesson-level
+     `invite_start_lesson_<lesson>_<date>` job beside its reminder job, derived by the same walk
+     (`schedule_lesson_reminder_jobs`), under the lesson's primary coach, removed and pruned with
+     it. When it fires it materialises the occurrence and calls `trigger_invitations`. Materialising
+     an occurrence removes that job and leaves the instance's `invite_start_<instance>` as the
+     occurrence's only start job (the reminders rule 20 shape), so the two never both fire;
+   - **a materialised class** whose window is open, which is still ahead on the club's clock, has
+     free capacity, automatic invitations on (`toggle-class` rule 5), notifications on and **no
+     vacancy of any status** is opened by the next tick through `trigger_invitations`, so every
+     gate applies unchanged: the engine switch, semi-automatic approval (an approval prompt, not an
+     invitation), the restrictions and quiet-hours hold (config rule 6d), the start-once claim
+     (rule 1b), and the creation under the class lock (rule 10, PAD-261) — a tick and a start job
+     or an absence racing on one class create its places once and start them once. A class whose
+     vacancies are all filled or expired is not reopened by the tick; capacity changes are rule 13's.
+     Named limit of that filter: a class whose one absence vacancy was filled before the window
+     while another place was never filled is skipped by the tick (the filled row counts as "a
+     vacancy"); a start job or a hand trigger still opens the remaining place.
+     An invitation start of type `none` opens nothing from the tick, as it arms no job.
+   The tick opens every such class it can see, so a deploy or a save that lands inside open
+   windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
+   measured on staging before merge). A save still sends nothing itself (config rule 10).
+2. Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
 2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
    class as close to even as possible. The count is the players holding a spot (`effective_filled_spots`'s predicate: an
@@ -74,6 +104,22 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    not rewritten. There is no per-class or coach-wide opt-out: the owner's words ("invite players in a
    way that makes the class simetrical if possible") named none, so balancing is the default for
    every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
+2c. **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
+   option A).** When a player's cancellation opens a vacancy, the vacancy's
+   side is the side the class needs, not automatically the leaver's. It is counted as rule 2b counts:
+   the players still holding a spot, minus the leaver, plus the sides of the class's other open
+   vacancies. The spot takes `left` or `right`, whichever has fewer. **On a tie it keeps the
+   leaver's side**, which may be `both` or none. So several freed spots balance across one another,
+   each counted as its side for the next, whether they open together or one by one. A class of 6 left
+   and 3 right whose two leavers both played left ends 5 / 4: the first spot asks right (it counts
+   5 / 3 if the second leaver still holds their place, 4 / 3 if both are already out), and the second
+   counts 4 / 4 with that spot and keeps left. The side is chosen under the class lock that already
+   serialises vacancy creation (rule 10), so two cancellations at once still see each other's spot;
+   nothing in that section commits before the new vacancy does (the coach's settings are read first).
+   As in rule 2b, if no player on the coach's roster plays `left` or `right`, the leaver's side is
+   kept as before; balancing ranks and orders and is never an eligibility bar. Open vacancies created
+   before this rule keep their side. The invite simulation shows the side this rule would choose
+   (`notifications.invite-simulation` rule 9).
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -157,7 +203,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    run is asked on the next batch, ahead of the group. A group-0 invitation is answered through the
    same paths (rules 9, 10, 17, 18); its yes and its no also settle the waiting-list entry
    (`notifications.waiting-list` rule 15).
-9. Coach can manually record response: `POST /api/app/notification/{event_id}/coach_respond`
+9. Coach can manually record response: `POST /api/app/notify/coach_respond` with `{notificationEventId, action: "yes" | "no"}` (path corrected, PAD-548). The answer stamps `NotificationEvent.answered_by = "coach"`; a student's own answer stamps `"student"` (PAD-548), and the class detail says which (`calendar.event-detail` rule 16)
 10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
@@ -226,7 +272,29 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      is full or over, and then closes like any other.
    - A vacancy on a started, cancelled or completed class expires (rule 5 today, unchanged).
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
-     decline, cancellation and structural paths.
+     decline, cancellation and structural paths, and (rule 13a) a coach's edit.
+
+13a. **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
+   numbering unconfirmed).** `edit_class_service` (`POST /edit_class`), once the WHOLE edit is
+   written — capacity, the roster, and the class's own flags (automatic invitations, notifications,
+   eligibility) on every occurrence it reached — runs `vacancies_after_class_edit` on each of the
+   class's future occurrences. An occurrence counts as having a place freed when it has more free
+   places (capacity minus filled spots) than before the edit, read per occurrence before anything is
+   written, so a "this and future" edit (the lesson is edited before its occurrences) sees the rise
+   too (#577 review):
+   - it always reconciles (rule 13), so a capacity lowered below the open vacancies closes the
+     surplus and retires their live invitations now, not at the next tick;
+   - when the edit freed a place (a higher capacity, a student taken off) and the coach's invitation
+     window is open (rule 11), it creates the missing never-filled vacancies (under the class lock)
+     and calls `trigger_invitations`, so every gate applies: engine on, automatic invitations,
+     semi-automatic approval (an approval prompt, not an invitation), the restrictions and the
+     quiet-hours hold, the start-once claim. Before the window opens it creates nothing: the class's
+     `invite_start` job opens the place when the window does. An edit that frees nothing sends
+     nothing.
+   A "yes" that finds the class full while its own spot is still open (a capacity drop whose
+   reconcile passed over that spot because the answer held its lock, rule 10) is refused as before
+   and also closes that spot under its own locks, so the other offers for the missing seat are
+   retired at once. Before PAD-552 the tick closed it.
 
 14. **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
     B-046 step 5 / B-051; numbered 14 after PAD-271's 13 and before PAD-317's 15).** `vacancies` has a partial unique index
@@ -294,7 +362,8 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     student gives is stored on the invitation (`NotificationEvent.answer`, `yes`|`no`), written by
     the student's own answer and by the coach recording it for them (rule 9). Only an answer is a
     "no": an invitation retired because someone else took the spot, expired with the class, or
-    never answered is not one. Then, for every automatic path of that occurrence:
+    never answered is not one. A coach's withdrawal of an invitation (rule 19) is treated as a
+    "no" by every automatic path, though it is not the student's answer and `answer` stays NULL. Then, for every automatic path of that occurrence:
     - a student who answered "no" to any of its invitations is never invited again — not in a
       later round, not for another spot, not by a re-created vacancy, not as a waiting-list
       student (group 0, rule 8a), and their waiting-list entry for the class closes
@@ -362,7 +431,88 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     recording a "yes" on that invitation; removing the student and adding them back does not clear
     it. The coach recording the same answer twice changes nothing (rule 17).
 
+19. **A coach withdraws a live invitation (PAD-548).** `DELETE
+    /api/app/notify/invitations/<event_id>` by the invitation's coach (403 for any other coach,
+    404 for an unknown id).
+    - **Live (`sent` or `queued`):** under rule 10's locks — the vacancy, then its class; a manual
+      invitation locks its own row, as rule 17's guard does — the invitation is re-read. If the
+      student's yes won meanwhile, the answer is `{"action": "confirmed"}` and nothing is written.
+      Otherwise, in ONE commit: `status = "expired"`, `answer` stays NULL,
+      `withdrawn_by_coach_at` is stamped, the invitation message is retired with flushes only (its
+      bubble reads "Vaga preenchida" on both shells and the buttons are gone — the same retire as
+      rule 15), the bubble edit is queued with `on_commit` BEFORE that commit, the student's
+      waiting-list entry for the class is closed like a "no" (`notifications.waiting-list` rule 15,
+      no credit spent) and the vacancy's `last_activity_at` is stamped. After the commit the
+      decline follow-up runs: the vacancy stays open and the next candidate is asked at once —
+      the same message volume as a student's decline (one next invitation), unlike the
+      coach-recorded "no", which waits for the tick (rule 16). The coach's live event is
+      `notification_responded` with `response: "withdrawn"`; the student gets no message (the
+      retired bubble is the telling, PAD-501). Answer `{"action": "withdrawn"}`.
+    - **For the engine it is a "no" (rule 18):** `_declined_player_ids` and `_still_invitable`
+      count `withdrawn_by_coach_at IS NOT NULL` exactly as `answer == "no"`, so no automatic path
+      asks the student again for that occurrence — any spot, any round, group 0 included. The coach
+      may still invite them by hand.
+    - **A late yes is refused:** a student's yes on a withdrawn invitation changes nothing and sends
+      nothing — no enrolment, no decline notice, no waiting-list offer (the coach removed them) —
+      and answers `spot_filled`; both shells already show "Vaga preenchida". Rule 17's guard decides
+      it under its lock, keyed on `withdrawn_by_coach_at` — a late yes on a spot that went to
+      someone else keeps rule 17's waiting-list offer.
+    - **Not live:** `confirmed` → `{"action": "confirmed"}`, nothing written, whether the yes landed
+      before the first read or under the lock — one answer for one state (a student leaves a class
+      through attendance); already `expired` → `{"action": "<outcome>"}` as
+      `calendar.event-detail` rule 16 computes it, nothing written, so a repeated delete is a
+      no-op; a class that is over → `{"action": "expired"}` after the stale sweep, as rule 9's coach
+      answer does.
+    - **Proven on Postgres:** a withdrawal racing the student's yes ends in exactly one of two
+      states — enrolled and `confirmed` (the withdrawal answered `confirmed`), or withdrawn and not
+      enrolled (the yes answered `spot_filled`) — never both and never neither; the mutant with the
+      withdrawal's locks dropped fails that cell.
+
 ### Acceptance Criteria
+
+#### A window that opens before the first reminder still invites (rule 1c)
+- **Given** a one-off class Monday 18:00 Lisbon with `max_players=2`, one roster student enrolled and
+  one free roster student, the coach's invitation start 72 h before and first reminder 48 h before,
+  the occurrence not materialised, and the lesson walk run four days out
+- **When** the `invite_start_lesson_<lesson>_<date>` job fires at 72 h before the class
+- **Then** the occurrence is materialised, one structural vacancy is open and the free student holds
+  one invitation; the reminder at 48 h then reminds the enrolled student and arms no second start
+
+#### A class materialised inside its window is opened by the next tick (rule 1c)
+- **Given** the same class with the default timings (reminder 48 h, invitations 24 h), materialised
+  12 h before the class (created late, or opened), so `schedule_instance_jobs` arms no start job
+- **When** `process_invitation_batches()` runs
+- **Then** one structural vacancy is open and the free student holds one invitation; a second tick
+  sends nothing more for that place
+
+#### Materialising removes the lesson-level start job (rule 1c)
+- **Given** an occurrence with `invite_start_lesson_<lesson>_<date>` armed
+- **When** the occurrence is materialised
+- **Then** the lesson-level job is gone and `invite_start_<instance>` is the occurrence's only
+  start job; cancelling or moving the series' occurrence jobs removes or moves both families
+
+#### The tick does not reopen a class whose vacancy was filled or expired (rule 1c)
+- **Given** a future class inside its window with one free place and one `expired` vacancy
+- **When** `process_invitation_batches()` runs
+- **Then** no vacancy is created and nothing is sent
+
+#### A tick and a start racing on one class open it once (rule 1c, Postgres)
+- **Given** a materialised class inside its window with one free place and no vacancy
+- **When** the tick's scan and `trigger_invitations` run at once on two connections
+- **Then** exactly one vacancy exists for the class and the free student holds exactly one
+  invitation; a mutant that counts the places outside the class lock creates two
+
+#### With reminders off, the window opens the places and asks nobody on the roster (rule 1c)
+- **Given** the class of the first criterion with the coach's first reminder of type `none` and the
+  invitation start 72 h before, the occurrence not materialised
+- **When** the `invite_start_lesson_<lesson>_<date>` job fires
+- **Then** the free student holds one invitation and no `ask_<instance>_<student>_*` job is armed for
+  the enrolled student: the job touches never-filled places only; the roster is asked by reminders
+
+#### The engine itself opens the place when called (control for rule 1c)
+- **Given** the class of the second criterion
+- **When** `trigger_invitations` is called by hand inside the window
+- **Then** one structural vacancy is open and the free student holds one invitation
 
 #### A coach add closes the open vacancy (rule 13)
 - **Given** instance 10 with `max_players=2`, Alice enrolled, Bob declined (his vacancy open with
@@ -674,3 +824,46 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** a student answering yes on spot V1 while the engine is choosing another student for V1
 - **When** the accept holds V1 and the sender reaches its lock section
 - **Then** both finish without a database deadlock: the sender waits for V1 (rule 10's order) and then finds the spot taken
+
+#### A coach withdraws a pending invitation (rule 19, PAD-548)
+- **Given** a class with one open vacancy whose current invitation to Dinis is `sent`, Dinis also on the class's waiting list, and Eva the next eligible candidate
+- **When** the coach calls `DELETE /api/app/notify/invitations/<Dinis's event id>`
+- **Then** the answer is `{"action": "withdrawn"}`, Dinis's invitation is `expired` with `answer` NULL and `withdrawn_by_coach_at` set, his bubble's metadata is `responded: true` with a non-answer response, his waiting-list entry is inactive with no credit spent
+- **And** the vacancy is still `open` and Eva holds a new `sent` invitation, created after the withdrawal's commit
+- **And** the coach received `notification_responded` with `response: "withdrawn"` and Dinis received no new message
+
+#### A withdrawn student is not asked again (rule 19)
+- **Given** Dinis's invitation for the occurrence was withdrawn and a second vacancy opens on the same occurrence
+- **When** the engine sends the next batch for that occurrence
+- **Then** Dinis is tagged `declined_this_class` in `evaluate_candidates` and receives no invitation, while a manual invitation from the coach still reaches him
+
+#### A late yes on a withdrawn invitation is refused (rule 19)
+- **Given** Dinis's invitation was withdrawn and the vacancy is still open
+- **When** Dinis answers "yes" on his invitation
+- **Then** the answer is `spot_filled`, nothing is written, Dinis is not enrolled, and no message or waiting-list offer is sent
+
+#### A withdrawal racing the student's yes ends in one state (rule 19, Postgres)
+- **Given** Dinis's invitation is `sent` on an open vacancy
+- **When** the coach's withdrawal and Dinis's yes run at once on two connections
+- **Then** either Dinis is enrolled, the invitation is `confirmed` and the withdrawal answered `confirmed`, or Dinis is not enrolled, the invitation is withdrawn and the yes answered `spot_filled`
+- **And** the same cell fails when the withdrawal takes no vacancy or class lock
+
+#### A freed spot asks the side the class is short of (rule 2c, PAD-541)
+- **Given** a class of 9 whose players play 6 left and 3 right, and two left-side players who cancel
+- **When** their vacancies open, one after the other or at the same time
+- **Then** the first asks `right` (5 / 3 one at a time, 4 / 3 with both already out) and the second asks `left` (4 / 4 counting that spot; a tie keeps the leaver's side), so the class can end 5 / 4
+
+#### A tie keeps the leaver's side (rule 2c)
+- **Given** a class of 3 left and 3 right still coming, and a right-side leaver
+- **When** the leaver's vacancy opens
+- **Then** it asks `right`, as before PAD-541
+
+#### No sided roster keeps the leaver's side (rule 2c)
+- **Given** a coach whose roster has no `left` or `right` player
+- **When** a player cancels
+- **Then** the vacancy keeps the leaver's side (none), exactly as before
+
+#### Two cancellations at once still balance (rule 2c, Postgres)
+- **Given** the 6 left / 3 right class above
+- **When** both left-side leavers' vacancies are created on two connections at once
+- **Then** the two vacancies are one `right` and one `left`, never two `right`

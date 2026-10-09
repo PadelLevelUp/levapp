@@ -1,4 +1,5 @@
 import { playerClaimsApi } from "@levelup/api";
+import { describeMergePlan } from "@levelup/config";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -75,6 +76,7 @@ export function ClaimRequests({ variant }: { variant: "banner" | "list" }) {
       testID={`claim-request-${req.id}`}
     >
       <Text className="text-sm">{describe(req)}</Text>
+      <MergePreviewLines requestId={req.id} />
       <View className="flex-row gap-2">
         <Button
           size="sm"
@@ -124,5 +126,36 @@ export function ClaimRequests({ variant }: { variant: "banner" | "list" }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * players.claim rule 5j (PAD-528): the dry run of this request, in words, above the
+ * accept button. Silent while loading or on failure — the banner's hint still describes
+ * the merge. Twin of web's MergePreviewLines.
+ */
+function MergePreviewLines({ requestId }: { requestId: string }) {
+  const { t } = useTranslation();
+  const [plan, setPlan] = React.useState<playerClaimsApi.MergePreview | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => playerClaimsApi.previewClaimRequest(requestId))
+      .then((p) => {
+        if (!cancelled) setPlan(p);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId]);
+  if (!plan) return null;
+  const described = describeMergePlan(plan, t, "yours");
+  return (
+    <View testID={`claim-preview-${requestId}`}>
+      <Text className="text-xs text-muted-foreground">{described.moves ?? t("players.claim.previewNothing")}</Text>
+      {described.kept ? <Text className="text-xs text-muted-foreground">{described.kept}</Text> : null}
+      <Text className="text-xs font-semibold">{t("players.claim.previewIrreversible")}</Text>
+    </View>
   );
 }

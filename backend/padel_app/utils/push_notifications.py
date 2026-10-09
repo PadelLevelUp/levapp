@@ -71,6 +71,10 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
         return True
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        # admin.engine-health rule 3 (PAD-534): the status, never the endpoint.
+        from padel_app.services import delivery_incidents
+        delivery_incidents.record("push_failed", "webpush", user_id=user_id, error=exc,
+                                  detail=f"status={status_code}")
         if status_code in (404, 410):
             logger.info(
                 "Deleting invalid push subscription for user_id=%s (status=%s)",
@@ -102,4 +106,6 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
         logger.warning(
             "Unexpected push notification failure for user_id=%s: %s", user_id, type(exc).__name__
         )
+        from padel_app.services import delivery_incidents
+        delivery_incidents.record("push_failed", "webpush", user_id=user_id, error=exc)
         return False

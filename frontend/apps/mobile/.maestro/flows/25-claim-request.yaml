@@ -39,10 +39,27 @@ appId: com.padellevelup.app
     visible:
       id: "player-invite-link"
     timeout: 20000
-- back
-# Open the player we just created.
+# PAD-556: `back` is Android-only (a no-op on iOS), so close the invite dialog by its
+# close button; closing it returns to the roster.
 - tapOn:
-    text: "Maestro Claimable"
+    id: "dialog-close"
+# Open the player we just created. The roster is paginated A-Z and a new row can sit on a
+# later page, so filter by name first. Tap a row by id, not by text: the search field
+# holds the same text, and an iOS text match must cover a row's whole accessibility label.
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "Maestro Claimable"
+- extendedWaitUntil:
+    notVisible:
+      id: "player-card-1"   # the seeded e2e-student (flow 120); gone once the filter applies
+    timeout: 15000
+- tapOn:
+    id: "player-card-.*"
 - extendedWaitUntil:
     visible:
       id: "player-detail"
@@ -56,17 +73,42 @@ appId: com.padellevelup.app
     id: "player-claim-link"
 - assertVisible:
     id: "player-claim-dialog"
+# PAD-528 (players.claim rule 4b): the dialog opens on "From your students"; switch to the
+# username tab before typing.
+- tapOn:
+    id: "player-claim-tab-username"
 - tapOn:
     id: "player-claim-username"
 - inputText: "nobody-has-this-username"
+# PAD-556: on iOS the keyboard covers the submit button and a tap lands on the keyboard;
+# Enter dismisses it (hideKeyboard is unreliable on iOS).
+- pressKey: Enter
 - tapOn:
     id: "player-claim-submit"
 - assertVisible:
     id: "player-claim-error"
-# Student side: the inbox exists under Settings → Account.
+# Student side: the inbox exists under Settings → Connections.
+# PAD-556: the header avatar the logout subflow taps lives on the tab shell; close the
+# dialog and leave the pushed player screen first.
+- tapOn:
+    id: "dialog-close"
+- tapOn:
+    id: "player-back"
+- extendedWaitUntil:
+    visible:
+      id: "header-account"
+    timeout: 15000
 - runFlow: ../subflows/logout.yaml
 - runFlow: ../subflows/login-student.yaml
 - openLink: levelup://settings
+# PAD-556: Settings opens on a section list; the link-request inbox is in Connections.
+- scrollUntilVisible:
+    element:
+      id: "settings-nav-connections"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-nav-connections"
 - scrollUntilVisible:
     element:
       id: "settings-claim-requests"
