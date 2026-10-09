@@ -216,3 +216,11 @@ describe("approvalCardState defaults to the club's clock (PAD-295)", () => {
     expect(approvalCardState(bundle({ windowOpenAt: "2027-07-15T09:30:00" })).windowOpenInFuture).toBe(false);
   });
 });
+
+describe("approvalRespondOutcome — a recomputed bundle (PAD-545)", () => {
+  it("says the list was recalculated, not that the spots filled", () => {
+    const outcome = approvalRespondOutcome([{ vacancyId: 7, result: "stale" }], true);
+    expect(outcome.allStale).toBe(true);
+    expect(outcome.toastKey).toBe("notificationsUi.replacementApproval.superseded");
+  });
+});

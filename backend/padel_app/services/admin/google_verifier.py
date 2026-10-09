@@ -14,6 +14,10 @@ import time
 GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v1/certs"
 DEFAULT_MAX_AGE = 3600
 _CERTS = {}
+# PAD-554 follow-up: a token signed with a key id the cache does not hold refetches the
+# certificates (Google rotated its keys), at most once per this many seconds, so a burst of forged
+# key ids cannot turn every sign-in attempt into a fetch from Google.
+REFETCH_MIN_INTERVAL = 60
 _LOCK = threading.Lock()
 
 
@@ -38,24 +42,45 @@ def _max_age(headers):
     return int(match.group(1)) if match else DEFAULT_MAX_AGE
 
 
-def google_certs(now=None):
-    """Google's signing certificates, cached until their max-age runs out."""
+def _token_kid(token):
+    """The key id a token says it was signed with (its unverified header), or None."""
+    import jwt
+
+    try:
+        return jwt.get_unverified_header(token).get("kid")
+    except Exception:
+        return None
+
+
+def google_certs(now=None, force=False):
+    """Google's signing certificates, cached until their max-age runs out.
+
+    ``force`` refetches before expiry (an unknown key id), unless the last fetch is younger than
+    REFETCH_MIN_INTERVAL.
+    """
     now = time.time() if now is None else now
     with _LOCK:
-        if _CERTS.get("expires", 0) > now:
+        fresh = _CERTS.get("expires", 0) > now
+        recent_refetch = now - _CERTS.get("refetched", float("-inf")) < REFETCH_MIN_INTERVAL
+        if fresh and (not force or recent_refetch):
             return _CERTS["certs"]
         response = _http_get(GOOGLE_CERTS_URL, timeout=5)
         if response.status_code != 200:
             raise GoogleTokenInvalid(f"could not fetch Google's certificates ({response.status_code})")
         certs = response.json()
         _CERTS.update(certs=certs, expires=now + _max_age(response.headers))
+        if force and fresh:
+            _CERTS["refetched"] = now  # only an early, key-id-driven refetch is throttled
         return certs
 
 
-def verify(credential, client_id):
+def verify(credential, client_id, now=None):
     """Return the token's claims, or raise GoogleTokenInvalid."""
     try:
-        return _jwt_decode(credential, google_certs(), client_id, clock_skew_in_seconds=10)
+        certs = google_certs(now=now)
+        if _token_kid(credential) not in certs:
+            certs = google_certs(now=now, force=True)  # key rotation; throttled
+        return _jwt_decode(credential, certs, client_id, clock_skew_in_seconds=10)
     except GoogleTokenInvalid:
         raise
     except Exception as exc:  # ValueError for every verification failure; be strict anyway

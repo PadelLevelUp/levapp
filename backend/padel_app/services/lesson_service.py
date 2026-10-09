@@ -19,7 +19,7 @@ from padel_app.models import (
 )
 from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
-from padel_app.tools.calendar_tools import build_datetime, _format_time, _format_date
+from padel_app.tools.calendar_tools import build_datetime, build_end_datetime, _format_time, _format_date
 from padel_app.helpers.calendar_helpers import (
     load_lessons_for_coach,
     load_lesson_instances_for_coach,
@@ -303,7 +303,7 @@ def transform_to_datetime(obj, data):
     end_time = data.get('end_time') if data.get('end_time') else _format_time(obj.end_datetime)
 
     data["start_datetime"] = build_datetime(date, start_time)
-    data["end_datetime"] = build_datetime(date, end_time)
+    data["end_datetime"] = build_end_datetime(date, start_time, end_time)  # PAD-553: 00:00 is the next day
     return data
 
 
@@ -1065,6 +1065,13 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
         {"title": data.get("name"), "max_players": data.get("maxPlayers"),
          "start_time": data.get("startTime"), "end_time": data.get("endTime")}, recurring=False,
     )
+    if isinstance(data.get("eligibilityRules"), list):
+        # eligibility.rules rule 6 (PAD-481), as on /edit_class: an unknown level operation
+        # is refused before anything is written.
+        from padel_app.services.notification_service import unknown_eligibility_level_operations
+
+        if unknown_eligibility_level_operations(data["eligibilityRules"]):
+            refused = list(refused or []) + ["eligibilityRules"]
     if refused:
         raise NotNullableFieldError(refused)
     lesson_payload = {
@@ -1076,7 +1083,7 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
         "level": data.get("levelId"),
         "is_recurring": data.get("isRecurring", False),
         "start_datetime": build_datetime(data["date"], data["startTime"]),
-        "end_datetime": build_datetime(data["date"], data["endTime"]),
+        "end_datetime": build_end_datetime(data["date"], data["startTime"], data["endTime"]),  # PAD-553
         "club": club.id,
         "coach": coach.id,
         "player_ids": data.get("playerIds", []),
@@ -1137,6 +1144,16 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
         lesson.auto_invites = bool(data["autoInvites"])
         lesson.save()
 
+    # PAD-524 (classes.clone rule 4): a clone carries the original series' own bar and
+    # open-spot visibility, written to the new lesson's tier as /edit_class writes them
+    # (eligibility.cascade rule 8; absent or null = inherit). Validated before the create.
+    if isinstance(data.get("eligibilityRules"), list):
+        lesson.eligibility_rules = data["eligibilityRules"]
+        lesson.save()
+    if isinstance(data.get("openSpotsVisible"), bool):
+        lesson.open_spots_visible = data["openSpotsVisible"]
+        lesson.save()
+
     # Schedule reminder jobs for all upcoming occurrences within the 60-day horizon
     if lesson.coaches_relations:
         # PAD-478: the class is saved; a derivation that fails is logged, not raised.
@@ -1159,6 +1176,66 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
             notify_student_added_to_class(coach, player_id, instance=first_late, counted_as_coming=True)
 
     return lesson
+
+
+def clone_template(lesson, *, occurrence_date, instance=None, club_id=None):
+    """The new-class form's prefill for "Clonar aula" (PAD-524, classes.clone rules 1-5).
+
+    One derivation, both shells: the body is shaped as POST /add_class takes it, minus the
+    start and end times (the coach picks the start; ``durationMinutes`` sets the end). Values
+    come from the SERIES — an occurrence's own overrides are not copied (rule 2). Students: the
+    series roster for a recurring class; for a one-off, its participants minus anyone not coming
+    (rule 3). The court only when the class is at the coach's current club, which /add_class
+    creates in (clubs.courts rule 6).
+    """
+    from padel_app.models import Association_PlayerLesson
+
+    recurring = bool(lesson.recurrence_rule)
+    rule = None
+    if recurring:
+        try:
+            rule = json.loads(lesson.recurrence_rule)
+        except (TypeError, ValueError):
+            rule = None
+    if recurring:
+        player_ids = [
+            str(r.player_id)
+            for r in Association_PlayerLesson.query.filter_by(lesson_id=lesson.id).order_by(Association_PlayerLesson.player_id)
+        ]
+    else:
+        target = instance or (_instances_on_date(lesson, occurrence_date) or [None])[0]
+        if target is not None:
+            player_ids = [
+                str(p.player_id)
+                for p in sorted(target.presences or [], key=lambda p: p.player_id)
+                if p.attendance_state not in ("not_coming", "missed")
+            ]
+        else:
+            player_ids = [
+                str(r.player_id)
+                for r in Association_PlayerLesson.query.filter_by(lesson_id=lesson.id).order_by(Association_PlayerLesson.player_id)
+            ]
+    duration = int((lesson.end_datetime - lesson.start_datetime).total_seconds() // 60)
+    same_club = club_id is None or lesson.club_id == club_id
+    return {
+        "name": lesson.title,
+        "classType": lesson.type,
+        "levelId": str(lesson.default_level_id) if lesson.default_level_id else None,
+        "maxPlayers": lesson.max_players,
+        "color": lesson.color,
+        "courtId": lesson.court_id if same_club else None,
+        "date": occurrence_date.isoformat(),
+        "durationMinutes": duration,
+        "notificationsEnabled": bool(lesson.notifications_enabled),
+        "eligibilityRules": lesson.eligibility_rules if isinstance(lesson.eligibility_rules, list) else None,
+        "openSpotsVisible": lesson.open_spots_visible if isinstance(lesson.open_spots_visible, bool) else None,
+        "autoInvites": lesson.auto_invites if isinstance(lesson.auto_invites, bool) else None,
+        "isRecurring": recurring,
+        "recurrenceRule": rule if recurring else None,
+        "recursUntilSeasonEnd": bool(lesson.recurs_until_season_end) if recurring else False,
+        "endDate": lesson.recurrence_end.isoformat() if recurring and lesson.recurrence_end else None,
+        "playerIds": player_ids,
+    }
 
 
 def _occurrence_dates_past_their_reminder_time(lesson_payload, coach_id):
@@ -1435,7 +1512,77 @@ def _is_hh_mm(value):
     return isinstance(value, str) and _HH_MM.match(value) is not None
 
 
+def _free_places(instance) -> int:
+    return (instance.effective_max_players or 0) - instance.effective_filled_spots
+
+
+def _future_occurrences(lesson_ids) -> list:
+    from padel_app.utils.dates import club_now_naive
+
+    ids = [i for i in lesson_ids if i is not None]
+    if not ids:
+        return []
+    return (
+        LessonInstance.query
+        .filter(LessonInstance.lesson_id.in_(ids),
+                LessonInstance.start_datetime > club_now_naive(),
+                LessonInstance.status.notin_(("canceled", "completed")))
+        .all()
+    )
+
+
 def edit_class_service(data):
+    """Scope-aware class edit. Returns (result_dict, http_status_code).
+
+    PAD-552 (notifications.invitations rule 13a): once the WHOLE edit is written — capacity, the
+    roster, and the class's own flags (automatic invitations, notifications, eligibility), on
+    every occurrence it reached — each of the class's future occurrences brings its vacancies in
+    line (`vacancies_after_class_edit`): the reconcile runs, and an occurrence with more free
+    places than before the edit (a higher capacity, a student taken off) opens them under the
+    engine's gates. The free places are read before anything is written, per occurrence, so a
+    "this and future" edit (the lesson is edited before its occurrences) still sees the rise.
+    """
+    event = data.get("event") or {}
+    lesson_id = None
+    try:
+        if event.get("model") == "LessonInstance":
+            _target = LessonInstance.query.get(event.get("originalId"))
+            lesson_id = _target.lesson_id if _target else None
+        elif event.get("model") == "Lesson":
+            lesson_id = int(event.get("originalId"))
+    except (TypeError, ValueError):
+        lesson_id = None
+    _lesson = Lesson.query.get(lesson_id) if lesson_id else None
+    lesson_cap_before = (_lesson.max_players or 0) if _lesson else 0
+    free_before = {inst.id: _free_places(inst) for inst in _future_occurrences([lesson_id])}
+
+    result, status = _edit_class_service(data)
+    if status not in (200, 201):
+        return result, status
+
+    from padel_app.services.notification_service import vacancies_after_class_edit
+
+    db.session.expire_all()
+    seen = set()
+    candidates = _future_occurrences([lesson_id, result.get("id") if isinstance(result, dict) else None])
+    candidates += [i for i in (LessonInstance.query.get(k) for k in free_before) if i is not None]
+    for inst in candidates:
+        if inst.id in seen:
+            continue
+        seen.add(inst.id)
+        before = free_before.get(inst.id)
+        if before is None:
+            # Materialised by this edit: before it, the occurrence had the lesson's capacity.
+            before = lesson_cap_before - inst.effective_filled_spots
+        try:
+            vacancies_after_class_edit(inst, place_freed=_free_places(inst) > before)
+        except Exception:  # noqa: BLE001 — the edit is committed; the tick reconciles later
+            db.session.rollback()
+            _log_exception("PAD-552: vacancies after the edit of instance %s failed", inst.id)
+    return result, status
+
+
+def _edit_class_service(data):
     """Scope-aware class edit. Returns (result_dict, http_status_code)."""
     event = data.get("event")
     scope = data.get("scope")

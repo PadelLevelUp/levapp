@@ -91,13 +91,31 @@ _BLOCKABLE_MESSAGE_TYPES = frozenset({
 # ---------------------------------------------------------------------------
 
 def get_or_create_config(coach_id: int) -> NotificationConfig:
+    """The coach's configuration, creating the row (engine off) when there is none.
+
+    Race-safe (B-302 follow-up; #592's Postgres lane): two callers for a coach with no row can both
+    read "none" and both insert, and the second hits the unique key on `coach_id`. The insert runs in
+    a SAVEPOINT, so that violation rolls back only the savepoint (never the caller's own pending
+    work) and the row the other caller committed is read instead. Covers every caller, including the
+    config-before-lock reads in `_create_structural_vacancies` and `_create_vacancy_for_absent_player`.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.tools.unit_of_work import commit_or_flush
+
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
-    if config is None:
-        config = NotificationConfig(
-            coach_id=coach_id,
-            auto_notify_enabled=False,
+    if config is not None:
+        return config
+    config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
+    try:
+        with db.session.begin_nested():
+            db.session.add(config)
+    except IntegrityError:
+        # Another caller created it between our read and our insert; the savepoint is rolled back.
+        return (
+            NotificationConfig.query.filter_by(coach_id=coach_id).populate_existing().one()
         )
-        config.create()
+    commit_or_flush()
     return config
 
 
@@ -1189,7 +1207,8 @@ def _still_invitable(cp: Association_CoachPlayer, instance: LessonInstance, coac
     if NotificationEvent.query.filter(
         _same_class(instance.id),
         NotificationEvent.player_id == cp.player_id,
-        or_(NotificationEvent.status.in_(LIVE_INVITATION_STATES), NotificationEvent.answer == "no"),
+        or_(NotificationEvent.status.in_(LIVE_INVITATION_STATES), NotificationEvent.answer == "no",
+            NotificationEvent.withdrawn_by_coach_at.isnot(None)),  # PAD-548 (rule 19)
     ).first() is not None:
         return False
     return passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config))
@@ -1203,10 +1222,14 @@ def _same_class(instance_id: int):
 
 
 def _declined_player_ids(instance_id: int) -> set:
-    """Players who answered "no" to an invitation for this class occurrence (rule 18)."""
+    """Players who answered "no" to an invitation for this class occurrence (rule 18), and those
+    whose invitation the coach withdrew (PAD-548, rule 19): a withdrawal is a "no" for the engine."""
+    from sqlalchemy import or_
+
     return {
         pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
-            _same_class(instance_id), NotificationEvent.answer == "no"
+            _same_class(instance_id),
+            or_(NotificationEvent.answer == "no", NotificationEvent.withdrawn_by_coach_at.isnot(None)),
         )
     }
 
@@ -1352,11 +1375,12 @@ def evaluate_candidates(
         _same_class(instance.id),
         or_(
             NotificationEvent.answer == "no",
+            NotificationEvent.withdrawn_by_coach_at.isnot(None),  # PAD-548 (rule 19): a withdrawal is a "no"
             NotificationEvent.status.in_(LIVE_INVITATION_STATES),
             *own_clauses,
         ),
     ).all():
-        if e.answer == "no":
+        if e.answer == "no" or e.withdrawn_by_coach_at is not None:
             declined_ids.add(e.player_id)
         elif own_vacancy_id is not None and e.vacancy_id == own_vacancy_id:
             active_invite_ids.add(e.player_id)
@@ -1910,8 +1934,79 @@ def _format_day_month(dt) -> str:
     return dt.strftime("%d/%m") if dt else ""
 
 
+def format_relative_day(start, locale, now=None) -> str:
+    """PAD-549 (notifications.message-templates rule 18; numbering unconfirmed): the ``{day}``
+    placeholder — the class's day said the way a person would, relative to when the message is
+    rendered, which in the engine is the moment it is sent (so a message held by quiet hours past
+    midnight still says "hoje" correctly). Both ``start`` and ``now`` are club wall-clock times.
+
+    No preposition is inside it; the coach writes "para {day} às {time}":
+        same day → "hoje" / "today"; next day → "amanhã" / "tomorrow";
+        two days → "depois de amanhã" / "the day after tomorrow";
+        later this week (Monday–Sunday) → "esta sexta-feira" / "this Friday";
+        any day of next week → "a próxima segunda-feira" / "next Monday";
+        anything else, past included → "dia 23/02" / "23/02".
+    Saturday and Sunday are masculine in Portuguese: "este sábado", "o próximo domingo".
+    """
+    if start is None:
+        return ""
+    if now is None:
+        now = utc_to_wall_naive(utcnow_naive())
+    is_pt = (locale or "").startswith("pt")
+    days = (start.date() - now.date()).days
+    if days == 0:
+        return "hoje" if is_pt else "today"
+    if days == 1:
+        return "amanhã" if is_pt else "tomorrow"
+    if days == 2:
+        return "depois de amanhã" if is_pt else "the day after tomorrow"
+    week_start = now.date() - timedelta(days=now.weekday())
+    weeks_ahead = (start.date() - week_start).days // 7
+    weekday = _format_weekday(start, locale)
+    masculine = start.weekday() >= 5
+    if days > 2 and weeks_ahead == 0:
+        if is_pt:
+            return f"{'este' if masculine else 'esta'} {weekday}"
+        return f"this {weekday}"
+    if days > 0 and weeks_ahead == 1:
+        if is_pt:
+            return f"{'o próximo' if masculine else 'a próxima'} {weekday}"
+        return f"next {weekday}"
+    date = _format_day_month(start)
+    return f"dia {date}" if is_pt else date
+
+
+def template_preview_examples(locale, now=None) -> dict:
+    """PAD-549 (message-templates rule 19; numbering unconfirmed): one example value per
+    placeholder, for the settings help and live preview — a sample class tomorrow at 18:00 at
+    level "Intermédio" on court "Campo 2", built from the same formatters a real message uses,
+    so the example cannot drift from what is sent. Coach's locale, like every placeholder."""
+    if now is None:
+        now = utc_to_wall_naive(utcnow_naive())
+    start = (now + timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
+    is_pt = (locale or "").startswith("pt")
+    return {
+        "name": "Ana",
+        "level": "Intermédio" if is_pt else "Intermediate",
+        "weekday": _format_weekday(start, locale),
+        "time": start.strftime("%H:%M"),
+        "type": _CLASS_TYPE_WORDS.get("pt" if is_pt else "en", {}).get("academy", ""),
+        "date": _format_day_month(start),
+        "court": "Campo 2" if is_pt else "Court 2",
+        "day": format_relative_day(start, locale, now=now),
+        "class": "Treino de grupo" if is_pt else "Group training",
+        "when": _format_when(start, locale, dated=True).strip(),
+        "side": _side_phrase("left", locale),
+    }
+
+
+def render_template_preview(template, locale, now=None) -> str:
+    """PAD-549: the coach's template rendered through ``_format_template`` with the examples."""
+    return _format_template(template or "", **template_preview_examples(locale, now=now))
+
+
 def class_placeholders(source, locale) -> dict:
-    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders.
+    """PAD-430: the ``{type}``, ``{date}`` and ``{court}`` template placeholders; PAD-549 adds ``{day}``.
 
     ``source`` is a LessonInstance or a Lesson. The type word follows the coach's
     locale like every other placeholder (notifications.message-templates rule 12);
@@ -1931,6 +2026,8 @@ def class_placeholders(source, locale) -> dict:
         "type": _CLASS_TYPE_WORDS.get(locale, _CLASS_TYPE_WORDS["pt"]).get(lesson_type, ""),
         "date": _format_day_month(start),
         "court": (getattr(court, "name", None) or "") if court is not None else "",
+        # PAD-549: computed now, i.e. when the message is rendered and sent.
+        "day": format_relative_day(start, locale),
     }
 
 
@@ -2743,6 +2840,9 @@ def _create_vacancy_for_absent_player(
     existing = _open_vacancy_for(instance.id, absent_player_id)
     if existing is not None:
         return existing
+    # Read (or create) the coach's config BEFORE the lock: creating it commits, and a commit inside
+    # the locked section ends the lock early (rule 10; the handoff's "newcomer error" 1).
+    config = get_or_create_config(coach_id)
     instance = _lock_instance(instance)
     existing = _open_vacancy_for(instance.id, absent_player_id)
     if existing is not None:
@@ -2752,8 +2852,8 @@ def _create_vacancy_for_absent_player(
     side, level_id, _source = vacancy_snapshot_for_player(
         instance, coach_id, absent_player_id
     )
-
-    config = get_or_create_config(coach_id)
+    # PAD-541 (rule 2c): the side the class is short of, chosen here under the class lock.
+    side = freed_spot_side(instance, coach_id, absent_player_id, side)
 
     vacancy = Vacancy(
         lesson_instance_id=instance.id,
@@ -2768,27 +2868,22 @@ def _create_vacancy_for_absent_player(
     return vacancy
 
 
-def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> list[str | None]:
-    """PAD-421 (notifications.invitations rule 2b): the side each of ``count`` new structural
-    vacancies takes, so the class ends as close to even as it can.
-
-    Counts the sides of the players holding a spot (their side with this coach; ``both`` and no
-    side are flexible and count on neither) plus the sides the class's open vacancies already
-    carry. Each new spot takes the side with fewer; a tie gives ``left``, so they alternate.
-    """
+def _side_counts(instance: LessonInstance, coach_id: int, *, leaver_id: int | None = None) -> dict | None:
+    """Rules 2b and 2c: the class's ``left`` / ``right`` count — the players holding a spot (their
+    side with this coach; ``both`` and no side count on neither), minus ``leaver_id``, plus the
+    sides its open vacancies carry. ``None`` when nobody on the coach's roster plays a side: a sided
+    spot would only empty round 1 (a side-less player matches no side, rule 4a) and delay the fill
+    by a tick (rule 3c)."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 
-    # Nothing to balance when nobody on the coach's roster plays a side: a sided spot would only
-    # empty round 1 (a side-less player does not match a side, rule 4a) and delay the fill by a
-    # tick (rule 3c). Keep side None, exactly as before.
     if Association_CoachPlayer.query.filter(
         Association_CoachPlayer.coach_id == coach_id,
         Association_CoachPlayer.side.in_(("left", "right")),
     ).first() is None:
-        return [None] * count
+        return None
 
     counts = {"left": 0, "right": 0}
-    holding = [p.player_id for p in instance.holding_presences]
+    holding = [p.player_id for p in instance.holding_presences if p.player_id != leaver_id]
     if holding:
         for (side,) in (
             db.session.query(Association_CoachPlayer.side)
@@ -2803,6 +2898,30 @@ def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> lis
     ):
         if side in counts:
             counts[side] += 1
+    return counts
+
+
+def freed_spot_side(instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None) -> str | None:
+    """PAD-541 (notifications.invitations rule 2c; owner, 2026-10-08, option A): the side of a spot
+    a cancellation frees — the side the class is short of without the leaver, counting its other
+    open vacancies, so several freed spots balance across one another. A tie keeps the leaver's
+    side (which may be ``both`` or none), as does a roster with no sided player. Call it under the
+    class lock (rule 10) so two cancellations at once see each other's spot."""
+    counts = _side_counts(instance, coach_id, leaver_id=leaver_id)
+    # A roster with no sided player is named on purpose (rule 2c), though its 0 / 0 count would
+    # also fall to the tie below.
+    if counts is None or counts["left"] == counts["right"]:
+        return leaver_side
+    return "left" if counts["left"] < counts["right"] else "right"
+
+
+def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> list[str | None]:
+    """PAD-421 (notifications.invitations rule 2b): the side each of ``count`` new structural
+    vacancies takes, so the class ends as close to even as it can. Counted by ``_side_counts``;
+    each new spot takes the side with fewer, and a tie gives ``left``, so they alternate."""
+    counts = _side_counts(instance, coach_id)
+    if counts is None:
+        return [None] * count
 
     sides = []
     for _ in range(count):
@@ -2826,14 +2945,17 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
 
     if _spots_to_create() == 0:
         return []
+    # B-302 (the twin of B-322): read the configuration BEFORE the lock. For a coach with no row,
+    # `get_or_create_config` creates one and commits, and a commit inside the section ends the lock
+    # before the rows below are added, so a concurrent caller would count the same spots.
+    config = get_or_create_config(coach_id)
+    approval_status = "pending" if _is_semi_auto(config) else "not_required"
+
     # PAD-261 (invitations rule 10): count again under the class lock, and add
     # every new row in one commit, so a concurrent caller waits and then
     # counts them instead of adding its own.
     instance = _lock_instance(instance)
     spots_to_create = _spots_to_create()
-
-    config = get_or_create_config(coach_id)
-    approval_status = "pending" if _is_semi_auto(config) else "not_required"
 
     vacancies = []
     # PAD-421 (rule 2b): each never-filled spot looks for the side the class is short of first.
@@ -4705,6 +4827,43 @@ def _close_vacancy(
     return retired
 
 
+def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
+                               now: datetime | None = None) -> None:
+    """PAD-552 (notifications.invitations rule 13a): bring a class's vacancies in line with a
+    coach's edit at once, instead of at the next tick.
+
+    - Always: ``reconcile_vacancies`` — a capacity lowered below the open vacancies closes the surplus
+      and retires their live invitations (rule 13, in rule 10's order: it locks only the vacancy it
+      closes, skipping one an answer holds; that answer re-checks capacity under the class lock).
+    - When the edit freed a place (a higher capacity, a student taken off) and the coach's
+      invitation window is open: the missing never-filled vacancies are created
+      (``_create_structural_vacancies``, under the class lock) and ``trigger_invitations`` starts
+      them, so every gate applies — engine on, automatic invitations, semi-automatic approval,
+      restrictions and the quiet-hours hold, the start-once claim. Before the window opens nothing
+      is created here: the class's ``invite_start`` job opens the place when the window does.
+    """
+    reconcile_vacancies(instance)
+    if not place_freed or _instance_is_over(instance, now):
+        return
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.lesson_service import primary_coach
+
+    coach = primary_coach(instance)
+    if coach is None:
+        return
+    config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    if config is None or not config.auto_notify_enabled or not instance.notifications_enabled:
+        return
+    if not effective_auto_invites(instance):
+        return
+    _now = now or utcnow_naive()
+    opens_at = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
+    if opens_at is None or _now < opens_at:
+        return
+    _create_structural_vacancies(instance, coach.id)
+    trigger_invitations(instance, coach.id, now=_now)
+
+
 def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:
     """Close the open vacancies capacity no longer supports (PAD-271, invitations rule 13).
 
@@ -4763,6 +4922,78 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
     return closed
 
 
+def _open_never_filled_places(*, now: datetime) -> int:
+    """PAD-540 / B-301 (notifications.invitations rule 1c): open the never-filled places of every
+    materialised class the engine can see but nothing has started.
+
+    An absence writes its vacancy row and the tick below starts it; a place nobody ever filled had
+    only the one-shot ``invite_start_<instance>`` job, derived at materialisation and only for a
+    future time, so a class materialised inside its window (created late, opened by the coach), an
+    invitation start earlier than the first reminder, reminders off, or a restart across the fire
+    time left it silent. This scan is the missing event: for each future class (club clock), not
+    canceled or completed, notifications on, with NO vacancy of any status, automatic invitations on,
+    free capacity and a primary coach whose SAVED configuration has the engine on and whose
+    invitation window (rule 11) has opened, it calls ``trigger_invitations`` — so every existing
+    gate applies (semi-automatic approval, restrictions and the quiet-hours hold, the start-once
+    claim) and the places are created under the class lock (PAD-261), which is what makes a tick
+    racing a start job or an absence on the same class create them once. A class whose vacancies
+    are all filled or expired is not reopened; capacity changes are rule 13's. An invitation start
+    of type ``none`` opens nothing, as it arms no job. A coach with no saved configuration has the
+    engine off (the column default) and is skipped without creating one.
+
+    Returns the number of classes handed to ``trigger_invitations``. Each class runs in its own
+    try/except: one failure is logged and the next tick retries it.
+    """
+    from sqlalchemy import exists
+
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.lesson_service import primary_coach
+
+    wall_now = utc_to_wall_naive(now)
+    candidates = (
+        LessonInstance.query
+        .filter(
+            LessonInstance.start_datetime > wall_now,
+            LessonInstance.status.notin_(("canceled", "completed")),
+            LessonInstance.notifications_enabled.is_(True),
+            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id),
+        )
+        .order_by(LessonInstance.start_datetime.asc(), LessonInstance.id.asc())
+        .all()
+    )
+    configs: dict[int, NotificationConfig | None] = {}
+    opened = 0
+    for instance in candidates:
+        try:
+            # A deploy watermark, if the staging count asks for one, goes here:
+            # `if instance.id < NEVER_FILLED_WATERMARK_ID: continue`.
+            if not effective_auto_invites(instance):
+                continue
+            if (instance.effective_max_players or 0) - _effective_filled_spots(instance) <= 0:
+                continue
+            coach = primary_coach(instance)
+            if coach is None:
+                continue
+            if coach.id not in configs:
+                configs[coach.id] = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+            config = configs[coach.id]
+            if config is None or not config.auto_notify_enabled:
+                continue
+            opens_at = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
+            if opens_at is None or now < opens_at:
+                continue
+            trigger_invitations(instance, coach.id, now=now)
+            opened += 1
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            from flask import current_app, has_app_context
+            if has_app_context():
+                current_app.logger.exception(
+                    "never-filled places: opening class %s failed", getattr(instance, "id", "?")
+                )
+    return opened
+
+
 def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     For each open vacancy, check if enough time has passed since last activity.
@@ -4780,6 +5011,17 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     _now = now or utcnow_naive()
     expire_stale_invitations(now=_now)
+    # PAD-540 / B-301 (rule 1c): a class with a never-filled place and no vacancy of any status
+    # whose window is open is started here, since no absence and no one-shot job will do it.
+    # Its own try (#558 review): a scan that raises (its candidate query included) is logged and
+    # the tick goes on to the open vacancies below; the next tick scans again.
+    try:
+        _open_never_filled_places(now=_now)
+    except Exception:  # noqa: BLE001 — logged, the next tick retries
+        db.session.rollback()
+        from flask import current_app, has_app_context
+        if has_app_context():
+            current_app.logger.exception("never-filled places: the scan failed")
     open_vacancies = Vacancy.query.filter_by(status="open").all()
     processed = 0
 
@@ -4889,6 +5131,7 @@ def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
     from padel_app.tools.after_commit import on_commit
 
     event.answer = "yes"
+    event.answered_by = "student"  # PAD-548 (rule 9)
     if invite_msg is not None and invite_msg.msg_metadata is not None:
         invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": response}
     db.session.flush()
@@ -4927,6 +5170,12 @@ def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = 
         return {"action": "confirmed"}
     if by_coach:
         return None
+    if action == "yes" and event.withdrawn_by_coach_at is not None:
+        # PAD-548 (rule 19): the coach withdrew this invitation; the student's late yes takes
+        # nothing and sends nothing — no enrolment, no waiting-list offer (the coach removed them).
+        # Both shells already show the bubble as "Vaga preenchida".
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "spot_filled"}
     if action == "yes" and event.answer == "no":
         # PAD-497 (rule 18): the student's "no" is final for the class; both clients already show
         # this invitation as Declined, and "declined" keeps it so.
@@ -4980,6 +5229,7 @@ def respond_to_notification(
         # "no" waiting on that lock must already see this one. A "yes" records its answer under
         # rule 10's lock instead, inside the single commit (PAD-499, #527 review item 3).
         event.answer = "no"
+        event.answered_by = "student"  # PAD-548 (rule 9)
         event.status = "expired"
         _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15): flushes
         db.session.flush()
@@ -5088,6 +5338,11 @@ def respond_to_notification(
         if _effective_filled_spots(instance) >= instance.effective_max_players:
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
+            # PAD-552 (rule 13a): the class is full but this spot is still open — a capacity drop
+            # whose reconcile passed over it because this answer held its lock. Close it now, under
+            # this answer's own locks (SKIP LOCKED never skips a row this transaction holds), so
+            # the other offers for the missing seat are retired at once, not at the next tick.
+            reconcile_vacancies(instance)
             event.save()
             # PAD-501: no `spot_filled` message; the answer and the bubble say it.
             _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
@@ -5187,6 +5442,7 @@ def coach_respond_to_notification(
 
     if action == "no":
         event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
+        event.answered_by = "coach"  # PAD-548 (rule 9)
         event.status = "expired"
         _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15)
         event.save()
@@ -5223,6 +5479,7 @@ def coach_respond_to_notification(
         # the enrolment in ONE commit; a second coach yes waiting on the lock then finds it
         # confirmed.
         event.answer = "yes"
+        event.answered_by = "coach"  # PAD-548 (rule 9)
         event.status = "confirmed"
         db.session.flush()
         retired = []
@@ -5238,6 +5495,85 @@ def coach_respond_to_notification(
         return {"action": "confirmed"}
 
     return {"action": "unknown"}
+
+
+def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datetime | None = None) -> dict:
+    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation.
+
+    A third terminal outcome beside the student's "no" and the retire-by-fill: the row is retired
+    exactly as `_close_vacancy` retires one (``expired``, the bubble "Vaga preenchida", the buttons
+    gone), ``answer`` stays NULL and ``withdrawn_by_coach_at`` says why — which every automatic
+    path reads as a "no" for this occurrence (rule 18). The vacancy stays open and the decline
+    follow-up asks the next candidate at once, after the one commit.
+
+    Rule 10's order — the vacancy, then its class (a manual invitation locks its own row, as
+    rule 17's guard does) — and ONE commit: retire, settle and stamp are flushed; the bubble
+    edit is queued with ``on_commit`` before the commit; the follow-up runs after it.
+    """
+    from flask import abort
+
+    from padel_app.models import Coach
+    from padel_app.serializers.lesson import invitation_outcome
+
+    event = NotificationEvent.query.get_or_404(notification_event_id)
+    if event.coach_id != coach_id:
+        abort(403, "Not authorized")
+
+    # PAD-68: a class that already happened is swept, as the coach's recorded answer does.
+    if _instance_is_over(event.lesson_instance, now):
+        _expire_stale_invitations(event.lesson_instance)
+        _retire_invite_message(event)
+        return {"action": "expired"}
+
+    if event.status == "confirmed":
+        # The student holds the spot; leaving a class is the attendance cancel, not this. One
+        # answer whether the yes landed before this read or under the lock below.
+        return {"action": "confirmed"}
+    if event.status not in LIVE_INVITATION_STATES:
+        return {"action": invitation_outcome(event)}  # already ended; a repeated delete is a no-op
+
+    instance = event.lesson_instance
+    vacancy = event.vacancy
+    if vacancy is not None:
+        vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
+        NotificationEvent.query.filter_by(id=event.id).populate_existing().one()
+    else:
+        NotificationEvent.query.filter_by(id=event.id).with_for_update().populate_existing().one()
+    if event.status == "confirmed":
+        # The student's yes won the lock: they are enrolled, and the withdrawal changes nothing.
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": "confirmed"}
+    if event.status not in LIVE_INVITATION_STATES:
+        db.session.commit()  # release the lock; nothing was written
+        return {"action": invitation_outcome(event)}
+
+    event.status = "expired"
+    event.withdrawn_by_coach_at = now or utcnow_naive()
+    _retire_invite_message(event, defer=True)  # flushes only; the bubble reads "Vaga preenchida"
+    _publish_retired([event])  # queued now, sent by the commit below
+    _settle_waiting_list_entry(event, "no")  # waiting-list rule 15: the entry closes, no credit spent
+    if vacancy is not None:
+        vacancy.last_activity_at = utcnow_naive()
+    db.session.flush()
+    event.save()  # the ONE commit; it ends the lock
+
+    coach = Coach.query.get(coach_id)
+    coach_user_id = coach.user_id if coach else None
+    publish(
+        {
+            "type": "notification_responded",
+            "payload": {
+                "lessonInstanceId": instance.id,
+                "notificationEventId": event.id,
+                "response": "withdrawn",
+            },
+        },
+        _coach_only(coach_user_id),
+    )
+    if vacancy is not None:
+        # The spot is still open: ask the next candidate at once, as a student's decline does.
+        _send_next_on_decline(vacancy, instance, coach_id, get_or_create_config(coach_id))
+    return {"action": "withdrawn"}
 
 
 # ---------------------------------------------------------------------------
@@ -5533,6 +5869,10 @@ def respond_to_waiting_list(
             player_id=player.id,
         ).first()
         if existing:
+            if not existing.is_active:
+                # PAD-547 (rule 20): reactivated by the student's own yes, the row is theirs now.
+                existing.standing_entry_id = None
+                existing.added_by = "student"
             existing.is_active = True
             existing.save()
         else:
@@ -5540,6 +5880,7 @@ def respond_to_waiting_list(
                 lesson_instance_id=lesson_instance_id,
                 player_id=player.id,
                 coach_id=coach.id,
+                added_by="student",  # PAD-547 (rule 20)
             ).create()
 
         if coach.user_id:
@@ -5557,23 +5898,107 @@ def respond_to_waiting_list(
     return {"action": "unknown"}
 
 
-def get_waiting_list(instance_id: int, coach_id: int) -> list[dict]:
-    entries = WaitingListEntry.query.filter_by(
-        lesson_instance_id=instance_id,
-        coach_id=coach_id,
-        is_active=True,
-    ).all()
-    result = []
-    for e in entries:
+def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict]:
+    """A class's active waiting list (notifications.waiting-list rules 5 and 20, PAD-547): each row
+    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation)."""
+    query = WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, is_active=True)
+    if coach_id is not None:
+        query = query.filter_by(coach_id=coach_id)
+    rows = []
+    for e in query.all():
+        standing = (
+            db.session.get(StandingWaitingListEntry, e.standing_entry_id) if e.standing_entry_id else None
+        )
         player = e.player
         user = player.user if player else None
-        result.append({
+        origin = "standing" if standing is not None else ("coach" if e.added_by == "coach" else "student")
+        key = (standing.created_at if standing else e.joined_at) or datetime.min
+        rows.append((key, e.id, {
             "id": e.id,
             "playerId": e.player_id,
             "playerName": user.name if user else None,
             "joinedAt": e.joined_at.isoformat() if e.joined_at else None,
-        })
-    return result
+            "origin": origin,
+            "standingEntryId": standing.id if standing else None,
+            "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
+        }))
+    return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
+
+
+def add_to_class_waiting_list(
+    coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
+    credits: int | None = None, expires_at: datetime | None = None,
+) -> dict:
+    """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
+    class's waiting list — this occurrence, or the whole series as a standing entry scoped to it.
+    No full-class or eligibility check (the engine decides when a spot opens); nothing is sent to
+    the student; the coach's views get ``waiting_list_changed``."""
+    from flask import abort, jsonify, make_response
+
+    from sqlalchemy.exc import IntegrityError
+
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    if Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first() is None:
+        abort(404, "Not on your roster")
+    if player_id in set(instance.enrolled_player_ids):
+        abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
+
+    if scope == "series":
+        lesson = instance.lesson
+        if lesson is None or not lesson.is_recurring:
+            abort(400, "Only a recurring class has a series")
+        if credits is None or int(credits) < 1 or expires_at is None:
+            # #588 review: a series entry is paid for in whole classes, at least one.
+            abort(400, "credits (at least 1) and an end date are required")
+        entry = add_standing_waiting_list_entry(
+            coach_id, player_id, int(credits), expires_at=expires_at, lesson_id=lesson.id
+        )
+        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        if row is not None:
+            _publish_waiting_list_changed(row)
+        return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
+    if scope != "occurrence":
+        abort(400, "scope must be occurrence or series")
+
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+    if row is not None and row.is_active:
+        return {"action": "already_on_list", "entryId": row.id}
+    if row is None:
+        row = WaitingListEntry(lesson_instance_id=instance.id, player_id=player_id, coach_id=coach_id)
+        db.session.add(row)
+    row.is_active = True
+    row.coach_id = coach_id
+    row.standing_entry_id = None
+    row.added_by = "coach"
+    row.joined_at = utcnow_naive()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Two adds at once: the other committed the unique (instance, player) row first.
+        db.session.rollback()
+        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        return {"action": "already_on_list", "entryId": row.id if row else None}
+    _publish_waiting_list_changed(row)
+    return {"action": "added", "entryId": row.id}
+
+
+def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
+    """PAD-547 (notifications.waiting-list rule 21): the class's coach takes one row off; a
+    standing entry stays for its other classes; nothing is sent to the student."""
+    from flask import abort
+
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    row = WaitingListEntry.query.get_or_404(entry_id)
+    if row.coach_id != coach_id:
+        abort(403, "Not authorized")
+    if row.is_active:
+        row.is_active = False
+        db.session.commit()
+        _publish_waiting_list_changed(row)
+    return {"action": "removed", "entryId": row.id}
 
 
 def _waiting_list_candidates(
@@ -5837,6 +6262,8 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
+        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+            continue  # PAD-547 (rule 19): a series entry reaches only its series
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
         if instance.status in ("canceled", "completed"):
@@ -5929,13 +6356,14 @@ def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
 
 def add_standing_waiting_list_entry(
     coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
-    *, expires_at: datetime | None = None,
+    *, expires_at: datetime | None = None, lesson_id: int | None = None,
 ) -> StandingWaitingListEntry:
     """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
-    (or, for the legacy callers, `duration_days` from now)."""
-    # Deactivate any existing active entry for this coach/player pair
+    (or, for the legacy callers, `duration_days` from now). PAD-547 (rule 19): ``lesson_id``
+    scopes it to one series; one active entry per coach, player and scope."""
+    # Deactivate any existing active entry for this coach/player pair in the same scope
     existing = StandingWaitingListEntry.query.filter_by(
-        coach_id=coach_id, player_id=player_id, is_active=True
+        coach_id=coach_id, player_id=player_id, is_active=True, lesson_id=lesson_id
     ).first()
     if existing:
         _deactivate_standing_entry(existing)
@@ -5943,6 +6371,7 @@ def add_standing_waiting_list_entry(
     entry = StandingWaitingListEntry(
         coach_id=coach_id,
         player_id=player_id,
+        lesson_id=lesson_id,
         credits_total=credits_total,
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
@@ -6005,6 +6434,9 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "expiresOn": standing_end_on(e),
             "createdAt": e.created_at.isoformat() if e.created_at else None,
             "activeClassCount": active_class_count,
+            # PAD-547 (rule 19): a series-scoped entry names its class.
+            "lessonId": e.lesson_id,
+            "lessonTitle": (e.lesson.title if e.lesson else None) if e.lesson_id else None,
         })
     return result
 
@@ -6029,6 +6461,8 @@ def _sync_standing_entries_for_new_instance(instance: LessonInstance, coach_id: 
         # B-293: an expired entry, or one that ends before this class, queues nothing.
         if entry.expires_at <= now or instance.start_datetime >= utc_to_wall_naive(entry.expires_at):
             continue
+        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+            continue  # PAD-547 (rule 19): a series entry reaches only its series
         existing = WaitingListEntry.query.filter_by(
             lesson_instance_id=instance.id,
             player_id=entry.player_id,
@@ -6077,3 +6511,4 @@ def get_notification_activity(coach_id: int, limit: int = 20) -> list[dict]:
             },
         })
     return result
+

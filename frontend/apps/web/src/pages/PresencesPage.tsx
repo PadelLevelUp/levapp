@@ -73,6 +73,8 @@ export default function PresencesPage() {
   const [filteredPlayers, setFilteredPlayers] = useState<PresencePlayerStats[] | null>(null);
   const [queue, setQueue] = useState<PendingValidation | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  // PAD-539: the whole backlog, the trigger's number (attendance.validation rule 18).
+  const [pendingTotal, setPendingTotal] = useState<number | null>(null);
   const [roster, setRoster] = useState<RosterOption[]>([]);
 
   const [searchParams] = useSearchParams();
@@ -127,6 +129,7 @@ export default function PresencesPage() {
       if (request !== queueRequest.current) return;
       setQueue(list);
       setPendingCount(count.pendingCount);
+      setPendingTotal(count.pendingTotal);
     } catch {
       if (request !== queueRequest.current) return;
       toast({
@@ -269,6 +272,7 @@ export default function PresencesPage() {
             pending={queue?.pending ?? []}
             validated={queue?.validated ?? []}
             pendingCount={pendingCount}
+            pendingTotal={pendingTotal}
             weekOffset={weekOffset}
             onWeekChange={setWeekOffset}
             loading={loadingQueue}

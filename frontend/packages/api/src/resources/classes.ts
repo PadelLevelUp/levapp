@@ -1,4 +1,4 @@
-import type { CalendarEvent, ClassInstance } from "@levelup/types";
+import type { CalendarEvent, ClassInstance, CloneTemplate } from "@levelup/types";
 import { getApi } from "../client";
 
 /**
@@ -96,3 +96,16 @@ export async function getLessonInstanceById(instanceId: number): Promise<{
   const res = await getApi().get(`/app/lesson_instance/${instanceId}`);
   return res.data;
 }
+
+/** classes.clone (PAD-524): the prefill for "Clonar aula", derived on the server from the series. */
+export async function getCloneTemplate(event: {
+  model: string;
+  originalId: string | number;
+  date: string;
+}): Promise<CloneTemplate> {
+  const res = await getApi().get(`/app/class_instance/clone_template`, {
+    params: { model: event.model, id: event.originalId, date: event.date },
+  });
+  return res.data;
+}
+

@@ -131,8 +131,10 @@ def test_cell_a_a_second_yes_on_another_spot_cannot_overfill_the_class(app, monk
         v2_id = db.session.get(NotificationEvent, ids[y][0]).vacancy_id
         invitations = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count()
         # Y held V2 while X's enrolment reconciled, so that reconcile passed it over (rule 10); Y then
-        # found the class full. The next tick reconciles it, and invites nobody for a full class.
-        assert db.session.get(Vacancy, v2_id).status == "open"
+        # found the class full. PAD-552 (rule 13a; coordinator, 2026-10-07): Y's refusal closes V2
+        # itself, under Y's own locks, instead of leaving it to the next tick. (Before PAD-552 this
+        # cell pinned V2 still open here.) The tick then has nothing to do and invites nobody.
+        assert db.session.get(Vacancy, v2_id).status != "open"
         ns.process_invitation_batches(now=NOW + timedelta(minutes=3))
         db.session.expire_all()
         assert db.session.get(Vacancy, v2_id).status != "open"

@@ -38,7 +38,7 @@ from padel_app.models import (
     PlayerLevelHistory,
 )
 from padel_app.tools.request_adapter import JsonRequestAdapter
-from padel_app.tools.calendar_tools import build_datetime
+from padel_app.tools.calendar_tools import build_datetime, build_end_datetime
 from padel_app.services.player_service import create_player_helper
 from padel_app.services.lesson_service import (
     create_lesson_helper,
@@ -412,7 +412,7 @@ def bulk_create_lessons(rows, coach, club):
                 "status": "active",
                 "is_recurring": row.get("is_recurring", False),
                 "start_datetime": build_datetime(day, row.get("start_time")),
-                "end_datetime": build_datetime(day, row.get("end_time")),
+                "end_datetime": build_end_datetime(day, row.get("start_time"), row.get("end_time")),  # PAD-553
                 "max_players": row.get("max_players") or 5,
                 "color": row.get("color") or "#3B82F6",
                 "club": club.id,

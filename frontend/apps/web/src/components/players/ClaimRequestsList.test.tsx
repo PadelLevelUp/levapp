@@ -8,7 +8,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 const listMyClaimRequests = vi.fn();
 const acceptClaimRequest = vi.fn();
 const rejectClaimRequest = vi.fn();
+const previewClaimRequest = vi.fn();
 vi.mock("@/api/playerClaims", () => ({
+  previewClaimRequest: (...a: unknown[]) => previewClaimRequest(...a),
   listMyClaimRequests: (...a: unknown[]) => listMyClaimRequests(...a),
   acceptClaimRequest: (...a: unknown[]) => acceptClaimRequest(...a),
   rejectClaimRequest: (...a: unknown[]) => rejectClaimRequest(...a),
@@ -27,6 +29,7 @@ beforeEach(() => {
   acceptClaimRequest.mockReset().mockResolvedValue(REQ);
   rejectClaimRequest.mockReset().mockResolvedValue(REQ);
   refreshUser.mockReset().mockResolvedValue({ coaches: [{ id: 1 }] });
+  previewClaimRequest.mockReset().mockResolvedValue({ moves: { presences: 2 }, dropped: { presences: 1 }, merged: {} });
 });
 
 describe("ClaimRequestsList re-reads /me after an accepted claim (PAD-444)", () => {
@@ -42,5 +45,16 @@ describe("ClaimRequestsList re-reads /me after an accepted claim (PAD-444)", () 
     fireEvent.click(await screen.findByTestId("claim-reject-5"));
     await waitFor(() => expect(rejectClaimRequest).toHaveBeenCalled());
     expect(refreshUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("ClaimRequestsList shows the dry run before the accept (PAD-528, players.claim rule 5j)", () => {
+  it("renders what moves, what is kept, and that it cannot be undone", async () => {
+    render(<ClaimRequestsList variant="banner" />);
+    const preview = await screen.findByTestId("claim-preview-5");
+    expect(preview.textContent).toContain("players.claim.previewMovesYours");
+    expect(preview.textContent).toContain("players.claim.previewKeptYours");
+    expect(preview.textContent).toContain("players.claim.previewIrreversible");
+    expect(previewClaimRequest).toHaveBeenCalledWith("5");
   });
 });

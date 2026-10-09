@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Union
 from padel_app.tools.calendar_tools import _format_date, _format_time
 from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
@@ -48,6 +48,11 @@ def _compute_status(
     # exactly what the UI shows as ``endTime`` on the ``date`` day. ``.time()``
     # drops any tzinfo, keeping the comparison naive on both sides.
     effective_end = datetime.combine(event_date, end_dt.time())
+    # PAD-553 (classes.create rule 8c, B-346): an end of 00:00 after a later start is midnight at
+    # the END of the event's day, so a 22:00-00:00 class is not "completed" while it runs. Only
+    # that case rolls forward; any other backwards end is B-294's typo and keeps its old reading.
+    if end_dt.time() == datetime.min.time() and start_dt.time() != datetime.min.time():
+        effective_end += timedelta(days=1)
 
     return "completed" if effective_end <= utc_to_wall_naive(now) else "scheduled"
 

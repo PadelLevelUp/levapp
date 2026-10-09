@@ -145,6 +145,9 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
         platforms: linux/amd64
+        # PAD-534 (admin.engine-health rule 4): the image knows its commit.
+        build-args: |
+          GIT_SHA=${{ github.sha }}
     - name: Copy .env.staging to VM
       uses: appleboy/scp-action@v0.1.4
       with:

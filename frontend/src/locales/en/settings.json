@@ -575,6 +575,28 @@
         "waitingListInvite": "Sent first, to the students on the class's waiting list, when a spot opens. {side} names the spot's side when it has one.",
         "addedToClass": "Sent when you put a student in a class.",
         "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing."
+      },
+      "help": {
+        "title": "How to build a message template",
+        "intro": "A template is your own text plus fields in braces, like {name}. When the message is sent, each field is replaced by the real value for that student and class.",
+        "howTo": "Write the message as you would say it and click a field below a template to insert it. A field with no value (a class without a court, for example) disappears with the word just before it, so the sentence still reads well.",
+        "field": "Field",
+        "meaning": "What it shows",
+        "example": "Example",
+        "preview": "Preview:",
+        "fields": {
+          "name": "The student's first name",
+          "level": "The class's level",
+          "weekday": "The day of the week of the class",
+          "time": "The class's start time",
+          "day": "The class's day said naturally, relative to when the message is sent: today, tomorrow, this Friday, next Monday, or the date",
+          "date": "The class's date as day/month",
+          "type": "The kind of class: academy or private",
+          "court": "The class's court (empty when it has none)",
+          "class": "The class's title (\"added to class\" messages only)",
+          "when": "The class's date, weekday and time (\"added to class\" messages only)",
+          "side": "The side of the open spot (waiting-list invitation only)"
+        }
       }
     },
     "notificationBlocks": {

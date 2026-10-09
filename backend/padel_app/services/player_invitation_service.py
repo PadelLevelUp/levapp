@@ -132,7 +132,7 @@ def claim_player_invitation_service(token, user, now=None):
     coach = invitation.invited_by_coach
     coach_name = coach.name if coach else None
     # The merge re-points and accepts this invitation itself (rule 5d).
-    merge_placeholder_player_into(invitation.player, user)
+    merge_placeholder_player_into(invitation.player, user, trigger="invite_link", confirmed_by=user)
     return {"merged": True, "coachName": coach_name}
 
 
