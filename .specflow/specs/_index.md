@@ -8,7 +8,7 @@ governing leaf spec and its dependencies before touching code.
 
 ## Domains
 
-- `admin/` — The staff console at `admin.levapp.app` (5 draft leaves, added 2026-10-06, PAD-530: `admin.foundation` PAD-531, `admin.approvals-and-users` PAD-532, `admin.clubs-and-switches` PAD-533, `admin.engine-health` PAD-534, `admin.commercial-groundwork` PAD-535, blocked by PAD-536/PAD-472)
+- `admin/` — The staff console at `admin.levapp.app` (6 leaves: 5 added 2026-10-06, PAD-530: `admin.foundation` PAD-531, `admin.approvals-and-users` PAD-532, `admin.clubs-and-switches` PAD-533, `admin.engine-health` PAD-534, `admin.commercial-groundwork` PAD-535, blocked by PAD-536/PAD-472; `admin.phone-console` PAD-572 added 2026-10-09)
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
 - `auth/` — Authentication & User Management (14 leaves; `auth.coach-crm-sync` added 2026-10-01, PAD-471; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
