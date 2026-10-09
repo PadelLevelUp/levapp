@@ -1538,7 +1538,10 @@ export interface StandingWaitingListEntry {
   playerId: number;
   playerName: string | null;
   creditsUsed: number;
-  creditsTotal: number;
+  /** PAD-560 (waiting-list rules 19, 19a): null is no credit limit. */
+  creditsTotal: number | null;
+  /** PAD-560 (rule 19): the entry covers its whole series; false is a dated window. */
+  wholeSeries?: boolean;
   expiresAt: string;
   /** PAD-507: the date the entry runs to, inclusive (club calendar). */
   expiresOn: string | null;
@@ -1572,6 +1575,17 @@ export interface CoachClassWaitingListRow {
 }
 
 export type WaitingListScope = 'occurrence' | 'series' | 'period' | 'standing';
+
+/**
+ * PAD-560 (notifications.waiting-list rules 18, 19, 19a, 22): what the coach asks for a row —
+ * this class only; the whole series (asks nothing more); a period of `classes` upcoming
+ * occurrences OR until `expiresOn` (exactly one).
+ */
+export type ClassWaitingListScopeRequest =
+  | { scope: 'occurrence' }
+  | { scope: 'series' }
+  | { scope: 'period'; classes: number }
+  | { scope: 'period'; expiresOn: string };
 
 export interface NotificationEventItem {
   id: string;

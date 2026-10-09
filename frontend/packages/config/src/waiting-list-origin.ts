@@ -37,6 +37,24 @@ export function waitingListScopeLabel(
   }
 }
 
+/**
+ * PAD-560 (notifications.waiting-list rule 19): the date a whole-series entry will run to, as the
+ * dialog tells the coach before saving — the series' end, or 12 months from today when the series
+ * has no end or ends later (rule 2's window). `today` and `recurrenceEnd` are club days `YYYY-MM-DD`.
+ */
+export function wholeSeriesEndPreview(recurrenceEnd: string | null | undefined, today: string): string {
+  const [y, m, d] = today.split("-").map(Number);
+  const cap = new Date(Date.UTC(y + 1, m - 1, d));
+  const capISO = cap.toISOString().slice(0, 10);
+  if (!recurrenceEnd || recurrenceEnd < today) return capISO;
+  return recurrenceEnd < capISO ? recurrenceEnd : capISO;
+}
+
+/** The scopes the add/edit dialog offers: a one-off class has this class only (rules 19, 19a). */
+export function waitingListScopeOptions(isRecurring: boolean): Array<"occurrence" | "series" | "period"> {
+  return isRecurring ? ["occurrence", "series", "period"] : ["occurrence"];
+}
+
 /** A coach-wide standing row is changed in Settings, not from the class (rule 19). */
 export function waitingListRowIsManagedInSettings(row: Pick<CoachClassWaitingListRow, "scope">): boolean {
   return row.scope === "standing";

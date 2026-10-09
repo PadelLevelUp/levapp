@@ -6,6 +6,8 @@ import {
   waitingListPickerOptions,
   waitingListRowIsManagedInSettings,
   waitingListScopeLabel,
+  waitingListScopeOptions,
+  wholeSeriesEndPreview,
 } from "./waiting-list-origin";
 
 describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () => {
@@ -34,6 +36,18 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
     it("marks only a coach-wide standing row as managed in Settings", () => {
       expect(waitingListRowIsManagedInSettings({ scope: "standing" })).toBe(true);
       for (const scope of ["occurrence", "series", "period"] as const) expect(waitingListRowIsManagedInSettings({ scope })).toBe(false);
+    });
+
+    it("tells the coach the date a whole-series entry will run to: the series' end, capped at 12 months (rule 19)", () => {
+      expect(wholeSeriesEndPreview("2026-12-31", "2026-10-09")).toBe("2026-12-31");
+      expect(wholeSeriesEndPreview("2028-01-15", "2026-10-09")).toBe("2027-10-09");
+      expect(wholeSeriesEndPreview(null, "2026-10-09")).toBe("2027-10-09");
+      expect(wholeSeriesEndPreview("2026-01-01", "2026-10-09")).toBe("2027-10-09");
+    });
+
+    it("offers the series scopes only for a recurring class", () => {
+      expect(waitingListScopeOptions(true)).toEqual(["occurrence", "series", "period"]);
+      expect(waitingListScopeOptions(false)).toEqual(["occurrence"]);
     });
 
   });

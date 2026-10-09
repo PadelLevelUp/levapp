@@ -16,7 +16,8 @@ const SHEET = fs.readFileSync(path.join(HERE, "class-waiting-list-section.tsx"),
 describe("the iOS waiting-list picker searches by name (PAD-558)", () => {
   it("has a search field bound to the sheet's search text, cleared each time it opens", () => {
     expect(SHEET).toMatch(/testID="class-waiting-list-search"[\s\S]{0,200}value=\{search\}[\s\S]{0,80}onChangeText=\{setSearch\}/);
-    expect(SHEET).toMatch(/setPlayerId\(null\);\s*setSearch\(""\);/);
+    // Opening to add clears the search and the choice; opening to edit (rule 22) fixes the student instead.
+    expect(SHEET).toMatch(/setSearch\(""\);[\s\S]{0,200}if \(editing\) \{[\s\S]*?return;\s*\}\s*setPlayerId\(null\);/);
   });
 
   it("lists only what the shared search rule offers, keeping the chosen student", () => {
@@ -30,7 +31,25 @@ describe("the iOS waiting-list picker searches by name (PAD-558)", () => {
   it("says how long each student is on the list, and only a coach-wide standing row that it is managed in Settings (PAD-560, rule 19)", () => {
     expect(SHEET).toMatch(/const scope = waitingListScopeLabel\(row, \(iso\) => formatShortDate\(iso, nativeLocaleTag\(i18n\.language\)\)\);/);
     expect(SHEET).toMatch(/testID=\{`class-waiting-list-row-scope-\$\{row\.playerId\}-\$\{row\.scope\}`\}[\s\S]{0,200}\{t\(scope\.key, scope\.params\)\}/);
-    expect(SHEET).toMatch(/\{waitingListRowIsManagedInSettings\(row\) \? \([\s\S]{0,120}class-waiting-list-managed-\$\{row\.playerId\}[\s\S]{0,160}waitingListManagedInSettings/);
+    expect(SHEET).toMatch(/const managed = waitingListRowIsManagedInSettings\(row\);[\s\S]{0,900}\{managed \? \([\s\S]{0,120}class-waiting-list-managed-\$\{row\.playerId\}[\s\S]{0,160}waitingListManagedInSettings/);
+  });
+
+  it("offers the scopes the shared rule names, says the whole series' end, and asks a period as classes or a date (PAD-560, rules 19, 19a)", () => {
+    expect(SHEET).toMatch(/const scopes = waitingListScopeOptions\(isRecurring\);/);
+    expect(SHEET).toMatch(/\{scopes\.map\(\(s\) => \([\s\S]{0,200}testID=\{`class-waiting-list-scope-\$\{s\}`\}/);
+    expect(SHEET).toMatch(/wholeSeriesEndPreview\(recurrenceEnd, clubTodayISO\(today\)\)/);
+    expect(SHEET).toMatch(/testID="class-waiting-list-series-until"/);
+    for (const id of ["class-waiting-list-period-classes", "class-waiting-list-period-date", "class-waiting-list-classes-minus", "class-waiting-list-classes-plus", "class-waiting-list-end-date"]) {
+      expect(SHEET).toContain(`testID="${id}"`);
+    }
+    expect(SHEET).not.toContain("class-waiting-list-credits");
+  });
+
+  it("moves a row between scopes from its edit control, never a coach-wide standing row (rule 22)", () => {
+    expect(SHEET).toMatch(/\{!managed \? \([\s\S]{0,120}testID=\{`class-waiting-list-edit-\$\{row\.playerId\}`\}/);
+    expect(SHEET).toMatch(/onPress=\{\(\) => setDialog\(\{ editing: row \}\)\}/);
+    expect(SHEET).toMatch(/testID="class-waiting-list-editing-name"/);
+    expect(SHEET).toMatch(/await notificationEngineApi\.changeClassWaitingListScope\(editing\.id, req\);/);
   });
 
   it("lets a row take a tap while the keyboard is open", () => {
