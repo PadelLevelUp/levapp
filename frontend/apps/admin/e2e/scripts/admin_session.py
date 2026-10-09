@@ -51,32 +51,47 @@ app = create_app()
 with app.app_context():
     email = args.email.strip().lower()
     now = utcnow_naive()
-    role = AdminRole(email=email, role=args.role, granted_by_email=None, granted_at=now - timedelta(seconds=5))
-    db.session.add(role)
+    # Refuse an unmigrated database with a clear message (run `npm run test:e2e`, which resets first).
+    if not db.engine.dialect.has_table(db.engine.connect(), "admin_roles"):
+        sys.exit("admin_session.py: database has no schema; run e2e/scripts/reset-db.sh first")
+    # Idempotent: a second run on the same database updates the row instead of duplicating it.
+    role = AdminRole.query.filter_by(email=email).first()
+    if role is None:
+        role = AdminRole(email=email, role=args.role, granted_by_email=None)
+        db.session.add(role)
+    role.role = args.role
+    role.revoked_at = None
+    role.granted_at = now - timedelta(seconds=5)
 
     # admin.phone-console "Approvals keep both actions reachable": coaches waiting for a decision.
     # A Coach row defaults to "approved" in Python, so the status is explicit.
     pending_ids = []
     user_ids = []
     for name, username, user_email in PENDING_COACHES:
-        user = User(
-            name=name,
-            username=username,
-            email=user_email,
-            password=generate_password_hash("E2ePending123!"),
-            status="active",
-            language="en",
-        )
-        db.session.add(user)
-        db.session.flush()
-        coach = Coach(user_id=user.id, approval_status="pending")
-        db.session.add(coach)
+        user = User.query.filter_by(username=username).first()
+        if user is None:
+            user = User(
+                name=name,
+                username=username,
+                email=user_email,
+                password=generate_password_hash("E2ePending123!"),
+                status="active",
+                language="en",
+            )
+            db.session.add(user)
+            db.session.flush()
+        coach = Coach.query.filter_by(user_id=user.id).first()
+        if coach is None:
+            coach = Coach(user_id=user.id, approval_status="pending")
+            db.session.add(coach)
+        coach.approval_status = "pending"
         db.session.flush()
         pending_ids.append(coach.id)
         user_ids.append(user.id)
 
     # "The audit log scrolls inside its own container": rows to render.
-    for i, action in enumerate(AUDIT_ACTIONS):
+    existing = AdminAuditLog.query.filter_by(actor_email=email).count()
+    for i, action in enumerate(AUDIT_ACTIONS[existing:]):
         db.session.add(
             AdminAuditLog(
                 created_at=now - timedelta(minutes=i + 1),

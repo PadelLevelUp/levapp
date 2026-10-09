@@ -10,7 +10,9 @@ const __dirname = path.dirname(__filename);
    and the backend port are the web app's for this checkout (PAD-218 isolation, derived from the
    web app's directory so both suites agree), so the console and the product never fight over a
    second database. The console is served by Vite on its own port: E2E_ADMIN_PORT, else the web
-   port + 1000 (9100-9400, away from 8090 and the web range), else 8090 when E2E_SHARED=1. */
+   port + 1000 (9100-9400, away from 8090 and the web range), else 8090 when E2E_SHARED=1.
+   Run through `npm run test:e2e`: it resets the database BEFORE Playwright boots the backend
+   (e2e/scripts/reset-db.sh); globalSetup only seeds. */
 const ISOLATION = resolveE2EIsolation(process.env, path.resolve(__dirname, "../web"));
 const BACKEND_PORT = ISOLATION.backendPort;
 const DB_NAME = ISOLATION.dbName;

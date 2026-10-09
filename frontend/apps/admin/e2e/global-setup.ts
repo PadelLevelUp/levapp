@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "child_process";
+import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -35,17 +35,9 @@ export default async function globalSetup() {
   }
   writeLock(isolation.dbName, webDir);
 
-  const dbEnv = {
-    ...process.env,
-    E2E_DB_NAME: isolation.dbName,
-    E2E_BACKEND_PORT: isolation.backendPort,
-    E2E_WEB_PORT: isolation.webPort,
-    E2E_RESET_FROM_PLAYWRIGHT: "1",
-  };
-
-  console.log(`[admin global-setup] Resetting test database ${isolation.dbName}…`);
-  execSync(`bash "${path.resolve(webDir, "e2e/scripts/reset-test-db.sh")}"`, { stdio: "inherit", env: dbEnv });
-
+  // No reset here: Playwright has already started the Flask webServer against this database,
+  // and dropping it underneath the server deadlocks (2026-10-09). `npm run test:e2e` resets first
+  // through e2e/scripts/reset-db.sh; the seeder below refuses an unmigrated database.
   console.log("[admin global-setup] Seeding the console session…");
   const backendDir = path.resolve(__dirname, "../../../../backend");
   const out = execFileSync(

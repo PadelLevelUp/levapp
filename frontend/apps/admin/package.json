@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "bash e2e/scripts/reset-db.sh && playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.83.0",
