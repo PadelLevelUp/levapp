@@ -1,0 +1,20 @@
+server {
+    # B-383: port 80 for admin.staging.levapp.app, in its own file so it is valid before the certificate exists.
+    # It answers Let's Encrypt's http-01 challenge from the webroot certbot writes to (issue and
+    # every renewal), and sends everything else to https. No server-level `return` or `if`: nginx
+    # runs those before choosing a location, which is how levapp.app's certbot-written
+    # `return 404` (the implicit port-80 default) swallowed the nginx authenticator's challenge.
+    # Never `default_server` here: levapp.app keeps answering unknown hosts.
+    listen 80;
+    server_name admin.staging.levapp.app;
+    access_log /var/log/nginx/access.log redacted;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type text/plain;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
