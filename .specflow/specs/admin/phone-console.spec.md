@@ -78,7 +78,7 @@ with nothing lost: the same navigation, the same badges, the same actions.
    `frontend/apps/admin/playwright.config.ts` and `frontend/apps/admin/e2e/`, modelled on the web
    app's (same isolation variables for the backend database and ports, backend started the same
    way, the console served by Vite on its own port, `E2E_ADMIN_PORT`, default 8090). One project,
-   device `iPhone 13` (390 × 844; rule 1 is asserted at 375 × 667 explicitly in the spec). Sign-in
+   device `iPhone 13` emulated in Chromium (390 × 844; rule 1 is asserted at 375 × 667 explicitly in the spec). Sign-in
    in E2E does not go through Google: the database is reset before Playwright starts (`npm run test:e2e`,
    never inside global setup: the backend is already serving it), then global setup seeds an
    `admin_roles` row for a staff email and mints a console token with the backend's own issuer (the function `/admin/api/auth/google`
