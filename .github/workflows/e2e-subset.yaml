@@ -80,7 +80,10 @@ jobs:
         run: ${{ fromJSON(needs.plan.outputs.runs) }}
     services:
       postgres:
-        image: postgres:15
+        # PAD-598: the official image from AWS's public mirror, not Docker Hub, whose anonymous
+        # per-IP quota and auth endpoint failed GitHub's shared runners (`toomanyrequests`,
+        # then token-endpoint timeouts). Same bytes as postgres:15.
+        image: public.ecr.aws/docker/library/postgres:15
         env:
           POSTGRES_USER: padel_app_user
           POSTGRES_PASSWORD: padel_app_test

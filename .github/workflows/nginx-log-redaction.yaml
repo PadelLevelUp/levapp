@@ -28,7 +28,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      # PAD-598: the script's nginx image from AWS's public mirror, not Docker Hub (anonymous
+      # per-IP quota and auth-endpoint timeouts on GitHub's shared runners). Same bytes as nginx:1.27.
       - name: Host nginx (infra/nginx)
+        env:
+          NGINX_IMAGE: public.ecr.aws/docker/library/nginx:1.27
         run: bash infra/nginx/check-log-redaction.sh infra/nginx
       - name: Web image nginx (frontend/apps/web/nginx.conf)
+        env:
+          # The script's --web path reads NGINX_WEB_IMAGE (default nginx:1.27-alpine).
+          NGINX_WEB_IMAGE: public.ecr.aws/docker/library/nginx:1.27-alpine
         run: bash infra/nginx/check-log-redaction.sh --web frontend/apps/web/nginx.conf
