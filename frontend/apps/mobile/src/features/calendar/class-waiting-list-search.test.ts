@@ -17,7 +17,7 @@ describe("the iOS waiting-list picker searches by name (PAD-558)", () => {
   it("has a search field bound to the sheet's search text, cleared each time it opens", () => {
     expect(SHEET).toMatch(/testID="class-waiting-list-search"[\s\S]{0,200}value=\{search\}[\s\S]{0,80}onChangeText=\{setSearch\}/);
     // Opening to add clears the search and the choice; opening to edit (rule 22) fixes the student instead.
-    expect(SHEET).toMatch(/setSearch\(""\);[\s\S]{0,200}if \(editing\) \{[\s\S]*?return;\s*\}\s*setPlayerId\(null\);/);
+    expect(SHEET).toMatch(/setSearch\(""\);[\s\S]{0,400}const draft = waitingListDraftFor\(editing, now\);[\s\S]{0,300}setPlayerId\(editing \? String\(editing\.playerId\) : null\);/);
   });
 
   it("lists only what the shared search rule offers, keeping the chosen student", () => {

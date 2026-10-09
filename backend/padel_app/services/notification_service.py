@@ -5971,47 +5971,69 @@ def _waiting_list_row_scope(standing: "StandingWaitingListEntry | None") -> str:
     return "series" if standing.whole_series else "period"
 
 
-def _series_scope_end(lesson, instance: LessonInstance, scope: str, *, classes=None, expires_at=None) -> datetime:
-    """PAD-560 (notifications.waiting-list rules 19, 19a): the UTC expiry instant of a series-scoped
-    entry. ``series``: the series' end date, capped at 12 months from today (rule 2; never
-    open-ended), fixed at creation. ``period``: exactly one of ``classes`` (the club day of the X-th
-    occurrence of this series that has not started, this class included; the series' end or the
-    cap when fewer remain) or ``expires_at`` (already rule 2's instant)."""
+# PAD-560 (notifications.waiting-list rule 19a): "durante X aulas" is at most this many; the dialogs
+# share the bound as WAITING_LIST_MAX_PERIOD_CLASSES in @levelup/config.
+WAITING_LIST_MAX_PERIOD_CLASSES = 52
+
+
+def _standing_cap_day(today):
+    """Rule 2's horizon: the last club day a standing entry may run to (12 months from today)."""
+    from dateutil.relativedelta import relativedelta
+
+    return today + relativedelta(months=STANDING_MAX_MONTHS)
+
+
+def _club_day_expiry(day) -> datetime:
+    """A club day (inclusive) → the UTC instant the entry expires: the start of the next club day."""
+    return wall_to_utc_naive(datetime.combine(day + timedelta(days=1), time.min))
+
+
+def _series_end_day(lesson, today):
+    """Rule 19: the series' end date, or rule 2's cap when the series has no end or ends later."""
+    cap_day = _standing_cap_day(today)
+    series_end = lesson.recurrence_end
+    return min(series_end, cap_day) if series_end is not None and series_end >= today else cap_day
+
+
+def _period_end_day(lesson, now_wall, classes):
+    """Rule 19a: the club day of the X-th occurrence of this series that has not started (this class
+    included), read from the recurrence rule and exclusions; the series' (capped) end when fewer
+    remain."""
     from flask import abort
 
-    from dateutil.relativedelta import relativedelta
+    try:
+        count = int(classes)
+    except (TypeError, ValueError):
+        count = 0
+    if count < 1 or count > WAITING_LIST_MAX_PERIOD_CLASSES:
+        abort(400, f"classes must be between 1 and {WAITING_LIST_MAX_PERIOD_CLASSES}")
+    end_day = _series_end_day(lesson, now_wall.date())
+    range_end = datetime.combine(end_day + timedelta(days=1), time.min)
+    upcoming = sorted(
+        occ.replace(tzinfo=None) if getattr(occ, "tzinfo", None) else occ
+        for occ in lesson.occurrences_between(now_wall, range_end)
+    )
+    upcoming = [occ for occ in upcoming if occ > now_wall]
+    return upcoming[count - 1].date() if len(upcoming) >= count else end_day
+
+
+def _series_scope_end(lesson, instance: LessonInstance, scope: str, *, classes=None, expires_at=None) -> datetime:
+    """PAD-560 (notifications.waiting-list rules 19, 19a): the UTC expiry instant of a series-scoped
+    entry. ``series`` asks nothing (``classes``/``expires_at`` from old builds are ignored) and runs
+    to the series' capped end, fixed at creation. ``period`` is exactly one of ``classes`` or
+    ``expires_at`` (already rule 2's instant)."""
+    from flask import abort
 
     from padel_app.utils.dates import club_now_naive
 
     now_wall = club_now_naive()
-    today = now_wall.date()
-    cap_day = today + relativedelta(months=STANDING_MAX_MONTHS)
-    series_end = lesson.recurrence_end
-    end_day = min(series_end, cap_day) if series_end is not None and series_end >= today else cap_day
-
     if scope == "series":
-        if classes is not None or expires_at is not None:
-            pass  # old builds sent credits/expiresOn with "series"; the whole series asks nothing (rule 19)
-    else:
-        if (classes is None) == (expires_at is None):
-            abort(400, "a period is exactly one of classes or expiresOn")
-        if expires_at is not None:
-            return expires_at
-        try:
-            count = int(classes)
-        except (TypeError, ValueError):
-            count = 0
-        if count < 1 or count > 52:
-            abort(400, "classes must be between 1 and 52")
-        range_end = datetime.combine(end_day + timedelta(days=1), time.min)
-        upcoming = sorted(
-            occ.replace(tzinfo=None) if getattr(occ, "tzinfo", None) else occ
-            for occ in lesson.occurrences_between(now_wall, range_end)
-        )
-        upcoming = [occ for occ in upcoming if occ > now_wall]
-        if len(upcoming) >= count:
-            end_day = upcoming[count - 1].date()
-    return wall_to_utc_naive(datetime.combine(end_day + timedelta(days=1), time.min))
+        return _club_day_expiry(_series_end_day(lesson, now_wall.date()))
+    if (classes is None) == (expires_at is None):
+        abort(400, "a period is exactly one of classes or expiresOn")
+    if expires_at is not None:
+        return expires_at
+    return _club_day_expiry(_period_end_day(lesson, now_wall, classes))
 
 
 def _repoint_class_row(instance: LessonInstance, player_id: int, entry: StandingWaitingListEntry):
@@ -6116,31 +6138,18 @@ def change_class_waiting_list_scope(
 
     if scope == "occurrence":
         if standing is not None:
-            _deactivate_standing_entry(standing)
-            row.is_active = True
-            row.standing_entry_id = None
-            row.added_by = "coach"
-            db.session.commit()
+            _demote_row_to_occurrence(row, standing)
             _publish_waiting_list_changed(row)
     elif scope in ("series", "period"):
         if lesson is None or not lesson.is_recurring:
             abort(400, "Only a recurring class has a series")
+        whole = scope == "series"
         end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         if standing is not None:
-            standing.expires_at = end
-            standing.whole_series = scope == "series"
-            standing.credits_total = None
-            standing.save()
-            end_wall = utc_to_wall_naive(end)
-            for other in WaitingListEntry.query.filter_by(standing_entry_id=standing.id, is_active=True).all():
-                inst = LessonInstance.query.get(other.lesson_instance_id)
-                if inst is not None and inst.start_datetime >= end_wall and other.id != row.id:
-                    other.is_active = False
-            db.session.commit()
-            _fan_out_standing_entry(standing)
+            _retarget_standing_entry(standing, end, whole_series=whole, keep_row_id=row.id)
         else:
             entry = add_standing_waiting_list_entry(
-                coach_id, row.player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=scope == "series",
+                coach_id, row.player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=whole,
             )
             _repoint_class_row(instance, row.player_id, entry)
         _publish_waiting_list_changed(row)
@@ -6148,6 +6157,39 @@ def change_class_waiting_list_scope(
         abort(400, "scope must be occurrence, series or period")
     db.session.expire_all()
     return next(r for r in get_waiting_list(row.lesson_instance_id) if r["id"] == row.id)
+
+
+def _demote_row_to_occurrence(row: WaitingListEntry, standing: StandingWaitingListEntry) -> None:
+    """Rule 22 → occurrence: the series entry goes with its rows on the other occurrences; this row
+    stays active as the coach's, keeping its join time."""
+    _deactivate_standing_entry(standing)
+    row.is_active = True
+    row.standing_entry_id = None
+    row.added_by = "coach"
+    db.session.commit()
+
+
+def _retarget_standing_entry(
+    standing: StandingWaitingListEntry, end: datetime, *, whole_series: bool, keep_row_id: int,
+) -> None:
+    """Rule 22 → series/period on a row that already has a series entry: move its end and mark,
+    drop the credit limit, trim rows past the new end (as a renewal, rule 2) and fan out again."""
+    standing.expires_at = end
+    standing.whole_series = whole_series
+    standing.credits_total = None
+    standing.save()
+    end_wall = utc_to_wall_naive(end)
+    rows = WaitingListEntry.query.filter_by(standing_entry_id=standing.id, is_active=True).all()
+    instances = {
+        inst.id: inst
+        for inst in LessonInstance.query.filter(LessonInstance.id.in_({r.lesson_instance_id for r in rows})).all()
+    } if rows else {}
+    for other in rows:
+        inst = instances.get(other.lesson_instance_id)
+        if inst is not None and inst.start_datetime >= end_wall and other.id != keep_row_id:
+            other.is_active = False
+    db.session.commit()
+    _fan_out_standing_entry(standing)
 
 
 def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
@@ -6496,9 +6538,9 @@ def standing_end_from_date(value) -> datetime:
         except ValueError:
             day = None
     today = club_now_naive().date()
-    if day is None or day < today or day > today + relativedelta(months=STANDING_MAX_MONTHS):
+    if day is None or day < today or day > _standing_cap_day(today):
         raise InvalidStandingEndError("expiresOn")
-    return wall_to_utc_naive(datetime.combine(day + timedelta(days=1), time.min))
+    return _club_day_expiry(day)
 
 
 def standing_end_from_days(value) -> datetime:

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, abort, current_app, jsonify, request
+from flask import Blueprint, abort, current_app, jsonify, make_response, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from padel_app.models import Association_CoachPlayer, Lesson, LessonInstance, User
@@ -512,33 +512,36 @@ def class_waiting_list_add():
     try:
         original_id = int(data.get("originalId"))
         player_id = int(data.get("playerId"))
-        credits = int(data["credits"]) if data.get("credits") is not None else None
-        classes = int(data["classes"]) if data.get("classes") is not None else None
     except (TypeError, ValueError):
-        return jsonify({"error": "originalId, playerId, credits and classes must be integers"}), 400
+        return jsonify({"error": "originalId and playerId must be integers"}), 400
     instance = _resolve_instance(str(data.get("model", "")), original_id, data.get("date"))
     if not coach_owns_instance(coach, instance):
         return jsonify({"error": "Not your class"}), 403
-    scope = data.get("scope", "occurrence")
-    expires_at, err = _period_end(scope, data)
-    if err is not None:
-        return err
+    scope, classes, expires_at = _parse_scope_body(data)
+    # `credits` from old builds is accepted and ignored (rule 19); it is not validated.
     result = add_to_class_waiting_list(
-        coach.id, instance, player_id, scope=scope, credits=credits, expires_at=expires_at, classes=classes,
+        coach.id, instance, player_id, scope=scope, expires_at=expires_at, classes=classes,
     )
     return jsonify(result), 201 if result["action"] == "added" else 200
 
 
-def _period_end(scope: str, data: dict):
-    """PAD-560 (rule 19a): `expiresOn` is read for a period only, under rule 2's window."""
+def _parse_scope_body(data: dict):
+    """PAD-560 (rules 18, 19, 19a, 22): the scope fields of an add or a change — `scope`, `classes`
+    (an integer, else 400) and `expiresOn` (read for a period only, under rule 2's window, else 400)."""
     from padel_app.services.notification_service import InvalidStandingEndError, standing_end_from_date
 
-    if scope != "period" or data.get("expiresOn") is None:
-        return None, None
+    scope = data.get("scope", "occurrence")
     try:
-        return standing_end_from_date(data.get("expiresOn")), None
-    except InvalidStandingEndError as exc:
-        return None, (jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400)
+        classes = int(data["classes"]) if data.get("classes") is not None else None
+    except (TypeError, ValueError):
+        abort(make_response(jsonify({"error": "classes must be an integer"}), 400))
+    expires_at = None
+    if scope == "period" and data.get("expiresOn") is not None:
+        try:
+            expires_at = standing_end_from_date(data.get("expiresOn"))
+        except InvalidStandingEndError as exc:
+            abort(make_response(jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400))
+    return scope, classes, expires_at
 
 
 @bp.patch("/class_waiting_list/<int:entry_id>")
@@ -550,14 +553,7 @@ def class_waiting_list_change_scope(entry_id: int):
 
     coach = _current_coach()
     data = request.get_json() or {}
-    scope = data.get("scope", "")
-    try:
-        classes = int(data["classes"]) if data.get("classes") is not None else None
-    except (TypeError, ValueError):
-        return jsonify({"error": "classes must be an integer"}), 400
-    expires_at, err = _period_end(scope, data)
-    if err is not None:
-        return err
+    scope, classes, expires_at = _parse_scope_body({**data, "scope": data.get("scope", "")})
     row = change_class_waiting_list_scope(entry_id, coach.id, scope=scope, classes=classes, expires_at=expires_at)
     return jsonify(row), 200
 

@@ -229,49 +229,89 @@ def _change(entry_id, coach_id, **kw):
     return change_class_waiting_list_scope(entry_id, coach_id, **kw)
 
 
-def test_the_coach_moves_a_row_between_scopes(app, monkeypatch):
-    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
-
+def _moves_fixture(app, monkeypatch):
+    """A weekly series with its 2nd and 3rd occurrences materialised; Carla on this class only."""
     _quiet(monkeypatch)
     ids = _setup(app)
     series = _series(app, ids, weeks_to_end=6)
     carla = _student(app, ids, "carla")
-    dinis = _student(app, ids, "dinis")
     second = _materialize(app, series, 7)
     third = _materialize(app, series, 14)
     with app.app_context():
         _add(ids["coach_id"], series["instance_id"], carla, scope="occurrence")
-        dinis_entry_id = _add(ids["coach_id"], series["instance_id"], dinis, scope="series")["standingEntryId"]
-        carla_row = _rows(series["instance_id"])[carla]
-        joined = carla_row.joined_at
+    return ids, series, carla, second, third
 
-        # Carla: this class only → the whole series
-        out = _change(carla_row.id, ids["coach_id"], scope="series")
-        assert out["scope"] == "series" and out["id"] == carla_row.id
+
+def test_a_class_only_row_moves_to_the_whole_series(app, monkeypatch):
+    ids, series, carla, second, third = _moves_fixture(app, monkeypatch)
+    with app.app_context():
         row = _rows(series["instance_id"])[carla]
-        assert row.standing_entry_id is not None and row.joined_at == joined
+        joined = row.joined_at
+        out = _change(row.id, ids["coach_id"], scope="series")
+        assert out["scope"] == "series" and out["id"] == row.id
+        moved = _rows(series["instance_id"])[carla]
+        assert moved.standing_entry_id is not None and moved.joined_at == joined, "the row follows the new entry, keeping its join time"
         assert _rows(second)[carla].is_active and _rows(third)[carla].is_active
-        carla_entry = row.standing_entry_id
 
-        # Dinis: the whole series → this class only
-        dinis_row = _rows(series["instance_id"])[dinis]
-        out = _change(dinis_row.id, ids["coach_id"], scope="occurrence")
+
+def test_a_series_row_moves_to_this_class_only(app, monkeypatch):
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+
+    ids, series, _carla, second, third = _moves_fixture(app, monkeypatch)
+    dinis = _student(app, ids, "dinis")
+    with app.app_context():
+        entry_id = _add(ids["coach_id"], series["instance_id"], dinis, scope="series")["standingEntryId"]
+        out = _change(_rows(series["instance_id"])[dinis].id, ids["coach_id"], scope="occurrence")
         assert out["scope"] == "occurrence"
         db.session.expire_all()
-        assert db.session.get(StandingWaitingListEntry, dinis_entry_id).is_active is False
+        assert db.session.get(StandingWaitingListEntry, entry_id).is_active is False
         assert _rows(second)[dinis].is_active is False and _rows(third)[dinis].is_active is False
         d = _rows(series["instance_id"])[dinis]
         assert d.is_active and d.standing_entry_id is None and d.added_by == "coach"
 
-        # Carla: the whole series → a period of 2 classes
-        out = _change(carla_row.id, ids["coach_id"], scope="period", classes=2)
+
+def test_a_series_row_moves_to_a_period(app, monkeypatch):
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
+
+    ids, series, carla, second, third = _moves_fixture(app, monkeypatch)
+    with app.app_context():
+        row = _rows(series["instance_id"])[carla]
+        _change(row.id, ids["coach_id"], scope="series")
+        entry_id = _rows(series["instance_id"])[carla].standing_entry_id
+        out = _change(row.id, ids["coach_id"], scope="period", classes=2)
         assert out["scope"] == "period"
         db.session.expire_all()
-        entry = db.session.get(StandingWaitingListEntry, carla_entry)
-        assert entry.is_active and entry.whole_series is False
+        entry = db.session.get(StandingWaitingListEntry, entry_id)
+        assert entry.is_active and entry.whole_series is False and entry.credits_total is None
         assert _end_on(entry) == series["start"].date() + timedelta(days=7)
         assert _rows(second)[carla].is_active and _rows(third)[carla].is_active is False
         assert _rows(series["instance_id"])[carla].is_active
+
+
+def test_a_series_that_already_ended_is_capped_like_an_endless_one(app, monkeypatch):
+    _quiet(monkeypatch)
+    ids = _setup(app)
+    ended = _series(app, ids, end=_today() - timedelta(days=1), title="Acabou")
+    carla = _student(app, ids, "carla")
+    with app.app_context():
+        entry = _entry(_add(ids["coach_id"], ended["instance_id"], carla, scope="series")["standingEntryId"])
+        assert _end_on(entry) == _today() + relativedelta(months=12)
+
+
+def test_the_standing_list_says_which_entries_cover_a_whole_series(app, monkeypatch):
+    from padel_app.services.notification_service import add_standing_waiting_list_entry, get_standing_waiting_list
+    from padel_app.utils.dates import utcnow_naive
+
+    _quiet(monkeypatch)
+    ids = _setup(app)
+    series = _series(app, ids)
+    carla = _student(app, ids, "carla")
+    with app.app_context():
+        coach_wide = add_standing_waiting_list_entry(ids["coach_id"], carla, 3, expires_at=utcnow_naive() + timedelta(days=30))
+        whole = _add(ids["coach_id"], series["instance_id"], carla, scope="series")["standingEntryId"]
+        by_id = {e["id"]: e for e in get_standing_waiting_list(ids["coach_id"])}
+        assert by_id[coach_wide.id]["wholeSeries"] is False and by_id[coach_wide.id]["creditsTotal"] == 3
+        assert by_id[whole]["wholeSeries"] is True and by_id[whole]["creditsTotal"] is None
 
 
 def test_a_coach_wide_row_is_not_changed_from_the_class(app, monkeypatch):

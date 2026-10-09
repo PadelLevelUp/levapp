@@ -8,34 +8,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Pencil, Plus, Search, X } from "lucide-react";
-import type { ClassWaitingListScopeRequest, CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } from "@levelup/types";
+import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } from "@levelup/types";
 import {
-  DEFAULT_STANDING_PRESET,
+  WAITING_LIST_MAX_PERIOD_CLASSES,
+  WAITING_LIST_SCOPE_KEYS,
   clubTodayISO,
   describeIneligible,
   formatShortDate,
-  isStandingEndAllowed,
   resolveText,
   standingEndBounds,
-  standingEndFor,
   waitingListCandidates,
+  waitingListDraftFor,
   waitingListOriginKey,
+  waitingListPeriodValid,
   waitingListPickerOptions,
   waitingListRowIsManagedInSettings,
   waitingListScopeLabel,
   waitingListScopeOptions,
+  waitingListScopeRequest,
   wholeSeriesEndPreview,
+  type WaitingListDialogScope,
+  type WaitingListPeriodMode,
 } from "@levelup/config";
 import { addToClassWaitingList, changeClassWaitingListScope, checkEligibility, removeFromClassWaitingList } from "@/api/notificationEngine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-
-type Scope = "occurrence" | "series" | "period";
-type PeriodMode = "classes" | "date";
-const DEFAULT_PERIOD_CLASSES = 4;
-const MAX_PERIOD_CLASSES = 52;
 
 interface Props {
   event: { model: string; originalId: string | number; date?: string | null; isRecurring?: boolean };
@@ -169,13 +168,6 @@ export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, row
   );
 }
 
-/** Rules 18, 19, 19a: what the dialog's choice asks the server for. */
-function scopeRequest(scope: Scope, periodMode: PeriodMode, classes: number, expiresOn: string): ClassWaitingListScopeRequest {
-  if (scope === "occurrence") return { scope: "occurrence" };
-  if (scope === "series") return { scope: "series" };
-  return periodMode === "classes" ? { scope: "period", classes } : { scope: "period", expiresOn };
-}
-
 function ClassWaitingListDialog({
   open,
   editing,
@@ -200,11 +192,15 @@ function ClassWaitingListDialog({
   const { toast } = useToast();
   const [playerId, setPlayerId] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [scope, setScope] = useState<Scope>("occurrence");
-  const [periodMode, setPeriodMode] = useState<PeriodMode>("classes");
-  const [classes, setClasses] = useState(DEFAULT_PERIOD_CLASSES);
+  const [scope, setScope] = useState<WaitingListDialogScope>("occurrence");
+  const [periodMode, setPeriodMode] = useState<WaitingListPeriodMode>("classes");
   const [today, setToday] = useState(() => new Date());
-  const [expiresOn, setExpiresOn] = useState(() => standingEndFor(DEFAULT_STANDING_PRESET, new Date()));
+  const [{ classes, expiresOn }, setPeriod] = useState(() => {
+    const { classes: c, expiresOn: e } = waitingListDraftFor(null, new Date());
+    return { classes: c, expiresOn: e };
+  });
+  const setClasses = (next: number) => setPeriod((p) => ({ ...p, classes: next }));
+  const setExpiresOn = (next: string) => setPeriod((p) => ({ ...p, expiresOn: next }));
   const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -214,20 +210,13 @@ function ClassWaitingListDialog({
     setToday(now);
     setSearch("");
     setIneligible([]);
-    setClasses(DEFAULT_PERIOD_CLASSES);
-    if (editing) {
-      // Rule 22: open on the row's scope and end. A coach-wide row never gets here (no edit control).
-      setPlayerId(String(editing.playerId));
-      const current: Scope = editing.scope === "series" || editing.scope === "period" ? editing.scope : "occurrence";
-      setScope(current);
-      setPeriodMode(current === "period" ? "date" : "classes");
-      setExpiresOn(editing.expiresOn ?? standingEndFor(DEFAULT_STANDING_PRESET, now));
-      return;
-    }
-    setPlayerId("");
-    setScope("occurrence");
-    setPeriodMode("classes");
-    setExpiresOn(standingEndFor(DEFAULT_STANDING_PRESET, now));
+    // Rule 22: an edit opens on the row's scope and end (the shared draft); an add on this class only.
+    const draft = waitingListDraftFor(editing, now);
+    setScope(draft.scope);
+    setPeriodMode(draft.periodMode);
+    setPeriod({ classes: draft.classes, expiresOn: draft.expiresOn });
+    setPlayerId(editing ? String(editing.playerId) : "");
+    if (editing) return;
     // Rule 20: mark who would fail the class's bar today, as the class editor's picker does.
     if (candidates.length === 0) return;
     checkEligibility(event.model, String(event.originalId), event.date, candidates.map((c) => c.playerId))
@@ -242,9 +231,7 @@ function ClassWaitingListDialog({
   }, [ineligible, t]);
 
   const { min, max } = standingEndBounds(today);
-  const periodValid =
-    scope !== "period" ||
-    (periodMode === "classes" ? classes >= 1 && classes <= MAX_PERIOD_CLASSES : isStandingEndAllowed(expiresOn, today));
+  const periodValid = waitingListPeriodValid(scope, periodMode, classes, expiresOn, today);
   const scopes = waitingListScopeOptions(isRecurring);
   const seriesUntil = formatShortDate(wholeSeriesEndPreview(recurrenceEnd, clubTodayISO(today)), i18n.language);
   // PAD-558 (rule 20): the search narrows what is offered; the chosen student stays listed.
@@ -253,7 +240,7 @@ function ClassWaitingListDialog({
   const confirm = async () => {
     if (!playerId || !periodValid) return;
     setSaving(true);
-    const req = scopeRequest(scope, periodMode, classes, expiresOn);
+    const req = waitingListScopeRequest(scope, periodMode, classes, expiresOn);
     try {
       if (editing) {
         await changeClassWaitingListScope(editing.id, req);
@@ -274,13 +261,6 @@ function ClassWaitingListDialog({
       setSaving(false);
     }
   };
-
-  const scopeLabel = (s: Scope) =>
-    s === "occurrence"
-      ? t("calendar.detail.waitingListScopeOccurrence")
-      : s === "series"
-        ? t("calendar.detail.waitingListScopeSeries")
-        : t("calendar.detail.waitingListScopePeriod");
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -357,7 +337,7 @@ function ClassWaitingListDialog({
                   aria-pressed={scope === s}
                   onClick={() => setScope(s)}
                 >
-                  {scopeLabel(s)}
+                  {t(WAITING_LIST_SCOPE_KEYS[s])}
                 </Button>
               ))}
             </div>
@@ -399,10 +379,10 @@ function ClassWaitingListDialog({
                   <Input
                     type="number"
                     min={1}
-                    max={MAX_PERIOD_CLASSES}
+                    max={WAITING_LIST_MAX_PERIOD_CLASSES}
                     data-testid="class-waiting-list-classes"
                     value={classes}
-                    onChange={(e) => setClasses(Math.max(1, Math.min(MAX_PERIOD_CLASSES, Number(e.target.value) || 1)))}
+                    onChange={(e) => setClasses(Math.max(1, Math.min(WAITING_LIST_MAX_PERIOD_CLASSES, Number(e.target.value) || 1)))}
                     className="h-9 w-24 text-sm"
                   />
                 </label>

@@ -23,28 +23,31 @@ depends_on = None
 TABLE = "standing_waiting_list_entries"
 
 
-def _columns():
-    return {c["name"]: c for c in sa.inspect(op.get_bind()).get_columns(TABLE)}
+def _columns(table):
+    return {c["name"] for c in sa.inspect(op.get_bind()).get_columns(table)}
+
+
+def _is_nullable(table, column):
+    return next(c["nullable"] for c in sa.inspect(op.get_bind()).get_columns(table) if c["name"] == column)
 
 
 def upgrade():
-    cols = _columns()
-    with op.batch_alter_table(TABLE) as batch:
-        if cols["credits_total"]["nullable"] is False:
+    if not _is_nullable(TABLE, "credits_total"):
+        with op.batch_alter_table(TABLE) as batch:
             batch.alter_column("credits_total", existing_type=sa.Integer(), nullable=True)
-        if "whole_series" not in cols:
+    if "whole_series" not in _columns(TABLE):
+        with op.batch_alter_table(TABLE) as batch:
             batch.add_column(
                 sa.Column("whole_series", sa.Boolean(), nullable=False, server_default=sa.false())
             )
 
 
 def downgrade():
-    cols = _columns()
-    if "whole_series" in cols:
+    if "whole_series" in _columns(TABLE):
         # A whole-series entry cannot exist on the old schema; it becomes a window to its stored end.
         with op.batch_alter_table(TABLE) as batch:
             batch.drop_column("whole_series")
-    if cols["credits_total"]["nullable"] is True:
+    if _is_nullable(TABLE, "credits_total"):
         # The old schema needs a number: an unlimited entry becomes a one-credit one (its rows
         # stay), the smallest value the old form accepted.
         op.execute(f"UPDATE {TABLE} SET credits_total = 1 WHERE credits_total IS NULL")
