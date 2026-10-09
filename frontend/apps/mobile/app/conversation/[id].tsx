@@ -25,6 +25,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type LayoutChangeEvent,
 } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
@@ -670,6 +671,34 @@ export default function ConversationScreen() {
     [anchored, dispatchAnchor, dispatchFollow]
   );
 
+  // PAD-569 / B-462 (rule 7): the keyboard opening pads the KeyboardAvoidingView and the
+  // list gets SHORTER. The list is not inverted, so the same offset in a shorter viewport
+  // shows the same top edge and the newest messages slide under the keyboard. Once anchored,
+  // a drop in height is dispatched as `viewportShrank` and, at the bottom (rule 10's gate),
+  // the list re-pins to its end — deferred one frame, like the anchor effect above and for the
+  // same reason: the shrunk geometry is not readable inside the callback that reports it
+  // (PAD-224; `contentGrew` and the jump control scroll synchronously, their geometry is). A taller
+  // viewport (the keyboard closing) dispatches nothing: the native scroll view clamps the
+  // offset itself, so nothing jumps.
+  const viewportHeightRef = React.useRef(0);
+  const handleListLayout = React.useCallback(
+    (event: LayoutChangeEvent) => {
+      const height = event.nativeEvent.layout.height;
+      const previous = viewportHeightRef.current;
+      viewportHeightRef.current = height;
+      // Rule 9's reducer records the list's height in every phase, as before this change.
+      dispatchAnchor({ type: "layout", viewportHeight: height });
+      if (anchored && previous > 0 && height < previous) {
+        if (dispatchFollow({ type: "viewportShrank" }).effect === "scrollToEnd") {
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToEnd({ animated: false });
+          });
+        }
+      }
+    },
+    [anchored, dispatchAnchor, dispatchFollow]
+  );
+
   // Rule 11: reaching the top asks for the page before the oldest loaded
   // message. `useConversationThread` holds the one-page-at-a-time guard.
   const handleStartReached = React.useCallback(() => {
@@ -690,6 +719,7 @@ export default function ConversationScreen() {
     dispatchFollow({ type: "reset" });
     hasNewBelowRef.current = false;
     scrollMetricsRef.current = { distanceFromBottom: 0, viewportHeight: 0 };
+    viewportHeightRef.current = 0;
     setHasNewBelow(false);
     setShowJumpToBottom(false);
   }, [conversationId, dispatchAnchor, dispatchFollow]);
@@ -1268,12 +1298,7 @@ export default function ConversationScreen() {
             // interval, and the rest of the history arrives by rule 11.
             initialNumToRender={CONVERSATION_FIRST_PAGE_SIZE}
             onContentSizeChange={handleContentSizeChange}
-            onLayout={(event) =>
-              dispatchAnchor({
-                type: "layout",
-                viewportHeight: event.nativeEvent.layout.height,
-              })
-            }
+            onLayout={handleListLayout}
             onScroll={handleScroll}
             onScrollBeginDrag={() => dispatchFollow({ type: "drag" })}
             scrollEventThrottle={16}

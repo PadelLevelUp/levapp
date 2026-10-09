@@ -63,3 +63,27 @@ describe("following the newest message around a landing (B-189)", () => {
     expect(run([{ type: "landing" }, { type: "reset" }]).state).toEqual(initialFollowState());
   });
 });
+
+describe("the thread follows the keyboard (PAD-569, B-462, rule 7)", () => {
+  it("at the bottom, a viewport that shrank (the keyboard opened) re-pins to the newest message", () => {
+    expect(run([{ type: "viewportShrank" }]).effects).toEqual(["scrollToEnd"]);
+  });
+
+  it("away from the bottom, the keyboard opening moves nothing (rule 10)", () => {
+    expect(run([{ type: "scroll", atBottom: false }, { type: "viewportShrank" }]).effects).toEqual([null, null]);
+  });
+
+  it("during a landing, the keyboard opening does not cancel it", () => {
+    expect(run([{ type: "landing" }, { type: "viewportShrank" }]).effects).toEqual([null, null]);
+  });
+
+  it("after the reader's drag ended a landing and a frame reached the bottom, the keyboard re-pins again", () => {
+    const { effects } = run([
+      { type: "landing" },
+      { type: "drag" },
+      { type: "scroll", atBottom: true },
+      { type: "viewportShrank" },
+    ]);
+    expect(effects[3]).toBe("scrollToEnd");
+  });
+});
