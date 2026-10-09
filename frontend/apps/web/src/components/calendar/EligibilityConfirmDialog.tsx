@@ -26,11 +26,15 @@ export function EligibilityConfirmDialog({
   ineligible,
   onCancel,
   onConfirm,
+  action = "add",
 }: {
   open: boolean;
   ineligible: EligibilityCheckEntry[];
   onCancel: () => void;
   onConfirm: () => void;
+  /** eligibility.enforcement rule 6a (PAD-562): the same dialog for a manual invite, with the
+   *  invite verb — "Convidar alunos…?" / "Convidar mesmo assim". */
+  action?: "add" | "invite";
 }) {
   const { t } = useTranslation();
   const students = describeIneligible(ineligible);
@@ -41,9 +45,9 @@ export function EligibilityConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            {t("calendar.eligibilityConfirm.title")}
+            {t(action === "invite" ? "calendar.eligibilityConfirm.inviteTitle" : "calendar.eligibilityConfirm.title")}
           </AlertDialogTitle>
-          <AlertDialogDescription>{t("calendar.eligibilityConfirm.body")}</AlertDialogDescription>
+          <AlertDialogDescription>{t(action === "invite" ? "calendar.eligibilityConfirm.inviteBody" : "calendar.eligibilityConfirm.body")}</AlertDialogDescription>
         </AlertDialogHeader>
         <ul className="space-y-2 text-sm">
           {students.map((s) => (
@@ -70,7 +74,7 @@ export function EligibilityConfirmDialog({
             }}
             data-testid="eligibility-confirm-proceed"
           >
-            {t("calendar.eligibilityConfirm.confirm")}
+            {t(action === "invite" ? "calendar.eligibilityConfirm.inviteConfirm" : "calendar.eligibilityConfirm.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

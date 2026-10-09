@@ -3,10 +3,14 @@ import {
   blockedNames,
   blockedReasons,
   lightTheme,
+  runManualInviteFlow,
   shouldReportSent,
   splitBlockedByCause,
 } from "@levelup/config";
-import { playersApi } from "@levelup/api";
+import { notificationEngineApi, playersApi } from "@levelup/api";
+import type { EligibilityCheckEntry } from "@levelup/types";
+import { PortalHost } from "@rn-primitives/portal";
+import { EligibilityConfirmDialog } from "./eligibility-confirm-dialog";
 import type { CalendarEvent, CoachPlayer, StudentGroup } from "@levelup/types";
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
@@ -27,6 +31,9 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useNotificationGroups, useSendManualNotifications } from "./hooks";
+
+/** The PortalHost inside the notify modal the eligibility dialog draws into (PAD-562). */
+const NOTIFY_PORTAL_HOST = "class-notify-portal";
 
 interface NotifyModalProps {
   open: boolean;
@@ -75,6 +82,13 @@ export function NotifyModal({
   });
 
   const sendNotifications = useSendManualNotifications();
+  // eligibility.enforcement rule 6a (PAD-562): inviting a student who fails the bar asks first,
+  // through the same check and dialog the class screen's add uses; one dialog for the selection.
+  // The dialog portals into this modal's own host so it draws on top of the native sheet.
+  const [pendingInvite, setPendingInvite] = React.useState<{
+    failing: EligibilityCheckEntry[];
+    proceed: () => Promise<void>;
+  } | null>(null);
 
   const existingSet = React.useMemo(
     () => new Set(existingPlayerIds),
@@ -142,12 +156,22 @@ export function NotifyModal({
 
   const handleSend = async () => {
     if (selected.size === 0) return;
+    await runManualInviteFlow<EligibilityCheckEntry>({
+      playerIds: [...selected],
+      check: async (ids) =>
+        (await notificationEngineApi.checkEligibility(event.model, String(event.originalId), event.date, ids)).ineligible,
+      send: (ids) => sendTo(ids),
+      ui: { askEligibility: (failing, proceed) => setPendingInvite({ failing, proceed }) },
+    });
+  };
+
+  const sendTo = async (ids: string[]) => {
     try {
       const { sent, blocked } = await sendNotifications.mutateAsync({
         model: event.model,
         originalId,
         date: event.date,
-        playerIds: [...selected],
+        playerIds: ids,
       });
       resetAndClose();
       onSent?.();
@@ -336,6 +360,20 @@ export function NotifyModal({
             ) : null}
           </View>
         </ScrollView>
+
+        <EligibilityConfirmDialog
+          open={pendingInvite !== null}
+          ineligible={pendingInvite?.failing ?? []}
+          action="invite"
+          portalHost={NOTIFY_PORTAL_HOST}
+          onCancel={() => setPendingInvite(null)}
+          onConfirm={() => {
+            const proceed = pendingInvite?.proceed;
+            setPendingInvite(null);
+            if (proceed) void proceed();
+          }}
+        />
+        <PortalHost name={NOTIFY_PORTAL_HOST} />
 
         <DialogFooter className="flex-row gap-2">
           <Button

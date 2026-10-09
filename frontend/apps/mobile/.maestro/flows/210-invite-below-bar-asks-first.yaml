@@ -1,0 +1,90 @@
+# PAD-562 — eligibility.enforcement rule 6a / notifications.manual rule 8 on iOS: inviting a
+# student by hand who fails the class's bar asks first through the same dialog the manual add
+# uses (invite verb); cancel sends nothing and keeps the modal; confirm sends. This flow is also
+# the proof that the dialog draws on top of the notify modal's native sheet (PortalHost inside it).
+# Seeded through the API (R-040): a class three days out at the beginner level with "E2E Student"
+# enrolled and a per-class bar "same level as the class"; "Filler Player 01" (intermediate) fails it.
+# Driven and asserted by ids, never by rendered copy (PAD-320).
+# Flow number 210 is from 0910-SessionA's reserved block 209–218 (unconfirmed).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleanup && output.cleanup()}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.auth = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }}"
+- evalScript: "${output.players = (function (r) { return r.items ? r.items : r; })(json(http.get(output.api + '/api/app/coach_players', { headers: output.auth }).body))}"
+- evalScript: "${output.find = function (n) { return output.players.filter(function (p) { return p.name === n; })[0]; }}"
+- evalScript: "${output.enrolled = output.find('E2E Student')}"
+- evalScript: "${output.below = output.find('Filler Player 01')}"
+- assertTrue: "${output.enrolled != null && output.below != null}"
+- evalScript: "${output.day = (function (d) { var m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (x < 10 ? '0' + x : '' + x); })(new Date(Date.now() + 3 * 86400000))}"
+- evalScript: "${output.made = json(http.post(output.api + '/api/app/add_class', { headers: output.auth, body: JSON.stringify({ name: 'E2E Invite Below Bar iOS', classType: 'academy', maxPlayers: 4, levelId: output.enrolled.levelId, date: output.day, startTime: '17:00', endTime: '18:00', playerIds: [output.enrolled.playerId], isRecurring: false, notificationsEnabled: true }) }).body)}"
+- evalScript: "${output.ref = { model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day }}"
+- evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: output.ref, scope: 'single' }) }); }}"
+- evalScript: "${output.overridden = http.post(output.api + '/api/app/edit_class', { headers: output.auth, body: JSON.stringify({ event: output.ref, scope: 'single', updates: { eligibilityRules: [{ attribute: 'level', operation: 'same_as_class' }] } }) }).ok}"
+- assertTrue: "${output.overridden === true}"
+- evalScript: "${output.instanceId = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: output.auth }).body).filter(function (e) { return e.title === 'E2E Invite Below Bar iOS' && e.model === 'LessonInstance'; })[0].originalId}"
+- assertTrue: "${output.instanceId > 0}"
+- evalScript: "${output.invitations = function () { return json(http.post(output.api + '/api/app/class_instance?model=LessonInstance&id=' + output.instanceId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body).invitations || []; }}"
+- evalScript: "${output.pid = String(output.below.playerId)}"
+
+# ── the class screen → Convidar → the failing student ──
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://class/${output.instanceId}"
+- scrollUntilVisible:
+    element:
+      id: "class-notify"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-notify"
+- extendedWaitUntil:
+    visible:
+      id: "class-notify-search"
+    timeout: 15000
+- tapOn:
+    id: "class-notify-search"
+- inputText: "Filler Player 01"
+- extendedWaitUntil:
+    visible:
+      id: "notify-player-${output.pid}"
+    timeout: 15000
+- tapOn:
+    id: "notify-player-${output.pid}"
+- tapOn:
+    id: "class-notify-send"
+
+# ── rule 6a: the dialog, cancel sends nothing and keeps the modal ──
+- extendedWaitUntil:
+    visible:
+      id: "eligibility-confirm"
+    timeout: 15000
+- assertVisible:
+    id: "eligibility-confirm-student"
+- assertVisible:
+    id: "eligibility-confirm-reason"
+- tapOn:
+    id: "eligibility-confirm-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "eligibility-confirm"
+    timeout: 10000
+- assertVisible:
+    id: "class-notify-dialog"
+- assertTrue: "${output.invitations().length === 0}"
+
+# ── confirm sends ──
+- tapOn:
+    id: "class-notify-send"
+- extendedWaitUntil:
+    visible:
+      id: "eligibility-confirm-proceed"
+    timeout: 15000
+- tapOn:
+    id: "eligibility-confirm-proceed"
+- extendedWaitUntil:
+    notVisible:
+      id: "class-notify-dialog"
+    timeout: 15000
+- assertTrue: "${output.invitations().filter(function (r) { return String(r.playerId) === output.pid; }).length === 1}"

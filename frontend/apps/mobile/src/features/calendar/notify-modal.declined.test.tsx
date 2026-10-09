@@ -13,6 +13,9 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+// PAD-562: the modal now hosts the eligibility dialog in its own portal; neither is this test's subject.
+vi.mock("@rn-primitives/portal", () => ({ PortalHost: () => null }));
+vi.mock("./eligibility-confirm-dialog", () => ({ EligibilityConfirmDialog: () => null }));
 vi.mock("@/components/ui/input", async () => {
   const { TextInput } = await import("react-native");
   return { Input: (p: Record<string, unknown>) => createElement(TextInput, p) };

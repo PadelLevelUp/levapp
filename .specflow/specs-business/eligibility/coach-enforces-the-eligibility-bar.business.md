@@ -30,7 +30,9 @@ keeping full control to make an exception themselves.
    instead.
 3. The coach adds a student to a class by hand who doesn't meet the bar — a two-level gap, say.
    Before the add goes through, they see a plain warning naming exactly what failed ("2 levels
-   below this class"), and they can confirm anyway or cancel.
+   below this class"), and they can confirm anyway or cancel. Inviting a student by hand asks the
+   same way (PAD-562): one warning for everyone selected who falls short, confirm to invite anyway,
+   cancel to send nothing.
 4. The coach tightens their bar — say, lowering the absence limit. Saving it doesn't touch a single
    already-enrolled student, but the coach sees an informational note naming who among their
    currently-enrolled students would no longer clear the new bar, so they know without having to
