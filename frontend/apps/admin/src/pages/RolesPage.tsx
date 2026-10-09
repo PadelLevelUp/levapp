@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Badge, Button, Card, Input, PageHeader, Select } from "@/components/ui";
 import { adminApi, type AdminRoleName, type AdminRoleRow, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useIsPhone } from "@/lib/useIsPhone";
 
 const ROLES: AdminRoleName[] = ["support", "operator", "owner"];
 
@@ -15,6 +16,7 @@ function errorKey(err: unknown) {
 
 export function RolesPage() {
   const { t } = useTranslation();
+  const phone = useIsPhone();
   const { can } = useAuth();
   const owner = can("owner");
   const qc = useQueryClient();
@@ -93,14 +95,19 @@ export function RolesPage() {
         {roles.isError ? <p className="text-sm text-destructive">{t("admin.common.error")}</p> : null}
         {roles.data && roles.data.items.length === 0 ? <p className="text-sm text-muted-foreground">{t("admin.roles.none")}</p> : null}
         {roles.data && roles.data.items.length > 0 ? (
-          <table className="w-full text-sm" data-testid="admin-roles-table">
-            <tbody>
+          phone ? (
+            // admin.phone-console rule 3: one card per role grant; change and revoke stay in reach.
+            <ul className="space-y-3" data-testid="admin-roles-table">
               {roles.data.items.map((row: AdminRoleRow) => (
-                <tr key={row.id} className="border-t" data-testid={`admin-role-row-${row.id}`}>
-                  <td className="py-2 pr-4 font-medium">{row.email}</td>
-                  <td className="py-2 pr-4">
+                <li key={row.id} className="rounded-lg border bg-card p-4 text-sm" data-testid={`admin-role-row-${row.id}`}>
+                  <div className="break-words font-medium">{row.email}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     {owner && row.active ? (
-                      <Select value={row.role} onChange={(e) => change.mutate({ id: row.id, role: e.target.value as AdminRoleName })} data-testid={`admin-role-select-${row.id}`}>
+                      <Select
+                        value={row.role}
+                        onChange={(e) => change.mutate({ id: row.id, role: e.target.value as AdminRoleName })}
+                        data-testid={`admin-role-select-${row.id}`}
+                      >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
                             {r}
@@ -110,22 +117,54 @@ export function RolesPage() {
                     ) : (
                       <Badge tone="primary">{row.role}</Badge>
                     )}
-                  </td>
-                  <td className="py-2 pr-4">{row.active ? <Badge tone="success">{t("admin.roles.active")}</Badge> : <Badge>{t("admin.roles.revoked")}</Badge>}</td>
-                  <td className="py-2 pr-4 text-xs text-muted-foreground">
+                    {row.active ? <Badge tone="success">{t("admin.roles.active")}</Badge> : <Badge>{t("admin.roles.revoked")}</Badge>}
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
                     {row.grantedByEmail ? t("admin.roles.grantedBy", { email: row.grantedByEmail }) : t("admin.roles.seeded")}
-                  </td>
-                  <td className="py-2 text-right">
-                    {owner && row.active ? (
-                      <Button variant="destructive" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} data-testid={`admin-role-revoke-${row.id}`}>
-                        {t("admin.roles.revoke")}
-                      </Button>
-                    ) : null}
-                  </td>
-                </tr>
+                  </p>
+                  {owner && row.active ? (
+                    <Button variant="destructive" className="mt-3 w-full" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} data-testid={`admin-role-revoke-${row.id}`}>
+                      {t("admin.roles.revoke")}
+                    </Button>
+                  ) : null}
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          ) : (
+            <table className="w-full text-sm" data-testid="admin-roles-table">
+              <tbody>
+                {roles.data.items.map((row: AdminRoleRow) => (
+                  <tr key={row.id} className="border-t" data-testid={`admin-role-row-${row.id}`}>
+                    <td className="py-2 pr-4 font-medium">{row.email}</td>
+                    <td className="py-2 pr-4">
+                      {owner && row.active ? (
+                        <Select value={row.role} onChange={(e) => change.mutate({ id: row.id, role: e.target.value as AdminRoleName })} data-testid={`admin-role-select-${row.id}`}>
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <Badge tone="primary">{row.role}</Badge>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">{row.active ? <Badge tone="success">{t("admin.roles.active")}</Badge> : <Badge>{t("admin.roles.revoked")}</Badge>}</td>
+                    <td className="py-2 pr-4 text-xs text-muted-foreground">
+                      {row.grantedByEmail ? t("admin.roles.grantedBy", { email: row.grantedByEmail }) : t("admin.roles.seeded")}
+                    </td>
+                    <td className="py-2 text-right">
+                      {owner && row.active ? (
+                        <Button variant="destructive" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} data-testid={`admin-role-revoke-${row.id}`}>
+                          {t("admin.roles.revoke")}
+                        </Button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
         ) : null}
       </Card>
     </div>
