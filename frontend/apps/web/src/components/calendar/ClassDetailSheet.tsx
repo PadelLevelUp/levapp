@@ -1489,6 +1489,7 @@ export function ClassDetailSheet({
                     variant="ghost"
                     size="sm"
                     className="text-xs"
+                    data-testid="attendance-edit"
                     onClick={() => setIsValidating(true)}
                   >
                     {attendanceAlreadyMarked ? t("calendar.detail.editAttendance") : t("calendar.detail.markAttendance")}

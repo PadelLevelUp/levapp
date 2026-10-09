@@ -90,6 +90,12 @@ test("US-PAD-567: pressing the selected mark again returns the student to 'no an
     const row = page.getByTestId("attendance-row").first();
     await expect(row).toBeVisible({ timeout: 10_000 });
 
+    // The marks live behind "Marcar presenças": the row's buttons and the save button
+    // render only in the editor, and saving leaves it (first CI run of this spec
+    // waited forever on a save button that was never rendered).
+    await page.getByTestId("attendance-edit").click();
+    await expect(row.getByTestId("attendance-present")).toBeVisible({ timeout: 5000 });
+
     // Mark present and save: the coach's record.
     await row.getByTestId("attendance-present").click();
     await expect(row.getByTestId("attendance-present")).toHaveAttribute("aria-pressed", "true");
@@ -103,6 +109,8 @@ test("US-PAD-567: pressing the selected mark again returns the student to 'no an
     expect(marked.validated).toBe(true);
 
     // Press "Presente" again: the row is unmarked — visibly, before any save.
+    await page.getByTestId("attendance-edit").click();
+    await expect(row.getByTestId("attendance-present")).toHaveAttribute("aria-pressed", "true", { timeout: 5000 });
     await row.getByTestId("attendance-present").click();
     await expect(row.getByTestId("attendance-present")).toHaveAttribute("aria-pressed", "false");
     const [cleared] = await Promise.all([
