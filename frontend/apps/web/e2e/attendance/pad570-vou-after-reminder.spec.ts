@@ -14,7 +14,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 import { COACH_PASSWORD, COACH_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
-import { openCalendar } from "../helpers/navigation";
+import { openCalendar, openDashboard } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 
 const STUDENT_NAME = "E2E Student";
@@ -106,7 +106,14 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     await expect(page.getByTestId("class-cancel-attendance")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("class-confirm-attendance")).toHaveCount(0);
 
-    // The dashboard agrees with the detail (the inconsistency this ticket reports).
+    // The dashboard agrees with the detail (the inconsistency this ticket reports):
+    // the row offers one "Avisar que não vou" and no Sim / Não (dashboard.blocks rule 3a).
+    await openDashboard(page);
+    const dashRow = page.getByTestId("dashboard-schedule-row").filter({ hasText: STUDENT_NAME }).first();
+    await expect(dashRow).toBeVisible({ timeout: 15_000 });
+    await expect(dashRow.getByTestId("dashboard-decline-open")).toBeVisible();
+    await expect(dashRow.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
+    await expect(dashRow.getByTestId("dashboard-declined-hint")).toHaveCount(0);
     const before = (await studentRows(request, studentAuth)).find((r) => r.title === STUDENT_NAME);
     expect(before, "the class is on the student's upcoming list").toBeTruthy();
     expect(before!.pendingConfirmation, "not asked yet: no Yes / No on the row").toBe(false);
@@ -176,8 +183,15 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     expect(late.status(), await late.text()).toBe(200);
     expect((await late.json()).action, "no way back").toBe("already_declined");
 
+    // The dashboard row shows the hint and no button (dashboard.blocks rule 3a).
+    await openDashboard(page);
+    const declinedRow = page.getByTestId("dashboard-schedule-row").filter({ hasText: STUDENT_NAME }).first();
+    await expect(declinedRow).toBeVisible({ timeout: 15_000 });
+    await expect(declinedRow.getByTestId("dashboard-declined-hint")).toBeVisible();
+    await expect(declinedRow.getByTestId("dashboard-decline-open")).toHaveCount(0);
+    await expect(declinedRow.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
+
     // Still final after a reload, from server data.
-    await page.reload();
     await openClassDetail(page, 3);
     await expect(page.getByTestId("attendance-state").first()).toHaveAttribute("data-state", "not_coming", {
       timeout: 10_000,
