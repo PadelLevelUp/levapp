@@ -20,3 +20,6 @@ for (var i = 1; i <= 40; i++) {
 }
 output.postedIds = ids.join(",");
 output.newestId = ids[ids.length - 1];
+// The seed leaves the student an unread automatic message, and rule 9a would open the thread
+// on it (PAD-415) rather than at the bottom. The flow is about the bottom, so mark it read.
+http.post(api + "/api/app/conversation/1/read", { headers: auth, body: "{}" });

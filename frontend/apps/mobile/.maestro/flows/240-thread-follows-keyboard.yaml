@@ -4,7 +4,9 @@
 # the composer, sends, and dismisses the keyboard, taking a screenshot at each step:
 # Maestro cannot tell "covered by the keyboard" from "visible", so the screenshots under
 # ./screenshots/ are the evidence (read them; the newest bubble must sit above the composer
-# in 2 and 3, and nothing may have jumped in 4). Flow number 240 (wave-13 range, unconfirmed).
+# in 2 and 3, and nothing may have jumped in 4). Setup also marks the thread read: the seed's
+# unread automatic message would otherwise open it on the first-unread divider (rule 9a), and
+# this flow is about the bottom. Flow number 240 (wave-13 range, unconfirmed).
 appId: com.padellevelup.app
 onFlowStart:
   # Posting while the signed-in app runs crashes the driver's next hierarchy read
@@ -31,9 +33,11 @@ onFlowComplete:
 - waitForAnimationToEnd
 - takeScreenshot: screenshots/pad569-1-at-bottom
 
-# ── keyboard opens: the thread must rise with it ──
+# ── keyboard opens: the thread must rise with it. Typing is what raises the soft keyboard
+#    reliably on the simulator (flow 141 does the same before its screenshot). ──
 - tapOn:
     id: "message-input"
+- inputText: "Maestro keyboard"
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
@@ -42,7 +46,6 @@ onFlowComplete:
 - takeScreenshot: screenshots/pad569-2-keyboard-open
 
 # ── send with the keyboard open: scrolls to the new bubble ──
-- inputText: "Maestro keyboard"
 - tapOn:
     id: "message-send"
 - extendedWaitUntil:

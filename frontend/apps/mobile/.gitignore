@@ -42,3 +42,4 @@ yarn-error.*
 
 # Maestro takeScreenshot output (flow 240 and friends): evidence, never committed
 screenshots/
+screenshots-control/

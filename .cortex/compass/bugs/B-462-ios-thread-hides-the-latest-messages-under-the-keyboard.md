@@ -36,8 +36,13 @@ nothing (rule 10 already says so); sending scrolls to the new message (already `
 in `handleSend`); closing the keyboard restores the layout without a jump; an incoming message
 auto-scrolls only when the reader is at the bottom (already rule 10).
 
-**Evidence (Phase 1, 2026-10-09):** read, not yet observed — the simulator slot is queued behind
-PAD-568. The reducer has no viewport event (`FollowEvent` union, `follow-state.ts`), the list's
+**Evidence (Phase 1, 2026-10-09, observed):** flow 240 on the simulator (iPhone 17 Pro, iOS 26.5),
+40 filler messages, thread marked read so it opens at the bottom. On staging's screen and reducer
+(control, bundle without `viewportShrank`): with the keyboard open the newest visible bubble is
+"filler 35" and fillers 36–40 are under the keyboard (21:11 local). On the branch: "filler 40"
+sits directly above the composer with the keyboard open, the sent bubble is visible above the
+composer, and dismissing the keyboard leaves the thread at the bottom (21:08). Screenshots kept
+at ~/levapp-pad569-evidence/ (branch `pad569-*`, control `control-pad569-*`). Read first: The reducer has no viewport event (`FollowEvent` union, `follow-state.ts`), the list's
 `onLayout` dispatches only `{type: "layout"}` to the anchor reducer (`[id].tsx` ~L1270), and the
 only `scrollToEnd` callers are the anchor effect, `contentGrew`, and `scrollToBottom` (send / jump).
 So no code path moves the list when its height drops. Screenshots on staging's code vs the fix
