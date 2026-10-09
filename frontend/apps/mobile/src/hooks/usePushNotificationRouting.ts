@@ -1,7 +1,8 @@
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
+import { Linking } from "react-native";
 
-import { routeForPushData } from "@/lib/push-routing";
+import { externalUrlForPushData, routeForPushData } from "@/lib/push-routing";
 import { offerPushTap } from "@/lib/push-tap-queue";
 
 /**
@@ -18,6 +19,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const openedExternal = new Set<string>();
+
 /**
  * Collects a tapped push notification — a live tap while the app runs
  * (`addNotificationResponseReceivedListener`) or the tap that LAUNCHED the app
@@ -33,6 +36,19 @@ export function usePushNotificationRouting(): void {
   useEffect(() => {
     const handleResponse = (response: Notifications.NotificationResponse) => {
       try {
+        // PAD-532: an absolute https URL (the staff console) opens in the
+        // browser; it never reaches the in-app tap queue. Deduped by
+        // notification id so a cold-start tap seen by both paths opens once.
+        const external = externalUrlForPushData(response.notification.request.content.data);
+        if (external) {
+          const id = response.notification.request.identifier;
+          if (openedExternal.has(id)) return;
+          openedExternal.add(id);
+          Linking.openURL(external).catch((error) => {
+            console.warn("[push] opening external url failed", error);
+          });
+          return;
+        }
         // PAD-327: a string for the message shape, a route object for the
         // `path` shape; PAD-408: the message shape may target one message.
         const target = routeForPushData(response.notification.request.content.data);

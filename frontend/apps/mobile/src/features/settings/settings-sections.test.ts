@@ -14,15 +14,13 @@ import {
  * and 4 (one list drives everything).
  */
 
-const idsFor = (isCoach: boolean, isSuperAdmin = false): SettingsSectionId[] =>
-  visibleSections(isCoach, isSuperAdmin).map((s) => s.id);
+const idsFor = (isCoach: boolean): SettingsSectionId[] =>
+  visibleSections(isCoach).map((s) => s.id);
 
 describe("SETTINGS_SECTIONS", () => {
   it("states an audience for every section — there is no default", () => {
     for (const section of SETTINGS_SECTIONS) {
-      // PAD-210 (auth.coach-approval rule 7) adds `superadmin` — the LevApp
-      // admin's tools, gated on the flag, never on role.
-      expect(["everyone", "coach", "student", "superadmin"]).toContain(section.audience);
+      expect(["everyone", "coach", "student"]).toContain(section.audience);
     }
   });
 
@@ -112,31 +110,9 @@ describe("the two audiences together", () => {
     const coach = new Set(idsFor(true));
     const student = new Set(idsFor(false));
     for (const section of SETTINGS_SECTIONS) {
-      if (section.audience === "superadmin") continue;
       // No section is unreachable: an "everyone/coach/student" audience is
       // total, unlike two independent booleans.
       expect(coach.has(section.id) || student.has(section.id)).toBe(true);
-    }
-  });
-});
-
-describe("the superadmin (PAD-210, auth.coach-approval rule 7)", () => {
-  it("is the only one offered the Admin section", () => {
-    expect(idsFor(true)).not.toContain("admin");
-    expect(idsFor(false)).not.toContain("admin");
-    expect(idsFor(true, true)).toContain("admin");
-    expect(idsFor(false, true)).toContain("admin");
-  });
-
-  it("keeps their role's sections — the flag adds, never replaces", () => {
-    expect(idsFor(true, true)).toEqual([...idsFor(true), "admin"]);
-    expect(idsFor(false, true)).toEqual([...idsFor(false), "admin"]);
-  });
-
-  it("is reachable by every superadmin section", () => {
-    const superadmin = new Set(idsFor(true, true));
-    for (const section of SETTINGS_SECTIONS) {
-      if (section.audience === "superadmin") expect(superadmin.has(section.id)).toBe(true);
     }
   });
 });

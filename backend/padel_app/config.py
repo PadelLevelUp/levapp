@@ -269,6 +269,9 @@ class Config:
     # 11); production refuses to start without it.
     ADMIN_GOOGLE_CLIENT_ID = (os.getenv("ADMIN_GOOGLE_CLIENT_ID") or "").strip()
     ADMIN_HOSTS = parse_admin_hosts(os.getenv("ADMIN_HOSTS", ""))
+    # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
+    # pending-coach mail and push. Empty = the bare path (local development).
+    ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
     # admin.engine-health rule 5 (PAD-534): the other environment's admin API and the token this
     # console presents to it; and the token this environment accepts from the other one. All three
     # unset (the default) means the console shows the other environment as "not configured".

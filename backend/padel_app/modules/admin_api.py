@@ -181,6 +181,161 @@ def list_audit():
     return jsonify({"items": [row.to_dict() for row in rows], "page": page, "hasMore": has_more})
 
 
+# ── coach approvals (admin.approvals-and-users rules 1–2, PAD-532) ────────────
+
+
+def _acting_user():
+    """The product account linked to the staff member's role, or None (rule 2)."""
+    from padel_app.models import User
+
+    return User.query.get(g.admin.user_id) if g.admin.user_id else None
+
+
+def _coach_snapshot(coach):
+    user = coach.user
+    return {
+        "approvalStatus": coach.approval_status,
+        "rejectionReason": coach.rejection_reason,
+        "userStatus": user.status if user is not None else None,
+    }
+
+
+@bp.get("/coach-approvals")
+@require_role("support")
+def list_coach_approvals():
+    from padel_app.services.coach_approval_service import list_pending_coaches_service, serialize_pending_coach
+
+    return jsonify({"items": [serialize_pending_coach(c) for c in list_pending_coaches_service()]})
+
+
+def _decide_coach(coach_id, decide):
+    from padel_app.models import Coach
+
+    coach = Coach.query.get(coach_id)
+    g.audit.target("coach", coach_id)
+    if coach is not None:
+        g.audit.before = _coach_snapshot(coach)
+    coach = decide()
+    g.audit.after = _coach_snapshot(coach)
+    return jsonify({"coachId": coach.id, "approvalStatus": coach.approval_status})
+
+
+@bp.post("/coach-approvals/<int:coach_id>/approve")
+@audited("coach.approve")
+@require_role("operator")
+def approve_coach(coach_id):
+    from padel_app.services.coach_approval_service import approve_coach_service
+
+    return _decide_coach(coach_id, lambda: approve_coach_service(coach_id, _acting_user(), defer=g.audit.defer))
+
+
+@bp.post("/coach-approvals/<int:coach_id>/reject")
+@audited("coach.reject")
+@require_role("operator")
+def reject_coach(coach_id):
+    from padel_app.services.coach_approval_service import reject_coach_service
+
+    reason = ((request.get_json(silent=True) or {}).get("reason") or "").strip() or None
+    return _decide_coach(
+        coach_id, lambda: reject_coach_service(coach_id, _acting_user(), reason=reason, defer=g.audit.defer)
+    )
+
+
+# ── the coach-approval gate (rule 10b; admin.clubs-and-switches rule 4) ───────
+
+
+@bp.get("/settings/coach-approval")
+@require_role("support")
+def get_coach_approval_gate():
+    from padel_app.services.app_settings_service import admin_settings_payload
+
+    return jsonify(admin_settings_payload())
+
+
+@bp.put("/settings/coach-approval")
+@audited("settings.coach_approval")
+@require_role("operator")
+def put_coach_approval_gate():
+    from padel_app.services.app_settings_service import admin_settings_payload, set_coach_approval_required
+
+    value = (request.get_json(silent=True) or {}).get("coachApprovalRequired")
+    if not isinstance(value, bool):
+        return error("COACH_APPROVAL_REQUIRED_MUST_BE_BOOLEAN", 400)
+    g.audit.target("app_setting", "coach_approval_required")
+    g.audit.before = {"coachApprovalRequired": admin_settings_payload()["coachApprovalRequired"]}
+    acting = _acting_user()
+    set_coach_approval_required(value, updated_by_user_id=acting.id if acting else None, commit=False)
+    payload = admin_settings_payload()
+    g.audit.after = {"coachApprovalRequired": payload["coachApprovalRequired"]}
+    return jsonify(payload)
+
+
+# ── users (rules 4–7) ─────────────────────────────────────────────────────────
+
+
+def _users_error(exc):
+    return jsonify(exc.payload()), exc.status
+
+
+@bp.get("/users")
+@require_role("support")
+def search_users():
+    from padel_app.services.admin import users_service
+
+    try:
+        items, next_cursor = users_service.search(request.args.get("q"), request.args.get("cursor"))
+    except users_service.UsersError as exc:
+        return _users_error(exc)
+    return jsonify({"items": items, "nextCursor": next_cursor})
+
+
+@bp.get("/users/<int:user_id>")
+@require_role("support")
+def view_user(user_id):
+    from padel_app.services.admin import users_service
+
+    try:
+        return jsonify(users_service.view(user_id))
+    except users_service.UsersError as exc:
+        return _users_error(exc)
+
+
+@bp.post("/users/<int:user_id>/disable")
+@audited("user.disable")
+@require_role("operator")
+def disable_user(user_id):
+    from padel_app.services.admin import users_service
+
+    try:
+        user = users_service.disable(user_id, (request.get_json(silent=True) or {}).get("reason"))
+    except users_service.UsersError as exc:
+        return _users_error(exc)
+    return jsonify(users_service.row(user))
+
+
+@bp.post("/users/<int:user_id>/enable")
+@audited("user.enable")
+@require_role("operator")
+def enable_user(user_id):
+    from padel_app.services.admin import users_service
+
+    try:
+        user = users_service.enable(user_id)
+    except users_service.UsersError as exc:
+        return _users_error(exc)
+    return jsonify(users_service.row(user))
+
+
+@bp.post("/users/<int:user_id>/resend-verification")
+@audited("user.resend_verification")
+@require_role("operator")
+def resend_verification(user_id):
+    from padel_app.services.admin import users_service
+
+    try:
+        return jsonify(users_service.resend_verification(user_id))
+    except users_service.UsersError as exc:
+        return _users_error(exc)
 # ── engine health (PAD-534, admin.engine-health): read-only, support ─────────────────────────
 
 

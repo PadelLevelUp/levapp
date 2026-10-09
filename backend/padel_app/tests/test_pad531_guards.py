@@ -24,6 +24,9 @@ IS_SUPERADMIN_READERS = {
     "modules/frontend_api.py",
     "services/request_alert_service.py",
     "services/user_service.py",
+    # PAD-532, admin.approvals-and-users rule 5: the console's user view SHOWS the product flag
+    # (read-only display, no decision is taken on it).
+    "services/admin/users_service.py",
 }
 
 

@@ -37,12 +37,10 @@ import NotFound from "./pages/NotFound";
 import TrainingPage from "./pages/TrainingPage";
 import TrainingExercisesPage from "./pages/TrainingExercisesPage";
 import TrainingGroupsPage from "./pages/TrainingGroupsPage";
-import EditorPage from "./pages/EditorPage";
 
 import { AuthProvider } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
 import { RoleRoute } from "@/auth/RoleRoute";
-import { SuperAdminRoute } from "@/auth/SuperAdminRoute";
 import { LayoutProvider } from "@/components/layout/LayoutContext";
 import { LaunchOverlayProvider } from "@/components/brand/launch-overlay";
 import { HomeRoute } from "@/auth/HomeRoute";
@@ -299,24 +297,6 @@ const App = () => (
                   <RoleRoute allowedRoles={["player"]}>
                     <AvailabilityPage />
                   </RoleRoute>
-                }
-              />
-
-              <Route
-                path="/editor"
-                element={
-                  <SuperAdminRoute>
-                    <EditorPage />
-                  </SuperAdminRoute>
-                }
-              />
-
-              <Route
-                path="/editor/:model"
-                element={
-                  <SuperAdminRoute>
-                    <EditorPage />
-                  </SuperAdminRoute>
                 }
               />
 

@@ -15,8 +15,8 @@ hold a role, and every write is audited. Epic PAD-530, owner decisions 2026-10-0
 - `admin.approvals-and-users` — draft (PAD-532: coach approvals through the existing services, user
   directory, disable/enable, resend verification, read-only "view as"; removes Settings → Admin
   from web and iOS)
-- `admin.clubs-and-switches` — draft (PAD-533: clubs, courts, coach↔club links, the
-  coach-approval gate, capability kill-switches)
+- `admin.clubs-and-switches` — draft (PAD-533: clubs, courts, coach↔club links, capability
+  kill-switches; the coach-approval gate ships early with PAD-532)
 - `admin.engine-health` — draft (PAD-534: read-only engine counts, recorded delivery incidents,
   deployed SHA and migration head per environment, per-coach engine settings)
 - `admin.commercial-groundwork` — draft, **blocked** (PAD-535, by PAD-536 and PAD-472: `plans`,

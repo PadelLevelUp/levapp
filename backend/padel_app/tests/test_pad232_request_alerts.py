@@ -161,6 +161,8 @@ def test_claim_request_alerts_invited_account_then_coach_on_decision(app):
 
 
 def test_pending_coach_alerts_superadmins_and_approval_alerts_the_coach(app):
+    # PAD-532: the pending-coach alert points at the staff console; without its URL it is skipped.
+    app.config["ADMIN_CONSOLE_URL"] = "https://admin.levapp.app"
     from padel_app.services.coach_approval_service import (
         approve_coach_service, notify_admin_of_pending_coach,
     )
@@ -178,8 +180,8 @@ def test_pending_coach_alerts_superadmins_and_approval_alerts_the_coach(app):
         with p_web as web, p_expo as expo, p_mail:
             notify_admin_of_pending_coach(pending)
         assert _recipient_ids(web) == [admin.id]
-        assert web.call_args.kwargs["url"] == PATHS["coach_approval.received"]
-        assert expo.call_args.kwargs["data"] == {"type": "path", "path": PATHS["coach_approval.received"]}
+        assert web.call_args.kwargs["url"] == "https://admin.levapp.app/approvals"
+        assert expo.call_args.kwargs["data"] == {"type": "path", "path": "https://admin.levapp.app/approvals"}
         assert "Novo" in web.call_args.args[2]
 
         p_web, p_expo, p_mail = _channels()

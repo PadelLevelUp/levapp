@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { routeForPushData } from "./push-routing";
+import { externalUrlForPushData, routeForPushData } from "./push-routing";
 
 describe("routeForPushData", () => {
   it("routes a message push to its conversation", () => {
@@ -104,5 +104,30 @@ describe("routeForPushData carries the tapped message (PAD-408, rule 12)", () =>
     expect(
       routeForPushData({ type: "message", conversationId: 7, messageId: null })
     ).toBe("/conversation/7");
+  });
+});
+
+describe("PAD-532: an absolute URL opens outside the app", () => {
+  const url = "https://admin.levapp.app/approvals";
+
+  it("externalUrlForPushData returns an https path of a path push", () => {
+    expect(externalUrlForPushData({ type: "path", path: url })).toBe(url);
+  });
+
+  it("routeForPushData never routes it in-app", () => {
+    expect(routeForPushData({ type: "path", path: url })).toBeNull();
+  });
+
+  it("is null for web paths, other types, other schemes and junk", () => {
+    expect(externalUrlForPushData({ type: "path", path: "/settings?section=club" })).toBeNull();
+    expect(externalUrlForPushData({ type: "message", conversationId: 7, path: url })).toBeNull();
+    expect(externalUrlForPushData({ type: "path", path: "http://admin.levapp.app/approvals" })).toBeNull();
+    expect(externalUrlForPushData({ type: "path" })).toBeNull();
+    expect(externalUrlForPushData(null)).toBeNull();
+    expect(externalUrlForPushData("https://x")).toBeNull();
+  });
+
+  it("keeps routing a web path in-app", () => {
+    expect(routeForPushData({ type: "path", path: "/settings?section=club" })).not.toBeNull();
   });
 });

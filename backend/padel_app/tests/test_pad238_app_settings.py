@@ -30,6 +30,20 @@ def _user(app, username, *, superadmin=False, coach=False):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user.id))}"}, user.id
 
 
+def _console(app, user_id=None, role="operator"):
+    """Bearer headers for a staff-console session (admin token) on a role row linked to `user_id`."""
+    from padel_app.models.admin_role import AdminRole
+    from padel_app.tests.admin_helpers import admin_token, bearer, make_role
+
+    email = f"console-{role}-{user_id or 0}@levapp.app"
+    with app.app_context():
+        row = AdminRole.query.filter_by(email=email).first()
+        role_id = row.id if row else None
+    if role_id is None:
+        role_id = make_role(app, email, role, user_id=user_id)
+    return bearer(admin_token(app, role_id))
+
+
 def _register_coach(client, username):
     res = client.post("/api/auth/register", json={
         "role": "coach", "name": "Rui Costa", "username": username,
@@ -97,33 +111,41 @@ def test_registration_honours_the_stored_setting(client, app):
         assert Coach.query.join(Coach.user).filter_by(username="rui_off").one().approval_status == "approved"
 
 
-def test_superadmin_reads_and_flips_the_setting_over_the_api(client, app):
-    admin, admin_id = _user(app, "admin", superadmin=True)
+def test_operator_reads_and_flips_the_setting_over_the_console(client, app):
+    _, admin_id = _user(app, "admin", superadmin=True)
+    operator = _console(app, admin_id)
     app.config["COACH_APPROVAL_REQUIRED"] = True
+    url = "/admin/api/settings/coach-approval"
 
-    res = client.get("/api/app/admin/settings", headers=admin)
+    res = client.get(url, headers=operator)
     assert res.status_code == 200, res.get_json()
     assert res.get_json() == {"coachApprovalRequired": True, "source": "environment"}
 
-    res = client.put("/api/app/admin/settings", headers=admin, json={"coachApprovalRequired": False})
+    res = client.put(url, headers=operator, json={"coachApprovalRequired": False})
     assert res.status_code == 200, res.get_json()
     assert res.get_json() == {"coachApprovalRequired": False, "source": "database"}
-    assert client.get("/api/app/admin/settings", headers=admin).get_json()["coachApprovalRequired"] is False
+    assert client.get(url, headers=operator).get_json()["coachApprovalRequired"] is False
 
     with app.app_context():
         from padel_app.models import AppSetting
         assert db.session.get(AppSetting, "coach_approval_required").updated_by_user_id == admin_id
 
-    res = client.put("/api/app/admin/settings", headers=admin, json={"coachApprovalRequired": "no"})
+    res = client.put(url, headers=operator, json={"coachApprovalRequired": "no"})
     assert res.status_code == 400
+    assert res.get_json() == {"error": "COACH_APPROVAL_REQUIRED_MUST_BE_BOOLEAN"}
 
-    res = client.put("/api/app/admin/settings", headers=admin, json={"coachApprovalRequired": True})
+    res = client.put(url, headers=operator, json={"coachApprovalRequired": True})
     assert res.status_code == 200 and res.get_json()["coachApprovalRequired"] is True
 
 
-def test_an_ordinary_coach_gets_403_on_both_endpoints(client, app):
-    coach, _ = _user(app, "joao", coach=True)
-    assert client.get("/api/app/admin/settings", headers=coach).status_code == 403
-    assert client.put("/api/app/admin/settings", headers=coach,
-                      json={"coachApprovalRequired": False}).status_code == 403
-    assert client.get("/api/app/admin/settings").status_code == 401
+def test_a_support_role_reads_but_cannot_flip_and_the_product_route_is_gone(client, app):
+    product, user_id = _user(app, "joao", coach=True)
+    url = "/admin/api/settings/coach-approval"
+    support = _console(app, user_id, role="support")
+    assert client.get(url, headers=support).status_code == 200
+    assert client.put(url, headers=support, json={"coachApprovalRequired": False}).status_code == 403
+    assert client.get(url).status_code == 401
+    # PAD-532: the old product routes answer 404, for a coach and for the settings alike.
+    assert client.get("/api/app/admin/settings", headers=product).status_code == 404
+    assert client.put("/api/app/admin/settings", headers=product,
+                      json={"coachApprovalRequired": False}).status_code == 404

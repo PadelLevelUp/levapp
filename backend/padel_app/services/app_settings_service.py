@@ -1,8 +1,9 @@
 """Operator-level settings (auth.coach-approval rule 9; PAD-238 item 3 via PAD-279).
 
 A stored ``AppSetting`` row wins; with no row (or a row whose value is not the
-expected type) the process falls back to its env flag. The superadmin surface
-is ``GET|PUT /api/app/admin/settings`` in ``modules/frontend_api.py``.
+expected type) the process falls back to its env flag. The staff surface is
+``GET|PUT /admin/api/settings/coach-approval`` (admin.approvals-and-users rule 10b,
+PAD-532); the old product route ``/api/app/admin/settings`` is gone.
 """
 from datetime import datetime
 
@@ -37,7 +38,7 @@ def admin_settings_payload() -> dict:
     }
 
 
-def set_coach_approval_required(enabled: bool, *, updated_by_user_id) -> None:
+def set_coach_approval_required(enabled: bool, *, updated_by_user_id, commit=True) -> None:
     """Upsert the row. Never touches an existing coach's ``approval_status``:
     the gate decides what a NEW registration starts as, nothing else."""
     if not isinstance(enabled, bool):
@@ -49,7 +50,11 @@ def set_coach_approval_required(enabled: bool, *, updated_by_user_id) -> None:
     row.value = enabled
     row.updated_at = datetime.utcnow()
     row.updated_by_user_id = updated_by_user_id
-    db.session.commit()
+    # commit=False: the staff console commits it with its audit row (PAD-532).
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
 
 
 # ── PAD-533 (admin.clubs-and-switches rule 5): capability kill-switches ─────────────────────────

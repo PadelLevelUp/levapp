@@ -10,9 +10,7 @@
 #   club form offered
 #
 # Usernames are unique per run so the server's uniqueness rules never trip.
-# The admin approval half is web-only in this flow: the seeded superadmin
-# (e2e-coach) approves in web Settings → Admin; the mobile Admin section is
-# the same list and is exercised in the parity walk, not here.
+# Approval is not part of this flow: it lives in the staff console now (PAD-532).
 appId: com.padellevelup.app
 ---
 # The backend the debug calls hit: Maestro -e API_BASE=http://localhost:<port> for an

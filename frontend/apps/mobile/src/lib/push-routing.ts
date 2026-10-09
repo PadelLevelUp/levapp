@@ -39,6 +39,21 @@ export type PushNotificationData = {
   path?: string;
 };
 
+/**
+ * PAD-532: a push may name a destination OUTSIDE the app — the staff console's
+ * approvals page — as an absolute `https://` URL in `{ type: "path", path }`.
+ * That is opened in the system browser, never routed in-app. Anything else
+ * (a web path, another type, a non-https scheme) is null.
+ */
+export function externalUrlForPushData(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const payload = data as PushNotificationData;
+  if (payload.type === "path" && typeof payload.path === "string" && payload.path.startsWith("https://")) {
+    return payload.path;
+  }
+  return null;
+}
+
 export function routeForPushData(
   data: unknown
 ): string | DashboardRoute | null {
@@ -60,6 +75,8 @@ export function routeForPushData(
   // the tap goes nowhere and nothing throws, because a crash on a notification
   // tap is the worst possible reading of "unknown".
   if (payload.type === "path" && payload.path) {
+    // PAD-532: an absolute URL is external — see `externalUrlForPushData`.
+    if (externalUrlForPushData(payload) !== null) return null;
     return nativeRouteForWebPath(payload.path);
   }
 

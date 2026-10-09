@@ -217,7 +217,8 @@ def render_request_alert_email(user, title, body, path):
     rule 2): the same title/body the pushes carry, one button into the web app."""
     lang = _lang(user)
     label = "Abrir a LevApp" if lang == "pt" else "Open LevApp"
-    href = web_origin() + path
+    # PAD-532: a console destination is already absolute (request_alert_service.destination).
+    href = path if path.startswith(("https://", "http://")) else web_origin() + path
     blocks = [_h1(title), _p(body), _button(label, href)]
     footer = (
         "Podes desativar estes alertas em Definições → Preferências."

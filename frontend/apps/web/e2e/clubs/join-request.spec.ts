@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { approveCoachInDb } from "../helpers/coachApproval";
 import { completeEmailVerification } from "../helpers/emailVerification";
 
 /**
@@ -7,9 +8,9 @@ import { completeEmailVerification } from "../helpers/emailVerification";
  *
  * An approved coach with no club picks one on the club-onboarding screen:
  * ask to join an existing club (a member approves in Settings → Club) or
- * create their own. The seeded `e2e-coach` is both the LevApp superadmin who
- * approves the new coach and a member of the seeded "E2E Club" who approves
- * the join request. Usernames carry a timestamp so re-runs never collide.
+ * create their own. The new coach is approved in the E2E database (the staff
+ * console owns approval, PAD-532); the seeded `e2e-coach` is a member of the
+ * seeded "E2E Club" who approves the join request. Usernames carry a timestamp so re-runs never collide.
  */
 const stamp = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 const PASSWORD = "Segura1234";
@@ -48,14 +49,10 @@ async function signIn(page: Page, username: string, password: string) {
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 10_000 });
 }
 
-/** The LevApp admin approves the coach in Settings → Admin (own session). */
+/** The staff console approves the coach (PAD-532): set that state in the E2E database; the member signs in on their own session. */
 async function adminApprovesCoach(page: Page, username: string) {
+  approveCoachInDb(username);
   await signIn(page, COACH_USERNAME, COACH_PASSWORD);
-  await page.goto("/settings");
-  await page.getByTestId("settings-nav-admin").click();
-  await expect(page.getByTestId(`admin-pending-${username}`)).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId(`admin-approve-${username}`).click();
-  await expect(page.getByTestId(`admin-pending-${username}`)).toHaveCount(0, { timeout: 10_000 });
 }
 
 /** Signs up a coach and gets them approved; resolves once they sit on club onboarding. */
