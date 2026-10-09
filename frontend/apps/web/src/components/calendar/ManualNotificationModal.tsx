@@ -3,7 +3,10 @@ import { ChevronDown, ChevronRight, Search, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { CoachPlayer, StudentGroup } from "@/types";
-import { sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
+import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
+import { runManualInviteFlow } from "@levelup/config";
+import type { EligibilityCheckEntry } from "@/types";
+import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -187,15 +190,36 @@ export function ManualNotificationModal({
   const isGroupPartiallySelected = (group: StudentGroup) =>
     group.players.some((p) => selected.has(p.id)) && !isGroupAllSelected(group);
 
+  // eligibility.enforcement rule 6a (PAD-562): inviting a student who fails the bar asks first,
+  // through the same check and dialog the manual add uses; one dialog for the whole selection.
+  const [pendingInvite, setPendingInvite] = useState<{
+    failing: EligibilityCheckEntry[];
+    proceed: () => Promise<void>;
+  } | null>(null);
+
   const handleSend = async () => {
     if (selected.size === 0) return;
+    setSending(true);
+    try {
+      await runManualInviteFlow<EligibilityCheckEntry>({
+        playerIds: [...selected],
+        check: async (ids) => (await checkEligibility(eventModel, eventOriginalId, eventDate, ids)).ineligible,
+        send: (ids) => sendTo(ids),
+        ui: { askEligibility: (failing, proceed) => setPendingInvite({ failing, proceed }) },
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendTo = async (ids: string[]) => {
     setSending(true);
     try {
       const { sent, blocked } = await sendManualNotifications(
         eventModel,
         eventOriginalId,
         eventDate,
-        [...selected]
+        ids
       );
       // A student can be skipped for two unrelated reasons, and the coach needs
       // to be told a different thing for each, so `blocked` is split by cause
@@ -350,7 +374,7 @@ export function ManualNotificationModal({
           <Button variant="outline" onClick={handleClose} disabled={sending}>
             {t("common.cancel")}
           </Button>
-          <Button disabled={selected.size === 0 || sending} onClick={handleSend}>
+          <Button data-testid="notify-students-send" disabled={selected.size === 0 || sending} onClick={handleSend}>
             <Send className="w-4 h-4 mr-2" />
             {selected.size > 0
               ? t("calendar.notify.sendToCount", { count: selected.size })
@@ -358,6 +382,17 @@ export function ManualNotificationModal({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <EligibilityConfirmDialog
+        open={pendingInvite !== null}
+        ineligible={pendingInvite?.failing ?? []}
+        action="invite"
+        onCancel={() => setPendingInvite(null)}
+        onConfirm={() => {
+          const proceed = pendingInvite?.proceed;
+          setPendingInvite(null);
+          if (proceed) void proceed();
+        }}
+      />
     </Dialog>
   );
 }
