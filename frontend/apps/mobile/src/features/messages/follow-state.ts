@@ -57,10 +57,10 @@ export function followReducer(state: FollowState, event: FollowEvent): { state: 
       return { state: { ...state, suspended: false }, effect: null };
     case "toLatest":
       return { state: { atBottom: true, suspended: false }, effect: null };
+    // Both share rule 10's gate: stay pinned only at the bottom and not during a landing. The
+    // list is not inverted, so a shorter viewport (the keyboard) with the same offset shows the
+    // same top edge and loses the bottom — the same remedy as content growing (PAD-569).
     case "contentGrew":
-    // The list is not inverted, so a shorter viewport with the same offset shows the same top
-    // edge and loses the bottom: at the bottom, re-pin, exactly as when content grows. Away
-    // from the bottom, or during a landing, the keyboard moves nothing (rule 10).
     case "viewportShrank":
       return { state, effect: state.atBottom && !state.suspended ? "scrollToEnd" : null };
     default:

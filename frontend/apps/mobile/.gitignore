@@ -40,6 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# Maestro takeScreenshot output (flow 240 and friends): evidence, never committed
+# Raw Maestro takeScreenshot output (flows) and the control-run copies a 2x2 sitting makes;
+# curated composites go in .maestro/evidence/ instead.
 screenshots/
 screenshots-control/

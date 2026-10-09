@@ -674,8 +674,9 @@ export default function ConversationScreen() {
   // list gets SHORTER. The list is not inverted, so the same offset in a shorter viewport
   // shows the same top edge and the newest messages slide under the keyboard. Once anchored,
   // a drop in height is dispatched as `viewportShrank` and, at the bottom (rule 10's gate),
-  // the list re-pins to its end — one frame later, as every Fabric `scrollToEnd` here (the
-  // new geometry is not readable inside the callback that reports it, PAD-224). A taller
+  // the list re-pins to its end — deferred one frame, like the anchor effect above and for the
+  // same reason: the shrunk geometry is not readable inside the callback that reports it
+  // (PAD-224; `contentGrew` and the jump control scroll synchronously, their geometry is). A taller
   // viewport (the keyboard closing) dispatches nothing: the native scroll view clamps the
   // offset itself, so nothing jumps.
   const viewportHeightRef = React.useRef(0);
@@ -717,6 +718,7 @@ export default function ConversationScreen() {
     dispatchFollow({ type: "reset" });
     hasNewBelowRef.current = false;
     scrollMetricsRef.current = { distanceFromBottom: 0, viewportHeight: 0 };
+    viewportHeightRef.current = 0;
     setHasNewBelow(false);
     setShowJumpToBottom(false);
   }, [conversationId, dispatchAnchor, dispatchFollow]);

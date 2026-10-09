@@ -76,4 +76,14 @@ describe("the thread follows the keyboard (PAD-569, B-462, rule 7)", () => {
   it("during a landing, the keyboard opening does not cancel it", () => {
     expect(run([{ type: "landing" }, { type: "viewportShrank" }]).effects).toEqual([null, null]);
   });
+
+  it("after the reader's drag ended a landing and a frame reached the bottom, the keyboard re-pins again", () => {
+    const { effects } = run([
+      { type: "landing" },
+      { type: "drag" },
+      { type: "scroll", atBottom: true },
+      { type: "viewportShrank" },
+    ]);
+    expect(effects[3]).toBe("scrollToEnd");
+  });
 });
