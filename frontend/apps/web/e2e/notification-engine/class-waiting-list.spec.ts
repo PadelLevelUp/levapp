@@ -1,9 +1,11 @@
 /**
  * PAD-547 — calendar.event-detail rules 19–20, notifications.waiting-list rules 18–21.
+ * PAD-560 / B-421 — the picker is a search above visible rows (no select); each row says how long
+ * the student is on the list (`data-scope`, payload `scope`).
  *
  * The coach sees a class's waiting list on its detail sheet, adds a roster student for this class
- * only, sees the origin, and removes them. Seeded through the API; asserted by test ids,
- * `data-origin` and the payload's `waitingList`, never by rendered English (PAD-320).
+ * only, sees the origin and scope, and removes them. Seeded through the API; asserted by test ids,
+ * `data-origin`, `data-scope` and the payload's `waitingList`, never by rendered English (PAD-320).
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
@@ -75,29 +77,33 @@ test("PAD-547: the coach adds a student to one class's waiting list and removes 
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   await page.getByTestId("class-waiting-list-add").click();
   await expect(page.getByTestId("class-waiting-list-dialog")).toBeVisible();
-  // The enrolled student is not offered (rule 20).
-  await expect(
-    page.getByTestId("class-waiting-list-player").locator(`option[value="${enrolled.playerId}"]`),
-  ).toHaveCount(0);
-  // PAD-558: the search narrows the offered names; others drop out, the searched one stays.
-  const picker = page.getByTestId("class-waiting-list-player");
+  // The enrolled student is not offered (rule 20); the offered students are visible rows (B-421).
+  const dialog = page.getByTestId("class-waiting-list-dialog");
+  await expect(page.getByTestId(`class-waiting-list-candidate-${enrolled.playerId}`)).toHaveCount(0);
+  await expect(dialog.locator("select")).toHaveCount(0);
+  // PAD-558: the search narrows the visible rows; others drop out, the searched one stays.
   await page.getByTestId("class-waiting-list-search").fill(listed.name);
-  await expect(picker.locator(`option[value="${listed.playerId}"]`)).toHaveCount(1);
-  await expect(picker.locator("option:not([value=''])")).toHaveCount(1);
-  await picker.selectOption(String(listed.playerId));
+  await expect(page.getByTestId(`class-waiting-list-candidate-${listed.playerId}`)).toBeVisible();
+  await expect(dialog.locator('[data-testid^="class-waiting-list-candidate-"]')).toHaveCount(1);
+  await page.getByTestId(`class-waiting-list-candidate-${listed.playerId}`).click();
+  await expect(page.getByTestId(`class-waiting-list-candidate-${listed.playerId}`)).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("class-waiting-list-scope-occurrence").click();
   await page.getByTestId("class-waiting-list-confirm").click();
 
   const row = page.getByTestId(`class-waiting-list-row-${listed.playerId}`);
   await expect(row).toHaveAttribute("data-origin", "coach", { timeout: 10000 });
+  // PAD-560 (rule 19): the row says how long the student is on the list.
+  await expect(row).toHaveAttribute("data-scope", "occurrence");
 
   const read = async () => {
     const r = await request.post(`${API_APP}/class_instance?model=${ref.model}&id=${ref.originalId}&date=${date}`, {
       headers: { Authorization: `Bearer ${tok}` },
     });
-    return ((await r.json()).waitingList ?? []) as Array<{ playerId: number; origin: string }>;
+    return ((await r.json()).waitingList ?? []) as Array<{ playerId: number; origin: string; scope: string; expiresOn: string | null }>;
   };
-  expect(await read()).toEqual([expect.objectContaining({ playerId: listed.playerId, origin: "coach" })]);
+  expect(await read()).toEqual([
+    expect.objectContaining({ playerId: listed.playerId, origin: "coach", scope: "occurrence", expiresOn: null }),
+  ]);
 
   await page.getByTestId(`class-waiting-list-remove-${listed.playerId}`).click();
   await expect(row).toHaveCount(0, { timeout: 10000 });
