@@ -55,3 +55,40 @@ def set_coach_approval_required(enabled: bool, *, updated_by_user_id, commit=Tru
         db.session.commit()
     else:
         db.session.flush()
+
+
+# ── PAD-533 (admin.clubs-and-switches rule 5): capability kill-switches ─────────────────────────
+CAPABILITY_KILL_SWITCHES = "capability_kill_switches"
+
+
+def capability_kill_switches() -> dict:
+    """``{capability: {"off": True, "reason": str}}``; no row, or a malformed one, means all on."""
+    row = db.session.get(AppSetting, CAPABILITY_KILL_SWITCHES)
+    value = row.value if row is not None else None
+    if not isinstance(value, dict):
+        return {}
+    return {k: v for k, v in value.items() if isinstance(v, dict) and v.get("off") is True}
+
+
+def set_capability_switch(capability: str, off: bool, reason, *, updated_by_user_id) -> dict:
+    """Switch one capability off (with its reason) or back on. Flushes only: the admin route's
+    ``@audited`` commits it with its audit row. Returns ``{"before": ..., "after": ...}``."""
+    from padel_app.utils.client_capabilities import reset_switch_cache
+    from padel_app.utils.dates import utcnow_naive
+
+    current = capability_kill_switches()
+    before = {"off": capability in current, "reason": (current.get(capability) or {}).get("reason")}
+    if off:
+        current[capability] = {"off": True, "reason": reason}
+    else:
+        current.pop(capability, None)
+    row = db.session.get(AppSetting, CAPABILITY_KILL_SWITCHES)
+    if row is None:
+        row = AppSetting(key=CAPABILITY_KILL_SWITCHES)
+        db.session.add(row)
+    row.value = dict(current)
+    row.updated_at = utcnow_naive()
+    row.updated_by_user_id = updated_by_user_id
+    db.session.flush()
+    reset_switch_cache()   # this worker sees it at once; the others within 30 s
+    return {"before": before, "after": {"off": bool(off), "reason": reason if off else None}}

@@ -49,6 +49,10 @@ classes — see `classes.student-joins-and-views-classes`.)
   dragging isn't supported on touch/mobile.
 - A student who received several invitations for the same class appears once in the guest list,
   never once per invitation.
+- Each invitee reads as accepted, declined, no answer yet, invitation withdrawn, spot filled or
+  expired — never a bare yes/no. The coach can record an answer a student gave them another way,
+  and can withdraw an invitation: the student then sees the invitation as "spot filled", cannot
+  take it, is not asked again for that class, and the next candidate is asked instead.
 - The colour a coach picks for a class identifies that class and nothing else; what a class is
   *doing* is carried by its treatment — filled when upcoming, outlined when it is the next one,
   faded when finished, red when canceled, dashed when it is a personal block rather than a

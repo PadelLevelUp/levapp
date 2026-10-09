@@ -1,0 +1,49 @@
+# PAD-524 (classes.clone): "Clonar aula" on the class screen opens the new-class screen filled
+# from the class (its name), with the start empty and Create disabled until one is chosen. The
+# flow stops there and goes back: the save is the ordinary create (classes.clone rule 6), pinned
+# by the unit tests and the web spec; driving iOS's native time wheel is out of Maestro's reach.
+# Nothing is created.
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad524-clone-class.spec.ts (up to the save)
+# Flow number 181 self-assigned from Session C's range 179–188 (2026-10-08), unconfirmed.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+
+- tapOn: "E2E Academy Class"
+- scrollUntilVisible:
+    element:
+      id: "class-clone"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-clone"
+- extendedWaitUntil:
+    visible:
+      id: "class-new"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "E2E Academy Class"
+    timeout: 15000
+# The time field's accessibility label is "<label>: <value or placeholder>" and Maestro's
+# text: must match the whole label, so the placeholder is matched inside it.
+- assertVisible:
+    id: "class-start-time"
+    text: ".*(Escolhe a hora de início|Choose the start time).*"
+- scrollUntilVisible:
+    element:
+      id: "class-save"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "class-save"
+    enabled: false
+
+- tapOn:
+    id: "class-new-back"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 15000

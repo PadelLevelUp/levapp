@@ -26,12 +26,16 @@ interface ReplacementApprovalCardProps {
   ) => void;
   /** Render without action buttons (e.g. when viewing your own message) */
   readOnly?: boolean;
+  /** PAD-545 (semi-auto-approval rule 8): "Ignorar" exists only on the class's card; the
+   * conversation offers the send buttons alone. */
+  allowDismiss?: boolean;
 }
 
 export function ReplacementApprovalCard({
   bundle,
   onResult,
   readOnly = false,
+  allowDismiss = false,
 }: ReplacementApprovalCardProps) {
   const { t } = useTranslation();
   const [responding, setResponding] = useState(false);
@@ -59,7 +63,10 @@ export function ReplacementApprovalCard({
         .filter((v) => v.result === "stale")
         .map((v) => v.vacancyId);
       setStaleVacancyIds(stale);
-      if (stale.length === result.vacancies.length && stale.length > 0) {
+      if (result.superseded) {
+        // PAD-545: a recompute replaced this list; nothing was decided.
+        toast.info(t("notificationsUi.replacementApproval.superseded"));
+      } else if (stale.length === result.vacancies.length && stale.length > 0) {
         toast.info(t("notificationsUi.replacementApproval.spotsFilledOrExpired"));
       }
       onResult?.(result.action, result.vacancies);
@@ -200,15 +207,17 @@ export function ReplacementApprovalCard({
                   : t("notificationsUi.replacementApproval.yesAt", { window: windowLabel })}
               </button>
             )}
-            <button
-              type="button"
-              data-testid="dismiss-invitations"
-              onClick={() => handleRespond("dismiss")}
-              disabled={responding}
-              className="flex-1 min-w-[4rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
-            >
-              {responding ? "…" : t("notificationsUi.replacementApproval.no")}
-            </button>
+            {allowDismiss && (
+              <button
+                type="button"
+                data-testid="dismiss-invitations"
+                onClick={() => handleRespond("dismiss")}
+                disabled={responding}
+                className="flex-1 min-w-[4rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+              >
+                {responding ? "…" : t("notificationsUi.replacementApproval.ignore")}
+              </button>
+            )}
           </div>
         </div>
       )}

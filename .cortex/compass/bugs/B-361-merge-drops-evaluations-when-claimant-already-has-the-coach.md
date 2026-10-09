@@ -63,7 +63,11 @@ guard), merge suite green, claim/evaluation regression.
 - Spec changes: `players/claim.spec.md` rule 5a + Entities + 2 criteria; business spec rule.
 - Tests added: `test_b361_evaluations_and_notes_survive_when_the_claimant_already_has_the_coach`,
   `test_b361_same_day_records_merge_into_the_claimants`,
-  `test_every_coach_relation_fk_is_covered_by_the_merge`.
+  `test_b361_a_share_follows_its_record_unless_the_kept_record_is_shared`,
+  `test_every_coach_relation_fk_is_covered_by_the_merge` (4).
 - Code: `player_claim_service._merge_relation_children`, called before the dropped relation is
   deleted; the relation is expired first so the ORM cascade sees no stale collection.
-- Resolved: 2026-10-07 (PAD-528, PR 1).
+- Resolved: 2026-10-07 (PAD-528, PR 1 #555).
+- Noted at review (#555), not fixed: `set_roster_level(mine, …)` in rule 5a runs before the
+  placeholder's `player_level_history` rows move (rule 5d), so a borrowed level can leave a
+  duplicate-looking history row for the same level. Origin PAD-270; cosmetic in the history view.

@@ -57,7 +57,6 @@ export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
   { file: "pw:settings/profile-persistence.spec.ts", max: 3, reason: "3 en role names, e.g. 'profile', 'save changes'" },
   { file: "pw:layout/mobile-bottom-nav.spec.ts", max: 2, reason: "2 pt role names, e.g. 'definições'" },
   { file: "pw:notification-engine/cancellation-deadline.spec.ts", max: 2, reason: "2 en role names, e.g. 'reminders', 'restrictions'" },
-  { file: "pw:notification-engine/semi-auto-approval.spec.ts", max: 2, reason: "2 en role names, e.g. 'no'" },
   { file: "pw:player-management/activation-link-secret.spec.ts", max: 2, reason: "2 en role names, e.g. 'add player', 'create player'" },
   { file: "pw:player-management/add-player.spec.ts", max: 2, reason: "2 en role names, e.g. 'add player', 'create player'" },
   { file: "pw:player-management/level-formatting.spec.ts", max: 2, reason: "2 en role names, e.g. 'Beginner', 'add player'" },

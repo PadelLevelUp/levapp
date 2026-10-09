@@ -251,6 +251,8 @@ class Config:
     LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # auth.email-verification rule 13 (PAD-269): send and confirm share one bucket.
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
+    # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
+    AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
@@ -270,6 +272,12 @@ class Config:
     # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
     # pending-coach mail and push. Empty = the bare path (local development).
     ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
+    # admin.engine-health rule 5 (PAD-534): the other environment's admin API and the token this
+    # console presents to it; and the token this environment accepts from the other one. All three
+    # unset (the default) means the console shows the other environment as "not configured".
+    ADMIN_PEER_URL = os.getenv("ADMIN_PEER_URL", "")
+    ADMIN_PEER_TOKEN = os.getenv("ADMIN_PEER_TOKEN", "")
+    ADMIN_PEER_INBOUND_TOKEN = os.getenv("ADMIN_PEER_INBOUND_TOKEN", "")
     ADMIN_STAFF_DOMAIN = ADMIN_STAFF_DOMAIN_DEFAULT
     ADMIN_JWT_AUDIENCE = ADMIN_JWT_AUDIENCE_DEFAULT
     # Rule 3 (owner decision 2026-10-07): 12 hours, no silent refresh.

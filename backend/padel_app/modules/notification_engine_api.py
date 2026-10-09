@@ -12,6 +12,7 @@ from padel_app.modules.frontend_api import (
 from padel_app.utils.dates import club_now_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
+    withdraw_invitation,
     get_config_dict,
     update_config,
     send_class_reminders,
@@ -64,6 +65,31 @@ def _resolve_instance(model: str, original_id: int, date_str: str | None) -> Les
         abort(400, "date is required for Lesson events")
     date = datetime.strptime(date_str, "%Y-%m-%d").date()
     return get_or_materialize_instance(lesson, date)
+
+
+@bp.post("/template_preview")
+@jwt_required()
+def template_preview():
+    """PAD-549 (notifications.message-templates rule 19): the settings help's live preview — the
+    coach's template rendered by the real formatter with example values, plus each example."""
+    from padel_app.services.notification_service import (
+        _resolve_locale,
+        render_template_preview,
+        template_preview_examples,
+    )
+
+    coach = _current_coach()
+    data = request.get_json(silent=True) or {}
+    template = data.get("template")
+    if template is not None and not isinstance(template, str):
+        abort(400, "template must be a string")
+    if template is not None and len(template) > 2000:
+        abort(400, "template is too long")
+    locale = _resolve_locale(coach)
+    return jsonify({
+        "text": render_template_preview(template or "", locale),
+        "examples": template_preview_examples(locale),
+    })
 
 
 @bp.get("/player_search")
@@ -473,6 +499,49 @@ def respond_waiting_list_endpoint():
     return jsonify(result)
 
 
+@bp.post("/class_waiting_list")
+@jwt_required()
+def class_waiting_list_add():
+    """PAD-547 (notifications.waiting-list rules 18–19): the coach adds a roster student to this
+    class's waiting list — `scope` "occurrence", or "series" with `credits` and `expiresOn`."""
+    from padel_app.services.notification_service import (
+        InvalidStandingEndError, add_to_class_waiting_list, standing_end_from_date,
+    )
+
+    coach = _current_coach()
+    data = request.get_json() or {}
+    try:
+        original_id = int(data.get("originalId"))
+        player_id = int(data.get("playerId"))
+        credits = int(data["credits"]) if data.get("credits") is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "originalId, playerId and credits must be integers"}), 400
+    instance = _resolve_instance(str(data.get("model", "")), original_id, data.get("date"))
+    if not coach_owns_instance(coach, instance):
+        return jsonify({"error": "Not your class"}), 403
+    scope = data.get("scope", "occurrence")
+    expires_at = None
+    if scope == "series":
+        try:
+            expires_at = standing_end_from_date(data.get("expiresOn"))
+        except InvalidStandingEndError as exc:
+            return jsonify({"error": f"invalid {exc.field}", "field": exc.field}), 400
+    result = add_to_class_waiting_list(
+        coach.id, instance, player_id, scope=scope, credits=credits, expires_at=expires_at,
+    )
+    return jsonify(result), 201 if result["action"] == "added" else 200
+
+
+@bp.delete("/class_waiting_list/<int:entry_id>")
+@jwt_required()
+def class_waiting_list_remove(entry_id: int):
+    """PAD-547 (notifications.waiting-list rule 21): the coach takes one row off one class's list."""
+    from padel_app.services.notification_service import remove_from_class_waiting_list
+
+    coach = _current_coach()
+    return jsonify(remove_from_class_waiting_list(entry_id, coach.id))
+
+
 @bp.get("/waiting_list/<int:instance_id>")
 @jwt_required()
 def waiting_list(instance_id: int):
@@ -494,6 +563,14 @@ def coach_respond():
     return jsonify(result)
 
 
+@bp.delete("/invitations/<int:event_id>")
+@jwt_required()
+def withdraw_invitation_route(event_id: int):
+    """PAD-548 (notifications.invitations rule 19): the coach withdraws a live invitation."""
+    coach = _current_coach()
+    return jsonify(withdraw_invitation(event_id, coach.id))
+
+
 @bp.post("/approval/respond")
 @jwt_required()
 def approval_respond():
@@ -510,6 +587,26 @@ def approval_respond():
     from padel_app.services.replacement_approval_service import respond_to_approval
     result = respond_to_approval(bundle_id, action, coach.id)
     return jsonify(result)
+
+
+@bp.get("/approval/instance/<int:instance_id>")
+@jwt_required()
+def approval_instance_state(instance_id: int):
+    """PAD-545 (semi-auto-approval rule 12): the class's suggestion state for its coach —
+    ``{"state": "pending", "bundle"}`` | ``{"state": "dismissed"}`` | ``{"state": "none"}``."""
+    coach = _current_coach()
+    from padel_app.services.replacement_approval_service import instance_suggestions
+    return jsonify(instance_suggestions(instance_id, coach.id))
+
+
+@bp.post("/approval/instance/<int:instance_id>/recompute")
+@jwt_required()
+def approval_instance_recompute(instance_id: int):
+    """PAD-545 (rule 12): recompute the class's suggestions from its state now and ask again.
+    Sends nothing; the coach decides on the new bundle it returns."""
+    coach = _current_coach()
+    from padel_app.services.replacement_approval_service import recompute_suggestions
+    return jsonify(recompute_suggestions(instance_id, coach.id))
 
 
 @bp.post("/process_rounds")

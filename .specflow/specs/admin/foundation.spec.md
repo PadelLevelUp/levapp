@@ -44,14 +44,15 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 1. **Sign-in is Google only.** The console uses Google Identity Services in the browser to obtain
    a Google ID token and posts it to `POST /admin/api/auth/google` `{credential}`. The backend
    verifies it with `google-auth` and accepts it only when all five hold, **in our code**, whatever
-   the Google console's consent-screen setting ("Internal") says: (a) the signature verifies
+   the Google console's consent-screen setting says (External, Testing mode; see rule 13): (a) the signature verifies
    against Google's published keys and the token has not expired; (b) `aud` equals
    `ADMIN_GOOGLE_CLIENT_ID`; (c) `iss` is `accounts.google.com` or `https://accounts.google.com`;
    (d) `email_verified` is true; (e) the `hd` claim is `levapp.app` and the email ends with
    `@levapp.app`. A token failing (a), (b) or (c) is 401 `{"error": "GOOGLE_TOKEN_INVALID"}`; one
    failing (d) or (e) is 403 `{"error": "NOT_STAFF_DOMAIN"}`. There is no console password, no
    password reset and no sign-up. (Decision 2026-10-07, coordinator: the domain check lives in
-   the backend too, because the "Internal" setting could be loosened by accident.)
+   the backend too, because a consent-screen setting could be loosened by accident. Since
+   2026-10-09 the client is External in Testing mode, so these checks are the domain wall.)
 2. **A domain account still needs a role.** A verified `@levapp.app` email with no active
    `admin_roles` row answers 403 `{"error": "NO_ADMIN_ROLE"}`; no role is ever assumed by
    default. Both refusals write an audit row
@@ -79,13 +80,16 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
      capability kill-switches.
    - `owner`: everything, plus `POST|DELETE /admin/api/roles/*` (grant, change, revoke a role) and
      `PUT /admin/api/settings/capabilities/*` (`admin.clubs-and-switches` rule 6).
+   - A token issued before the role row's latest grant or change (`granted_at`) is refused, so
+     re-granting a revoked email (which re-activates its row) never revives an older token
+     (hardening 2026-10-07). The last-owner check of rule 7 locks the active owner rows.
    - One exception to the order: `POST /admin/api/users/<id>/view-as` needs the `operator` role
      exactly (`admin.approvals-and-users` rule 9).
 6. **`admin_roles` replaces `is_superadmin` for new code.** The migration creates both tables and
    seeds one `owner` row for `admin@levapp.app` and one `owner` row for the email of every user
-   with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null. A seeded
-   email outside `@levapp.app` can never sign in (rule 1); it is kept so the owner sees it and
-   revokes it. No new code checks `is_superadmin`; a guard test fails when a file outside the
+   with `is_superadmin = true` (deduplicated, lower-cased), with `granted_by_email` null, **only
+   for emails in `@levapp.app`** (hardening 2026-10-07: any other email could never sign in,
+   rule 1, so its row would only be something to clean up). No new code checks `is_superadmin`; a guard test fails when a file outside the
    existing allow-list (the files that read it on the day this spec is implemented) gains a read
    of `is_superadmin`.
 7. **There is always an owner.** Revoking or downgrading the last active `owner` row answers 409
@@ -121,10 +125,20 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     staging's database and staging's `admin_roles`; the two environments share no role or audit
     data. No new VM, database or deploy workflow. Operational identifiers (machine names,
     addresses, ports, accounts) are kept out of this spec and out of tracked files (R-036).
+12a. **Hardening (coordinator review, 2026-10-07).** `POST auth/google` is rate-limited per IP
+    (`AUTH_RATE_LIMIT_ADMIN_SIGN_IN`, default 10 per 60 s; 429 `RATE_LIMITED`). Google's signing
+    certificates are cached for the max-age Google sends. The console image sends a
+    Content-Security-Policy that allows Google Identity Services (`accounts.google.com/gsi/`) for
+    script, frame and connect and sets `frame-ancestors 'none'`, plus `Referrer-Policy:
+    no-referrer`, `X-Content-Type-Options: nosniff` and HSTS, on every location.
 13. **Configuration.** `ADMIN_GOOGLE_CLIENT_ID` (public; the browser needs it too) and
     `ADMIN_HOSTS` are set per environment in the tracked env templates; no new deploy secret
-    exists for the console. The Google OAuth client is of type "Internal" to the Workspace, with
-    both admin origins authorised as JavaScript origins (no redirect URI: the ID-token flow has
+    exists for the console. The Google OAuth client is "LevApp Staff Console web" (Web
+    application, in the VM's GCP project), one client for both environments. Its consent screen is **External in
+    Testing mode**, with `admin@levapp.app` the only test user: Google refused "Internal" because
+    the project is not in a Workspace organisation (owner decision, 2026-10-09). Only listed test
+    users can complete Google's consent, and rule 1's `hd` and email checks hold whatever the
+    setting. Both admin origins and `http://localhost:8090` are authorised as JavaScript origins (no redirect URI: the ID-token flow has
     none). No client secret is needed for the ID-token flow; none is stored.
     `assert_production_secrets` fails start-up in production when `ADMIN_HOSTS` is empty. An
     empty `ADMIN_GOOGLE_CLIENT_ID` does **not** stop start-up (it would crash-loop the next deploy
@@ -304,5 +318,6 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
   A request refused for lack of a token (401 `ADMIN_TOKEN_REQUIRED`) is not audited: there is no
   actor to name.
 - Numbering of the new criteria is unconfirmed (Session E, 2026-10-07).
-- OPEN: whether the Google client allows only the Workspace ("Internal" consent screen) is a
-  console setting outside the repo; rule 1's `hd` and email checks hold either way.
+- Resolved 2026-10-09: the consent screen could not be "Internal" (the project is not in a
+  Workspace organisation); it is External in Testing mode with one test user. Each new staff
+  member must be added as a test user before they can sign in, until the app is published.

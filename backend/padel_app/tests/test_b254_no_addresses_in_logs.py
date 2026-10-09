@@ -342,3 +342,74 @@ def test_a_failed_web_push_logs_the_class_and_status_never_the_endpoint(app, mon
     if kind == "webpush":
         assert any("500" in m for m in messages), messages
     assert "cap-abcdef0123456789" not in caplog.text and "fcm.googleapis.com" not in caplog.text
+
+
+# --- PAD-534: the delivery incident log carries no address, endpoint or token either ----------
+
+def _incident_text():
+    from padel_app.models.delivery_incident import DeliveryIncident
+
+    return " ".join(
+        " ".join(str(getattr(r, c.name)) for c in DeliveryIncident.__table__.columns)
+        for r in DeliveryIncident.query.all()
+    )
+
+
+# #589 review: a real subscription's keys, so a stored subscription is caught too.
+P256DH = "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM"
+AUTH = "tBHItJI5svbpez7KI4CCXg"
+
+
+def test_the_incident_rows_hold_no_endpoint_address_or_token(app, monkeypatch):
+    """admin.engine-health rule 3 under B-254: every failure path that now writes a
+    `delivery_incidents` row is driven with an exception or receipt quoting the secret it must not
+    keep, and no column of any row holds it."""
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from pywebpush import WebPushException
+
+    from padel_app.models import User
+    from padel_app.sql_db import db
+    from padel_app.tests.test_native_push import _mock_response
+    from padel_app.tools import email_tools
+    from padel_app.utils import push_notifications
+    from padel_app.utils.expo_push import send_expo_push
+
+    address = "victim.b254@levapp-test.example"
+    with app.app_context():
+        u = User(name="B254", username="b254inc", email=address, password="x", status="active")
+        db.session.add(u)
+        db.session.commit()
+
+        # Web push: the exception text quotes the endpoint (both branches).
+        for exc in (WebPushException(f"500 for {ENDPOINT}", response=SimpleNamespace(status_code=500)),
+                    RuntimeError(f"reset talking to {ENDPOINT}")):
+            monkeypatch.setattr(push_notifications, "webpush", lambda exc=exc, **k: (_ for _ in ()).throw(exc))
+            push_notifications._deliver_web_push(
+                u.id, 1, json.dumps({"endpoint": ENDPOINT, "keys": {"p256dh": P256DH, "auth": AUTH}}),
+                "{}", "key", {"sub": "mailto:x@y"})
+
+        # Email: the transport's error quotes the recipient.
+        with patch.object(email_tools, "debug_endpoints_enabled", return_value=False), \
+                patch.object(email_tools, "_sender", return_value="noreply@levapp.app"), \
+                patch.object(email_tools, "allowed_recipients", side_effect=lambda r: list(r)), \
+                patch.object(email_tools.mail, "send", side_effect=ConnectionRefusedError(f"refused <{address}>")):
+            try:
+                email_tools.send_email("Hello", [address], body="x")
+            except ConnectionRefusedError:
+                pass
+
+        # Expo: the receipt's message quotes the whole token.
+        with patch("padel_app.utils.expo_push.requests.post") as post:
+            post.return_value = _mock_response({"data": [{"status": "error", "message": f"bad {TOKEN}",
+                                                          "details": {"error": "MessageRateExceeded"}}]})
+            send_expo_push([TOKEN], "Title", "Body", {})
+
+        text = _incident_text()
+        from padel_app.models.delivery_incident import DeliveryIncident
+        assert DeliveryIncident.query.count() >= 4, "every failure path wrote its row"
+        for secret in (ENDPOINT, "cap-abcdef0123456789", "fcm.googleapis.com", address, "victim.b254",
+                       TOKEN, "abcdefghij", P256DH, AUTH):
+            assert secret not in text, f"an incident row holds {secret!r}"

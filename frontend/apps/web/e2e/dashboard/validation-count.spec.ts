@@ -4,9 +4,9 @@
  * week it counted — never the 404 page.
  *
  * Spec: `dashboard.blocks` rule 3 (validation item), `attendance.validation`
- * rule 18. Fixture: the seed's two "E2E Validation Class" instances in the
- * PREVIOUS week, so on any weekday the card falls back to last week and links
- * to `/presences?validate=1&week=-1` (PAD-283: with the validate view open).
+ * rule 18. PAD-539 (B-342): that number is the coach's WHOLE backlog, and the
+ * card lands on the most recent week with something pending; the list on that
+ * week holds that week's share, which the trigger's second line names.
  */
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
@@ -47,10 +47,16 @@ test("US-201: the validation card and the Presences trigger agree, and the card 
   expect(firstNumber(await trigger.textContent())).toBe(cardCount);
 
   // PAD-283 (dashboard.blocks rule 10): the card lands INSIDE the validate view
-  // on the week it counted — the fixture classes are listed without pressing
-  // the trigger or touching the week control.
+  // on the most recent week with work — that week's classes are listed without
+  // pressing the trigger or touching the week control. PAD-539: the list holds
+  // the WEEK's share (the trigger's second line), not the whole backlog.
   await expect(page).toHaveURL(/validate=1/);
-  await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(cardCount, {
+  const weekLine = page.getByTestId("presences-validate-week");
+  await expect(weekLine).not.toHaveText("…");
+  const weekCount = Number(((await weekLine.textContent()) ?? "").match(/\d+/)?.[0] ?? "0");
+  expect(weekCount).toBeGreaterThan(0); // the landing week always has work
+  expect(weekCount).toBeLessThanOrEqual(cardCount);
+  await expect(page.locator('[data-testid="presences-class-card"]')).toHaveCount(weekCount, {
     timeout: 15_000,
   });
 });

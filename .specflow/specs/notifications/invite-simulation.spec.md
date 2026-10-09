@@ -52,6 +52,8 @@ that what the tutorial shows and what the engine does can never disagree.
    - `excluded_by_coach` — `restrictions.excludedPlayers`
    - `inactive_account` — `restrictions.excludeUnpaidSubscription` (reads `users.status`, which is
      account activation, not payment — `notifications.config` rule 7c)
+   - `has_class_same_day` — `restrictions.noSameDayClass`: holds a spot in another class that
+     club-local day (`notifications.config` rule 6e, PAD-523)
    - `unavailable` — an availability blocker overlaps the class window
      (`calendar.student-blockers` rule 5)
    - `auto_invites_off` — the student switched automatic invitations off
@@ -99,7 +101,7 @@ that what the tutorial shows and what the engine does can never disagree.
    stays in the response, always `null`: older builds read it, and showing nothing there is
    honest, where showing a placement would not be.
 9. `spot` is `{side, levelId, levelCode, levelSource}` snapshotted exactly as
-   `notifications.invitations` rules 2 and 2a: side from the departing player; level from the
+   `notifications.invitations` rules 2 and 2a: side as `notifications.invitations` rule 2c would choose it for the departing player (PAD-541: the side the class is short of, a tie keeping theirs); level from the
    departing player (`levelSource: "player"`), falling back to the class's effective level
    (`"class"`), else `null` with `"none"`.
 10. `rounds` is `[{number, kind, label, rules, candidates}]` in engine order, where `kind` is

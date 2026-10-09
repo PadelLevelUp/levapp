@@ -338,6 +338,12 @@ export interface CoachPlayer {
    */
   due?: boolean,
   /**
+   * players.claim rule 4c (PAD-528): on a claimable row only, the coach's student with the
+   * same normalised name — the account this record is probably a duplicate of. `null` or
+   * absent otherwise; never on a non-claimable row.
+   */
+  possibleDuplicateOf?: { playerId: string | number; name: string } | null,
+  /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
    * their own username at account activation. Do not render it in coach UI.
@@ -485,11 +491,19 @@ export interface ClassWaitingListRow {
   createdAt: string | null;
 }
 
+/** PAD-548 (calendar.event-detail rule 16): the one word both shells render for an invitee. */
+export type InvitationOutcome = 'accepted' | 'declined' | 'withdrawn' | 'pending' | 'spot_filled' | 'expired';
+
 export interface ClassInvitation {
   id: number;
   playerId: string;
   playerName: string;
   status: 'sent' | 'confirmed' | 'expired' | 'queued';
+  /** Decided in the backend serializer; clients never derive a label from `status`. */
+  outcome: InvitationOutcome;
+  answer: 'yes' | 'no' | null;
+  /** Who recorded `answer` (invitations rule 9); `coach` adds "recorded by the coach" under the label. */
+  answeredBy: 'student' | 'coach' | null;
 }
 
 export interface ClassInstance {
@@ -543,6 +557,8 @@ export interface ClassInstance {
   effectiveAutoInvites?: boolean;
   autoInvitesSource?: "instance" | "lesson" | "type";
   invitations?: ClassInvitation[];
+  /** PAD-547: coach only — the class's waiting list (calendar.event-detail rule 19). */
+  waitingList?: CoachClassWaitingListRow[];
   /** PAD-131: coach only — the pending join requests for this class. */
   joinRequests?: ClassJoinRequest[];
   /** PAD-131: student only — their latest join request for this class, or null. */
@@ -1196,6 +1212,9 @@ export interface NotificationRestrictions {
   excludedPlayers: { enabled: boolean; playerIds: string[] };
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
+  /** PAD-523 (notifications.config rule 6e): skip a student who already holds a spot in another class that
+   * club-local day. Off by default. Both settings sections fill it in when a server from before PAD-523 omits it. */
+  noSameDayClass: { enabled: boolean };
   // Plain scalar (hours before class start). Cancellations after this window are
   // still allowed but flagged as "late cancellations". Backend key:
   // restrictions.cancellationDeadlineHours (default 24). See PAD-45 / PAD-43.
@@ -1455,6 +1474,7 @@ export type InviteExplainStage =
   | "eligibility"
   | "excluded_by_coach"
   | "inactive_account"
+  | "has_class_same_day"
   | "unavailable"
   | "auto_invites_off"
   | "no_round_matched"
@@ -1490,6 +1510,14 @@ export interface ApprovalVacancyInfo {
   waitingListPlayerName?: string;
 }
 
+/** PAD-545 / PAD-542 (semi-auto-approval rule 12): a class's suggestion state for its coach. */
+export interface ApprovalSuggestionState {
+  state: "pending" | "dismissed" | "none";
+  bundle?: ApprovalBundle;
+  /** The coach's engine is semi-automatic: the class view shows "preparing suggestions" then. */
+  semiAutomatic?: boolean;
+}
+
 export interface ApprovalBundle {
   bundleId: string;
   lessonInstanceId: number;
@@ -1511,6 +1539,23 @@ export interface StandingWaitingListEntry {
   expiresOn: string | null;
   createdAt: string;
   activeClassCount: number;
+  /** PAD-547 (waiting-list rule 19): set when the entry is scoped to one series. */
+  lessonId?: number | null;
+  lessonTitle?: string | null;
+}
+
+/** PAD-547 (waiting-list rule 20): where a class's waiting-list row came from. */
+export type WaitingListOrigin = "standing" | "student" | "coach";
+
+/** PAD-547: one row of a class's waiting list, in the order the engine asks them. */
+export interface CoachClassWaitingListRow {
+  id: number;
+  playerId: number;
+  playerName: string | null;
+  joinedAt: string | null;
+  origin: WaitingListOrigin;
+  standingEntryId: number | null;
+  seriesScoped: boolean;
 }
 
 export interface NotificationEventItem {
@@ -1711,17 +1756,22 @@ export interface PendingValidation {
   pendingCount: number;
 }
 
-/** `GET /class_instances/pending_validation/count` — `attendance.validation` rule 18. */
+/**
+ * `GET /class_instances/pending_validation/count` — `attendance.validation` rule 18 (PAD-539):
+ * `pendingCount` is the window's count (the week the tab shows); `pendingTotal` is the coach's
+ * whole backlog, the number the badge and the dashboard card show.
+ */
 export interface PendingValidationCount {
   from: string;
   to: string;
   pendingCount: number;
+  pendingTotal: number;
 }
 
 /**
- * `GET /class_instances/pending_validation/badge` — `attendance.validation` rule 23 (PAD-443): the
- * dashboard validation item's number (current week, else the previous one; 0 when both are clean),
- * shown on the Presences badge of both shells.
+ * `GET /class_instances/pending_validation/badge` — `attendance.validation` rule 23 (PAD-443;
+ * PAD-539): the dashboard validation item's number — the whole backlog, landing on the most recent
+ * week with something pending; 0 when nothing is — shown on the Presences badge of both shells.
  */
 export interface PendingValidationBadge {
   count: number;
@@ -1843,3 +1893,29 @@ export interface EvaluationSettings {
   reminder: EvaluationReminder;
   everyN?: number;
 }
+
+/**
+ * `GET /class_instance/clone_template` — `classes.clone` (PAD-524): the new-class form's prefill for
+ * "Clonar aula", shaped as POST /add_class takes it minus the times. The start is the coach's to
+ * pick; `durationMinutes` sets the end from it.
+ */
+export interface CloneTemplate {
+  name: string;
+  classType: "academy" | "private";
+  levelId: string | null;
+  maxPlayers: number;
+  color: string | null;
+  courtId: number | null;
+  date: string;
+  durationMinutes: number;
+  notificationsEnabled: boolean;
+  eligibilityRules: GroupRule[] | null;
+  openSpotsVisible: boolean | null;
+  autoInvites: boolean | null;
+  isRecurring: boolean;
+  recurrenceRule: { frequency: string; daysOfWeek: number[] } | null;
+  recursUntilSeasonEnd: boolean;
+  endDate: string | null;
+  playerIds: string[];
+}
+

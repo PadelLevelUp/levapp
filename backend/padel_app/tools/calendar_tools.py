@@ -1,6 +1,6 @@
 import json
 from dateutil.rrule import rrule, WEEKLY, MO, TU, WE, TH, FR, SA, SU
-from datetime import datetime, timezone, time
+from datetime import datetime, timedelta, timezone, time
 
 def ensure_utc(dt):
     if dt is None:
@@ -101,6 +101,21 @@ def build_datetime(date_str: str, time_str: str) -> datetime:
         f"{date_str} {time_str}",
         "%Y-%m-%d %H:%M"
     ).strftime("%d/%m/%Y, %H:%M")
+
+def build_end_datetime(date_str: str, start_str: str, end_str: str) -> str:
+    """A class's end, as ``build_datetime`` formats it (PAD-553, classes.create rule 8c, B-346).
+
+    An end of exactly 00:00 after a later start is midnight at the END of the day: the next day's
+    00:00. ``build_datetime(date, "00:00")`` put it at the start of the same day, so the class was
+    stored ending before it began, and every reader of "has it ended" (validation, the pending
+    count, the "this and future" walk) saw it as over from 00:00. Any other end at or before the
+    start is left as it is: that is a typo the editors refuse (B-294), not a midnight class.
+    """
+    end = datetime.strptime(f"{date_str} {end_str}", "%Y-%m-%d %H:%M")
+    if end_str == "00:00" and start_str and start_str != "00:00":
+        end = end + timedelta(days=1)
+    return end.strftime("%d/%m/%Y, %H:%M")
+
 
 def _format_date(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%d")

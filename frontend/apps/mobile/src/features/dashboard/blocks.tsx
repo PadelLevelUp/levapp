@@ -638,9 +638,13 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
             {t("dashboard.needsYou.validation.title", { count: it.count })}
           </Text>
           <Text className="text-[13px] text-muted-foreground">
+            {/* PAD-539: the number is the whole backlog; this names the most recent week
+                with work — the week the tab opens on. */}
             {it.weekOffset === 0
               ? t("dashboard.needsYou.validation.thisWeek")
-              : t("dashboard.needsYou.validation.lastWeek")}
+              : it.weekOffset === -1
+                ? t("dashboard.needsYou.validation.lastWeek")
+                : t("dashboard.needsYou.validation.weeksAgo", { count: -it.weekOffset })}
           </Text>
         </View>
         <Button variant="secondary" onPress={() => go(it.href)}>

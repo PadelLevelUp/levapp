@@ -86,6 +86,70 @@ Clicking a calendar event opens a detail sheet showing full information and avai
       left the swipe gesture as the only exit. iOS only: web has no class-not-found screen, and
       a calendar deep link to a gone class opens nothing.
 
+16. **Each invitee shows one of six outcomes, computed once in the serializer (PAD-548; numbering
+    unconfirmed).** Every `invitations` entry carries `outcome`, `answer` (`yes` | `no` | `null`) and
+    `answeredBy` (`student` | `coach` | `null`) beside `status`; both shells render `outcome` and
+    never derive a label from `status` themselves. The serializer decides it in this order, from
+    `NotificationEvent.status`, `.answer`, `.withdrawn_by_coach_at` and the vacancy:
+
+    | first match | `outcome` | pt / en label |
+    |---|---|---|
+    | `status` is `confirmed` | `accepted` | Aceitou / Accepted |
+    | `answer` is `no` | `declined` | Recusou / Declined |
+    | `withdrawn_by_coach_at` is set | `withdrawn` | Convite retirado / Invitation withdrawn |
+    | `status` is `sent` or `queued` | `pending` | Ainda sem resposta / No answer yet |
+    | `answer` is `yes` (a late yes), or the vacancy is `filled` | `spot_filled` | Vaga preenchida / Spot filled |
+    | otherwise (`expired` with no answer: the class started, or a manual invitation lapsed) | `expired` | Expirou / Expired |
+
+    "Recusou" therefore appears only for a recorded "no"; the old rendering of every `expired` row as
+    "Recusado" mislabelled the students whose spot simply went to someone else. `queued` reads as
+    `pending`: the coach's question is whether the student has answered, not whether the batch has
+    left. When `answeredBy` is `coach`, the row adds the secondary text "registado pelo treinador" /
+    "recorded by the coach" under the label. Rule 8's tie-break is unchanged; the surviving record's
+    own `outcome` is shown.
+17. **The coach answers for an invitee (PAD-548).** A `pending` row offers "Marcar como aceitou",
+    "Marcar como recusou" and "Eliminar convite" (rule 18); a `declined` row offers "Marcar como
+    aceitou" only (the coach deciding is not the engine inviting, `notifications.invitations` rule
+    18); `accepted`, `withdrawn`, `spot_filled` and `expired` rows offer nothing — a student leaves
+    a class through attendance, never through the invitation. Accept and decline call the existing
+    `POST /api/app/notify/coach_respond` (`notifications.invitations` rule 9), which stamps
+    `answered_by = "coach"`, and the row then shows the outcome the server answered: `confirmed` →
+    `accepted`; `declined` → `declined`; `spot_filled` → the row reads `spot_filled` and a toast says
+    the class is full (no over-capacity: the existing refusal stands); `expired` → the class is over,
+    toast. Web: a per-row actions menu (the sheet's `DropdownMenu`), replacing the two disabled
+    yes/no buttons; iOS: a per-row "…" button that opens an inline row of the same actions
+    under the invitee (in-app controls with test ids, not a native alert, which cannot carry one). Both
+    shells update the row from the server's answer and the `notification_responded` live event.
+18. **The coach deletes an invitation (PAD-548).** "Eliminar convite" first shows the warning
+    "A pessoa convidada vai ver a mensagem do convite na mesma, mas como vaga ocupada." / "The
+    invited person will still see the invitation message, but as spot filled." with Cancel and
+    Delete; confirming calls `DELETE /api/app/notify/invitations/<id>` (`notifications.invitations`
+    rule 19) and the row reads `withdrawn`. An answer of `confirmed` (the student accepted first)
+    refreshes the row to `accepted` with a toast saying so. Web and iOS: the screen's `AlertDialog`, with a
+    destructive Delete.
+19. **The class shows its waiting list to the coach (PAD-547; numbering unconfirmed; 16–18 are
+    PAD-548's).** Below the invited list, a "Lista de espera (N)" section lists the payload's
+    `waitingList` (`notifications.waiting-list` rule 20) in the order the engine asks them, each
+    row with the student's name and an origin label: "Lista permanente" / "Standing list" (a
+    series-scoped entry adds the word "série" / "series"), "Pedido do aluno" / "Student's request",
+    "Adicionado pelo treinador" / "Added by the coach". Each row has a remove control
+    (`notifications.waiting-list` rule 21) with no confirmation — removing is undone by adding
+    again. The section shows for the coach only, also when the list is empty, since that is where
+    the add starts. Web and iOS.
+20. **Adding from the class (PAD-547).** "Adicionar à lista de espera" opens a picker of the
+    coach's roster, without the students already in the class or on its list. A student who
+    would fail the class's eligibility bar is marked with the reason the way the class editor's
+    student picker marks one (`check_eligibility`, PAD-133) and can still be chosen (coordinator,
+    2026-10-07: the coach decides; the engine still filters when a spot opens). Then the coach
+    picks "Só esta aula" / "This class only" or, for a recurring class, "Toda a série" / "The
+    whole series", which shows the standing list's credits and end-date fields
+    (`notifications.waiting-list` rules 2 and 19). Web: a dialog; iOS: a sheet. Both refresh the
+    list from the server's answer and the `waiting_list_changed` event. The picker has a name
+    search above the list (PAD-558), under the class editor's student-picker rule
+    (`nameMatchesQuery`, PAD-516): every typed word must appear in the name, in any order, and
+    accents, case and punctuation don't matter. A blank search offers everyone. The search
+    only narrows what is offered: a student already chosen stays chosen and stays listed.
+
 ### Acceptance Criteria
 
 #### Unticking a declined student in an edit does not lower the count (rule 5, B-240)
@@ -134,3 +198,33 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **And** the API answers 204, the `calendar_blocks` row is gone, and the calendar returns without
   the event — no "failed to delete" toast
 - **And** the same DELETE sent with no body at all is still honoured (204), not rejected with 415
+
+#### Invitees show their outcome, not their status (rule 16, PAD-548)
+- **Given** a class occurrence with six invited students: Ana `confirmed`; Bruno `expired` with `answer = "no"` recorded by the coach; Carla `expired` with `withdrawn_by_coach_at` set; Dinis `sent`; Eva `expired`, `answer = "yes"`, on a vacancy that is `filled`; Filipe `expired` with no answer on a manual invitation after the class started
+- **When** the coach opens the class detail and expands the invited section, on web and on iOS
+- **Then** the rows read Ana "Aceitou", Bruno "Recusou" with "registado pelo treinador", Carla "Convite retirado", Dinis "Ainda sem resposta", Eva "Vaga preenchida", Filipe "Expirou"
+- **And** the payload entries carry `outcome` `accepted`, `declined`, `withdrawn`, `pending`, `spot_filled`, `expired` respectively, and Bruno's `answeredBy` is `coach`
+
+#### The coach records an answer for an invitee (rule 17)
+- **Given** Dinis's row reads "Ainda sem resposta" on a class with one open spot
+- **When** the coach chooses "Marcar como aceitou"
+- **Then** the row reads "Aceitou" with "registado pelo treinador", Dinis is on the class roster, and his invitation bubble shows Accepted
+- **And** choosing "Marcar como recusou" on another pending row reads "Recusou" with the same secondary text, and the engine never invites that student to this occurrence again
+
+#### The coach deletes an invitation (rule 18)
+- **Given** Dinis's row reads "Ainda sem resposta"
+- **When** the coach chooses "Eliminar convite", reads the warning and confirms
+- **Then** the row reads "Convite retirado", Dinis's bubble shows "Vaga preenchida" with no buttons, and the class's next candidate is invited at once
+- **And** cancelling the warning changes nothing
+#### The coach sees and edits a class's waiting list (rules 19–20, PAD-547)
+- **Given** a class occurrence with Bruno on its waiting list from a standing entry, on web and on iOS
+- **When** the coach opens the class and adds Carla, who fails the class's level bar, for this class only
+- **Then** the picker marks Carla with the level reason and still lets the coach choose her
+- **And** the list then reads Bruno "Lista permanente" and Carla "Adicionado pelo treinador"
+- **And** removing Carla's row takes her off the list at once
+#### The waiting-list picker searches by name (rule 20, PAD-558)
+- **Given** the add picker of a class whose candidates include "Álvaro Sousa", "Ana Pinto" and "Bruno Álves", on web and on iOS
+- **When** the coach types "sousa alv" in its search
+- **Then** only Álvaro Sousa is offered
+- **And** clearing the search offers all three again
+- **And** a student chosen before the search changed stays chosen and listed even when the search no longer matches them

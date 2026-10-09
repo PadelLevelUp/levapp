@@ -11,6 +11,9 @@ Architecture
 Jobs
 ----
 - ``reminder_lesson_{lesson_id}_{YYYY-MM-DD}`` — DateTrigger — fires _run_reminder_for_lesson_occurrence()
+- ``invite_start_lesson_{lesson_id}_{YYYY-MM-DD}`` — DateTrigger — fires _run_invite_start_for_lesson_occurrence()
+                                                 (PAD-540, invitations rule 1c: a never-filled place of an
+                                                 occurrence not yet materialised)
 - ``reminder_{instance_id}``                   — DateTrigger — fires send_class_reminders() (legacy, for already-materialized instances)
 - ``invite_start_{instance_id}``               — DateTrigger — fires trigger_invitations()
 - ``process_batches``                          — IntervalTrigger (2 min) — fires process_invitation_batches()
@@ -389,6 +392,69 @@ def _run_reminder_for_lesson_occurrence(lesson_id: int, date_str: str) -> None:
             )
 
 
+def _run_invite_start_for_lesson_occurrence(lesson_id: int, date_str: str) -> None:
+    """PAD-540 / B-301 (notifications.invitations rule 1c): the invitation window of an occurrence
+    that is not materialised yet has opened. Materialise it and start its never-filled places.
+
+    The reminder job used to be the only thing that materialised an occurrence, so a window that
+    opened before the reminder (or with reminders off) found no instance, and the instance-level
+    ``invite_start_<id>`` job, derived at materialisation, was already in the past and armed
+    nothing. Materialising here arms the instance's jobs (``_maybe_schedule_instance``) and removes
+    this occurrence's lesson-level pair, so the two start jobs never both fire.
+    ``trigger_invitations`` keeps every gate: the engine switch, automatic invitations per class,
+    semi-automatic approval, the restrictions and the start-once claim.
+    """
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        from datetime import date as _date
+        from padel_app.models import Lesson
+        from padel_app.services.lesson_service import get_or_materialize_instance, primary_coach
+        from padel_app.services.notification_service import trigger_invitations
+        try:
+            lesson = Lesson.query.get(lesson_id)
+            if not lesson:
+                return
+            date = _date.fromisoformat(date_str)
+            if date in lesson.excluded_date_set():
+                return
+            # The roster enrolments of this materialisation arm no ask of their own
+            # (`arm_ask_for_student`, PAD-331): with the reminder still ahead they would arm
+            # nothing anyway, and with reminders off they would ask every roster student the
+            # instant the window opened. This job is about the never-filled places only; the
+            # roster is asked by the reminder, as before.
+            with _asks_suppressed():
+                instance = get_or_materialize_instance(lesson, date)
+            if instance.status in ("canceled", "completed"):
+                return
+            coach = primary_coach(instance)
+            if coach is None:
+                return
+            trigger_invitations(instance, coach.id)
+            app.logger.info(
+                "invite_start_for_lesson_occurrence: lesson=%s date=%s instance=%s — done",
+                lesson_id, date_str, instance.id,
+            )
+        except Exception as exc:
+            app.logger.error(
+                "invite_start_for_lesson_occurrence(%s, %s) failed: %s", lesson_id, date_str, exc,
+            )
+
+
+#: PAD-540 (invitations rule 1c): the two per-occurrence job families of a lesson that is not
+#: materialised yet, by id prefix, with the runner each fires. Every routine that cancels, moves
+#: or prunes "the occurrence jobs" of a lesson walks this table, so the pair stays a pair.
+_OCCURRENCE_JOB_FAMILIES = (
+    ("reminder_lesson_", _run_reminder_for_lesson_occurrence),
+    ("invite_start_lesson_", _run_invite_start_for_lesson_occurrence),
+)
+
+
+def _occurrence_job_ids(lesson_id: int, date_str: str) -> list[str]:
+    return [f"{prefix}{lesson_id}_{date_str}" for prefix, _ in _OCCURRENCE_JOB_FAMILIES]
+
+
 _ASKS_SUPPRESSED = contextvars.ContextVar("levapp_asks_suppressed", default=False)
 
 
@@ -464,6 +530,18 @@ def _run_send_reminders(instance_id: int) -> None:
         return
     with app.app_context():
         try:
+            # admin.engine-health rule 3 (PAD-534): a pass that finds its class already started
+            # sends nothing (as before) and says so in the incident log.
+            from padel_app.models import LessonInstance
+            from padel_app.services.notification_service import _instance_is_over
+
+            instance = LessonInstance.query.get(instance_id)
+            if instance is not None and _instance_is_over(instance):
+                from padel_app.services import delivery_incidents
+                delivery_incidents.record("reminder_skipped_past_due", "scheduler",
+                                          subject_type="lesson_instance", subject_id=instance_id,
+                                          detail="the class had started when the pass ran")
+                return
             run_reminder_pass(instance_id)
             app.logger.info("Reminder sent for instance %s", instance_id)
         except Exception as exc:
@@ -525,6 +603,46 @@ def _run_process_batches() -> None:
             process_invitation_batches()
         except Exception as exc:
             app.logger.error("process_invitation_batches failed: %s", exc)
+
+
+def _missed_reminder_subject(job_id: str):
+    """``(subject_type, subject_id)`` for a missed reminder-family job, or None for any other."""
+    if job_id.startswith("reminder_lesson_"):
+        lesson_part = job_id[len("reminder_lesson_"):].rpartition("_")[0]
+        return ("lesson", int(lesson_part)) if lesson_part.isdigit() else ("lesson", None)
+    for prefix in ("pastdue_", "reminder_"):
+        if job_id.startswith(prefix):
+            rest = job_id[len(prefix):].split("_", 1)[0]
+            return ("lesson_instance", int(rest)) if rest.isdigit() else ("lesson_instance", None)
+    return None
+
+
+def _on_job_missed(event) -> None:
+    """admin.engine-health rule 3 (PAD-534): APScheduler dropped a reminder-family job past its
+    grace time (the process was down). Recorded; never raises into the scheduler."""
+    try:
+        subject = _missed_reminder_subject(getattr(event, "job_id", "") or "")
+        if subject is None or _app is None:
+            return
+        with _app_ctx():
+            from padel_app.services import delivery_incidents
+            delivery_incidents.record("reminder_skipped_past_due", "scheduler",
+                                      subject_type=subject[0], subject_id=subject[1],
+                                      detail=f"missed job {event.job_id}")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _run_prune_delivery_incidents() -> None:
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services import delivery_incidents
+            delivery_incidents.prune()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("prune_delivery_incidents failed: %s", exc)
 
 
 def _run_extend_schedule_window() -> None:
@@ -615,6 +733,7 @@ def init_scheduler(app, test_config=None) -> None:
 
     _app = app
 
+    from apscheduler.events import EVENT_JOB_MISSED
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.interval import IntervalTrigger
 
@@ -664,6 +783,17 @@ def init_scheduler(app, test_config=None) -> None:
         coalesce=True,
         max_instances=1,
     )
+
+    # admin.engine-health (PAD-534): incidents are kept 30 days (R-010: fixed id).
+    sched.add_job(
+        func=_run_prune_delivery_incidents,
+        trigger=IntervalTrigger(days=1),
+        id="prune_delivery_incidents",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    sched.add_listener(_on_job_missed, EVENT_JOB_MISSED)
 
     sched.start()
     _scheduler = sched
@@ -876,6 +1006,14 @@ def schedule_lesson_reminder_jobs(
                     job_id, reminder_dt, cutoff,
                     func=_run_reminder_for_lesson_occurrence, args=[lesson_id, date_str],
                 )
+                # PAD-540 (invitations rule 1c): the occurrence's never-filled places start from
+                # the coach's invitation-start instant, whether or not a reminder comes first.
+                # Not counted in the return value, which has always been the reminder jobs.
+                _reconcile_date_job(
+                    f"invite_start_lesson_{lesson_id}_{date_str}",
+                    _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing()), cutoff,
+                    func=_run_invite_start_for_lesson_occurrence, args=[lesson_id, date_str],
+                )
                 if outcome == "armed":
                     _app.logger.info(
                         "schedule_lesson_reminder_jobs: scheduled %s to fire at %s",
@@ -903,9 +1041,10 @@ def cancel_lesson_reminder_jobs(lesson_id: int, from_date=None) -> None:
     if _scheduler is None:
         return
 
-    prefix = f"reminder_lesson_{lesson_id}_"
+    prefixes = [f"{family}{lesson_id}_" for family, _ in _OCCURRENCE_JOB_FAMILIES]
     for job in list(_scheduler.get_jobs()):
-        if not job.id.startswith(prefix):
+        prefix = next((p for p in prefixes if job.id.startswith(p)), None)
+        if prefix is None:
             continue
         if from_date is not None:
             try:
@@ -922,13 +1061,15 @@ def cancel_lesson_reminder_jobs(lesson_id: int, from_date=None) -> None:
 
 
 def cancel_lesson_occurrence_job(lesson_id: int, date_str: str) -> None:
-    """Remove the reminder job for a single lesson occurrence."""
+    """Remove the occurrence jobs (reminder and, PAD-540, invitation start) of a single lesson
+    occurrence. Materialising calls this, so the instance's jobs are the occurrence's only ones."""
     if _scheduler is None:
         return
-    try:
-        _scheduler.remove_job(f"reminder_lesson_{lesson_id}_{date_str}")
-    except Exception:
-        pass
+    for job_id in _occurrence_job_ids(lesson_id, date_str):
+        try:
+            _scheduler.remove_job(job_id)
+        except Exception:
+            pass
 
 
 def move_lesson_reminder_jobs(old_lesson_id: int, new_lesson_id: int, from_date=None) -> int:
@@ -941,11 +1082,13 @@ def move_lesson_reminder_jobs(old_lesson_id: int, new_lesson_id: int, from_date=
         return 0
     from datetime import date as _date
 
-    prefix = f"reminder_lesson_{old_lesson_id}_"
+    families = {f"{family}{old_lesson_id}_": (family, runner) for family, runner in _OCCURRENCE_JOB_FAMILIES}
     moved = 0
     for job in list(_scheduler.get_jobs()):
-        if not job.id.startswith(prefix):
+        prefix = next((p for p in families if job.id.startswith(p)), None)
+        if prefix is None:
             continue
+        family, runner = families[prefix]
         date_str = job.id[len(prefix):]
         if from_date is not None:
             try:
@@ -965,10 +1108,10 @@ def move_lesson_reminder_jobs(old_lesson_id: int, new_lesson_id: int, from_date=
         from apscheduler.triggers.date import DateTrigger
 
         _scheduler.add_job(
-            func=_run_reminder_for_lesson_occurrence,
+            func=runner,
             args=[new_lesson_id, date_str],
             trigger=DateTrigger(run_date=run_date, timezone="UTC"),
-            id=f"reminder_lesson_{new_lesson_id}_{date_str}",
+            id=f"{family}{new_lesson_id}_{date_str}",
             replace_existing=True,
             misfire_grace_time=job.misfire_grace_time or 300,
         )
@@ -994,10 +1137,11 @@ def prune_lesson_reminder_jobs(lesson_id: int, *, horizon_days: int = 60, now: d
         produced = {
             occ.date() for occ in lesson.occurrences_between(cutoff - timedelta(days=1), cutoff + timedelta(days=horizon_days))
         }
-    prefix = f"reminder_lesson_{lesson_id}_"
+    prefixes = [f"{family}{lesson_id}_" for family, _ in _OCCURRENCE_JOB_FAMILIES]
     removed = 0
     for job in list(_scheduler.get_jobs()):
-        if not job.id.startswith(prefix):
+        prefix = next((p for p in prefixes if job.id.startswith(p)), None)
+        if prefix is None:
             continue
         try:
             job_date = _date.fromisoformat(job.id[len(prefix):])

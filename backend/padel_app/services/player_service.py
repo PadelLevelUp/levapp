@@ -144,7 +144,42 @@ def _activation_token_if_inactive(user):
     return activation_token_for(user)
 
 
-def _serialize_coach_player_relation(rel, due=None):
+def possible_duplicates_for(coach, relations):
+    """players.claim rule 4c (PAD-528): for each claimable relation on the page,
+    the coach's non-claimable student with the same normalised name, or None.
+    One query over the coach's roster for the whole page, never one per row."""
+    from padel_app.services.player_claim_service import normalise_name
+
+    claimable = [rel for rel in relations if rel.player is not None and _is_claimable_user(rel.player.user)]
+    if not claimable or coach is None:
+        return {}
+    from padel_app.models import Coach
+
+    # The picker's exclusions (rule 4b): an active student account, not a coach, not
+    # claimable — so a flag never points at someone the merge would refuse.
+    rows = (
+        db.session.query(Player.id, User)
+        .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
+        .join(User, Player.user_id == User.id)
+        .outerjoin(Coach, Coach.user_id == User.id)
+        .filter(Association_CoachPlayer.coach_id == coach.id, User.status == "active", Coach.id.is_(None))
+        .all()
+    )
+    by_name = {}
+    for player_id, user in rows:
+        if _is_claimable_user(user):      # rule 1's one definition, not a second copy
+            continue
+        key = normalise_name(user.name)
+        if key and (key not in by_name or player_id < by_name[key]["playerId"]):
+            by_name[key] = {"playerId": player_id, "name": user.name}
+    out = {}
+    for rel in claimable:
+        key = normalise_name(rel.player.user.name)
+        out[rel.id] = by_name.get(key) if key else None
+    return out
+
+
+def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     player = rel.player
     user = player.user if player else None
     level = rel.level if rel.level_id else None
@@ -176,6 +211,8 @@ def _serialize_coach_player_relation(rel, due=None):
         "deletable": _is_deletable_by_coach(player),
         # evaluations.reminders rule 4 (PAD-404): computed by the server only (R-048).
         "due": bool((due or {}).get(rel.id, False)),
+        # players.claim rule 4c (PAD-528): only a claimable row can carry one.
+        "possibleDuplicateOf": (duplicates or {}).get(rel.id),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -195,6 +232,45 @@ def _serialize_coach_player_relation(rel, due=None):
     return result
 
 
+def normalize_search_text(text):
+    """PAD-516: the same normalisation as @levelup/config ``normalizeSearchText`` — accents
+    stripped (NFD, combining marks dropped), punctuation dropped, lower case."""
+    import re
+    import unicodedata
+
+    decomposed = unicodedata.normalize("NFD", text or "")
+    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return re.sub(r"[^a-zA-Z0-9\s]", "", stripped).lower()
+
+
+def name_matches_query(name, query):
+    """players.list rule 3 (PAD-516): every word of ``query`` is in ``name``, in any order,
+    with accents, case and punctuation folded — one rule with the apps' local pickers
+    (``nameMatchesQuery``). Applied in Python after the coach scope: rosters are small, and
+    SQL cannot fold accents without the unaccent extension. A blank query matches all; a
+    query with text but no searchable characters ("%", "_", "!!") matches nobody, so a
+    wildcard never dumps the roster (#569 review)."""
+    if not (query or "").strip():
+        return True
+    words = normalize_search_text(query).split()
+    if not words:
+        return False
+    haystack = normalize_search_text(name)
+    return all(w in haystack for w in words)
+
+
+class _ListPage:
+    """The slice of ``Pagination`` the roster serializer reads, for a list filtered in Python."""
+
+    def __init__(self, items, page, per_page):
+        self.page, self.per_page, self.total = page, per_page, len(items)
+        self.pages = max(1, -(-self.total // per_page)) if per_page else 1
+        start = (page - 1) * per_page
+        self.items = items[start:start + per_page]
+        self.has_prev = page > 1
+        self.has_next = page < self.pages
+
+
 def get_coach_players_list(coach):
     relations = (
         Association_CoachPlayer.query.options(
@@ -211,7 +287,8 @@ def get_coach_players_list(coach):
     from padel_app.services.evaluation_api_service import due_for_links
 
     due = due_for_links(coach, relations)
-    return [_serialize_coach_player_relation(rel, due) for rel in relations]
+    duplicates = possible_duplicates_for(coach, relations)
+    return [_serialize_coach_player_relation(rel, due, duplicates) for rel in relations]
 
 
 def search_coach_players(coach_id, term, limit=20):
@@ -227,12 +304,10 @@ def search_coach_players(coach_id, term, limit=20):
     legitimately put them on a waiting list.
     """
     term = (term or "").strip()
-    if not term:
+    # A blank term, or one with no searchable characters ("%", "_"), never lists the roster.
+    if not normalize_search_text(term).split():
         return []
 
-    # Escape LIKE wildcards so a literal "%" or "_" typed by the coach doesn't
-    # turn into a match-everything pattern.
-    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     relations = (
         Association_CoachPlayer.query.options(
@@ -241,13 +316,13 @@ def search_coach_players(coach_id, term, limit=20):
         .filter_by(coach_id=coach_id)
         .join(Association_CoachPlayer.player)
         .join(Player.user)
-        .filter(User.name.ilike(f"%{escaped}%", escape="\\"))
         # PAD-268: invited-but-inactive players stay pickable; deleted ones never.
         .filter(User.status != "disabled")
         .order_by(User.name.asc())
-        .limit(limit)
         .all()
     )
+    # PAD-516: every typed word, in any order, accents folded; the limit after the match.
+    relations = [rel for rel in relations if name_matches_query(rel.player.user.name, term)][:limit]
 
     results = []
     for rel in relations:
@@ -277,8 +352,6 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     # PAD-268: a deleted account's roster row stays, hidden from the list.
     query = query.filter(User.status != "disabled")
 
-    if search:
-        query = query.filter(User.name.ilike(f"%{search}%"))
 
     # Alert-based filters
     if missing_level:
@@ -292,19 +365,34 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     # Sorting
     if sort_by == "level":
         query = query.outerjoin(CoachLevel, Association_CoachPlayer.level_id == CoachLevel.id)
-        # Use case() to push NULLs last (portable across SQLite and PostgreSQL)
-        null_last = case((CoachLevel.display_order.is_(None), 1), else_=0)
+        # players.list rule 4 (PAD-521, B-363): "desc" is Level High→Low, i.e. the ladder
+        # strongest first — and LOWER display_order is STRONGER (levels rule 3). The canonical
+        # key (levels rule 10): ordered levels by display_order, unordered (NULL/0) levels at
+        # the weak end, id as tie-break. "asc" (Low→High) is that ladder reversed. Players with
+        # no level stay last either way. case() keeps it portable across SQLite and Postgres.
+        no_level = case((Association_CoachPlayer.level_id.is_(None), 1), else_=0)
+        unordered = case(
+            (or_(CoachLevel.display_order.is_(None), CoachLevel.display_order <= 0), 1), else_=0
+        )
         if sort_dir == "desc":
-            query = query.order_by(null_last, CoachLevel.display_order.desc(), User.name.asc())
+            query = query.order_by(no_level, unordered.asc(), CoachLevel.display_order.asc(),
+                                   CoachLevel.id.asc(), User.name.asc())
         else:
-            query = query.order_by(null_last, CoachLevel.display_order.asc(), User.name.asc())
+            query = query.order_by(no_level, unordered.desc(), CoachLevel.display_order.desc(),
+                                   CoachLevel.id.desc(), User.name.asc())
     else:
         if sort_dir == "desc":
             query = query.order_by(User.name.desc())
         else:
             query = query.order_by(User.name.asc())
 
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    if search and search.strip():
+        # PAD-516: filter by name in Python (accent folding), after every SQL filter and the
+        # sort, then paginate the filtered list. The coach scope keeps this small.
+        matched = [rel for rel in query.all() if name_matches_query(rel.player.user.name, search)]
+        pagination = _ListPage(matched, max(1, int(page or 1)), int(per_page or 25))
+    else:
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     # Compute alert counts across ALL coach players (not just current page)
     base_query = (
@@ -319,8 +407,9 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     from padel_app.services.evaluation_api_service import due_for_links
 
     due = due_for_links(coach, pagination.items)
+    duplicates = possible_duplicates_for(coach, pagination.items)
     return {
-        "items": [_serialize_coach_player_relation(rel, due) for rel in pagination.items],
+        "items": [_serialize_coach_player_relation(rel, due, duplicates) for rel in pagination.items],
         "pagination": {
             "page": pagination.page,
             "perPage": pagination.per_page,
