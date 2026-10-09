@@ -85,3 +85,31 @@ def test_the_admin_image_recipe_builds_the_console_only():
     assert "@levelup/web" not in dockerfile
     nginx = (ROOT / "frontend" / "apps" / "admin" / "nginx.conf").read_text()
     assert "proxy_pass" not in nginx, "the host nginx routes /admin/api; the image holds no upstream"
+
+
+def _server_level(block):
+    """The directives of a server block outside its locations: nginx runs a server-level
+    `return` (bare or inside `if`) in the rewrite phase, before any location is chosen."""
+    block = re.sub(r"#[^\n]*", "", block)
+    return re.sub(r"location [^{]*\{[^{}]*\}", "", block)
+
+
+@pytest.mark.parametrize("env", sorted(ENVIRONMENTS))
+def test_the_port_80_block_answers_the_acme_challenge(env):
+    """Certificates are issued and renewed with certbot's webroot authenticator (B-383): the
+    nginx authenticator lost to levapp.app's server-level `return 404`, the implicit default on
+    port 80. The port-80 block lives in its own file, valid before the certificate exists, and is
+    the same text that answers every renewal."""
+    cfg = ENVIRONMENTS[env]
+    https = (NGINX / cfg["nginx"]).read_text()
+    assert "listen 80" not in https, "port 80 lives in the -http file"
+    http = (NGINX / f"{cfg['nginx']}-http").read_text()
+    assert f"server_name {cfg['host']};" in http and "listen 80;" in http
+    assert not re.search(r"listen [^;]*default_server", http), "levapp.app stays the port-80 default"
+    assert "ssl_certificate" not in http, "valid before the certificate exists"
+    acme = re.search(r"location \^~ /\.well-known/acme-challenge/ \{(.*?)\}", http, re.S)
+    assert acme and "root /var/www/letsencrypt;" in acme.group(1)
+    rest = re.search(r"location / \{(.*?)\}", http, re.S)
+    assert rest and "return 301 https://$host$request_uri;" in rest.group(1)
+    assert not re.search(r"\breturn\b", _server_level(http)), "a server-level return would swallow the challenge"
+    assert "access_log /var/log/nginx/access.log redacted;" in http  # B-182
