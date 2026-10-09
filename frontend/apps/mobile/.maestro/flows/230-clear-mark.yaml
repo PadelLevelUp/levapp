@@ -56,6 +56,12 @@ appId: com.padellevelup.app
       notVisible:
         id: "calendar-day-${output.day}"
     commands:
+      # Under load the week change shows loading skeletons for a moment and the control is
+      # gone; wait for it to come back before the next tap (A's run 1 at d2ce9a306).
+      - extendedWaitUntil:
+          visible:
+            id: "calendar-next-week"
+          timeout: 15000
       - tapOn:
           id: "calendar-next-week"
       - waitForAnimationToEnd
