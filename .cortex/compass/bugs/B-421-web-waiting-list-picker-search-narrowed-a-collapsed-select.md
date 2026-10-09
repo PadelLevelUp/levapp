@@ -3,7 +3,8 @@ id: B-421
 title: "Web add-to-waiting-list dialog: the name search narrowed a collapsed native select's options, so typing visibly changed nothing beside a second control that duplicated it"
 type: test-defect
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-10-09T20:57:00Z
 affects:
   - calendar.event-detail
   - frontend/apps/web/src/components/calendar/ClassWaitingListSection.tsx
@@ -57,4 +58,8 @@ is removed, so grep e2e + maestro for it (none on iOS).
 pressed, with the ineligibility reasons inline as iOS does.
 
 ### Resolution
-_Pending (PAD-560)._
+- Spec changes: `calendar.event-detail` rule 20 (one search above a list of rows, no second control) and its criterion; rule 19 (scope per row, PAD-560).
+- Tests: `ClassWaitingListSection.search.test.tsx` rewritten to assert the visible rows and that no select exists; `e2e/notification-engine/class-waiting-list.spec.ts` clicks a candidate row and asserts the row count under search.
+- Code: web `AddToClassWaitingListDialog` renders the offered students as buttons (`class-waiting-list-candidate-<id>`, `aria-pressed`), ineligibility reasons inline; the `<select>` and `waitingListPickStudent` are gone.
+- Verified: unit test 3 passed; Playwright spec 1 passed (37.6 s) on an isolated DB at d4a899c87, 2026-10-09 20:57 WEST.
+- Resolved: 2026-10-09 (PAD-560 part A).
