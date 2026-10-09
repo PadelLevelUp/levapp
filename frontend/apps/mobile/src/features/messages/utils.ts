@@ -42,6 +42,11 @@ export function updateMessageInCache(
   }));
 }
 
+// messaging.sse-realtime rule 18 (PAD-563, ledger B-402): the one merge both shells apply to a
+// `message_edited` payload lives in @levelup/api; re-exported so the conversation screen keeps
+// importing its cache helpers from here.
+export { mergeEditedMessage } from "@levelup/api";
+
 /** Invalidate every messages-related list query (badge + conversation list). */
 export function invalidateMessagesLists(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.unreadCount });

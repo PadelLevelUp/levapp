@@ -10,6 +10,8 @@
     "accepted": "Accepted",
     "declined": "Declined",
     "waitingForResponse": "Waiting for response…",
+    "acceptedByCoach": "Marked as accepted by the coach",
+    "declinedByCoach": "Marked as declined by the coach",
     "yes": "Yes",
     "no": "No",
     "roleAssistant": "Assistant",

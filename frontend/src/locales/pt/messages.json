@@ -10,6 +10,8 @@
     "accepted": "Aceite",
     "declined": "Recusado",
     "waitingForResponse": "A aguardar resposta…",
+    "acceptedByCoach": "Marcado como aceite pelo treinador",
+    "declinedByCoach": "Marcado como recusado pelo treinador",
     "yes": "Sim",
     "no": "Não",
     "roleAssistant": "Assistente",

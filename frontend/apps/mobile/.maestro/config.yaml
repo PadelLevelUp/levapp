@@ -114,6 +114,11 @@ executionOrder:
     # duplicate badge, the one-tap merge dialog, preselection and the dry run, never sends the
     # request, and deletes the placeholder in onFlowComplete (R-040).
     - 189-merge-duplicate-preview
+    # 209 (PAD-563, notifications.invitations rule 9; number unconfirmed, wave-13 range
+    # 209–218): the coach marks an invitation accepted on the class screen, then opens the
+    # invitee's chat and sees the bubble "Marcado como aceite pelo treinador" with no buttons.
+    # Seeds and removes its own class through the API; position not load bearing.
+    - 209-coach-answer-reaches-chat
     # 210 (PAD-562, eligibility.enforcement rule 6a; number unconfirmed, wave-13 range 209–218):
     # inviting a student who fails the class's own bar asks first (the add dialog, invite verb)
     # on top of the notify modal; cancel sends nothing, confirm sends. Seeds and removes its own
