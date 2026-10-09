@@ -67,7 +67,7 @@ substitute `levapp-admin` and `admin.levapp.app`. Every step is safe to re-run.
 sudo install -d -m 755 /var/www/letsencrypt/.well-known/acme-challenge
 sudo install -m 644 levapp-admin-staging-http /etc/nginx/sites-available/
 sudo ln -sfn /etc/nginx/sites-available/levapp-admin-staging-http /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx && sleep 3   # reload returns before the new workers answer
 #    probe from outside before spending a Let's Encrypt attempt (5 failures/hour/host):
 echo ok | sudo tee /var/www/letsencrypt/.well-known/acme-challenge/probe
 curl -sS http://admin.staging.levapp.app/.well-known/acme-challenge/probe     # → ok
@@ -78,7 +78,7 @@ sudo certbot certonly --webroot -w /var/www/letsencrypt -d admin.staging.levapp.
 # 3. port 443
 sudo install -m 644 levapp-admin-staging /etc/nginx/sites-available/
 sudo ln -sfn /etc/nginx/sites-available/levapp-admin-staging /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx && sleep 3   # reload returns before the new workers answer
 curl -sS https://admin.staging.levapp.app/admin/api/auth/config
 sudo certbot renew --cert-name admin.staging.levapp.app --dry-run     # renewal works
 ```
