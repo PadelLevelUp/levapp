@@ -22,26 +22,50 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Text } from "@/components/ui/text";
 
+const COPY = {
+  add: {
+    title: "calendar.eligibilityConfirm.title",
+    body: "calendar.eligibilityConfirm.body",
+    confirm: "calendar.eligibilityConfirm.confirm",
+  },
+  invite: {
+    title: "calendar.eligibilityConfirm.inviteTitle",
+    body: "calendar.eligibilityConfirm.inviteBody",
+    confirm: "calendar.eligibilityConfirm.inviteConfirm",
+  },
+} as const;
+
 export function EligibilityConfirmDialog({
   open,
   ineligible,
   onCancel,
   onConfirm,
+  action = "add",
+  portalHost,
 }: {
   open: boolean;
   ineligible: EligibilityCheckEntry[];
   onCancel: () => void;
   onConfirm: () => void;
+  /** eligibility.enforcement rule 6a (PAD-562): the same dialog for a manual invite, with the
+   *  invite verb — "Convidar alunos…?" / "Convidar mesmo assim". */
+  action?: "add" | "invite";
+  /** A PortalHost name when the dialog must draw on top of a native modal (the notify modal),
+   *  as BlockerSheet does; defaults to the root host. */
+  portalHost?: string;
 }) {
   const { t } = useTranslation();
+  // One entry per verb (eligibility.enforcement rules 6 and 6a): the add dialog's copy, or the
+  // invite dialog's — the same sentence with the verb swapped.
+  const copy = COPY[action];
   const students = React.useMemo(() => describeIneligible(ineligible), [ineligible]);
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => (!next ? onCancel() : null)}>
-      <AlertDialogContent testID="eligibility-confirm">
+      <AlertDialogContent testID="eligibility-confirm" portalHost={portalHost}>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("calendar.eligibilityConfirm.title")}</AlertDialogTitle>
-          <AlertDialogDescription>{t("calendar.eligibilityConfirm.body")}</AlertDialogDescription>
+          <AlertDialogTitle>{t(copy.title)}</AlertDialogTitle>
+          <AlertDialogDescription>{t(copy.body)}</AlertDialogDescription>
         </AlertDialogHeader>
         <View className="gap-2">
           {students.map((s) => (
@@ -61,7 +85,7 @@ export function EligibilityConfirmDialog({
             <Text>{t("calendar.eligibilityConfirm.cancel")}</Text>
           </AlertDialogCancel>
           <AlertDialogAction testID="eligibility-confirm-proceed" onPress={onConfirm}>
-            <Text>{t("calendar.eligibilityConfirm.confirm")}</Text>
+            <Text>{t(copy.confirm)}</Text>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

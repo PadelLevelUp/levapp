@@ -114,6 +114,11 @@ executionOrder:
     # duplicate badge, the one-tap merge dialog, preselection and the dry run, never sends the
     # request, and deletes the placeholder in onFlowComplete (R-040).
     - 189-merge-duplicate-preview
+    # 210 (PAD-562, eligibility.enforcement rule 6a; number unconfirmed, wave-13 range 209–218):
+    # inviting a student who fails the class's own bar asks first (the add dialog, invite verb)
+    # on top of the notify modal; cancel sends nothing, confirm sends. Seeds and removes its own
+    # class; position not load bearing.
+    - 210-invite-below-bar-asks-first
     # 239 (PAD-568, B-461): a student with no coach opens the picker and is offered
     # "Ligar-me a um treinador"; tapping it lands on the connect screen.
     - 239-no-coach-connect-shortcut
