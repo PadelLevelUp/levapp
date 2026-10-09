@@ -713,6 +713,17 @@ def add_presences(lesson_instance, payload):
             player_id=player_id,
         ).first()
 
+        if item.get("clear"):
+            # PAD-567 (attendance.validation rule 26): back to "no answer", the
+            # never-answered shape `enrol()` leaves. An explicit key, never a null
+            # status, so an old client cannot clear by accident. This is the one
+            # coach action that moves `response` (attendance.presence rule 7).
+            if existing is None:
+                continue
+            _clear_presence(lesson_instance, existing)
+            created_presences.append(existing)
+            continue
+
         # Attendance marking only owns status/justification. The reminder-flow
         # flags (invited/confirmed) and the student's response are deliberately NOT
         # routed through the form layer: every Boolean form field is written on
@@ -791,6 +802,52 @@ def add_presences(lesson_instance, payload):
 # ---------------------------------------------------------------------------
 # Lesson helpers
 # ---------------------------------------------------------------------------
+
+def _clear_presence(lesson_instance, presence_obj):
+    """PAD-567: reset one row to the never-answered shape and undo what a mark did.
+
+    - An absence gave the seat up: the row holds it again (`effective_filled_spots`
+      counts it), her own open vacancy closes and its live invitations are retired,
+      then the class's vacancies are reconciled — the path `add_presences` runs for
+      absent → present.
+    - A cleared row is validated no more, so a validated class comes back to the
+      backlog by construction (rule 18 reads the rows).
+    - She is reminder-eligible again (`notifications.reminders` rule 23 reads `status`
+      at send time), and when the chain has already run she is ASKED again through the
+      enrolment door, `arm_ask_for_student` — at most one send per clear, because the
+      door arms nothing while a reminder of hers is live, when the instant is still
+      ahead, or when the class is over; nothing is armed for a class with reminders off.
+    The student is not messaged: the reminder is how they hear they are asked again.
+    """
+    was_absent = presence_obj.status == "absent"
+    presence_obj.status = None
+    presence_obj.justification = None
+    presence_obj.validated = False
+    presence_obj.response = "none"
+    presence_obj.responded_at = None
+    presence_obj.recorded_by = None
+    presence_obj.confirmed = False
+    presence_obj.save()
+    if was_absent:
+        from padel_app.services.notification_service import (
+            _close_vacancy, _open_vacancy_for, _publish_retired, reconcile_vacancies,
+        )
+        own = _open_vacancy_for(lesson_instance.id, presence_obj.player_id)
+        retired = _close_vacancy(own, presence_obj.player_id) if own is not None else []
+        _publish_retired(retired)  # PAD-499: queued now, sent by the next commit
+        reconcile_vacancies(lesson_instance, filled_by_player_id=presence_obj.player_id)
+        db.session.commit()
+    if lesson_instance.notifications_enabled:
+        try:
+            from padel_app.scheduler import arm_ask_for_student
+
+            arm_ask_for_student(lesson_instance, presence_obj.player_id)
+        except Exception:  # noqa: BLE001
+            current_app.logger.exception(
+                "clear: could not arm a reminder for player %s on instance %s",
+                presence_obj.player_id, lesson_instance.id,
+            )
+
 
 def create_lesson_helper(data, *, notify_students=True):
     lesson = Lesson()

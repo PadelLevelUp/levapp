@@ -33,7 +33,8 @@ export interface RosterOption {
 }
 
 /** Per class, per player: the mark the coach chose locally, not yet persisted. */
-export type Edits = Record<number, Record<number, PresenceMark>>;
+/** PAD-567: `null` is a cleared mark (undecided again); absent = no edit. */
+export type Edits = Record<number, Record<number, PresenceMark | null>>;
 
 /** Per class: walk-ins the coach added locally, not yet persisted. */
 export type Extras = Record<number, PendingValidationPlayer[]>;
@@ -133,7 +134,7 @@ export function remainingFor(
  */
 export function resolvePresences(
   klass: PendingValidationClass,
-  classEdits: Record<number, PresenceMark>
+  classEdits: Record<number, PresenceMark | null>
 ): ValidatePresence[] {
   return klass.players.flatMap((player) => {
     const mark = effectiveMark(player, classEdits[player.playerId]);
@@ -144,7 +145,7 @@ export function resolvePresences(
 /** Undecided players first — the coach should see what is blocking them. */
 export function sortPlayers(
   players: PendingValidationPlayer[],
-  edits: Record<number, PresenceMark>
+  edits: Record<number, PresenceMark | null>
 ): PendingValidationPlayer[] {
   return [...players].sort((a, b) => {
     const aDone = effectiveMark(a, edits[a.playerId]) !== null;

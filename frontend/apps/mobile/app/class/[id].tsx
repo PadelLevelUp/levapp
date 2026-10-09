@@ -7,6 +7,7 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   canConfirmAttendance,
+  clearsFor,
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
@@ -250,6 +251,8 @@ export default function ClassDetailScreen() {
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
+  // PAD-567: the over-capacity warning before a cleared absence is saved.
+  const [clearOverCapacity, setClearOverCapacity] = React.useState<{ filled: number; capacity: number } | null>(null);
   const [confirming, setConfirming] = React.useState(false);
   const [openingChat, setOpeningChat] = React.useState(false);
   // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
@@ -630,9 +633,10 @@ export default function ClassDetailScreen() {
   };
 
 
-  const hasMarkedAttendance = Object.values(attendance).some(
-    (state) => state.status !== null
-  );
+  const hasMarkedAttendance =
+    Object.values(attendance).some((state) => state.status !== null) ||
+    // PAD-567: a cleared row is a change to save too.
+    clearsFor(instance?.presences ?? [], attendance).length > 0;
 
   // ── Edit mode ──
   const startEdit = () => {
@@ -814,7 +818,7 @@ export default function ClassDetailScreen() {
     }
   };
 
-  const handleConfirmAttendance = async () => {
+  const handleConfirmAttendance = async (force = false) => {
     if (!instance) return;
     const payload = participants
       .map((participant) => {
@@ -826,7 +830,18 @@ export default function ClassDetailScreen() {
         };
       })
       .filter((item) => item.status != null) as AttendancePayloadItem[];
+    // PAD-567 (attendance.validation rule 26): rows the coach cleared back to "no answer".
+    const serverRows = instance.presences ?? [];
+    const clears = clearsFor(serverRows, attendance);
+    for (const playerId of clears) payload.push({ playerId, clear: true });
     if (payload.length === 0) return;
+    // A cleared absence takes its seat back; when the class is already full the
+    // coach is warned and may go ahead (owner decision, 2026-10-09).
+    const absentClears = clearsFor(serverRows, attendance, { absencesOnly: true });
+    if (!force && absentClears.length > 0 && maxPlayers > 0 && filled >= maxPlayers) {
+      setClearOverCapacity({ filled: filled + absentClears.length, capacity: maxPlayers });
+      return;
+    }
 
     setFeedback(null);
     try {
@@ -1479,7 +1494,7 @@ export default function ClassDetailScreen() {
               <Button
                 testID="attendance-confirm"
                 accessibilityLabel={t("classDetail.confirmAttendance")}
-                onPress={handleConfirmAttendance}
+                onPress={() => handleConfirmAttendance()}
                 disabled={!hasMarkedAttendance || confirmPresences.isPending}
                 className="mt-1"
               >
@@ -2055,6 +2070,36 @@ export default function ClassDetailScreen() {
       )}
 
       {/* Edit scope choice for recurring classes */}
+      {/* PAD-567 (attendance.validation rule 26): a cleared absence takes its seat back. */}
+      <AlertDialog open={clearOverCapacity !== null} onOpenChange={(o) => !o && setClearOverCapacity(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("calendar.detail.clearOverCapacityTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("calendar.detail.clearOverCapacityBody", {
+                filled: clearOverCapacity?.filled ?? 0,
+                capacity: clearOverCapacity?.capacity ?? 0,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              testID="attendance-clear-over-capacity-confirm"
+              accessibilityLabel={t("calendar.detail.clearOverCapacityConfirm")}
+              onPress={() => {
+                setClearOverCapacity(null);
+                void handleConfirmAttendance(true);
+              }}
+            >
+              <Text>{t("calendar.detail.clearOverCapacityConfirm")}</Text>
+            </Button>
+            <AlertDialogCancel>
+              <Text>{t("calendar.detail.clearOverCapacityKeep")}</Text>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ClassScopeDialog
         open={editScopeOpen}
         mode="edit"

@@ -49,7 +49,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -324,6 +324,8 @@ export function ClassDetailSheet({
   const navigate = useNavigate();
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
   const [attendanceCancelled, setAttendanceCancelled] = useState(false);
+  // PAD-567: the over-capacity warning before a cleared absence is saved.
+  const [clearOverCapacity, setClearOverCapacity] = useState<{ filled: number; capacity: number } | null>(null);
 
   // PAD-73: student proactively declines a future class from the participants
   // section, before they would even have been reminded to confirm.
@@ -905,7 +907,7 @@ export function ClassDetailSheet({
     }));
   };
 
-  const handleConfirmAttendance = async () => {
+  const handleConfirmAttendance = async (force = false) => {
     if (!classInstance) return;
     if (!classInstance.participants?.length) return;
 
@@ -917,11 +919,26 @@ export function ClassDetailSheet({
       }))
       .filter((x) => x.status !== null) as Array<{
       playerId: string;
-      status: PresenceStatus;
+      status?: PresenceStatus;
       justification?: AbsenceJustification;
+      clear?: true;
     }>;
-
+    // PAD-567 (attendance.validation rule 26): rows the coach cleared back to "no answer".
+    const serverRows = classInstance.presences ?? [];
+    const clears = clearsFor(serverRows, attendance);
+    for (const playerId of clears) payload.push({ playerId, clear: true });
     if (payload.length === 0) return;
+    // A cleared absence takes its seat back; when the class is already full the
+    // coach is warned and may go ahead (owner decision, 2026-10-09).
+    const absentClears = clearsFor(serverRows, attendance, { absencesOnly: true });
+    if (!force && absentClears.length > 0) {
+      const filledNow = effectiveFilledSpotsOf(active.participants, serverRows);
+      const capacity = active.maxPlayers ?? 0;
+      if (capacity > 0 && filledNow >= capacity) {
+        setClearOverCapacity({ filled: filledNow + absentClears.length, capacity });
+        return;
+      }
+    }
 
     setSavingAttendance(true);
 
@@ -1496,6 +1513,7 @@ export function ClassDetailSheet({
                     variant="ghost"
                     size="sm"
                     className="text-xs"
+                    data-testid="attendance-edit"
                     onClick={() => setIsValidating(true)}
                   >
                     {attendanceAlreadyMarked ? t("calendar.detail.editAttendance") : t("calendar.detail.markAttendance")}
@@ -2058,9 +2076,10 @@ export function ClassDetailSheet({
                     {t("common.cancel")}
                   </Button>
                   <Button
+                    data-testid="attendance-save"
                     className="flex-1"
                     disabled={savingAttendance}
-                    onClick={handleConfirmAttendance}
+                    onClick={() => handleConfirmAttendance()}
                   >
                     <Check className="w-4 h-4 mr-2" />
                     {t("calendar.detail.confirm")}
@@ -2169,6 +2188,34 @@ export function ClassDetailSheet({
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* PAD-567 (attendance.validation rule 26): a cleared absence takes its seat back. */}
+      <AlertDialog open={clearOverCapacity !== null} onOpenChange={(o) => !o && setClearOverCapacity(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("calendar.detail.clearOverCapacityTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("calendar.detail.clearOverCapacityBody", {
+                filled: clearOverCapacity?.filled ?? 0,
+                capacity: clearOverCapacity?.capacity ?? 0,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("calendar.detail.clearOverCapacityKeep")}</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="attendance-clear-over-capacity-confirm"
+              onClick={(e) => {
+                e.preventDefault();
+                setClearOverCapacity(null);
+                void handleConfirmAttendance(true);
+              }}
+            >
+              {t("calendar.detail.clearOverCapacityConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EligibilityConfirmDialog
         open={pendingEdit !== null}

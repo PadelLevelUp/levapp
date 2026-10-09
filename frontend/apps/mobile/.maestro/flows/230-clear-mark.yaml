@@ -1,0 +1,153 @@
+# PAD-567 — attendance.validation rule 26: the coach takes a mark back.
+#
+# Books its own class eight to fourteen days out (as 229 does), so clearing arms no
+# reminder and the seeded academy class — which flow 14 reads after flow 04 marks it —
+# is untouched. The coach marks E2E Student (player id 1, deterministic on a fresh
+# seed) present, saves, reopens: "attended". Presses Present again — the control drops
+# its tone at once (the visible deselect) — saves, reopens: "planned", the
+# never-answered shape, confirmed through the API at the end.
+#
+# Order: not load bearing. Backend: -e API_BASE=http://localhost:<port>, else :5001.
+# Flow number 230 is self-assigned from Session C's range (229-238), unconfirmed.
+#
+# Mirrors: apps/web/e2e/attendance/pad567-clear-mark.spec.ts
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.from = output.fmt(new Date(Date.now() + 8 * 86400000))}"
+- evalScript: "${output.to = output.fmt(new Date(Date.now() + 14 * 86400000))}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.slot = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.from + '&to=' + output.to, { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0]}"
+- evalScript: "${output.day = output.slot.date}"
+- evalScript: "${output.endTime = (function (t) { var h = parseInt(t.split(':')[0], 10) + 1; return (h < 10 ? '0' + h : '' + h) + ':' + t.split(':')[1]; })(output.slot.startTime)}"
+- evalScript: "${output.requestId = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.day, startTime: output.slot.startTime, endTime: output.endTime }) }).body).id}"
+- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
+- assertTrue: "${output.accepted == true}"
+
+# ── The coach opens the class (same calendar walk as 229) ──
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      # Under load the week change shows loading skeletons for a moment and the control is
+      # gone; wait for it to come back before the next tap (A's run 1 at d2ce9a306).
+      - extendedWaitUntil:
+          visible:
+            id: "calendar-next-week"
+          timeout: 15000
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-participant-1"
+    timeout: 20000
+
+# ── Mark present, save, reopen: the coach's record ──
+- scrollUntilVisible:
+    element:
+      id: "attendance-present-1"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-present-1"
+- tapOn:
+    id: "attendance-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-feedback-attendance-saved"
+    timeout: 15000
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-participant-1"
+    timeout: 20000
+- assertVisible:
+    id: "attendance-state-attended"
+
+# ── Rule 26: press Present again — cleared — save, reopen: "planned" ──
+- scrollUntilVisible:
+    element:
+      id: "attendance-present-1"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-present-1"
+# The deselect is visible before any save: the save button is enabled by the
+# cleared row alone (a dead tap would leave it disabled with nothing to save).
+- tapOn:
+    id: "attendance-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-feedback-attendance-saved"
+    timeout: 15000
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-participant-1"
+    timeout: 20000
+- assertVisible:
+    id: "attendance-state-planned"
+- assertNotVisible:
+    id: "attendance-state-attended"
+
+# ── The server agrees, then clean up ──
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.instance = output.events.filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
+- evalScript: "${output.presences = json(http.get(output.api + '/api/app/lesson_instance/' + output.instance.originalId + '/presences', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- assertTrue: "${output.presences.length === 1 && output.presences[0].attendanceState === 'planned' && output.presences[0].validated === false}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"
