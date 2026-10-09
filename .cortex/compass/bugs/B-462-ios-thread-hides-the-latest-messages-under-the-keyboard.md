@@ -42,7 +42,10 @@ auto-scrolls only when the reader is at the bottom (already rule 10).
 "filler 35" and fillers 36–40 are under the keyboard (21:11 local). On the branch: "filler 40"
 sits directly above the composer with the keyboard open, the sent bubble is visible above the
 composer, and dismissing the keyboard leaves the thread at the bottom (21:08). Screenshots kept
-at ~/levapp-pad569-evidence/ (branch `pad569-*`, control `control-pad569-*`). Read first: The reducer has no viewport event (`FollowEvent` union, `follow-state.ts`), the list's
+at ~/levapp-pad569-evidence/ (branch `pad569-*`, control `control-pad569-*`), with
+`measure569.py` + `measurements.txt`: opening the keyboard raised the composer's top edge 822 px
+(274 pt) on both builds; the thread's content shifted 822 px on the branch (row correlation
+1.000) and 0 px on staging's screen — the pixel form of "followed" vs "covered". Read first: The reducer has no viewport event (`FollowEvent` union, `follow-state.ts`), the list's
 `onLayout` dispatches only `{type: "layout"}` to the anchor reducer (`[id].tsx` ~L1270), and the
 only `scrollToEnd` callers are the anchor effect, `contentGrew`, and `scrollToBottom` (send / jump).
 So no code path moves the list when its height drops. Screenshots on staging's code vs the fix
