@@ -52,10 +52,13 @@ onFlowComplete:
     direction: DOWN
 - tapOn:
     id: "invitee-mark-accepted-${output.pid}"
-- extendedWaitUntil:
-    visible:
+# The accept enrols the invitee, so the class screen refetches and re-renders from the top (the
+# participants list grew); the invited section is below the fold again. Scroll to the badge.
+- scrollUntilVisible:
+    element:
       id: "invitee-outcome-${output.pid}-accepted"
-    timeout: 15000
+    direction: DOWN
+    timeout: 20000
 
 # ── the chat: the bubble says the coach answered, and offers nothing ──
 - openLink: "levelup://conversation/${output.convId}"
