@@ -32,8 +32,9 @@ def test_each_row_carries_its_scope_and_end_date(app, monkeypatch):
             ids["coach_id"], bruno, 3, expires_at=utcnow_naive() + timedelta(days=40)
         )
         _add(ids["coach_id"], series["instance_id"], carla, scope="occurrence")
+        # PR-B: a series-scoped entry with an end the coach chose is a period (rule 19a).
         result = _add(
-            ids["coach_id"], series["instance_id"], dinis, scope="series", credits=2,
+            ids["coach_id"], series["instance_id"], dinis, scope="period",
             expires_at=utcnow_naive() + timedelta(days=60),
         )
         series_entry = db.session.get(StandingWaitingListEntry, result["standingEntryId"])

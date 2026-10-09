@@ -536,6 +536,7 @@
       "empty": "No students on the standing waiting list.",
       "unknown": "Unknown",
       "credits": "{{used}}/{{total}} credits",
+      "creditsUnlimited": "No credit limit",
       "expires": "Expires {{date}}",
       "expired": "Expired",
       "classCount_one": "{{count}} class",

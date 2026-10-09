@@ -1718,6 +1718,7 @@ export default function ClassDetailScreen() {
               <ClassWaitingListSection
                 event={event}
                 isRecurring={isRecurring}
+                recurrenceEnd={instance.recurrenceEnd ?? null}
                 rows={instance.waitingList ?? []}
                 enrolledIds={(instance.participants ?? []).map((p) => p.id)}
                 onChanged={() => void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) })}

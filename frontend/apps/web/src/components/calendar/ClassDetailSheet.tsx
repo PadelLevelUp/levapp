@@ -1821,6 +1821,8 @@ export function ClassDetailSheet({
               <Separator />
               <ClassWaitingListSection
                 event={event}
+                isRecurring={event.isRecurring === true || classInstance.isRecurring === true}
+                recurrenceEnd={classInstance.recurrenceEnd ?? null}
                 rows={classInstance.waitingList ?? []}
                 roster={players}
                 enrolledIds={(classInstance.participants ?? []).map((p) => p.id)}

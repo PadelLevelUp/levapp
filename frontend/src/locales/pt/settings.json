@@ -536,6 +536,7 @@
       "empty": "Nenhum aluno na lista de espera permanente.",
       "unknown": "Desconhecido",
       "credits": "{{used}}/{{total}} créditos",
+      "creditsUnlimited": "Sem limite de créditos",
       "expires": "Expira a {{date}}",
       "expired": "Expirado",
       "classCount_one": "{{count}} aula",

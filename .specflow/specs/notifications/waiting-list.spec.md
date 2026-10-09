@@ -214,16 +214,35 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     `already_on_list`. It sends the student nothing — the invitation, if a spot opens, is the first
     they hear (coordinator, 2026-10-07: no change of message volume). The coach's class views get
     the `waiting_list_changed` live event.
-19. **…or to the whole series, as a standing entry scoped to that series (PAD-547; numbering
-    unconfirmed).** The same request with `scope: "series"`, `credits` and `expiresOn` creates a
-    standing entry (rule 2: same credits, same end date window, renewable) whose `lesson_id` is
-    the class's series. A scoped entry fans out (rules 3, 10) only to that series' upcoming
-    occurrences, existing and later materialised, never to the coach's other classes; a NULL
-    `lesson_id` keeps rule 3a's coach-wide reach. One active standing entry per coach, student
-    **and scope** (coach-wide, or one per series): adding a second for the same scope replaces the
-    first as before; a coach-wide entry and a series entry for the same student coexist, and a
-    class both reach holds one row (rule 10's reactivation). The series option is offered only for
-    a recurring class. The standing list (rule 6) shows a scoped entry with its class's title.
+19. **…or to the whole series, as a standing entry scoped to that series (PAD-547, PAD-560;
+    numbering unconfirmed).** The same request with `scope: "series"` creates a standing entry
+    whose `lesson_id` is the class's series, with **no credit limit** (`credits_total` NULL: a yes
+    spends nothing and never closes it, rule 15) and `whole_series` true, running to the series'
+    end date (`recurrence_end`, inclusive) — or, when the series has no end or ends more than 12
+    months out, to 12 months from today, rule 2's window (owner decision 2026-10-09 via the
+    coordinator: never open-ended, renewable like any entry). The end is fixed at creation: a later
+    change to the series' end does not move it. The request carries no `credits` or `expiresOn`
+    (PAD-547 asked for both; PAD-560 dropped them: the whole series asks nothing more). A scoped
+    entry fans out (rules 3, 10) only to that series' upcoming occurrences, existing and later
+    materialised, never to the coach's other classes; a NULL `lesson_id` keeps rule 3a's coach-wide
+    reach. One active standing entry per coach, student **and scope** (coach-wide, or one per
+    series): adding a second for the same series replaces the first; a coach-wide entry and a
+    series entry for the same student coexist, and a class both reach holds one row (rule 10's
+    reactivation). An active row this class already holds for the student is re-pointed at the new
+    entry (`standing_entry_id`), keeping its join time, so the class's list shows the new scope —
+    except a row a coach-wide entry holds, which stays that entry's (and reads `standing`), so the
+    class is not lost from the coach-wide reach when the series entry ends. The
+    series scopes are offered only for a recurring class. The standing list (rule 6) shows a scoped
+    entry with its class's title and, for an entry with no credit limit, no credit count.
+19a. **…or for a period (PAD-560).** `scope: "period"` with exactly one of `classes` (1–52) or
+    `expiresOn` creates the same series-scoped entry — no credit limit, `whole_series` false.
+    `expiresOn` is rule 2's date (today to 12 months ahead, inclusive). `classes` = X is a window
+    counted in occurrences: the entry runs to the club day of the X-th occurrence of this series
+    that has not started yet — this class included when it has not — read from the series'
+    recurrence rule and exclusions (`Lesson.occurrences_between`), materialised or not; when fewer
+    than X remain, to the series' end or the 12-month cap, as rule 19. What is stored and shown is
+    the resulting `expiresOn` ("Até <date>"); the count itself is not kept. Replacing, re-pointing
+    and fan-out as rule 19.
 20. **Each row says where it came from (PAD-547; numbering unconfirmed).** A row's `origin` is
     `standing` when it came from a standing entry (coach-wide or series), else `coach` when
     `added_by` is `coach`, else `student` (the student's own offer answer or wizard join, rules 1
@@ -231,17 +250,29 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     The class's list (`GET /api/app/notify/waiting_list/{instance_id}`, rule 5, and the class
     detail payload's `waitingList`, coach only) carries `origin`, `playerId`, `playerName`,
     `joinedAt`, for a standing row `standingEntryId` and `seriesScoped`, and (PAD-560) `scope` —
-    `occurrence` (no standing entry), `period` (a series-scoped standing entry running to a date
-    the coach chose — every series-scoped entry rule 19 creates today), `series` (a series-scoped
-    entry covering the whole series: reserved here, written once PAD-560's scope change lands),
-    `standing` (a coach-wide one) — with `expiresOn`, the standing entry's rule-2 date, null for
-    `occurrence`.
+    `occurrence` (no standing entry), `period` (a series-scoped standing entry without
+    `whole_series`: a window, rule 19a — which every series-scoped entry from before PAD-560's
+    scope change is), `series` (a series-scoped entry with `whole_series`, rule 19), `standing` (a
+    coach-wide one) — with `expiresOn`, the standing entry's rule-2 date, null for `occurrence`.
     Ordered as rule 4 asks them (join time).
 21. **The coach removes a row from one class's list (PAD-547; numbering unconfirmed).** `DELETE
     /api/app/notify/class_waiting_list/{entry_id}` by the class's coach deactivates that row only,
     whatever its origin — like the student's own leave (rule 14) — and a standing entry, coach-wide
     or series, stays for its other classes. It sends the student nothing and publishes
     `waiting_list_changed`. A row already inactive answers the same, writing nothing.
+22. **The coach changes a row's scope from the class (PAD-560).** `PATCH
+    /api/app/notify/class_waiting_list/{entry_id}` with `{scope, classes?, expiresOn?}` (the values
+    of rules 18, 19 and 19a), by the class's coach, on an active row. A coach-wide standing row
+    answers 409 `coach_wide`: it is managed in Settings (rule 6), since changing it would change the
+    student's other classes (coordinator decision 2026-10-09). To `occurrence`: the row's
+    series-scoped entry is deactivated with the rows it holds on the other occurrences (nothing is
+    sent, as rule 21), and this row stays active with `standing_entry_id` NULL and `added_by =
+    "coach"`, keeping its join time. To `series` or `period`: a row with a series-scoped entry has
+    that entry's end and `whole_series` changed in place — rows past the new end are deactivated and
+    occurrences now covered gain one, as a renewal (rule 2); a row without one gets a new
+    series-scoped entry (replacing any the student had for this series, rule 19) and is pointed at
+    it, keeping its join time. The answer is the row as rule 20 shows it, and the coach's class views
+    get `waiting_list_changed`. Nothing outside this series' occurrences changes.
 
 ### Acceptance Criteria
 
@@ -431,11 +462,39 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **And** adding her again answers `already_on_list` and writes nothing
 
 #### The coach puts a student on a whole series (rule 19)
-- **Given** Ana's weekly series "Terça 18h" and another class of Ana's, "Quinta 19h"
-- **When** Ana adds Carla to "Terça 18h"'s waiting list for the whole recurrence, 3 credits, until 2026-12-31
-- **Then** a standing entry with `lesson_id` = that series exists, and Carla has an active row on every upcoming "Terça 18h" occurrence up to 2026-12-31 and none on "Quinta 19h"
+- **Given** Ana's weekly series "Terça 18h" ending 2026-12-31 and another class of Ana's, "Quinta 19h"
+- **When** Ana adds Carla to "Terça 18h"'s waiting list for the whole series
+- **Then** a standing entry with `lesson_id` = that series, `whole_series`, no credit limit and `expiresOn` 2026-12-31 exists, and Carla has an active row on every upcoming "Terça 18h" occurrence up to 2026-12-31 and none on "Quinta 19h"
 - **And** an occurrence of "Terça 18h" materialised later gains her row too
 - **And** a coach-wide standing entry Carla already had stays active beside it
+- **And** Carla's yes to a "Terça 18h" spot leaves the entry active for the next ones
+- **And** the same add on a series with no end date, or one ending in 2028, gets an entry running to 12 months from today
+
+#### The coach puts a student on a series for a number of classes (rule 19a)
+- **Given** Ana's weekly "Terça 18h" with occurrences on 2026-10-13, 10-20, 10-27 and 11-03, the 10-20 one not yet materialised
+- **When** Ana adds Carla from the 10-13 class for a period of 3 classes
+- **Then** the entry's `expiresOn` is 2026-10-27, Carla has rows on 10-13 and 10-27 at once, the 10-20 occurrence gains one when materialised, and 11-03 never does
+- **And** asking for 10 classes of a series whose last occurrence is 11-03 ends the entry on 2026-11-03
+
+#### …or until a date (rule 19a)
+- **Given** the same series
+- **When** Ana adds Carla for a period until 2026-10-20
+- **Then** the entry runs to 2026-10-20 and Carla has rows on 10-13 and 10-20 only
+- **And** a request with both `classes` and `expiresOn`, or neither, is refused (400)
+
+#### The coach moves a row between scopes (rule 22)
+- **Given** Carla on the 10-13 class's list for this class only, and Dinis on it from a whole-series entry
+- **When** Ana changes Carla's row to the whole series
+- **Then** Carla's row now points at a new series-scoped entry, keeps its join time, and her rows appear on the later occurrences
+- **When** Ana changes Dinis's row to this class only
+- **Then** his entry is deactivated, his rows on the other occurrences go, and his 10-13 row stays active as the coach's, with no message to him
+- **When** Ana changes Carla's row to a period of 2 classes
+- **Then** her entry's end moves to 2026-10-20, her 10-27 row is deactivated and `whole_series` is false
+
+#### A coach-wide standing row is not changed from the class (rule 22)
+- **Given** Bruno on the class's list from a coach-wide standing entry
+- **When** Ana tries to change his row's scope from the class
+- **Then** the answer is 409 `coach_wide` and nothing is written
 
 #### The class's list says where each student came from, and the coach removes one (rules 20–21)
 - **Given** an occurrence with three active rows: Bruno from a standing entry, Carla added by the coach, Dinis who joined from the wizard
