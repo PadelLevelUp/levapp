@@ -3,8 +3,8 @@ import {
   describeGate,
   describePriority,
   describeRules,
-  describeSideReasoning,
   describeSendStatus,
+  describeSideReasoning,
   describeVerdict,
   formatClubTime,
   resolveText,
@@ -311,12 +311,10 @@ function SimulationResults({
           ? t("tutorials.understandInvites.spot", spotParams)
           : t("tutorials.understandInvites.spotNoLevel", spotParams)}
       </Text>
-      {/* PAD-566 (rule 4.4): why that side — the engine's own counts, never recomputed here. */}
-      {sideReason ? (
-        <Text className="text-xs text-muted-foreground" testID="tutorial-spot-side-reason">
-          {resolveText(t, sideReason)}
-        </Text>
-      ) : null}
+      {/* PAD-566 (rule 4.4): why that side — the engine's own counts, never recomputed here. Mirrors web. */}
+      <Text className="text-xs text-muted-foreground" testID="tutorial-spot-side-reason">
+        {resolveText(t, sideReason)}
+      </Text>
 
       {simulation.rounds.map((round) => (
         <Card key={round.number} testID={`tutorial-round-${round.number}`}>

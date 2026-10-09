@@ -15,6 +15,8 @@
  * Run:
  *   npx playwright test e2e/settings/tutorials-understand-invites.spec.ts
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
   loginAsCoach,
@@ -45,6 +47,19 @@ async function setEligibility(request: APIRequestContext, rules: unknown[] | nul
     data: { eligibilityRules: rules },
   });
   expect(res.ok(), `config save failed: ${res.status()}`).toBeTruthy();
+}
+
+function sideReasonPattern(): RegExp {
+  const sentences: string[] = [];
+  for (const lang of ["pt", "en"]) {
+    const json = JSON.parse(readFileSync(resolve(__dirname, `../../../../src/locales/${lang}/tutorials.json`), "utf8"));
+    const reasons = json.tutorials.sideReason as Record<string, string | Record<string, string>>;
+    for (const v of Object.values(reasons)) {
+      for (const s of typeof v === "string" ? [v] : Object.values(v)) sentences.push(s);
+    }
+  }
+  const escaped = sentences.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{\\\{(left|right)\\\}\\\}/g, "\\d+"));
+  return new RegExp(`^(${escaped.join("|")})$`);
 }
 
 async function openTutorial(page: Page) {
@@ -92,8 +107,9 @@ test.describe("PAD-196: Settings › Tutorials › Understand invites", () => {
 
     const results = page.getByTestId("tutorial-results");
     await expect(results.getByTestId("tutorial-spot")).toBeVisible();
-    // PAD-566 (rule 4.4): the spot says why its side, from the engine's own counts.
-    await expect(results.getByTestId("tutorial-spot-side-reason")).toBeVisible();
+    // PAD-566 (rule 4.4): the spot says why its side, from the engine's own counts — one of the
+    // locale's side-reason sentences, with numbers in place of {{left}}/{{right}} (never typed here).
+    await expect(results.getByTestId("tutorial-spot-side-reason")).toHaveText(sideReasonPattern());
     await expect(results.getByTestId("tutorial-round-1")).toBeVisible();
 
     // Round 1 = same level + same side as the spot (B1 / right): only students

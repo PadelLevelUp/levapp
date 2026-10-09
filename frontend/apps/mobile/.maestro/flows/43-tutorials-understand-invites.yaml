@@ -71,6 +71,8 @@ appId: com.padellevelup.app
       id: "tutorial-spot-side-reason"
     direction: DOWN
     timeout: 30000
+- assertVisible:
+    id: "tutorial-spot-side-reason"
 - scrollUntilVisible:
     element:
       id: "tutorial-round-1"

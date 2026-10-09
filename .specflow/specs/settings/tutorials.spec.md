@@ -59,8 +59,11 @@ about anyone who is missing. Web and iOS ship it together (R-024).
       um jogador de <lado>, por isso damos prioridade a <lado> para manter a aula equilibrada.";
       on a tie with no side to keep, "A aula já está equilibrada ({{left}} + {{right}}) … o lado não
       influenciou esta escolha."; with no counts (no sided player on the roster), "… a vaga mantém
-      o lado de quem faltou." (`describeSideReasoning` in `@levelup/config`; `tutorials.sideReason.*`,
-      pt/en; both shells).
+      o lado de quem faltou." The words follow `sideCounts.chosen`, the engine's own side — the
+      client never recounts or re-decides; `chosen` of `both`/none reads as "the side did not
+      influence" whatever the counts (`describeSideReasoning` in `@levelup/config`;
+      `tutorials.sideReason.*`, pt/en; both shells; the Playwright spec asserts the line against the
+      locale's sentences, numbers wild).
    5. **The rounds**, in order. Each round is headed by its rules rendered in words ("Same level
       and same side as the spot", "Same level", "Everyone eligible"). Each candidate row shows
       rank, name, level, side, the enabled priority values in the coach's configured order

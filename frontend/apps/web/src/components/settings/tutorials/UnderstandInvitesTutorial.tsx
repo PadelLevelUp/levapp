@@ -345,12 +345,10 @@ function SimulationResults({
           ? t("tutorials.understandInvites.spot", spotParams)
           : t("tutorials.understandInvites.spotNoLevel", spotParams)}
       </p>
-      {/* PAD-566 (rule 4.4): why that side — the engine's own counts, never recomputed here. */}
-      {sideReason ? (
-        <p className="text-xs text-muted-foreground" data-testid="tutorial-spot-side-reason">
-          {resolveText(t, sideReason)}
-        </p>
-      ) : null}
+      {/* PAD-566 (rule 4.4): why that side — the engine's own counts, never recomputed here. Mirrored on iOS. */}
+      <p className="text-xs text-muted-foreground" data-testid="tutorial-spot-side-reason">
+        {resolveText(t, sideReason)}
+      </p>
 
       <div className="space-y-3">
         {simulation.rounds.map((round) => (
