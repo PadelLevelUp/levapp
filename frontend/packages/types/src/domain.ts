@@ -576,6 +576,14 @@ export interface ClassInstance {
   // classify the decline differently.
   proactiveDeclineDeadline?: string | null;
   canDeclineProactively?: boolean;
+  /**
+   * PAD-570 (`attendance.confirm` rule 27): may the viewing student answer "Vou"
+   * now? ONE server predicate (asked, class would ask, still `planned`, not
+   * started), the same one the dashboard serves. `false` for a coach viewer.
+   */
+  pendingConfirmation?: boolean;
+  /** PAD-570 rule 28: the user behind `coachId`, for the chat shortcut after "Não vou". */
+  coachUserId?: string | null;
 }
 
 export interface Presence {
@@ -936,6 +944,10 @@ export interface DashboardNextClassBlock {
      */
     lessonInstanceId?: number | null;
     pendingConfirmation?: boolean;
+    /** PAD-570: the student's one state word (`planned` for a projected occurrence). */
+    attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
+    /** PAD-570: how to decline a projected occurrence (`cancel_attendance` target). */
+    declineTarget?: { model: string; originalId: string | number; date: string } | null;
   };
 }
 
@@ -1076,6 +1088,9 @@ export interface DashboardSchedule7dBlock {
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
+      /** PAD-570 — see `DashboardNextClassBlock`. */
+      attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
+      declineTarget?: { model: string; originalId: string | number; date: string } | null;
     }>;
     calendarHref: string;
   };

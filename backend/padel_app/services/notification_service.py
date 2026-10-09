@@ -2199,55 +2199,6 @@ def _send_system_message(
     return msg
 
 
-def _notify_coach_of_refused_return(instance, player, player_user_id, coach_user_id, locale="en"):
-    """Tell the coach a student tried to come back and the seat was already gone.
-
-    PAD-313. The coach is told when a student cancels, and told again when one
-    confirms — but a refused RETURN produced nothing, so the only person who
-    could put the student back had no idea they had asked. This is that signal,
-    and it is the reason the refusal is safe: a seat is never silently
-    double-booked, and a human can still fix it.
-
-    Sent from the student into the same coach-student conversation the
-    cancellation used, so the two sit together in one thread.
-    """
-    from padel_app.models import Message
-    from padel_app.serializers.message import serialize_message
-
-    if not coach_user_id or not player_user_id:
-        return None
-    is_pt = (locale or "").startswith("pt")
-    player_name = (player.user.name if player and player.user else None) or (
-        "Um jogador" if is_pt else "A player"
-    )
-    class_title = instance.title or ("a aula" if is_pt else "the class")
-    when = _format_class_when(instance, locale)
-    if is_pt:
-        text = (
-            f"{player_name} quis voltar a {class_title}{when}, mas a vaga "
-            f"já estava ocupada."
-        )
-    else:
-        text = (
-            f"{player_name} wanted to re-join {class_title}{when}, but the spot "
-            f"was already taken."
-        )
-    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
-    msg = Message(
-        text=text,
-        sender_id=player_user_id,
-        conversation_id=conv.id,
-        message_type="text",
-        msg_metadata={"returnRefused": True, "lessonInstanceId": instance.id},
-    )
-    msg.create()
-    publish(
-        {"type": "message_created", "payload": serialize_message(msg, None)},
-        message_recipient_ids(msg),
-    )
-    return msg
-
-
 def _notify_coach_of_cancellation(
     coach_user_id: int,
     player_user_id: int,
@@ -3714,44 +3665,14 @@ def respond_to_reminder(
     if reminder_msg is None and _recorded_reminder_action(presence) == action:
         return {"action": _RESPONSE_STATE.get(action, "unknown"), "duplicate": True}
 
-    # PAD-313: a "yes" from someone who had given their spot up is a capacity
-    # decision, and it is taken BEFORE anything is recorded. Marking the
-    # reminder answered first and refusing afterwards would leave the student
-    # recorded as having said yes to a class they were just refused — the same
-    # shape of lie this ticket exists to remove.
-    retaking = (
-        action == "yes"
-        and presence is not None
-        and presence.status == "absent"
-        and not presence.validated
-    )
-    own = None
-    if retaking:
-        # B-284: the same lock order as every accept (rule 10) — their own vacancy, then the
-        # class. An invitee answering yes for that vacancy takes it in this order too; the
-        # return used to lock the class first and write the vacancy after, and the two
-        # deadlocked. From here to `presence.save()` nothing commits.
-        own, locked = _lock_vacancy_and_instance(
-            _open_vacancy_for(instance.id, player.id), instance
-        )
-        if own is not None and own.status != "open":
-            own = None
-        # Capacity is the override, else the lesson's (PAD-275, classes.edit
-        # rule 4) — never the copied column, which every sibling check already
-        # stopped reading; the copy goes stale the moment the coach edits the
-        # lesson's capacity after materialisation (batch-2 audit).
-        if (
-            locked.effective_max_players is not None
-            and _effective_filled_spots(locked) >= locked.effective_max_players
-        ):
-            db.session.commit()  # release the lock, change nothing
-            # PAD-501: no `spot_filled` message; the screen that sent this shows the refusal.
-            # The coach is the only one who can seat them by hand, and they were
-            # told of the cancellation — so they hear about the attempt too.
-            _notify_coach_of_refused_return(
-                instance, player, acting_user_id, coach_user_id, locale=locale
-            )
-            return {"action": "spot_filled"}
+    # PAD-570 (attendance.confirm rules 27-29): a "yes" is accepted only from a
+    # student who has been ASKED and is still `planned`. The answer is the same
+    # 200 contract as `spot_filled` (B-074): an old client's shared mapper writes
+    # nothing and says something went wrong; nothing is recorded here either.
+    if action == "yes":
+        refusal = _refuse_yes(presence, instance, config, now=_now)
+        if refusal is not None:
+            return {"action": refusal}
 
     # Mark the reminder as responded — on its reminder_attempts row (rule 14),
     # mirrored onto the message so the frontend shows the badge on reload.
@@ -3775,45 +3696,18 @@ def respond_to_reminder(
 
     # B-284: these writes commit, so a return records the answer after its own commit, never
     # inside the lock it holds.
-    if not retaking:
-        _record_reminder_answer()
+    _record_reminder_answer()
 
     if action == "yes":
-        retired_on_return = []
         if presence:
-            # PAD-313 (B-073): a "yes" must undo what a previous "no" wrote.
-            # The decline path sets status=absent/justification=justified and the
-            # yes branch used to leave them, so a student who cancelled and then
-            # answered yes kept a row that said absent: the class did not count
-            # them (`effective_filled_spots` subtracts absent presences) and their
-            # spot stayed open for the engine to give away, while the app told
-            # them they were confirmed. The columns carry no timestamp, so no
-            # reader can tell which answer was newer — only the writer can.
-            # The coach's own record is never touched: `validated` rows are the
-            # coach's to change.
-            if retaking:
-                # The capacity decision was taken above, under the class lock,
-                # before anything was recorded. Re-seat them.
-                presence.status = None
-                presence.justification = None
-                # (PAD-271 M5: lateness is derived from the response, which
-                # the "yes" below records as `confirmed`; no column to clear.)
-                # Their own vacancy's premise — that this player left — is void
-                # now they are back, and capacity alone will not close it: a
-                # half-empty class has open spots to spare, so the general
-                # reconciliation leaves it standing and the engine keeps
-                # offering the seat its owner just re-took.
-                # (`own` was locked above, before the class.)
-                if own is not None:
-                    retired_on_return = _close_vacancy(own, player.id)
+            # PAD-570: `_refuse_yes` above guarantees the row is `planned` here —
+            # a "yes" never undoes a "no" any more (rule 28), so there is nothing
+            # to clear. The coach's own record is never touched.
             presence.confirmed = True
             # status is not set to "present": only the coach marks attendance.
             # PAD-271 M5: the answer as one field (attendance.presence rule 7).
             record_response(presence, "confirmed", when=now)
-            _publish_retired(retired_on_return)  # PAD-499: queued now, sent by the commit below
             presence.save()
-        if retaking:
-            _record_reminder_answer()
         if coach_user_id:
             _send_system_message(
                 coach_user_id,
@@ -3991,6 +3885,69 @@ def proactive_decline_window_is_open(
     if deadline is None:
         return False
     return (now or utcnow_naive()) < deadline
+
+
+def student_may_confirm(presence, instance, config=None, *, now: datetime | None = None) -> bool:
+    """PAD-570 (attendance.confirm rule 27): may this student answer "Vou" right now?
+
+    ONE predicate, served as ``pendingConfirmation`` on the class-detail payload and on
+    every dashboard surface, and enforced by ``respond_to_reminder`` — so a client never
+    recomputes the reminder instant. True when ALL hold:
+
+    - the student has been asked: the first-reminder instant has passed (the SAME
+      ``_fire_time_utc`` boundary that closes rule 10's proactive-decline window), or a
+      reminder was actually sent to them for this occurrence (the coach's manual
+      "Enviar lembretes" ahead of the instant) — voided rounds included (PAD-318): a
+      student the coach re-added was already asked about this class, and the cap that
+      ignores voided rounds is about how many more reminders to SEND, not about this;
+    - the occurrence would ever ask: ``notifications_enabled`` — a class with reminders
+      off never asks (owner decision in the ticket), unless a reminder was sent by hand;
+      when no instant is computable the time-based opener stays closed (fail closed);
+    - the student's ``attendance_state`` is ``planned`` (``coming`` has answered,
+      ``not_coming`` is final — rule 28; ``attended``/``missed`` is the coach's — rule 29);
+    - the class has not started.
+
+    ``invited`` is deliberately not read: ``enrol()`` writes it at enrolment (B-441).
+    ``presence`` may be None for an occurrence that has no row yet (``planned``).
+    """
+    if instance is None:
+        return False
+    _now = now or utcnow_naive()
+    if _instance_is_over(instance, _now):
+        return False
+    state = presence.attendance_state if presence is not None else "planned"
+    if state != "planned":
+        return False
+    instance_id = getattr(instance, "id", None)
+    if presence is not None and instance_id is not None:
+        from padel_app.services import reminder_attempt_service as attempts
+
+        if attempts.latest_attempt(instance_id, presence.player_id) is not None:
+            return True
+    if not getattr(instance, "notifications_enabled", True):
+        return False
+    deadline = proactive_decline_deadline(instance, config)
+    if deadline is None:
+        return False
+    return _now >= deadline
+
+
+def _refuse_yes(presence, instance, config, *, now: datetime) -> "str | None":
+    """PAD-570: why a "yes" is refused, or None when it may be recorded.
+
+    ``already_declined`` (rule 28) and ``already_marked`` (rule 29) name the state the
+    row is in; ``not_yet_asked`` (rule 27) is a ``planned`` row whose ask has not come.
+    """
+    state = presence.attendance_state if presence is not None else "planned"
+    if state == "not_coming":
+        return "already_declined"
+    if state in ("attended", "missed"):
+        return "already_marked"
+    if state == "coming":
+        return None  # the duplicate branch above already answered a repeat
+    if not student_may_confirm(presence, instance, config, now=now):
+        return "not_yet_asked"
+    return None
 
 
 def _resolve_occurrence_for_student(player, model, original_id, date):

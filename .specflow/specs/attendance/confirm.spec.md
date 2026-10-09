@@ -136,8 +136,8 @@ Players confirm or decline their attendance in response to a reminder notificati
      with clearly lesser weight than the state word — a quiet fact beside one status, never a
      second status. The student's own row never shows it: they know they cancelled.
 
-26. **A student who said "I am not coming" can say they can come after all (PAD-315; number
-   self-assigned, unconfirmed). The client offers it; the SERVER decides it.** The negotiation
+26. **Superseded by rule 28 (PAD-570, owner decision 2026-10-09): "Não vou" is final for the student; there is no way back and no `canComeBack` gate.** The text below is kept as the record of PAD-315. ~~A student who said "I am not coming" can say they can come after all (PAD-315; number
+   self-assigned, unconfirmed). The client offers it; the SERVER decides it.~~ The negotiation
    already exists: `POST /api/app/notify/respond_reminder` with `{lessonInstanceId, action: "yes"}`
    and `respond_to_reminder`'s retaking branch. When the row is `status=absent` and not validated,
    it locks the instance, re-checks capacity, and either re-seats the student — clearing `status`,
@@ -171,6 +171,74 @@ Players confirm or decline their attendance in response to a reminder notificati
      screen) therefore cannot currently distinguish a refusal from a confirmation. Widening the
      type and handling `spot_filled` at those sites is part of this rule, not a follow-up — a
      student tapping "Yes" on a reminder after cancelling can already reach that answer today.
+
+#### "Vou" only once asked (PAD-570; rule numbers 27–29 self-assigned by Session C on 2026-10-09, unconfirmed)
+27. **A student may answer "Vou" only once they have been asked.** The ticket's words: *"o aluno
+   não pode confirmar 'Vou' a uma aula antes do primeiro lembrete do treinador para essa aula.
+   Antes disso só pode dizer 'Não vou', para dar tempo ao treinador de arranjar substitutos."*
+   "Asked" is ONE server predicate, computed in one place (`student_may_confirm` in
+   `notification_service.py`) and served as **`pendingConfirmation`** on every surface that
+   shows the student their own class — the class-detail payload (`pendingConfirmation`, student
+   viewer only, `false` for a coach), the dashboard hero and schedule rows, and the "Precisa de
+   ti" invite card (`dashboard.blocks` rule 3a). It is `true` exactly when ALL hold:
+   - the student has been asked: either the first-reminder instant for the occurrence has passed
+     — `_fire_time_utc(instance.start_datetime, config.get_reminder_timing())`, the SAME instant
+     that closes rule 10's proactive-decline window, so the two windows are one boundary — or a
+     reminder was actually sent to this student for this occurrence (any `ReminderAttempt`,
+     `notifications.reminders` rule 14, voided rounds included: a student the coach re-added
+     after a cancellation was already asked about this class, PAD-318), which covers the
+     coach's manual "Enviar lembretes" ahead of the instant;
+   - the class would ever ask: for the time-based opener the occurrence's `notifications_enabled`
+     is on (`notifications.toggle-class` rule 3 — the only switch that stops reminders; the
+     coach's `auto_notify_enabled` gates the invitation engine, not `send_class_reminders`, so
+     "desligados para o treinador" has no separate meaning in code). **A class with reminders off
+     never asks** (owner decision in the ticket): the coach assumes the student is coming, the
+     student only ever has "Não vou", and the class never appears in "Precisa de ti". A reminder
+     the coach sent by hand still counts as asked. When no instant is computable (rule 10's
+     `None`), the time-based opener stays closed — fail closed, never open;
+   - the student's `attendanceState` is `planned` (rule 25): `coming` has answered, `not_coming`
+     is final (rule 28), `attended` / `missed` is the coach's record (rule 29);
+   - the class has not started (`_instance_is_over` is false; the club's clock).
+   `invited` is deliberately NOT part of the predicate: `enrol()` writes `invited=True` at
+   enrolment, which is why the dashboard offered "Vou" from day one (ledger B-441). The
+   client never recomputes the instant: both shells read the flag, as they read
+   `canDeclineProactively`.
+   **What each surface shows** (the ticket's table): while `pendingConfirmation` is `false` and the
+   student may still decline, the only action is the rule-25 decline ("Não vou poder ir",
+   `calendar.detail.proactiveDecline`, one label everywhere; the ticket calls the dashboard's
+   button "Avisar que não vou", and that is the label on the dashboard's hero, invite card and
+   schedule rows, `dashboard.answer.notGoing`); it calls `cancel_attendance`, so the server
+   classifies it (rule 11). While `true`, the surface shows **"Vou" and "Não vou"** — the class
+   detail gains a confirm action (`class-confirm-attendance`, `POST respond_reminder` with
+   `yes`) beside the decline; the dashboard keeps its Yes / No through `respond_reminder`.
+   **The server enforces it even for an old client:** `respond_to_reminder` with `yes` answers
+   `{"action": "not_yet_asked"}` and records nothing when the student has not been asked
+   (same 200 contract as `spot_filled`; the shared mapper's unknown branch on an old client
+   writes nothing and says something went wrong, B-074). A "no" is never refused by this rule:
+   before the reminder it is rule 10's proactive decline, after it a reminder decline.
+28. **"Não vou" is final for the student (owner decision, the ticket's words: *"depois de o aluno
+   dizer 'Não vou', não pode voltar a dizer 'Vou', porque o treinador pode já ter arranjado
+   substituto"*).** Rule 26's way back is gone from both shells and from the server: a `yes`
+   from a student whose `attendanceState` is `not_coming` answers `{"action":
+   "already_declined"}` and records nothing (no lock, no capacity check, no coach message —
+   `_notify_coach_of_refused_return` and the retaking branch are retired). After "Não vou" the
+   response buttons disappear everywhere — class detail, dashboard (hero, rows, queue) and the
+   chat bubble, which already settles on the recorded answer — and in their place the class
+   detail and the dashboard row show one short line, the ticket's suggestion verbatim:
+   *"Respondeste que não vais. Se mudares de ideias, fala com o teu treinador."*
+   (`calendar.detail.declinedFinalHint`), with a shortcut that opens the coach's conversation
+   (web `/messages/<id>`, iOS `/conversation/<id>`, created through `POST /app/conversation`
+   when none exists). The coach manages the situation by hand: re-adding the student, or
+   clearing the absence (PAD-567). Rule 24's "no undo" was always the record; rule 26 was the
+   exception and is now closed.
+29. **The coach's own mark stands (orchestrator relaying the owner, 2026-10-09).** When the coach
+   marked the student present or absent before the reminder (`validated`, `attendance.presence`
+   rule 7; such a student gets no reminder, `notifications.reminders` rule 23), the student is
+   never asked: `pendingConfirmation` is `false`, a `yes` answers `{"action": "already_marked"}`,
+   and the student still only has "Não vou". What that "Não vou" does on a validated row is
+   unchanged by this ticket: `cancel_attendance` runs the ordinary decline path (rule 5), which
+   records the student's answer and overwrites the mark with `absent`; refusing it instead is a
+   PAD-567-adjacent decision not taken here.
 
 ### Acceptance Criteria
 
@@ -373,3 +441,34 @@ Players confirm or decline their attendance in response to a reminder notificati
 
 - **Given** a class that has already started
 - **Then** the action is not offered at all
+
+#### Before the first reminder the class detail offers only "Não vou" (PAD-570, rule 27)
+- **Given** a coach whose first reminder is 48 hours before, a class on 2026-10-20 at 18:00 (club clock) and an enrolled student with `attendanceState` `planned`
+- **When** the student reads the class-instance payload at 2026-10-18 15:59 UTC, one minute before the reminder instant
+- **Then** `pendingConfirmation` is `false`, both shells render the decline action and no confirm action, and `POST /api/app/notify/respond_reminder` with `yes` answers `{"action": "not_yet_asked"}` with the presence still `planned`
+
+#### After the first reminder instant the student may say "Vou" (PAD-570, rule 27)
+- **Given** the same class and student
+- **When** they read the payload at 2026-10-18 16:01 UTC, one minute after the instant
+- **Then** `pendingConfirmation` is `true`, both shells render "Vou" and "Não vou", and `respond_reminder` with `yes` records `coming`
+
+#### A reminder the coach sent by hand counts as asked (PAD-570, rule 27)
+- **Given** the same class three days ahead of the instant and a `ReminderAttempt` for this student on it
+- **When** the student reads the payload
+- **Then** `pendingConfirmation` is `true`
+
+#### A class with reminders off never asks (PAD-570, rule 27)
+- **Given** the same class past its reminder instant with the occurrence's `notifications_enabled` false and no reminder ever sent
+- **When** the student reads the payload or the dashboard
+- **Then** `pendingConfirmation` is `false`, "Precisa de ti" does not list the class, only "Não vou" is offered, and a `yes` answers `not_yet_asked`
+
+#### "Não vou" is final (PAD-570, rule 28)
+- **Given** a student whose `attendanceState` is `not_coming` on a class that has not started, after the reminder instant
+- **When** they POST `respond_reminder` with `yes`
+- **Then** the answer is `{"action": "already_declined"}`, the row stays `not_coming`, no vacancy is touched and no coach message is sent
+- **And** both shells show no response button and the hint "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador." with the chat shortcut
+
+#### The coach's mark stands (PAD-570, rule 29)
+- **Given** a student the coach validated present before the reminder instant
+- **When** the instant passes and they POST `respond_reminder` with `yes`
+- **Then** `pendingConfirmation` is `false`, the answer is `{"action": "already_marked"}` and the row stays `attended`

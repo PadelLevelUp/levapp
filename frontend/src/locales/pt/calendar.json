@@ -246,12 +246,15 @@
       "club": "Clube",
       "court": "Campo",
       "noCourt": "Sem campo",
-      "comeBack": "Afinal já posso ir",
-      "comeBackHint": "Se a tua vaga ainda estiver livre, voltas a ficar inscrito.",
       "spotFilled": "A tua vaga já foi ocupada.",
-      "comeBackDone": "Estás de volta a esta aula.",
       "clone": "Clonar aula",
-      "cloneFailed": "Não foi possível clonar a aula"
+      "cloneFailed": "Não foi possível clonar a aula",
+      "confirmAttendance": "Vou",
+      "confirmAttendanceDone": "Confirmado — até lá.",
+      "notYetAsked": "Ainda não podes confirmar: espera pelo lembrete do teu treinador. Se não puderes ir, avisa já.",
+      "alreadyMarked": "O teu treinador já registou a tua presença nesta aula.",
+      "declinedFinalHint": "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador.",
+      "declinedFinalChat": "Falar com o treinador"
     },
     "planning": {
       "title": "Planeamento ({{count}})",
