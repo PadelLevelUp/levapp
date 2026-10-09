@@ -79,8 +79,9 @@ with nothing lost: the same navigation, the same badges, the same actions.
    app's (same isolation variables for the backend database and ports, backend started the same
    way, the console served by Vite on its own port, `E2E_ADMIN_PORT`, default 8090). One project,
    device `iPhone 13` (390 × 844; rule 1 is asserted at 375 × 667 explicitly in the spec). Sign-in
-   in E2E does not go through Google: global setup seeds an `admin_roles` row for a staff email
-   and mints a console token with the backend's own issuer (the function `/admin/api/auth/google`
+   in E2E does not go through Google: the database is reset before Playwright starts (`npm run test:e2e`,
+   never inside global setup: the backend is already serving it), then global setup seeds an
+   `admin_roles` row for a staff email and mints a console token with the backend's own issuer (the function `/admin/api/auth/google`
    calls after it has verified the Google credential), and the test puts it in `sessionStorage`
    before the first navigation. No test-only auth endpoint is added to the backend. Two specs ship
    with this leaf: `phone-navigation.spec.ts` (rules 1–2) and `phone-users-table.spec.ts` (rules

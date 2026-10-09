@@ -105,9 +105,9 @@ jobs:
         working-directory: frontend/apps/admin
         run: npx playwright install --with-deps chromium
 
-      # Playwright starts its webServers BEFORE globalSetup resets the database, so Flask would
-      # boot against a database that does not exist yet and exit. Migrate and seed first, as
-      # E2E subset does; globalSetup then resets it again for the run.
+      # Playwright starts its webServers BEFORE globalSetup, so the database must exist and be
+      # migrated before `playwright test` runs (as E2E subset does); globalSetup only seeds the
+      # console rows. Locally `npm run test:e2e` does this reset through e2e/scripts/reset-db.sh.
       - name: Migrate + seed the isolated database
         if: steps.gate.outputs.run == 'true'
         env:
