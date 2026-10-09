@@ -3,7 +3,8 @@ id: B-401
 title: "In a class that is not full, a freed spot counts the never-filled spots (sided to an even class at capacity), so it asks the side the coach sees as the longer one"
 type: wrong-rule
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-10-09T19:05:00Z
 affects:
   - notifications.invitations
   - notifications.invitations rule 2b
@@ -14,7 +15,7 @@ related_specs:
   - .specflow/specs/notifications/invitations.spec.md
   - .specflow/specs/notifications/invite-simulation.spec.md
   - .specflow/specs-business/notifications/coach-fills-vacancies-automatically.business.md
-proposed_fix: "Rule 2c counts the players going and the class's other FREED spots, never its never-filled spots (candidate A); rule choice pending the owner (PAD-565). Id unconfirmed (range B-401–420, wave 13)."
+proposed_fix: "Rule 2c counts the players going and the class's other FREED spots, never its never-filled spots (option A; owner, 2026-10-09). Id unconfirmed (range B-401–420, wave 13)."
 opened: 2026-10-09T18:52:00Z
 ---
 
@@ -91,4 +92,14 @@ PAD-566 tutorial counts).
 
 ### Resolution
 
-Pending.
+Owner's decision (2026-10-09, via the wave-13 coordinator): option A, rule 2b stays; the dynamic
+"withdraw on balance" rule (option C) is PAD-581.
+- Spec changes: `notifications/invitations.spec.md` rule 2c + two criteria; `notifications/invite-simulation.spec.md`
+  rule 9 (`spot.sideCounts`); business spec `coach-fills-vacancies-automatically` (one sentence).
+- Tests: `test_pad565_side_balance_non_full_class.py` (10; four OLD-RED against #591's count, shown red by
+  flipping `never_filled`); `test_pad541`, `test_pad421`, `test_b302`, `test_pad196` still green.
+- Code: `_side_counts(never_filled=...)`, new `freed_spot_side_counts` (the numbers behind the side),
+  `freed_spot_side` unchanged in signature; the simulation's `_spot` exposes `sideCounts`;
+  `PlayerSide`-typed `sideCounts` on the frontend simulation type.
+- Already true before the fix, not built here: the full-class rows of the ticket's table.
+- Resolved: 2026-10-09 (PR for PAD-565).

@@ -73,14 +73,17 @@ def _hypothetical_vacancy(instance, coach_id: int, departing_player_id: int):
     would snapshot it (notifications.invitations rules 2/2a)."""
     from padel_app.models.coach_levels import CoachLevel
     from padel_app.models.vacancy import Vacancy
-    from padel_app.services.notification_service import freed_spot_side, vacancy_snapshot_for_player
+    from padel_app.services.notification_service import freed_spot_side_counts, vacancy_snapshot_for_player
 
     side, level_id, level_source = vacancy_snapshot_for_player(
         instance, coach_id, departing_player_id
     )
-    # PAD-541 (invitations rule 2c, invite-simulation rule 9): the side the engine would give the
-    # departing player's spot, the player counted out though they still hold it here.
-    side = freed_spot_side(instance, coach_id, departing_player_id, side)
+    # PAD-541 / PAD-565 (invitations rule 2c, invite-simulation rule 9): the side the engine would
+    # give the departing player's spot, the player counted out though they still hold it here, with
+    # the numbers that chose it (`sideCounts`), so a tutorial never recounts them.
+    side_counts = freed_spot_side_counts(instance, coach_id, departing_player_id, side)
+    if side_counts is not None:
+        side = side_counts["chosen"]
     vacancy = Vacancy(
         lesson_instance_id=instance.id,
         coach_id=coach_id,
@@ -96,6 +99,7 @@ def _hypothetical_vacancy(instance, coach_id: int, departing_player_id: int):
     # object is never flushed, so SQLAlchemy would not resolve them.
     vacancy.lesson_instance = instance
     vacancy.level = CoachLevel.query.get(level_id) if level_id else None
+    vacancy.side_counts = side_counts  # read by `_spot`; never a column
     return vacancy, level_source
 
 
@@ -223,6 +227,8 @@ def _waiting_list_asked_first(vacancy, instance, coach_id: int, config) -> list[
 def _spot(vacancy, level_source: str) -> dict:
     return {
         "side": vacancy.side,
+        # Rule 9 (PAD-565): the engine's own count behind `side`, for the tutorial.
+        "sideCounts": getattr(vacancy, "side_counts", None),
         "levelId": str(vacancy.level_id) if vacancy.level_id else None,
         "levelCode": vacancy.level.code if vacancy.level else None,
         "levelSource": level_source,
