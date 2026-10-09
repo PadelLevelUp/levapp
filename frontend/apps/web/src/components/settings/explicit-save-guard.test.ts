@@ -13,7 +13,6 @@ const SRC = join(__dirname, "..", "..");
 const HELD: Record<string, RegExp> = {
   "pages/SettingsPage.tsx": /savers\.current\.set\("preferences"/,
   "components/settings/CoachLevelsSection.tsx": /useTabSave\("coachLevels"/,
-  "components/settings/AdminSection.tsx": /useTabSave\("adminSettings"/,
   "components/evaluations/EvaluationReminderSetting.tsx": /useTabSave\("evaluationReminder"/,
   "components/evaluations/EvaluationScaleSetting.tsx": /useTabSave\("evaluationScale"/,
   // PR 2: Notificações, Calendário, As minhas notificações.
@@ -28,7 +27,7 @@ const HELD: Record<string, RegExp> = {
 const SAVE_ON_CHANGE_MACHINERY = /SaveSign|createSerialSaver|SaveLedger|useFlushOnPageHide|pausedSaver|keepalive/;
 // A save call written inside a change handler's braces: `onXChange={(v) => { … save( … }`.
 const SAVE_IN_CHANGE_HANDLER =
-  /on(?:Value|Checked)?Change=\{[^}]*\b(?:updateMe|mutateAsync|updateAdminSettings|addCoachLevel|deleteCoachLevel|updateNotificationConfig|saveSeason|putCoachWorkingHours)\(/;
+  /on(?:Value|Checked)?Change=\{[^}]*\b(?:updateMe|mutateAsync|addCoachLevel|deleteCoachLevel|updateNotificationConfig|saveSeason|putCoachWorkingHours)\(/;
 
 describe("explicit-save guard (settings.explicit-save, PAD-506)", () => {
   const files = Object.keys(HELD).map((rel) => ({ rel, text: readFileSync(join(SRC, rel), "utf8") }));
@@ -47,6 +46,6 @@ describe("explicit-save guard (settings.explicit-save, PAD-506)", () => {
 
   it("every tab with a setting has the header Save (rule 1)", () => {
     const page = readFileSync(join(SRC, "pages/SettingsPage.tsx"), "utf8");
-    expect(page).toMatch(/TABS_WITH_SAVE: SettingsTab\[\] = \["profile", "preferences", "calendar", "notifications", "myNotifications", "admin"\]/);
+    expect(page).toMatch(/TABS_WITH_SAVE: SettingsTab\[\] = \["profile", "preferences", "calendar", "notifications", "myNotifications"\]/);
   });
 });

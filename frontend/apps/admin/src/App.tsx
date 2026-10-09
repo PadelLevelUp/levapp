@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "@/components/Shell";
 import { adminApi } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { ApprovalsPage } from "@/pages/ApprovalsPage";
 import { AuditPage } from "@/pages/AuditPage";
 import { EngineHealthPage } from "@/pages/EngineHealthPage";
 import { ClubPage } from "@/pages/ClubPage";
@@ -13,7 +14,10 @@ import { SwitchesPage } from "@/pages/SwitchesPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotConfiguredPage } from "@/pages/NotConfiguredPage";
 import { RolesPage } from "@/pages/RolesPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 import { SignInPage } from "@/pages/SignInPage";
+import { UserPage } from "@/pages/UserPage";
+import { UsersPage } from "@/pages/UsersPage";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
 
@@ -27,6 +31,10 @@ function Gate() {
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<HomePage />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="users" element={<UsersPage />} />
+          <Route path="users/:userId" element={<UserPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="roles" element={<RolesPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="engine-health" element={<EngineHealthPage />} />

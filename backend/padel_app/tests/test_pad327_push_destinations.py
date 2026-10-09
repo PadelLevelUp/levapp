@@ -123,6 +123,9 @@ def _destination_of(expo_data: dict) -> str:
 def test_a_request_alert_names_one_destination_in_both_channels(app, kind):
     """Behavioural half: the two channels are compared against each other."""
     from padel_app.models import User
+
+    # PAD-532: a console kind needs the console's URL (every deployed environment sets it).
+    app.config["ADMIN_CONSOLE_URL"] = "https://admin.levapp.app"
     from padel_app.services import request_alert_service
     from padel_app.sql_db import db
 

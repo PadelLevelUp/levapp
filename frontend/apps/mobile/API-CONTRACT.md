@@ -132,7 +132,7 @@ Any role: `POST /respond {notificationEventId*, action*}`, `POST /respond_remind
 
 NOTE: backend push is **Web Push (VAPID)** only. There is no native APNs/FCM device-token endpoint — this is an endpoint gap for native mobile push (see PR notes).
 
-### `/api/editor` — superadmin CRUD (JWT + is_superadmin): `GET /models`, `GET /<model>/schema|options`, `GET /<model>?page&search`, `GET/POST/PATCH/DELETE /<model>[/<id>]`. (Web-only admin tool; out of mobile scope.)
+### `/api/editor` — superadmin CRUD (JWT + is_superadmin): `GET /models`, `GET /<model>/schema|options`, `GET /<model>?page&search`, `GET/POST/PATCH/DELETE /<model>[/<id>]`. (Retired in PAD-532: no client uses it; the backend keeps it only in dev/E2E until PAD-550 deletes it.)
 
 ## 4. SSE / Streaming
 

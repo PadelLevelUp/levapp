@@ -365,6 +365,12 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
     and returns at most ``QUEUE_REPLY_LIMIT`` rows; this used to pull every
     unread message the user had and dedupe in Python.
     """
+    from padel_app.utils import view_as
+
+    if view_as.active():
+        # admin.approvals-and-users rule 9 (#584 review): a reply item carries the message's text
+        # (`preview`); under a view-as token private messages are never shown, so there are none.
+        return []
     unread = (
         db.session.query(
             Message.conversation_id.label("conversation_id"),

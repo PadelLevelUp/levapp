@@ -81,6 +81,13 @@ removed from web and iOS in the same ticket.
      messages, the messaging SSE stream): private messages are never shown;
    - is refused by `token-refresh` (no `X-New-Token`), and the token is not stored by the web
      app beyond the tab (`sessionStorage`).
+   - also hides message text wherever another GET carries it: the dashboard's messages overview
+     answers no counts and no latest, and the "needs you" block has no reply items (a guard calls
+     every product GET in the URL map under view-as and fails on a seeded sentinel message);
+   - ends on the next request when its actor is no longer an active `operator` (401
+     `VIEW_AS_REVOKED`), not 30 minutes later.
+   A staff account is never viewed as: a product superadmin, or an account whose email holds an
+   active console role, answers 403 `VIEW_AS_TARGET_STAFF` (#584 review, 2026-10-08).
    The product web app shows a fixed banner "A ver como <name> — só leitura" with a close button
    that discards the token. iOS has no view-as (a staff tool, used from the console on a desk).
 10. **The product admin section leaves both apps in this ticket.** Settings → Admin is removed from
@@ -90,9 +97,27 @@ removed from web and iOS in the same ticket.
     /api/app/admin/coach-approvals*` are removed (404); `packages/api/src/resources/admin.ts`
     loses the approval calls. The pending-coach push to superadmins
     (`notifications.request-alerts`) opens the console's approvals page instead of the app's
-    Settings. Removed test ids are grepped out of the web E2E and Maestro flows in the same change
+    Settings (`ADMIN_CONSOLE_URL` + `/approvals`). With no `ADMIN_CONSOLE_URL` the push and the alert
+    mail are skipped and a warning is logged, rather than sent with a link to a page the product
+    does not have (#568 review). Removed test ids are grepped out of the web E2E and Maestro flows in the same change
     (`admin-coach-approvals`, `admin-pending-*`, `admin-approve-*`, `admin-reject-*`,
     `admin-no-pending`, `admin-email-unverified-*`, `admin-reject-confirm`, `admin-reject-reason`).
+10a. **Removed only when the console is live (coordinator decision 2026-10-07).** Removing the
+    section leaves the console as the only way to approve a coach or flip the approval gate. The
+    change therefore merges into `staging` only once the console signs in on
+    `admin.staging.levapp.app`, and is promoted to production only once it signs in on
+    `admin.levapp.app` (both need the owner's Google client id, the DNS records and the applied
+    vhosts of `admin.foundation` rule 12).
+10b. **The approval gate moves with the section.** The switch at the top of Settings → Admin moves
+    to the console in this ticket, not in PAD-533, so no window exists where it can only be flipped
+    in the database: `GET /admin/api/settings/coach-approval` (`support`) and
+    `PUT /admin/api/settings/coach-approval` (`operator`) as `admin.clubs-and-switches` rule 4
+    specifies, and `GET|PUT /api/app/admin/settings` are removed here (that spec's rule 7, first
+    half). Kill-switches, clubs and courts stay in PAD-533.
+10c. **The generic editor (`/editor`) is retired here (owner, 2026-10-07).** Everything reachable
+    goes: the web route and page, the editor resource client in `packages/api`, and
+    `EDITOR_ENABLED` from the staging template, so the editor blueprints answer 404 in every
+    deployed environment. The dead backend code is deleted by PAD-550.
 11. **Old clients.** An App Store build that still shows Settings → Admin gets 404 from the removed
     routes; the section shows its load-error state and nothing else breaks. No compatibility route
     is kept.
@@ -166,6 +191,16 @@ removed from web and iOS in the same ticket.
 - **Given** a superadmin with a registered device and a coach who self-registers
 - **When** the push is built
 - **Then** its target URL is the console's approvals page
+
+#### The approval gate is in the console, not in the app (rule 10b)
+- **Given** no `coach_approval_required` row and the environment default, a `support` token and an `operator` token
+- **When** support GETs `/admin/api/settings/coach-approval`, support PUTs it, and the operator PUTs `{coachApprovalRequired: false}`
+- **Then** the GET answers `{coachApprovalRequired: true, source: "environment"}`; support's PUT is 403; after the operator's PUT a self-registering coach is created `approved`, and one audit row `settings.coach_approval` holds `before.coachApprovalRequired = true`, `after.coachApprovalRequired = false`; `GET /api/app/admin/settings` is 404
+
+#### The editor is unreachable (rule 10c)
+- **Given** the staging env template and the web app's routes
+- **When** they are read
+- **Then** the template does not set `EDITOR_ENABLED`, and no web route renders `/editor`
 
 ### Not this spec
 - How approval itself works (statuses, emails, the gate, re-application) — `auth.coach-approval`,

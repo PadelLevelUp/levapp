@@ -29,6 +29,13 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification?.data?.url || "/";
 
+  // PAD-532: a destination on another origin (the staff console's approvals page) opens in a new
+  // window; it never takes the user's open LevApp tab away from what they were doing.
+  if (new URL(targetUrl, self.location.origin).origin !== self.location.origin) {
+    event.waitUntil(clients.openWindow ? clients.openWindow(targetUrl) : Promise.resolve());
+    return;
+  }
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {

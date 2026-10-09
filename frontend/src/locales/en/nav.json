@@ -8,7 +8,6 @@
     "availability": "Availability",
     "messages": "Messages",
     "settings": "Settings",
-    "editor": "Editor",
     "logout": "Log out",
     "presences": "Presences",
     "presencesBadge_one": "{{count}} class to validate",

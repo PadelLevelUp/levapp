@@ -22,7 +22,6 @@
       "club": "Club",
       "account": "Account",
       "myNotifications": "My notifications",
-      "admin": "Admin",
       "classRequests": "Class requests",
       "connections": "My connections"
     },
@@ -148,7 +147,6 @@
       "importNavDescription": "Review and revert past imports.",
       "importOnWeb": "Spreadsheets are uploaded and analysed in the web app. Here you can review past imports and revert them.",
       "importHistoryEmpty": "No imports yet.",
-      "adminNavDescription": "Approve registered coaches",
       "classRequestsNavDescription": "Students ask for classes at times your calendar leaves free. Accept, decline or propose another time; a pending request holds its slot on your calendar.",
       "connectionsNavDescription": "Your coach, your students and the people you have blocked."
     },
@@ -659,28 +657,6 @@
       "openSpots": {
         "label": "Make empty spots for future classes visible to eligible students (they can request to join)"
       }
-    },
-    "admin": {
-      "coachApprovalRequired": "New coaches need approval",
-      "coachApprovalRequiredDescription": "On: anyone who signs up as a coach waits for your approval. Off: they are approved at once and pick their club. Existing coaches are not affected.",
-      "coachApprovalFromEnvironment": "Server default — never changed here yet.",
-      "coachApprovalSaved": "Setting saved.",
-      "emailUnverified": "Email not verified",
-      "title": "Admin",
-      "description": "LevApp team tools.",
-      "pendingCoaches": "Coaches waiting for approval",
-      "pendingCoachesDescription": "Coach accounts created by self-signup. Only once approved can they create or join a club.",
-      "noPending": "No coaches waiting for approval.",
-      "approve": "Approve",
-      "reject": "Reject",
-      "approved": "{{name}} approved.",
-      "rejected": "{{name}}'s request rejected.",
-      "loadFailed": "Could not load the requests.",
-      "actionFailed": "Could not complete the action.",
-      "rejectDialogTitle": "Reject {{name}}?",
-      "rejectDialogDescription": "The coach loses access to coach features. The reason is for internal record only.",
-      "reason": "Reason (optional)",
-      "reasonPlaceholder": "e.g. not a coach"
     },
     "connections": {
       "title": "My connections",

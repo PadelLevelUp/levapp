@@ -87,7 +87,11 @@ else
   # Every vhost (its first server_name) on 443, and on 80 where its file has a port-80 block.
   hosts=$(docker exec "$NAME" sh -c "cat /etc/nginx/sites-enabled/* | grep -o 'server_name [^;]*' | awk '{print \$2}' | sort -u")
   for h in $hosts; do
-    expect_no_referrer --resolve "$h:443:127.0.0.1" "https://$h/register/7"
+    # PAD-531: the admin vhosts have no activation page, so no /register/ location and no
+    # Referrer-Policy to check there; the secret-bearing requests below are still sent to them.
+    if docker exec "$NAME" sh -c "grep -l 'server_name $h' /etc/nginx/sites-enabled/* | xargs grep -qs 'location /register/'"; then
+      expect_no_referrer --resolve "$h:443:127.0.0.1" "https://$h/register/7"
+    fi
     port80=0
     docker exec "$NAME" sh -c "grep -l 'server_name $h' /etc/nginx/sites-enabled/* | xargs grep -qs 'listen 80'" && port80=1
     for p in "${SECRET_PATHS[@]}"; do

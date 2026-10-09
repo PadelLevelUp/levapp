@@ -5,6 +5,7 @@ import { USE_MOCK_DATA } from "@/config";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
 import i18n from "@/i18n";
 import { emailPromptSession } from "@levelup/config";
+import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
 
 // PAD-40: apply the user's persisted language globally so it drives the whole UI,
 // not just the Settings screen. Called on both silent session restore and login.
@@ -35,7 +36,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() =>
-    USE_MOCK_DATA ? "mock-token" : localStorage.getItem("accessToken")
+    USE_MOCK_DATA ? "mock-token" : getViewAsToken() ?? localStorage.getItem("accessToken")
   );
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,14 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then((userData) => {
         setUser(userData);
         applyUserLanguage(userData);
-        // Refresh push subscription on every silent restore
-        if (!USE_MOCK_DATA) {
+        // Refresh push subscription on every silent restore (never while viewing as: PAD-532)
+        if (!USE_MOCK_DATA && !isViewingAs()) {
           void requestAndSubscribe(token);
         }
       })
       .catch(() => {
         if (!USE_MOCK_DATA) {
-          localStorage.removeItem("accessToken");
+          if (isViewingAs()) endViewAs();
+          else localStorage.removeItem("accessToken");
           setToken(null);
         }
         setUser(null);
@@ -102,6 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     // PAD-482 (auth.email-verification rule 14): the next sign-in asks for a missing email again.
     emailPromptSession.reset();
+    if (isViewingAs()) {
+      // PAD-532: leaving a view-as discards its token only; the tab's own session is untouched.
+      endViewAs();
+      setToken(USE_MOCK_DATA ? "mock-token" : localStorage.getItem("accessToken"));
+      setUser(null);
+      return;
+    }
     const currentToken = localStorage.getItem("accessToken");
     if (currentToken && !USE_MOCK_DATA) {
       // Best-effort server-side invalidation — don't await to avoid blocking UI

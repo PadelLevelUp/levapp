@@ -25,7 +25,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { AccountSection } from "@/features/settings/account-section";
-import { AdminSection } from "@/features/settings/admin-section";
 import { AutoInviteSection } from "@/features/settings/auto-invite-section";
 import { BuildInfoLine } from "@/features/settings/build-info";
 import { ClubSection } from "@/features/settings/club-section";
@@ -163,7 +162,6 @@ function SettingsScreenBody() {
     queryFn: authApi.getMe,
   });
   const isCoach = (me ?? user)?.roles?.includes("coach") ?? false;
-  const isSuperAdmin = (me ?? user)?.isSuperAdmin === true;
 
   // PAD-281: the chat bubble's "Propose another time" on a student's
   // counter-proposal opens the coach's class-requests pane on that request.
@@ -186,13 +184,13 @@ function SettingsScreenBody() {
     }, [])
   );
 
-  const sections = visibleSections(isCoach, isSuperAdmin);
+  const sections = visibleSections(isCoach);
   // Re-derived every render from the role-filtered list, so it collapses back
   // to the list the moment a section stops being allowed.
   const activeSection = sections.find((s) => s.id === openId) ?? null;
 
   // settings.explicit-save rule 3 (PAD-506): every section with a setting has the one Save.
-  const SAVE_SECTIONS: SettingsSectionId[] = ["profile", "preferences", "calendar", "notifications", "myNotifications", "admin"];
+  const SAVE_SECTIONS: SettingsSectionId[] = ["profile", "preferences", "calendar", "notifications", "myNotifications"];
   const sectionHasSave = activeSection !== null && SAVE_SECTIONS.includes(activeSection.id);
   // Every unsaved part of the open section, in turn; a part that fails stays unsaved and is named.
   const handleSave = async () => {
@@ -249,8 +247,6 @@ function SettingsScreenBody() {
         return <ClubSection />;
       case "account":
         return <AccountSection />;
-      case "admin":
-        return <AdminSection />;
     }
   };
 

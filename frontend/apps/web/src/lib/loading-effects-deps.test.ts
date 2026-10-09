@@ -139,10 +139,6 @@ const REVIEWED: string[] = [
   // Generated from this guard's own scan (PRINT_OFFENDERS=1), 2026-09-21, then read one by one.
   // iOS verify-email: the effect that runs `send` is fenced by an `autoSent` ref — a re-run sends nothing.
   "apps/mobile/app/verify-email.tsx :: authApi.sendEmailVerificationCode",
-  // Admin: a refetch of the pending list and of a setting that PUTs at once — no unsaved state
-  // (a refetch racing the PUT can momentarily show the pre-toggle value; it settles).
-  "apps/mobile/src/features/settings/admin-section.tsx :: adminApi.listPendingCoaches",
-  "apps/web/src/components/settings/AdminSection.tsx :: listPendingCoaches",
   // Club: the re-run is the whole getCoachClub chain → setClub → the [club] effect refetching
   // courts and join requests. Harmless because the editable bits (newCourt, renameValue) are
   // separate state that the refetch does not touch.

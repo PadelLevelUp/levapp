@@ -1,14 +1,22 @@
 import { initApi, getApi, type TokenStorage } from "@levelup/api";
 
-// Web platform adapter: tokens live in localStorage.
+import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
+
+// Web platform adapter: tokens live in localStorage. A "view as" token (PAD-532, rule 9) lives in
+// this tab's sessionStorage and wins while present; the normal session is then never touched.
 export const webTokenStorage: TokenStorage = {
   async getToken() {
-    return localStorage.getItem("accessToken");
+    return getViewAsToken() ?? localStorage.getItem("accessToken");
   },
   async setToken(token: string) {
+    if (isViewingAs()) return; // never refreshed (the server sends no X-New-Token for it)
     localStorage.setItem("accessToken", token);
   },
   async removeToken() {
+    if (isViewingAs()) {
+      endViewAs();
+      return;
+    }
     localStorage.removeItem("accessToken");
   },
 };

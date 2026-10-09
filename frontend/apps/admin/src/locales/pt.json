@@ -6,6 +6,9 @@
         "home": "Início",
         "roles": "Acessos",
         "audit": "Registo de alterações",
+        "approvals": "Aprovações",
+        "users": "Utilizadores",
+        "settings": "Definições",
         "clubs": "Clubes",
         "switches": "Interruptores",
         "engineHealth": "Saúde do motor"
@@ -94,6 +97,100 @@
       "prev": "Anteriores",
       "next": "Seguintes",
       "page": "Página {{page}}"
+    },
+    "approvals": {
+      "title": "Aprovações de treinadores",
+      "lead": "Treinadores à espera de decisão, os mais antigos primeiro.",
+      "empty": "Nenhum treinador à espera.",
+      "requested": "Pedido {{when}}",
+      "unverified": "Email por verificar",
+      "approve": "Aprovar",
+      "reject": "Recusar",
+      "rejectTitle": "Recusar {{name}}?",
+      "reason": "Motivo (opcional)",
+      "confirmReject": "Recusar treinador",
+      "alreadyDecided": "Este treinador já foi decidido. A lista foi atualizada.",
+      "error": "Não foi possível guardar a decisão."
+    },
+    "users": {
+      "title": "Utilizadores",
+      "lead": "Encontra uma conta por nome, nome de utilizador ou email.",
+      "search": "Pesquisar",
+      "placeholder": "Nome, utilizador ou email",
+      "tooShort": "Escreve pelo menos 2 caracteres.",
+      "none": "Nenhum utilizador encontrado.",
+      "loadMore": "Carregar mais",
+      "columns": {
+        "name": "Nome",
+        "username": "Utilizador",
+        "email": "Email",
+        "roles": "Papéis",
+        "status": "Estado"
+      },
+      "verified": "Verificado",
+      "unverified": "Por verificar",
+      "status": {
+        "inactive": "Inativo",
+        "active": "Ativo",
+        "disabled": "Desativado"
+      },
+      "role": {
+        "coach": "Treinador",
+        "player": "Jogador"
+      }
+    },
+    "user": {
+      "back": "Voltar aos utilizadores",
+      "notFound": "Utilizador não encontrado.",
+      "account": "Conta",
+      "language": "Idioma",
+      "created": "Criada",
+      "push": "Dispositivo push registado",
+      "yes": "Sim",
+      "no": "Não",
+      "superadmin": "Superadmin do produto",
+      "consoleRole": "Papel na consola",
+      "coach": "Treinador",
+      "approvalStatus": "Estado da aprovação",
+      "rejectionReason": "Motivo da recusa",
+      "clubs": "Clubes",
+      "player": "Jogador",
+      "coaches": "Treinadores",
+      "none": "Nenhum",
+      "audit": "Alterações recentes",
+      "auditEmpty": "Sem alterações registadas.",
+      "actions": "Ações",
+      "disable": "Desativar",
+      "disableReason": "Motivo",
+      "confirmDisable": "Desativar conta",
+      "enable": "Reativar",
+      "resend": "Reenviar código de verificação",
+      "resent": "Código de verificação enviado.",
+      "retry": "Tenta outra vez dentro de {{seconds}} segundos.",
+      "error": {
+        "REASON_REQUIRED": "É preciso indicar um motivo para desativar a conta.",
+        "NO_EMAIL": "Esta conta não tem email.",
+        "ALREADY_VERIFIED": "O email já está verificado.",
+        "RESEND_TOO_SOON": "Foi enviado um código há instantes. Tenta outra vez dentro de {{seconds}} segundos.",
+        "generic": "Não foi possível concluir a ação.",
+        "USER_DISABLED": "Esta conta está desativada."
+      },
+      "viewAs": "Ver como este utilizador",
+      "viewAsHint": "Abre a app dele num novo separador, só de leitura e sem mensagens privadas. Fica registado."
+    },
+    "settings": {
+      "title": "Definições",
+      "lead": "Interruptores da plataforma.",
+      "approvalTitle": "Aprovação de treinadores",
+      "approvalLabel": "Novos treinadores precisam de aprovação",
+      "approvalOn": "Ligado: os novos treinadores esperam por uma decisão antes de usar a app.",
+      "approvalOff": "Desligado: os novos treinadores são aprovados no registo.",
+      "source": {
+        "database": "Valor definido na consola",
+        "environment": "Valor por omissão do ambiente (nunca alterado aqui)"
+      },
+      "note": "Alterar isto nunca muda os treinadores que já existem.",
+      "error": "Não foi possível guardar a definição."
     },
     "common": {
       "loading": "A carregar…",

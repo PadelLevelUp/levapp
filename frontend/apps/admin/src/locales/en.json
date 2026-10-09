@@ -6,6 +6,9 @@
         "home": "Home",
         "roles": "Access",
         "audit": "Audit log",
+        "approvals": "Approvals",
+        "users": "Users",
+        "settings": "Settings",
         "clubs": "Clubs",
         "switches": "Switches",
         "engineHealth": "Engine health"
@@ -94,6 +97,100 @@
       "prev": "Previous",
       "next": "Next",
       "page": "Page {{page}}"
+    },
+    "approvals": {
+      "title": "Coach approvals",
+      "lead": "Coaches waiting for a decision, oldest first.",
+      "empty": "No coaches waiting.",
+      "requested": "Requested {{when}}",
+      "unverified": "Email not verified",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectTitle": "Reject {{name}}?",
+      "reason": "Reason (optional)",
+      "confirmReject": "Reject coach",
+      "alreadyDecided": "This coach was already decided. The list has been refreshed.",
+      "error": "Could not save the decision."
+    },
+    "users": {
+      "title": "Users",
+      "lead": "Find an account by name, username or email.",
+      "search": "Search",
+      "placeholder": "Name, username or email",
+      "tooShort": "Type at least 2 characters.",
+      "none": "No users found.",
+      "loadMore": "Load more",
+      "columns": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "roles": "Roles",
+        "status": "Status"
+      },
+      "verified": "Verified",
+      "unverified": "Not verified",
+      "status": {
+        "inactive": "Inactive",
+        "active": "Active",
+        "disabled": "Disabled"
+      },
+      "role": {
+        "coach": "Coach",
+        "player": "Player"
+      }
+    },
+    "user": {
+      "back": "Back to users",
+      "notFound": "User not found.",
+      "account": "Account",
+      "language": "Language",
+      "created": "Created",
+      "push": "Push device registered",
+      "yes": "Yes",
+      "no": "No",
+      "superadmin": "Product superadmin",
+      "consoleRole": "Console role",
+      "coach": "Coach",
+      "approvalStatus": "Approval status",
+      "rejectionReason": "Rejection reason",
+      "clubs": "Clubs",
+      "player": "Player",
+      "coaches": "Coaches",
+      "none": "None",
+      "audit": "Recent changes",
+      "auditEmpty": "No changes recorded.",
+      "actions": "Actions",
+      "disable": "Disable",
+      "disableReason": "Reason",
+      "confirmDisable": "Disable account",
+      "enable": "Enable",
+      "resend": "Resend verification code",
+      "resent": "Verification code sent.",
+      "retry": "Try again in {{seconds}} seconds.",
+      "error": {
+        "REASON_REQUIRED": "A reason is required to disable an account.",
+        "NO_EMAIL": "This account has no email.",
+        "ALREADY_VERIFIED": "The email is already verified.",
+        "RESEND_TOO_SOON": "A code was sent a moment ago. Try again in {{seconds}} seconds.",
+        "generic": "Could not complete the action.",
+        "USER_DISABLED": "This account is disabled."
+      },
+      "viewAs": "View as this user",
+      "viewAsHint": "Opens their app in a new tab, read-only and without private messages. It is recorded."
+    },
+    "settings": {
+      "title": "Settings",
+      "lead": "Platform switches.",
+      "approvalTitle": "Coach approval",
+      "approvalLabel": "New coaches need approval",
+      "approvalOn": "On: new coaches wait for a decision before they can use the app.",
+      "approvalOff": "Off: new coaches are approved on sign-up.",
+      "source": {
+        "database": "Value set in the console",
+        "environment": "Environment default (never changed here)"
+      },
+      "note": "Changing this never changes coaches that already exist.",
+      "error": "Could not save the setting."
     },
     "common": {
       "loading": "Loading…",

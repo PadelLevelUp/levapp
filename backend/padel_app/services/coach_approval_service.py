@@ -39,7 +39,7 @@ def serialize_pending_coach(coach):
     }
 
 
-def _decide(coach_id, admin_user, target, reason=None, now=None):
+def _decide(coach_id, admin_user, target, reason=None, now=None, commit=True):
     coach = Coach.query.get_or_404(coach_id)
     if coach.approval_status == target:
         return coach  # idempotent for the same target state
@@ -53,7 +53,10 @@ def _decide(coach_id, admin_user, target, reason=None, now=None):
         coach.rejection_reason = None
     else:
         coach.rejection_reason = (reason or None)
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
     return coach
 
 
@@ -64,23 +67,51 @@ def _sync_crm(coach):
     sync_coach_status(coach)
 
 
-def approve_coach_service(coach_id, admin_user, now=None):
-    coach = _decide(coach_id, admin_user, "approved", now=now)
-    notify_coach_approved(coach)
-    _sync_crm(coach)
+def approve_coach_service(coach_id, admin_user, now=None, *, defer=None):
+    """Approve a pending coach.
+
+    ``defer`` (admin.approvals-and-users rule 2, PAD-532): the staff console passes its audit
+    context's ``defer``. The decision is then flushed, not committed, so it commits with its audit
+    row, and the mail, push and CRM sync run after that commit. Without it (every other caller)
+    the behaviour is unchanged: commit, then notify.
+    """
+    coach = _decide(coach_id, admin_user, "approved", now=now, commit=defer is None)
+    if defer is None:
+        notify_coach_approved(coach)
+        _sync_crm(coach)
+    else:
+        coach_id_ = coach.id
+        defer(lambda: _after_decision(coach_id_, notify=True))
     return coach
 
 
-def reject_coach_service(coach_id, admin_user, reason=None):
-    coach = _decide(coach_id, admin_user, "rejected", reason=reason)
+def reject_coach_service(coach_id, admin_user, reason=None, *, defer=None):
+    coach = _decide(coach_id, admin_user, "rejected", reason=reason, commit=defer is None)
     # Rule 10 (PAD-233): a rejected coach cannot sign in. `disabled` is the
     # status the JWT blocklist loader already treats as "kill every session",
     # so this signs them out on every device without a new column.
     if coach.user is not None and coach.user.status != "disabled":
         coach.user.status = "disabled"
-        db.session.commit()
-    _sync_crm(coach)
+        if defer is None:
+            db.session.commit()
+        else:
+            db.session.flush()
+    if defer is None:
+        _sync_crm(coach)
+    else:
+        coach_id_ = coach.id
+        defer(lambda: _after_decision(coach_id_, notify=False))
     return coach
+
+
+def _after_decision(coach_id, notify):
+    """The side effects of a console decision, after its commit (PAD-532)."""
+    coach = Coach.query.get(coach_id)
+    if coach is None:
+        return
+    if notify:
+        notify_coach_approved(coach)
+    _sync_crm(coach)
 
 
 class CoachRejected(Exception):
@@ -156,10 +187,10 @@ def notify_admin_of_pending_coach(coach):
     user = coach.user
     try:
         from padel_app.services.request_alert_service import (
-            notify_request_event, superadmin_users,
+            notify_request_event, pending_coach_recipients,
         )
         notify_request_event(
-            "coach_approval.received", superadmin_users(),
+            "coach_approval.received", pending_coach_recipients(),
             actor=user.name if user else "",
         )
     except Exception as exc:  # noqa: BLE001 — never fail the signup
@@ -173,9 +204,16 @@ def notify_admin_of_pending_coach(coach):
         f"A coach is waiting for approval.\n\n"
         f"Name: {user.name}\nUsername: {user.username}\nEmail: {user.email}\n"
         f"Email verified: {verified}\n\n"
-        f"Approve or reject under Settings → Admin."
+        + (f"Approve or reject in the staff console: {_console_url('/approvals')}"
+           if current_app.config.get("ADMIN_CONSOLE_URL") else "Approve or reject in the staff console.")
     )
     _send("[LevApp] Coach waiting for approval", [to], body)
+
+
+def _console_url(path):
+    """admin.approvals-and-users rule 3: the staff console's page for ``path``."""
+    base = (current_app.config.get("ADMIN_CONSOLE_URL") or "").rstrip("/")
+    return f"{base}{path}" if base else path
 
 
 def notify_coach_approved(coach):

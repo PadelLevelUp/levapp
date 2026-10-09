@@ -13,7 +13,6 @@ const HELD: Record<string, RegExp> = {
   "src/features/settings/profile-section.tsx": /useSectionSave\("profile"/,
   "src/features/settings/preferences-section.tsx": /useSectionSave\("preferences"/,
   "src/features/settings/coach-levels-section.tsx": /useSectionSave\("coachLevels"/,
-  "src/features/settings/admin-section.tsx": /useSectionSave\(\s*"adminSettings"/,
   "src/features/evaluations/evaluation-reminder-setting.tsx": /useSectionSave\("evaluationReminder"/,
   "src/features/evaluations/evaluation-scale-setting.tsx": /useSectionSave\("evaluationScale"/,
   // PR 2: Notificações, Calendário, As minhas notificações.
@@ -25,7 +24,7 @@ const HELD: Record<string, RegExp> = {
 
 const SAVE_ON_CHANGE_MACHINERY = /save-sign|createSerialSaver|SaveLedger|useFlushOnBackground/;
 const SAVE_IN_CHANGE_HANDLER =
-  /on(?:ValueChange|CheckedChange|ChangeText|Press)=\{[^}]*\b(?:updateMe|mutateAsync|updateAdminSettings|addCoachLevel|deleteCoachLevel|updateNotificationConfig|saveSeason|putCoachWorkingHours)\(/;
+  /on(?:ValueChange|CheckedChange|ChangeText|Press)=\{[^}]*\b(?:updateMe|mutateAsync|addCoachLevel|deleteCoachLevel|updateNotificationConfig|saveSeason|putCoachWorkingHours)\(/;
 
 describe("explicit-save guard (settings.explicit-save, PAD-506)", () => {
   const files = Object.keys(HELD).map((rel) => ({ rel, text: readFileSync(join(ROOT, rel), "utf8") }));
@@ -47,6 +46,6 @@ describe("explicit-save guard (settings.explicit-save, PAD-506)", () => {
     expect(screen).toMatch(/testID=\{`settings-\$\{activeSection\.id\}-save`\}/);
     expect(screen).toMatch(/usePreventRemove\(hasUnsaved/);
     // Every section with a setting has the Save (rule 1): none is left saving on change.
-    expect(screen).toMatch(/SAVE_SECTIONS: SettingsSectionId\[\] = \["profile", "preferences", "calendar", "notifications", "myNotifications", "admin"\]/);
+    expect(screen).toMatch(/SAVE_SECTIONS: SettingsSectionId\[\] = \["profile", "preferences", "calendar", "notifications", "myNotifications"\]/);
   });
 });

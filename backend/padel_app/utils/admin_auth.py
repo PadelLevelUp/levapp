@@ -45,6 +45,13 @@ class AuditContext:
         self.after = None
         self.actor_email = None
         self.actor_role = None
+        # Rule 8: side effects outside the database (email, push, CRM) run after the commit,
+        # as ordinary code (they may query), never inside SQLAlchemy's after_commit hook.
+        self.after_commit = []
+
+    def defer(self, fn):
+        """Run ``fn()`` once the write and its audit row have committed; dropped otherwise."""
+        self.after_commit.append(fn)
 
     def target(self, target_type, target_id):
         self.target_type = target_type
@@ -122,6 +129,7 @@ def audited(action):
                     # The write and its row go together: neither survives (rule 8).
                     db.session.rollback()
                     raise
+                _run_after_commit(ctx)
             else:
                 db.session.rollback()
                 _record_alone(ctx, outcome)
@@ -131,6 +139,16 @@ def audited(action):
         return wrapper
 
     return decorator
+
+
+def _run_after_commit(ctx):
+    """Best-effort side effects; a failure is logged and never changes the response."""
+    for fn in ctx.after_commit:
+        try:
+            fn()
+        except Exception:
+            db.session.rollback()
+            logger.exception("admin after-commit action for %s failed", ctx.action)
 
 
 def _record_alone(ctx, outcome):

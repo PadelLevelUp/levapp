@@ -81,6 +81,11 @@ def sync_coach_status(coach):
 
 
 def _trigger(user, coach, *, move_deals):
+    from padel_app.utils.view_as import suppressed
+
+    # admin.approvals-and-users rule 9 (PAD-532): nothing leaves under a view-as token.
+    if suppressed("crm"):
+        return
     try:
         config = _config()
         if not config["token"] or user is None or not user.email:
