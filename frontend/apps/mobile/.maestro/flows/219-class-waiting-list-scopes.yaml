@@ -39,8 +39,7 @@ onFlowComplete:
       id: "class-waiting-list-toggle"
     direction: DOWN
     timeout: 30000
-- tapOn:
-    id: "class-waiting-list-toggle"
+# The section is open already: it opens by itself when the list has rows (the filler's), as in 170.
 - tapOn:
     id: "class-waiting-list-add"
 - tapOn:

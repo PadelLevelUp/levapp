@@ -139,6 +139,23 @@ def test_adding_the_whole_series_repoints_the_classs_existing_row(app, monkeypat
         assert _list(series["instance_id"])[carla]["scope"] == "series"
 
 
+def test_a_row_a_coach_wide_entry_holds_is_not_repointed(app, monkeypatch):
+    from padel_app.services.notification_service import add_standing_waiting_list_entry
+    from padel_app.utils.dates import utcnow_naive
+
+    _quiet(monkeypatch)
+    ids = _setup(app)
+    series = _series(app, ids)
+    bruno = _student(app, ids, "bruno")
+    with app.app_context():
+        coach_wide = add_standing_waiting_list_entry(ids["coach_id"], bruno, 3, expires_at=utcnow_naive() + timedelta(days=30))
+        result = _add(ids["coach_id"], series["instance_id"], bruno, scope="series")
+        row = _rows(series["instance_id"])[bruno]
+        assert row.is_active and row.standing_entry_id == coach_wide.id, "the class keeps its coach-wide row"
+        assert _entry(result["standingEntryId"]).is_active, "the series entry still exists for the other occurrences"
+        assert _list(series["instance_id"])[bruno]["scope"] == "standing"
+
+
 # ── rule 19a: a period ─────────────────────────────────────────────────────────
 
 def test_a_period_of_x_classes_ends_on_the_xth_upcoming_occurrence(app, monkeypatch):

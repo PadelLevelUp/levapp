@@ -229,7 +229,9 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     series): adding a second for the same series replaces the first; a coach-wide entry and a
     series entry for the same student coexist, and a class both reach holds one row (rule 10's
     reactivation). An active row this class already holds for the student is re-pointed at the new
-    entry (`standing_entry_id`), keeping its join time, so the class's list shows the new scope. The
+    entry (`standing_entry_id`), keeping its join time, so the class's list shows the new scope —
+    except a row a coach-wide entry holds, which stays that entry's (and reads `standing`), so the
+    class is not lost from the coach-wide reach when the series entry ends. The
     series scopes are offered only for a recurring class. The standing list (rule 6) shows a scoped
     entry with its class's title and, for an entry with no credit limit, no credit count.
 19a. **…or for a period (PAD-560).** `scope: "period"` with exactly one of `classes` (1–52) or

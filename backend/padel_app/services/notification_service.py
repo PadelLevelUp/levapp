@@ -6016,12 +6016,19 @@ def _series_scope_end(lesson, instance: LessonInstance, scope: str, *, classes=N
 
 def _repoint_class_row(instance: LessonInstance, player_id: int, entry: StandingWaitingListEntry):
     """PAD-560 (rule 19): the row this class already holds for the student follows the new entry,
-    keeping its join time, so the class's list shows the new scope."""
+    keeping its join time, so the class's list shows the new scope — unless a coach-wide standing
+    entry holds it: that row stays the coach-wide entry's ("a class both reach holds one row",
+    rule 19), since re-pointing it would drop the class from the coach-wide reach when the series
+    entry ends."""
     row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
-    if row is not None and row.is_active and row.standing_entry_id != entry.id:
-        row.standing_entry_id = entry.id
-        row.coach_id = entry.coach_id
-        db.session.commit()
+    if row is None or not row.is_active or row.standing_entry_id == entry.id:
+        return row
+    current = db.session.get(StandingWaitingListEntry, row.standing_entry_id) if row.standing_entry_id else None
+    if current is not None and current.lesson_id is None:
+        return row
+    row.standing_entry_id = entry.id
+    row.coach_id = entry.coach_id
+    db.session.commit()
     return row
 
 
