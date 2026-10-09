@@ -20,7 +20,9 @@
         "support": "support"
       },
       "readOnly": "Read only",
-      "language": "Language"
+      "language": "Language",
+      "menu": "Menu",
+      "closeMenu": "Close menu"
     },
     "signIn": {
       "title": "Staff console",
