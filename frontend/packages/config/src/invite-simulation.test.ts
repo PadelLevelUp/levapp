@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest";
-import type { EligibilityFailure, InviteExplain } from "@levelup/types";
+import type {
+  EligibilityFailure,
+  InviteExplain,
+  InviteSimulationSpot,
+} from "@levelup/types";
 import {
   describeEligibilityFailure,
   describeGate,
   describePriority,
   describeRules,
   describeSendStatus,
+  describeSideReasoning,
   describeStage,
   describeVerdict,
   resolveText,
@@ -109,6 +114,37 @@ describe("gates", () => {
       "auto_notify_disabled",
       "class_over",
     ]);
+  });
+});
+
+describe("PAD-566 why the spot asks for its side (settings.tutorials rule 4.4)", () => {
+  type Counts = NonNullable<InviteSimulationSpot["sideCounts"]>;
+  const spot = (left: number, right: number, leaverSide: Counts["leaverSide"], chosen: Counts["chosen"]): Pick<InviteSimulationSpot, "sideCounts"> =>
+    ({ sideCounts: { left, right, leaverSide, chosen } });
+
+  it("names the engine's chosen side as the one with fewer players going, with its numbers", () => {
+    expect(describeSideReasoning(spot(6, 2, "left", "right"))).toEqual({ key: "tutorials.sideReason.fewer.right", params: { left: 6, right: 2 } });
+    expect(describeSideReasoning(spot(1, 2, "left", "left"))).toEqual({ key: "tutorials.sideReason.fewer.left", params: { left: 1, right: 2 } });
+  });
+
+  it("on a tie, says the chosen side (the leaver's) is kept", () => {
+    expect(describeSideReasoning(spot(2, 2, "left", "left"))).toEqual({ key: "tutorials.sideReason.tie.left", params: { left: 2, right: 2 } });
+    expect(describeSideReasoning(spot(2, 2, "right", "right"))).toEqual({ key: "tutorials.sideReason.tie.right", params: { left: 2, right: 2 } });
+  });
+
+  it("when the engine chose no side (both / none), says the side did not decide — whatever the counts", () => {
+    expect(describeSideReasoning(spot(3, 3, "both", "both"))).toEqual({ key: "tutorials.sideReason.balancedAny", params: { left: 3, right: 3 } });
+    expect(describeSideReasoning(spot(3, 3, null, null))).toEqual({ key: "tutorials.sideReason.balancedAny", params: { left: 3, right: 3 } });
+    // Rule 9 never pairs differing counts with `both`; if it ever did, the words would still not invent a side.
+    expect(describeSideReasoning(spot(4, 1, "both", "both")).key).toBe("tutorials.sideReason.balancedAny");
+  });
+
+  it("never re-decides: the words follow `chosen`, not a recount", () => {
+    expect(describeSideReasoning(spot(1, 2, "right", "right")).key).toBe("tutorials.sideReason.fewer.right");
+  });
+
+  it("says so when the roster has no sided player (no counts)", () => {
+    expect(describeSideReasoning({ sideCounts: null })).toEqual({ key: "tutorials.sideReason.noSides" });
   });
 });
 
