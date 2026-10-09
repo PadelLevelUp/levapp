@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Smartphone, X } from "lucide-react";
 import { APP_STORE_URL, installSuggestionDismissal, suggestsIosApp } from "@levelup/config";
@@ -15,9 +15,10 @@ import { Button } from "@/components/ui/button";
 export function InstallAppBanner() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const dismissal = useMemo(
-    () => installSuggestionDismissal(typeof window === "undefined" ? null : window.localStorage),
-    []
+  // One dismissal object per mount, over the device's localStorage (rule 3); a missing or
+  // throwing storage reads as "not dismissed" and remembers a dismissal for the page only.
+  const [dismissal] = useState(() =>
+    installSuggestionDismissal(typeof window === "undefined" ? null : window.localStorage)
   );
   const [dismissed, setDismissed] = useState(() => dismissal.isDismissed());
 

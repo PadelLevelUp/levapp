@@ -49,9 +49,9 @@ export function installSuggestionDismissal(storage: InstallSuggestionStorage | n
     if (inMemory !== null) return inMemory;
     try {
       const raw = storage?.getItem(INSTALL_SUGGESTION_STORAGE_KEY);
-      if (raw === null || raw === undefined) return null;
+      if (raw === null || raw === undefined || raw.trim() === "") return null;
       const at = Number(raw);
-      return Number.isFinite(at) ? at : null;
+      return Number.isFinite(at) && at > 0 ? at : null;
     } catch {
       return null;
     }

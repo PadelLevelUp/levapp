@@ -1,5 +1,4 @@
 import { ReactNode, useEffect, useState } from "react";
-import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
@@ -22,6 +21,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,

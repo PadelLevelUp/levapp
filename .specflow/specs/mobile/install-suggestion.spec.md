@@ -22,7 +22,8 @@ a surface that only exists off the phone app).
 - **WRITES:** nothing on the server
 
 ### Rules
-1. **Audience.** The card renders only when the signed-in user is a student (no `coach` role)
+1. **Audience.** The card renders only when the signed-in user is a student (no `coach` role; an
+   account with no `roles` field at all counts as a student)
    AND the user agent is iPhone-class: it contains `iPhone` or `iPod` (iPadOS Safari presents a
    Macintosh user agent and is a tablet; it sees nothing). Coaches, desktop browsers and Android
    see nothing — Android because there is no store listing yet (owner decision, PAD-573).
@@ -34,7 +35,8 @@ a surface that only exists off the phone app).
    dismissedAt` in `localStorage`; the card stays hidden for **30 days** on that device, for every
    account that signs in on it. A missing, unreadable or malformed value counts as not dismissed;
    storage that throws (private mode) is treated as not dismissed and the dismissal is kept for
-   the page's lifetime only.
+   the page's lifetime only. The key carries no account id, which is what makes it per device: the
+   unit test proves a fresh mount after a dismissal stays hidden whoever is signed in.
 4. **Never a hold.** The card sits above the page content inside the app shell, pushes the page
    down, and is the first thing after the header; it never overlays, never traps focus, never
    delays rendering. It is absent while `/api/auth/me` has not answered.

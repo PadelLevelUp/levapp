@@ -2,6 +2,9 @@
  * PAD-573 — mobile.install-suggestion rules 1–3 and 8: the pure half of the "get the iOS app"
  * card. The web banner only wires these to the DOM.
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   APP_STORE_ID,
@@ -25,6 +28,14 @@ describe("the store link (rule 2)", () => {
   it("names the App Store Connect id and the listing URL built from it", () => {
     expect(APP_STORE_ID).toBe("6794271800");
     expect(APP_STORE_URL).toBe("https://apps.apple.com/app/id6794271800");
+  });
+
+  it("the Smart App Banner meta tag in index.html carries the same id (rule 5, R-029)", () => {
+    const html = fs.readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../apps/web/index.html"),
+      "utf8"
+    );
+    expect(html).toContain(`<meta name="apple-itunes-app" content="app-id=${APP_STORE_ID}" />`);
   });
 });
 
@@ -58,6 +69,10 @@ describe("the audience (rule 1)", () => {
     expect(suggestsIosApp(null, IPHONE)).toBe(false);
     expect(suggestsIosApp(undefined, IPHONE)).toBe(false);
   });
+  it("a signed-in user with no roles field is treated as a student (rule 1)", () => {
+    expect(suggestsIosApp({}, IPHONE)).toBe(true);
+    expect(suggestsIosApp({ roles: null }, IPHONE)).toBe(true);
+  });
 });
 
 describe("the 30-day dismissal on the device (rule 3)", () => {
@@ -88,9 +103,11 @@ describe("the 30-day dismissal on the device (rule 3)", () => {
     expect(d.isDismissed(t0 + 31 * DAY)).toBe(false);
   });
 
-  it("a malformed or future value counts as not dismissed", () => {
+  it("a malformed, empty or future value counts as not dismissed", () => {
     const now = Date.UTC(2026, 9, 9);
     expect(installSuggestionDismissal(memoryStorage({ [INSTALL_SUGGESTION_STORAGE_KEY]: "soon" })).isDismissed(now)).toBe(false);
+    expect(installSuggestionDismissal(memoryStorage({ [INSTALL_SUGGESTION_STORAGE_KEY]: "" })).isDismissed(now)).toBe(false);
+    expect(installSuggestionDismissal(memoryStorage({ [INSTALL_SUGGESTION_STORAGE_KEY]: "  " })).isDismissed(now)).toBe(false);
     expect(installSuggestionDismissal(memoryStorage({ [INSTALL_SUGGESTION_STORAGE_KEY]: String(now + DAY) })).isDismissed(now)).toBe(false);
   });
 

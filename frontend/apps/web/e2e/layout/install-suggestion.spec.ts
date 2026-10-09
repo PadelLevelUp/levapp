@@ -17,12 +17,13 @@ const PHONE = { width: 390, height: 844 };
 test.describe("student on an iPhone", () => {
   test.use({ userAgent: IPHONE_UA, viewport: PHONE });
 
-  test("sees the suggestion with the App Store link, and 'Agora não' hides it across reloads", async ({ page }) => {
+  test("PAD-573: sees the suggestion with the App Store link, and dismissing it hides it across reloads", async ({ page }) => {
     await loginAsStudent(page);
     await openDashboard(page);
 
     const banner = page.getByTestId("install-app-banner");
     await expect(banner).toBeVisible({ timeout: 10000 });
+    // The literal is a deliberate pin of rule 2's URL (e2e specs do not import @levelup/config).
     await expect(page.getByTestId("install-app-open")).toHaveAttribute("href", "https://apps.apple.com/app/id6794271800");
     // Rule 4: never a hold — the page's own content is still there under it.
     await expect(page.locator("main")).toBeVisible();
@@ -39,7 +40,7 @@ test.describe("student on an iPhone", () => {
 test.describe("coach on an iPhone", () => {
   test.use({ userAgent: IPHONE_UA, viewport: PHONE });
 
-  test("never sees it", async ({ page }) => {
+  test("PAD-573: a coach never sees it", async ({ page }) => {
     await loginAsCoach(page);
     await openDashboard(page);
     await expect(page.locator("main")).toBeVisible({ timeout: 10000 });
@@ -47,7 +48,7 @@ test.describe("coach on an iPhone", () => {
   });
 });
 
-test("a student on the desktop browser sees nothing", async ({ page }) => {
+test("PAD-573: a student on the desktop browser sees nothing", async ({ page }) => {
   await loginAsStudent(page);
   await openDashboard(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 10000 });
