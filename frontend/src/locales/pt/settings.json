@@ -455,6 +455,7 @@
       },
       "operations": {
         "sameAsVacancy": "Igual à vaga",
+        "balanceSides": "Equilibrar lados da aula",
         "oneAboveVacancy": "Um nível acima da vaga",
         "oneBelowVacancy": "Um nível abaixo da vaga",
         "allAboveVacancy": "Todos os níveis acima da vaga",
@@ -466,6 +467,13 @@
         "greaterThan": "Maior que",
         "atLeast": "Pelo menos",
         "is": "É"
+      },
+      "sideBalanceHelp": {
+        "intro": "Quando abre uma vaga, convida-se primeiro o lado com menos jogadores a ir, para a aula ficar equilibrada:",
+        "example1": "2 esquerda + 2 direita, falta 1 esquerda → convida esquerda.",
+        "example2": "2 esquerda + 2 direita, falta 1 direita → convida direita.",
+        "example3": "3 esquerda + 1 direita, falta 1 esquerda → convida direita (fica 2 + 2).",
+        "special": "As vagas que outros alunos já deixaram contam também para o seu lado. Um jogador sem lado, ou que joga dos dois, não conta para nenhum e pode ser convidado de qualquer forma; uma aula já equilibrada mantém o lado de quem faltou."
       },
       "subscriptionActive": "Ativa",
       "subscriptionInactive": "Inativa"
