@@ -27,7 +27,7 @@ export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectE
 
 export function Card({ children, className, ...rest }: HTMLAttributes<HTMLElement> & { children: ReactNode }) {
   return (
-    <section className={clsx("rounded-lg border bg-card p-4 shadow-sm md:p-5", className)} {...rest}>
+    <section className={clsx("min-w-0 rounded-lg border bg-card p-4 shadow-sm md:p-5", className)} {...rest}>
       {children}
     </section>
   );
