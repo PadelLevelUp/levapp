@@ -16,7 +16,7 @@
  *   npx playwright test e2e/settings/tutorials-understand-invites.spec.ts
  */
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
   loginAsCoach,
@@ -52,7 +52,8 @@ async function setEligibility(request: APIRequestContext, rules: unknown[] | nul
 function sideReasonPattern(): RegExp {
   const sentences: string[] = [];
   for (const lang of ["pt", "en"]) {
-    const json = JSON.parse(readFileSync(resolve(__dirname, `../../../../src/locales/${lang}/tutorials.json`), "utf8"));
+    // ESM: no __dirname here; the locale files sit at frontend/src/locales.
+    const json = JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../src/locales/${lang}/tutorials.json`, import.meta.url)), "utf8"));
     const reasons = json.tutorials.sideReason as Record<string, string | Record<string, string>>;
     for (const v of Object.values(reasons)) {
       for (const s of typeof v === "string" ? [v] : Object.values(v)) sentences.push(s);
