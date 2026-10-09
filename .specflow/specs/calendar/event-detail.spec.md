@@ -133,8 +133,9 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     row with the student's name, an origin label — "Lista permanente" / "Standing list", "Pedido do
     aluno" / "Student's request", "Adicionado pelo treinador" / "Added by the coach" — and, from
     the row's `scope` (PAD-560), how long they are on this list: "Só esta aula" / "This class only"
-    (`occurrence`), "Toda a série" / "The whole series" (`series`), "Até <dd/mm/aaaa>" / "Until
-    <date>" (`period` and `standing`, the row's `expiresOn`). A coach-wide standing row
+    (`occurrence`), "Toda a série" / "The whole series" (`series`), "Até <data>" / "Until <date>"
+    (`period` and `standing`, the row's `expiresOn` as a short numeric date in the account's
+    locale — `formatShortDate`, as the class-request wizards print one). A coach-wide standing row
     (`scope: standing`) adds one short line, "Gerida em Definições › Lista permanente" / "Managed in
     Settings › Standing list": changing it would change the student's other classes, so the class
     offers no edit of it (coordinator decision 2026-10-09). Each row has a remove control

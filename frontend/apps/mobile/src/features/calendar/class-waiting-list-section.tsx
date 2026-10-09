@@ -11,6 +11,7 @@ import {
   STANDING_PRESETS,
   isStandingEndAllowed,
   describeIneligible,
+  formatShortDate,
   lightTheme,
   resolveText,
   standingEndFor,
@@ -33,6 +34,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useCoachPlayers } from "@/features/players/hooks";
+import { nativeLocaleTag } from "@/lib/native-locale";
 
 /** B-295: the date picker's own dialog renders inside this dialog's overlay, above it. */
 const DIALOG_PORTAL_HOST = "class-waiting-list-dialog-host";
@@ -46,7 +48,7 @@ interface Props {
 }
 
 export function ClassWaitingListSection({ event, isRecurring, rows, enrolledIds, onChanged }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = React.useState(rows.length > 0);
   const [adding, setAdding] = React.useState(false);
 
@@ -76,7 +78,7 @@ export function ClassWaitingListSection({ event, isRecurring, rows, enrolledIds,
             <Text className="text-xs text-muted-foreground">{t("calendar.detail.waitingListEmpty")}</Text>
           ) : (
             rows.map((row) => {
-              const scope = waitingListScopeLabel(row);
+              const scope = waitingListScopeLabel(row, (iso) => formatShortDate(iso, nativeLocaleTag(i18n.language)));
               return (
               <View
                 key={row.id}

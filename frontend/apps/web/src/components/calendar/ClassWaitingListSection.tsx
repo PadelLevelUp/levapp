@@ -11,6 +11,7 @@ import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } fro
 import {
   DEFAULT_STANDING_PRESET,
   describeIneligible,
+  formatShortDate,
   isStandingEndAllowed,
   resolveText,
   standingEndBounds,
@@ -37,7 +38,7 @@ interface Props {
 }
 
 export function ClassWaitingListSection({ event, rows, roster, enrolledIds, onChanged }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [open, setOpen] = useState(rows.length > 0);
   const [adding, setAdding] = useState(false);
@@ -73,7 +74,7 @@ export function ClassWaitingListSection({ event, rows, roster, enrolledIds, onCh
             <p className="text-xs text-muted-foreground">{t("calendar.detail.waitingListEmpty")}</p>
           ) : (
             rows.map((row) => {
-              const scope = waitingListScopeLabel(row);
+              const scope = waitingListScopeLabel(row, (iso) => formatShortDate(iso, i18n.language));
               return (
               <div
                 key={row.id}

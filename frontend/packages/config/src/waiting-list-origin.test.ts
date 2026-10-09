@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatClubDay,
   waitingListCandidates,
   waitingListOriginKey,
   waitingListPickerOptions,
@@ -18,15 +17,18 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
   });
 
   describe("PAD-560 each row says how long the student is on the list (rule 19)", () => {
-    it("names the scope, dating the dated ones as dd/mm/yyyy", () => {
-      expect(waitingListScopeLabel({ scope: "occurrence", expiresOn: null })).toEqual({ key: "calendar.detail.waitingListScopeOccurrence" });
-      expect(waitingListScopeLabel({ scope: "series", expiresOn: "2026-12-31" })).toEqual({ key: "calendar.detail.waitingListScopeSeries" });
-      expect(waitingListScopeLabel({ scope: "period", expiresOn: "2026-10-27" })).toEqual({
-        key: "calendar.detail.waitingListScopeUntil", params: { date: "27/10/2026" },
+    const fmt = (iso: string) => `<${iso}>`;
+
+    it("names the scope, dating the dated ones through the caller's locale formatter", () => {
+      expect(waitingListScopeLabel({ scope: "occurrence", expiresOn: null }, fmt)).toEqual({ key: "calendar.detail.waitingListScopeOccurrence" });
+      expect(waitingListScopeLabel({ scope: "series", expiresOn: "2026-12-31" }, fmt)).toEqual({ key: "calendar.detail.waitingListScopeSeries" });
+      expect(waitingListScopeLabel({ scope: "period", expiresOn: "2026-10-27" }, fmt)).toEqual({
+        key: "calendar.detail.waitingListScopeUntil", params: { date: "<2026-10-27>" },
       });
-      expect(waitingListScopeLabel({ scope: "standing", expiresOn: "2026-12-31" })).toEqual({
-        key: "calendar.detail.waitingListScopeUntil", params: { date: "31/12/2026" },
+      expect(waitingListScopeLabel({ scope: "standing", expiresOn: "2026-12-31" }, fmt)).toEqual({
+        key: "calendar.detail.waitingListScopeUntil", params: { date: "<2026-12-31>" },
       });
+      expect(waitingListScopeLabel({ scope: "standing", expiresOn: null }, fmt).params).toEqual({ date: "—" });
     });
 
     it("marks only a coach-wide standing row as managed in Settings", () => {
@@ -34,10 +36,6 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
       for (const scope of ["occurrence", "series", "period"] as const) expect(waitingListRowIsManagedInSettings({ scope })).toBe(false);
     });
 
-    it("prints a club day and leaves anything else alone", () => {
-      expect(formatClubDay("2026-01-05")).toBe("05/01/2026");
-      expect(formatClubDay("")).toBe("");
-    });
   });
 
   it("offers roster students not in the class and not already listed", () => {

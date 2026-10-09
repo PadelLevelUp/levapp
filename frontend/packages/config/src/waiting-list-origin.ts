@@ -14,23 +14,27 @@ export function waitingListOriginKey(row: Pick<CoachClassWaitingListRow, "origin
   return row.origin === "coach" ? "calendar.detail.waitingListOriginCoach" : "calendar.detail.waitingListOriginStudent";
 }
 
-/** `YYYY-MM-DD` → `dd/mm/yyyy`, the club date as the row prints it; anything else as is. */
-export function formatClubDay(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
-
 /**
  * PAD-560 (calendar.event-detail rule 19): how long the student is on this list, from the row's
- * `scope` — a translation key, with the end date for the dated scopes. A coach-wide standing row
- * (`standing`) is dated too; `waitingListManagedInSettings` says why the class offers no edit of it.
+ * `scope` (the four values are described on `WaitingListScope` in @levelup/types) — a translation
+ * key, with the end date for the dated scopes formatted by the caller (`formatShortDate` in the
+ * account's locale). A coach-wide standing row (`standing`) is dated too;
+ * `waitingListManagedInSettings` says why the class offers no edit of it.
  */
 export function waitingListScopeLabel(
   row: Pick<CoachClassWaitingListRow, "scope" | "expiresOn">,
+  formatDate: (iso: string) => string,
 ): { key: string; params?: { date: string } } {
-  if (row.scope === "occurrence") return { key: "calendar.detail.waitingListScopeOccurrence" };
-  if (row.scope === "series") return { key: "calendar.detail.waitingListScopeSeries" };
-  return { key: "calendar.detail.waitingListScopeUntil", params: { date: formatClubDay(row.expiresOn ?? "") } };
+  switch (row.scope) {
+    case "occurrence":
+      return { key: "calendar.detail.waitingListScopeOccurrence" };
+    case "series":
+      return { key: "calendar.detail.waitingListScopeSeries" };
+    case "period":
+    case "standing":
+      // A standing entry always has an end (rule 2); "—" only if a payload ever omits it.
+      return { key: "calendar.detail.waitingListScopeUntil", params: { date: row.expiresOn ? formatDate(row.expiresOn) : "—" } };
+  }
 }
 
 /** A coach-wide standing row is changed in Settings, not from the class (rule 19). */

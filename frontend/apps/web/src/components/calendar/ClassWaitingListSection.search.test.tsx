@@ -10,7 +10,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { CoachClassWaitingListRow, CoachPlayer } from "@levelup/types";
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string, params?: { date?: string }) => (params?.date ? `${key}:${params.date}` : key) }),
+  useTranslation: () => ({
+    t: (key: string, params?: { date?: string }) => (params?.date ? `${key}:${params.date}` : key),
+    i18n: { language: "pt" },
+  }),
 }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/api/notificationEngine", () => ({

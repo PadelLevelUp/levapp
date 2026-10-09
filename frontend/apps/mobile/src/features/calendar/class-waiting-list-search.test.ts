@@ -28,7 +28,7 @@ describe("the iOS waiting-list picker searches by name (PAD-558)", () => {
   });
 
   it("says how long each student is on the list, and only a coach-wide standing row that it is managed in Settings (PAD-560, rule 19)", () => {
-    expect(SHEET).toMatch(/const scope = waitingListScopeLabel\(row\);/);
+    expect(SHEET).toMatch(/const scope = waitingListScopeLabel\(row, \(iso\) => formatShortDate\(iso, nativeLocaleTag\(i18n\.language\)\)\);/);
     expect(SHEET).toMatch(/testID=\{`class-waiting-list-row-scope-\$\{row\.playerId\}-\$\{row\.scope\}`\}[\s\S]{0,200}\{t\(scope\.key, scope\.params\)\}/);
     expect(SHEET).toMatch(/\{waitingListRowIsManagedInSettings\(row\) \? \([\s\S]{0,120}class-waiting-list-managed-\$\{row\.playerId\}[\s\S]{0,160}waitingListManagedInSettings/);
   });
