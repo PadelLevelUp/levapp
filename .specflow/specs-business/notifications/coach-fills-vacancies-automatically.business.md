@@ -77,9 +77,11 @@ the waiting list.
   already enrolled in.
 - The coach can see a class's waiting list from the class itself, with where each student came from
   (the standing list, their own request, or the coach) and for how long they are on it (this class
-  only, the whole series, or until a date), add students to it — for that class only or for the
-  whole series — and take them off it. A student there through the coach's standing list is managed
-  from Settings, since that entry spans their other classes too (PAD-560). Adding someone is not a promise: they are asked
+  only, the whole series, or until a date), add students to it — for that class only, for the whole
+  series with nothing more to fill in, or for a period of so many classes or until a date — change
+  that later, and take them off it. The whole series means every remaining class of it, up to
+  twelve months out. A student there through the coach's standing list is managed from Settings,
+  since that entry spans their other classes too (PAD-560). Adding someone is not a promise: they are asked
   first when a spot opens, if they still qualify then, and they hear nothing until that moment
   (PAD-547).
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to

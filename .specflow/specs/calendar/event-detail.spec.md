@@ -140,8 +140,9 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     Settings › Standing list": changing it would change the student's other classes, so the class
     offers no edit of it (coordinator decision 2026-10-09). Each row has a remove control
     (`notifications.waiting-list` rule 21) with no confirmation — removing is undone by adding
-    again. The section shows for the coach only, also when the list is empty, since that is where
-    the add starts. Web and iOS.
+    again — and every row but a coach-wide standing one has an edit control that opens rule 20's
+    dialog in edit mode (`notifications.waiting-list` rule 22). The section shows for the coach
+    only, also when the list is empty, since that is where the add starts. Web and iOS.
 20. **Adding from the class (PAD-547, PAD-560).** "Adicionar à lista de espera" opens a picker of
     the coach's roster, without the students already in the class or on its list: one name search
     field above a list of rows, on both shells, and no second control (B-421: web's native select,
@@ -149,10 +150,16 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     student who would fail the class's eligibility bar is marked with the reason, inline on the
     row, the way the class editor's student picker marks one (`check_eligibility`, PAD-133) and can
     still be chosen (coordinator, 2026-10-07: the coach decides; the engine still filters when a
-    spot opens). Then the coach picks "Só esta aula" / "This class only" or, for a recurring class,
-    "Toda a série" / "The whole series", which shows the standing list's credits and end-date
-    fields (`notifications.waiting-list` rules 2 and 19). Web: a dialog; iOS: a sheet. Both refresh
-    the list from the server's answer and the `waiting_list_changed` event. The search (PAD-558)
+    spot opens). Then the coach picks the scope: "Só esta aula" / "This class only"; for a recurring
+    class also "Toda a série" / "The whole series", which asks nothing more and says the date the
+    entry will run to (`notifications.waiting-list` rule 19), and "Durante um período" / "For a
+    period", which asks for exactly one of a number of classes ("durante X aulas", 1–52) or an end
+    date ("até ao dia", today to 12 months ahead) (`notifications.waiting-list` rule 19a). Web: a
+    dialog; iOS: a sheet. Both refresh the list from the server's answer and the
+    `waiting_list_changed` event. In edit mode (a row's edit control, rule 19) the dialog is titled
+    "Editar lista de espera" / "Edit waiting list", shows the student's name in place of the search
+    and list, opens on the row's scope and end, and saves through `notifications.waiting-list` rule
+    22. The search (PAD-558)
     is the class editor's student-picker rule (`nameMatchesQuery`, PAD-516): every typed word must
     appear in the name, in any order, and accents, case and punctuation don't matter. A blank
     search offers everyone. The search only narrows what is offered: a student already chosen
@@ -234,7 +241,19 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Given** Bruno on the class's waiting list from a coach-wide standing entry running to 2026-12-31, on web and on iOS
 - **When** the coach reads the class's waiting list
 - **Then** Bruno's row reads "Lista permanente", "Até 31/12/2026" and "Gerida em Definições › Lista permanente"
-- **And** the row has a remove control
+- **And** the row has a remove control and no edit control
+#### The coach puts a student on the whole series, or for a period, from the class (rule 20, PAD-560)
+- **Given** a weekly class's detail on web and on iOS, Carla and Dinis on the roster
+- **When** the coach adds Carla choosing "Toda a série"
+- **Then** no date or number is asked, the dialog says the date the entry runs to, and Carla's row reads "Toda a série"
+- **When** the coach adds Dinis choosing "Durante um período" with 3 classes
+- **Then** Dinis's row reads "Até <the third occurrence's date>"
+- **And** a non-recurring class offers "Só esta aula" only
+#### The coach changes a row's scope from the class (rules 19–20, PAD-560)
+- **Given** Carla on the class's list "Só esta aula", on web and on iOS
+- **When** the coach opens her row's edit control and chooses "Toda a série"
+- **Then** the dialog shows her name with no search, and after saving her row reads "Toda a série"
+- **And** opening the edit again shows "Toda a série" selected
 #### The waiting-list picker searches by name (rule 20, PAD-558)
 - **Given** the add picker of a class whose candidates include "Álvaro Sousa", "Ana Pinto" and "Bruno Álves", on web and on iOS
 - **When** the coach types "sousa alv" in its search
