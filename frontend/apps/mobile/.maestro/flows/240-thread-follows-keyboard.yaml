@@ -1,0 +1,62 @@
+# PAD-569 / B-462 — messaging.conversation-detail rule 7, "The thread follows the keyboard".
+# No web counterpart (web has no soft keyboard). Setup posts 40 messages as the student so
+# conversation 1 is taller than the screen; the flow opens it at the newest message, focuses
+# the composer, sends, and dismisses the keyboard, taking a screenshot at each step:
+# Maestro cannot tell "covered by the keyboard" from "visible", so the screenshots under
+# ./screenshots/ are the evidence (read them; the newest bubble must sit above the composer
+# in 2 and 3, and nothing may have jumped in 4). Flow number 240 (wave-13 range, unconfirmed).
+appId: com.padellevelup.app
+onFlowStart:
+  # Posting while the signed-in app runs crashes the driver's next hierarchy read
+  # (memory ios-thread-forced-refetch-breaks-target-landing): stop it first.
+  - stopApp
+  - runScript: ../scripts/pad569-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad569-teardown.js
+---
+- assertTrue: "${output.newestId > 0}"
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 20000
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      id: "message-item-${output.newestId}"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/pad569-1-at-bottom
+
+# ── keyboard opens: the thread must rise with it ──
+- tapOn:
+    id: "message-input"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "message-item-${output.newestId}"
+    timeout: 10000
+- takeScreenshot: screenshots/pad569-2-keyboard-open
+
+# ── send with the keyboard open: scrolls to the new bubble ──
+- inputText: "Maestro keyboard"
+- tapOn:
+    id: "message-send"
+- extendedWaitUntil:
+    visible:
+      text: "Maestro keyboard"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/pad569-3-after-send
+
+# ── keyboard closes: no jump ──
+- tapOn:
+    point: "50%, 40%"
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Maestro keyboard"
+- takeScreenshot: screenshots/pad569-4-keyboard-closed

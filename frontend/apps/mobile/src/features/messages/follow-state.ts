@@ -34,7 +34,9 @@ export type FollowEvent =
   /** The reader sent a message or jumped to the latest: the thread goes to the newest. */
   | { type: "toLatest" }
   /** The content grew (a new message, rows committing) after the reveal. */
-  | { type: "contentGrew" };
+  | { type: "contentGrew" }
+  /** The viewport got shorter after the reveal — the keyboard opened (PAD-569, B-462, rule 7). */
+  | { type: "viewportShrank" };
 
 export type FollowEffect = "scrollToEnd" | null;
 
@@ -56,6 +58,10 @@ export function followReducer(state: FollowState, event: FollowEvent): { state: 
     case "toLatest":
       return { state: { atBottom: true, suspended: false }, effect: null };
     case "contentGrew":
+    // The list is not inverted, so a shorter viewport with the same offset shows the same top
+    // edge and loses the bottom: at the bottom, re-pin, exactly as when content grows. Away
+    // from the bottom, or during a landing, the keyboard moves nothing (rule 10).
+    case "viewportShrank":
       return { state, effect: state.atBottom && !state.suspended ? "scrollToEnd" : null };
     default:
       return { state, effect: null };

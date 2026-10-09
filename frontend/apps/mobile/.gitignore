@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Maestro takeScreenshot output (flow 240 and friends): evidence, never committed
+screenshots/

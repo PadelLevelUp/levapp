@@ -222,6 +222,10 @@ executionOrder:
     # posts one message, and the app returns on the push-tap route; the message must be on
     # screen. Teardown deletes the message. iOS only (pressKey Home, app suspension).
     - 122-warm-push-tap-shows-the-message
+    # 240 (PAD-569, B-462, conversation-detail rule 7): the student opens a long thread at the
+    # bottom, the keyboard opens and the newest bubble stays above the composer; send scrolls
+    # to the new bubble; closing the keyboard does not jump. Screenshots are the evidence.
+    - 240-thread-follows-keyboard
     # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
     # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
     - 113-join-first-dashboard
