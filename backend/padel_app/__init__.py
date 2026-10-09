@@ -90,6 +90,9 @@ def create_app(test_config=None):
             if _request.endpoint in ("auth_api.logout", "auth_api.delete_me"):
                 return response
             jwt_data = get_jwt()
+            # admin.approvals-and-users rule 9: a view-as token is never refreshed.
+            if jwt_data.get("view_as"):
+                return response
             exp_timestamp = jwt_data.get("exp")
             if exp_timestamp:
                 remaining = (
@@ -165,6 +168,15 @@ def create_app(test_config=None):
 
     from .scheduler import init_scheduler
     init_scheduler(app, test_config=test_config)
+
+    # admin.approvals-and-users rule 9 (PAD-532): the product under a view-as token.
+    from padel_app.utils import view_as as _view_as
+
+    app.before_request(_view_as.gate)
+
+    @app.teardown_request
+    def _end_view_as(exception=None):
+        _view_as.end(exception)
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):

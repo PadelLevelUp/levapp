@@ -15,6 +15,8 @@ import StudentEvaluations from "./pages/StudentEvaluations";
 import AbsencesPage from "./pages/AbsencesPage";
 import PresencesPage from "./pages/PresencesPage";
 import RegisterPage from "./pages/RegisterPage";
+import ViewAsPage from "./pages/ViewAsPage";
+import { ViewAsBanner } from "@/components/view-as/ViewAsBanner";
 import CoachInvitePage from "./pages/CoachInvitePage";
 import PlayerInvitePage from "./pages/PlayerInvitePage";
 import AuthPage from "./pages/AuthPage";
@@ -63,6 +65,7 @@ const App = () => (
         <LayoutProvider>
           <BrowserRouter>
             <LaunchOverlayProvider>
+            <ViewAsBanner />
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
               {/* auth.register — self-service signup (PAD-210). */}
@@ -70,6 +73,8 @@ const App = () => (
               {/* auth.password-recovery — public, reached from "Forgot your password?" (PAD-139). */}
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
+              {/* PAD-532 (admin.approvals-and-users rule 9): the staff console's read-only view. */}
+              <Route path="/view-as" element={<ViewAsPage />} />
               <Route path="/invite/coach/:token" element={<CoachInvitePage />} />
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
               {/* players.join-token rule 9 — public: the preview needs no session. */}

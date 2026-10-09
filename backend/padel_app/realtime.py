@@ -113,6 +113,11 @@ def publish(event: dict, user_ids: Iterable[int]) -> None:
     participant was deleted, say) — that delivers to nobody, which is correct.
     What it may never be is absent.
     """
+    from padel_app.utils.view_as import suppressed
+
+    # admin.approvals-and-users rule 9 (PAD-532): nothing leaves under a view-as token.
+    if suppressed("realtime"):
+        return
     recipients = {int(uid) for uid in user_ids if uid is not None}
     if not recipients:
         return

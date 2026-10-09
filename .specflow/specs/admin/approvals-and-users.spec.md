@@ -81,6 +81,13 @@ removed from web and iOS in the same ticket.
      messages, the messaging SSE stream): private messages are never shown;
    - is refused by `token-refresh` (no `X-New-Token`), and the token is not stored by the web
      app beyond the tab (`sessionStorage`).
+   - also hides message text wherever another GET carries it: the dashboard's messages overview
+     answers no counts and no latest, and the "needs you" block has no reply items (a guard calls
+     every product GET in the URL map under view-as and fails on a seeded sentinel message);
+   - ends on the next request when its actor is no longer an active `operator` (401
+     `VIEW_AS_REVOKED`), not 30 minutes later.
+   A staff account is never viewed as: a product superadmin, or an account whose email holds an
+   active console role, answers 403 `VIEW_AS_TARGET_STAFF` (#584 review, 2026-10-08).
    The product web app shows a fixed banner "A ver como <name> — só leitura" with a close button
    that discards the token. iOS has no view-as (a staff tool, used from the console on a desk).
 10. **The product admin section leaves both apps in this ticket.** Settings → Admin is removed from

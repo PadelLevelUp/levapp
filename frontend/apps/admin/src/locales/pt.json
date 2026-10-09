@@ -172,8 +172,11 @@
         "NO_EMAIL": "Esta conta não tem email.",
         "ALREADY_VERIFIED": "O email já está verificado.",
         "RESEND_TOO_SOON": "Foi enviado um código há instantes. Tenta outra vez dentro de {{seconds}} segundos.",
-        "generic": "Não foi possível concluir a ação."
-      }
+        "generic": "Não foi possível concluir a ação.",
+        "USER_DISABLED": "Esta conta está desativada."
+      },
+      "viewAs": "Ver como este utilizador",
+      "viewAsHint": "Abre a app dele num novo separador, só de leitura e sem mensagens privadas. Fica registado."
     },
     "settings": {
       "title": "Definições",

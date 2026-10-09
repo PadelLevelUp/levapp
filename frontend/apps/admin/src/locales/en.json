@@ -172,8 +172,11 @@
         "NO_EMAIL": "This account has no email.",
         "ALREADY_VERIFIED": "The email is already verified.",
         "RESEND_TOO_SOON": "A code was sent a moment ago. Try again in {{seconds}} seconds.",
-        "generic": "Could not complete the action."
-      }
+        "generic": "Could not complete the action.",
+        "USER_DISABLED": "This account is disabled."
+      },
+      "viewAs": "View as this user",
+      "viewAsHint": "Opens their app in a new tab, read-only and without private messages. It is recorded."
     },
     "settings": {
       "title": "Settings",

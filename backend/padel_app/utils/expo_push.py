@@ -169,6 +169,11 @@ def send_expo_push_to_user(
     -> return False". Returns False too when the queue is full and the push
     was dropped (logged). Inline under the test config.
     """
+    from padel_app.utils.view_as import suppressed
+
+    # admin.approvals-and-users rule 9 (PAD-532): nothing leaves under a view-as token.
+    if suppressed("expo"):
+        return False
     if not user_id:
         return False
     tokens = [
