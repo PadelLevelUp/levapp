@@ -20,7 +20,11 @@ const ENROLLED = "E2E Student"; // beginner: sets the class level
 const BELOW = ["Filler Player 01", "Filler Player 02"]; // intermediate fillers fail "same level as class"
 const FINE = "E2E Student Two"; // beginner: passes
 
-type Created = { title: string; date: string; ref: { model: string; originalId: number; date: string }; messageIds: number[] };
+type Ref = { model: string; originalId: number; date: string };
+/** R-040: what the spec wrote, removed by its own ids in afterEach whether the test passed or not.
+ *  The invitation messages are found as the DIFF against a snapshot of each student's chat taken
+ *  before anything is sent, so a neighbour's invitation to the same seeded students is never touched. */
+type Created = { title: string; date: string; ref: Ref; chatBefore: Map<number, Set<number>> };
 const created: Created[] = [];
 
 async function token(request: APIRequestContext): Promise<string> {
@@ -65,15 +69,34 @@ async function seedClass(request: APIRequestContext, tok: string, suffix: string
   });
   expect(add.ok(), `add_class: ${add.status()} ${await add.text()}`).toBeTruthy();
   const made = await add.json();
-  const ref = { model: made.model ?? "Lesson", originalId: made.originalId as number, date };
-  const record: Created = { title, date, ref, messageIds: [] };
+  const ref: Ref = { model: made.model ?? "Lesson", originalId: made.originalId as number, date };
+  const record: Created = { title, date, ref, chatBefore: await inviteMessagesByChat(request, tok) };
   created.push(record);
   const override = await request.post(`${API_APP}/edit_class`, {
     headers: { Authorization: `Bearer ${tok}` },
     data: { event: ref, scope: "single", updates: { eligibilityRules: [{ attribute: "level", operation: "same_as_class" }] } },
   });
   expect(override.ok(), `eligibility override: ${override.status()} ${await override.text()}`).toBeTruthy();
-  return { title, ref, record, below: BELOW.map(byName), fine: byName(FINE) };
+  return { title, ref, below: BELOW.map(byName), fine: byName(FINE) };
+}
+
+/** The invitation-message ids in the coach's chat with each of the students this spec invites. */
+async function inviteMessagesByChat(request: APIRequestContext, tok: string): Promise<Map<number, Set<number>>> {
+  const auth = { Authorization: `Bearer ${tok}` };
+  const convs = await request.get(`${API_APP}/conversations`, { headers: auth });
+  expect(convs.ok()).toBeTruthy();
+  const rows = ((await convs.json()).conversations as Array<{ id: number; participantName: string }>)
+    .filter((c) => [...BELOW, FINE].includes(c.participantName));
+  const out = new Map<number, Set<number>>();
+  for (const c of rows) {
+    const detail = await request.get(`${API_APP}/conversation/${c.id}`, { headers: auth });
+    expect(detail.ok()).toBeTruthy();
+    const ids = ((await detail.json()).messages as Array<{ id: number; messageType?: string }>)
+      .filter((m) => m.messageType === "notification_invite")
+      .map((m) => m.id);
+    out.set(c.id, new Set(ids));
+  }
+  return out;
 }
 
 async function invitationsOf(request: APIRequestContext, tok: string, ref: Created["ref"]) {
@@ -102,18 +125,20 @@ async function openNotifyAndSelect(page: Page, title: string, names: string[]) {
   return modal;
 }
 
-async function sendButton(modal: ReturnType<Page["getByTestId"]>) {
-  return modal.getByRole("button", { name: new RegExp(`${ui("calendar.notify.send")}`, "i") }).last();
-}
-
 test.afterEach(async ({ request }) => {
   const tok = await token(request);
   const auth = { Authorization: `Bearer ${tok}` };
   while (created.length) {
-    const { title, date, messageIds } = created.pop()!;
-    for (const id of messageIds) {
-      const del = await request.delete(`${API_APP}/message/${id}`, { headers: auth }).catch(() => null);
-      expect(del?.ok(), `delete invitation message ${id}: ${del?.status()}`).toBeTruthy();
+    const { title, date, chatBefore } = created.pop()!;
+    // Only the invitation messages that appeared since the snapshot are this spec's (R-040 point 3).
+    const after = await inviteMessagesByChat(request, tok);
+    for (const [convId, ids] of after) {
+      const before = chatBefore.get(convId) ?? new Set<number>();
+      for (const id of ids) {
+        if (before.has(id)) continue;
+        const del = await request.delete(`${API_APP}/message/${id}`, { headers: auth }).catch(() => null);
+        expect(del?.ok(), `delete invitation message ${id}: ${del?.status()}`).toBeTruthy();
+      }
     }
     await removeClassesOnDay(request, auth, date, (e) => e.title === title);
   }
@@ -122,7 +147,7 @@ test.afterEach(async ({ request }) => {
 test("PAD-562: inviting students below the bar asks once for all of them; cancel sends nothing, confirm sends to everyone", async ({ page, request }) => {
   test.setTimeout(150_000);
   const tok = await token(request);
-  const { title, ref, record, below, fine } = await seedClass(request, tok, "all");
+  const { title, ref, below, fine } = await seedClass(request, tok, "all");
 
   await loginAsCoach(page);
   const modal = await openNotifyAndSelect(page, title, [...BELOW, FINE]);
@@ -130,7 +155,7 @@ test("PAD-562: inviting students below the bar asks once for all of them; cancel
   // Cancel: the dialog names the two failing students, nothing goes out, the selection stays.
   let manualPosts = 0;
   page.on("request", (r) => { if (/\/api\/app\/notify\/manual$/.test(r.url()) && r.method() === "POST") manualPosts += 1; });
-  await (await sendButton(modal)).click();
+  await modal.getByTestId("notify-students-send").click();
   const dialog = page.getByTestId("eligibility-confirm");
   await expect(dialog).toBeVisible({ timeout: 10000 });
   await expect(dialog.getByTestId("eligibility-confirm-student")).toHaveCount(2);
@@ -145,7 +170,7 @@ test("PAD-562: inviting students below the bar asks once for all of them; cancel
 
   // Confirm: one POST, three invitations.
   const sent = page.waitForResponse((r) => /\/api\/app\/notify\/manual$/.test(r.url()) && r.status() === 200);
-  await (await sendButton(modal)).click();
+  await modal.getByTestId("notify-students-send").click();
   await expect(page.getByTestId("eligibility-confirm")).toBeVisible({ timeout: 10000 });
   await page.getByTestId("eligibility-confirm-proceed").click();
   await sent;
@@ -153,16 +178,5 @@ test("PAD-562: inviting students below the bar asks once for all of them; cancel
   const invited = (await invitationsOf(request, tok, ref)).map((i) => String(i.playerId)).sort();
   expect(invited).toEqual([...below.map((p) => String(p.playerId)), String(fine.playerId)].sort());
 
-  // Cleanup data (R-040): the three invitation messages this spec posted into three chats.
-  const convs = await request.get(`${API_APP}/conversations`, { headers: { Authorization: `Bearer ${tok}` } });
-  const rows = ((await convs.json()).conversations as Array<{ id: number; participantName: string }>)
-    .filter((c) => [...BELOW, FINE].includes(c.participantName));
-  for (const c of rows) {
-    const detail = await request.get(`${API_APP}/conversation/${c.id}`, { headers: { Authorization: `Bearer ${tok}` } });
-    // The newest invitation bubble in each chat is this spec's (posted seconds ago).
-    const invites = ((await detail.json()).messages as Array<{ id: number; messageType?: string }>)
-      .filter((m) => m.messageType === "notification_invite");
-    if (invites.length > 0) record.messageIds.push(invites[invites.length - 1].id);
-  }
-  expect(record.messageIds.length, "every invitation message found for cleanup").toBe(3);
+  // The three invitation messages now in the students' chats are removed by afterEach, by diff.
 });

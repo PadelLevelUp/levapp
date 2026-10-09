@@ -154,15 +154,23 @@ export function NotifyModal({
     onClose();
   };
 
+  // The send button is held while the check runs too (web does the same with `sending`), so a
+  // double tap cannot open the dialog twice or send twice through the fall-through.
+  const [checking, setChecking] = React.useState(false);
   const handleSend = async () => {
-    if (selected.size === 0) return;
-    await runManualInviteFlow<EligibilityCheckEntry>({
-      playerIds: [...selected],
-      check: async (ids) =>
-        (await notificationEngineApi.checkEligibility(event.model, String(event.originalId), event.date, ids)).ineligible,
-      send: (ids) => sendTo(ids),
-      ui: { askEligibility: (failing, proceed) => setPendingInvite({ failing, proceed }) },
-    });
+    if (selected.size === 0 || checking) return;
+    setChecking(true);
+    try {
+      await runManualInviteFlow<EligibilityCheckEntry>({
+        playerIds: [...selected],
+        check: async (ids) =>
+          (await notificationEngineApi.checkEligibility(event.model, String(event.originalId), event.date, ids)).ineligible,
+        send: (ids) => sendTo(ids),
+        ui: { askEligibility: (failing, proceed) => setPendingInvite({ failing, proceed }) },
+      });
+    } finally {
+      setChecking(false);
+    }
   };
 
   const sendTo = async (ids: string[]) => {
@@ -361,20 +369,6 @@ export function NotifyModal({
           </View>
         </ScrollView>
 
-        <EligibilityConfirmDialog
-          open={pendingInvite !== null}
-          ineligible={pendingInvite?.failing ?? []}
-          action="invite"
-          portalHost={NOTIFY_PORTAL_HOST}
-          onCancel={() => setPendingInvite(null)}
-          onConfirm={() => {
-            const proceed = pendingInvite?.proceed;
-            setPendingInvite(null);
-            if (proceed) void proceed();
-          }}
-        />
-        <PortalHost name={NOTIFY_PORTAL_HOST} />
-
         <DialogFooter className="flex-row gap-2">
           <Button
             variant="outline"
@@ -390,10 +384,10 @@ export function NotifyModal({
             testID="class-notify-send"
             accessibilityLabel={t("calendar.notify.send")}
             className="flex-1"
-            disabled={selected.size === 0 || sendNotifications.isPending}
+            disabled={selected.size === 0 || sendNotifications.isPending || checking}
             onPress={() => void handleSend()}
           >
-            {sendNotifications.isPending ? (
+            {sendNotifications.isPending || checking ? (
               <Spinner size="small" color={lightTheme.primaryForeground} />
             ) : (
               <Ionicons
@@ -409,6 +403,22 @@ export function NotifyModal({
             </Text>
           </Button>
         </DialogFooter>
+
+        {/* PAD-562: the eligibility dialog portals into this modal's own host, last child as
+            BlockerSheet does, so it draws on top of the native sheet. */}
+        <EligibilityConfirmDialog
+          open={pendingInvite !== null}
+          ineligible={pendingInvite?.failing ?? []}
+          action="invite"
+          portalHost={NOTIFY_PORTAL_HOST}
+          onCancel={() => setPendingInvite(null)}
+          onConfirm={() => {
+            const proceed = pendingInvite?.proceed;
+            setPendingInvite(null);
+            if (proceed) void proceed();
+          }}
+        />
+        <PortalHost name={NOTIFY_PORTAL_HOST} />
       </DialogContent>
     </Dialog>
   );

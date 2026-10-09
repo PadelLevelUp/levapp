@@ -117,6 +117,23 @@ describe("NotifyModal: inviting below the bar", () => {
     expect([...mutateAsync.mock.calls[0][0].playerIds].sort()).toEqual(["7", "8"]);
   });
 
+  it("holds the send button while the check runs: a double tap opens one dialog", async () => {
+    let resolveCheck: (v: { ineligible: typeof failingRita }) => void = () => {};
+    checkEligibility.mockReturnValue(new Promise((r) => { resolveCheck = r; }));
+    const ui = await renderNative(<NotifyModal open onClose={() => {}} event={event} existingPlayerIds={[]} />);
+    await ui.changeText("class-notify-search", "R");
+    await ui.press("notify-player-7");
+    await ui.press("class-notify-send");
+    // The second tap lands while the check is in flight: `checking` holds it (the harness does not
+    // model `disabled`, so the guard in handleSend is what this pins).
+    await ui.press("class-notify-send");
+    resolveCheck({ ineligible: failingRita });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(checkEligibility).toHaveBeenCalledTimes(1);
+    expect(ui.byTestId("eligibility-confirm")).toBeTruthy();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it("sends at once when nobody fails", async () => {
     checkEligibility.mockResolvedValue({ ineligible: [] });
     const ui = await openAndSend(["8"]);

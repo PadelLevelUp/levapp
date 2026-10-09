@@ -19,11 +19,11 @@ export interface ManualInviteFlowDeps<F> {
   };
 }
 
-export type ManualInviteFlowOutcome = "sent" | "asked";
+export type ManualInviteFlowOutcome = "sent" | "asked" | "empty";
 
 export async function runManualInviteFlow<F>(deps: ManualInviteFlowDeps<F>): Promise<ManualInviteFlowOutcome> {
   const ids = deps.playerIds;
-  if (ids.length === 0) return "sent";
+  if (ids.length === 0) return "empty"; // nothing checked, nothing sent
   let failing: F[] = [];
   try {
     failing = await deps.check(ids);

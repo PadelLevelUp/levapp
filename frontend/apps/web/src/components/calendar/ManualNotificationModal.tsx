@@ -374,7 +374,7 @@ export function ManualNotificationModal({
           <Button variant="outline" onClick={handleClose} disabled={sending}>
             {t("common.cancel")}
           </Button>
-          <Button disabled={selected.size === 0 || sending} onClick={handleSend}>
+          <Button data-testid="notify-students-send" disabled={selected.size === 0 || sending} onClick={handleSend}>
             <Send className="w-4 h-4 mr-2" />
             {selected.size > 0
               ? t("calendar.notify.sendToCount", { count: selected.size })

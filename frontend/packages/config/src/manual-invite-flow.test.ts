@@ -56,7 +56,8 @@ describe("runManualInviteFlow", () => {
   it("does nothing for an empty selection", async () => {
     const send = vi.fn(async () => {});
     const check = vi.fn(async () => []);
-    await runManualInviteFlow({ playerIds: [], check, send, ui: { askEligibility: vi.fn() } });
+    const outcome = await runManualInviteFlow({ playerIds: [], check, send, ui: { askEligibility: vi.fn() } });
+    expect(outcome).toBe("empty");
     expect(check).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });
