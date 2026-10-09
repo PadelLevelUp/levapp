@@ -157,7 +157,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      `lessonInstanceId` or `declineTarget`, so the server classifies the decline (rule 11); the
      hero shows the same. A row whose state is `not_coming` shows no button and the one-line hint
      "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador."
-     (`calendar.detail.declinedFinalHint`). A class with reminders off is never in "Precisa de
+     (`calendar.detail.declinedFinalHint`); the chat shortcut itself lives on the class detail,
+     which the row opens (`attendance.confirm` rule 28). A class with reminders off is never in "Precisa de
      ti" and never shows Yes / No. Nothing about a *coach's* rows changes.
    - Every number ships with its denominator or context; every time, date and x/y count is
      tabular.
@@ -417,7 +418,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 #### After "Não vou" the dashboard row shows the hint, not buttons (PAD-570)
 - **Given** a student whose `attendanceState` is `not_coming` on an upcoming class
 - **When** they open `/`
-- **Then** the row shows no Yes / No and no "Avisar que não vou", and shows the hint pointing to the coach's chat
+- **Then** the row shows no Yes / No and no "Avisar que não vou", and shows the hint (the chat shortcut is on the class detail the row opens)
 
 #### Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`

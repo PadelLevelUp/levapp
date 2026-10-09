@@ -125,7 +125,8 @@ def test_after_the_instant_vou_is_offered_and_recorded(app, world, monkeypatch):
     assert _dashboard(app, ids, now)[3] == 0
 
 
-def test_a_reminder_the_coach_sent_by_hand_counts_as_asked(app, world, monkeypatch):
+@pytest.mark.parametrize("voided", [False, True], ids=["counted", "voided-round-PAD-318"])
+def test_a_reminder_the_coach_sent_by_hand_counts_as_asked(app, world, monkeypatch, voided):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() - timedelta(days=3))
     from padel_app.models.presences import Presence
@@ -135,7 +136,10 @@ def test_a_reminder_the_coach_sent_by_hand_counts_as_asked(app, world, monkeypat
     assert _payload(app, iid, ids["student_id"])["pendingConfirmation"] is False
     with app.app_context():
         row = Presence.query.filter_by(lesson_instance_id=iid, player_id=ids["student_id"]).one()
-        attempts.record_attempt(message=None, instance_id=iid, player_id=ids["student_id"], presence_id=row.id, number=1, sent_at=now)
+        attempt = attempts.record_attempt(message=None, instance_id=iid, player_id=ids["student_id"], presence_id=row.id, number=1, sent_at=now)
+        if voided:
+            attempt.superseded, attempt.expired = True, True
+            db.session.commit()
     assert _payload(app, iid, ids["student_id"])["pendingConfirmation"] is True
     hero, row, invites, tile = _dashboard(app, ids, now)
     assert row["pendingConfirmation"] is True and len(invites) == 1 and tile == 1
@@ -161,6 +165,16 @@ def test_a_class_with_reminders_off_never_asks(app, world, monkeypatch):
         assert respond_to_reminder(iid, "no", ids["student_user_id"], now=now)["action"] == "declined"
 
 
+def test_a_class_that_started_never_asks(app, world, monkeypatch):
+    ids, iid = world
+    now = pin_clock(monkeypatch, _fire() + timedelta(hours=49))  # START + 1 h, past the start
+    from padel_app.services.notification_service import respond_to_reminder
+
+    assert _payload(app, iid, ids["student_id"])["pendingConfirmation"] is False
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        assert respond_to_reminder(iid, "yes", ids["student_user_id"], now=now)["action"] == "expired"
+
+
 def test_no_computable_instant_fails_closed(app, world, monkeypatch):
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() + timedelta(hours=1))
@@ -170,6 +184,40 @@ def test_no_computable_instant_fails_closed(app, world, monkeypatch):
         db.session.add(NotificationConfig(coach_id=ids["coach_id"], reminder_type="bogus"))
         db.session.commit()
     assert _payload(app, iid, ids["student_id"])["pendingConfirmation"] is False
+
+
+def test_a_projected_occurrence_with_no_row_follows_the_instant(app, world, monkeypatch):
+    """Rule 27 on a virtual occurrence (attendance.confirm rule 20's payload): no presence
+    row yet means `planned`, and the time-based ask decides on the series' own switch."""
+    from padel_app.models import Association_CoachLesson, Association_PlayerLesson, LessonInstance
+    from padel_app.serializers.lesson import serialize_class_instance
+
+    ids, iid = world
+    with app.app_context():
+        lesson = db.session.get(LessonInstance, iid).lesson
+        db.session.add(Association_CoachLesson(coach_id=ids["coach_id"], lesson_id=lesson.id))
+        db.session.add(Association_PlayerLesson(player_id=ids["student_id"], lesson_id=lesson.id))
+        db.session.commit()
+        lesson_id = lesson.id
+
+    def virtual():
+        from padel_app.models import Lesson
+
+        with app.app_context():
+            return serialize_class_instance(
+                db.session.get(Lesson, lesson_id), viewer_player_id=ids["student_id"], occurrence_date=START.date()
+            )
+
+    pin_clock(monkeypatch, _fire() - timedelta(minutes=1))
+    assert virtual()["pendingConfirmation"] is False
+    pin_clock(monkeypatch, _fire() + timedelta(minutes=1))
+    assert virtual()["pendingConfirmation"] is True
+    with app.app_context():
+        from padel_app.models import Lesson
+
+        db.session.get(Lesson, lesson_id).notifications_enabled = False
+        db.session.commit()
+    assert virtual()["pendingConfirmation"] is False, "the series' switch closes a projected ask"
 
 
 def test_a_coach_viewer_never_sees_the_flag_raised(app, world, monkeypatch):

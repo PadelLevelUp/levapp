@@ -48,7 +48,13 @@ async function openClassDetail(page: Page, weeks: number) {
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 }
 
-type Row = { title: string; lessonInstanceId: number | null; pendingConfirmation: boolean; attendanceState?: string };
+type Row = {
+  title: string;
+  lessonInstanceId: number | null;
+  pendingConfirmation: boolean;
+  attendanceState?: string;
+  declineTarget?: { model: string; originalId: string | number; date: string } | null;
+};
 async function studentRows(request: APIRequestContext, headers: Record<string, string>): Promise<Row[]> {
   const res = await request.get(`${API_ROOT}/app/dashboard`, { headers });
   expect(res.ok()).toBeTruthy();
@@ -106,7 +112,10 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     expect(before!.pendingConfirmation, "not asked yet: no Yes / No on the row").toBe(false);
     expect(before!.attendanceState).toBe("planned");
 
-    // The server refuses an early yes even from a client that offers it.
+    // The server refuses an early yes even from a client that offers it. An accepted
+    // request's occurrence may still be projected (no instance row, rule 20): then the
+    // row carries `declineTarget` instead of an id and the refusal is pinned by
+    // test_pad570_vou_after_reminder.py (`respond_reminder` needs an instance id).
     const earlyYesTarget = before!.lessonInstanceId;
     if (typeof earlyYesTarget === "number") {
       const early = await request.post(`${API_ROOT}/app/notify/respond_reminder`, {
@@ -115,6 +124,8 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
       });
       expect(early.status(), await early.text()).toBe(200);
       expect((await early.json()).action).toBe("not_yet_asked");
+    } else {
+      expect(before!.declineTarget, "a projected occurrence is declinable from the row").toBeTruthy();
     }
 
     // ── The coach asks by hand: now "Vou" is offered and recorded ──

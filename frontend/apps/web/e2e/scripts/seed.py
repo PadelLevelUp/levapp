@@ -388,15 +388,20 @@ with app.app_context(), unit_of_work():
     academy_presence = _enrol(instance, student, invited=True, confirmed=False)
     # PAD-570 (attendance.confirm rule 27): the student may say "Vou" only once ASKED.
     # The academy class sits 1-7 days out, so under the coach's 48 h timing the ask
-    # would open on some weekdays and not others. A counted reminder attempt — what a
-    # coach's manual "Enviar lembretes" leaves — makes it asked every day of the week,
-    # so the dashboard specs and Maestro flow 23 see Yes / No deterministically.
+    # would open on some weekdays and not others. A reminder attempt makes it asked every
+    # day of the week, so the dashboard specs and Maestro flow 23 see Yes / No
+    # deterministically. It is a VOIDED round (superseded + expired, PAD-318's shape) with
+    # no message: the reminder cap ignores it (reminder-flow.spec still gets its sends),
+    # `reminderSentAt` reads messages so attendance-reminder-signal.spec still sees null,
+    # and the ask predicate counts any attempt, voided included.
     db.session.add(ReminderAttempt(
         lesson_instance_id=instance.id,
         player_id=student.id,
         presence_id=academy_presence.id,
         number=1,
         sent_at=_utcnow_naive() - timedelta(hours=1),
+        superseded=True,
+        expired=True,
     ))
 
     # ── Declined-count class (PAD-71) ─────────────────────────────────────────

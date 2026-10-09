@@ -1982,8 +1982,6 @@ export function ClassDetailSheet({
                       `attendanceCancelled`) so this state survives a reload —
                       it is re-derived from the student's own serialized
                       presence, no new column required. */}
-                  {/* PAD-315 rule 26: the way back. Same place as the decline
-                      action it undoes, offered on the state alone. */}
                   {/* PAD-570 (attendance.confirm rule 27): "Vou" only once asked — the
                       server's `pendingConfirmation`, never a date computed here. */}
                   {canConfirm && (

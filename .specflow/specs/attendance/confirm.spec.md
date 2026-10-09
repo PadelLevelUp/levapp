@@ -184,16 +184,18 @@ Players confirm or decline their attendance in response to a reminder notificati
    - the student has been asked: either the first-reminder instant for the occurrence has passed
      — `_fire_time_utc(instance.start_datetime, config.get_reminder_timing())`, the SAME instant
      that closes rule 10's proactive-decline window, so the two windows are one boundary — or a
-     reminder was actually sent to this student for this occurrence (a counted
-     `ReminderAttempt`, `notifications.reminders` rule 14), which covers the coach's manual
-     "Enviar lembretes" ahead of the instant;
-   - the class would ever ask: for the time-based opener the coach's engine is on
-     (`auto_notify_enabled`, which `send_class_reminders` already requires) and the occurrence's
-     `notifications_enabled` is on. **A class with reminders off never asks** (owner decision in
-     the ticket): the coach assumes the student is coming, the student only ever has "Não vou",
-     and the class never appears in "Precisa de ti". A reminder the coach sent by hand still
-     counts as asked. When no instant is computable (rule 10's `None`), the time-based opener
-     stays closed — fail closed, never open;
+     reminder was actually sent to this student for this occurrence (any `ReminderAttempt`,
+     `notifications.reminders` rule 14, voided rounds included: a student the coach re-added
+     after a cancellation was already asked about this class, PAD-318), which covers the
+     coach's manual "Enviar lembretes" ahead of the instant;
+   - the class would ever ask: for the time-based opener the occurrence's `notifications_enabled`
+     is on (`notifications.toggle-class` rule 3 — the only switch that stops reminders; the
+     coach's `auto_notify_enabled` gates the invitation engine, not `send_class_reminders`, so
+     "desligados para o treinador" has no separate meaning in code). **A class with reminders off
+     never asks** (owner decision in the ticket): the coach assumes the student is coming, the
+     student only ever has "Não vou", and the class never appears in "Precisa de ti". A reminder
+     the coach sent by hand still counts as asked. When no instant is computable (rule 10's
+     `None`), the time-based opener stays closed — fail closed, never open;
    - the student's `attendanceState` is `planned` (rule 25): `coming` has answered, `not_coming`
      is final (rule 28), `attended` / `missed` is the coach's record (rule 29);
    - the class has not started (`_instance_is_over` is false; the club's clock).
@@ -456,7 +458,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Then** `pendingConfirmation` is `true`
 
 #### A class with reminders off never asks (PAD-570, rule 27)
-- **Given** the same class past its reminder instant with the occurrence's `notifications_enabled` false (or the coach's `auto_notify_enabled` false) and no reminder ever sent
+- **Given** the same class past its reminder instant with the occurrence's `notifications_enabled` false and no reminder ever sent
 - **When** the student reads the payload or the dashboard
 - **Then** `pendingConfirmation` is `false`, "Precisa de ti" does not list the class, only "Não vou" is offered, and a `yes` answers `not_yet_asked`
 

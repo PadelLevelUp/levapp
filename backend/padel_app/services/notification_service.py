@@ -3866,8 +3866,10 @@ def student_may_confirm(presence, instance, config=None, *, now: datetime | None
 
     - the student has been asked: the first-reminder instant has passed (the SAME
       ``_fire_time_utc`` boundary that closes rule 10's proactive-decline window), or a
-      counted reminder was actually sent to them for this occurrence (the coach's manual
-      "Enviar lembretes" ahead of the instant);
+      reminder was actually sent to them for this occurrence (the coach's manual
+      "Enviar lembretes" ahead of the instant) — voided rounds included (PAD-318): a
+      student the coach re-added was already asked about this class, and the cap that
+      ignores voided rounds is about how many more reminders to SEND, not about this;
     - the occurrence would ever ask: ``notifications_enabled`` — a class with reminders
       off never asks (owner decision in the ticket), unless a reminder was sent by hand;
       when no instant is computable the time-based opener stays closed (fail closed);
@@ -3890,7 +3892,7 @@ def student_may_confirm(presence, instance, config=None, *, now: datetime | None
     if presence is not None and instance_id is not None:
         from padel_app.services import reminder_attempt_service as attempts
 
-        if attempts.latest_counted_attempt(instance_id, presence.player_id) is not None:
+        if attempts.latest_attempt(instance_id, presence.player_id) is not None:
             return True
     if not getattr(instance, "notifications_enabled", True):
         return False
