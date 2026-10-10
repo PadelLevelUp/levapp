@@ -264,3 +264,20 @@ def test_a_class_detail_costs_a_fixed_number_of_statements(app, client, with_con
         assert len(config_reads) <= 1, config_reads
     if with_config:  # the control: the config is read, so "at most one" is not vacuous
         assert any("FROM notification_configs" in s for s in big)
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — attendance.presence rule 10
+# ---------------------------------------------------------------------------
+def test_the_presences_list_does_not_grow_with_the_roster(app, client):
+    small_user, small_id, _ = _instance_with_roster(app, tag="psmall", participants=3)
+    big_user, big_id, _ = _instance_with_roster(app, tag="pbig", participants=12)
+
+    with _statements(app) as small:
+        small_resp = client.get(f"/api/app/lesson_instance/{small_id}/presences", headers=_headers(app, small_user))
+    with _statements(app) as big:
+        big_resp = client.get(f"/api/app/lesson_instance/{big_id}/presences", headers=_headers(app, big_user))
+
+    assert small_resp.status_code == 200 and big_resp.status_code == 200
+    assert len(small_resp.get_json()) == 3 and len(big_resp.get_json()) == 12  # R-032
+    _assert_same_count(small, big, "presences list")

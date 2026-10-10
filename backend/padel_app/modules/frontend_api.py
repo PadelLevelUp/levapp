@@ -1066,7 +1066,15 @@ def get_lesson_instances():
 def lesson_instance_presences(instance_id):
     instance = LessonInstance.query.get_or_404(instance_id)
     require_readable_class("lessoninstance", instance)  # PAD-257
-    presence_query = Presence.query.filter_by(lesson_instance_id=instance_id)
+    # PAD-591 (attendance.presence rule 10): the roster order and the serialized rows read each
+    # presence's player and the player's user — loaded in one pass each, not per row.
+    from sqlalchemy.orm import joinedload
+
+    presence_query = (
+        Presence.query
+        .options(joinedload(Presence.player).joinedload(Player.user))
+        .filter_by(lesson_instance_id=instance_id)
+    )
     # Role-based visibility (PAD-36): a student only sees their own presence.
     if current_coach() is None:
         player = current_player()
