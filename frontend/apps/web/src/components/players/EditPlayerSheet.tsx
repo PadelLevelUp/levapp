@@ -1,3 +1,4 @@
+import { publicWebLink, usePublicWebOrigin } from "@/lib/publicWebLink";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { activationLinkPath } from "@/api/register";
@@ -105,9 +106,11 @@ export function EditPlayerSheet({
 
   const levelLabel = levels.find((l) => l.id === levelId.toString());
 
+  // PAD-595: built on the environment's public origin (levapp.app), never the address browsed from.
+  const webOrigin = usePublicWebOrigin() ?? "";
   const inviteLink = initialValues?.activationToken
-    ? `${window.location.origin}${activationLinkPath(userId, initialValues.activationToken)}`
-    : `${window.location.origin}/register/${userId || "player"}`;
+    ? publicWebLink(webOrigin, activationLinkPath(userId, initialValues.activationToken))
+    : publicWebLink(webOrigin, `/register/${userId || "player"}`);
 
   const handleSave = () => {
     if (!name.trim()) return;
