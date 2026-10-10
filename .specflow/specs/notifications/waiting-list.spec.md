@@ -167,7 +167,8 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     Nothing is written on a 403: no `WaitingListEntry`, no settled offer, no conversation
     created. The check runs before the late-instance no-op of PAD-68, so a player never learns
     whether an arbitrary instance id exists.
-14. **A student's own join from the wizard (PAD-358)** writes the same `WaitingListEntry` the
+14. **A student's own join from the wizard (PAD-358) — or from a retired invitation (PAD-577,
+    `notifications.invitations` rule 15a)** writes the same `WaitingListEntry` the
     offer path writes — `standing_entry_id IS NULL`, upserted on `(lesson_instance_id, player_id)`
     and reactivated rather than duplicated — and is gated by `classes.academy-class-booking`
     rules 2 and 6. Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates the
