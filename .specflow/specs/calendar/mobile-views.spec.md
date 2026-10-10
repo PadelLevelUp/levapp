@@ -171,10 +171,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     `calendar.eventCard.enrolled`) on its card and on its Semana grid block — never on an open
     spot (rule 5's `open-spot` row carries the chip), never on a canceled class, and never on a
     coach's calendar; the viewer's role reaches the cards from the calendar screen. Rule 9
-    stands: no legend on phones — the ✓ and the chip make the cards self-describing.
-    OPEN (owner, 2026-10-10 morning list): the owner asked for a short legend on the student
-    calendar "like the coach's"; the coach's legend exists on desktop web only, so a phone
-    legend would reverse rule 9's 2026-09-08 decision — not done here.
+    stands: no legend on phones — the ✓ and the chip make the cards self-describing
+    (owner decision 2026-10-10: the phone legend stays off; the desktop legend explains both).
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
     keeps its existing phone app bar (white, mark only) — **decided 2026-09-08**: the canvas's
     navy web header is not adopted. The calendar screen on web starts at the segmented
