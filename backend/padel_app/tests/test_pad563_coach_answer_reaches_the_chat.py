@@ -75,7 +75,8 @@ def test_a_coach_recorded_yes_marks_the_winners_bubble_in_the_one_commit(app, mo
         trail.clear()
         assert coach_respond_to_notification(event.id, "yes", coach_id, now=NOW + timedelta(minutes=1)) == {"action": "confirmed"}
         assert _bubble(event) == {**_bubble(event), "responded": True, "response": "yes", "answeredBy": "coach"}
-        assert _bubble(other) == {**_bubble(other), "responded": True, "response": "expired"}
+        # PAD-609 (rule 15a): a fill retires the others as "spot_filled", so they offer the list.
+        assert _bubble(other) == {**_bubble(other), "responded": True, "response": "spot_filled"}
         assert (event.answer, event.answered_by, event.status) == ("yes", "coach", "confirmed")
         assert a in _instance(instance_id).enrolled_player_ids
 
