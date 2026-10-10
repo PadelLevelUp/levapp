@@ -60,5 +60,7 @@ export const API_URL =
 export const WEB_APP_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "https://levapp.app";
 export const PRIVACY_POLICY_URL = `${WEB_APP_URL}/privacy`;
 export const TERMS_URL = `${WEB_APP_URL}/terms`;
+/** auth.legal-pages rule 3 (PAD-601): see legal-url.ts. */
+export { legalUrl } from "./legal-url";
 /** auth.coach-approval rule 6: where a rejected coach is sent. */
 export const SUPPORT_URL = `${WEB_APP_URL}/support`;
