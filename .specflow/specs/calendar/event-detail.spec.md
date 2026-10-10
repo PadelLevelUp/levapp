@@ -165,7 +165,18 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     search offers everyone. The search only narrows what is offered: a student already chosen
     stays chosen and stays listed.
 
+21. **(PAD-591) The class detail reads the coach's notification settings once.** One
+    `POST /class_instance` resolves the class's coach `NotificationConfig` once and passes it to
+    every serializer and service that needs it; the roster is loaded with its players and their
+    users eagerly. The payload is unchanged.
+
 ### Acceptance Criteria
+
+#### A class detail costs a fixed number of statements (rule 21, PAD-591)
+- **Given** a class instance with 3 participants and another with 12
+- **When** the coach opens each with `POST /class_instance` under a statement recorder
+- **Then** both issue the same number of statements and `notification_configs` is read at most
+  once per request
 
 #### Unticking a declined student in an edit does not lower the count (rule 5, B-240)
 - **Given** a class of 4 whose saved roster is Ana (declined) and Bruno (coming)
