@@ -21,4 +21,7 @@ def test_an_invitation_message_says_when_the_class_starts(app, monkeypatch):
         invite = Message.query.filter_by(message_type="notification_invite").order_by(Message.id.desc()).first()
         assert invite is not None
         assert invite.msg_metadata["lessonInstanceId"] == instance_id
-        assert invite.msg_metadata["startsAt"] == instance.start_datetime.isoformat()
+        starts_at = invite.msg_metadata["startsAt"]
+        assert starts_at == instance.start_datetime.isoformat()
+        # The contract the clients read by: a naive wall-clock string, never an instant.
+        assert not starts_at.endswith("Z") and "+" not in starts_at, starts_at

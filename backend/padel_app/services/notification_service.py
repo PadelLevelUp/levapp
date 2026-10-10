@@ -4385,7 +4385,9 @@ def _send_invitation_batch(
                 "vacancyId": vacancy.id,
                 "responded": False,
                 # PAD-577 (rule 15a): the class's start on the club clock, so a retired invitation
-                # offers the waiting list only while the class is still ahead.
+                # offers the waiting list only while the class is still ahead. Naive `isoformat()`
+                # (no zone, no "Z"), like `cancellationDeadline` and the reminder's `startsAt`: the
+                # client reads it digit by digit (`wallClockISOMs`) against the club's wall clock.
                 "startsAt": instance.start_datetime.isoformat() if instance.start_datetime else None,
                 **({"waitingList": True} if wave_round == 0 else {}),
             },

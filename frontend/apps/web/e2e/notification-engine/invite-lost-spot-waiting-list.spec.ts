@@ -8,14 +8,18 @@
  * through the API; asserted by test id (PAD-320).
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { loginAsStudent3 } from "../helpers/auth";
+import { loginAsStudent2 } from "../helpers/auth";
 import { openMessages } from "../helpers/navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
 
 const CLASS_TITLE = "E2E Lost Spot Waiting List";
 const ENROLLED = "E2E Student";
-const WINNER = "E2E Student Two";
-const LOSER = "E2E Student Three"; // logs in as e2e-student-3
+// The winner never logs in: an unused filler on the roster. The loser must be on the coach's roster
+// AND able to log in — e2e-student-2, as in coach-answer-reaches-chat. ("E2E Student Three" has no
+// coach by design, PAD-215, so it can never be invited.)
+const WINNER = "Filler Player 15";
+const LOSER = "E2E Student Two"; // logs in as e2e-student-2
+const COACH_NAME = "E2E Coach";
 type ClassRef = { model: string; originalId: number; date: string };
 const created: ClassRef[] = [];
 
@@ -71,9 +75,9 @@ test("PAD-577: the student who lost the spot joins that class's waiting list fro
   expect(respond.ok(), `coach_respond: ${respond.status()} ${await respond.text()}`).toBeTruthy();
 
   // The loser's chat: "Vaga preenchida" with the waiting-list offer (rule 15a).
-  await loginAsStudent3(page);
+  await loginAsStudent2(page);
   await openMessages(page);
-  await page.locator('[data-testid^="conversation-row-"]').first().click();
+  await page.getByTestId(/^conversation-row-/).filter({ hasText: COACH_NAME }).first().click();
   const join = page.getByTestId("invite-join-waiting-list");
   await expect(join).toBeVisible({ timeout: 15_000 });
   await join.click();

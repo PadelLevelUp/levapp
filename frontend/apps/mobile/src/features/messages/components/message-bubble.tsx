@@ -1,18 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   classRequestBubbleState,
-  invitationLostToAnother,
   joinRequestBubbleState,
   lightTheme,
-  lisbonNowMs,
-  offersWaitingListJoin,
   type ClassRequestLive,
   type JoinRequestLive,
 } from "@levelup/config";
 import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
-import { queryKeys } from "@levelup/hooks";
+import { useInviteWaitingList } from "@levelup/hooks";
 import type { Message, MessageStatus } from "@levelup/types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -213,52 +209,17 @@ export function MessageBubble({
   const alreadyResponded = invite.waiting === false;
   // PAD-577 (notifications.invitations rule 15a): an invitation retired because someone else took
   // the spot offers that occurrence's waiting list — the student's own join (waiting-list rule 14).
-  const lostToAnother = isInvite && !own && invitationLostToAnother(message.metadata);
-  const inviteInstanceId = Number(message.metadata?.lessonInstanceId);
-  const queryClient = useQueryClient();
-  const myWaitingLists = useQuery({
-    queryKey: queryKeys.classWaitingList,
-    queryFn: academyClassesApi.listClassWaitingList,
-    enabled: lostToAnother,
+  // The states live in the shared hook; this shell injects its API module and its toast.
+  const inviteWaitingList = useInviteWaitingList({
+    metadata: message.metadata,
+    received: isInvite && !own,
+    api: {
+      list: academyClassesApi.listClassWaitingList,
+      join: academyClassesApi.joinClassWaitingList,
+      leave: academyClassesApi.leaveClassWaitingList,
+    },
+    notify: (key) => toast.error(t(key)),
   });
-  const [waitingListLocal, setWaitingListLocal] = React.useState<boolean | null>(null);
-  const [waitingListBusy, setWaitingListBusy] = React.useState(false);
-  const [waitingListRefused, setWaitingListRefused] = React.useState(false);
-  const onInviteWaitingList =
-    waitingListLocal ??
-    (myWaitingLists.data ?? []).some((r) => r.lessonInstanceId === inviteInstanceId && r.status === "active");
-  const offersJoin =
-    lostToAnother && !waitingListRefused && myWaitingLists.data !== undefined &&
-    offersWaitingListJoin(message.metadata, { nowWallMs: lisbonNowMs(), onWaitingList: onInviteWaitingList });
-  const joinFromInvite = async () => {
-    if (waitingListBusy) return;
-    setWaitingListBusy(true);
-    try {
-      await academyClassesApi.joinClassWaitingList({ model: "LessonInstance", originalId: inviteInstanceId });
-      setWaitingListLocal(true);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList });
-    } catch (e) {
-      const code = (e as { response?: { data?: { code?: string } } })?.response?.data?.code;
-      const known = ["class_closed", "not_visible", "ineligible", "has_spots", "already_enrolled"];
-      toast.error(code && known.includes(code) ? t(`calendar.joinRequest.refusal.${code}`) : t("messages.joinWaitingListFailed"));
-      setWaitingListRefused(true);
-    } finally {
-      setWaitingListBusy(false);
-    }
-  };
-  const leaveFromInvite = async () => {
-    if (waitingListBusy) return;
-    setWaitingListBusy(true);
-    try {
-      await academyClassesApi.leaveClassWaitingList(inviteInstanceId);
-      setWaitingListLocal(false);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.classWaitingList });
-    } catch {
-      toast.error(t("common.somethingWentWrong"));
-    } finally {
-      setWaitingListBusy(false);
-    }
-  };
 
   // PAD-151: attendance reminders were rendered with no buttons at all, so a
   // student could not answer one from the app. Its state rules (superseded,
@@ -1012,21 +973,21 @@ export function MessageBubble({
                     </Text>
                   </View>
                   {/* PAD-577 (rule 15a): the waiting list, from the message that lost the spot. */}
-                  {lostToAnother && onInviteWaitingList ? (
+                  {inviteWaitingList.onWaitingList ? (
                     <>
                       <View testID="invite-on-waiting-list" className="rounded-full bg-primary/10 px-3 py-1.5">
                         <Text className="text-xs font-medium text-primary">{t("messages.onWaitingList")}</Text>
                       </View>
-                      <Pressable testID="invite-leave-waiting-list" role="button" hitSlop={8} disabled={waitingListBusy} onPress={() => void leaveFromInvite()}>
+                      <Pressable testID="invite-leave-waiting-list" role="button" hitSlop={8} disabled={inviteWaitingList.busy} onPress={() => void inviteWaitingList.leave()}>
                         <Text className="text-xs font-medium text-muted-foreground">{t("messages.leaveWaitingList")}</Text>
                       </Pressable>
                     </>
-                  ) : offersJoin ? (
+                  ) : inviteWaitingList.offersJoin ? (
                     <Pressable
                       testID="invite-join-waiting-list"
                       role="button"
-                      disabled={waitingListBusy}
-                      onPress={() => void joinFromInvite()}
+                      disabled={inviteWaitingList.busy}
+                      onPress={() => void inviteWaitingList.join()}
                       className="rounded-full bg-primary px-3 py-1.5"
                     >
                       <Text className="text-xs font-medium text-primary-foreground">{t("messages.joinWaitingList")}</Text>

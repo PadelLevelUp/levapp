@@ -6,6 +6,8 @@
  * that class's list. A timeout (`expired`), the coach's withdrawal (`withdrawn`) or the student's
  * own answer never offers it.
  */
+import { wallClockISOMs } from "./club-date";
+
 export type InviteWaitingListMetadata = {
   responded?: boolean;
   response?: string;
@@ -18,11 +20,16 @@ export function invitationLostToAnother(metadata: InviteWaitingListMetadata | un
   return !!metadata?.responded && metadata?.response === "spot_filled";
 }
 
-/** `startsAt` is club wall-clock time; compared against the club's wall-clock "now" (`lisbonNowMs`). */
+/**
+ * `startsAt` is the server's naive `isoformat()` of the class's club wall-clock start; it is read
+ * digit by digit (`wallClockISOMs`) and compared against the club's wall-clock "now" (`lisbonNowMs`),
+ * as every other client deadline is. An older message without it, or one that cannot be read,
+ * still offers: the join's `class_closed` refusal then decides.
+ */
 export function invitationClassStillAhead(metadata: InviteWaitingListMetadata | undefined, nowWallMs: number): boolean {
   const startsAt = metadata?.startsAt;
-  if (!startsAt) return true; // an older message: the join's class_closed refusal decides
-  const ms = Date.parse(startsAt.endsWith("Z") ? startsAt : `${startsAt}Z`);
+  if (!startsAt) return true;
+  const ms = wallClockISOMs(startsAt);
   return Number.isNaN(ms) ? true : ms > nowWallMs;
 }
 

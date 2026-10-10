@@ -9,6 +9,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Message } from "@/types";
+import { lisbonNowMs } from "@levelup/config";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }));
@@ -30,9 +31,11 @@ function renderBubble(message: Message) {
       </QueryClientProvider>
     </MemoryRouter>,
   );
+  return client;
 }
-const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 19);
-const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 19);
+// Club wall-clock digits, as the server writes `startsAt` and as the bubble compares them.
+const tomorrow = new Date(lisbonNowMs() + 86_400_000).toISOString().slice(0, 19);
+const yesterday = new Date(lisbonNowMs() - 86_400_000).toISOString().slice(0, 19);
 function invite(metadata: Record<string, unknown>): Message {
   return {
     id: "1", senderId: 2, content: "Há uma vaga", timestamp: "2026-10-09T18:00:00Z", messageType: "notification_invite",
@@ -56,14 +59,22 @@ describe("PAD-577 a lost spot offers that class's waiting list", () => {
     await screen.findByTestId("invite-join-waiting-list");
   });
 
-  it("shows no button for a timeout, a withdrawal, a started class, or the student's own no", async () => {
-    for (const metadata of [{ response: "expired" }, { response: "withdrawn" }, { startsAt: yesterday }, { response: "no" }]) {
-      renderBubble(invite(metadata));
-      await waitFor(() => expect(api.listClassWaitingList.mock.calls.length >= 0).toBe(true));
-      expect(screen.queryByTestId("invite-join-waiting-list")).toBeNull();
-      expect(screen.queryByTestId("invite-on-waiting-list")).toBeNull();
-      cleanup();
+  it.each([
+    ["a timeout", { response: "expired" }, false],
+    ["a withdrawal", { response: "withdrawn" }, false],
+    ["the student's own no", { response: "no" }, false],
+    ["a class that already started", { startsAt: yesterday }, true],
+  ])("shows no button for %s", async (_label, metadata, fetchesLists) => {
+    const client = renderBubble(invite(metadata));
+    await screen.findByText("Há uma vaga"); // the bubble is on screen before the negatives are read
+    if (fetchesLists) {
+      // A lost spot asks for the student's lists; the decision is read only after they arrived.
+      await waitFor(() => expect(client.getQueryState(["class-waiting-list"])?.status).toBe("success"));
+    } else {
+      expect(api.listClassWaitingList).not.toHaveBeenCalled();
     }
+    expect(screen.queryByTestId("invite-join-waiting-list")).toBeNull();
+    expect(screen.queryByTestId("invite-on-waiting-list")).toBeNull();
   });
 
   it("reads the student's own lists: already on this class's list shows the on-list state, not the button", async () => {

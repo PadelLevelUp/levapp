@@ -20,6 +20,9 @@ describe("PAD-577 a retired invitation offers the waiting list (invitations rule
     expect(invitationClassStillAhead({ ...lost, startsAt: "2026-10-16T16:00:00" }, NOW)).toBe(false);
     expect(invitationClassStillAhead({ ...lost, startsAt: null }, NOW)).toBe(true);
     expect(invitationClassStillAhead({ ...lost, startsAt: "garbage" }, NOW)).toBe(true);
+    // Read digit by digit (wallClockISOMs), not through Date.parse: one minute ahead is ahead.
+    expect(invitationClassStillAhead({ ...lost, startsAt: "2026-10-16T17:01:00" }, NOW)).toBe(true);
+    expect(invitationClassStillAhead({ ...lost, startsAt: "2026-10-16T17:00:00" }, NOW)).toBe(false);
   });
 
   it("never offers it to a student already on that class's list, and needs the class id", () => {
