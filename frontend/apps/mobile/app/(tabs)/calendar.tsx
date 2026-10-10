@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { keepPreviousData } from "@tanstack/react-query";
 import { findNextEventId, isClubToday, lightTheme } from "@levelup/config";
 import {
   useCalendar,
@@ -94,7 +95,11 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
     isPending,
     isError,
     refetch,
-  } = useCalendarEvents(from, to);
+  } = useCalendarEvents(from, to, {
+    // PAD-592 (client.query-cache): a week/month change shows the last range until the next
+    // answers, instead of a skeleton on every navigation.
+    placeholderData: keepPreviousData,
+  });
   const { data: levels } = useCoachLevels();
 
   // One pass over the week: the strip needs every day's events in start-time

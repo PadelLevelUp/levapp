@@ -237,7 +237,9 @@ export default function ClassDetailScreen() {
   // edit_class validates against — not the coach's current club's.
   const { data: clubCourts } = useQuery({
     ...classCourtsQuery(instance?.clubId),
-    enabled: isCoach,
+    // PAD-592: not before the instance says which club — it used to fire once with no club
+    // and again after the load.
+    enabled: isCoach && !!instance?.clubId,
   });
   const courtOptions = React.useMemo<Option[]>(
     () => [

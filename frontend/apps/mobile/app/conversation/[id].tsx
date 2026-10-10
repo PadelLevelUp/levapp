@@ -106,6 +106,71 @@ function ChatSkeleton() {
   );
 }
 
+
+
+/** PAD-592: the per-row callbacks a memoised bubble receives; one stable object per message id. */
+type RowHandlers = {
+  onReaction: (emoji: string) => void;
+  onRespondReminder: (action: "yes" | "no") => void;
+  onCancelAttendance: () => void;
+  onRespondWaitingList: (action: "yes" | "no") => void;
+  onRespondInvite: (action: "yes" | "no") => void;
+  onAnswerClassRequest: (accept: boolean) => void;
+  onCounterClassRequest: () => void;
+  onAnswerJoinRequest: (accept: boolean) => void;
+};
+
+/**
+ * PAD-592: the composer owns its draft. Before, the draft lived in the 1,700-line screen and
+ * every keystroke re-rendered the whole thread — every mounted bubble included. Same test ids
+ * and copy as before; the send clears the draft and hands the text up.
+ */
+function Composer({
+  disabled,
+  sending,
+  onSend,
+}: {
+  disabled: boolean;
+  sending: boolean;
+  onSend: (content: string) => void | Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = React.useState("");
+  const canSend = !!draft.trim() && !sending && !disabled;
+  const send = () => {
+    const content = draft.trim();
+    if (!content || sending || disabled) return;
+    setDraft("");
+    void onSend(content);
+  };
+  return (
+    <View className="flex-row items-end gap-2 p-3">
+      <Input
+        testID="message-input"
+        accessibilityLabel={t("messages.messageTextAria")}
+        placeholder={t("messages.typePlaceholder")}
+        className="max-h-28 flex-1"
+        value={draft}
+        onChangeText={setDraft}
+        multiline
+        editable={!disabled}
+      />
+      <Pressable
+        testID="message-send"
+        accessibilityLabel={t("messages.sendMessageAria")}
+        role="button"
+        disabled={!canSend}
+        onPress={send}
+        className={`h-12 w-12 items-center justify-center rounded-md bg-primary active:opacity-90 ${
+          canSend ? "" : "opacity-50"
+        }`}
+      >
+        <Ionicons name="paper-plane-outline" size={20} color={lightTheme.primaryForeground} />
+      </Pressable>
+    </View>
+  );
+}
+
 export default function ConversationScreen() {
   const { t } = useTranslation();
   // Pushed route (no tab bar): the composer must clear the home indicator —
@@ -142,7 +207,6 @@ export default function ConversationScreen() {
     loadOlder,
   } = threadOpen.thread;
 
-  const [draft, setDraft] = React.useState("");
   const [contextMenu, setContextMenu] = React.useState<{
     message: Message;
     anchor: ContextMenuAnchor;
@@ -332,7 +396,8 @@ export default function ConversationScreen() {
             setShowJumpToBottom(true);
           }
           if (!own) void messagesApi.markConversationRead(conversationId);
-          invalidateMessagesLists(queryClient);
+          // PAD-592: the tabs layout invalidates the conversation list and the unread count for
+          // every message_* event already; doing it here too refetched both twice per message.
           return;
         }
 
@@ -381,11 +446,10 @@ export default function ConversationScreen() {
   );
 
   // ── Send (optimistic) ──
-  const handleSend = async () => {
-    const content = draft.trim();
+  // PAD-592: the draft lives in `Composer` now, so a keystroke re-renders the input row only.
+  const handleSend = async (content: string) => {
     if (!content || sending) return;
     const replyToId = replyingTo ? String(replyingTo.id) : undefined;
-    setDraft("");
     setReplyingTo(null);
     setSending(true);
 
@@ -1145,6 +1209,166 @@ export default function ConversationScreen() {
   const roleKey = roleLabelKey(conversation?.participantRole);
   const roleLabel = roleKey ? t(roleKey) : conversation?.participantRole;
 
+
+  // ── PAD-592: a stable renderItem so the memoised bubbles skip re-renders ──
+  // Every per-row callback is created once per message id and reads the LATEST handlers through
+  // a ref, so their identity never changes while the screen's own functions (recreated on every
+  // render, as before) still run with fresh state. `replyById` replaces the per-row linear find.
+  const latestRef = React.useRef({
+    setContextMenu,
+    handleReply,
+    scrollToMessage,
+    handleToggleReaction,
+    handleRespondToReminder,
+    handleCancelAttendance,
+    handleRespondToWaitingList,
+    handleRespondToInvite,
+    handleAnswerClassRequest,
+    handleCounterClassRequest,
+    handleAnswerJoinRequest,
+    classRequestLiveFor,
+    joinRequestLiveFor,
+  });
+  latestRef.current = {
+    setContextMenu,
+    handleReply,
+    scrollToMessage,
+    handleToggleReaction,
+    handleRespondToReminder,
+    handleCancelAttendance,
+    handleRespondToWaitingList,
+    handleRespondToInvite,
+    handleAnswerClassRequest,
+    handleCounterClassRequest,
+    handleAnswerJoinRequest,
+    classRequestLiveFor,
+    joinRequestLiveFor,
+  };
+  const messagesById = React.useMemo(() => {
+    const map = new Map<string, Message>();
+    for (const m of conversation?.messages ?? []) map.set(String(m.id), m);
+    return map;
+  }, [conversation?.messages]);
+  const stableOnLongPressMenu = React.useCallback(
+    (msg: Message, anchor: ContextMenuAnchor) => latestRef.current.setContextMenu({ message: msg, anchor }),
+    []
+  );
+  const stableOnReply = React.useCallback((msg: Message) => latestRef.current.handleReply(msg), []);
+  const stableScrollToReply = React.useCallback(
+    (id: string | number) => latestRef.current.scrollToMessage(id),
+    []
+  );
+  const rowHandlersRef = React.useRef(new Map<string, RowHandlers>());
+  const rowHandlersFor = React.useCallback((id: string): RowHandlers => {
+    const cached = rowHandlersRef.current.get(id);
+    if (cached) return cached;
+    const message = () => messagesByIdRef.current.get(id);
+    const handlers: RowHandlers = {
+      onReaction: (emoji) => latestRef.current.handleToggleReaction(id, emoji),
+      onRespondReminder: (action) => {
+        const m = message();
+        if (m) void latestRef.current.handleRespondToReminder(m, action);
+      },
+      onCancelAttendance: () => {
+        const m = message();
+        if (m) void latestRef.current.handleCancelAttendance(m);
+      },
+      onRespondWaitingList: (action) => {
+        const m = message();
+        if (m) void latestRef.current.handleRespondToWaitingList(m, action);
+      },
+      onRespondInvite: (action) => {
+        const m = message();
+        if (m) void latestRef.current.handleRespondToInvite(m, action);
+      },
+      onAnswerClassRequest: (accept) => {
+        const m = message();
+        if (m) void latestRef.current.handleAnswerClassRequest(m, accept);
+      },
+      onCounterClassRequest: () => {
+        const m = message();
+        if (m) latestRef.current.handleCounterClassRequest(m);
+      },
+      onAnswerJoinRequest: (accept) => {
+        const m = message();
+        if (m) void latestRef.current.handleAnswerJoinRequest(m, accept);
+      },
+    };
+    rowHandlersRef.current.set(id, handlers);
+    return handlers;
+  }, []);
+  const messagesByIdRef = React.useRef(messagesById);
+  messagesByIdRef.current = messagesById;
+
+  const renderItem = React.useCallback(
+    ({ item }: { item: Message }) => {
+      const own = Number(item.senderId) === myId;
+      const interactive = !item.isDeleted && !isTempId(item.id);
+      const temp = isTempId(item.id);
+      const replyToMessage = item.replyTo != null ? messagesById.get(String(item.replyTo)) : undefined;
+      const row = rowHandlersFor(String(item.id));
+      // PAD-415 (rule 9a): the divider sits directly above the frozen first-unread message, for
+      // this visit only — gone on re-open once everything is read (`firstUnreadMessageId` is
+      // `null` then).
+      const isFirstUnread = isFirstUnreadMessage(item.id, firstUnreadMessageId);
+      return (
+        <>
+          {isFirstUnread ? (
+            <View testID="unread-divider" className="flex-row items-center gap-2 py-2">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-xs text-muted-foreground">{t("messages.unreadDivider")}</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+          ) : null}
+          <MessageBubble
+            message={item}
+            own={own}
+            userId={myId}
+            participantName={participantName}
+            replyToMessage={replyToMessage}
+            isHighlighted={highlightedId === item.id}
+            onLongPressMenu={interactive ? stableOnLongPressMenu : undefined}
+            onReply={interactive ? stableOnReply : undefined}
+            onScrollToReply={stableScrollToReply}
+            onReaction={temp ? undefined : row.onReaction}
+            respondingReminder={respondingReminderId === item.id}
+            onRespondReminder={row.onRespondReminder}
+            onCancelAttendance={row.onCancelAttendance}
+            respondingWaitingList={respondingWaitingListId === item.id}
+            onRespondWaitingList={temp ? undefined : row.onRespondWaitingList}
+            respondingInvite={respondingInviteId === item.id}
+            onRespondInvite={temp ? undefined : row.onRespondInvite}
+            classRequestLive={latestRef.current.classRequestLiveFor(item)}
+            respondingClassRequest={respondingClassRequestId === item.id}
+            onAnswerClassRequest={row.onAnswerClassRequest}
+            onCounterClassRequest={row.onCounterClassRequest}
+            joinRequestLive={latestRef.current.joinRequestLiveFor(item)}
+            respondingJoinRequest={respondingJoinRequestId === item.id}
+            onAnswerJoinRequest={row.onAnswerJoinRequest}
+          />
+        </>
+      );
+    },
+    [
+      myId,
+      messagesById,
+      rowHandlersFor,
+      firstUnreadMessageId,
+      t,
+      participantName,
+      highlightedId,
+      stableOnLongPressMenu,
+      stableOnReply,
+      stableScrollToReply,
+      respondingReminderId,
+      respondingWaitingListId,
+      respondingInviteId,
+      respondingClassRequestId,
+      respondingJoinRequestId,
+      // classRequestLiveFor / joinRequestLiveFor are read through latestRef at render time
+    ]
+  );
+
   return (
     <View className="flex-1 bg-background">
       {/* mobile.status-bar rule 4 (PAD-419): this route paints its own navy top, so it sets light content while shown. */}
@@ -1347,84 +1571,7 @@ export default function ConversationScreen() {
                 });
               }, 50);
             }}
-            renderItem={({ item }) => {
-              const own = Number(item.senderId) === myId;
-              const interactive = !item.isDeleted && !isTempId(item.id);
-              const replyToMessage =
-                item.replyTo != null
-                  ? conversation.messages.find(
-                      (m) => String(m.id) === String(item.replyTo)
-                    )
-                  : undefined;
-              // PAD-415 (rule 9a): the divider sits directly above the frozen
-              // first-unread message, for this visit only — gone on re-open
-              // once everything is read (`firstUnreadMessageId` is `null`
-              // then).
-              const isFirstUnread = isFirstUnreadMessage(
-                item.id,
-                firstUnreadMessageId
-              );
-              return (
-                <>
-                  {isFirstUnread ? (
-                    <View
-                      testID="unread-divider"
-                      className="flex-row items-center gap-2 py-2"
-                    >
-                      <View className="h-px flex-1 bg-border" />
-                      <Text className="text-xs text-muted-foreground">
-                        {t("messages.unreadDivider")}
-                      </Text>
-                      <View className="h-px flex-1 bg-border" />
-                    </View>
-                  ) : null}
-                <MessageBubble
-                  message={item}
-                  own={own}
-                  userId={myId}
-                  participantName={participantName}
-                  replyToMessage={replyToMessage}
-                  isHighlighted={highlightedId === item.id}
-                  onLongPressMenu={
-                    interactive
-                      ? (msg, anchor) => setContextMenu({ message: msg, anchor })
-                      : undefined
-                  }
-                  onReply={interactive ? handleReply : undefined}
-                  onScrollToReply={scrollToMessage}
-                  onReaction={
-                    isTempId(item.id)
-                      ? undefined
-                      : (emoji) => handleToggleReaction(item.id, emoji)
-                  }
-                  respondingReminder={respondingReminderId === item.id}
-                  onRespondReminder={(action) =>
-                    void handleRespondToReminder(item, action)
-                  }
-                  onCancelAttendance={() => void handleCancelAttendance(item)}
-                  respondingWaitingList={respondingWaitingListId === item.id}
-                  onRespondWaitingList={
-                    isTempId(item.id)
-                      ? undefined
-                      : (action) => void handleRespondToWaitingList(item, action)
-                  }
-                  respondingInvite={respondingInviteId === item.id}
-                  onRespondInvite={
-                    isTempId(item.id)
-                      ? undefined
-                      : (action) => void handleRespondToInvite(item, action)
-                  }
-                  classRequestLive={classRequestLiveFor(item)}
-                  respondingClassRequest={respondingClassRequestId === item.id}
-                  onAnswerClassRequest={(accept) => void handleAnswerClassRequest(item, accept)}
-                  onCounterClassRequest={() => handleCounterClassRequest(item)}
-                  joinRequestLive={joinRequestLiveFor(item)}
-                  respondingJoinRequest={respondingJoinRequestId === item.id}
-                  onAnswerJoinRequest={(accept) => void handleAnswerJoinRequest(item, accept)}
-                />
-                </>
-              );
-            }}
+            renderItem={renderItem}
             ListEmptyComponent={
               <View className="flex-1 items-center py-8">
                 <Text className="text-muted-foreground">
@@ -1576,34 +1723,11 @@ export default function ConversationScreen() {
               </View>
             ) : null}
 
-            <View className="flex-row items-end gap-2 p-3">
-              <Input
-                testID="message-input"
-                accessibilityLabel={t("messages.messageTextAria")}
-                placeholder={t("messages.typePlaceholder")}
-                className="max-h-28 flex-1"
-                value={draft}
-                onChangeText={setDraft}
-                multiline
-                editable={!isBlocked}
-              />
-              <Pressable
-                testID="message-send"
-                accessibilityLabel={t("messages.sendMessageAria")}
-                role="button"
-                disabled={!draft.trim() || sending || !conversation || isBlocked}
-                onPress={() => void handleSend()}
-                className={`h-12 w-12 items-center justify-center rounded-md bg-primary active:opacity-90 ${
-                  !draft.trim() || sending || isBlocked ? "opacity-50" : ""
-                }`}
-              >
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={20}
-                  color={lightTheme.primaryForeground}
-                />
-              </Pressable>
-            </View>
+            <Composer
+              disabled={isBlocked || !conversation}
+              sending={sending}
+              onSend={handleSend}
+            />
           </View>
         )}
       </KeyboardAvoidingView>
