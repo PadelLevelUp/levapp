@@ -5677,6 +5677,10 @@ def send_manual_notifications(
                 "notificationEventId": event.id,
                 "lessonInstanceId": instance_id,
                 "responded": False,
+                # PAD-577 (rule 15a): the start on the club clock, as the automatic invitation
+                # carries it — a manual invitation answered after the class filled offers the
+                # waiting list too, and only while the class is ahead.
+                "startsAt": instance.start_datetime.isoformat() if instance.start_datetime else None,
             },
             conversation=conversation,
             before_commit=lambda m, event=event: setattr(event, "message_id", m.id),

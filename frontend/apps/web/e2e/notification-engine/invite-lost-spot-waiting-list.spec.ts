@@ -1,11 +1,17 @@
 /**
  * PAD-577 — notifications.invitations rule 15a, waiting-list rule 14.
  *
- * Two students are invited to one open spot; the coach records the first one's yes, so the
- * other's invitation is retired ("Vaga preenchida"). That student opens the chat, sees
- * "Juntar-me à lista de espera", joins, and reads "Estás na lista de espera"; the coach's class
- * payload then holds them on the waiting list as the student's own request. Seeded and read
- * through the API; asserted by test id (PAD-320).
+ * Two students are invited by hand to one open spot; the coach records the filler's yes, so the
+ * class is full. Student Two then answers "Yes" on their own invitation: the server refuses it
+ * as `spot_filled` and the bubble reads "Vaga preenchida" with "Juntar-me à lista de espera".
+ * They join, read "Estás na lista de espera"; the coach's class payload then holds them on the
+ * waiting list as the student's own request. Seeded and read through the API; asserted by test
+ * id (PAD-320).
+ *
+ * Why the late yes and not the fill itself: a manual invitation has no vacancy, so a fill does
+ * not retire it, and a coach-recorded yes retires vacancy invitations as `expired`, not
+ * `spot_filled` (reported to the coordinator, 2026-10-10). The late yes is the one path that
+ * writes `spot_filled` on the loser's own bubble deterministically.
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginAsStudent2 } from "../helpers/auth";
@@ -36,8 +42,16 @@ function inDays(n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// The student's own join is gated by the coach's open-spot visibility (waiting-list rule 14,
+// academy-class-booking rule 6: `not_visible`). Turned on for this spec, restored after.
+let restoreVisible: boolean | null = null;
+
 test.afterEach(async ({ request }) => {
   const tok = await token(request);
+  if (restoreVisible !== null) {
+    await request.post(`${API_APP}/notify/config`, { headers: { Authorization: `Bearer ${tok}` }, data: { openSpotsVisible: restoreVisible } }).catch(() => null);
+    restoreVisible = null;
+  }
   while (created.length) {
     const event = created.pop()!;
     await request.post(`${API_APP}/remove_class`, { headers: { Authorization: `Bearer ${tok}` }, data: { event, scope: "single" } }).catch(() => null);
@@ -52,6 +66,12 @@ test("PAD-577: the student who lost the spot joins that class's waiting list fro
   const roster = (rosterBody.items ?? rosterBody) as Array<{ playerId: number; levelId: number | null; name: string }>;
   const byName = (name: string) => { const p = roster.find((x) => x.name === name); expect(p, `seeded "${name}"`).toBeTruthy(); return p!; };
   const enrolled = byName(ENROLLED), winner = byName(WINNER), loser = byName(LOSER);
+
+  const cfg = await request.get(`${API_APP}/notify/config`, { headers: auth });
+  expect(cfg.ok(), `notify config: ${cfg.status()}`).toBeTruthy();
+  restoreVisible = !!(await cfg.json()).openSpotsVisible;
+  const vis = await request.post(`${API_APP}/notify/config`, { headers: auth, data: { openSpotsVisible: true } });
+  expect(vis.ok() && (await vis.json()).openSpotsVisible, "open spots visible for the join").toBe(true);
 
   const date = inDays(3);
   const add = await request.post(`${API_APP}/add_class`, {
@@ -74,22 +94,42 @@ test("PAD-577: the student who lost the spot joins that class's waiting list fro
   const respond = await request.post(`${API_APP}/notify/coach_respond`, { headers: auth, data: { notificationEventId: winnerInvite.id, action: "yes" } });
   expect(respond.ok(), `coach_respond: ${respond.status()} ${await respond.text()}`).toBeTruthy();
 
-  // The loser's chat: "Vaga preenchida" with the waiting-list offer (rule 15a).
+  // The loser's own invitation bubble, by the event id its metadata carries (R-040 point 3).
+  const loserInvite = ((await detail()).invitations as Array<{ id: number; playerId: string }>).find((i) => i.playerId === String(loser.playerId))!;
+  expect(loserInvite).toBeTruthy();
+  const convs = await request.get(`${API_APP}/conversations`, { headers: auth });
+  const conv = ((await convs.json()).conversations as Array<{ id: number; participantName: string }>).find((c) => c.participantName === LOSER);
+  expect(conv, "the coach's conversation with the loser").toBeTruthy();
+  const thread = await (await request.get(`${API_APP}/conversation/${conv!.id}`, { headers: auth })).json();
+  const loserMessage = (thread.messages as Array<{ id: number; metadata?: { notificationEventId?: number } }>)
+    .find((m) => m.metadata?.notificationEventId === loserInvite.id);
+  expect(loserMessage, "the loser's invitation message").toBeTruthy();
+  const loserMessageId = loserMessage!.id;
+
+  // The loser answers late: their "Yes" on a full class is refused as spot_filled, and the bubble
+  // offers the waiting list (rule 15a).
   await loginAsStudent2(page);
   await openMessages(page);
   await page.getByTestId(/^conversation-row-/).filter({ hasText: COACH_NAME }).first().click();
-  const join = page.getByTestId("invite-join-waiting-list");
+  const bubble = page.getByTestId(`message-item-${loserMessageId}`);
+  await bubble.scrollIntoViewIfNeeded();
+  const lateYes = page.waitForResponse((r) => /\/notify\/respond$/.test(r.url()) && r.request().method() === "POST");
+  await bubble.getByTestId("invite-respond-yes").click();
+  const lateYesRes = await lateYes;
+  expect(lateYesRes.ok()).toBeTruthy();
+  expect((await lateYesRes.json()).action, "the late yes on a full class").toMatch(/^spot_filled/);
+  const join = bubble.getByTestId("invite-join-waiting-list");
   await expect(join).toBeVisible({ timeout: 15_000 });
   await join.click();
-  await expect(page.getByTestId("invite-on-waiting-list")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId("invite-join-waiting-list")).toHaveCount(0);
+  await expect(bubble.getByTestId("invite-on-waiting-list")).toBeVisible({ timeout: 10_000 });
+  await expect(bubble.getByTestId("invite-join-waiting-list")).toHaveCount(0);
 
   // The coach's class payload holds them as the student's own request, for this occurrence (rule 14).
   const rows = ((await detail()).waitingList ?? []) as Array<{ playerId: number; origin: string; scope: string }>;
   expect(rows).toEqual([expect.objectContaining({ playerId: loser.playerId, origin: "student", scope: "occurrence" })]);
 
   // Leaving from the same bubble takes them off (rule 14's leave) and offers the join again.
-  await page.getByTestId("invite-leave-waiting-list").click();
-  await expect(page.getByTestId("invite-join-waiting-list")).toBeVisible({ timeout: 10_000 });
+  await bubble.getByTestId("invite-leave-waiting-list").click();
+  await expect(bubble.getByTestId("invite-join-waiting-list")).toBeVisible({ timeout: 10_000 });
   expect(((await detail()).waitingList ?? []) as unknown[]).toEqual([]);
 });

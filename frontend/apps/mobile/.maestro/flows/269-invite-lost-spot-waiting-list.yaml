@@ -2,7 +2,10 @@
 # another ("Vaga preenchida") joins that class's waiting list from the message and reads "Estás na
 # lista de espera". Seeded through the API (R-040): a class three days out with one open spot,
 # "E2E Student" (the signed-in student) and "Filler Player 01" invited by hand, the filler's yes
-# recorded by the coach so the student's invitation is retired. Asserted by id (PAD-320). Flow
+# recorded by the coach so the class is full; the student's own late "yes" is then refused as
+# spot_filled (a manual invitation has no vacancy, so a fill never retires it). The coach's open
+# spots are made visible for the join (waiting-list rule 14) and restored on completion.
+# Asserted by id (PAD-320). Flow
 # number 269 is from 0910-SessionB's wave-14 block (unconfirmed).
 appId: com.padellevelup.app
 onFlowComplete:
@@ -20,15 +23,24 @@ onFlowComplete:
 - evalScript: "${output.day = (function (d) { var m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (x < 10 ? '0' + x : '' + x); })(new Date(Date.now() + 3 * 86400000))}"
 # One open spot: capacity 2 with Student Two enrolled; the signed-in student and the filler are invited.
 - evalScript: "${output.made = json(http.post(output.api + '/api/app/add_class', { headers: output.auth, body: JSON.stringify({ name: 'E2E Lost Spot iOS', classType: 'academy', maxPlayers: 2, levelId: output.student.levelId, date: output.day, startTime: '17:00', endTime: '18:00', playerIds: [output.two.playerId], isRecurring: false, notificationsEnabled: true }) }).body)}"
-- evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day }, scope: 'single' }) }); }}"
+- evalScript: "${output.wasVisible = !!json(http.get(output.api + '/api/app/notify/config', { headers: output.auth }).body).openSpotsVisible}"
+- evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/notify/config', { headers: output.auth, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }); http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day }, scope: 'single' }) }); }}"
+- evalScript: "${output.visible = json(http.post(output.api + '/api/app/notify/config', { headers: output.auth, body: JSON.stringify({ openSpotsVisible: true }) }).body).openSpotsVisible}"
+- assertTrue: "${output.visible === true}"
 - evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/manual', { headers: output.auth, body: JSON.stringify({ model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day, playerIds: [output.filler.playerId, output.student.playerId] }) }).body).sent}"
 - assertTrue: "${output.sent === 2}"
 - evalScript: "${output.detail = json(http.post(output.api + '/api/app/class_instance?model=' + (output.made.model || 'Lesson') + '&id=' + output.made.originalId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body)}"
 - evalScript: "${output.fillerInvite = output.detail.invitations.filter(function (i) { return i.playerId === String(output.filler.playerId); })[0]}"
 - assertTrue: "${output.fillerInvite != null}"
-# The coach records the filler's yes: the student's invitation is retired, "Vaga preenchida".
+# The coach records the filler's yes: the class is full.
 - evalScript: "${output.answered = http.post(output.api + '/api/app/notify/coach_respond', { headers: output.auth, body: JSON.stringify({ notificationEventId: output.fillerInvite.id, action: 'yes' }) }).ok}"
 - assertTrue: "${output.answered === true}"
+# The student answers yes too late: refused as spot_filled, "Vaga preenchida" on their bubble.
+- evalScript: "${output.studentInvite = output.detail.invitations.filter(function (i) { return i.playerId === String(output.student.playerId); })[0]}"
+- assertTrue: "${output.studentInvite != null}"
+- evalScript: "${output.studentTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.late = json(http.post(output.api + '/api/app/notify/respond', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.studentTok }, body: JSON.stringify({ notificationEventId: output.studentInvite.id, action: 'yes' }) }).body).action}"
+- assertTrue: "${String(output.late).indexOf('spot_filled') === 0}"
 
 - runFlow: ../subflows/login-student.yaml
 - tapOn:

@@ -362,6 +362,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     (`withdrawn`), the student's own "no". A join the server refuses (`not_visible`: the class is
     not open to requests; `has_spots`; `ineligible`) shows the refusal and hides the button. The
     join is subject to the engine's exclusions when a spot opens, as any waiting-list row (PAD-576).
+    `spot_filled` is written today by a student's yes refused because the class is full or its
+    vacancy closed (manual invitations included: they carry no vacancy, so a fill never retires
+    them), and on the other invitations of a vacancy a student's yes fills; a coach-recorded yes
+    retires them as `expired` (rule 9), which offers nothing (open question to the coordinator,
+    2026-10-10). Manual invitations carry `startsAt` too.
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
     still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
