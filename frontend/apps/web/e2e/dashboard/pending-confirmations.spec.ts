@@ -22,6 +22,9 @@ import { API_ROOT } from "../helpers/api";
  *
  * Seed (e2e/scripts/seed.py): the "E2E Pending Confirm Class" is TOMORROW with
  * 2 students still pending (sent), 1 confirmed and 1 declined -> count = 2.
+ * Its instance has automatic invitations OFF (PAD-597 / B-442): the E2E backend's
+ * never-filled-places scan used to invite more students to its free places every
+ * two minutes, so `sent` grew with the minutes elapsed before this spec ran.
  * The no-levels coach has no classes -> nobody to notify.
  */
 
