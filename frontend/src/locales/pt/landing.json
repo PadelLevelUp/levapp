@@ -16,8 +16,13 @@
     "audience": {
       "label": "Escolhe o teu perfil",
       "coaches": "Para treinadores",
-      "players": "Para alunos",
-      "others": "Outros"
+      "players": "Para jogadores",
+      "others": "Para outros",
+      "short": {
+        "coaches": "Treinadores",
+        "players": "Jogadores",
+        "others": "Outros"
+      }
     },
     "hero": {
       "coaches": {
@@ -32,7 +37,7 @@
         "proof3": "Aulas por nível"
       },
       "players": {
-        "badge": "Para alunos e jogadores",
+        "badge": "Para jogadores",
         "title1": "Joga mais.",
         "title2": "Encontra a aula certa.",
         "lead": "Vagas last minute na tua academia, aulas compatíveis com o teu nível e confirmações num toque. Sem grupos de WhatsApp intermináveis.",
@@ -71,7 +76,7 @@
       "mobileDashboardCoach": "Painel do treinador na app móvel LevApp com vagas para preencher",
       "mobileDashboard": "Painel do aluno na app móvel LevApp",
       "mobileDashboardSteps": "Painel do aluno com presenças e próximas aulas na LevApp",
-      "messages": "Mensagens automáticas da LevApp a preencher vagas com alunos",
+      "messages": "Mensagens automáticas da LevApp a preencher vagas com jogadores",
       "mobileMessages": "Mensagens na app móvel LevApp do treinador",
       "mobilePresences": "Presenças e evolução do aluno na app LevApp",
       "mobilePresencesStats": "Estatísticas de presenças do aluno na app LevApp",
@@ -93,10 +98,10 @@
           },
           "money": {
             "title": "Ganha mais dinheiro",
-            "text": "Sabe quem vai faltar e enche todas as vagas de forma automática. E encontra alunos à procura de aulas.",
+            "text": "Sabe quem vai faltar e enche todas as vagas de forma automática. E encontra jogadores à procura de aulas.",
             "bullet1": "Faltas detectadas cedo",
             "bullet2": "Vagas preenchidas sozinhas",
-            "bullet3": "Novos alunos da tua zona"
+            "bullet3": "Novos jogadores da tua zona"
           },
           "competitive": {
             "title": "Aulas mais competitivas",
@@ -153,8 +158,8 @@
           "text": "Uma equipa da LevApp faz o set-up por ti. É só pedires."
         },
         "step2": {
-          "title": "Percebe o teu calendário e alunos",
-          "text": "Uma app que percebe o teu calendário e base de alunos se lhe mandares os típicos Excels com que trabalhas."
+          "title": "Percebe o teu calendário e jogadores",
+          "text": "Uma app que percebe o teu calendário e base de jogadores se lhe mandares os típicos Excels com que trabalhas."
         },
         "step3": {
           "title": "Simples ou avançado, à tua medida",
@@ -182,9 +187,18 @@
       "eyebrow": "Resultados",
       "coaches": {
         "title": "O tempo volta para o campo.",
-        "stat1": { "value": "+6h", "label": "poupadas por semana em mensagens" },
-        "stat2": { "value": "3×", "label": "menos faltas sem aviso" },
-        "stat3": { "value": "+30%", "label": "ocupação das aulas" },
+        "stat1": {
+          "value": "+6h",
+          "label": "poupadas por semana em mensagens"
+        },
+        "stat2": {
+          "value": "3×",
+          "label": "menos faltas sem aviso"
+        },
+        "stat3": {
+          "value": "+30%",
+          "label": "ocupação das aulas"
+        },
         "quote": "“Antes passava a noite a mandar mensagens para fechar as aulas do dia seguinte. Agora abro a app, vejo o que falta e está resolvido.”",
         "initials": "BT",
         "name": "Bernardo T.",
@@ -192,9 +206,18 @@
       },
       "players": {
         "title": "Menos espera. Mais jogo.",
-        "stat1": { "value": "1 click", "label": "para confirmares presença" },
-        "stat2": { "value": "< 5 min", "label": "para uma vaga chegar até ti" },
-        "stat3": { "value": "100%", "label": "do teu progresso visível" },
+        "stat1": {
+          "value": "1 click",
+          "label": "para confirmares presença"
+        },
+        "stat2": {
+          "value": "< 5 min",
+          "label": "para uma vaga chegar até ti"
+        },
+        "stat3": {
+          "value": "100%",
+          "label": "do teu progresso visível"
+        },
         "quote": "“Agora posso ir a várias aulas como convidado, por um preço muito mais acessível.”",
         "initials": "PP",
         "name": "Pedro P.",
