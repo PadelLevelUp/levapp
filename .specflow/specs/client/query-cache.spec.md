@@ -94,9 +94,8 @@ that both apps import, so the two never drift.
   the request count for `coach_players_paginated` during that navigation is 0
 
 #### Back after a minute: cache first, one refresh behind (rule 3)
-- **Given** the same coach, with `/players` data 61 s old (the test advances the query client's
-  clock or waits with a shortened `QUERY_STALE_TIME_MS` injected through an env override used
-  only by tests)
+- **Given** the same coach, with `/players` data 61 s old (the test fakes the browser clock with
+  Playwright's `page.clock`; no env override exists)
 - **When** they navigate back to `/players`
 - **Then** the list is visible immediately with the cached rows, exactly one
   `coach_players_paginated` request follows, and the rows update in place without the skeleton
