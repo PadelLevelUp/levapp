@@ -159,6 +159,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
      open spots hidden (rule 15); on that list they are group 0 (rule 8a) only for a spot of their
      own side or one with no side, so the list never undoes the balance.
    A class whose coach's roster plays no side keeps every spot's side as it is (rule 2b's `None`).
+   In a class whose roster does play sides, a `both` or side-less spot re-counts like any other and
+   takes the side the count gives (as rule 2c would have at creation); nothing is withdrawn when a
+   spot leaves `both` or no side, since its invitations were not for one side. A batch already
+   running when a "yes" lands (its spot locked, so passed over) sends to the side it counted; the
+   spot re-counts at its next batch and withdraws then if it flipped.
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the

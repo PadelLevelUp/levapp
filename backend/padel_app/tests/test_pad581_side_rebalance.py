@@ -7,7 +7,10 @@ the student out of round 1 of that class, and lets them join the class's waiting
 The class of every cell: 4 places, 1 left + 1 right going, two never-filled spots (rule 2b: left,
 right). Cells marked OLD-RED fail before PAD-581.
 """
+import pytest
+
 from padel_app.sql_db import db
+from padel_app.tests.test_pad499_publish_after_commit import trail  # noqa: F401 — fixture
 from padel_app.tests.test_effective_level_resolution import _create_class, _create_coach, _create_coach_player, _create_level
 from padel_app.tests.test_pad421_balance_structural_sides import _enrol
 
@@ -96,10 +99,7 @@ def _patch_io(monkeypatch):
     monkeypatch.setattr(ns, "publish", lambda *a, **kw: None)
 
 
-import pytest
-
-
-@pytest.mark.parametrize("by", ["student", "coach"])
+@pytest.mark.parametrize("by", ["student", "coach"], ids=["student-yes", "coach-recorded-yes"])
 def test_a_yes_that_flips_a_spot_withdraws_its_old_side_round_1_invitations(app, monkeypatch, by):
     """OLD-RED: the left spot kept asking left after the class went 2 left / 1 right."""
     _patch_io(monkeypatch)
@@ -150,8 +150,8 @@ def test_a_batch_re_counts_its_spot_and_round_1_skips_the_balance_withdrawn(app,
         verdicts = {v.cp.player_id: v.stage for v in ns.evaluate_candidates(
             spot, instance, coach.id, ns.get_or_create_config(coach.id), wave=("group", 1), explain=True)}
         assert verdicts[players["rui"]] == "invited", "the right student is round 1's now"
-        assert verdicts[players["ana"]] != "invited", "withdrawn for balance: not round 1 of this class again"
-        assert verdicts[players["bia"]] != "invited", "a left student does not match the spot's side now"
+        assert verdicts[players["ana"]] == "already_invited", "withdrawn for balance: not round 1 of this class again"
+        assert verdicts[players["bia"]] == "no_round_matched", "a left student does not match the spot's side now"
 
 
 def test_a_balance_withdrawn_student_joins_the_waiting_list_while_the_class_has_a_place(app, monkeypatch):
@@ -168,9 +168,13 @@ def test_a_balance_withdrawn_student_joins_the_waiting_list_while_the_class_has_
         _widened_yes(coach, instance, spots, players)
         entry, created = join_class_waiting_list_service(Player.query.get(players["ana"]), "LessonInstance", instance.id, None)
         assert created and entry.is_active
-        with pytest.raises(HTTPException) as e:  # PIN: never invited → still has_spots / not_visible
+        from padel_app.models.notification_config import NotificationConfig
+
+        NotificationConfig.query.filter_by(coach_id=coach.id).first().open_spots_visible = True
+        db.session.commit()  # so has_spots, not not_visible, is the only refusal left for Rui
+        with pytest.raises(HTTPException) as e:  # PIN: never invited → still refused has_spots
             join_class_waiting_list_service(Player.query.get(players["rui"]), "LessonInstance", instance.id, None)
-        assert e.value.response.get_json()["code"] in ("has_spots", "not_visible")
+        assert e.value.response.get_json()["code"] == "has_spots"
 
 
 def test_group_0_asks_a_balance_withdrawn_member_only_for_her_side(app, monkeypatch):
@@ -192,3 +196,60 @@ def test_group_0_asks_a_balance_withdrawn_member_only_for_her_side(app, monkeypa
         spot.side = None  # a side-less spot asks her
         db.session.commit()
         assert players["ana"] in [cp.player_id for _, cp in ns._waiting_list_candidates(spot, instance, coach.id, ns.get_or_create_config(coach.id))]
+
+
+def test_control_a_left_student_never_withdrawn_is_invited_by_round_1_of_a_left_spot(app, monkeypatch):
+    """PIN, the control for the stage cells above: same class, no withdrawal — Ana is invited."""
+    from padel_app.services import notification_service as ns
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, instance, spots, players = _setup("ctl")
+        verdicts = {v.cp.player_id: v.stage for v in ns.evaluate_candidates(
+            spots["left"], instance, coach.id, ns.get_or_create_config(coach.id), wave=("group", 1), explain=True)}
+        assert verdicts[players["ana"]] == "invited"
+        assert verdicts[players["rui"]] == "no_round_matched"
+
+
+def test_a_batch_re_counts_a_stale_spot_withdraws_and_invites_the_new_side(app, monkeypatch, trail):
+    """OLD-RED: the batch read the spot's stored side. The class went 2 left / 1 right without a yes
+    on a spot (the coach enrolled Duarte), so only the batch can notice."""
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+    from padel_app.services.lesson_service import enrol
+
+    monkeypatch.setattr(ns, "send_push_notification", lambda **kw: None)
+    with app.app_context():
+        coach, instance, spots, players = _setup("batchpath")
+        ana = _invite(coach, instance, spots["left"], players["ana"])
+        enrol(players["duarte"], instance, "coach", confirmed=True)
+        db.session.commit()
+        ana_message = _event(ana).message_id
+        spot = db.session.get(Vacancy, spots["left"].id)
+        trail.clear()
+        ns._send_batch_locked(spot, instance, ns.get_or_create_config(coach.id), coach.id)
+        db.session.expire_all()
+        assert db.session.get(Vacancy, spots["left"].id).side == "right"
+        assert (_event(ana).status, _event(ana).retired_reason) == ("expired", "side_balanced")
+        assert _bubble(ana)["response"] == "side_balanced"
+        from padel_app.models.notification_event import NotificationEvent
+        invited = {e.player_id for e in NotificationEvent.query.filter_by(vacancy_id=spots["left"].id, status="sent")}
+        assert players["rui"] in invited and players["bia"] not in invited
+    assert "commit" in trail and f"publish:message_edited:{ana_message}" in trail
+    assert trail.index("commit") < trail.index(f"publish:message_edited:{ana_message}"), f"the withdrawal is published after a commit: {trail}"
+
+
+def test_a_side_less_spot_in_a_sided_class_takes_the_side_it_counts_to(app, monkeypatch):
+    """PIN of rule 2d's wording: a re-count stores whatever side the count gives, as rule 2c would at
+    creation — a side-less spot in an uneven class asks the short side; nothing is withdrawn from it."""
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services import notification_service as ns
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, instance, spots, players = _setup("sideless")
+        spot = db.session.get(Vacancy, spots["right"].id)
+        spot.side = None
+        db.session.commit()
+        assert ns._recount_spot(spot, instance, coach.id) == []
+        assert spot.side == "right"  # 1 left + 1 right going, the other open spot is left: 2 / 1

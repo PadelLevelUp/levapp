@@ -186,12 +186,9 @@ def _was_invited(instance_id, player_id) -> bool:
 
 def _withdrawn_for_balance(instance_id, player_id) -> bool:
     """PAD-581: the engine withdrew this student's invitation to the occurrence for side balance."""
-    from padel_app.models.notification_event import NotificationEvent
-    from padel_app.services.notification_service import SIDE_BALANCED
+    from padel_app.services.notification_service import balance_withdrawn_player_ids
 
-    return NotificationEvent.query.filter_by(
-        lesson_instance_id=instance_id, player_id=player_id, retired_reason=SIDE_BALANCED,
-    ).first() is not None
+    return player_id in balance_withdrawn_player_ids(instance_id, [player_id])
 
 
 def _existing_entry(instance_id, player_id):
