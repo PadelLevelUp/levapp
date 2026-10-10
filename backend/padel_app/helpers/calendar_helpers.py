@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -32,19 +34,36 @@ def instance_serializer_options():
 # ----------------------------
 # Coach
 # ----------------------------
+def _lesson_window(range_start):
+    """PAD-591 (calendar.view rule 19): the lower bound both lesson loaders share.
+
+    A one-off lesson (no recurrence rule) must start no more than a day before the range
+    (a day of slack for the timezone shift), so a coach's history is not read and discarded
+    on every request. A recurring series keeps its own bound: no end, or an end on or after
+    the range start.
+    """
+    return or_(
+        and_(
+            Lesson.recurrence_rule.is_(None),
+            Lesson.start_datetime >= range_start - timedelta(days=1),
+        ),
+        and_(
+            Lesson.recurrence_rule.isnot(None),
+            or_(Lesson.recurrence_end.is_(None), Lesson.recurrence_end >= range_start.date()),
+        ),
+    )
+
+
 def load_lessons_for_coach(coach_id, range_start, range_end):
     return (
         Lesson.query
         .join(Lesson.coaches_relations)
+        .options(selectinload(Lesson.players_relations))  # PAD-591: the event's roster size
         .filter(
             Association_CoachLesson.coach_id == coach_id,
             Lesson.start_datetime <= range_end,
             Lesson.status == "active",
-            (
-                Lesson.recurrence_rule.is_(None)
-                | (Lesson.recurrence_end.is_(None))
-                | (Lesson.recurrence_end >= range_start.date())
-            ),
+            _lesson_window(range_start),
         )
         .all()
     )
@@ -107,6 +126,7 @@ def load_lessons_for_player(player_id, range_start, range_end, *, only_active: b
     q = (
         Lesson.query
         .join(Lesson.players_relations)  # expects Lesson.players_relations relationship
+        .options(selectinload(Lesson.players_relations))  # PAD-591: the event's roster size
         .filter(
             Association_PlayerLesson.player_id == player_id,
             Lesson.start_datetime <= range_end,
@@ -117,11 +137,7 @@ def load_lessons_for_player(player_id, range_start, range_end, *, only_active: b
         q = q.filter(Lesson.status == "active")
 
     # Keep recurrence filtering consistent with coach
-    q = q.filter(
-        (Lesson.recurrence_rule.is_(None))
-        | (Lesson.recurrence_end.is_(None))
-        | (Lesson.recurrence_end >= range_start.date())
-    )
+    q = q.filter(_lesson_window(range_start))
 
     return q.all()
 
