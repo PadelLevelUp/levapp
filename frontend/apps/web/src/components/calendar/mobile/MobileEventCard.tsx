@@ -70,6 +70,14 @@ export function MobileEventCard({
         variant === "next" && "shadow-md"
       )}
     >
+      {variant === "open-spot" && (
+        <span
+          data-testid="calendar-open-spot-chip"
+          className="mb-1 self-start rounded-full border border-current px-1.5 text-[10px] font-bold uppercase tracking-wide"
+        >
+          {t("calendar.openSpot.chip")}
+        </span>
+      )}
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 flex-1 truncate text-[15px] font-bold leading-snug">
           {title}

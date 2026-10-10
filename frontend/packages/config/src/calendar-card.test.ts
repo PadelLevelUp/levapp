@@ -101,6 +101,26 @@ describe("resolveCardVariant", () => {
   });
 });
 
+describe("resolveCardVariant — open spot (B-541, mobile-views rule 5 / open-spot-visibility rule 11)", () => {
+  it("a class flagged openSpot is `open-spot`, and still short when it has room", () => {
+    expect(
+      resolveCardVariant(event({ openSpot: true, participantCount: 12, maxPlayers: 16 }), { now: NOW })
+    ).toEqual({ variant: "open-spot", seatsShort: true });
+  });
+
+  it("an offer is never the student's next class: open-spot wins over next", () => {
+    expect(resolveCardVariant(event({ openSpot: true }), { isNext: true, now: NOW }).variant).toBe(
+      "open-spot"
+    );
+  });
+
+  it("canceled still wins over open-spot", () => {
+    expect(
+      resolveCardVariant(event({ openSpot: true, status: "canceled" }), { now: NOW }).variant
+    ).toBe("canceled");
+  });
+});
+
 describe("cardSurfaceWeb", () => {
   const hex = "#6366F1";
 
@@ -139,6 +159,19 @@ describe("cardSurfaceWeb", () => {
 
   it("block: nothing inline — the dashed treatment is class-driven", () => {
     expect(cardSurfaceWeb(hex, "block")).toEqual({});
+  });
+
+  it("open-spot: card surface, 1.5px dashed outline in the coach colour, readable ink (B-541)", () => {
+    expect(cardSurfaceWeb(hex, "open-spot")).toEqual({
+      backgroundColor: "hsl(var(--card))",
+      border: `1.5px dashed ${hex}`,
+      color: readableInk(hex),
+    });
+    expect(cardSurfaceWeb(undefined, "open-spot")).toEqual({
+      backgroundColor: "hsl(var(--card))",
+      border: "1.5px dashed hsl(var(--primary))",
+      color: "hsl(var(--primary))",
+    });
   });
 
   it("no colour: falls back to the primary token", () => {
@@ -181,6 +214,24 @@ describe("cardSurfaceNative", () => {
     expect(cardSurfaceNative(hex, "canceled", SURFACES)).toEqual({
       backgroundColor: lightTheme.destructive,
       color: lightTheme.destructiveForeground,
+    });
+  });
+
+  it("open-spot: card surface, 1.5pt dashed border, readable ink — never the solid surface's white (B-541)", () => {
+    expect(cardSurfaceNative("#1355DC", "open-spot", SURFACES)).toEqual({
+      backgroundColor: SURFACES.card,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: "#1355DC",
+      color: readableInkNative("#1355DC", SURFACES),
+    });
+    expect(cardSurfaceNative("#1355DC", "open-spot", SURFACES).color).not.toBe("#FFFFFF");
+    expect(cardSurfaceNative(undefined, "open-spot", SURFACES)).toEqual({
+      backgroundColor: SURFACES.card,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: lightTheme.primary,
+      color: lightTheme.primary,
     });
   });
 

@@ -126,6 +126,7 @@ export function TimeGrid({
                         marginRight: 1,
                         backgroundColor: isBlock ? lightTheme.muted : surface.backgroundColor,
                         borderWidth: surface.borderWidth,
+                        borderStyle: surface.borderStyle,
                         borderColor: surface.borderColor,
                       }}
                       className="overflow-hidden rounded-md px-1 py-0.5 active:opacity-90"

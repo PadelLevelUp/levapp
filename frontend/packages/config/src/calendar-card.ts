@@ -11,6 +11,9 @@
  *   past       coach colour faded, muted text
  *   canceled   the destructive surface — red means canceled and nothing else
  *   block      class-driven (dashed card), nothing inline
+ *   open-spot  card surface, 1.5px DASHED outline in the coach colour, readable ink
+ *              (B-541: an offer the student is not in — eligibility.open-spot-visibility
+ *              rule 11; wins over scheduled/next, loses to canceled)
  *
  * Amber never touches the surface: `seatsShort` is what the fill bar and the
  * X/Y count read, and it is only ever true for a scheduled or next class.
@@ -30,7 +33,7 @@ import {
 } from "./calendar-status";
 import { lightTheme } from "./tokens";
 
-export type CardVariant = "scheduled" | "next" | "past" | "canceled" | "block";
+export type CardVariant = "scheduled" | "next" | "past" | "canceled" | "block" | "open-spot";
 
 const VARIANT_BY_STATE: Record<EventVisualState, CardVariant> = {
   future: "scheduled",
@@ -50,9 +53,16 @@ export function resolveCardVariant(
   event: CalendarEvent,
   options: { isNext?: boolean; now?: Date } = {}
 ): ResolvedCard {
-  const variant = VARIANT_BY_STATE[resolveEventState(event, options)];
+  const state = resolveEventState(event, options);
+  // B-541: an open spot is an offer, never the student's next class; a canceled, past or
+  // block event keeps its own treatment.
+  const variant: CardVariant =
+    event.openSpot && (state === "future" || state === "next")
+      ? "open-spot"
+      : VARIANT_BY_STATE[state];
   const seatsShort =
-    (variant === "scheduled" || variant === "next") && hasOpenSpots(event);
+    (variant === "scheduled" || variant === "next" || variant === "open-spot") &&
+    hasOpenSpots(event);
   return { variant, seatsShort };
 }
 
@@ -75,6 +85,12 @@ export function cardSurfaceWeb(
       };
     case "block":
       return {};
+    case "open-spot":
+      return {
+        backgroundColor: "hsl(var(--card))",
+        border: `1.5px dashed ${hex ?? "hsl(var(--primary))"}`,
+        color: hex ? readableInk(hex) : "hsl(var(--primary))",
+      };
     case "next":
       if (!hex) {
         return {
@@ -119,6 +135,7 @@ export interface NativeCardSurface {
   color?: string;
   borderWidth?: number;
   borderColor?: string;
+  borderStyle?: "dashed";
 }
 
 export function cardSurfaceNative(
@@ -134,6 +151,14 @@ export function cardSurfaceNative(
       };
     case "block":
       return {};
+    case "open-spot":
+      return {
+        backgroundColor: surfaces.card,
+        borderWidth: 1.5,
+        borderStyle: "dashed",
+        borderColor: hex ?? lightTheme.primary,
+        color: hex ? readableInkNative(hex, surfaces) : lightTheme.primary,
+      };
     case "next":
       if (!hex) {
         return {
