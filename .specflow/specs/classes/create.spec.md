@@ -65,9 +65,60 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    - **Web only, with the reason:** iOS keeps its native time wheel (`classes.create` rule 10's
      sheet), which always holds a value and already reads as the platform's time control; the
      native picker is the better phone control and has none of the desktop field's problem. The
-     other web time fields (events, blockers, working hours) are unchanged.
-   - **Not this ticket:** moving through the list with the arrow keys (the list is pointer and
-     typing only).
+     other web time fields (events, blockers, working hours) are unchanged. ~~**Not this ticket:**
+     moving through the list with the arrow keys.~~ (Superseded by rule 8c, PAD-559.)
+
+8c. **The time field works with the wheel, the trackpad, the keyboard and the finger (PAD-559;
+   owner's ticket, decision "fix the PAD-508 field, do not replace it" by the orchestrator on
+   2026-10-09, owner veto open; rule number self-assigned, unconfirmed).** The ticket's report —
+   "no MacBook + Safari a barra desaparece e funciona mal" — has a cause the ticket only saw as a
+   symptom: the list was a popover portaled OUTSIDE the sheet's dialog, whose scroll lock cancels
+   wheel and touch scrolling on everything outside it, so with macOS's hidden scrollbar the list
+   could not be moved at all (Windows still dragged the visible bar). Rule 8b's field stays —
+   same test ids `add-class-start-time` / `add-class-end-time` and the editor's
+   `class-detail-start-time` / `-end-time`, same typing, same never-empty, same PAD-524 clone —
+   and gains:
+   - **Scroll:** the list renders inside the sheet (no portal past the dialog's scroll shard), so
+     the wheel, the trackpad with its inertia and a finger scroll it; nothing depends on a visible
+     scrollbar. Pinned by a WebKit Playwright test that scrolls the open list with the wheel
+     ([[scroll-tests-must-use-the-wheel]]); red on the portaled list, green on the fixed one.
+   - **Keyboard:** ↑ / ↓ move the highlighted option a quarter hour (from the typed or current
+     value), Enter commits the highlighted option (or the typed text, as before), Esc closes the
+     list and keeps the value. The field is a combobox (`role="combobox"`, `aria-expanded`,
+     `aria-controls`, `aria-activedescendant` on the highlighted `role="option"` of the
+     `role="listbox"`), so a screen reader announces the list and the choice.
+   - **Touch:** every option is at least 44 px tall on a touch pointer (`sm` density stays
+     desktop-only), and tapping chooses it.
+   - **Opens near now:** a NEW class's start, when the field has no value yet (a clone's, rule
+     8b's one empty case) or the sheet's default, opens the list scrolled to the next quarter hour
+     from the club's clock, never to 06:00; a field with a value opens at that value, as before.
+     The last start the coach chose in this browser session is remembered (`sessionStorage`) and
+     is the new-class default start instead of 09:00.
+   - **End suggested from the usual length:** the new-class end is the start plus the coach's
+     usual class length — the median length of the classes on the calendar the sheet opened from,
+     rounded to the quarter hour, else 60 min — and moves with the start keeping that length (the
+     editor keeps rule 7b's own length). **Never before the start:** an end typed at or before the
+     start is refused in the field itself — it snaps to the start plus the usual length and the
+     rule-8b message shows — so the form never sees one; the end list keeps starting after the
+     start.
+   - **Steps:** the list stays on quarter hours; any minute can still be typed (rule 8b).
+   - **One field everywhere:** the same component replaces the native `<input type="time">` on
+     the other web time fields — events (`AddEventSheet`, `EventDetailSheet`), blockers
+     (`BlockerSheet`), class-request proposals (`ClassRequestsSection`), reminder time
+     (`RemindersSection`), restriction quiet hours (`RestrictionsPanel`), working hours
+     (`WorkingHoursSection`) — with their test ids kept and no end/length behaviour where they had
+     none. This part may ship as a second PR if it threatens the first's date (orchestrator,
+     2026-10-09).
+   - **iOS in step** (`time-picker-input`): the native wheel stays, and the field also accepts a
+     typed "18:30" (a numeric text entry beside the wheel; invalid text keeps the last value), its
+     touch target is at least 44 pt, the new-class end is suggested from the same usual length
+     (iOS reads the day's classes, which is what its new-class screen loads; else 60) and an end
+     at or before the start is refused in the field, on the wheel and on the typed entry alike;
+     the arrow keys do not apply. Android follows through the same Expo component.
+   - **Platforms to prove before closing (the ticket's list):** Playwright on Chromium and WebKit
+     (macOS Safari engine), the iOS app on the simulator, the Android emulator lane. Windows
+     (Chrome, Edge) cannot be tested on this machine: the orchestrator arranges an owner check
+     before promotion; the PR says so.
 8c. **(PAD-553, B-346; number unconfirmed) A class that ends at midnight ends the next day.** An end
    of exactly 00:00 after a later start is 00:00 of the NEXT day, on every path that writes a class
    or an occurrence (create, materialisation, an edit, the import), and the calendar's
@@ -205,3 +256,27 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **Given** a class typed from 18:00 to 17:00
 - **Then** its end is not moved (B-294's)
 
+#### The list scrolls with the wheel inside the sheet (rule 8c, PAD-559)
+- **Given** the new-class sheet open on WebKit with the start-time list open
+- **When** the wheel turns over the list
+- **Then** the list's `scrollTop` changes — with no scrollbar drag and no scrollbar visible
+
+#### The keyboard walks the list (rule 8c)
+- **Given** the start field focused with "09:00"
+- **When** the coach presses ↓ twice and Enter
+- **Then** the start is "09:30", the list is closed, and the end followed by the usual length
+
+#### The end never precedes the start (rule 8c)
+- **Given** a start of "18:00" and a usual length of 60 min
+- **When** the coach types "17:30" in the end field and presses Enter
+- **Then** the end snaps to "19:00" and the rule-8b message shows; nothing is sent
+
+#### The list opens near now (rule 8c)
+- **Given** a clone with its start empty at 14:07 on the club's clock
+- **When** the coach opens the start list
+- **Then** it is scrolled to "14:15", not to "06:00"
+
+#### The usual length comes from the coach's classes (rule 8c)
+- **Given** a coach whose calendar holds classes of 90, 90 and 60 minutes
+- **When** they open the new-class sheet and set the start to "18:00"
+- **Then** the end reads "19:30"; a coach with no classes gets "19:00"

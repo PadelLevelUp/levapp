@@ -25,9 +25,13 @@ appId: com.padellevelup.app
     id: "dashboard-queue-invite"
 - assertVisible:
     text: "E2E Academy Class"
+# PAD-570 follow-up: `dashboard-schedule` is the whole Upcoming section (header + rows), taller
+# than the screen once the rows load, so a 100 % visibility wait on it can never be met (A's
+# run at 6317d2e53). A single row fits on screen: scroll until the first one is visible.
 - scrollUntilVisible:
     element:
-      id: "dashboard-schedule"
+      id: "dashboard-schedule-row"
+      index: 0
     direction: DOWN
     timeout: 20000
 
@@ -64,9 +68,13 @@ appId: com.padellevelup.app
 # PAD-570: returning from the attendance screen lands the dashboard at the TOP, and the
 # schedule sits below the fold (its rows grew a decline button), so the scroll is DOWN;
 # scrolling UP from the top could never reach it (A's run on ccd74bb7d).
+# PAD-570 follow-up: `dashboard-schedule` is the whole Upcoming section (header + rows), taller
+# than the screen once the rows load, so a 100 % visibility wait on it can never be met (A's
+# run at 6317d2e53). A single row fits on screen: scroll until the first one is visible.
 - scrollUntilVisible:
     element:
-      id: "dashboard-schedule"
+      id: "dashboard-schedule-row"
+      index: 0
     direction: DOWN
     timeout: 20000
 - assertVisible:

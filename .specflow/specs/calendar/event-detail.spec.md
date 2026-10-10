@@ -65,7 +65,10 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     (`id`, `model`, `originalId`, `date`) and, when those are incomplete, resolves the class
     from the id alone through `GET /api/app/lesson_instance/<id>` — JWT'd and role-filtered,
     already carrying `lessonId`, `date`, `startTime`, `endTime`, `name`, `color` and
-    `maxPlayers`. The full params stay the fast path: an in-app tap passes them and the screen
+    `maxPlayers`. **The class payload itself says `isRecurring` (B-422, PAD-560 follow-up):** a
+    deep-linked screen has no calendar event to read the flag from, and without it the waiting
+    list's series scopes (rule 20) were hidden; iOS reads `isRecurring` from the payload, or falls
+    back to a non-null `recurrenceEnd`. The full params stay the fast path: an in-app tap passes them and the screen
     renders without a round trip. What changes is that a route carrying only an id — a push, a
     universal link from an email, a message's `lessonInstanceId` — is no longer a dead end.
     - **Three states, never one.** An incomplete route with no usable id is "could not find"
