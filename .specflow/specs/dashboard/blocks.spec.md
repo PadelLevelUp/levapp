@@ -211,6 +211,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    classes it holds and never touches another coach's rows. The replies queue asks the database
    for the newest unread message per conversation, capped at the queue limit, instead of every
    unread message.
+   **(PAD-583) The student home follows the same rule.** It loads its classes ONCE — one
+   calendar-pipeline call over the hero's 90-day window — and the hero, the schedule and the
+   "Upcoming lessons" tile cut their own windows from that set, with output identical to loading
+   each window separately (the PAD-571 baseline measured 221 statements for three separate
+   loads against 46 for the coach). The player instance loader eager-loads the instance, its
+   lesson, the lesson's coaches, the instance's coaches and presences, so a window costs a fixed
+   number of statements however many classes it holds; the queue's per-row lookups of the
+   instance and the message are batched.
 9. **(B-058)** A class is in a dashboard window when it overlaps it: its **end instant** is
    after the window start and its start instant is before the window end. The end instant is
    the class's END datetime, never the start date joined to the end time-of-day. `date`,
@@ -338,6 +346,18 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the response `id` is `player_default_v1` and its blocks are, in order,
   `messages_overview`, `next_class`, `needs_you`, `schedule_7d`, `kpi_grid` — no `class_list`,
   no `grid` — and `schedule_7d` lists both classes
+
+#### The student home runs the pipeline once (rule 8, PAD-583)
+- **Given** a student enrolled in 13 classes over the next 90 days, 3 of them in the next 30
+- **When** the student dashboard is built with the calendar pipeline's `load_events` wrapped by a
+  counter
+- **Then** `load_events` was called exactly once, over the 90-day window, and the hero, schedule
+  and KPI blocks equal, field for field, the blocks built from three separate loads
+
+#### A student window costs a fixed number of statements (rule 8, PAD-583)
+- **Given** one student with 3 scheduled classes in the next 30 days and another with 13
+- **When** each student's dashboard is built with SQL statements recorded
+- **Then** both builds issue the same number of statements, and that number is below 40
 
 #### Student invite reaches the queue (PAD-202)
 - **Given** an authenticated student with a `Presence` on tomorrow's 18:00 class where
