@@ -106,7 +106,11 @@ gunicorn's boot path into the leadership thread.
 ### Notes
 - Memory during the overlap: two prod API containers at the PAD-590 cap (512 MB) for a few seconds;
   a concurrent staging deploy makes four. Accepted.
-- The web SSE hub re-subscribes on reconnect; whether it refetches on reconnect is checked with the
-  rollout half (the PAD-613 Cloud Run note asked the same question).
+- GAP (NORMAL, pre-existing): the shared SSE hub (`packages/api/src/sse.ts`) reconnects with
+  back-off but does nothing on re-open, so an event published while a client was disconnected
+  (any network blip, and the few seconds of a deploy overlap) shows only at the next refetch
+  (within the `client.query-cache` stale window, or on navigation). A follow-up: on a re-open after
+  the first, the hub emits a local `resync` event that both apps' handlers answer by invalidating
+  their live queries (web and iOS together, R-024). Out of PAD-588's scope: PAD-616.
 - R-027 is unchanged: its rule is `--workers 1`; the overlap and the lock are recorded in the atlas
   decision `2026-10-10-deploy-overlap-and-scheduler-leader.md`.
