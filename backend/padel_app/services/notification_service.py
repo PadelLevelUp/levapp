@@ -4911,11 +4911,13 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         closed.append(locked)
         to_close -= 1
     # PAD-609 (rule 15a): a manual invitation carries no vacancy, so no close above retires it. When
-    # the class has no open place left, its live manual invitations end as "spot_filled" too — the
-    # spot they offered is gone, and the bubble offers the waiting list. The enrolled player's own
-    # is spared (their caller settles it); one another answer holds is passed over (SKIP LOCKED, as
-    # above): that answer finds the class full and records spot_filled itself.
-    if open_spots == 0:
+    # an enrolment has just taken the class's last place (`filled_by_player_id`: the fill paths, not
+    # the tick or a class edit — a coach may invite by hand to a class that is already full, and that
+    # offer must survive the next tick), its live manual invitations end as "spot_filled" too, and the
+    # bubble offers the waiting list. The holders of a place are spared (the enrolled player's own is
+    # settled by its caller); one another answer holds is passed over (SKIP LOCKED, as above): that
+    # answer finds the class full and records spot_filled itself.
+    if open_spots == 0 and filled_by_player_id is not None:
         manual = (
             NotificationEvent.query.filter(
                 NotificationEvent.lesson_instance_id == instance.id,
@@ -4923,11 +4925,12 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
                 NotificationEvent.status.in_(LIVE_INVITATION_STATES),
             )
             .with_for_update(skip_locked=True)
+            .populate_existing()
             .all()
         )
-        enrolled = set(instance.enrolled_player_ids or [])
+        holding = {p.player_id for p in instance.holding_presences}
         for event in manual:
-            if event.player_id == filled_by_player_id or event.player_id in enrolled:
+            if event.player_id == filled_by_player_id or event.player_id in holding:
                 continue
             event.status = "expired"
             _retire_invite_message(event, defer=True, response="spot_filled")

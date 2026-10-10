@@ -357,11 +357,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     `response` is `"spot_filled"` on every closing path â€” a student's yes, the coach's recorded
     yes, an accepted join request, any enrolment that leaves no place â€” so the bubble offers the
     waiting list (rule 15a). A **manual** invitation carries no vacancy and no close reaches it:
-    when the class has no open place left, capacity reconciliation (rule 13) retires the class's
-    live manual invitations the same way, sparing the enrolled player's own and passing over one
-    another answer holds (that answer finds the class full and records `spot_filled` itself).
+    when an enrolment takes the class's last place, capacity reconciliation (rule 13) retires the
+    class's live manual invitations the same way, sparing the students who hold a place and passing
+    over one another answer holds (that answer finds the class full and records `spot_filled`
+    itself). The tick and a class edit retire none: a coach may invite by hand to a class that is
+    already full, and that invitation stays live (its late yes reads `spot_filled`).
     `"expired"` stays for the class starting (rule 9's stale sweep) and the coach's withdrawal
-    (rule 19). A student who held an invitation to the class, and did not answer "no", may join its
+    (rule 19). A student who held an invitation to the class (one with its message), neither
+    answered "no" nor withdrawn by the coach, may join its
     waiting list from the bubble even when the coach's open spots are hidden (`classes.academy-class-booking`
     rule 6's `not_visible` does not apply to them: the invitation already showed them the class).
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
@@ -828,7 +831,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** Ana and Bruno invited to Friday's one spot, and Carla and Dinis invited to it by hand
 - **When** the coach records Ana's yes (or Ana answers yes herself)
 - **Then** Bruno's bubble reads `response: "spot_filled"` and offers the waiting list
-- **And** once the class has no place left, Carla's and Dinis's manual invitations are expired with `response: "spot_filled"`; on a class with a place left they stay live
+- **And** once that yes takes the last place, Carla's and Dinis's manual invitations are expired with `response: "spot_filled"`; on a class with a place left they stay live
+- **And** a manual invitation the coach sends to a class that is already full stays live through the tick
 - **And** a withdrawn invitation and one for a class that started still read `"expired"`
 
 #### An invitation does not time out (rule 5, PAD-609)
@@ -840,7 +844,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** the coach's open spots hidden, and Bruno's invitation retired because Ana took the spot
 - **When** Bruno joins that class's waiting list from the bubble
 - **Then** he holds an active row on it
-- **And** Carla, never invited, and Eva, who answered "no", are still refused `not_visible`
+- **And** Carla, never invited, Eva, who answered "no", and Filipe, whose invitation the coach withdrew, are still refused `not_visible`
 
 #### An unanswered or retired invitation is not a "no" (PAD-497)
 - **Given** a student whose invitation was retired (spot filled by someone else) without an answer

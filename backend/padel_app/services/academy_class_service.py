@@ -166,13 +166,16 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
 
 
 def _was_invited(instance_id, player_id) -> bool:
-    """PAD-609: the student held an invitation to this occurrence they did not refuse."""
+    """PAD-609: the student was shown this occurrence by an invitation (one with its message) that
+    ended in neither their "no" nor the coach's withdrawal — both read as a "no" (rules 18, 19)."""
     from padel_app.models.notification_event import NotificationEvent
 
     return (
         NotificationEvent.query.filter(
             NotificationEvent.lesson_instance_id == instance_id,
             NotificationEvent.player_id == player_id,
+            NotificationEvent.message_id.isnot(None),
+            NotificationEvent.withdrawn_by_coach_at.is_(None),
             db.or_(NotificationEvent.answer.is_(None), NotificationEvent.answer != "no"),
         ).first()
         is not None
