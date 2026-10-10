@@ -30,8 +30,10 @@ is "nothing typed is lost", not the mechanism).
 **Evidence (Phase 1):** read: no draft anywhere in the page or its hooks (`grep sessionStorage|
 localStorage` on `SignUpPage.tsx`: only the token write after success). Reproduction: the
 Playwright spec `e2e/auth-onboarding/signup-draft-survives-terms.spec.ts` (iPhone 13 profile on
-Chromium: fill, same-tab `goto('/terms')`, `goBack()`, assert the fields) — its red run on the
-unmodified page is recorded in the Resolution when the Playwright sitting runs it. What that
+Chromium: fill, same-tab `goto('/terms')`, `goBack()`, assert the fields). **Red on staging's
+`SignUpPage.tsx` (control run, 2026-10-10 01:4x local, isolated DB levelup_e2e_31d1b9d2):** after the
+detour and back `#signup-name` read `""` where `"Draft Student"` was typed; the reload case the same.
+Green on the branch is recorded in the Resolution. What that
 runner cannot prove: real WebKit bfcache behaviour and iOS tab discarding; the draft covers both by
 construction (its second test reloads the tab), and the unit test proves the store.
 

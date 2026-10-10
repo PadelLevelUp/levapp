@@ -70,8 +70,10 @@ test("PAD-575: a successful sign-up removes the draft, so the next student on th
   await page.goto("/signup");
   await fillSignup(page);
   await page.getByTestId("signup-submit").click();
-  // auth.register rule 11: a brand-new student lands on "Connect with a coach".
-  await expect(page).toHaveURL(/\/connect$/, { timeout: 20000 });
+  // auth.register rules 11 and 14: a brand-new student lands on "Connect with a coach", behind the
+  // email-code screen when verification is on (it is, on this stack). The draft is cleared before
+  // either navigation.
+  await expect(page).toHaveURL(/\/(connect|verify-email)/, { timeout: 20000 });
   const stored = await page.evaluate(() => window.sessionStorage.getItem("levapp.signupDraft"));
   expect(stored).toBeNull();
 });
