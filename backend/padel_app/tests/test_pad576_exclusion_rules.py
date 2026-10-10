@@ -13,8 +13,6 @@ with one open vacancy (round 1), an optional other class of another coach.
 """
 from datetime import timedelta
 
-import pytest
-
 from padel_app.sql_db import db
 from padel_app.tests.test_pad523_no_same_day_class import H, TARGET, _seed, _verdicts
 
@@ -211,19 +209,17 @@ def test_rule4_an_accepted_invitation_means_enrolled(app):
         _assert_excluded(ids, ids["busy"], "already_enrolled")
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "PAD-576 finding (rule 4, 'expirado'): an invitation that EXPIRED unanswered in round 1 does not "
-    "exclude the student from round 2 of the same spot — the pipeline keys exclusion on a no, a "
-    "withdrawal or a live offer (invitations rules 8, 18), and rule 8 reads as if asking again after "
-    "an expiry is by design. The ticket lists 'expirado' among the exclusions: owner decision "
-    "(PAD-576 gap ticket). Flip this to a plain test when it is decided."
-))
-def test_rule4_an_expired_invitation_from_an_earlier_round_excludes(app):
+def test_rule4_a_live_round_1_invitation_holds_them_out_of_round_2(app):
+    """PAD-609 (owner, 2026-10-10) replaces the 'expirado' question this cell used to carry as a
+    strict xfail: an invitation never expires because nobody answered it — while the spot is open it
+    stays live — so the ticket's "expirado" case is a live round-1 invitation, and that student is
+    not asked again in round 2. (The engine's own no-timeout behaviour is pinned in
+    test_pad609_fill_offers_the_waiting_list.py.)"""
     with app.app_context():
-        ids = _seed(restriction_on=False, tag="r4exp")
+        ids = _seed(restriction_on=False, tag="r4live2")
         from padel_app.models.notification_config import NotificationConfig
 
-        _invitation(ids, ids["busy"], status="expired", round_number=1)
+        _invitation(ids, ids["busy"], status="sent", round_number=1)
         # A real second round: the seed's config holds one group, so give it two (a wave that does
         # not exist answers `no_round_matched` for everyone, which would hide the question).
         cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).first()
