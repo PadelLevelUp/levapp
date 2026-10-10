@@ -79,14 +79,15 @@ def test_a_coach_recorded_yes_marks_the_winners_bubble_in_the_one_commit(app, mo
         assert (event.answer, event.answered_by, event.status) == ("yes", "coach", "confirmed")
         assert a in _instance(instance_id).enrolled_player_ids
 
-    # The first real commit carries the answer, the close and the enrolment (PAD-499); the two
-    # `save()` calls after it commit nothing new (pre-existing, out of this ticket's diff). What
-    # PAD-563 pins: the winner's bubble edit is published after that first commit, never before.
+    # ONE commit carries the answer, the close and the enrolment (PAD-499), and the bubble edits
+    # go out after it, never before. PAD-596: the two `save()` calls that used to follow it
+    # (two empty commits) are gone, so the count is pinned as the coach's "no" pins its own.
+    assert trail.count("commit") == 1, f"the coach's yes must be ONE commit: {trail}"
     i_commit = trail.index("commit")
     assert trail[:i_commit] == ["close"], f"nothing is published before the commit that records the yes: {trail}"
-    first_batch = trail[i_commit + 1: trail.index("commit", i_commit + 1)] if trail.count("commit") > 1 else trail[i_commit + 1:]
-    assert f"publish:message_edited:{winner_message_id}" in first_batch, f"the winner's bubble edit goes out with the first commit: {trail}"
-    assert f"publish:message_edited:{other_message_id}" in first_batch, trail
+    after = trail[i_commit + 1:]
+    assert f"publish:message_edited:{winner_message_id}" in after, f"the winner's bubble edit goes out with the commit: {trail}"
+    assert f"publish:message_edited:{other_message_id}" in after, trail
 
 
 def test_a_manual_invitations_recorded_answer_reaches_the_chat_too(app, monkeypatch):
