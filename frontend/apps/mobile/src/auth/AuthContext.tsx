@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
+import { launchMark } from "@/lib/launch-timeline";
 import { getPushRegistrar } from "@/lib/push";
 import { endSessionState, signOut } from "./sign-out";
 
@@ -43,6 +44,35 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * PAD-587: the silent restore (SecureStore → GET /auth/me) no longer waits for the font gate in
+ * `app/_layout.tsx` to mount this provider. `startSessionRestore()` runs once, as early as the
+ * layout module can call it (right after the API singleton exists), and the provider awaits the
+ * same promise — so the keychain read and the network round trip overlap the font load instead of
+ * queuing behind it.
+ */
+let restorePromise: Promise<AuthUser | null> | null = null;
+
+export function startSessionRestore(): Promise<AuthUser | null> {
+  if (!restorePromise) {
+    restorePromise = (async () => {
+      await purgeTokenOnFreshInstall();
+      const token = await secureTokenStorage.getToken();
+      if (!token) return null;
+      const me = await authApi.getMe();
+      launchMark("auth-restored");
+      return me;
+    })();
+  }
+  return restorePromise;
+}
+
+/** Forget the restore: the provider calls it once it has consumed the result, so a remount
+ *  (Fast Refresh, a future key change) restores afresh instead of reading a stale user. */
+export function resetSessionRestore(): void {
+  restorePromise = null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        await purgeTokenOnFreshInstall();
-        const token = await secureTokenStorage.getToken();
-        if (!token) return;
-        const me = await authApi.getMe();
+        const me = await startSessionRestore();
+        if (!me) return;
         if (!cancelled) setUser(me);
         // Refresh push registration on every silent restore (mirrors web).
         // Fire-and-forget: the registrar never throws.
@@ -76,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await secureTokenStorage.removeToken().catch(() => undefined);
         if (!cancelled) setUser(null);
       } finally {
+        resetSessionRestore();
         if (!cancelled) setLoading(false);
       }
     })();
