@@ -46,7 +46,10 @@ def _student(app, *, tag, near, far, now=NOW):
     invites (a sent NotificationEvent + its message) and `near` waiting-list offers on
     classes the student is not enrolled in, at 19:00 / 20:00 of days 1..near, so the queue's
     first five items are invite, vacancy, offer, invite, vacancy. Message times are pinned
-    to `now`. Returns (player_id, user_id, titles): the near classes then the series."""
+    to `now`. The projected occurrence sits on day 1 at 21:00, right after the first near class,
+    so it is a displayed schedule row for every student (the virtual-occurrence batch costs a
+    fixed 3 statements when a projection is on screen; it must be on screen for both sides of
+    the fixed-count comparison). Returns (player_id, user_id, titles) in start order."""
     from padel_app.models import (
         Association_CoachLesson,
         Association_CoachPlayer,
@@ -116,8 +119,8 @@ def _student(app, *, tag, near, far, now=NOW):
                 db.session.add(ReminderAttempt(lesson_instance_id=inst.id, player_id=player.id,
                                                presence_id=presence.id, number=1, sent_at=now))
 
-        # A recurring series with no instance rows: one projected occurrence, on day 25.
-        series_start = (now + timedelta(days=25)).replace(hour=18, minute=0)
+        # A recurring series with no instance rows: one projected occurrence, day 1 at 21:00.
+        series_start = (now + timedelta(days=1)).replace(hour=21, minute=0)
         series = Lesson(title=f"{tag} series", start_datetime=series_start,
                         end_datetime=series_start + timedelta(hours=1), is_recurring=True,
                         recurrence_rule=json.dumps({"frequency": "weekly",
@@ -128,7 +131,7 @@ def _student(app, *, tag, near, far, now=NOW):
         db.session.flush()
         db.session.add(Association_CoachLesson(coach_id=coach.id, lesson_id=series.id))
         db.session.add(Association_PlayerLesson(player_id=player.id, lesson_id=series.id))
-        titles.append(series.title)
+        titles.insert(1, series.title)
 
         # The queue's other two sources: vacancy invites and waiting-list offers.
         conv = Conversation(is_group=False,
@@ -197,14 +200,23 @@ def test_a_student_window_costs_a_fixed_number_of_statements(app):
         assert schedule["totalCount"] == len(titles)
         assert [i["title"] for i in schedule["items"]] == titles[: len(schedule["items"])]
         # Every near class is an open ask, so the attempt lookup ran once per class.
-        assert all(i["pendingConfirmation"] for i in schedule["items"][: len(titles) - 1])
+        assert all(i["pendingConfirmation"] for i in schedule["items"] if not i["title"].endswith(" series"))
+        assert any(i["title"].endswith(" series") for i in schedule["items"])  # the projection is on screen
         invites = next(i for i in next(b for b in blocks if b["type"] == "kpi_grid")["data"]["items"]
                        if i["label"] == "Invites")
         assert invites["value"] == len(titles) - 1  # the series is a projection, not an ask
         queue = next(b for b in blocks if b["type"] == "needs_you")["data"]["items"]
         assert {"invite", "vacancy_invite", "waiting_list_offer"} <= {i["kind"] for i in queue}
     assert len(big_titles) == 14
-    assert len(big) == len(small), f"{len(small)} statements for 3 classes, {len(big)} for 13"
+    if len(big) != len(small):
+        import re
+        from collections import Counter
+
+        def _tables(stmts):
+            return Counter(m.group(1) for st in stmts for m in [re.search(r"\bFROM\s+([a-z_]+)", st)] if m)
+
+        diff = (_tables(small) - _tables(big)) + (_tables(big) - _tables(small))
+        raise AssertionError(f"{len(small)} statements for 3 classes, {len(big)} for 13; differing tables: {dict(diff)}")
 
 
 def test_the_student_home_runs_the_pipeline_once(app, monkeypatch):

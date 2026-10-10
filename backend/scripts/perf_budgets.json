@@ -57,7 +57,7 @@
   },
   "GET /api/app/dashboard [student]": {
     "bytes": 3847,
-    "statements": 78
+    "statements": 36
   },
   "GET /api/app/lesson_instance/<id>/presences [coach]": {
     "bytes": 923,
