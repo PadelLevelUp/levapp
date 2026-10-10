@@ -33,19 +33,24 @@ def _auth_header(app, user_id):
 @pytest.fixture
 def scenario(app):
     """
-    Two clubs (A, B). Coach1 is in club A. Player1 is in club A (coach1's
-    club). Player2 is in club B (NOT coach1's club). Coach2 exists but is
-    unrelated to any club. Student (player1) may message only linked coaches
-    (coach1, through club A) — B-267.
+    Two clubs (A, B). Coach1 is in club A and has player1 on their roster;
+    player1 is in club A too. Player2 is in club B (NOT coach1's club).
+    Coach2 exists but is unrelated to any club. Student (player1) may message
+    only linked coaches (coach1, through the roster) — B-267. Since PAD-568
+    (B-461) the club rows link nobody: `clubonly` is in club A with no roster
+    row and is not messageable by coach1.
     """
     from padel_app.models import User
     from padel_app.models.coaches import Coach
     from padel_app.models.players import Player
     from padel_app.models.clubs import Club
     from padel_app.models.Association_CoachClub import Association_CoachClub
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.Association_PlayerClub import Association_PlayerClub
 
     with app.app_context():
+        clubonly_user = User(name="Club Only", username="scope_clubonly", password="x", status="active")
+        db.session.add(clubonly_user)
         coach1_user = User(name="Coach One", username="scope_coach1", password="x", status="active")
         coach2_user = User(name="Coach Two", username="scope_coach2", password="x", status="active")
         player1_user = User(name="Player One", username="scope_player1", password="x", status="active")
@@ -57,7 +62,8 @@ def scenario(app):
         coach2 = Coach(user_id=coach2_user.id)
         player1 = Player(user_id=player1_user.id)
         player2 = Player(user_id=player2_user.id)
-        db.session.add_all([coach1, coach2, player1, player2])
+        clubonly = Player(user_id=clubonly_user.id)
+        db.session.add_all([coach1, coach2, player1, player2, clubonly])
         db.session.flush()
 
         club_a = Club(name="Club A", description="a", location="x")
@@ -68,9 +74,12 @@ def scenario(app):
         db.session.add(Association_CoachClub(coach_id=coach1.id, club_id=club_a.id))
         db.session.add(Association_PlayerClub(player_id=player1.id, club_id=club_a.id))
         db.session.add(Association_PlayerClub(player_id=player2.id, club_id=club_b.id))
+        db.session.add(Association_PlayerClub(player_id=clubonly.id, club_id=club_a.id))
+        db.session.add(Association_CoachPlayer(coach_id=coach1.id, player_id=player1.id))
         db.session.commit()
 
         return {
+            "clubonly_user_id": clubonly_user.id,
             "coach1_user_id": coach1_user.id,
             "coach2_user_id": coach2_user.id,
             "player1_user_id": player1_user.id,
@@ -88,11 +97,19 @@ def _create_conversation(client, app, user_id, other_user_id):
 
 # --- Scope enforcement ---------------------------------------------------
 
-def test_coach_can_message_player_in_own_club(client, app, scenario):
+def test_coach_can_message_player_on_own_roster(client, app, scenario):
     resp = _create_conversation(
         client, app, scenario["coach1_user_id"], scenario["player1_user_id"]
     )
     assert resp.status_code == 201
+
+
+def test_coach_cannot_message_a_player_who_is_only_in_their_club(client, app, scenario):
+    """PAD-568 / B-461: a shared club is not a link."""
+    resp = _create_conversation(
+        client, app, scenario["coach1_user_id"], scenario["clubonly_user_id"]
+    )
+    assert resp.status_code == 403
 
 
 def test_coach_cannot_message_player_outside_own_club(client, app, scenario):
@@ -134,6 +151,7 @@ def test_messageable_users_scoped_for_coach(client, app, scenario):
     ids = {u["id"] for u in resp.get_json()}
     assert scenario["player1_user_id"] in ids
     assert scenario["player2_user_id"] not in ids
+    assert scenario["clubonly_user_id"] not in ids  # PAD-568: club alone is not a link
 
 
 def test_messageable_users_scoped_for_student(client, app, scenario):

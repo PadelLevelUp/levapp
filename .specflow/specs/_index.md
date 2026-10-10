@@ -8,7 +8,7 @@ governing leaf spec and its dependencies before touching code.
 
 ## Domains
 
-- `admin/` — The staff console at `admin.levapp.app` (5 draft leaves, added 2026-10-06, PAD-530: `admin.foundation` PAD-531, `admin.approvals-and-users` PAD-532, `admin.clubs-and-switches` PAD-533, `admin.engine-health` PAD-534, `admin.commercial-groundwork` PAD-535, blocked by PAD-536/PAD-472)
+- `admin/` — The staff console at `admin.levapp.app` (6 leaves: 5 added 2026-10-06, PAD-530: `admin.foundation` PAD-531, `admin.approvals-and-users` PAD-532, `admin.clubs-and-switches` PAD-533, `admin.engine-health` PAD-534, `admin.commercial-groundwork` PAD-535, blocked by PAD-536/PAD-472; `admin.phone-console` PAD-572 added 2026-10-09)
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
 - `auth/` — Authentication & User Management (14 leaves; `auth.coach-crm-sync` added 2026-10-01, PAD-471; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
@@ -22,7 +22,7 @@ governing leaf spec and its dependencies before touching code.
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
-- `mobile/` — Mobile Platform Runtime (3 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419)
+- `mobile/` — Mobile Platform Runtime (4 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419; `mobile.install-suggestion` drafted 2026-10-09, PAD-573 — web-only nudge to the iOS app)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
 - `settings/` — User Preferences & Internationalization (8 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357; `settings.unsaved-edits` added 2026-09-22, PAD-394; `settings.explicit-save` added 2026-10-03, PAD-506, replacing `settings.save-on-change` of PAD-473)

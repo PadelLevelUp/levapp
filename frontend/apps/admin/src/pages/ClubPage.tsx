@@ -150,7 +150,7 @@ export function ClubPage() {
         <h2 className="mb-3 text-sm font-semibold">{t("admin.clubs.coaches")}</h2>
         <ul className="space-y-2" data-testid="club-coaches">
           {club.data.coachesList.map((coach) => (
-            <li key={coach.coachId} className="flex items-center gap-2 text-sm" data-testid={`club-coach-${coach.coachId}`}>
+            <li key={coach.coachId} className="flex flex-wrap items-center gap-2 text-sm" data-testid={`club-coach-${coach.coachId}`}>
               <span>{coach.name ?? `#${coach.coachId}`}</span>
               {coach.email ? <Badge>{coach.email}</Badge> : null}
               {editable ? (

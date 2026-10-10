@@ -35,7 +35,16 @@ import type {
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { reminderAnswerOutcome } from "@levelup/config";
+import { reminderAnswerOutcome, studentRowAction } from "@levelup/config";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Pressable, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -44,6 +53,7 @@ import { useSnoozeNeedsYouItem } from "@levelup/hooks";
 import {
   useRespondInvite,
   useRespondReminder,
+  useDeclineFromDashboard,
   useRespondWaitingListOffer,
 } from "@/features/calendar/hooks";
 import { nativeRouteForWebPath } from "@/features/dashboard/routes";
@@ -302,6 +312,68 @@ function AskButtons({
   );
 }
 
+/**
+ * PAD-570 (dashboard.blocks rule 3a): before the student is asked, or once they said
+ * yes, a row offers ONE thing — "Avisar que não vou" — behind a dialog that says the
+ * consequence (the spot is freed; there is no way back, attendance.confirm rule 28).
+ * `cancel_attendance`, like the class detail, so the server classifies the decline.
+ */
+function DeclineButton({
+  target,
+  onNavy,
+}: {
+  target: number | { model: string; originalId: string | number; date: string };
+  onNavy?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = React.useState(false);
+  const decline = useDeclineFromDashboard();
+  const confirm = () => {
+    setOpen(false);
+    decline.mutate(target, {
+      onSuccess: () => toast.success(t("dashboard.answer.notGoingDone")),
+      onError: () => toast.error(t("dashboard.answer.notGoingFailed")),
+    });
+  };
+  return (
+    <View testID="dashboard-decline">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={decline.isPending}
+        testID="dashboard-decline-open"
+        className={cn(onNavy && "border-sidebar-foreground/30 bg-transparent")}
+        onPress={() => setOpen(true)}
+      >
+        <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-foreground" : "text-foreground")}>
+          {t("dashboard.answer.notGoing")}
+        </Text>
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("dashboard.answer.notGoingTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("dashboard.answer.notGoingBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              testID="dashboard-decline-confirm"
+              accessibilityLabel={t("dashboard.answer.notGoingConfirm")}
+              variant="destructive"
+              onPress={confirm}
+            >
+              <Text>{t("dashboard.answer.notGoingConfirm")}</Text>
+            </Button>
+            <AlertDialogCancel>
+              <Text>{t("dashboard.answer.notGoingKeep")}</Text>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </View>
+  );
+}
+
 function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
   const { t, i18n } = useTranslation();
   const respond = useRespondInvite();
@@ -400,9 +472,21 @@ function WaitingListOfferCard({ item }: { item: DashboardNeedsYouWaitingListOffe
 
 /* ── blocks ──────────────────────────────────────────────────────────────── */
 
-export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
+export function NextClassHero({
+  block,
+  student = false,
+}: {
+  block: DashboardNextClassBlock;
+  /** PAD-570: only a student's hero carries attendance actions; the coach's never does. */
+  student?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const d = block.data;
+  // PAD-570: only a student's hero carries attendance actions (the coach's payload has
+  // neither `attendanceState` nor `pendingConfirmation`, and never gets a button).
+  const heroAction = student ? studentRowAction(d) : "none";
+  const heroDeclineTarget =
+    typeof d.lessonInstanceId === "number" ? d.lessonInstanceId : d.declineTarget ?? null;
 
   return (
     // The hero keeps its navy surface in BOTH themes, so every colour here
@@ -431,13 +515,24 @@ export function NextClassHero({ block }: { block: DashboardNextClassBlock }) {
         </Text>
       </View>
 
-      {d.pendingConfirmation === true && typeof d.lessonInstanceId === "number" && (
+      {/* PAD-570 (dashboard.blocks rule 3a): the server's flag and state word decide. */}
+      {heroAction === "answer" && typeof d.lessonInstanceId === "number" && (
         <View className="mt-4 flex-row items-center gap-3">
           <Text className="text-[13px] font-sans-semibold text-sidebar-foreground/90">
             {t("dashboard.schedule.toConfirm")}
           </Text>
           <AnswerButtons lessonInstanceId={d.lessonInstanceId} onNavy />
         </View>
+      )}
+      {heroAction === "decline" && heroDeclineTarget !== null && (
+        <View className="mt-4 flex-row items-center">
+          <DeclineButton target={heroDeclineTarget} onNavy />
+        </View>
+      )}
+      {heroAction === "declined" && (
+        <Text className="mt-4 text-[13px] text-sidebar-foreground/80" testID="dashboard-declined-hint">
+          {t("calendar.detail.declinedFinalHint")}
+        </Text>
       )}
 
       <View className="mt-4 flex-row items-center gap-3">
@@ -700,8 +795,12 @@ export function Schedule7Days({
         <View className="gap-px overflow-hidden rounded-2xl border border-border bg-border">
           {items.map((row) => {
             const full = row.capacity > 0 && row.filled >= row.capacity;
-            const pending =
-              student && row.pendingConfirmation === true && typeof row.lessonInstanceId === "number";
+            // PAD-570 (dashboard.blocks rule 3a): Yes / No only while the server says
+            // asked; one "Avisar que não vou" before that or after a yes; a hint after a no.
+            const action = student ? studentRowAction(row) : "none";
+            const pending = action === "answer" && typeof row.lessonInstanceId === "number";
+            const declineTarget =
+              typeof row.lessonInstanceId === "number" ? row.lessonInstanceId : row.declineTarget ?? null;
             return (
               <Pressable
                 key={row.id}
@@ -730,6 +829,16 @@ export function Schedule7Days({
                     <View className="mt-1">
                       <AnswerButtons lessonInstanceId={row.lessonInstanceId as number} />
                     </View>
+                  )}
+                  {action === "decline" && declineTarget !== null && (
+                    <View className="mt-1 flex-row">
+                      <DeclineButton target={declineTarget} />
+                    </View>
+                  )}
+                  {action === "declined" && (
+                    <Text className="mt-1 text-xs text-muted-foreground" testID="dashboard-declined-hint">
+                      {t("calendar.detail.declinedFinalHint")}
+                    </Text>
                   )}
                 </View>
                 {!student &&

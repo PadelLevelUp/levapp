@@ -6,6 +6,7 @@ implemented_by:
   - ../../specs/admin/clubs-and-switches.spec.md
   - ../../specs/admin/engine-health.spec.md
   - ../../specs/admin/commercial-groundwork.spec.md
+  - ../../specs/admin/phone-console.spec.md
 ---
 
 # Staff operate the platform without the database
@@ -26,7 +27,8 @@ need to look. Indirectly every coach and student, who get faster approvals and f
 
 ## User Journey
 
-1. A staff member opens the console and signs in with their company Google account.
+1. A staff member opens the console, from a laptop or from the browser on their phone, and signs
+   in with their company Google account.
 2. A new coach has asked to join: the staff member sees them in the approvals list and approves or
    rejects them. The coach is told exactly as they are today (email, push notification) and the
    CRM is updated.
@@ -57,6 +59,8 @@ need to look. Indirectly every coach and student, who get faster approvals and f
 7. The engine health page only reads. Nothing on it can start, stop or retry the engine.
 7. Plans and what they include are recorded before any payment exists. Charging money is a later
    decision that depends on the finance questionnaire.
+8. The console works on a phone: every screen can be used at phone width from the phone's
+   browser, with the same actions as at a desk. There is no separate phone app for staff.
 
 ## Success Metrics
 

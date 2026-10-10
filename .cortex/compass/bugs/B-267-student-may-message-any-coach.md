@@ -68,6 +68,13 @@ ahead); a declined enrolment on a future class still counts. Red first in the re
 (taught once, roster row deleted), then fixed in `_linked_coach_user_ids`. Two mutant gaps closed
 with tests: a group with one unlinked coach, and an inactive linked coach at the POST guard.
 
+### Follow-up (PAD-568, B-461, 2026-10-09)
+
+The shared-club arm this fix mirrored from the coach side turned out to be a leak of its own:
+a coach's join link puts every joiner in the club, so one join linked a student to every coach
+of that club. B-461 removes the club arm from both sides; a link is now the roster or a class
+that is not yet over, read the same way in both directions.
+
 ### Resolution
 
 (filled in when the PR lands)

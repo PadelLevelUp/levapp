@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
+import { ScrollTable } from "@/components/ScrollTable";
 import { adminApi, type DeployIdentity, type EngineHealth, type IncidentKind } from "@/lib/api";
 
 const KINDS: IncidentKind[] = ["email_failed", "push_failed", "reminder_skipped_past_due"];
@@ -114,7 +115,7 @@ function Summary({ data }: { data: EngineHealth }) {
       </Card>
       <Card className="md:col-span-2" data-testid="admin-eh-incidents">
         <h2 className="mb-3 font-semibold">{t("admin.engineHealth.incidents.title")}</h2>
-        <table className="w-full text-sm">
+        <ScrollTable testId="admin-eh-incidents-table">
           <thead className="text-left text-xs text-muted-foreground">
             <tr><th className="py-1 pr-4" /><th className="py-1 pr-4">{t("admin.engineHealth.incidents.last24h")}</th><th className="py-1">{t("admin.engineHealth.incidents.last7d")}</th></tr>
           </thead>
@@ -127,14 +128,14 @@ function Summary({ data }: { data: EngineHealth }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </ScrollTable>
         <h3 className="mt-4 text-xs font-medium text-muted-foreground">{t("admin.engineHealth.incidents.recent")}</h3>
         {data.incidents.recent.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("admin.engineHealth.incidents.none")}</p>
         ) : (
           <ul className="mt-1 text-xs">
             {data.incidents.recent.map((r) => (
-              <li key={r.id} className="border-t py-1 font-mono">
+              <li key={r.id} className="break-words border-t py-1 font-mono">
                 {new Date(r.createdAt).toLocaleString(i18n.language)} · {r.kind} · {r.channel}
                 {r.subjectType ? ` · ${r.subjectType} ${r.subjectId ?? ""}` : ""}
                 {r.errorClass ? ` · ${r.errorClass}` : ""}
@@ -164,8 +165,8 @@ function CoachView() {
   return (
     <Card className="mt-6" data-testid="admin-eh-coaches">
       <h2 className="mb-3 font-semibold">{t("admin.engineHealth.coaches.title")}</h2>
-      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setQ(draft.trim()); setCoachId(null); }}>
-        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t("admin.engineHealth.coaches.search")} data-testid="admin-eh-coach-search" className="w-72" />
+      <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); setQ(draft.trim()); setCoachId(null); }}>
+        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t("admin.engineHealth.coaches.search")} data-testid="admin-eh-coach-search" className="w-72 max-w-full" />
         <Button type="submit" variant="secondary">{t("admin.engineHealth.coaches.search")}</Button>
       </form>
       {list.data && list.data.coaches.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">{t("admin.engineHealth.coaches.none")}</p> : null}
@@ -203,7 +204,7 @@ export function EngineHealthPage() {
   return (
     <div>
       <PageHeader title={t("admin.engineHealth.title")} lead={t("admin.engineHealth.lead")} />
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button onClick={() => void query.refetch()} disabled={query.isFetching} data-testid="admin-eh-refresh">{t("admin.engineHealth.refresh")}</Button>
         {query.data ? <span className="text-xs text-muted-foreground">{t("admin.engineHealth.computedAt", { when: new Date(query.data.computedAt).toLocaleString(i18n.language) })}</span> : null}
       </div>

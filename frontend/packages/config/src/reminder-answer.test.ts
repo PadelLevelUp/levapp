@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canComeBack, reminderAnswerOutcome } from "./reminder-answer";
+import { canConfirmAttendance, reminderAnswerOutcome, studentRowAction } from "./reminder-answer";
 
 /**
  * PAD-315 (`attendance.confirm` rule 26) and B-074.
@@ -16,27 +16,53 @@ import { canComeBack, reminderAnswerOutcome } from "./reminder-answer";
  * guess the common case.
  */
 
-describe("canComeBack — offered on the state, never on a guess", () => {
-  it("is offered while the student is not coming and the class has not started", () => {
-    expect(canComeBack({ state: "not_coming", classStarted: false })).toBe(true);
+describe("canConfirmAttendance — PAD-570, the server's flag and nothing else", () => {
+  it("is offered only while the server says the student is asked and still planned", () => {
+    expect(canConfirmAttendance({ state: "planned", pendingConfirmation: true, classStarted: false })).toBe(true);
   });
-
-  it("is not offered in any other state", () => {
-    for (const state of ["planned", "coming", "attended", "missed"] as const) {
-      expect(canComeBack({ state, classStarted: false })).toBe(false);
+  it("never re-derives the ask: without the flag a planned row gets no 'Vou'", () => {
+    expect(canConfirmAttendance({ state: "planned", pendingConfirmation: false, classStarted: false })).toBe(false);
+    expect(canConfirmAttendance({ state: "planned", pendingConfirmation: undefined, classStarted: false })).toBe(false);
+  });
+  it("is closed on every other state, flag or no flag — not_coming is final (rule 28)", () => {
+    for (const state of ["coming", "not_coming", "attended", "missed"] as const) {
+      expect(canConfirmAttendance({ state, pendingConfirmation: true, classStarted: false })).toBe(false);
     }
   });
-
-  it("is not offered once the class has started", () => {
-    expect(canComeBack({ state: "not_coming", classStarted: true })).toBe(false);
+  it("is closed once the class started", () => {
+    expect(canConfirmAttendance({ state: "planned", pendingConfirmation: true, classStarted: true })).toBe(false);
   });
+});
 
-  it("does NOT consider whether the spot looks free", () => {
-    // The client cannot know without racing the invitation engine, and hiding a
-    // working action is worse than offering one the server may refuse
-    // (`attendance.confirm` rule 26). The signature takes no capacity at all —
-    // this test exists so adding one is a deliberate act, not a quiet one.
-    expect(canComeBack({ state: "not_coming", classStarted: false, spotsFree: 0 } as never)).toBe(true);
+describe("studentRowAction — what a dashboard row offers (dashboard.blocks rule 3a)", () => {
+  it("Yes / No while the server says pending", () => {
+    expect(studentRowAction({ pendingConfirmation: true, attendanceState: "planned" })).toBe("answer");
+  });
+  it("only 'Avisar que não vou' before the ask, and after a yes", () => {
+    expect(studentRowAction({ pendingConfirmation: false, attendanceState: "planned" })).toBe("decline");
+    expect(studentRowAction({ pendingConfirmation: false, attendanceState: "coming" })).toBe("decline");
+  });
+  it("the hint, and no button, after a no", () => {
+    expect(studentRowAction({ pendingConfirmation: false, attendanceState: "not_coming" })).toBe("declined");
+  });
+  it("nothing once the coach's record stands or the row is unknown", () => {
+    expect(studentRowAction({ pendingConfirmation: false, attendanceState: "attended" })).toBe("none");
+    expect(studentRowAction({ pendingConfirmation: false, attendanceState: "missed" })).toBe("none");
+    expect(studentRowAction({ pendingConfirmation: undefined, attendanceState: undefined })).toBe("decline");
+  });
+  it("a stale pending flag never beats a settled state", () => {
+    expect(studentRowAction({ pendingConfirmation: true, attendanceState: "not_coming" })).toBe("declined");
+    expect(studentRowAction({ pendingConfirmation: true, attendanceState: "coming" })).toBe("decline");
+  });
+});
+
+describe("the three PAD-570 refusals record nothing and explain themselves", () => {
+  it.each([
+    ["not_yet_asked", "calendar.detail.notYetAsked"],
+    ["already_declined", "calendar.detail.declinedFinalHint"],
+    ["already_marked", "calendar.detail.alreadyMarked"],
+  ])("%s", (action, key) => {
+    expect(reminderAnswerOutcome({ action })).toEqual({ record: null, messageKey: key, tone: "info" });
   });
 });
 

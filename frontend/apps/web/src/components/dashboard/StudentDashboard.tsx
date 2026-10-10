@@ -55,7 +55,7 @@ export function StudentDashboard({
   // dashboard.profile-completeness rule 4 (PAD-490): omitted when every link is complete.
   const profileBlock = pick(blocks, "profile_incomplete");
 
-  const hero = heroBlock ? <NextClassHero block={heroBlock} onAnswered={onRefresh} /> : null;
+  const hero = heroBlock ? <NextClassHero block={heroBlock} onAnswered={onRefresh} student /> : null;
   const needsYou = needsYouBlock ? <NeedsYouQueue block={needsYouBlock} onAnswered={onRefresh} /> : null;
   const schedule = scheduleBlock ? (
     <Schedule7Days block={scheduleBlock} role="student" onAnswered={onRefresh} />

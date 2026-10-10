@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { Card, Input, PageHeader } from "@/components/ui";
+import { ScrollTable } from "@/components/ScrollTable";
 import { adminApi } from "@/lib/api";
 
 /** admin.clubs-and-switches rule 1 (PAD-533): clubs by name, with their counts. */
@@ -30,7 +31,7 @@ export function ClubsPage() {
         ) : (clubs.data?.items.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">{t("admin.clubs.empty")}</p>
         ) : (
-          <table className="w-full text-sm" data-testid="clubs-table">
+          <ScrollTable testId="clubs-table">
             <thead>
               <tr className="text-left text-muted-foreground">
                 <th className="py-2">{t("admin.clubs.name")}</th>
@@ -44,7 +45,7 @@ export function ClubsPage() {
               {clubs.data!.items.map((club) => (
                 <tr key={club.id} className="border-t" data-testid={`club-row-${club.id}`}>
                   <td className="py-2">
-                    <Link className="font-medium underline-offset-2 hover:underline" to={`/clubs/${club.id}`}>
+                    <Link className="inline-flex min-h-11 items-center font-medium underline-offset-2 hover:underline md:min-h-0" to={`/clubs/${club.id}`}>
                       {club.name}
                     </Link>
                   </td>
@@ -55,7 +56,7 @@ export function ClubsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ScrollTable>
         )}
       </Card>
     </div>

@@ -175,7 +175,9 @@ export function StandingWaitingListSection() {
                 ) : null}
                 <div className="flex items-center gap-2 mt-0.5">
                   <Badge variant="secondary" className="text-xs">
-                    {t("settings.standingList.credits", { used: entry.creditsUsed, total: entry.creditsTotal })}
+                    {entry.creditsTotal == null
+                      ? t("settings.standingList.creditsUnlimited") /* PAD-560 (rule 19): no credit limit */
+                      : t("settings.standingList.credits", { used: entry.creditsUsed, total: entry.creditsTotal })}
                   </Badge>
                   {expired && (
                     <Badge

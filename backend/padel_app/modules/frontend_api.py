@@ -2509,10 +2509,41 @@ def confirm_presences():
         ).first() is not None
         if not on_roster and not _player_in_class(pid, target_lesson_id, target_instance_id):
             abort(403, "Not authorized to record attendance for this player")
+    # PAD-567 (attendance.validation rule 26): which rows are being cleared, and whether
+    # any of them was an absence — read BEFORE the write, so the semi-automatic recompute
+    # below knows a suggestion may have been born of it.
+    clear_ids = [
+        int(it["playerId"]) for it in (data.get("presences") or [])
+        if it.get("clear") and it.get("playerId") not in (None, "")
+    ]
+    cleared_an_absence = False
+    if clear_ids and is_instance:
+        from padel_app.models import Presence as _Presence
+
+        cleared_an_absence = (
+            _Presence.query.filter(
+                _Presence.lesson_instance_id == target.id,
+                _Presence.player_id.in_(clear_ids),
+                _Presence.status == "absent",
+            ).first()
+            is not None
+        )
     presences = confirm_presences_service(data['classInstance'], data['presences'])
 
     notified_players = []
     approval_bundle = None
+    if cleared_an_absence and presences:
+        instance = presences[0].lesson_instance
+        if instance and instance.start_datetime > club_now_naive():
+            config = get_or_create_config(coach.id)
+            if _is_semi_auto(config):
+                # A suggestion born of the cleared absence is withdrawn and the class's
+                # suggestion state re-derived (notifications.semi-auto-approval rule 12).
+                from padel_app.services import replacement_approval_service as _approvals
+
+                recomputed = _approvals.recompute_suggestions(instance.id, coach.id)
+                if recomputed.get("state") == "pending":
+                    approval_bundle = recomputed.get("bundle")
     has_absences = any(p.status == "absent" for p in presences)
     if has_absences and presences:
         coach = current_coach()
@@ -2553,6 +2584,8 @@ def confirm_presences():
         "presences": serialize_presences(presences),
         "notifiedPlayers": notified_players,
         "approvalBundle": approval_bundle,
+        # PAD-567: the rows this call cleared back to "no answer".
+        "cleared": clear_ids,
     })
 
 

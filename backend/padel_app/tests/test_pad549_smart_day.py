@@ -1,4 +1,7 @@
-"""notifications.message-templates rules 18–19 (PAD-549): the {day} placeholder and the preview."""
+"""notifications.message-templates rules 18–19 (PAD-549): the {day} placeholder and the preview.
+PAD-561 / B-463: the next-week form carries the preposition ("na próxima", "no próximo")."""
+import json
+from pathlib import Path
 from datetime import datetime
 
 import pytest
@@ -15,9 +18,9 @@ WED = datetime(2026, 10, 7, 10, 0)     # a Wednesday, club wall clock
     (datetime(2026, 10, 9, 18, 0), "depois de amanhã", "the day after tomorrow"),
     (datetime(2026, 10, 10, 9, 0), "este sábado", "this Saturday"),
     (datetime(2026, 10, 11, 9, 0), "este domingo", "this Sunday"),
-    (datetime(2026, 10, 12, 18, 0), "a próxima segunda-feira", "next Monday"),
-    (datetime(2026, 10, 16, 18, 0), "a próxima sexta-feira", "next Friday"),
-    (datetime(2026, 10, 18, 18, 0), "o próximo domingo", "next Sunday"),
+    (datetime(2026, 10, 12, 18, 0), "na próxima segunda-feira", "next Monday"),
+    (datetime(2026, 10, 16, 18, 0), "na próxima sexta-feira", "next Friday"),
+    (datetime(2026, 10, 18, 18, 0), "no próximo domingo", "next Sunday"),
     (datetime(2026, 10, 19, 18, 0), "dia 19/10", "19/10"),
     (datetime(2026, 10, 6, 18, 0), "dia 06/10", "06/10"),
 ])
@@ -33,7 +36,7 @@ def test_from_a_friday_a_monday_three_days_on_is_next_week(app):
     from padel_app.services.notification_service import format_relative_day
 
     with app.app_context():
-        assert format_relative_day(datetime(2026, 10, 12, 18, 0), "pt", now=datetime(2026, 10, 9, 23, 59)) == "a próxima segunda-feira"
+        assert format_relative_day(datetime(2026, 10, 12, 18, 0), "pt", now=datetime(2026, 10, 9, 23, 59)) == "na próxima segunda-feira"
 
 
 def test_the_day_is_computed_when_the_message_renders(app, monkeypatch):
@@ -76,3 +79,12 @@ def test_the_preview_is_for_coaches_and_takes_a_string(app, client, coach_auth):
         student = {"Authorization": f"Bearer {create_access_token(identity=str(su))}"}
     assert client.post("/api/app/notify/template_preview", headers=student, json={"template": "x"}).status_code == 403
     assert client.post("/api/app/notify/template_preview", headers=coach_auth, json={"template": 5}).status_code == 400
+
+
+def test_the_help_steers_coaches_to_a_sentence_the_field_fits():
+    """PAD-561 (rule 19): "para {day}" reads "para na próxima…" now, so the help names a shape that fits."""
+    root = Path(__file__).resolve().parents[3] / "frontend" / "src" / "locales"
+    for lang, needle in (("pt", "A aula é {day} às {time}"), ("en", "The class is {day} at {time}")):
+        text = json.loads((root / lang / "settings.json").read_text())["settings"]["templates"]["help"]["fields"]["day"]
+        assert needle in text, (lang, text)
+        assert ", a próxima segunda-feira" not in text and " next Monday, or the date" not in text

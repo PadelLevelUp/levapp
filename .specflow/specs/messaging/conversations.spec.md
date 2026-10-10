@@ -42,17 +42,25 @@ Manage conversations between users (1:1 or group chats).
    plus `hasMore` and `oldestMessageId` for walking back. A found conversation with a long
    history is therefore never returned whole; a freshly created one has `messages: []`,
    `hasMore: false`, `oldestMessageId: null`
-7. A coach may start a conversation with any player on their **roster** (`coach_in_player`) or in
-   any **club** they belong to (`player_in_club`) — the union of the two is the coach's
-   messageable set. Everyone else is a student and may start a conversation with an active coach
-   they are **linked** to: the coach has them on their roster (`coach_in_player`), they share a
-   club (`coach_in_club` × `player_in_club`), or the coach teaches a class they are in that is
-   **not yet over** — an occurrence (`coach_in_lesson_instance` × `presences`) that has not ended
+7. A coach may start a conversation with a player who is **linked** to them, and a student (everyone
+   else) with an active coach they are **linked** to. A link is one of two things, read the same way
+   from both sides: the coach has the player on their **roster** (`coach_in_player`), or the coach
+   teaches a class the player is in that is **not yet over** — an occurrence (`coach_in_lesson_instance` × `presences`) that has not ended
    and is not cancelled, or a series (`coach_in_lesson` × `player_in_lesson`) with an occurrence
    still ahead (one-off: its end is in the future; recurring: no `recurrence_end`, or one not yet
    passed). A past class is not a link, so removing a student from the roster drops the coach
    once their shared classes are over. A declined ("not coming") enrolment on a future class
-   still counts: the student is still enrolled. — B-267, PAD-483. The same set backs both `GET /api/app/messageable-users` (the picker) and the 403
+   still counts: the student is still enrolled. — B-267, PAD-483. **A shared club is not a link**
+   (PAD-568, B-461): a coach's join link puts every joiner in the club (`players.join-token` rule 5),
+   and the club's other coaches never chose those students, so the `coach_in_club` × `player_in_club`
+   arm that PAD-205/B-025 kept on the coach side and B-267 mirrored on the student side is gone
+   from both. The two directions are **symmetric** by construction: a student can start a
+   conversation with coach C exactly when C can start one with them, so neither side can open a
+   thread the other could not have. (The "live class" arm is kept even where every such student
+   is already on the roster; it is the one non-roster link the product means to keep.) Club
+   membership still feeds `messaging.block-and-report` rule 7 (`isKnownContact`, the "you don't
+   share a club" banner): that is a different question from who may start a conversation, and it
+   is untouched. The same set backs both `GET /api/app/messageable-users` (the picker) and the 403
    guard on `POST /api/app/conversation` with `otherParticipants`. Blocks, either way, remove a
    user from it. What stays reachable outside the set, on purpose: any active, activated user by exact
    username — placeholder accounts and users without a password never match
@@ -129,15 +137,30 @@ Manage conversations between users (1:1 or group chats).
 - **When** C requests `GET /api/app/messageable-users`, or POSTs a conversation with P
 - **Then** P appears in the list, and the conversation is created
 
-#### Coach messages a player who is only in their club
-- **Given** player Q is in a club C belongs to but has no `coach_in_player` row for C
-- **When** C requests `GET /api/app/messageable-users`
-- **Then** Q still appears in the list
+#### A player who is only in the coach's club is not messageable (PAD-568, B-461)
+- **Given** player Q is in a club C belongs to but has no `coach_in_player` row for C and is in no
+  class of C's that is not yet over
+- **When** C requests `GET /api/app/messageable-users`, or POSTs a conversation with Q
+- **Then** Q is absent from the list and the POST answers 403
+- **And** the same Q reached by `otherUsername` still opens the conversation
+
+#### Coach messages a student in a class they teach that is not yet over (PAD-568)
+- **Given** student T is on no roster of C's and in no club with C, but is enrolled in an occurrence
+  C teaches that ends tomorrow
+- **When** C requests `GET /api/app/messageable-users`, or POSTs a conversation with T
+- **Then** T appears in the list and the conversation is created
+- **And** once that occurrence is over (or cancelled), T is absent and the POST answers 403
 
 #### Coach cannot message an unrelated player
-- **Given** player R is neither on C's roster nor in any club C belongs to
+- **Given** player R is neither on C's roster nor in a class C teaches that is not yet over
 - **When** C POSTs a conversation with R
 - **Then** the request is rejected with 403, and R never appeared in C's messageable list
+
+#### The two directions agree (PAD-568)
+- **Given** coach C and players linked to C each a different way — roster, live occurrence, live
+  series, shared club only, a class that is over, and no link at all
+- **When** each player GETs `/api/app/messageable-users` and C GETs it too
+- **Then** C is in a player's list exactly when that player is in C's list
 
 #### Creation is all-or-nothing (B-024)
 - **Given** user 1 creates a conversation with user 5
@@ -210,11 +233,30 @@ Manage conversations between users (1:1 or group chats).
 - **When** they GET `/api/app/messageable-users`
 - **Then** every entry has role `coach`; no student appears
 
-#### A student's picker lists only linked coaches (B-267)
-- **Given** student S on coach A's roster, sharing a club with coach B, enrolled in a series coach
-  C teaches and in an occurrence coach D teaches, and active coach E with none of these links
+#### A student's picker lists only linked coaches (B-267, narrowed by PAD-568)
+- **Given** student S on coach A's roster, sharing a club (and nothing else) with coach B, enrolled
+  in a series coach C teaches and in an occurrence coach D teaches, and active coach E with none
+  of these links
 - **When** S GETs `/api/app/messageable-users`
-- **Then** the response holds A, B, C and D, and not E
+- **Then** the response holds A, C and D, and neither B nor E
+
+#### A shared club is not a link (PAD-568, B-461)
+- **Given** student S who accepted coach A's join link, so S is on A's roster and in A's club, and
+  coach B who is in that club and has S on no roster and in no class that is not yet over
+- **When** S GETs `/api/app/messageable-users` and POSTs `/api/app/conversation` with
+  `otherParticipants: [B]`
+- **Then** B is absent and the POST answers 403, while A is present
+- **And** POSTing `otherUsername: "<B's username>"` still opens the conversation
+
+#### A student with no coach sees the connect shortcut (PAD-568)
+- **Given** a student with no roster row and no class that is not yet over, so
+  `GET /api/app/messageable-users` answers `[]`
+- **When** they open the new-conversation picker on web or on iOS
+- **Then** instead of a list they see "Ainda não estás ligado a ninguém" and a
+  "Ligar-me a um treinador" action that opens the connect-with-a-coach screen
+  (`players.join-token` rule 8), and the "Message by username" field stays available below
+- **And** a student whose every linked coach already has a thread sees the "already have
+  conversations" line, not the shortcut
 
 #### A student cannot start a conversation with an unlinked coach (B-267)
 - **Given** the same S and E

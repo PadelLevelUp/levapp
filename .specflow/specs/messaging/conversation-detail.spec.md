@@ -30,7 +30,7 @@ through the history without the thread ever moving under the reader.
 4. Frontend renders as scrollable message list with chat bubbles
 5. Conversation payload includes the other participant's role (`participantRole`: `"coach"` or `"player"`), derived from `User.role`. When there is no other participant to derive it from, the payload degrades exactly as `messaging.conversations` rule 10 prescribes — `participantRole: null` alongside `participantDeleted: true` — rather than failing (B-024)
 6. The chat header subtitle displays the participant's actual role (capitalized), not a hardcoded value
-7. While the on-screen keyboard is open, the message composer stays docked directly above it with no gap, and the most recent message stays visible. On the native shell the `KeyboardAvoidingView` offset must equal the real distance between that view's bottom edge and the bottom of the screen — 0 for a full-height stack route — never a hardcoded constant, since React Native adds the offset to the avoided height rather than subtracting it
+7. While the on-screen keyboard is open, the message composer stays docked directly above it with no gap, and the most recent message stays visible: when the keyboard opens while the reader is **at the bottom**, the thread rises with it and stays pinned to the newest message (the viewport shrank, so the list scrolls to its end — the same gate as rule 10's "content grew": at the bottom and not during a landing); away from the bottom the keyboard opening moves nothing (rule 10). Closing the keyboard restores the layout without a jump — the native scroll view clamps the offset; nothing scrolls. PAD-569, B-462. On the native shell the `KeyboardAvoidingView` offset must equal the real distance between that view's bottom edge and the bottom of the screen — 0 for a full-height stack route — never a hardcoded constant, since React Native adds the offset to the avoided height rather than subtracting it
 8. Reactions for a conversation's messages are loaded in **one** query for the whole thread
    (`selectinload`), not lazily per message. `serialize_message` reads `message.reactions` for
    every message it renders, so an unloaded relationship turns a 200-message thread into 200
@@ -165,6 +165,20 @@ through the history without the thread ever moving under the reader.
 - **When** they focus the message input and the keyboard opens
 - **Then** the composer is flush against the top of the keyboard with no empty band between them,
   and the latest message remains visible above it
+
+#### The thread follows the keyboard (PAD-569, B-462)
+- **Given** a student on the native iOS app reading conversation 1 at its newest message (30+
+  messages, so the thread is taller than the screen)
+- **When** they focus the message input and the keyboard opens
+- **Then** the newest message is still fully visible directly above the composer, not under the
+  keyboard
+- **When** they send "Maestro keyboard" with the keyboard still open
+- **Then** the thread scrolls so that the new bubble is visible above the composer
+- **When** they dismiss the keyboard
+- **Then** the thread stays at its newest message; nothing jumps
+- **Given** instead the same reader scrolled a screen up into older messages
+- **When** the keyboard opens
+- **Then** the viewport does not move (rule 10)
 
 #### Composer row is symmetric above the keyboard
 - **Given** a user viewing a conversation on the native iOS app with the keyboard open

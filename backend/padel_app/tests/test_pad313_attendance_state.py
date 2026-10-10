@@ -148,12 +148,12 @@ def _seat(app, iid, player_id):
         return inst.effective_filled_spots, open_vacancies, row.attendance_state
 
 
-def test_confirm_cancel_reconfirm_cancel_keeps_the_seat_and_the_badge_in_step(app):
-    """B-073's other direction, end to end.
-
-    A yes after a cancellation used to leave `status='absent'`: the app said
-    "confirmed" while the class did not count the student and the engine was
-    still offering their spot away. The badge and the seat must move together.
+def test_confirm_then_cancel_is_final_the_seat_and_the_badge_stay_given_up(app):
+    """B-073's other direction, end to end — and PAD-570 (attendance.confirm rule 28):
+    "Não vou" is final. A yes after a cancellation used to re-seat the student when
+    the spot was still free (PAD-315); now it is refused with `already_declined`, records
+    nothing, and the seat and the badge stay in step: 0 counted, `not_coming`, the
+    vacancy still open for somebody else.
     """
     from unittest.mock import patch
 
@@ -171,97 +171,8 @@ def test_confirm_cancel_reconfirm_cancel_keeps_the_seat_and_the_badge_in_step(ap
             assert (filled, state) == (0, "not_coming")
             assert vacancies == 1, "the cancelled spot is offered to someone else"
 
-            # Re-confirming re-seats them: the spot was still open.
-            assert respond_to_reminder(iid, "yes", ids["student_user_id"])["action"] == "confirmed"
-            assert _seat(app, iid, ids["student_id"]) == (1, 0, "coming"), (
-                "a re-confirmed student is counted again and their vacancy is closed"
+            # PAD-570: there is no way back; the server refuses and touches nothing.
+            assert respond_to_reminder(iid, "yes", ids["student_user_id"]) == {"action": "already_declined"}
+            assert _seat(app, iid, ids["student_id"]) == (0, 1, "not_coming"), (
+                "a refused student is not counted, not shown as coming, and their vacancy stays open"
             )
-
-            # And cancelling again still works.
-            cancel_attendance(ids["student_user_id"], lesson_instance_id=iid)
-            filled, _vacancies, state = _seat(app, iid, ids["student_id"])
-            assert (filled, state) == (0, "not_coming")
-
-
-def test_a_reconfirm_is_refused_when_the_spot_is_gone_and_the_student_is_told(app):
-    """PAD-261's one winner: re-taking a seat someone else now holds would put
-    two students in one place, so it is refused — out loud."""
-    from unittest.mock import patch
-
-    from padel_app.models import Message
-    from padel_app.services.lesson_service import enrol
-    from padel_app.models import LessonInstance
-    from padel_app.services.notification_service import cancel_attendance, respond_to_reminder
-    from padel_app.tests.test_notification_reminder_flow import PATCHES
-    from padel_app.tests.test_pad259_readers import _second_student
-
-    ids, iid = _world(app, max_players=1)
-    with app.app_context():
-        with patch(PATCHES[0]), patch(PATCHES[1]):
-            respond_to_reminder(iid, "yes", ids["student_user_id"])
-            cancel_attendance(ids["student_user_id"], lesson_instance_id=iid)
-            assert _seat(app, iid, ids["student_id"])[0] == 0
-
-            # somebody else takes the freed seat
-            carol, _carol_uid = _second_student(app, ids["coach_id"], "carol")
-            inst = db.session.get(LessonInstance, iid)
-            enrol(carol, inst, "fill", confirmed=True)
-            assert db.session.get(LessonInstance, iid).effective_filled_spots == 1
-
-            before = Message.query.count()
-            result = respond_to_reminder(iid, "yes", ids["student_user_id"])
-
-    assert result["action"] == "spot_filled"
-    filled, _v, state = _seat(app, iid, ids["student_id"])
-    assert filled == 1, "the class is not over-filled"
-    assert state == "not_coming", "the refused student is not shown as coming"
-    with app.app_context():
-        assert Message.query.count() > before, "the student is told, not silently ignored"
-        # and the coach, who is the only one who can put them back by hand
-        coach_told = Message.query.filter(
-            Message.msg_metadata["returnRefused"].as_boolean().is_(True)
-        ).count() if db.engine.name == "postgresql" else sum(
-            1 for m in Message.query.all()
-            if (m.msg_metadata or {}).get("returnRefused") is True
-        )
-        assert coach_told == 1, "the coach is told the student tried to come back"
-
-
-def test_a_refused_return_is_not_recorded_as_a_yes(app):
-    """A student refused a seat must not be on record as having accepted it.
-
-    The reminder was marked answered before the capacity check, and the
-    refusal's commit persisted it — so the bubble would tell them their "yes"
-    was taken while the server had just refused it.
-    """
-    from unittest.mock import patch
-
-    from padel_app.models import LessonInstance, ReminderAttempt
-    from padel_app.services.lesson_service import enrol
-    from padel_app.services.notification_service import (
-        cancel_attendance, respond_to_reminder, send_class_reminders,
-    )
-    from padel_app.tests.test_notification_reminder_flow import PATCHES
-    from padel_app.tests.test_pad259_readers import _second_student
-
-    ids, iid = _world(app, max_players=1)
-    with app.app_context():
-        with patch(PATCHES[0]), patch(PATCHES[1]):
-            send_class_reminders(iid)
-            cancel_attendance(ids["student_user_id"], lesson_instance_id=iid)
-
-            carol, _uid = _second_student(app, ids["coach_id"], "carol")
-            enrol(carol, db.session.get(LessonInstance, iid), "fill", confirmed=True)
-
-            assert respond_to_reminder(iid, "yes", ids["student_user_id"])["action"] == "spot_filled"
-
-        attempt = (
-            ReminderAttempt.query
-            .filter_by(lesson_instance_id=iid, player_id=ids["student_id"])
-            .order_by(ReminderAttempt.id.desc())
-            .first()
-        )
-        assert attempt is not None, "the reminder that was sent has an attempt row"
-        assert attempt.response != "yes", (
-            "a refused student must not be recorded as having accepted"
-        )

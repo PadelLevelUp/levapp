@@ -13,7 +13,6 @@ from padel_app.models import Presence, LessonInstance
 class PlayerKpis:
     lessons_attended: int
     lessons_missed: int
-    invites_to_confirm: int
 
 
 def compute_player_kpis(*, player_id: int) -> PlayerKpis:
@@ -45,18 +44,10 @@ def compute_player_kpis(*, player_id: int) -> PlayerKpis:
         .scalar()
     ) or 0
 
-    invites_to_confirm = (
-        db.session.query(func.count(P.id))
-        .join(LI, LI.id == P.lesson_instance_id)
-        .filter(P.player_id == player_id)
-        .filter(P.invited == True)    # noqa: E712
-        .filter(P.confirmed == False) # noqa: E712
-        .filter(LI.start_datetime >= now)
-        .scalar()
-    ) or 0
+    # PAD-570: the Invites tile is `askable_instances` (helpers/dashboard/confirmation.py),
+    # the same predicate as the queue; the old `invited and not confirmed` count is gone.
 
     return PlayerKpis(
         lessons_attended=int(lessons_attended),
         lessons_missed=int(lessons_missed),
-        invites_to_confirm=int(invites_to_confirm),
     )
