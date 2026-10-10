@@ -114,6 +114,17 @@ create one, or ask to join an existing one — happens right after approval (`cl
     asked); the activation of a coach-created player (`auth.activate`); the coach club-invitation accept
     (`clubs.coach-invitation`). Each can take the same field later.
 
+20. **What was typed survives a detour (PAD-575, B-561).** The web sign-up form keeps a draft of
+    its fields — role, name, username, email, birth date, country and the Terms box, **never a
+    password** — in the tab's `sessionStorage` (`levapp.signupDraft`) from the first keystroke until
+    the account exists, and restores it when the page mounts. So opening the Terms or the Privacy
+    Policy and coming back (the links open a new tab; iOS Safari may still bring the student back
+    through a same-tab navigation, a back-forward-cache miss or a discarded tab) shows the form as
+    it was, with only the passwords to retype. The draft is removed when `POST /api/auth/register`
+    succeeds; a blank draft is never written; storage that cannot be used (private mode) leaves the
+    form working without a draft. iOS: the native form stays mounted while the documents open in
+    the in-app browser, so nothing is lost there and no draft is kept.
+
 ### Acceptance Criteria
 
 #### The Terms must be accepted to sign up (rule 19, PAD-485)
@@ -236,3 +247,11 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - Rate limiting: rule 15 (PAD-228).
 - Email verification: `auth.email-verification` (PAD-234), added 2026-09-07.
 - PAD-198: rules 16–17 and `auth.parental-consent` (rules numbered 16+ because PAD-228 takes 15).
+
+#### The typed form survives the Terms detour (PAD-575, B-561)
+- **Given** a student on web `/signup` (iPhone profile) who typed name, username, email, both
+  passwords, a birth date and ticked the Terms box
+- **When** the tab navigates to `/terms` and comes back (`history.back()`), or the tab is reloaded
+- **Then** name, username, email, birth date and the Terms box are as they were, the password fields
+  are empty, and nothing was submitted
+- **And** after a successful sign-up the draft is gone: a later visit to `/signup` starts blank
