@@ -16,12 +16,15 @@ Also pinned: the conversation list's `participantAvatar` is the participant's im
 used to read `avatar_url`, which no model defines, so it was always null. Loading it costs
 no extra statement per conversation (PAD-204's constant-cost list).
 """
-from unittest.mock import patch
+import logging
 
 import pytest
+from flask_jwt_extended import create_access_token
+from sqlalchemy import event
 
 from padel_app import model
 from padel_app.model import Image
+from padel_app.sql_db import db
 
 
 class _Clock:
@@ -84,7 +87,7 @@ def test_the_url_is_re_signed_after_the_reuse_window(clock, signer):
     assert len(signer) == 2
 
 
-def test_a_failure_is_not_retried_within_the_retry_window(clock, monkeypatch):
+def test_a_failure_is_not_retried_within_the_retry_window(clock, monkeypatch, caplog):
     attempts = []
 
     def failing(self, minutes=model.SIGNED_URL_MINUTES, method="GET"):
@@ -94,9 +97,13 @@ def test_a_failure_is_not_retried_within_the_retry_window(clock, monkeypatch):
     monkeypatch.setattr(model, "GCS_BUCKET", "bucket")
     monkeypatch.setattr(Image, "signed_url", failing)
     img = Image(object_key="images/user/a.jpg")
-    assert img.url() is None
-    assert img.url() is None  # B-018 still: None, and no second attempt yet
+    with caplog.at_level(logging.WARNING, logger="padel_app.model"):
+        assert img.url() is None
+        assert img.url() is None  # B-018 still: None, and no second attempt yet
     assert len(attempts) == 1
+    assert [r.getMessage() for r in caplog.records].count(
+        "could not sign image images/user/a.jpg: no signer"
+    ) == 1  # B-018's log, once per retry window
     clock.now += model.SIGNING_FAILURE_RETRY_SECONDS + 1
     assert img.url() is None
     assert len(attempts) == 2
@@ -119,68 +126,96 @@ def test_a_page_of_eight_participants_costs_eight_signings_once(clock, signer):
     assert len(signer) == 8
 
 
+def test_the_cache_stays_bounded_and_keeps_the_newest(clock, signer, monkeypatch):
+    monkeypatch.setattr(model, "_SIGNED_URL_CACHE_MAX", 5)
+    for i in range(12):
+        Image(object_key=f"images/user/k{i}.jpg").url()
+    assert len(model._SIGNED_URL_CACHE) <= 5
+    assert "images/user/k11.jpg" in model._SIGNED_URL_CACHE
+    assert "images/user/k0.jpg" not in model._SIGNED_URL_CACHE
+
+
 # ---------------------------------------------------------------------------
-# participantAvatar
+# participantAvatar (messaging.conversations rule 5a)
 # ---------------------------------------------------------------------------
-from flask_jwt_extended import create_access_token  # noqa: E402
-
-from padel_app.sql_db import db  # noqa: E402
-
-
 @pytest.fixture
-def _jwt_secret(app):
+def jwt_secret(app):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
 
 
-def _seed_thread_with_photo(caller_username, other_username, with_photo=True):
+def _user(username, with_photo):
     from padel_app.models import User
+
+    user = User(name=username, username=username, password="x")
+    db.session.add(user)
+    db.session.flush()
+    if with_photo:
+        photo = Image(object_key=f"images/user/{username}.jpg", is_public=False)
+        db.session.add(photo)
+        db.session.flush()
+        user.user_image_id = photo.id
+    return user
+
+
+def _thread(caller_id, other_username, with_photo=True):
     from padel_app.models.conversation_participants import ConversationParticipant
     from padel_app.models.conversations import Conversation
 
-    caller = User(name="Caller", username=caller_username, password="x")
-    other = User(name="Other", username=other_username, password="x")
-    db.session.add_all([caller, other])
-    db.session.flush()
-    if with_photo:
-        photo = Image(object_key=f"images/user/{other_username}.jpg", is_public=False)
-        db.session.add(photo)
-        db.session.flush()
-        other.user_image_id = photo.id
+    other = _user(other_username, with_photo)
     conv = Conversation(
         is_group=False,
-        participant_key=Conversation.build_participant_key([caller.id, other.id]),
+        participant_key=Conversation.build_participant_key([caller_id, other.id]),
     )
     db.session.add(conv)
     db.session.flush()
-    for uid in (caller.id, other.id):
+    for uid in (caller_id, other.id):
         db.session.add(ConversationParticipant(conversation_id=conv.id, user_id=uid))
     db.session.flush()
-    return caller.id
 
 
-def test_the_conversation_list_carries_the_participant_photo(app, client, _jwt_secret, clock, signer):
+def _caller_headers(app, caller_username, others):
     with app.app_context():
-        caller_id = _seed_thread_with_photo("pad593_caller", "pad593_other")
+        caller = _user(caller_username, with_photo=False)
+        for other in others:
+            _thread(caller.id, other)
         db.session.commit()
-        token = create_access_token(identity=str(caller_id))
-    resp = client.get("/api/app/conversations", headers={"Authorization": f"Bearer {token}"})
+        token = create_access_token(identity=str(caller.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _list(client, headers):
+    resp = client.get("/api/app/conversations", headers=headers)
     assert resp.status_code == 200, resp.data
-    [conv] = resp.get_json()["conversations"]
+    return resp.get_json()["conversations"]
+
+
+def test_the_conversation_list_carries_the_participant_photo(app, client, jwt_secret, clock, signer):
+    headers = _caller_headers(app, "pad593_caller", ["pad593_other"])
+    [conv] = _list(client, headers)
     assert conv["participantAvatar"] == "https://signed/images/user/pad593_other.jpg?n=1"
 
 
-def test_the_photo_costs_no_statement_per_conversation(app, client, _jwt_secret, clock, signer):
+def test_a_photo_that_cannot_be_signed_leaves_the_list_working(app, client, jwt_secret, clock, monkeypatch):
+    def failing(self, minutes=model.SIGNED_URL_MINUTES, method="GET"):
+        raise RuntimeError("no signer")
+
+    monkeypatch.setattr(model, "GCS_BUCKET", "bucket")
+    monkeypatch.setattr(Image, "signed_url", failing)
+    headers = _caller_headers(app, "pad593_caller_f", ["pad593_other_f"])
+    [conv] = _list(client, headers)
+    assert conv["participantAvatar"] is None
+
+
+def test_the_photo_costs_no_statement_per_conversation(app, client, jwt_secret, clock, signer):
     """PAD-204's constant-cost list holds with the avatar read: the image rides the
     participant join instead of a lazy load per row."""
-    from sqlalchemy import event
-
+    headers = _caller_headers(app, "pad593_c2", ["pad593_o1"])
     with app.app_context():
-        caller_id = _seed_thread_with_photo("pad593_c2", "pad593_o1")
-        db.session.commit()
-        token = create_access_token(identity=str(caller_id))
         engine = db.engine
-    headers = {"Authorization": f"Bearer {token}"}
-    client.get("/api/app/conversations", headers=headers)  # warm-up
+        from padel_app.models import User
+
+        caller_id = User.query.filter_by(username="pad593_c2").one().id
+    _list(client, headers)  # warm-up
 
     def count():
         seen = []
@@ -190,33 +225,20 @@ def test_the_photo_costs_no_statement_per_conversation(app, client, _jwt_secret,
 
         event.listen(engine, "before_cursor_execute", rec)
         try:
-            assert client.get("/api/app/conversations", headers=headers).status_code == 200
+            _list(client, headers)
         finally:
             event.remove(engine, "before_cursor_execute", rec)
         return len(seen)
 
     one = count()
     with app.app_context():
-        from padel_app.models import User
-        from padel_app.models.conversation_participants import ConversationParticipant
-        from padel_app.models.conversations import Conversation
-
         for i in range(4):
-            other = User(name=f"O{i}", username=f"pad593_more{i}", password="x")
-            db.session.add(other)
-            db.session.flush()
-            photo = Image(object_key=f"images/user/pad593_more{i}.jpg")
-            db.session.add(photo)
-            db.session.flush()
-            other.user_image_id = photo.id
-            conv = Conversation(
-                is_group=False,
-                participant_key=Conversation.build_participant_key([caller_id, other.id]),
-            )
-            db.session.add(conv)
-            db.session.flush()
-            for uid in (caller_id, other.id):
-                db.session.add(ConversationParticipant(conversation_id=conv.id, user_id=uid))
+            _thread(caller_id, f"pad593_more{i}")
         db.session.commit()
     five = count()
+
+    # R-032: the five-thread run really listed five photographed participants.
+    convs = _list(client, headers)
+    assert len(convs) == 5
+    assert all(c["participantAvatar"] for c in convs)
     assert five == one, f"1 thread cost {one} statements, 5 threads cost {five}"

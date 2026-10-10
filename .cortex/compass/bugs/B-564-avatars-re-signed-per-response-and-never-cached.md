@@ -51,6 +51,12 @@ itself prescribed per-response minting, so this is Type 3 (wrong rule), not a co
   `Image.url()`; conftest resets the cache around every test.
 - `serialize_conversation` reads `participant.user_image_url`; `get_user_conversations` joins
   `User.user_image`, so the list stays constant in statements (PAD-204 rule 12, pinned).
+- The cache is per process: with several gunicorn workers each signs an image once per
+  window, so a client can see up to one URL per worker in 50 minutes (still a bounded number,
+  where before it was one per response).
+- Web and iOS already render `participantAvatar` (web `ConversationList`, iOS
+  `conversation-item`), so no client change ships; iOS's thread header has no avatar slot (an
+  existing layout difference, out of scope).
 - Not chosen: the `/api/app/image/<id>` 302 route. The cache gives the same stable URL without
   a new endpoint or a client change.
 

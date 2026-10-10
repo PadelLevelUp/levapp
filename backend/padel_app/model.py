@@ -55,7 +55,12 @@ def _reset_signed_url_cache():
 
 
 def _cached_signing(object_key, sign):
-    """`sign()`'s result for this key, reused until it expires (a failure is cached as None)."""
+    """`sign()`'s result for this key, reused until it expires (a failure is cached as None).
+
+    Keyed by object key alone, so it is only valid for the default signing that
+    `Image.url()` asks for (`SIGNED_URL_MINUTES`, GET). A caller that needs another
+    lifetime or method calls `Image.signed_url` directly, uncached.
+    """
     now = _monotonic()
     with _SIGNED_URL_CACHE_LOCK:
         hit = _SIGNED_URL_CACHE.get(object_key)
@@ -69,13 +74,13 @@ def _cached_signing(object_key, sign):
         url = None
         expires_at = now + SIGNING_FAILURE_RETRY_SECONDS
     with _SIGNED_URL_CACHE_LOCK:
-        if len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
-            for key in [k for k, (_, exp) in _SIGNED_URL_CACHE.items() if exp <= now]:
-                del _SIGNED_URL_CACHE[key]
-            while len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
-                del _SIGNED_URL_CACHE[next(iter(_SIGNED_URL_CACHE))]
+        # Re-insert so dict order is by last write; at the cap the oldest write goes first.
+        _SIGNED_URL_CACHE.pop(object_key, None)
+        while len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
+            del _SIGNED_URL_CACHE[next(iter(_SIGNED_URL_CACHE))]
         _SIGNED_URL_CACHE[object_key] = (url, expires_at)
     return url
+
 
 # One storage client per process (B-018). `storage.Client()` resolves
 # credentials against the metadata server every time it is built; doing that
