@@ -72,6 +72,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
      `calendar.eventCard.canceled` label as subtitle. Red means canceled and nothing else.
    - `block` (any `CalendarBlock` type): card surface with a 1.5px dashed `border`, title in
      foreground, the block type as subtitle. In the time grid a block is a `muted` surface.
+   - `open-spot` (B-541, PAD-579; the event carries `openSpot`, `eligibility.open-spot-visibility`
+     rule 11): card surface with a 1.5px **dashed** outline in the coach colour, title and time
+     in the coach colour via `readableInk`, the "Open spot" chip on the card. It is resolved by
+     the same shared helper as the rows above and wins over `future` and `next` — an offer is
+     never the student's next class; `canceled` still wins over it. Every surface that paints
+     "per rule 5" (the day card, the grid block, the dots) applies it, so the grid and the panel
+     never disagree about the same class.
    A class without a colour falls back to `primary`, exactly as today.
 6. **Swatches never read as a status.** The eight coach-pickable colours live in exactly one
    place, `CLASS_COLOR_SWATCHES` in `@levelup/config`, and every picker (web add and detail
@@ -101,7 +108,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     circle, `primary` number, 2px `primary` inset ring; otherwise transparent circle,
     foreground number. The dot row shows up to three 5px dots, one per event in `startTime`
     order, coloured by rule 5's surface (coach colour, `muted` for a block, `destructive`
-    for a canceled class); a day with more than three events still shows three. Tapping a
+    for a canceled class, and the **outline** colour — the coach colour — for an outlined
+    treatment, `next` or `open-spot`, whose surface is the white card); a day with more than
+    three events still shows three. Tapping a
     column selects that day. The strip never renders title chips or a `+N` indicator —
     this supersedes `calendar.view` rule 14's strip on iOS and web's 4-chip strip.
 
@@ -115,8 +124,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     rounded to whole hours and clamped to 07:00–23:00; a week with no events shows
     08:00–20:00. Rows are equal height and the grid scrolls vertically when taller than the
     space above the sheet. Each event is an absolutely positioned block: top and height from
-    its start and end minutes (minimum height 18px), 6px radius, surface per rule 5, title
-    clamped to two lines. Overlapping events in one column share the width side by side
+    its start and end minutes (minimum height 18px), 6px radius, surface per rule 5 (an
+    open spot's dashed outline included), title clamped to two lines. Overlapping events in one column share the width side by side
     (reuse `calendar-overlap.ts`). The selected day's column is tinted `secondary`.
 14. **Tapping** a column's empty area selects that day. Tapping an event block opens its
     detail exactly as tapping its card does today (class → class detail; block → event
@@ -157,7 +166,15 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     soon as the sheet is at or below its resting height, and on leaving `Mês`. `Dia` and
     `Semana` always show them.
 19. **Students** see the same three modes, read-only: their enrolled classes and their own
-    blockers, with no `Add class` button. Everything else in this spec applies.
+    blockers, with no `Add class` button. Everything else in this spec applies. **(PAD-578)**
+    Each enrolled class carries the ✓ mark (`calendar-enrolled-mark`, label
+    `calendar.eventCard.enrolled`) on its card and on its Semana grid block — never on an open
+    spot (rule 5's `open-spot` row carries the chip), never on a canceled class, and never on a
+    coach's calendar; the viewer's role reaches the cards from the calendar screen. Rule 9
+    stands: no legend on phones — the ✓ and the chip make the cards self-describing.
+    OPEN (owner, 2026-10-10 morning list): the owner asked for a short legend on the student
+    calendar "like the coach's"; the coach's legend exists on desktop web only, so a phone
+    legend would reverse rule 9's 2026-09-08 decision — not done here.
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
     keeps its existing phone app bar (white, mark only) — **decided 2026-09-08**: the canvas's
     navy web header is not adopted. The calendar screen on web starts at the segmented
@@ -213,6 +230,21 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **When** the coach views its card
 - **Then** the card surface is the card colour with a 1.5px `#6366F1` outline and the title
   in the readable-ink mix of `#6366F1`
+
+#### An open spot is the dashed outline on every surface (B-541)
+- **Given** a student eligible for a visible class coloured `#1355DC`, 12 of 16 filled, flagged `openSpot`
+- **When** their phone calendar renders it — the day card, the Semana grid block and the day's dot
+- **Then** the card and the block are the card surface with a 1.5px dashed `#1355DC` outline and
+  the title and time in `readableInk(#1355DC)`, the card carries the "Open spot" chip, and the
+  dot is `#1355DC`; nothing on them is white on white
+
+#### A student's enrolled class is ticked on the card and the grid block (rule 19, PAD-578)
+- **Given** a student enrolled in a class coloured `#1355DC` and eligible for an open spot the
+  same week
+- **When** their phone calendar (web or iOS) renders the Semana grid and the day sheet
+- **Then** the enrolled class's card and grid block carry `calendar-enrolled-mark` and the open
+  spot's carry `calendar-open-spot-chip` without the ✓
+- **And** a coach viewing their own calendar sees no `calendar-enrolled-mark` anywhere
 
 #### Canceled is red and only red is canceled
 - **Given** a canceled occurrence on the selected day
