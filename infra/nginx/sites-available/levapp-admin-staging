@@ -34,7 +34,7 @@ server {
 
     # B-383: the certificate is issued and renewed through the port-80 block in levapp-admin-staging-http
     # (certbot --webroot); certbot never edits this file.
-    listen 443 ssl;
+    listen 443 ssl http2;
     ssl_certificate /etc/letsencrypt/live/admin.staging.levapp.app/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/admin.staging.levapp.app/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
