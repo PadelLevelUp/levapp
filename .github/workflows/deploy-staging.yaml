@@ -174,6 +174,7 @@ jobs:
           docker stop padelapp_staging || true && docker rm padelapp_staging || true
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
           docker run -d --name padelapp_staging -p 127.0.0.1:5100:80 \
+            --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
             --memory 400m \
@@ -278,6 +279,7 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:staging
             docker stop levelup_frontend_staging || true && docker rm levelup_frontend_staging || true
             docker run -d --name levelup_frontend_staging \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --network levelup_net \
               --memory 100m \
@@ -329,6 +331,7 @@ jobs:
             docker stop levelup_admin_staging || true && docker rm levelup_admin_staging || true
             # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
             docker run -d --name levelup_admin_staging \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --memory 100m \
               -p 127.0.0.1:3300:80 \
