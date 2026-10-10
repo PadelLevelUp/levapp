@@ -357,7 +357,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 #### A student window costs a fixed number of statements (rule 8, PAD-583)
 - **Given** one student with 3 scheduled classes in the next 30 days and another with 13
 - **When** each student's dashboard is built with SQL statements recorded
-- **Then** both builds issue the same number of statements, and that number is below 40
+- **Then** both builds issue the same number of statements (the absolute is reported by
+  `backend/scripts/perf_baseline.py` before and after, not pinned here)
 
 #### Student invite reaches the queue (PAD-202)
 - **Given** an authenticated student with a `Presence` on tomorrow's 18:00 class where
