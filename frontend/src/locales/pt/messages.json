@@ -140,6 +140,10 @@
     "notConnectedYet": "Ainda não estás ligado a ninguém",
     "notConnectedYetHint": "Junta-te à base de alunos de um treinador ou usa um username para começar uma conversa.",
     "messageByUsernameExplain": "Sabes o username de alguém? Envia-lhe mensagem diretamente.",
-    "connectedPeople": "Pessoas com quem estás ligado"
+    "connectedPeople": "Pessoas com quem estás ligado",
+    "joinWaitingList": "Juntar-me à lista de espera",
+    "onWaitingList": "Estás na lista de espera",
+    "leaveWaitingList": "Sair",
+    "joinWaitingListFailed": "Não foi possível entrar na lista de espera."
   }
 }
