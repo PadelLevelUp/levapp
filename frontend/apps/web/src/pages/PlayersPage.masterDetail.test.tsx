@@ -6,6 +6,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const state = vi.hoisted(() => ({ isMobile: false }));
 
@@ -57,12 +58,29 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
+// The page reads its list and levels through the shared hooks (client.query-cache, PAD-586), which
+// call the resource modules directly; the `@/api/*` shims below serve the detail pane and writes.
+const pageOf = (items: typeof PLAYERS) => ({
+  items,
+  pagination: { page: 1, perPage: 25, total: items.length, pages: 1, hasNext: false, hasPrev: false },
+  alerts: { missingLevel: 0, missingSide: 0 },
+});
+
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@levelup/api/src/resources/players")>();
+  return {
+    ...actual,
+    getCoachPlayersPaginated: vi.fn(async () => pageOf(PLAYERS)),
+    getCoachPlayers: vi.fn(async () => PLAYERS),
+  };
+});
+
+vi.mock("@levelup/api/src/resources/coachLevel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@levelup/api/src/resources/coachLevel")>();
+  return { ...actual, getCoachLevels: vi.fn(async () => LEVELS) };
+});
+
 vi.mock("@/api/players", () => ({
-  getCoachPlayersPaginated: vi.fn(async () => ({
-    items: PLAYERS,
-    pagination: { page: 1, perPage: 25, total: PLAYERS.length, pages: 1, hasNext: false, hasPrev: false },
-    alerts: { missingLevel: 0, missingSide: 0 },
-  })),
   addPlayer: vi.fn(),
   getCoachPlayers: vi.fn(async () => PLAYERS),
   getPlayerProfile: vi.fn(async () => ({ playerId: "1", evaluations: [], strengths: [], weaknesses: [] })),
@@ -107,16 +125,21 @@ beforeEach(() => {
 });
 
 import PlayersPage from "./PlayersPage";
-import { getCoachPlayersPaginated, removePlayer } from "@/api/players";
+import { removePlayer } from "@/api/players";
+import { getCoachPlayersPaginated } from "@levelup/api/src/resources/players";
 
 function renderAt(path: string) {
+  // A fresh client per test, so cases never share cache.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0 } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/players" element={<PlayersPage />} />
-        <Route path="/players/:playerId" element={<PlayersPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/players" element={<PlayersPage />} />
+          <Route path="/players/:playerId" element={<PlayersPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -211,35 +234,39 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     expect(screen.getByTestId("player-detail-pane").className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 
-  it("(g) a skeleton fetch overtaken by a silent refetch still ends with the rows, not the skeleton", async () => {
+  it("(g) a stale response for an older search cannot overwrite the newer page", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Ana Silva" });
-    const page = await vi.mocked(getCoachPlayersPaginated).mock.results[0].value;
 
-    // A: a skeleton fetch (the search changed) that stays pending…
-    let resolveA!: (v: typeof page) => void;
-    vi.mocked(getCoachPlayersPaginated).mockImplementationOnce(
-      () => new Promise((resolve) => { resolveA = resolve; }),
-    );
-    fireEvent.change(screen.getByTestId("players-search-input"), { target: { value: "a" } });
-    expect(await screen.findByTestId("players-list-loading", {}, { timeout: 3000 })).toBeInTheDocument();
+    type Page = ReturnType<typeof pageOf>;
+    let resolveAn!: (v: Page) => void;
+    let resolveAna!: (v: Page) => void;
+    vi.mocked(getCoachPlayersPaginated)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveAn = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveAna = resolve; }));
+    const searchArg = () => vi.mocked(getCoachPlayersPaginated).mock.calls.map((c) => c[2]);
 
-    // …B: a silent refetch (the pane removed the player) becomes the newest request and resolves first…
-    fireEvent.click(screen.getAllByTestId("player-remove")[0]);
-    fireEvent.click(await screen.findByTestId("player-remove-confirm"));
-    await screen.findByTestId("player-detail-placeholder");
+    fireEvent.change(screen.getByTestId("players-search-input"), { target: { value: "an" } });
+    await waitFor(() => expect(searchArg()).toContain("an"), { timeout: 3000 });
+    fireEvent.change(screen.getByTestId("players-search-input"), { target: { value: "ana" } });
+    await waitFor(() => expect(searchArg()).toContain("ana"), { timeout: 3000 });
 
-    // …then A resolves. The newest request has settled: no skeleton may remain.
-    resolveA(page);
-    await waitFor(() => expect(screen.queryByTestId("players-list-loading")).not.toBeInTheDocument());
-    expect(screen.getByTestId("player-card-2")).toBeInTheDocument();
+    // The newer search answers first with Ana only; the older one answers last with Bruno only.
+    resolveAna(pageOf([PLAYERS[0]]));
+    await waitFor(() => expect(screen.queryByTestId("player-card-2")).not.toBeInTheDocument());
+    resolveAn(pageOf([PLAYERS[1]]));
+
+    await waitFor(() => expect(screen.getByTestId("player-card-1")).toBeInTheDocument());
+    expect(screen.queryByTestId("player-card-2")).not.toBeInTheDocument();
   });
 
-  it("(h) a roster fetch that fails keeps the rows and says so", async () => {
+  it("(h) a roster fetch that fails after a successful page keeps the rows and shows the error toast", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Ana Silva" });
+    expect(await screen.findByTestId("player-card-2")).toBeInTheDocument();
     toastSpy.mockClear();
 
+    // The refetch after removing the selected player is the failing second call.
     vi.mocked(getCoachPlayersPaginated).mockImplementationOnce(async () => { throw new Error("offline"); });
     fireEvent.click(screen.getAllByTestId("player-remove")[0]);
     fireEvent.click(await screen.findByTestId("player-remove-confirm"));

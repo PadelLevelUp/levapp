@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@levelup/hooks";
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
+import {
+  queryKeys,
+  useCoachRoster,
+  useInvalidatePresences,
+  usePendingValidation,
+  usePendingValidationCount,
+  usePresenceStats,
+  usePresenceTrend,
+} from "@levelup/hooks";
 import { CalendarCheck, TrendingUp, UserCheck, Users } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -14,17 +22,9 @@ import {
   ValidateClassesDialog,
   type RosterOption,
 } from "@/components/presences/ValidateClassesDialog";
-import {
-  getPendingValidation,
-  getPendingValidationCount,
-  getPresenceStats,
-  getPresenceTrend,
-  unvalidateClass,
-  validateClassPresences,
-} from "@/api/presences";
-import { getCoachPlayers } from "@/api/players";
+import { unvalidateClass, validateClassPresences } from "@/api/presences";
 import { toIsoDate, weekBounds } from "@/components/attendance/dateRanges";
-import type { PendingValidation, PresencePlayerStats, PresenceStats, PresenceTrend } from "@/types";
+import type { PresencePlayerStats } from "@/types";
 import { chartScope, narrowedTotals } from "@levelup/config";
 
 
@@ -67,15 +67,17 @@ export default function PresencesPage() {
     [queryClient]
   );
 
-  const [stats, setStats] = useState<PresenceStats | null>(null);
-  const [trend, setTrend] = useState<PresenceTrend | null>(null);
+  const invalidatePresences = useInvalidatePresences();
+  // What a presence write moves beyond the presences reads: the Presences badge and the dashboard's
+  // validation card (client.query-cache: a mutation invalidates the keys it changes).
+  const refreshAfterWrite = useCallback(async () => {
+    await invalidatePresences();
+    refreshBadge();
+    void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  }, [invalidatePresences, refreshBadge, queryClient]);
+
   // `null` = no filter active: the charts show the whole roster.
   const [filteredPlayers, setFilteredPlayers] = useState<PresencePlayerStats[] | null>(null);
-  const [queue, setQueue] = useState<PendingValidation | null>(null);
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-  // PAD-539: the whole backlog, the trigger's number (attendance.validation rule 18).
-  const [pendingTotal, setPendingTotal] = useState<number | null>(null);
-  const [roster, setRoster] = useState<RosterOption[]>([]);
 
   const [searchParams] = useSearchParams();
   const [weekOffset, setWeekOffset] = useState(() =>
@@ -84,113 +86,81 @@ export default function PresencesPage() {
   // PAD-283 (dashboard.blocks rule 10): the dashboard's validation card lands
   // here with `validate=1`, so the coach is inside the validate view at once.
   const [openValidate] = useState(() => searchParams.get("validate") === "1");
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingQueue, setLoadingQueue] = useState(true);
   // PAD-191 (B-033): the SET of classes in flight, not just the first — every
   // queued class stays disabled for the whole bulk run.
   const [busyClassIds, setBusyClassIds] = useState<number[]>([]);
 
   const week = useMemo(() => weekBounds(weekOffset), [weekOffset]);
 
-  const loadStats = useCallback(async () => {
-    setLoadingStats(true);
-    try {
-      const [statsData, trendData] = await Promise.all([
-        getPresenceStats(),
-        getPresenceTrend(),
-      ]);
-      setStats(statsData);
-      setTrend(trendData);
-    } catch {
-      toast({
-        title: t("presences.error.statsTitle"),
-        description: t("presences.error.statsBody"),
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingStats(false);
-    }
-  }, [t, toast]);
+  // client.query-cache rule 6: the page reads through the shared hooks; the cache is what makes a
+  // return inside the stale window instant, and a write invalidates the keys it changes.
+  const statsQuery = usePresenceStats();
+  const stats = statsQuery.data ?? null;
+  const loadingStats = statsQuery.isPending;
 
-  // attendance.validation rule 22 (PAD-413, B-177): every write refreshes the queue, so two quick
-  // actions issue overlapping refreshes and the earlier one may answer last. Only the latest
-  // refresh may write the queue; an earlier answer is dropped.
-  const queueRequest = useRef(0);
-  const loadQueue = useCallback(async () => {
-    const request = ++queueRequest.current;
-    setLoadingQueue(true);
-    try {
-      // The trigger's number comes from the count endpoint — the same helper
-      // the dashboard card reads — never from `pending.length` (B-045).
-      const [list, count] = await Promise.all([
-        getPendingValidation(week),
-        getPendingValidationCount(week),
-      ]);
-      if (request !== queueRequest.current) return;
-      setQueue(list);
-      setPendingCount(count.pendingCount);
-      setPendingTotal(count.pendingTotal);
-    } catch {
-      if (request !== queueRequest.current) return;
-      toast({
-        title: t("presences.error.queueTitle"),
-        description: t("presences.error.queueBody"),
-        variant: "destructive",
-      });
-    } finally {
-      if (request === queueRequest.current) setLoadingQueue(false);
-    }
-  }, [week, t, toast]);
-
-  useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
-
-  // The over-time chart follows the filters through the server (rule 17a):
-  // re-request the series for the visible players, debounced per keystroke,
-  // and fall back to the roster-wide one when the filters clear.
+  // The over-time chart follows the filters through the server (rule 17a): the series is requested
+  // for the visible players, debounced per keystroke, and is the roster-wide one when the filters
+  // clear. ONE hook call keyed on the filter (rule 8: the trend is requested once on load).
   const filteredIdsKey = filteredPlayers
     ? filteredPlayers.map((p) => p.playerId).sort((a, b) => a - b).join(",")
     : null;
+  const [trendPlayerIds, setTrendPlayerIds] = useState<number[] | undefined>(undefined);
   useEffect(() => {
-    if (filteredIdsKey === null) return;
+    if (filteredIdsKey === null) {
+      setTrendPlayerIds(undefined);
+      return;
+    }
     const ids = filteredIdsKey === "" ? [] : filteredIdsKey.split(",").map(Number);
-    const handle = window.setTimeout(() => {
-      getPresenceTrend({ playerIds: ids })
-        .then(setTrend)
-        .catch(() => undefined);
-    }, TREND_DEBOUNCE_MS);
+    const handle = window.setTimeout(() => setTrendPlayerIds(ids), TREND_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [filteredIdsKey]);
-  useEffect(() => {
-    if (filteredIdsKey !== null || !stats) return;
-    // Filters just cleared: back to the whole roster.
-    getPresenceTrend()
-      .then(setTrend)
-      .catch(() => undefined);
-    // `stats` is only here to skip the very first render, before loadStats.
-  }, [filteredIdsKey, stats]);
+  // The previous series stays on screen while the next one arrives (rule 5).
+  const trendQuery = usePresenceTrend(trendPlayerIds, { placeholderData: keepPreviousData });
+  const trend = trendQuery.data ?? null;
 
   useEffect(() => {
-    void loadQueue();
-  }, [loadQueue]);
+    if (!statsQuery.isError && !(trendPlayerIds === undefined && trendQuery.isError)) return;
+    toast({
+      title: t("presences.error.statsTitle"),
+      description: t("presences.error.statsBody"),
+      variant: "destructive",
+    });
+    // One toast per failure, not per identity change of `t` / `toast`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsQuery.isError, trendQuery.isError]);
 
+  // The trigger's number comes from the count endpoint — the same helper the dashboard card reads —
+  // never from `pending.length` (B-045). Both are keyed on the week and share the
+  // `presence-pending` prefix, so every write refreshes them together.
+  const queueQuery = usePendingValidation(week);
+  const countQuery = usePendingValidationCount(week);
+  const queue = queueQuery.data ?? null;
+  const pendingCount = countQuery.data?.pendingCount ?? null;
+  // PAD-539: the whole backlog, the trigger's number (attendance.validation rule 18).
+  const pendingTotal = countQuery.data?.pendingTotal ?? null;
+  const loadingQueue = queueQuery.isPending || countQuery.isPending;
   useEffect(() => {
-    getCoachPlayers()
-      .then((players) =>
-        setRoster(
-          // `playerId`, not `id` — the latter is the coach↔player association's
-          // own id, which no presence endpoint accepts.
-          players.map((p) => ({
-            id: Number(p.playerId),
-            name: p.name || t("presences.unknownPlayer"),
-          }))
-        )
-      )
-      // A failed roster load only costs the walk-in picker; the rest of the
-      // page is still useful, so this stays silent rather than alarming.
-      .catch(() => setRoster([]));
-  }, [t]);
+    if (!queueQuery.isError && !countQuery.isError) return;
+    toast({
+      title: t("presences.error.queueTitle"),
+      description: t("presences.error.queueBody"),
+      variant: "destructive",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueQuery.isError, countQuery.isError]);
+
+  // `playerId`, not `id` — the latter is the coach↔player association's own id, which no presence
+  // endpoint accepts. A failed roster load only costs the walk-in picker; the rest of the page is
+  // still useful, so it stays silent rather than alarming.
+  const rosterQuery = useCoachRoster();
+  const roster = useMemo<RosterOption[]>(
+    () =>
+      (rosterQuery.data ?? []).map((p) => ({
+        id: Number(p.playerId),
+        name: p.name || t("presences.unknownPlayer"),
+      })),
+    [rosterQuery.data, t]
+  );
 
   const handleValidate = useCallback(
     async (
@@ -214,7 +184,6 @@ export default function PresencesPage() {
         toast({
           title: t("presences.toast.validated", { count: classes.length }),
         });
-        await Promise.all([loadQueue(), loadStats()]);
       } catch {
         toast({
           title: t("presences.error.validateTitle"),
@@ -222,11 +191,12 @@ export default function PresencesPage() {
           variant: "destructive",
         });
       } finally {
+        // Also after a bulk run that stopped part-way: the classes already written moved the queue.
+        await refreshAfterWrite();
         setBusyClassIds([]);
-        refreshBadge();
       }
     },
-    [loadQueue, loadStats, refreshBadge, t, toast]
+    [refreshAfterWrite, t, toast]
   );
 
   const handleUnvalidate = useCallback(
@@ -234,7 +204,6 @@ export default function PresencesPage() {
       setBusyClassIds([lessonInstanceId]);
       try {
         await unvalidateClass(lessonInstanceId);
-        await Promise.all([loadQueue(), loadStats()]);
       } catch {
         toast({
           title: t("presences.error.undoTitle"),
@@ -242,11 +211,11 @@ export default function PresencesPage() {
           variant: "destructive",
         });
       } finally {
+        await refreshAfterWrite();
         setBusyClassIds([]);
-        refreshBadge();
       }
     },
-    [loadQueue, loadStats, refreshBadge, t, toast]
+    [refreshAfterWrite, t, toast]
   );
 
   const totals = stats?.totals;

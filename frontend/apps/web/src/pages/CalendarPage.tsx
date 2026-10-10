@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -10,7 +11,14 @@ import {
   ENABLED_VIEW_MODES,
   MobileCalendar,
 } from "@/components/calendar/mobile/MobileCalendar";
-import { isRequestEvent, type CalendarViewMode } from "@levelup/hooks";
+import {
+  isRequestEvent,
+  queryKeys,
+  useCalendarEvents,
+  useCoachLevels,
+  useCoachRoster,
+  type CalendarViewMode,
+} from "@levelup/hooks";
 import { CalendarPlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,15 +29,13 @@ import {
 import { AddEventSheet } from "@/components/calendar/AddEventSheet";
 import { EventDetailSheet } from "@/components/calendar/EventDetailSheet";
 import { effectiveFilledSpots, isHoldOccurrenceLocked } from "@levelup/config";
-import { getCalendarEvents, addCalendarBlock, rescheduleCalendarBlock } from "@/api/calendar";
-import { getCoachLevels } from "@/api/coachLevel";
-import { getCoachPlayers } from "@/api/players";
+import { addCalendarBlock, rescheduleCalendarBlock } from "@/api/calendar";
 import { useCalendar } from "@/hooks/useCalendar";
 import type { CalendarEvent, ClassInstance, CoachLevel, CoachPlayer } from "@/types";
 import type { CloneTemplate } from "@levelup/types";
 import * as classesApi from "@levelup/api/src/resources/classes";
 import { useToast } from "@/hooks/use-toast";
-import { addDays, format, isValid, parseISO } from "date-fns";
+import { addDays, endOfDay, format, isValid, isWithinInterval, parseISO } from "date-fns";
 import { LoadingCalendar } from "@/components/ui/loading-skeleton";
 import { removeClass, editClass, addClass } from "@/api/classes";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -84,10 +90,16 @@ function writeStoredViewMode(mode: CalendarViewMode) {
   }
 }
 
+// Stable empty results, so `useCalendar` and the sheets never see a new array on every render.
+const NO_EVENTS: CalendarEvent[] = [];
+const NO_PLAYERS: CoachPlayer[] = [];
+const NO_LEVELS: CoachLevel[] = [];
+
 export default function CalendarPage() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { user, token } = useAuth();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Frozen at first render: the calendar must open on the deep-linked week straight
@@ -99,18 +111,24 @@ export default function CalendarPage() {
     deepLink.classId
   );
 
-  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
-  const [eventsLoadedOnce, setEventsLoadedOnce] = useState(false);
-  const [levels, setLevels] = useState<CoachLevel[]>([]);
-  const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
   // PAD-248 rule 18: in Mês the add buttons step aside while the day sheet is pulled up.
   const [addButtonsHidden, setAddButtonsHidden] = useState(false);
 
   const canManageClasses = user?.roles.includes("coach") ?? false;
-  const calendar = useCalendar(allEvents, {
+
+  // client.query-cache: the range, the roster and the levels are queries (rules 6-7). The roster and
+  // levels share one key with presences / player detail / the class sheets, so moving between
+  // those screens inside the stale window makes no request for them.
+  const rosterQuery = useCoachRoster({ enabled: canManageClasses });
+  const levelsQuery = useCoachLevels({ enabled: canManageClasses });
+  const coachPlayers = canManageClasses ? (rosterQuery.data ?? NO_PLAYERS) : NO_PLAYERS;
+  const levels = canManageClasses ? (levelsQuery.data ?? NO_LEVELS) : NO_LEVELS;
+
+  // `useCalendar` owns the week and view-mode state, and the range it yields is what the events
+  // query is keyed on; so the hook is given no events and the page filters the query's data
+  // by the same week / month intervals below (the hook's own `events` / `monthEvents`).
+  const calendar = useCalendar(NO_EVENTS, {
     initialDate: deepLink.date ?? undefined,
     // PAD-181: the week-range label follows the active UI language. Passing
     // `i18n.language` (rather than the hook reading a module-level instance)
@@ -134,56 +152,87 @@ export default function CalendarPage() {
     "yyyy-MM-dd'T'23:59:59"
   );
 
-  // Every read of the range goes through here, and only the newest may land (PAD-488 review):
-  // an answer for the week the coach just left, or a refetch started before a newer one, would
-  // otherwise replace the events on screen.
-  const latestRead = useRef(0);
-  const readRange = useCallback(async () => {
-    const mine = ++latestRead.current;
-    const data = await getCalendarEvents(fetchFrom, fetchTo);
-    if (mine === latestRead.current) setAllEvents(data);
-  }, [fetchFrom, fetchTo]);
+  // client.query-cache rule 5: a range change keeps the previous range on screen until the next one
+  // arrives (`placeholderData: keepPreviousData`), so the grid never goes empty between weeks.
+  const eventsQuery = useCalendarEvents(fetchFrom, fetchTo, {
+    placeholderData: keepPreviousData,
+  });
+  const allEvents = eventsQuery.data ?? NO_EVENTS;
+  const loading = eventsQuery.isPending;
+  const eventsLoadedOnce = !eventsQuery.isPending;
+  // Rule 5 on the desktop grid: while the next week is in flight the data on hand is the previous
+  // week's, so the grid keeps showing THAT week (its columns and its cards) under the new week's
+  // toolbar label, and swaps when the response lands. The phone views are day-based and follow
+  // the selected day, so they use the new week at once.
+  // Rule 5: the header and columns follow the cards on screen, not the requested week, while the
+  // next range is a placeholder; the render-time write is idempotent.
+  const displayedWeekStart = useRef(calendar.weekStart);
+  if (!eventsQuery.isPlaceholderData) displayedWeekStart.current = calendar.weekStart;
+  const gridWeekStart = isMobile ? calendar.weekStart : displayedWeekStart.current;
+  const gridWeekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(gridWeekStart, i)),
+    [gridWeekStart]
+  );
+  const weekEvents = useMemo(
+    () =>
+      allEvents.filter((e) =>
+        isWithinInterval(parseISO(e.date), {
+          start: gridWeekStart,
+          end: addDays(gridWeekStart, 6),
+        })
+      ),
+    [allEvents, gridWeekStart]
+  );
+  const monthEvents = useMemo(
+    () =>
+      allEvents.filter((e) =>
+        isWithinInterval(parseISO(e.date), {
+          start: calendar.monthRange.start,
+          end: endOfDay(calendar.monthRange.end),
+        })
+      ),
+    [allEvents, calendar.monthRange]
+  );
+
+  // Every read of the calendar is the `calendar-events` prefix: every cached range goes stale and
+  // the one on screen refetches. A failed re-read keeps what is on screen.
+  const refreshEvents = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["calendar-events"] }),
+    [queryClient]
+  );
 
   // calendar.view rule 18 (PAD-526, B-344): after a class write, re-read the range on screen. The
   // local patch shows the clicked card at once; this brings the occurrences only the server knows.
-  // A failed re-read keeps the local patch (the write itself succeeded).
   const refreshAfterClassWrite = useCallback(() => {
-    readRange().catch(() => {});
-  }, [readRange]);
+    void refreshEvents();
+  }, [refreshEvents]);
 
-  // A local edit (add, delete, drop) retires any read in flight: that answer was taken before
-  // the edit and would otherwise erase it when it lands.
-  const editEvents = useCallback((update: (prev: CalendarEvent[]) => CalendarEvent[]) => {
-    latestRead.current++;
-    setAllEvents(update);
-  }, []);
-
-  useEffect(() => {
-    async function loadEvents() {
-      setLoading(true);
-      try {
-        await readRange();
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-        setEventsLoadedOnce(true);
-      }
-    }
-
-    loadEvents();
-  }, [readRange]);
+  // A local edit (add, delete, drop) patches the cached range and retires any read in flight: that
+  // answer was taken before the edit and would otherwise erase it when it lands. The patch is
+  // applied once the cancel has settled, because a cancel restores the pre-fetch state.
+  const editEvents = useCallback(
+    (update: (prev: CalendarEvent[]) => CalendarEvent[]) => {
+      const key = queryKeys.calendarEvents(fetchFrom, fetchTo);
+      // A failed cancel falls back to a refetch rather than dropping the local edit.
+      queryClient
+        .cancelQueries({ queryKey: key })
+        .then(() =>
+          queryClient.setQueryData<CalendarEvent[]>(key, (old) => update(old ?? NO_EVENTS))
+        )
+        .catch(() => refreshEvents());
+    },
+    [queryClient, fetchFrom, fetchTo, refreshEvents]
+  );
 
   // classes.class-requests rule 19 (PAD-488, B-264): a request changed on this device, the
   // other person's or another of mine — the hold moved or went and a class may have taken its
-  // place, so the open calendar refetches its range. It keeps local state, not a query, so
-  // the shared invalidation does not reach it.
+  // place, so the calendar's cached ranges are invalidated (R-014: an event, never a poll).
   useEffect(() => {
     if (!token) return;
     return subscribeAppEvents(token, (data) => {
-      if (isRequestEvent(data.type)) readRange().catch(() => {});
+      if (isRequestEvent(data.type)) void refreshEvents();
     });
-  }, [token, readRange]);
+  }, [token, refreshEvents]);
 
   // Consume the deep-link params once, with a history replace, so closing the sheet
   // (or navigating back) never re-opens it.
@@ -199,30 +248,6 @@ export default function CalendarPage() {
     // Runs once — the guard above makes it a no-op afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    async function loadPopupData() {
-      if (!canManageClasses) {
-        setCoachPlayers([]);
-        setLevels([]);
-        return;
-      }
-
-      try {
-        const [playersData, levelsData] = await Promise.all([
-          getCoachPlayers(),
-          getCoachLevels(),
-        ]);
-
-        setCoachPlayers(playersData);
-        setLevels(levelsData);
-      } catch (err) {
-        console.error("Failed loading popup data", err);
-      }
-    }
-
-    loadPopupData();
-  }, [canManageClasses]);
 
   const [selectedClassEvent, setSelectedClassEvent] =
     useState<CalendarEvent | null>(null);
@@ -424,8 +449,6 @@ export default function CalendarPage() {
   };
 
 
-  const refreshEvents = readRange;
-
   const handleEventDrop = (event: CalendarEvent, newDate: string, newStartTime: string) => {
     const [sh, sm] = event.startTime.split(':').map(Number);
     const [eh, em] = event.endTime.split(':').map(Number);
@@ -532,7 +555,9 @@ export default function CalendarPage() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col h-full">
+      <div
+        className={cn("flex flex-col h-full transition-opacity", eventsQuery.isPlaceholderData && "opacity-80")}
+      >
         {/* PAD-246 (calendar.mobile-views rules 9, 18, 21): the toolbar — and
             the legend inside it — is desktop-only. On a phone the add actions
             are floating buttons, as on iOS. */}
@@ -564,8 +589,8 @@ export default function CalendarPage() {
               monthStart={calendar.monthStart}
               onPrevMonth={() => calendar.navigateMonth("prev")}
               onNextMonth={() => calendar.navigateMonth("next")}
-              events={calendar.events}
-              monthEvents={calendar.monthEvents}
+              events={weekEvents}
+              monthEvents={monthEvents}
               onAddButtonsHiddenChange={setAddButtonsHidden}
               levels={levels}
               onEventClick={handleEventClick}
@@ -598,10 +623,10 @@ export default function CalendarPage() {
           </>
         ) : (
           <>
-            <CalendarHeader weekDays={calendar.weekDays} />
+            <CalendarHeader weekDays={gridWeekDays} />
             <CalendarGrid
-              weekDays={calendar.weekDays}
-              events={calendar.events}
+              weekDays={gridWeekDays}
+              events={weekEvents}
               levels={levels}
               onEventClick={handleEventClick}
               onSlotClick={canManageClasses ? handleSlotClick : undefined}

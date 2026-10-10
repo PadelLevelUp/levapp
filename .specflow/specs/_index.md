@@ -14,6 +14,7 @@ governing leaf spec and its dependencies before touching code.
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
 - `classes/` — Lessons & Instances (13 leaves; `classes.clone` added 2026-10-07, PAD-524; `classes.class-requests` added 2026-09-10, PAD-104; `classes.availability` added 2026-09-17, PAD-357)
+- `client/` — Client Data Runtime (1 leaf; `client.query-cache` added 2026-10-10, PAD-586/PAD-592: one stale window and retry policy for both apps, cache-first returns, event-driven freshness)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
 - `delivery/` — How changes reach production safely (1 leaf; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511)
@@ -57,6 +58,7 @@ settings ─── [notifications, calendar] ┤
 import ───── [players, classes, levels, evaluations] ────┤
 dashboard ── [classes, messaging, notifications, players]┘
 admin ────── [auth, clubs, settings, eligibility, notifications, messaging]  (staff console; nothing depends on it)
+client ───── [dashboard, calendar, players, messaging, attendance]  (query-cache policy; mobile.* may depend on it)
 ```
 
 The `admin` leaves (2026-10-06, PAD-530) depend on product leaves and reuse their services; no
@@ -108,6 +110,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | import | 1 | 4 | implemented |
 | dashboard | 1 | 2 | implemented |
 | settings | 2 | 4 | partial (settings.tutorials implemented; settings.language draft) |
+| client | 1 | 1 | implementing (client.query-cache, PAD-586 web / PAD-592 mobile) |
 
 
 ## Build Order
