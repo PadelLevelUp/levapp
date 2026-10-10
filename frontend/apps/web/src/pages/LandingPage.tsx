@@ -45,6 +45,7 @@
  *     entry point to send someone to; a player holding a dead or missing
  *     invite needs a human, which is what /support is for.
  */
+import { CONTACT_EMAIL } from "@levelup/config";
 import {
   forwardRef,
   useEffect,
@@ -91,8 +92,9 @@ const NAVY_DEEP = "#0B1524";
 const NAVY_MUTED = "#A9BCD6";
 const NAVY_BORDER = "#2E4460";
 
-const SUPPORT_CONTACT_EMAIL = "padellevelup2026@gmail.com";
-const ADMIN_CONTACT_EMAIL = "admin@levapp.pt";
+// PAD-599: one contact address for the whole site, from @levelup/config.
+const SUPPORT_CONTACT_EMAIL = CONTACT_EMAIL;
+const ADMIN_CONTACT_EMAIL = CONTACT_EMAIL;
 
 const SECTION_BENEFITS = "vantagens";
 const SECTION_HOW = "como-funciona";
