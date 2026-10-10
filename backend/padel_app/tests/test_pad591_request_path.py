@@ -184,3 +184,83 @@ def test_the_loaders_leave_out_past_one_off_lessons_but_keep_recurring_series(ap
     expected = set(ids["in"]) | {series_id}
     assert coach_ids == expected
     assert player_ids == expected
+
+
+# ---------------------------------------------------------------------------
+# Shared: a class instance with N participants (Tasks 2 and 3)
+# ---------------------------------------------------------------------------
+INSTANCE_START = datetime(2026, 8, 12, 18, 0)
+
+
+def _instance_with_roster(app, *, tag, participants, with_config=True):
+    """A coach, a one-off class and its instance with `participants` presences.
+    Returns (coach_user_id, instance_id, player_ids)."""
+    from padel_app.models import (
+        Association_CoachLesson,
+        Association_CoachPlayer,
+        Association_PlayerLesson,
+        LessonInstance,
+        NotificationConfig,
+        Presence,
+    )
+    from padel_app.models.lessons import Lesson
+
+    coach_id, coach_user, club_id = _make_coach(app, tag)
+    players = [_make_player(app, f"{tag}{n}")[0] for n in range(participants)]
+    with app.app_context():
+        if with_config:
+            db.session.add(NotificationConfig(coach_id=coach_id, reminder_type="hours_before", reminder_value=24))
+        lesson = Lesson(title=f"{tag} class", start_datetime=INSTANCE_START,
+                        end_datetime=INSTANCE_START + timedelta(hours=1), is_recurring=False,
+                        type="academy", max_players=16, status="active", club_id=club_id)
+        db.session.add(lesson)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=coach_id, lesson_id=lesson.id))
+        inst = LessonInstance(lesson_id=lesson.id, start_datetime=INSTANCE_START,
+                              end_datetime=INSTANCE_START + timedelta(hours=1), max_players=16,
+                              status="scheduled", notifications_enabled=True,
+                              original_lesson_occurence_date=INSTANCE_START.date())
+        db.session.add(inst)
+        db.session.flush()
+        for pid in players:
+            db.session.add(Association_CoachPlayer(coach_id=coach_id, player_id=pid))
+            db.session.add(Association_PlayerLesson(player_id=pid, lesson_id=lesson.id))
+            db.session.add(Presence(lesson_instance_id=inst.id, player_id=pid, invited=True,
+                                    confirmed=True, enrolment_source="roster"))
+        db.session.commit()
+        return coach_user, inst.id, players
+
+
+# ---------------------------------------------------------------------------
+# Task 2 — calendar.event-detail rule 21
+# ---------------------------------------------------------------------------
+def _class_detail(app, client, user_id, instance_id):
+    return client.post(
+        "/api/app/class_instance",
+        query_string={"model": "lessoninstance", "id": instance_id},
+        headers=_headers(app, user_id),
+    )
+
+
+@pytest.mark.parametrize("with_config", [True, False], ids=["config-row", "no-config-row"])
+def test_a_class_detail_costs_a_fixed_number_of_statements(app, client, with_config):
+    small_user, small_id, small_players = _instance_with_roster(app, tag="dsmall", participants=3, with_config=with_config)
+    big_user, big_id, big_players = _instance_with_roster(app, tag="dbig", participants=12, with_config=with_config)
+
+    with _statements(app) as small:
+        small_resp = _class_detail(app, client, small_user, small_id)
+    with _statements(app) as big:
+        big_resp = _class_detail(app, client, big_user, big_id)
+
+    assert small_resp.status_code == 200 and big_resp.status_code == 200
+    # R-032: each payload carries its own roster.
+    assert len(small_resp.get_json()["participants"]) == len(small_players) == 3
+    assert len(big_resp.get_json()["participants"]) == len(big_players) == 12
+    assert len(big_resp.get_json()["presences"]) == 12
+    _assert_same_count(small, big, "class detail")
+
+    for recorded in (small, big):
+        config_reads = [s for s in recorded if "FROM notification_configs" in s]
+        assert len(config_reads) <= 1, config_reads
+    if with_config:  # the control: the config is read, so "at most one" is not vacuous
+        assert any("FROM notification_configs" in s for s in big)

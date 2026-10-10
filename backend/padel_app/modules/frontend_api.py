@@ -1135,7 +1135,19 @@ def class_instance():
     if not model:
         abort(400, "model is required")
 
-    current_class = event_types[model].query.get_or_404(id)
+    # PAD-591 (calendar.event-detail rule 21): the roster is loaded with its players and their
+    # users in one pass each, so a class of 12 costs the statements of a class of 3.
+    from sqlalchemy.orm import joinedload, selectinload
+
+    roster_options = {
+        "lesson": selectinload(Lesson.players_relations)
+        .selectinload(Association_PlayerLesson.player)
+        .joinedload(Player.user),
+        "lessoninstance": selectinload(LessonInstance.presences)
+        .selectinload(Presence.player)
+        .joinedload(Player.user),
+    }
+    current_class = event_types[model].query.options(roster_options[model]).filter_by(id=id).first_or_404()
 
     occurrence_date = None
     if model == "lesson":
@@ -1148,6 +1160,7 @@ def class_instance():
 
             instance = (
                 LessonInstance.query
+                .options(roster_options["lessoninstance"])
                 .filter_by(
                     lesson_id=current_class.id,
                     original_lesson_occurence_date=event_date,
