@@ -11,6 +11,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional
 
+from padel_app.services import reminder_attempt_service as attempts
 from padel_app.models import (
     Association_CoachLesson,
     Association_CoachLessonInstance,
@@ -116,13 +117,16 @@ def ask_state(player_id: int, instance_ids: Iterable[int], now_wall: datetime) -
         return {}
     now_utc = wall_to_utc_naive(now_wall)
     rows = own_rows(player_id, ids)
+    asked = attempts.asked_instance_ids(player_id, ids)  # PAD-583: one query, not one per instance
     instances = LessonInstance.query.filter(LessonInstance.id.in_(ids)).all()
     configs = reminder_configs(instances)  # PAD-583: one batch, not a coach lookup per instance
     out: Dict[int, dict] = {}
     for instance in instances:
         row = rows.get(int(instance.id))
         out[int(instance.id)] = {
-            "pendingConfirmation": student_may_confirm(row, instance, configs[int(instance.id)], now=now_utc),
+            "pendingConfirmation": student_may_confirm(
+                row, instance, configs[int(instance.id)], now=now_utc, was_asked=int(instance.id) in asked
+            ),
             "attendanceState": row.attendance_state if row is not None else "planned",
         }
     return out
@@ -147,9 +151,12 @@ def askable_instances(player_id: int, now_wall: datetime, *, limit: Optional[int
     candidates = query.all()
     rows = own_rows(player_id, [c.id for c in candidates])
     configs = reminder_configs(candidates)  # PAD-583
+    asked = attempts.asked_instance_ids(player_id, [c.id for c in candidates])  # PAD-583
     now_utc = wall_to_utc_naive(now_wall)
     out = [
         c for c in candidates
-        if student_may_confirm(rows.get(int(c.id)), c, configs[int(c.id)], now=now_utc)
+        if student_may_confirm(
+            rows.get(int(c.id)), c, configs[int(c.id)], now=now_utc, was_asked=int(c.id) in asked
+        )
     ]
     return out[:limit] if limit else out

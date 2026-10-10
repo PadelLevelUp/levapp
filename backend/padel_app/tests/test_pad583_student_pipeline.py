@@ -35,9 +35,10 @@ def _statements(app):
 
 def _student(app, *, tag, near, far, now=NOW):
     """A student enrolled in `near` classes over the next 30 days (days 1..near, 18:00)
-    and `far` beyond 30 days but inside the hero's 90. Every class is a confirmed
-    enrolment except the first, which is an open ask (inside the reminder window).
-    Returns (player_id, user_id, near_titles)."""
+    and `far` beyond 30 days but inside the hero's 90. Every near class is an OPEN ASK:
+    an unconfirmed presence with a reminder attempt on file, so `student_may_confirm`
+    reaches its attempt lookup once per class (the dimension that must not scale the
+    statement count). The far classes are confirmed enrolments. Returns (player_id, user_id, near_titles)."""
     from padel_app.models import (
         Association_CoachLesson,
         Association_CoachPlayer,
@@ -45,6 +46,7 @@ def _student(app, *, tag, near, far, now=NOW):
         Club,
         LessonInstance,
         Presence,
+        ReminderAttempt,
         User,
     )
     from padel_app.models.Association_CoachClub import Association_CoachClub
@@ -78,7 +80,7 @@ def _student(app, *, tag, near, far, now=NOW):
 
         titles = []
         days = [d for d in range(1, near + 1)] + [40 + 10 * i for i in range(far)]
-        for n, day in enumerate(days):
+        for day in days:
             title = f"{tag} class {day}"
             if day <= near:
                 titles.append(title)
@@ -94,8 +96,13 @@ def _student(app, *, tag, near, far, now=NOW):
                                   original_lesson_occurence_date=start.date())
             db.session.add(inst)
             db.session.flush()
-            db.session.add(Presence(lesson_instance_id=inst.id, player_id=player.id, invited=True,
-                                    confirmed=(n != 0), enrolment_source="roster"))
+            presence = Presence(lesson_instance_id=inst.id, player_id=player.id, invited=True,
+                                confirmed=(day > near), enrolment_source="roster")
+            db.session.add(presence)
+            db.session.flush()
+            if day <= near:
+                db.session.add(ReminderAttempt(lesson_instance_id=inst.id, player_id=player.id,
+                                               presence_id=presence.id, number=1, sent_at=now))
         db.session.commit()
         return player.id, user.id, titles
 
@@ -123,6 +130,11 @@ def test_a_student_window_costs_a_fixed_number_of_statements(app):
         schedule = next(b for b in blocks if b["type"] == "schedule_7d")["data"]
         assert schedule["totalCount"] == len(titles)
         assert [i["title"] for i in schedule["items"]] == titles[: len(schedule["items"])]
+        # Every near class is an open ask, so the attempt lookup ran once per class.
+        assert all(i["pendingConfirmation"] for i in schedule["items"])
+        invites = next(i for i in next(b for b in blocks if b["type"] == "kpi_grid")["data"]["items"]
+                       if i["label"] == "Invites")
+        assert invites["value"] == len(titles)
     assert len(big_titles) == 13
     assert len(big) == len(small), f"{len(small)} statements for 3 classes, {len(big)} for 13"
 
@@ -157,6 +169,8 @@ def test_the_student_home_runs_the_pipeline_once(app, monkeypatch):
     assert [i["title"] for i in schedule["data"]["items"]] == titles[:5]
     upcoming = next(i for i in kpis["data"]["items"] if i["label"] == "Upcoming lessons")
     assert upcoming["value"] == 13
+    # 13 open asks, the queue lists the first QUEUE_INVITE_LIMIT of them.
+    assert home[1]["data"]["count"] == 5
 
     # The blocks are the same as when each loads its own window.
     with app.app_context():
