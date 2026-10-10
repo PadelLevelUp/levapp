@@ -182,9 +182,12 @@ def _ask_jobs(sched, iid):
     return [j for j in sched._scheduler.get_jobs() if j.id.startswith(f"ask_{iid}_")]
 
 
-def test_a_cleared_student_is_asked_again_once(app, world, live_scheduler, monkeypatch):
+def test_a_clear_after_the_reminder_instant_sends_nothing(app, world, live_scheduler, monkeypatch):
+    """Owner decision (2026-10-10): a clear sends the student nothing automatically. With the
+    instant passed and the chain spent, nothing is armed and no reminder goes out."""
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() + timedelta(hours=1))  # the instant has passed
+    from padel_app.models import Message
     from padel_app.services import reminder_attempt_service as attempts
     from padel_app.services.notification_service import send_class_reminders
 
@@ -193,23 +196,29 @@ def test_a_cleared_student_is_asked_again_once(app, world, live_scheduler, monke
         first = send_class_reminders(iid, now=now)
         assert first["sent"] == 0, "rule 23: the marked student is skipped"
         live_scheduler._scheduler.remove_all_jobs()
+        messages_before = Message.query.count()
 
     _mark(app, iid, ids["student_id"], clear=True)
     with app.app_context():
-        jobs = _ask_jobs(live_scheduler, iid)
-        assert len(jobs) == 1, "one pass is armed for her"
-        # the pass runs: she gets her reminder
-        assert send_class_reminders(iid, now=now)["sent"] == 1
-        assert attempts.count_attempts(iid, ids["student_id"]) == 1
-        live_scheduler._scheduler.remove_all_jobs()
+        assert _ask_jobs(live_scheduler, iid) == [], "nothing is armed for her"
+        assert live_scheduler._scheduler.get_jobs() == [], "no job of any kind"
+        assert attempts.count_attempts(iid, ids["student_id"]) == 0
+        assert Message.query.count() == messages_before, "no message is written"
 
-    # the bound: clearing twice sends once
+
+def test_a_clear_before_the_instant_leaves_her_to_the_ordinary_reminder(app, world, live_scheduler, monkeypatch):
+    """She is eligible again for a reminder that has not fired yet (rule 23 reads `status`)."""
+    ids, iid = world
+    from padel_app.services.notification_service import send_class_reminders
+
+    pin_clock(monkeypatch, _fire() - timedelta(hours=2))
     _mark(app, iid, ids["student_id"], status="present")
     _mark(app, iid, ids["student_id"], clear=True)
     with app.app_context():
-        assert _ask_jobs(live_scheduler, iid) == [], "her reminder is live: nothing is armed"
-        assert send_class_reminders(iid, now=now)["sent"] == 0
-        assert attempts.count_attempts(iid, ids["student_id"]) == 1
+        assert _ask_jobs(live_scheduler, iid) == []
+    now = pin_clock(monkeypatch, _fire() + timedelta(minutes=1))
+    with app.app_context():
+        assert send_class_reminders(iid, now=now)["sent"] == 1, "the ordinary pass asks her"
 
 
 @pytest.mark.parametrize("why", ["notifications_off", "class_over", "instant_ahead"])
