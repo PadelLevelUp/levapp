@@ -12,8 +12,8 @@ import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const ENTRY_BUDGET_GZIP_BYTES = 300 * 1000;
-export const CHUNK_LIMIT_RAW_BYTES = 500 * 1000;
+const ENTRY_BUDGET_GZIP_BYTES = 300 * 1000;
+const CHUNK_LIMIT_RAW_BYTES = 500 * 1000;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.resolve(process.argv[2] ?? path.join(here, "..", "dist"));

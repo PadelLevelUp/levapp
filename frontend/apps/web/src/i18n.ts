@@ -59,11 +59,11 @@ for (const [path, mod] of Object.entries(modules)) {
 }
 
 /** Loads and merges every area file of one language (an empty object when there are none). */
-export async function loadLanguage(lng: string): Promise<Dict> {
+async function loadLanguage(lng: string): Promise<Dict> {
   const merged: Dict = {};
   const files = Object.entries(lazyModules).filter(([path]) => path.includes(`/locales/${lng}/`));
-  for (const [, load] of files) {
-    const mod = await load();
+  const mods = await Promise.all(files.map(([, load]) => load()));
+  for (const mod of mods) {
     deepMerge(merged, ((mod as { default?: Dict }).default ?? (mod as Dict)) as Dict);
   }
   return merged;

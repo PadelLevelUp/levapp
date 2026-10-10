@@ -44,7 +44,7 @@ budget holds the gain.
    full-height empty surface in the page background colour (no text, so no i18n; no spinner, so a
    cached chunk shows no flash).
 3. **Background prefetch after the first signed-in screen.** When `AppLayout` mounts, it schedules
-   `prefetchAppPages()` on idle (`requestIdleCallback`, else a 1 s timeout), which calls the
+   `prefetchAppPages()` on idle (`requestIdleCallback` with a 5 s timeout, else a 1 s `setTimeout`; skipped under unit tests, covered by the E2E prefetch test), which calls the
    loaders of every page reachable from the menu. Each loader runs at most once per page load.
    Public pages (landing, legal, invite, auth) are not prefetched.
 4. **A missing chunk reloads once.** Every lazy page goes through `lazyWithReload(loader)`: when
@@ -104,11 +104,19 @@ budget holds the gain.
 - **When** `node apps/web/scripts/check-entry-budget.mjs` runs
 - **Then** it prints the entry gzip total ≤ 300 kB and exits 0, and no JS chunk exceeds 500 kB raw
 
+#### The session waits for the user's language (rule 6)
+- **Given** a stored session whose user's language is English, with the English chunk slow
+- **When** the session restores
+- **Then** `loading` stays true until the language has arrived; **and Given** the chunk fails to
+  load, **Then** the session still restores in the current language
+
 #### Navigation still works everywhere (rules 1–3)
 - **Given** the web E2E suite
 - **When** it runs against the split build
 - **Then** it passes as it does at the base, including `e2e/client/query-cache.spec.ts`
-  (its counters read `/api/` only, so chunk fetches do not count)
+  (its counters read `/api/` only, so chunk fetches do not count); `e2e/client/route-loading.spec.ts`
+  opens every menu page for a coach and a student through the menu and by URL, the role-only
+  URLs and every public page, and sees the idle prefetch fetch pages nobody clicked
 
 ### Notes
 - **Web-only (R-024 exception).** The iOS app bundles its JavaScript inside the binary; there is
