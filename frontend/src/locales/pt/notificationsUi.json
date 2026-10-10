@@ -22,7 +22,18 @@
       "ignore": "Ignorar",
       "superseded": "Estas sugestões foram recalculadas — usa a mensagem mais recente.",
       "recompute": "Sugestão de convites automáticos",
-      "preparing": "A preparar sugestões de convites…"
+      "preparing": "A preparar sugestões de convites…",
+      "declinedReason": "{{name}} não vai. Convites para a vaga libertada",
+      "openSpotReason": "Vaga por preencher. Convites sugeridos",
+      "openSpotGroup": "{{count}} vagas · prioridade {{side}}",
+      "openSpotGroupOne": "1 vaga · prioridade {{side}}",
+      "sideLeft": "esquerda",
+      "sideRight": "direita",
+      "sideAny": "qualquer lado",
+      "showMore": "Ver mais ({{count}})",
+      "showLess": "Ver menos",
+      "showingOf": "A mostrar {{shown}} de {{total}} · ao aprovar, são convidados todos",
+      "groupStale": "{{stale}} de {{total}} vagas já preenchidas ou expiradas"
     }
   }
 }

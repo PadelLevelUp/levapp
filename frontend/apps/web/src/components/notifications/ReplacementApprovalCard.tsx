@@ -5,7 +5,21 @@ import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
 import { respondToApproval } from "@/api/notificationEngine";
-import { lisbonNowMs, queueBadgeLabel, wallClockISOMs } from "@levelup/config";
+import {
+  approvalDisplayGroups,
+  approvalQueuePreview,
+  lisbonNowMs,
+  queueBadgeLabel,
+  staleCount,
+  wallClockISOMs,
+} from "@levelup/config";
+
+/** Rule 7a's group label names one side; `both` or none reads "any side". */
+function sideKey(side: "left" | "right" | "both" | null): string {
+  if (side === "left") return "notificationsUi.replacementApproval.sideLeft";
+  if (side === "right") return "notificationsUi.replacementApproval.sideRight";
+  return "notificationsUi.replacementApproval.sideAny";
+}
 
 function formatWindowOpen(iso: string): string {
   const date = new Date(iso);
@@ -43,6 +57,9 @@ export function ReplacementApprovalCard({
     bundle.responded ? bundle.response ?? null : null
   );
   const [staleVacancyIds, setStaleVacancyIds] = useState<number[]>([]);
+  // PAD-574 (rule 7a): which blocks show their whole list; the preview is the first five.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const groups = approvalDisplayGroups(bundle.vacancies);
 
   // Window state computed at render time
   const windowOpenInFuture =
@@ -131,22 +148,40 @@ export function ReplacementApprovalCard({
       data-testid="replacement-approval-card"
       className="rounded-xl border bg-card shadow-sm p-3 space-y-3"
     >
-      {bundle.vacancies.map((vacancy) => {
-        const isStale = staleVacancyIds.includes(vacancy.vacancyId);
+      {groups.map((group) => {
+        const stale = staleCount(group, staleVacancyIds);
+        const isExpanded = !!expanded[group.key];
+        const { shown, hidden } = approvalQueuePreview(group.queue, isExpanded);
         return (
-          <div key={vacancy.vacancyId} className="space-y-2">
-            <p className="text-sm leading-relaxed">
-              <span className="font-semibold">{vacancy.declinedPlayerName}</span>{" "}
-              {t("notificationsUi.replacementApproval.confirmedWontAttend")}
-            </p>
+          <div key={group.key} className="space-y-2" data-testid={`approval-group-${group.key}`} data-kind={group.kind}>
+            {/* PAD-574 (rule 4): a freed spot names the student; a never-filled spot is an open spot. */}
+            {group.kind === "declined" ? (
+              <p className="text-sm leading-relaxed" data-testid="approval-reason-declined">
+                {t("notificationsUi.replacementApproval.declinedReason", { name: group.declinedPlayerName ?? "" })}
+              </p>
+            ) : (
+              <div className="space-y-0.5">
+                <p className="text-sm leading-relaxed" data-testid="approval-reason-open">
+                  {t("notificationsUi.replacementApproval.openSpotReason")}
+                </p>
+                <p className="text-xs font-medium text-muted-foreground" data-testid="approval-group-label">
+                  {t(
+                    group.count === 1
+                      ? "notificationsUi.replacementApproval.openSpotGroupOne"
+                      : "notificationsUi.replacementApproval.openSpotGroup",
+                    { count: group.count, side: t(sideKey(group.side)) },
+                  )}
+                </p>
+              </div>
+            )}
 
-            {vacancy.queue.length > 0 ? (
+            {group.queue.length > 0 ? (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">
                   {t("notificationsUi.replacementApproval.inviteQueue")}
                 </p>
                 <ol className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-sm">
-                  {vacancy.queue.map((player, index) => (
+                  {shown.map((player, index) => (
                     <li key={player.id} className="contents">
                       <span className="text-xs text-muted-foreground text-right">
                         {index + 1}.
@@ -158,6 +193,25 @@ export function ReplacementApprovalCard({
                     </li>
                   ))}
                 </ol>
+                {/* Rule 7a: the preview is never the invite set; say so whenever it is truncated. */}
+                {hidden > 0 && (
+                  <p className="text-[11px] text-muted-foreground" data-testid="approval-showing-of">
+                    {t("notificationsUi.replacementApproval.showingOf", { shown: shown.length, total: group.queue.length })}
+                  </p>
+                )}
+                {(hidden > 0 || isExpanded) && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    data-testid="approval-show-more"
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpanded((e) => ({ ...e, [group.key]: !isExpanded }))}
+                  >
+                    {isExpanded
+                      ? t("notificationsUi.replacementApproval.showLess")
+                      : t("notificationsUi.replacementApproval.showMore", { count: hidden })}
+                  </button>
+                )}
               </div>
             ) : (
               <p className="text-xs italic text-muted-foreground">
@@ -165,9 +219,14 @@ export function ReplacementApprovalCard({
               </p>
             )}
 
-            {isStale && !allStale && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning/15 text-warning-strong">
-                {t("notificationsUi.replacementApproval.noLongerNeeded")}
+            {stale > 0 && !allStale && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning/15 text-warning-strong"
+                data-testid="approval-group-stale"
+              >
+                {group.vacancyIds.length > 1
+                  ? t("notificationsUi.replacementApproval.groupStale", { stale, total: group.vacancyIds.length })
+                  : t("notificationsUi.replacementApproval.noLongerNeeded")}
               </span>
             )}
           </div>

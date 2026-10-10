@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
+import { approvalDisplayGroups, approvalQueuePreview, lightTheme, staleCount } from "@levelup/config";
 import type { ApprovalAction, ApprovalBundle } from "@levelup/types";
 import { format } from "date-fns";
 import * as React from "react";
@@ -55,6 +55,15 @@ export function ReplacementApprovalCard({
     null
   );
   const [staleVacancyIds, setStaleVacancyIds] = React.useState<number[]>([]);
+  // PAD-574 (rule 7a): which blocks show their whole list; the preview is the first five.
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const groups = approvalDisplayGroups(bundle.vacancies);
+  const sideKey = (side: "left" | "right" | "both" | null) =>
+    side === "left"
+      ? "notificationsUi.replacementApproval.sideLeft"
+      : side === "right"
+        ? "notificationsUi.replacementApproval.sideRight"
+        : "notificationsUi.replacementApproval.sideAny";
 
   const state = approvalCardState(bundle, {
     staleVacancyIds,
@@ -153,24 +162,39 @@ export function ReplacementApprovalCard({
       testID="replacement-approval-card"
       className="gap-3 rounded-xl border border-border bg-card p-3"
     >
-      {bundle.vacancies.map((vacancy) => {
-        const isStale = staleVacancyIds.includes(vacancy.vacancyId);
+      {groups.map((group) => {
+        const stale = staleCount(group, staleVacancyIds);
+        const isExpanded = !!expanded[group.key];
+        const { shown, hidden } = approvalQueuePreview(group.queue, isExpanded);
         return (
-          <View key={vacancy.vacancyId} className="gap-2">
-            <Text className="text-sm">
-              <Text className="text-sm font-semibold">
-                {vacancy.declinedPlayerName}
+          <View key={group.key} className="gap-2" testID={`approval-group-${group.key}`}>
+            {/* PAD-574 (rule 4): a freed spot names the student; a never-filled spot is an open spot. */}
+            {group.kind === "declined" ? (
+              <Text className="text-sm" testID="approval-reason-declined">
+                {t("notificationsUi.replacementApproval.declinedReason", { name: group.declinedPlayerName ?? "" })}
               </Text>
-              {" "}
-              {t("notificationsUi.replacementApproval.confirmedWontAttend")}
-            </Text>
+            ) : (
+              <View className="gap-0.5">
+                <Text className="text-sm" testID="approval-reason-open">
+                  {t("notificationsUi.replacementApproval.openSpotReason")}
+                </Text>
+                <Text className="text-xs font-medium text-muted-foreground" testID="approval-group-label">
+                  {t(
+                    group.count === 1
+                      ? "notificationsUi.replacementApproval.openSpotGroupOne"
+                      : "notificationsUi.replacementApproval.openSpotGroup",
+                    { count: group.count, side: t(sideKey(group.side)) },
+                  )}
+                </Text>
+              </View>
+            )}
 
-            {vacancy.queue.length > 0 ? (
+            {group.queue.length > 0 ? (
               <View className="gap-1">
                 <Text className="text-xs font-medium text-muted-foreground">
                   {t("notificationsUi.replacementApproval.inviteQueue")}
                 </Text>
-                {vacancy.queue.map((player, index) => {
+                {shown.map((player, index) => {
                   const badge = queueBadgeLabel(player);
                   return (
                     <View
@@ -193,6 +217,26 @@ export function ReplacementApprovalCard({
                     </View>
                   );
                 })}
+                {/* Rule 7a: the preview is never the invite set; say so whenever it is truncated. */}
+                {hidden > 0 ? (
+                  <Text className="text-[11px] text-muted-foreground" testID="approval-showing-of">
+                    {t("notificationsUi.replacementApproval.showingOf", { shown: shown.length, total: group.queue.length })}
+                  </Text>
+                ) : null}
+                {hidden > 0 || isExpanded ? (
+                  <Pressable
+                    testID="approval-show-more"
+                    role="button"
+                    hitSlop={8}
+                    onPress={() => setExpanded((e) => ({ ...e, [group.key]: !isExpanded }))}
+                  >
+                    <Text className="text-xs font-medium text-primary">
+                      {isExpanded
+                        ? t("notificationsUi.replacementApproval.showLess")
+                        : t("notificationsUi.replacementApproval.showMore", { count: hidden })}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : (
               <Text className="text-xs italic text-muted-foreground">
@@ -200,10 +244,12 @@ export function ReplacementApprovalCard({
               </Text>
             )}
 
-            {isStale && !state.allStale ? (
-              <View className="self-start rounded-full bg-warning/15 px-2 py-0.5">
+            {stale > 0 && !state.allStale ? (
+              <View className="self-start rounded-full bg-warning/15 px-2 py-0.5" testID="approval-group-stale">
                 <Text className="text-[10px] font-medium text-warning">
-                  {t("notificationsUi.replacementApproval.noLongerNeeded")}
+                  {group.vacancyIds.length > 1
+                    ? t("notificationsUi.replacementApproval.groupStale", { stale, total: group.vacancyIds.length })
+                    : t("notificationsUi.replacementApproval.noLongerNeeded")}
                 </Text>
               </View>
             ) : null}

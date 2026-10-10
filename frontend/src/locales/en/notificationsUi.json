@@ -22,7 +22,18 @@
       "ignore": "Ignore",
       "superseded": "These suggestions were recalculated — use the latest message.",
       "recompute": "Suggest automatic invitations",
-      "preparing": "Preparing invitation suggestions…"
+      "preparing": "Preparing invitation suggestions…",
+      "declinedReason": "{{name}} isn't coming. Invitations for the freed spot",
+      "openSpotReason": "Open spot. Suggested invitations",
+      "openSpotGroup": "{{count}} spots · {{side}} priority",
+      "openSpotGroupOne": "1 spot · {{side}} priority",
+      "sideLeft": "left",
+      "sideRight": "right",
+      "sideAny": "any side",
+      "showMore": "Show more ({{count}})",
+      "showLess": "Show less",
+      "showingOf": "Showing {{shown}} of {{total}} · approving invites them all",
+      "groupStale": "{{stale}} of {{total}} spots already filled or expired"
     }
   }
 }

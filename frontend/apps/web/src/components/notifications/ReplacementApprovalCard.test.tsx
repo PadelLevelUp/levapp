@@ -9,7 +9,12 @@ const respondToApproval = vi.fn();
 const toastInfo = vi.fn();
 vi.mock("@/api/notificationEngine", () => ({ respondToApproval: (...a: unknown[]) => respondToApproval(...a) }));
 vi.mock("sonner", () => ({ toast: { info: (...a: unknown[]) => toastInfo(...a), error: vi.fn() } }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params && Object.keys(params).length ? `${key}:${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(",")}` : key,
+  }),
+}));
 
 import { ReplacementApprovalCard } from "./ReplacementApprovalCard";
 import type { ApprovalBundle } from "@/types";
@@ -46,5 +51,58 @@ describe("ReplacementApprovalCard (PAD-545)", () => {
     render(<ReplacementApprovalCard bundle={BUNDLE} />);
     fireEvent.click(screen.getByTestId("approve-invitations-now"));
     await waitFor(() => expect(toastInfo).toHaveBeenCalledWith("notificationsUi.replacementApproval.superseded"));
+  });
+});
+
+// ── PAD-574 (semi-auto-approval rules 4 and 7a) ──────────────────────────────────────────────
+const q = (n: number) => Array.from({ length: n }, (_, i) => ({ id: String(i + 1), name: `P${i + 1}` }));
+const vac = (vacancyId: number, over: Record<string, unknown>) =>
+  ({ vacancyId, declinedPlayerId: null, declinedPlayerName: null, queue: [], waitingListPlayerId: null, waitingListPlayerName: null, ...over });
+const bundleOf = (vacancies: unknown[]) =>
+  ({ bundleId: "b-574", lessonInstanceId: 1, windowOpenAt: null, responded: false, vacancies }) as unknown as ApprovalBundle;
+
+describe("PAD-574 the card says why each spot is open, groups open spots, previews five", () => {
+  it("a freed spot names the student; a never-filled spot reads as an open spot", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([
+      vac(1, { declinedPlayerId: 3, declinedPlayerName: "Ana", openSpot: false, side: "left", queue: q(2) }),
+      vac(2, { openSpot: true, side: "right", queue: q(2) }),
+    ])} />);
+    expect(screen.getByTestId("approval-reason-declined").textContent).toBe("notificationsUi.replacementApproval.declinedReason:name=Ana");
+    expect(screen.getByTestId("approval-reason-open").textContent).toBe("notificationsUi.replacementApproval.openSpotReason");
+    expect(screen.getByTestId("approval-group-label").textContent).toBe(
+      "notificationsUi.replacementApproval.openSpotGroupOne:count=1,side=notificationsUi.replacementApproval.sideRight",
+    );
+    expect(screen.queryByText(/confirmedWontAttend/)).toBeNull();
+  });
+
+  it("groups identical open-spot lists by side with a count; freed spots stay apart", () => {
+    const a = q(3);
+    render(<ReplacementApprovalCard bundle={bundleOf([
+      vac(1, { openSpot: true, side: "left", queue: a }),
+      vac(2, { openSpot: true, side: "right", queue: q(2) }),
+      vac(3, { openSpot: true, side: "left", queue: a }),
+      vac(4, { declinedPlayerId: 9, declinedPlayerName: "Bob", openSpot: false, side: "left", queue: a }),
+    ])} />);
+    const groups = screen.getAllByTestId(/^approval-group-/).filter((el) => el.hasAttribute("data-kind"));
+    expect(groups.map((g) => g.getAttribute("data-kind"))).toEqual(["open", "open", "declined"]);
+    expect(screen.getAllByTestId("approval-group-label")[0].textContent).toContain("openSpotGroup:count=2,side=notificationsUi.replacementApproval.sideLeft");
+  });
+
+  it("shows the first five with 'Ver mais' and the approving-invites-all line only while truncated", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([vac(1, { openSpot: true, side: null, queue: q(31) })])} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.getByTestId("approval-showing-of").textContent).toBe("notificationsUi.replacementApproval.showingOf:shown=5,total=31");
+    const more = screen.getByTestId("approval-show-more");
+    expect(more.textContent).toBe("notificationsUi.replacementApproval.showMore:count=26");
+    fireEvent.click(more);
+    expect(screen.getAllByRole("listitem")).toHaveLength(31);
+    expect(screen.queryByTestId("approval-showing-of")).toBeNull();
+    expect(screen.getByTestId("approval-show-more").textContent).toBe("notificationsUi.replacementApproval.showLess");
+  });
+
+  it("a list of five or fewer shows neither the button nor the line", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([vac(1, { openSpot: true, side: "left", queue: q(5) })])} />);
+    expect(screen.queryByTestId("approval-show-more")).toBeNull();
+    expect(screen.queryByTestId("approval-showing-of")).toBeNull();
   });
 });
