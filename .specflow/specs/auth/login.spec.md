@@ -37,7 +37,8 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    answered 200 — never before the request goes out — so a wrong password, a throttled attempt or
    a network error shows the error toast on the untouched form and the loader never mounts. The
    session hydration and `/api/auth/me` still run behind the overlay. Web-only: the iOS app has no
-   sign-in animation (its launch animation runs at app start, `app/_layout.tsx`, not on login), so
+   sign-in animation (its launch animation runs at app start, `app/_layout.tsx`, not on login —
+   when it ends is `mobile.launch` rule 2, PAD-587), so
    there is nothing to port (R-024 exception recorded here and in the PR).
 9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
    token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
