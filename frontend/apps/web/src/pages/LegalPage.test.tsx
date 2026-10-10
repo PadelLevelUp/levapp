@@ -27,6 +27,23 @@ function renderAt(path: string) {
 
 afterEach(cleanup);
 
+// auth.legal-pages rule 1: markdown only, no raw HTML and no scheme smuggling through links.
+vi.mock("@/content/legal", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/content/legal")>();
+  return {
+    ...real,
+    LEGAL_DOCUMENTS: {
+      ...real.LEGAL_DOCUMENTS,
+      privacy: {
+        ...real.LEGAL_DOCUMENTS.privacy,
+        bodies: {
+          en: "# Privacy Policy\n\nEffective date: October 2, 2026\n\n<script>window.pwned = 1</script>\n\n[bad](javascript:alert(1)) and [fine](/terms)\n",
+        },
+      },
+    },
+  };
+});
+
 describe("LegalPage", () => {
   it("renders the English terms with the version header", () => {
     renderAt("/terms");
@@ -58,5 +75,18 @@ describe("LegalPage", () => {
     expect(footer.querySelector('a[href="/auth"]')).toBeTruthy();
     const body = screen.getByTestId("legal-body");
     expect(body.querySelector('a[href="/privacy"]')).toBeTruthy(); // the Terms text links to the Privacy Policy
+  });
+});
+
+describe("LegalPage safety (rule 1)", () => {
+  it("renders no raw HTML and no javascript: href from the markdown", () => {
+    renderAt("/privacy");
+    const body = screen.getByTestId("legal-body");
+    // Without rehype-raw, react-markdown shows the tag as literal text: no element, nothing runs.
+    expect(body.querySelector("script")).toBeNull();
+    expect((window as unknown as { pwned?: number }).pwned).toBeUndefined();
+    const links = Array.from(body.querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(links.some((h) => (h ?? "").toLowerCase().startsWith("javascript:"))).toBe(false);
+    expect(links).toContain("/terms");
   });
 });

@@ -28,7 +28,7 @@ export default function LegalPage({ document: id }: { document: LegalDocumentId 
   const other: LegalDocumentId = id === "terms" ? "privacy" : "terms";
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8" data-testid={`legal-${id}`} lang={fallback ? "en" : lang}>
+    <div className="min-h-screen bg-background px-4 py-10" data-testid={`legal-${id}`} lang={fallback ? "en" : lang}>
       <Card className="mx-auto max-w-3xl">
         <CardContent className="pt-6">
           <header className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b pb-4" data-testid="legal-header">
