@@ -53,11 +53,10 @@ describe("RemindersSection is controlled (PAD-506)", () => {
   it("typing a time goes up with the time as typed, other fields intact", () => {
     const onChange = vi.fn();
     const { container } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
-    // PAD-559 PR-2: the shared field commits a typed time on Enter (or on leaving it).
+    // PAD-559 PR-2: the shared field commits a complete "HH:MM" as it is typed.
     const time = container.querySelector('[data-testid="reminder-time"]') as HTMLInputElement;
 
     fireEvent.change(time, { target: { value: "09:30" } });
-    fireEvent.keyDown(time, { key: "Enter" });
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith({

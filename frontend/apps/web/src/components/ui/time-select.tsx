@@ -214,7 +214,23 @@ export function TimeSelect({ value, onChange, from, usualMinutes, onRefused, now
             value={draft}
             onFocus={() => setOpen(true)}
             onClick={() => setOpen(true)} // a click on an already-focused field reopens the list
-            onChange={(e) => { setDraft(e.target.value); setActive(null); }}
+            onChange={(e) => {
+              const text = e.target.value;
+              setDraft(text);
+              setActive(null);
+              // A complete "HH:MM" or "H:MM" commits as it is typed — two minute digits make it
+              // unambiguous — the native input's behaviour, which a Save button watching for a
+              // change relies on. Shorthands ("930", "9h30", "07:0") still commit on Enter or on
+              // leaving the field. The field shows what was committed (the guard may have moved it).
+              if (/^\d{1,2}:\d{2}$/.test(text)) {
+                const parsed = parseTime(text);
+                if (parsed) {
+                  const next = guard(parsed);
+                  setDraft(next);
+                  onChange(next);
+                }
+              }
+            }}
             onBlur={commitText} // leaving the field commits, list open or not (#544 review)
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") { e.preventDefault(); move(1); return; }

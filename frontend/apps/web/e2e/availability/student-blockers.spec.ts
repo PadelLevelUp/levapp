@@ -121,8 +121,9 @@ test("PAD-356: an end before the start, or a cleared time, is refused in the she
   // when the coach leaves the field (PAD-508's guarantee), so "time_required" is unreachable
   // from the UI; the guard stays in the draft validation for the API shape.
   await page.getByTestId("blocker-start-time").fill("");
-  await page.getByTestId("blocker-end-time").click(); // leaving the field puts the last valid time back
+  await page.getByTestId("blocker-start-time").press("Tab"); // leaving the field puts the last valid time back
   await expect(page.getByTestId("blocker-start-time")).toHaveValue("20:00");
+  await page.keyboard.press("Escape"); // the end field's list opened on focus; close it as a user would
 
   await page.getByTestId("blocker-mode-recurring").click();
   await page.getByTestId("blocker-end-time").fill("21:00");
