@@ -166,7 +166,15 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     soon as the sheet is at or below its resting height, and on leaving `Mês`. `Dia` and
     `Semana` always show them.
 19. **Students** see the same three modes, read-only: their enrolled classes and their own
-    blockers, with no `Add class` button. Everything else in this spec applies.
+    blockers, with no `Add class` button. Everything else in this spec applies. **(PAD-578)**
+    Each enrolled class carries the ✓ mark (`calendar-enrolled-mark`, label
+    `calendar.eventCard.enrolled`) on its card and on its Semana grid block — never on an open
+    spot (rule 5's `open-spot` row carries the chip), never on a canceled class, and never on a
+    coach's calendar; the viewer's role reaches the cards from the calendar screen. Rule 9
+    stands: no legend on phones — the ✓ and the chip make the cards self-describing.
+    OPEN (owner, 2026-10-10 morning list): the owner asked for a short legend on the student
+    calendar "like the coach's"; the coach's legend exists on desktop web only, so a phone
+    legend would reverse rule 9's 2026-09-08 decision — not done here.
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
     keeps its existing phone app bar (white, mark only) — **decided 2026-09-08**: the canvas's
     navy web header is not adopted. The calendar screen on web starts at the segmented
@@ -229,6 +237,14 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Then** the card and the block are the card surface with a 1.5px dashed `#1355DC` outline and
   the title and time in `readableInk(#1355DC)`, the card carries the "Open spot" chip, and the
   dot is `#1355DC`; nothing on them is white on white
+
+#### A student's enrolled class is ticked on the card and the grid block (rule 19, PAD-578)
+- **Given** a student enrolled in a class coloured `#1355DC` and eligible for an open spot the
+  same week
+- **When** their phone calendar (web or iOS) renders the Semana grid and the day sheet
+- **Then** the enrolled class's card and grid block carry `calendar-enrolled-mark` and the open
+  spot's carry `calendar-open-spot-chip` without the ✓
+- **And** a coach viewing their own calendar sees no `calendar-enrolled-mark` anywhere
 
 #### Canceled is red and only red is canceled
 - **Given** a canceled occurrence on the selected day

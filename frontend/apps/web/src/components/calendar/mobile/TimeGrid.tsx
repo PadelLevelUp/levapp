@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { cardSurfaceWeb, GRID_ROW_HEIGHT, layoutDayEvents, resolveCardVariant, type HourRange } from "@levelup/config";
+import { cardSurfaceWeb, GRID_ROW_HEIGHT, layoutDayEvents, resolveCardVariant, showsEnrolledMark, type HourRange } from "@levelup/config";
+import { useCalendarViewer } from "../viewer-context";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
@@ -42,6 +43,7 @@ export function TimeGrid({
   className?: string;
 }) {
   const { t, i18n } = useTranslation();
+  const viewer = useCalendarViewer();
   const locale = dateFnsLocale(i18n.language);
   const { startHour, endHour } = hourRange;
   const hours = useMemo(
@@ -146,6 +148,16 @@ export function TimeGrid({
                       )}
                     >
                       <span className="line-clamp-2 break-words">
+                        {showsEnrolledMark(event, variant, viewer) && (
+                          <span
+                            data-testid="calendar-enrolled-mark"
+                            role="img"
+                            aria-label={t("calendar.eventCard.enrolled")}
+                            className="mr-0.5"
+                          >
+                            ✓
+                          </span>
+                        )}
                         {event.title || t("calendar.eventCard.fallbackTitle")}
                       </span>
                     </button>

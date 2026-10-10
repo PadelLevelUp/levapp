@@ -4,6 +4,7 @@ import {
   cardSurfaceNative,
   cardSurfaceWeb,
   resolveCardVariant,
+  showsEnrolledMark,
 } from "./calendar-card";
 import {
   contrastTextOn,
@@ -118,6 +119,23 @@ describe("resolveCardVariant — open spot (B-541, mobile-views rule 5 / open-sp
     expect(
       resolveCardVariant(event({ openSpot: true, status: "canceled" }), { now: NOW }).variant
     ).toBe("canceled");
+  });
+});
+
+describe("showsEnrolledMark (PAD-578, calendar.view rule 6 / mobile-views rule 19)", () => {
+  const e = event({ participantCount: 4 });
+  it("a student's own scheduled, next or past class is ticked", () => {
+    expect(showsEnrolledMark(e, "scheduled", "student")).toBe(true);
+    expect(showsEnrolledMark(e, "next", "student")).toBe(true);
+    expect(showsEnrolledMark(e, "past", "student")).toBe(true);
+  });
+  it("never an open spot, a canceled class or a block", () => {
+    expect(showsEnrolledMark(event({ openSpot: true }), "open-spot", "student")).toBe(false);
+    expect(showsEnrolledMark(event({ status: "canceled" }), "canceled", "student")).toBe(false);
+    expect(showsEnrolledMark(event({ type: "block" }), "block", "student")).toBe(false);
+  });
+  it("never on a coach's calendar", () => {
+    expect(showsEnrolledMark(e, "scheduled", "coach")).toBe(false);
   });
 });
 

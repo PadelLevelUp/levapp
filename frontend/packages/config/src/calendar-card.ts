@@ -192,3 +192,20 @@ export function cardSurfaceNative(
       return { backgroundColor: hex, color: contrastTextOnNative(hex, surfaces) };
   }
 }
+
+/** Who is looking at the calendar — PAD-578. */
+export type CalendarViewer = "coach" | "student";
+
+/**
+ * PAD-578 (calendar.view rule 6, calendar.mobile-views rule 19): a student's own class is
+ * ticked so telling it from an open spot never rests on colour alone.
+ */
+export function showsEnrolledMark(
+  event: CalendarEvent,
+  variant: CardVariant,
+  viewer: CalendarViewer
+): boolean {
+  if (viewer !== "student" || event.type !== "class") return false;
+  // An open spot carries its chip, a canceled class its red, a block is not a class.
+  return variant !== "open-spot" && variant !== "canceled" && variant !== "block";
+}
