@@ -186,6 +186,7 @@ jobs:
           docker stop padelapp || true && docker rm padelapp || true
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
           docker run -d --name padelapp -p 127.0.0.1:5000:80 \
+            --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
             --env-file /home/${{ secrets.GCE_USER }}/.env.prod \
@@ -350,6 +351,7 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:$TAG
             docker stop levelup_frontend || true && docker rm levelup_frontend || true
             docker run -d --name levelup_frontend \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --network levelup_net \
               -p 127.0.0.1:3000:80 \
@@ -419,6 +421,7 @@ jobs:
             docker stop levelup_admin || true && docker rm levelup_admin || true
             # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
             docker run -d --name levelup_admin \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --memory 100m \
               -p 127.0.0.1:3200:80 \
