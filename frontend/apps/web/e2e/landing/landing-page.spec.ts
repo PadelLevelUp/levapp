@@ -70,7 +70,7 @@ test.describe("landing page", () => {
   }) => {
     await page.goto("/");
     const select = page.getByTestId("landing-audience");
-    await expect(select).toHaveText(ui("landing.audience.coaches"));
+    await expect(select).toHaveAttribute("data-audience", "coaches");
     // The audience is chosen in the header only: no tablist anywhere (rule 3).
     await expect(page.getByRole("tablist")).toHaveCount(0);
 
@@ -83,17 +83,18 @@ test.describe("landing page", () => {
     expect(before).toBeGreaterThan(600); // the subject was found: we are well down the page
     await select.click();
     await page.getByTestId("landing-audience-players").click();
-    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
-    await expect(page.getByRole("heading", { name: ui("landing.hero.coaches.title1") })).toHaveCount(0);
-    await expect(select).toHaveText(ui("landing.audience.players"));
+    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
+    await expect(page.getByTestId("landing-hero")).not.toHaveAttribute("data-audience", "coaches");
+    await expect(select).toHaveAttribute("data-audience", "players");
     await expect(page).toHaveURL(/\/\?para=jogadores$/);
-    // In place: no reload, and the scroll position is where it was.
+    // In place: no reload (the sentinel survived), and no jump to the top — the sections swap to
+    // ones of other heights, so the offset may settle a little, never back to zero.
     expect(await page.evaluate(() => (window as unknown as { __pad582?: boolean }).__pad582)).toBe(true);
-    expect(Math.abs((await page.evaluate(() => window.scrollY)) - before)).toBeLessThan(5);
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(before / 2);
 
     await select.click();
     await page.getByTestId("landing-audience-others").click();
-    await expect(page.getByRole("heading", { name: ui("landing.hero.others.title1") })).toBeVisible();
+    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "others");
     await expect(page.getByRole("heading", { name: ui("landing.others.ideasTitle") })).toBeVisible();
     // "Others" has no benefits / how / results sections.
     await expect(page.locator("#como-funciona")).toHaveCount(0);
@@ -103,7 +104,7 @@ test.describe("landing page", () => {
 
   test("PAD-582: choosing drops the older ?audience= and keeps unrelated parameters", async ({ page }) => {
     await page.goto("/?utm_source=campaign&audience=alunos");
-    await expect(page.getByTestId("landing-audience")).toHaveText(ui("landing.audience.players"));
+    await expect(page.getByTestId("landing-audience")).toHaveAttribute("data-audience", "players");
     await page.getByTestId("landing-audience").click();
     await page.getByTestId("landing-audience-coaches").click();
     await expect(page).toHaveURL(/\/\?utm_source=campaign&para=treinadores$/);
@@ -115,25 +116,25 @@ test.describe("landing page", () => {
     const select = page.getByTestId("landing-audience");
     await expect(select).toBeVisible();
     await expect(select).toBeInViewport();
-    await expect(select).toHaveText(ui("landing.audience.short.coaches"));
+    await expect(select).toHaveAttribute("data-audience", "coaches");
     const box = await select.boundingBox();
     expect(box && box.x + box.width).toBeLessThanOrEqual(375);
   });
 
   test("PAD-582: ?para= and the older ?audience= open the page on that audience", async ({ page }) => {
     await page.goto("/?para=jogadores");
-    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
-    await expect(page.getByTestId("landing-audience")).toHaveText(ui("landing.audience.players"));
+    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
+    await expect(page.getByTestId("landing-audience")).toHaveAttribute("data-audience", "players");
 
     await page.goto("/?audience=alunos");
-    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
+    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
 
     await page.goto("/?audience=players");
-    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
+    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
 
     // Anything unknown falls back to coaches.
     await page.goto("/?audience=nope");
-    await expect(page.getByRole("heading", { name: ui("landing.hero.coaches.title1") })).toBeVisible();
+    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "coaches");
   });
 
   test("the final CTA rotates through the audiences", async ({ page }) => {

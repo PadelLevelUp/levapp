@@ -475,6 +475,7 @@ function AudienceSelect({
         <button
           type="button"
           data-testid="landing-audience"
+          data-audience={value}
           className={cn(
             "inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[15px] font-semibold text-foreground transition-colors hover:bg-muted/50 sm:px-4",
             className,
@@ -621,7 +622,7 @@ function Hero({
     );
 
   return (
-    <div className="mx-auto grid max-w-[1170px] items-center gap-14 px-5 pb-16 pt-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:px-6 lg:pb-32 lg:pt-10">
+    <div className="mx-auto grid max-w-[1170px] items-center gap-14 px-5 pb-16 pt-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:px-6 lg:pb-32 lg:pt-10" data-testid="landing-hero" data-audience={audience}>
       <div>
         <span className="inline-block rounded-full bg-secondary px-3.5 py-1.5 text-[13px] font-semibold text-secondary-foreground">
           {t(`${k}.badge`)}
