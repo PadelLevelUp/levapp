@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import type { CoachPlayer, CoachLevel } from "@/types";
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
+import { queryKeys, useCoachLevels, useCoachPlayersPaginated } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS } from "@/types";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -20,9 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { AlertTriangle, Copy, X } from "lucide-react";
 
-import { getCoachPlayersPaginated, addPlayer } from "@/api/players";
+import { addPlayer } from "@/api/players";
 import { createIncompletePlayer } from "@/api/playerInvitations";
-import { getCoachLevels } from "@/api/coachLevel";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { AddByQrDialog } from "@/components/players/AddByQrDialog";
@@ -38,10 +38,7 @@ export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
   const [sortOption, setSortOption] = useState<SortOption>("name-asc");
   // PAD-486: the dashboard's "See all" opens /players?missing_level=true (or missing_side).
   const [searchParams] = useSearchParams();
@@ -49,7 +46,6 @@ export default function PlayersPage() {
   const [missingSideFilter, setMissingSideFilter] = useState(searchParams.get("missing_side") === "true");
   // The dashboard's "see all" (#523): no level OR no side, the block's own definition.
   const [incompleteFilter, setIncompleteFilter] = useState(searchParams.get("incomplete") === "true");
-  const [alertCounts, setAlertCounts] = useState({ missingLevel: 0, missingSide: 0 });
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -69,8 +65,7 @@ export default function PlayersPage() {
     () => new URLSearchParams(window.location.search).get("addByQr") === "1"
   );
 
-  const [coachPlayers, setCoachPlayers] = useState<CoachPlayer[]>([]);
-  const [levels, setLevels] = useState<CoachLevel[]>([]);
+  const queryClient = useQueryClient();
 
   // Debounce search input — reset page to 1 on new search
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -95,17 +90,8 @@ export default function PlayersPage() {
     return () => setScrollMode("page");
   }, [setScrollMode]);
 
-  useEffect(() => {
-    async function loadLevels() {
-      try {
-        const levelsData = await getCoachLevels();
-        setLevels(levelsData);
-      } catch {
-        // Keep empty levels on failure.
-      }
-    }
-    loadLevels();
-  }, []);
+  // Levels are a shared query (client.query-cache rule 7); a failure keeps the list empty.
+  const levels = useCoachLevels().data ?? [];
 
   // Parse sort option into API params
   const parseSortOption = (opt: SortOption) => {
@@ -113,77 +99,62 @@ export default function PlayersPage() {
     return { sortBy, sortDir };
   };
 
-  const fetchPlayersPage = useCallback(
-    async (page: number) => {
-      const searchParam = debouncedSearch || undefined;
-      const { sortBy, sortDir } = parseSortOption(sortOption);
-      return getCoachPlayersPaginated(
-        page, PAGE_SIZE, searchParam,
-        sortBy, sortDir,
-        missingLevelFilter, missingSideFilter, incompleteFilter,
-      );
+  // client.query-cache (PAD-586): the roster page is a query keyed on page, search, sort and
+  // filters. `keepPreviousData` keeps the rows on screen while the next page / search arrives
+  // (rule 5), and a return within the stale window renders from cache with no request (rule 2).
+  const { sortBy, sortDir } = parseSortOption(sortOption);
+  const playersQuery = useCoachPlayersPaginated(
+    {
+      page: currentPage,
+      perPage: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      sortBy,
+      sortDir,
+      missingLevel: missingLevelFilter,
+      missingSide: missingSideFilter,
+      incomplete: incompleteFilter,
     },
-    [debouncedSearch, sortOption, missingLevelFilter, missingSideFilter, incompleteFilter],
+    { placeholderData: keepPreviousData },
   );
+  const loading = playersQuery.isPending;
+  const coachPlayers = playersQuery.data?.items ?? [];
+  const totalPages = playersQuery.data?.pagination.pages || 1;
+  const totalItems = playersQuery.data?.pagination.total || 0;
+  const alertCounts = playersQuery.data?.alerts ?? { missingLevel: 0, missingSide: 0 };
 
-  // PAD-410: every roster fetch goes through here. Each request takes a sequence
-  // number and only the newest one may write the list, so a slow refresh can never
-  // overwrite a newer search result (a create-then-search raced that way). Every fetch
-  // uses the list's current search, sort and filters: the list keeps its state.
-  const requestSeq = useRef(0);
-  // Read through refs, not dependencies: `t` changes identity when the language settles,
-  // and a loader that changed with it would refetch the list for nothing.
+  // Say why the list did not change (Session-E's review); the rows already on screen stay.
+  // Read through refs, not dependencies: `t` changes identity when the language settles.
   const toastRef = useRef(toast);
   toastRef.current = toast;
   const tRef = useRef(t);
   tRef.current = t;
-  const loadPage = useCallback(
-    async (page: number, { showSkeleton }: { showSkeleton: boolean }) => {
-      const mine = ++requestSeq.current;
-      if (showSkeleton) setLoading(true);
-      try {
-        const playersData = await fetchPlayersPage(page);
-        if (mine !== requestSeq.current) return;
-        setCoachPlayers(playersData.items);
-        setTotalPages(playersData.pagination.pages || 1);
-        setTotalItems(playersData.pagination.total || 0);
-        if (playersData.alerts) {
-          setAlertCounts(playersData.alerts);
-        }
-      } catch {
-        // Keep the current rows, and say why the list did not change (Session-E's review).
-        if (mine === requestSeq.current) {
-          toastRef.current({ variant: "destructive", title: tRef.current("players.listLoadFailed") });
-        }
-      } finally {
-        // Whatever its kind, the NEWEST request clears the skeleton when it settles: a skeleton
-        // fetch overtaken by a silent refetch would otherwise leave it up for good (#404 review).
-        if (mine === requestSeq.current) setLoading(false);
-      }
-    },
-    [fetchPlayersPage],
-  );
-
+  const listErrorAt = playersQuery.isError ? playersQuery.errorUpdatedAt : 0;
   useEffect(() => {
-    void loadPage(currentPage, { showSkeleton: true });
-  }, [currentPage, loadPage]);
+    if (listErrorAt) {
+      toastRef.current({ variant: "destructive", title: tRef.current("players.listLoadFailed") });
+    }
+  }, [listErrorAt]);
 
-  // A background refresh of the CURRENT page, without the list skeleton, for the pane to call
-  // after it edits or removes the selected player: the row catches up and the list keeps
-  // its search, sort, page and filter ("nothing moves under the finger").
-  const silentRefetchCurrentPage = useCallback(
-    () => loadPage(currentPage, { showSkeleton: false }),
-    [loadPage, currentPage],
+  // Every roster write refreshes all pages and filters of the list and the shared roster, without
+  // the list skeleton ("nothing moves under the finger"): the pane calls these after it edits or
+  // removes the selected player.
+  const invalidateRoster = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.coachPlayersPaginatedPrefix }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.coachRoster }),
+      ]),
+    [queryClient],
   );
 
   const handlePlayerUpdated = useCallback(() => {
-    void silentRefetchCurrentPage();
-  }, [silentRefetchCurrentPage]);
+    void invalidateRoster();
+  }, [invalidateRoster]);
 
   const handlePlayerRemoved = useCallback(() => {
     navigate("/players");
-    void silentRefetchCurrentPage();
-  }, [navigate, silentRefetchCurrentPage]);
+    void invalidateRoster();
+  }, [navigate, invalidateRoster]);
 
   const handleSortChange = (value: SortOption) => {
     setSortOption(value);
@@ -221,8 +192,8 @@ export default function PlayersPage() {
       .slice(0, 2);
 
   const refreshPlayersList = async () => {
-    if (currentPage !== 1) setCurrentPage(1); // the effect loads page 1
-    else await loadPage(1, { showSkeleton: true });
+    if (currentPage !== 1) setCurrentPage(1); // page 1's key loads
+    await invalidateRoster();
   };
 
   const handleAddPlayer = async (data: AddPlayerInput) => {
@@ -243,7 +214,7 @@ export default function PlayersPage() {
     // Refresh the list in the background without the full-page loading
     // skeleton, so the invite dialog stays mounted and visible.
     if (currentPage !== 1) setCurrentPage(1);
-    else await loadPage(1, { showSkeleton: false });
+    await invalidateRoster();
   };
 
   const handleCopyInvite = async () => {

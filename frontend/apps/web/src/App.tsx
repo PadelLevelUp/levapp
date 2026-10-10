@@ -46,8 +46,9 @@ import { RoleRoute } from "@/auth/RoleRoute";
 import { LayoutProvider } from "@/components/layout/LayoutContext";
 import { LaunchOverlayProvider } from "@/components/brand/launch-overlay";
 import { HomeRoute } from "@/auth/HomeRoute";
+import { queryClientDefaultOptions } from "@levelup/hooks";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: queryClientDefaultOptions });
 
 const App = () => (
   <ThemeProvider

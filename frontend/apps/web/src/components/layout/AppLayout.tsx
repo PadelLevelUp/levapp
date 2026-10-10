@@ -184,11 +184,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    void refreshUnreadCount().catch((e) => {
-      console.warn("refreshUnreadCount failed", e);
-    });
-  }, [refreshUnreadCount]);
+  // No mount-time refresh: the unread count is a shared query (LayoutProvider) that the stale
+  // window governs; the SSE handler below invalidates it on a live message (client.query-cache rule 7).
 
   useEffect(() => {
     if (!token) return;

@@ -11,6 +11,7 @@ import {
   PlusJakartaSans_700Bold,
 } from "@expo-google-fonts/plus-jakarta-sans";
 import { Poppins_600SemiBold, Poppins_700Bold } from "@expo-google-fonts/poppins";
+import { queryClientDefaultOptions } from "@levelup/hooks";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -40,14 +41,7 @@ import "@/lib/i18n";
 // otherwise there is a white frame between the two.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
-    },
-  },
-});
+const queryClient = new QueryClient({ defaultOptions: queryClientDefaultOptions });
 
 export default function RootLayout() {
   usePushNotificationRouting();
