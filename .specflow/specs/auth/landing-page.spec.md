@@ -83,6 +83,11 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     domain); (b) store `declined`; (c) reload the page, so the running script stops. Cookies
     HubSpot keeps on its own domains are outside the page's reach.
 
+14. **One contact address (PAD-599, B-562).** Everywhere the site offers an email — the landing
+    page's demo and ideas links and its footer, `/support`, the static `public/support.html` the App
+    Store listing points at, and the landing copy that names it — shows `admin@levapp.app`, read from
+    `CONTACT_EMAIL` in `@levelup/config`. No other address is typed in the site's sources.
+
 ### Acceptance Criteria
 
 #### A visitor gets the landing page
@@ -194,6 +199,11 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Given** a build with no demo form ID
 - **When** the landing page renders
 - **Then** "Pedir demonstração" is a `mailto:` link to the support address
+
+#### The site shows the owner's contact address everywhere (PAD-599, B-562)
+- **Given** the landing page, `/support`, `public/support.html` and the landing copy in both languages
+- **When** any of them offers an email
+- **Then** it is `admin@levapp.app`, and `padellevelup2026@gmail.com` / `admin@levapp.pt` appear nowhere
 
 ### Notes
 - Second iteration, 2026-09-06: ported from the Lovable project "Padellevelup Playground"
