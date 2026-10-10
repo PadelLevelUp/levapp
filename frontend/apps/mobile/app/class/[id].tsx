@@ -7,6 +7,7 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   canConfirmAttendance,
+  reminderArrivedFor,
   clearsFor,
   reminderAnswerOutcome,
   classEvaluationsAction,
@@ -398,7 +399,17 @@ export default function ClassDetailScreen() {
   useAppEvents(
     React.useCallback(
       (evt) => {
-        if (!isCoach || !event) return;
+        if (!event) return;
+        // B-542 (attendance.confirm rule 27): the coach's reminder for THIS occurrence just
+        // landed — the student's "Vou" lives in the fresh payload, so refetch the detail and
+        // the dashboard rows that read `pendingConfirmation` too, instead of waiting out the
+        // query's stale window.
+        if (reminderArrivedFor(evt, suggestionsInstanceId)) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+          return;
+        }
+        if (!isCoach) return;
         // PAD-131: a student asked to join, or the class filled and the
         // requests closed → refetch so the requests block is current.
         if (evt.type === "join_request_created" || evt.type === "join_requests_superseded" || evt.type === "waiting_list_changed") {
@@ -435,7 +446,7 @@ export default function ClassDetailScreen() {
           setInvitationsOpen(true);
         }
       },
-      [isCoach, event, queryClient]
+      [isCoach, event, queryClient, suggestionsInstanceId]
     )
   );
 

@@ -216,6 +216,14 @@ Players confirm or decline their attendance in response to a reminder notificati
    (same 200 contract as `spot_filled`; the shared mapper's unknown branch on an old client
    writes nothing and says something went wrong, B-074). A "no" is never refused by this rule:
    before the reminder it is rule 10's proactive decline, after it a reminder decline.
+   **The ask reaches an open class detail live (B-542, PAD-600):** the student's live
+   `message_created` event whose payload is a `notification_reminder` (`messageType`) for the open
+   occurrence (`metadata.lessonInstanceId`) makes both shells refetch the class detail — iOS
+   invalidates the `class-instance` query and the dashboard queries (the hero, the schedule rows
+   and the "Precisa de ti" card read `pendingConfirmation` too), web re-reads the sheet's
+   instance — so "Vou" appears without a re-open or the stale window. The event is recognised
+   by ONE shared predicate (`reminderArrivedFor` in `@levelup/config`), never by each shell's own
+   string match; an event for another occurrence or of another message type refetches nothing.
 28. **"Não vou" is final for the student (owner decision, the ticket's words: *"depois de o aluno
    dizer 'Não vou', não pode voltar a dizer 'Vou', porque o treinador pode já ter arranjado
    substituto"*).** Rule 26's way back is gone from both shells and from the server: a `yes`
@@ -461,6 +469,14 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Given** the same class past its reminder instant with the occurrence's `notifications_enabled` false and no reminder ever sent
 - **When** the student reads the payload or the dashboard
 - **Then** `pendingConfirmation` is `false`, "Precisa de ti" does not list the class, only "Não vou" is offered, and a `yes` answers `not_yet_asked`
+
+#### The ask reaches an open class detail live (rule 27, B-542)
+- **Given** a student with the class detail of occurrence 42 open and `pendingConfirmation: false`
+- **When** their live stream delivers `message_created` with `messageType: "notification_reminder"`
+  and `metadata.lessonInstanceId: 42`
+- **Then** the shell refetches the class detail (iOS also the dashboard queries) and the screen
+  offers "Vou" from the fresh payload
+- **And** a `message_created` for another occurrence, or of another message type, refetches nothing
 
 #### "Não vou" is final (PAD-570, rule 28)
 - **Given** a student whose `attendanceState` is `not_coming` on a class that has not started, after the reminder instant
