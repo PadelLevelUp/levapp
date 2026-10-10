@@ -3,7 +3,8 @@ id: B-521
 title: "Semi-automatic approval prompt said \"X confirmou que não vai comparecer\" for a spot nobody ever held (a never-filled vacancy)"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-10-10T01:55:00Z
 affects:
   - notifications.semi-auto-approval
   - backend/padel_app/services/replacement_approval_service.py
@@ -43,4 +44,7 @@ the reason from the shared helper; backend test on the payload and the text; car
 unchanged (card-level ids only).
 
 ### Resolution
-_Pending (PAD-574)._
+- Spec: semi-auto-approval rule 4 rewritten (two reasons; `openSpot` + `side` in the payload; the Assistant text splits too), rule 7a added.
+- Code: `_vacancy_payload` in `replacement_approval_service.py` (both builders), `_build_prompt_text`; both cards render the reason from `@levelup/config` `approvalDisplayGroups`.
+- Tests: `test_pad574_approval_reasons.py` (payload + persisted text, 1 test; `test_semi_auto_approval.py` 17 still green), web `ReplacementApprovalCard.test.tsx` (+4), iOS `replacement-approval-card-display.test.ts` (4), `approval-display.test.ts` (6).
+- Resolved: 2026-10-10 (PAD-574).
