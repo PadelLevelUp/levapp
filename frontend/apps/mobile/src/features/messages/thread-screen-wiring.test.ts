@@ -10,11 +10,20 @@ const app = join(__dirname, "..", "..", "..", "app");
 const thread = readFileSync(join(app, "conversation", "[id].tsx"), "utf8");
 const tabs = readFileSync(join(app, "(tabs)", "_layout.tsx"), "utf8");
 const classScreen = readFileSync(join(app, "class", "[id].tsx"), "utf8");
+const calendarScreen = readFileSync(join(app, "(tabs)", "calendar.tsx"), "utf8");
+
+/** A slice whose two markers were both found (R-032: a check proves it found its subject). */
+function between(source: string, from: string, to: string): string {
+  const start = source.indexOf(from);
+  expect(start).toBeGreaterThan(-1);
+  const end = source.indexOf(to, start);
+  expect(end).toBeGreaterThan(start);
+  return source.slice(start, end);
+}
 
 describe("one list invalidation per incoming message (rule 2)", () => {
   it("the thread screen's message_created handler leaves the list refetch to the tabs layout", () => {
-    const start = thread.indexOf('evt.type === "message_created"');
-    const handler = thread.slice(start, thread.indexOf('evt.type === "message_edited"', start));
+    const handler = between(thread, 'evt.type === "message_created"', 'evt.type === "message_edited"');
     expect(handler).not.toMatch(/invalidateMessagesLists\(/);
     expect(handler).not.toMatch(/invalidateQueries\(/);
   });
@@ -26,9 +35,17 @@ describe("one list invalidation per incoming message (rule 2)", () => {
 
 describe("the composer owns the draft (rule 1)", () => {
   it("the draft state lives in a Composer component, not next to the list", () => {
-    expect(thread).toMatch(/function Composer\(/);
-    const composer = thread.slice(thread.indexOf("function Composer("));
-    expect(composer).toMatch(/useState(<string>)?\(""\)/);
+    const composer = between(thread, "function Composer(", "export default function ConversationScreen");
+    expect(composer).toMatch(/\[draft, setDraft\] = React\.useState/);
+    const screen = thread.slice(thread.indexOf("export default function ConversationScreen"));
+    expect(screen).not.toMatch(/\[draft, setDraft\]/);
+  });
+});
+
+describe("a calendar range keeps the previous one on screen (rule 5)", () => {
+  it("passes keepPreviousData to useCalendarEvents", () => {
+    const call = between(calendarScreen, "useCalendarEvents(", "});");
+    expect(call).toMatch(/placeholderData:\s*keepPreviousData/);
   });
 });
 

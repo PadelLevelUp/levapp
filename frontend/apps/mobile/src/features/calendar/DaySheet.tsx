@@ -49,10 +49,11 @@ export function DaySheet({
 }) {
   const { t } = useTranslation();
   const startTop = React.useRef(top);
-  // PAD-592: while the finger moves, only this shared value changes — the sheet's `top` is an
-  // animated style, so no React state and no re-render of the grid under it per frame. The
-  // committed position (`top`, React state in GridWithSheet) is written once, on release, which
-  // is what the bounds, the raised flag and the Android back key read.
+  // PAD-592: while the finger moves, the pan (still a JS callback — `startTop` is a plain ref)
+  // writes this shared value and nothing else: the sheet's `top` is an animated style, so no
+  // React state changes and nothing under the sheet re-renders per frame. The committed
+  // position (`top`, React state in GridWithSheet) is written once, on release, which is what
+  // the bounds, the raised flag and the Android back key read.
   const sheetY = useSharedValue(top);
   React.useEffect(() => {
     sheetY.value = top;

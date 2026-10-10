@@ -1066,11 +1066,11 @@ export default function ConversationScreen() {
     queryFn: classRequestsApi.listClassRequests,
     enabled: hasClassRequestProposal,
   });
-  const classRequestLiveFor = (message: Message) => {
+  const classRequestLiveFor = React.useCallback((message: Message) => {
     const id = message.metadata?.classRequest?.id;
     if (id == null || liveClassRequests.data === undefined) return undefined;
     return liveClassRequests.data.find((r) => r.id === id) ?? null;
-  };
+  }, [liveClassRequests.data]);
   const [respondingClassRequestId, setRespondingClassRequestId] = React.useState<
     string | number | null
   >(null);
@@ -1125,11 +1125,11 @@ export default function ConversationScreen() {
     queryFn: classJoinRequestsApi.listClassJoinRequests,
     enabled: hasJoinRequestAsk,
   });
-  const joinRequestLiveFor = (message: Message) => {
+  const joinRequestLiveFor = React.useCallback((message: Message) => {
     const id = message.metadata?.joinRequest?.id;
     if (id == null || liveJoinRequests.data === undefined) return undefined;
     return liveJoinRequests.data.find((r) => r.id === id) ?? null;
-  };
+  }, [liveJoinRequests.data]);
   const [respondingJoinRequestId, setRespondingJoinRequestId] = React.useState<
     string | number | null
   >(null);
@@ -1249,6 +1249,8 @@ export default function ConversationScreen() {
     for (const m of conversation?.messages ?? []) map.set(String(m.id), m);
     return map;
   }, [conversation?.messages]);
+  const messagesByIdRef = React.useRef(messagesById);
+  messagesByIdRef.current = messagesById;
   const stableOnLongPressMenu = React.useCallback(
     (msg: Message, anchor: ContextMenuAnchor) => latestRef.current.setContextMenu({ message: msg, anchor }),
     []
@@ -1258,6 +1260,8 @@ export default function ConversationScreen() {
     (id: string | number) => latestRef.current.scrollToMessage(id),
     []
   );
+  // One handler set per message id for the screen's lifetime (bounded by the thread; a temp id
+  // and its server id each get one). A handler whose message has left the list is a no-op.
   const rowHandlersRef = React.useRef(new Map<string, RowHandlers>());
   const rowHandlersFor = React.useCallback((id: string): RowHandlers => {
     const cached = rowHandlersRef.current.get(id);
@@ -1297,8 +1301,6 @@ export default function ConversationScreen() {
     rowHandlersRef.current.set(id, handlers);
     return handlers;
   }, []);
-  const messagesByIdRef = React.useRef(messagesById);
-  messagesByIdRef.current = messagesById;
 
   const renderItem = React.useCallback(
     ({ item }: { item: Message }) => {
@@ -1338,11 +1340,11 @@ export default function ConversationScreen() {
             onRespondWaitingList={temp ? undefined : row.onRespondWaitingList}
             respondingInvite={respondingInviteId === item.id}
             onRespondInvite={temp ? undefined : row.onRespondInvite}
-            classRequestLive={latestRef.current.classRequestLiveFor(item)}
+            classRequestLive={classRequestLiveFor(item)}
             respondingClassRequest={respondingClassRequestId === item.id}
             onAnswerClassRequest={row.onAnswerClassRequest}
             onCounterClassRequest={row.onCounterClassRequest}
-            joinRequestLive={latestRef.current.joinRequestLiveFor(item)}
+            joinRequestLive={joinRequestLiveFor(item)}
             respondingJoinRequest={respondingJoinRequestId === item.id}
             onAnswerJoinRequest={row.onAnswerJoinRequest}
           />
@@ -1365,7 +1367,10 @@ export default function ConversationScreen() {
       respondingInviteId,
       respondingClassRequestId,
       respondingJoinRequestId,
-      // classRequestLiveFor / joinRequestLiveFor are read through latestRef at render time
+      // The live rows are render-time data, not handlers: when a request query resolves the
+      // list must re-render its rows (the memoised bubbles whose row did not change still skip).
+      classRequestLiveFor,
+      joinRequestLiveFor,
     ]
   );
 

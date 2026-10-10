@@ -135,7 +135,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
     [events, isMonth, calendar.monthDays, calendar.weekDays]
   );
 
-  const openEvent = (event: CalendarEvent) => {
+  // PAD-592: stable, so the memoised TimeGrid skips when the screen re-renders for other reasons.
+  const openEvent = React.useCallback((event: CalendarEvent) => {
     // PAD-160: non-class events have their own detail screen, as on web.
     if (event.type === "block") {
       router.push({
@@ -152,7 +153,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
       return;
     }
     router.push({ pathname: "/class/[id]", params: eventToParams(event) });
-  };
+  }, []);
 
   return (
     <Screen testID="screen-calendar">

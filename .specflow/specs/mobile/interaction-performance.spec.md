@@ -25,7 +25,8 @@ mobile QueryClient also takes).
    a `Composer` component (`conversation/[id].tsx`); `MessageBubble` is `React.memo`; the list's
    `renderItem` is stable (`useCallback` over a per-message handler cache that reads the screen's
    latest callbacks through a ref), and the reply quote is looked up in a `Map` by id, not a
-   linear `find` per row.
+   linear `find` per row. Render-time data (the live class/join request rows) stays in
+   `renderItem`'s dependencies, so a resolved request query still reaches its bubble.
 2. **One invalidation per incoming message.** For `message_created` the thread screen only
    patches the open conversation's cache (`applyIncomingMessage`, messaging.sse-realtime rule 10)
    and marks it read; the conversation list and the unread count are invalidated once, by the
@@ -33,10 +34,11 @@ mobile QueryClient also takes).
 3. **`inactive → active` is not a return to the app.** `useAppStateFocus` tells react-query's
    `focusManager` the app is focused only when the previous state was `background` (or unknown),
    so Control Centre, Face ID, the app switcher and incoming-call banners do not refetch every
-   mounted query; `background → active` still does. `isForegroundReturn(prev, next)` in
-   `src/lib/app-state-focus.ts` is the one place that decides.
-4. **The week day-sheet drags on the UI thread.** `DaySheet`'s `top` is a Reanimated shared
-   value written by the pan worklet; React state (`GridWithSheet.sheetTop`, the bounds, the
+   mounted query; `background → active` still does, also through a transient `inactive`
+   (`inactive` never replaces the remembered settled state). `isForegroundReturn` and
+   `settleAppState` in `src/lib/app-state-focus.ts` decide; `subscribeAppStateFocus` wires them.
+4. **The week day-sheet drag causes no React render per frame.** `DaySheet`'s `top` is a
+   Reanimated shared value written by the pan callback; React state (`GridWithSheet.sheetTop`, the bounds, the
    raised flag, Android back) is committed once, on release. `TimeGrid` is `React.memo` with
    stable props, so the commit re-renders the container and not the grid.
 5. **Moving between calendar ranges keeps the previous range on screen** (`placeholderData:
@@ -70,11 +72,29 @@ mobile QueryClient also takes).
 - **Then** `isForegroundReturn` is false; from `background` it is true; `inactive` and
   `background` are both "backgrounded" (`app-state-focus.test.ts`)
 
+#### A return through inactive still refocuses
+- **Given** the bridge is subscribed with the app active
+- **When** AppState goes `inactive → active`, and separately `background → inactive → active`
+- **Then** the first sequence calls `setFocused` never; the second calls it with `false` then
+  `true` (`useAppStateFocus.test.ts`)
+
+#### Ten drag frames commit once
+- **Given** a mounted `DaySheet` at `top` 400 with bounds 100–600
+- **When** the pan begins, updates ten times to −500 and ends
+- **Then** `onTopChange` is called once, with 100, and the shared value is 100; a `top` set from
+  outside moves the shared value (`DaySheet.gesture.test.tsx`)
+
 #### A committed sheet position does not re-render the time grid
 - **Given** a mounted week `GridWithSheet` with a laid-out container and its sheet open
 - **When** the sheet commits a position 120 pt higher
 - **Then** the sheet receives the new `top` and `[render] timegrid` is logged no additional time
   (`GridWithSheet.memo.test.tsx`)
+
+#### Calendar ranges keep the previous data
+- **Given** the calendar screen's source
+- **When** it is read
+- **Then** `useCalendarEvents` is called with `placeholderData: keepPreviousData`
+  (`thread-screen-wiring.test.ts`)
 
 #### The courts query waits for the club
 - **Given** the class screen's source
