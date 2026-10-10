@@ -553,6 +553,14 @@ with app.app_context(), unit_of_work():
         status="scheduled",
         level_id=level_beginner.id,
         notifications_enabled=True,
+        # PAD-597 / B-442: automatic invitations OFF for this instance. The E2E Flask runs the
+        # scheduler, and its never-filled-places scan (invitations rule 1c) would otherwise open
+        # this class's four free places and invite students every two minutes — more "sent"
+        # events on tomorrow's class, and pending-confirmations.spec's "sent: 2" grew with the
+        # minutes elapsed before it ran. Manual notifications only check notifications_enabled,
+        # so the notify endpoint still reaches the two pending fillers; the open spots stay
+        # for class-join-request.spec and open-spot-visibility.spec.
+        auto_invites=False,
         original_lesson_occurence_date=pending_start.date(),
     )
     db.session.add(pending_instance)
