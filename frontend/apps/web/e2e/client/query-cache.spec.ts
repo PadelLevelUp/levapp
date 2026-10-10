@@ -58,9 +58,10 @@ async function goToCalendar(page: Page) {
   await page.waitForURL("**/calendar");
 }
 
+// The coach dashboard's always-present control; the KPI tiles section is not rendered in every layout.
 async function goToDashboard(page: Page) {
   await page.getByRole("link", { name: ui("nav.dashboard") }).first().click();
-  await expect(page.getByTestId("dashboard-kpis")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
 }
 
 async function goToPresences(page: Page) {
@@ -118,19 +119,19 @@ test("PAD-586: back to players after the window shows the cached rows and refres
 
 test("PAD-586: back to the dashboard within the window makes no dashboard request", async ({ page }) => {
   await loginAsCoach(page);
-  await expect(page.getByTestId("dashboard-kpis")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
   await goToMessages(page);
 
   const dashboard = countRequests(page, "/app/dashboard");
   await goToDashboard(page);
 
-  await expect(page.getByTestId("dashboard-kpis")).toBeVisible();
+  await expect(page.getByTestId("dashboard-new-class")).toBeVisible();
   await expectStableCount(page, dashboard, 0);
 });
 
 test("PAD-586: calendar, presences, calendar fetches the roster and levels once and the unread count at most once", async ({ page }) => {
   await loginAsCoach(page);
-  await expect(page.getByTestId("dashboard-kpis")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
 
   const roster = countRequests(page, "/app/coach_players");
   const levels = countRequests(page, "/app/coach_levels");
@@ -186,7 +187,7 @@ test("PAD-586: next week keeps the previous week's cards on screen until the res
 
 test("PAD-586: presences requests the trend exactly once on load", async ({ page }) => {
   await loginAsCoach(page);
-  await expect(page.getByTestId("dashboard-kpis")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("dashboard-new-class")).toBeVisible({ timeout: 15_000 });
 
   const trend = countRequests(page, "/app/presence_trend");
   await goToPresences(page);
