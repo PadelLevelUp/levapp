@@ -10,6 +10,7 @@ import type { AvailabilityBlocker, BlockerInput } from "@/api/availability";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeSelect } from "@/components/ui/time-select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -118,11 +119,11 @@ export function BlockerSheet({ open, editing, saving, onSave, onClose }: Props) 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="blocker-start-time">{t("availability.startTime")}</Label>
-              <Input id="blocker-start-time" data-testid="blocker-start-time" type="time" value={draft.startTime} onChange={(e) => set({ startTime: e.target.value })} />
+              <TimeSelect id="blocker-start-time" data-testid="blocker-start-time" aria-label={t("availability.startTime")} first="00:00" value={draft.startTime} onChange={(startTime) => set({ startTime })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="blocker-end-time">{t("availability.endTime")}</Label>
-              <Input id="blocker-end-time" data-testid="blocker-end-time" type="time" value={draft.endTime} onChange={(e) => set({ endTime: e.target.value })} />
+              <TimeSelect id="blocker-end-time" data-testid="blocker-end-time" aria-label={t("availability.endTime")} first="00:00" last="23:59" value={draft.endTime} onChange={(endTime) => set({ endTime })} />
             </div>
           </div>
 
