@@ -216,8 +216,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    "Upcoming lessons" tile cut their own windows from that set, with output identical to loading
    each window separately (the PAD-571 baseline measured 221 statements for three separate
    loads against 46 for the coach). The player instance loader eager-loads the instance, its
-   lesson, the lesson's coaches, the instance's coaches and presences, so a window costs a fixed
-   number of statements however many classes it holds; the queue's per-row lookups of the
+   lesson and its presences (the student path reads no coach junction), so a window costs a
+   fixed number of statements however many classes it holds; the confirmation state and the
+   askable set are computed once over the union, and the queue's per-row lookups of the
    instance and the message are batched.
 9. **(B-058)** A class is in a dashboard window when it overlaps it: its **end instant** is
    after the window start and its start instant is before the window end. The end instant is
