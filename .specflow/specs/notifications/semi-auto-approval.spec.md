@@ -21,7 +21,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
 2. In semi-automatic mode, every vacancy-creation path sets approval_status "pending" and creates a replacement approval prompt instead of sending invitations: player declines via reminder response, coach confirms presences marking players absent, and the `invite_start` scheduler job
 3. One prompt per vacancy (idempotent): re-triggering invitations for a vacancy that already has a prompt does not create a duplicate
-4. **The prompt says why each spot is open (PAD-574, B-521).** A spot a student freed reads "O
+4. **The prompt says why each spot is open (PAD-574, B-522).** A spot a student freed reads "O
    {{nome}} não vai. Convites para a vaga libertada" / "{{name}} isn't coming. Invitations for the
    freed spot"; a spot the class never filled (a structural vacancy, `original_player_id` NULL)
    reads "Vaga por preencher. Convites sugeridos" / "Open spot. Suggested invitations" — never a

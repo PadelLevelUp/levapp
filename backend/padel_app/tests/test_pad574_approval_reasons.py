@@ -1,4 +1,4 @@
-"""PAD-574 — notifications.semi-auto-approval rule 4 (B-521): a bundle says why each spot is
+"""PAD-574 — notifications.semi-auto-approval rule 4 (B-522): a bundle says why each spot is
 open. A spot a student freed carries the student; a spot the class never filled is ``openSpot``
 with no name and its side; the persisted Assistant text makes the same split.
 """

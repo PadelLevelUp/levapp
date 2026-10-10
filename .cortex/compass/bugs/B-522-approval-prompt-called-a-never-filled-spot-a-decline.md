@@ -1,5 +1,5 @@
 ---
-id: B-521
+id: B-522
 title: "Semi-automatic approval prompt said \"X confirmou que não vai comparecer\" for a spot nobody ever held (a never-filled vacancy)"
 type: incomplete-rule
 severity: medium
@@ -14,7 +14,7 @@ proposed_fix: "The payload says openSpot (and the side); both cards and the pers
 opened: 2026-10-10T01:40:00Z
 ---
 
-# B-521: the approval prompt called a never-filled spot a decline (id unconfirmed, wave-14 range)
+# B-522: the approval prompt called a never-filled spot a decline (id unconfirmed, wave-14 range)
 
 **Source:** PAD-574 problem 1 (owner report, 2026-10-09).
 
