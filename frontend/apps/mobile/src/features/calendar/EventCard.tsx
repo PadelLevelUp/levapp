@@ -45,23 +45,17 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
   const ink = isBlock ? SURFACES.foreground : (surface.color ?? SURFACES.foreground);
   const onColor = variant === "scheduled" && ink === "#FFFFFF";
 
-  // PAD-130: an open spot is an offer — the class's colour as a dashed
-  // outline on a plain surface, never the filled card of an enrolled class.
-  const isOpenSpot = !!event.openSpot;
+  // PAD-130 / B-541: an open spot is an offer — the shared `open-spot` variant
+  // (dashed outline, readable ink), so the ink and the week grid agree with it.
+  const isOpenSpot = variant === "open-spot";
   const stateStyle: ViewStyle = isBlock
     ? {}
-    : isOpenSpot
-      ? {
-          backgroundColor: SURFACES.card,
-          borderWidth: 1.5,
-          borderStyle: "dashed",
-          borderColor: event.color ?? lightTheme.primary,
-        }
-      : {
-          backgroundColor: surface.backgroundColor,
-          borderWidth: surface.borderWidth,
-          borderColor: surface.borderColor,
-        };
+    : {
+        backgroundColor: surface.backgroundColor,
+        borderWidth: surface.borderWidth,
+        borderStyle: surface.borderStyle,
+        borderColor: surface.borderColor,
+      };
 
   const capacity = event.maxPlayers ?? 0;
   const filled = event.participantCount ?? 0;
