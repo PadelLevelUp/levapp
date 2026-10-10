@@ -156,3 +156,37 @@ export function applyIncomingMessage(
     messages: [...current.messages, { ...message, status: "delivered" as const }],
   };
 }
+
+/**
+ * The conversation list as the user sees it: page 1 (the cached query) followed by the later pages
+ * appended on "load more" (client.query-cache rule 6). A row on several pages keeps page 1's
+ * version, the fresher read, so a page-1 refetch never duplicates a row an extra page already
+ * holds. De-duplication is by normalized id; order is page 1, then each extra page in turn.
+ */
+export function mergeConversationPages(
+  firstPage: Conversation[],
+  extraPages: Conversation[][],
+  normalizeId: (id: string | number | null | undefined) => string | null
+): Conversation[] {
+  const seen = new Set(firstPage.map((c) => normalizeId(c.id)));
+  const merged = [...firstPage];
+  for (const page of extraPages) {
+    for (const conversation of page) {
+      const id = normalizeId(conversation.id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push(conversation);
+    }
+  }
+  return merged;
+}
+
+/** Whether `id` is already a row of `list` (by normalized id). */
+export function hasConversation(
+  list: Conversation[],
+  id: string | number | null | undefined,
+  normalizeId: (id: string | number | null | undefined) => string | null
+): boolean {
+  const wanted = normalizeId(id);
+  return list.some((c) => normalizeId(c.id) === wanted);
+}

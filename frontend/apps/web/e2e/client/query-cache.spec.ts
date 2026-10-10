@@ -8,13 +8,21 @@
  * change); `page.goto` would reload the app and empty the cache, which is the thing under test.
  *
  * Role names come from the locale files through `ui()` (R-013); the Presences and Messages links
- * carry a badge inside the link, so those two are reached by their `href`.
+ * carry a badge inside the link (it changes their accessible name), so those two are reached by
+ * their test id (`nav-link-<route>`), never by CSS.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect, type Page } from "@playwright/test";
-import { loginAsCoach } from "../helpers/auth";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  COACH_PASSWORD,
+  COACH_USERNAME,
+  STUDENT_PASSWORD,
+  STUDENT_USERNAME,
+  loginAsCoach,
+} from "../helpers/auth";
+import { API_APP, API_AUTH, API_ROOT } from "../helpers/api";
 import { ui } from "../helpers/i18n";
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -44,12 +52,12 @@ async function goToDashboard(page: Page) {
 }
 
 async function goToPresences(page: Page) {
-  await page.locator('nav a[href="/presences"]').click();
+  await page.getByTestId("nav-link-presences").first().click();
   await page.waitForURL("**/presences");
 }
 
 async function goToMessages(page: Page) {
-  await page.locator('nav a[href="/messages"]').click();
+  await page.getByTestId("nav-link-messages").first().click();
   await page.waitForURL("**/messages");
 }
 
@@ -63,9 +71,9 @@ test("PAD-586: back to players within the window makes no coach_players_paginate
 
   await expect(page.getByTestId("players-list")).toBeVisible();
   await expect(page.getByTestId("players-list-loading")).toHaveCount(0);
-  // Let any request the mount would have made leave the browser before reading the count.
-  await page.waitForTimeout(1_000);
-  expect(paginated.count).toBe(0);
+  // Any request the mount would have made has left the browser once the network is idle.
+  await page.waitForLoadState("networkidle");
+  await expect.poll(() => paginated.count, { intervals: [250, 250, 500] }).toBe(0);
 });
 
 test("PAD-586: back to players after the window shows the cached rows and refreshes once behind", async ({ page }) => {
@@ -106,8 +114,8 @@ test("PAD-586: back to the dashboard within the window makes no dashboard reques
   await goToDashboard(page);
 
   await expect(page.getByTestId("dashboard-kpis")).toBeVisible();
-  await page.waitForTimeout(1_000);
-  expect(dashboard.count).toBe(0);
+  await page.waitForLoadState("networkidle");
+  await expect.poll(() => dashboard.count, { intervals: [250, 250, 500] }).toBe(0);
 });
 
 test("PAD-586: calendar, presences, calendar fetches the roster and levels once and the unread count at most once", async ({ page }) => {
@@ -122,7 +130,7 @@ test("PAD-586: calendar, presences, calendar fetches the roster and levels once 
   await goToPresences(page);
   await page.getByTestId("presences-kpi-total").waitFor({ timeout: 15_000 });
   await goToCalendar(page);
-  await page.waitForTimeout(1_000);
+  await page.waitForLoadState("networkidle");
 
   expect(roster.count).toBe(1);
   expect(levels.count).toBe(1);
@@ -152,7 +160,7 @@ test("PAD-586: next week keeps the previous week's cards on screen until the res
   await page.getByRole("button", { name: ui("calendar.toolbar.nextWeek") }).first().click();
   await expect.poll(() => nextWeekRequested).toBe(true);
 
-  // Sampled across the whole hold, not once.
+  // Deliberate sampling across the held response, not a single look.
   for (let sample = 0; sample < 5; sample += 1) {
     expect(await cards.count()).toBeGreaterThanOrEqual(1);
     await page.waitForTimeout(200);
@@ -173,9 +181,66 @@ test("PAD-586: presences requests the trend exactly once on load", async ({ page
   const trend = countRequests(page, "/app/presence_trend");
   await goToPresences(page);
   await page.getByTestId("presences-kpi-total").waitFor({ timeout: 15_000 });
-  await page.waitForTimeout(1_500);
-
+  await expect.poll(() => trend.count).toBe(1);
+  await page.waitForLoadState("networkidle");
   expect(trend.count).toBe(1);
+});
+
+test("PAD-586: a live message refetches the conversations list once and never probes the conversation", async ({ page, request }) => {
+  const bearer = async (api: APIRequestContext, username: string, password: string) => {
+    const res = await api.post(`${API_AUTH}/login`, { data: { username, password } });
+    expect(res.ok(), `login ${username}: ${res.status()}`).toBeTruthy();
+    const json = await res.json();
+    return { Authorization: `Bearer ${json.accessToken ?? json.access_token}` };
+  };
+  const student = await bearer(request, STUDENT_USERNAME, STUDENT_PASSWORD);
+  const coach = await bearer(request, COACH_USERNAME, COACH_PASSWORD);
+
+  const convos = await request.get(`${API_APP}/conversations`, { headers: student });
+  expect(convos.status()).toBe(200);
+  const withCoach = (await convos.json()).conversations.find(
+    (c: { participantName?: string | null }) => c.participantName === "E2E Coach"
+  );
+  expect(withCoach, 'the student has a conversation with "E2E Coach" (seed.py)').toBeTruthy();
+  const conversationId = String(withCoach.id);
+
+  let streamOpened = false;
+  page.on("request", (r) => {
+    if (new URL(r.url()).pathname.endsWith("/app/events")) streamOpened = true;
+  });
+  await loginAsCoach(page);
+  await goToMessages(page);
+  await expect(page.getByTestId(`conversation-row-${conversationId}`)).toBeVisible({ timeout: 20_000 });
+  await expect.poll(() => streamOpened, { message: "the SSE stream is open" }).toBe(true);
+
+  const listReads = countRequests(page, "/app/conversations");
+  const probes: string[] = [];
+  page.on("request", (r) => {
+    const url = new URL(r.url());
+    if (url.pathname.endsWith(`/app/conversation/${conversationId}`) && url.searchParams.get("limit") === "1") {
+      probes.push(r.url());
+    }
+  });
+
+  let messageId: number | undefined;
+  try {
+    const sent = await request.post(`${API_APP}/message`, {
+      headers: student,
+      data: { conversationId, text: `PAD-586 live ${Date.now()}` },
+    });
+    expect(sent.status(), "the student's message is stored").toBeLessThan(300);
+    messageId = (await sent.json()).id;
+
+    await expect.poll(() => listReads.count, { timeout: 15_000 }).toBe(1);
+    await page.waitForLoadState("networkidle");
+    expect(listReads.count).toBe(1);
+    expect(probes).toEqual([]);
+  } finally {
+    if (messageId !== undefined) {
+      const del = await request.delete(`${API_ROOT}/editor/message/${messageId}`, { headers: coach });
+      expect.soft(del.ok(), `delete message ${messageId}: ${del.status()}`).toBeTruthy();
+    }
+  }
 });
 
 test("PAD-586: no query polls (no refetchInterval in the web app or the shared hooks)", async () => {

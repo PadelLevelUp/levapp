@@ -50,14 +50,9 @@ vi.mock("@/components/presences/ValidateClassesDialog", () => ({
   ),
 }));
 vi.mock("@/api/presences", () => ({
-  getPendingValidation: vi.fn().mockResolvedValue({ pending: [], validated: [] }),
-  getPendingValidationCount: vi.fn().mockResolvedValue({ pendingCount: 0 }),
-  getPresenceStats: vi.fn().mockResolvedValue(null),
-  getPresenceTrend: vi.fn().mockResolvedValue(null),
   unvalidateClass: vi.fn().mockResolvedValue(undefined),
   validateClassPresences: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@/api/players", () => ({ getCoachPlayers: vi.fn().mockResolvedValue([]) }));
 // client.query-cache: the page reads through the shared hooks, which call the api package directly.
 vi.mock("@levelup/api/src/resources/presences", () => ({
   getPendingValidation: vi.fn().mockResolvedValue({ pending: [], validated: [] }),

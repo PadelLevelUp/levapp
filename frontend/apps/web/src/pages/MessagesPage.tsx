@@ -20,6 +20,8 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
+  hasConversation,
+  mergeConversationPages,
   mergeOlderPage,
   queryKeys,
   threadLoadErrorKey,
@@ -102,6 +104,8 @@ export default function MessagesPage() {
   const initialLoading = listQuery.isPending;
   const [extraPages, setExtraPages] = useState<Conversation[]>([]);
   const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
+  // Safe across a page-1 refetch: once a later page was loaded, that page's own `hasMore` rules
+  // (page 1's flag only says whether page 2 exists, which is already answered).
   const hasMore = extraHasMore ?? listQuery.data?.hasMore ?? true;
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -112,11 +116,15 @@ export default function MessagesPage() {
   const selectedConversationIdRef = useRef<string | null>(null);
 
   // Page 1 (the query) wins over a later page's copy of the same row: it is the fresher read.
-  const conversations = useMemo(() => {
-    const first = listQuery.data?.conversations ?? [];
-    const seen = new Set(first.map((c) => normalizeConversationId(c.id)));
-    return [...first, ...extraPages.filter((c) => !seen.has(normalizeConversationId(c.id)))];
-  }, [listQuery.data, extraPages]);
+  const conversations = useMemo(
+    () =>
+      mergeConversationPages(
+        listQuery.data?.conversations ?? [],
+        [extraPages],
+        normalizeConversationId
+      ),
+    [listQuery.data, extraPages]
+  );
 
   const sortedConversations = useMemo(() => {
     return [...conversations].sort((a, b) => {
@@ -149,7 +157,7 @@ export default function MessagesPage() {
   const addListRow = useCallback(
     (conversation: Conversation) => {
       patchConversationList((list) =>
-        list.some((c) => normalizeConversationId(c.id) === normalizeConversationId(conversation.id))
+        hasConversation(list, conversation.id, normalizeConversationId)
           ? list
           : [conversation, ...list]
       );
@@ -167,11 +175,7 @@ export default function MessagesPage() {
     try {
       const nextPage = page + 1;
       const result = await getConversations(nextPage);
-      setExtraPages((prev) => {
-        const existingIds = new Set(prev.map((c) => normalizeConversationId(c.id)));
-        const fresh = result.conversations.filter((c) => !existingIds.has(normalizeConversationId(c.id)));
-        return [...prev, ...fresh];
-      });
+      setExtraPages((prev) => mergeConversationPages(prev, [result.conversations], normalizeConversationId));
       setPage(nextPage);
       setExtraHasMore(result.hasMore);
     } finally {

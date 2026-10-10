@@ -82,7 +82,6 @@ vi.mock("@levelup/api/src/resources/coachLevel", async (importOriginal) => {
 
 vi.mock("@/api/players", () => ({
   addPlayer: vi.fn(),
-  getCoachPlayers: vi.fn(async () => PLAYERS),
   getPlayerProfile: vi.fn(async () => ({ playerId: "1", evaluations: [], strengths: [], weaknesses: [] })),
   addCoachNote: vi.fn(),
   deleteCoachNote: vi.fn(),

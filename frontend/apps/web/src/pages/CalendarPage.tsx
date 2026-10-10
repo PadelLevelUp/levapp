@@ -164,9 +164,11 @@ export default function CalendarPage() {
   // week's, so the grid keeps showing THAT week (its columns and its cards) under the new week's
   // toolbar label, and swaps when the response lands. The phone views are day-based and follow
   // the selected day, so they use the new week at once.
-  const shownWeekStart = useRef(calendar.weekStart);
-  if (!eventsQuery.isPlaceholderData) shownWeekStart.current = calendar.weekStart;
-  const gridWeekStart = isMobile ? calendar.weekStart : shownWeekStart.current;
+  // Rule 5: the header and columns follow the cards on screen, not the requested week, while the
+  // next range is a placeholder; the render-time write is idempotent.
+  const displayedWeekStart = useRef(calendar.weekStart);
+  if (!eventsQuery.isPlaceholderData) displayedWeekStart.current = calendar.weekStart;
+  const gridWeekStart = isMobile ? calendar.weekStart : displayedWeekStart.current;
   const gridWeekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(gridWeekStart, i)),
     [gridWeekStart]
@@ -211,13 +213,15 @@ export default function CalendarPage() {
   const editEvents = useCallback(
     (update: (prev: CalendarEvent[]) => CalendarEvent[]) => {
       const key = queryKeys.calendarEvents(fetchFrom, fetchTo);
-      void queryClient
+      // A failed cancel falls back to a refetch rather than dropping the local edit.
+      queryClient
         .cancelQueries({ queryKey: key })
         .then(() =>
           queryClient.setQueryData<CalendarEvent[]>(key, (old) => update(old ?? NO_EVENTS))
-        );
+        )
+        .catch(() => refreshEvents());
     },
-    [queryClient, fetchFrom, fetchTo]
+    [queryClient, fetchFrom, fetchTo, refreshEvents]
   );
 
   // classes.class-requests rule 19 (PAD-488, B-264): a request changed on this device, the
