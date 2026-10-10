@@ -1940,13 +1940,14 @@ def format_relative_day(start, locale, now=None) -> str:
     rendered, which in the engine is the moment it is sent (so a message held by quiet hours past
     midnight still says "hoje" correctly). Both ``start`` and ``now`` are club wall-clock times.
 
-    No preposition is inside it; the coach writes "para {day} às {time}":
+    Only the next-week form carries a preposition in Portuguese (PAD-561, B-463: the owner
+    reversed PAD-549's "no preposition inside"), so the field fits "A aula é {day} às {time}":
         same day → "hoje" / "today"; next day → "amanhã" / "tomorrow";
         two days → "depois de amanhã" / "the day after tomorrow";
         later this week (Monday–Sunday) → "esta sexta-feira" / "this Friday";
-        any day of next week → "a próxima segunda-feira" / "next Monday";
+        any day of next week → "na próxima segunda-feira" / "next Monday";
         anything else, past included → "dia 23/02" / "23/02".
-    Saturday and Sunday are masculine in Portuguese: "este sábado", "o próximo domingo".
+    Saturday and Sunday are masculine in Portuguese: "este sábado", "no próximo domingo".
     """
     if start is None:
         return ""
@@ -1970,7 +1971,7 @@ def format_relative_day(start, locale, now=None) -> str:
         return f"this {weekday}"
     if days > 0 and weeks_ahead == 1:
         if is_pt:
-            return f"{'o próximo' if masculine else 'a próxima'} {weekday}"
+            return f"{'no próximo' if masculine else 'na próxima'} {weekday}"
         return f"next {weekday}"
     date = _format_day_month(start)
     return f"dia {date}" if is_pt else date
@@ -2196,55 +2197,6 @@ def _send_system_message(
         badge=get_unread_count(player_user_id),
     )
 
-    return msg
-
-
-def _notify_coach_of_refused_return(instance, player, player_user_id, coach_user_id, locale="en"):
-    """Tell the coach a student tried to come back and the seat was already gone.
-
-    PAD-313. The coach is told when a student cancels, and told again when one
-    confirms — but a refused RETURN produced nothing, so the only person who
-    could put the student back had no idea they had asked. This is that signal,
-    and it is the reason the refusal is safe: a seat is never silently
-    double-booked, and a human can still fix it.
-
-    Sent from the student into the same coach-student conversation the
-    cancellation used, so the two sit together in one thread.
-    """
-    from padel_app.models import Message
-    from padel_app.serializers.message import serialize_message
-
-    if not coach_user_id or not player_user_id:
-        return None
-    is_pt = (locale or "").startswith("pt")
-    player_name = (player.user.name if player and player.user else None) or (
-        "Um jogador" if is_pt else "A player"
-    )
-    class_title = instance.title or ("a aula" if is_pt else "the class")
-    when = _format_class_when(instance, locale)
-    if is_pt:
-        text = (
-            f"{player_name} quis voltar a {class_title}{when}, mas a vaga "
-            f"já estava ocupada."
-        )
-    else:
-        text = (
-            f"{player_name} wanted to re-join {class_title}{when}, but the spot "
-            f"was already taken."
-        )
-    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
-    msg = Message(
-        text=text,
-        sender_id=player_user_id,
-        conversation_id=conv.id,
-        message_type="text",
-        msg_metadata={"returnRefused": True, "lessonInstanceId": instance.id},
-    )
-    msg.create()
-    publish(
-        {"type": "message_created", "payload": serialize_message(msg, None)},
-        message_recipient_ids(msg),
-    )
     return msg
 
 
@@ -2868,12 +2820,32 @@ def _create_vacancy_for_absent_player(
     return vacancy
 
 
-def _side_counts(instance: LessonInstance, coach_id: int, *, leaver_id: int | None = None) -> dict | None:
+def _open_vacancy_sides(instance: LessonInstance, *, freed_only: bool) -> list:
+    """The sides the class's open vacancies carry. ``freed_only`` keeps the FREED spots — a vacancy
+    with a departing player (``original_player_id`` set), the spec's "vacancy with a departing
+    player" — and leaves out the never-filled ones (rule 2c, PAD-565 / B-401)."""
+    query = db.session.query(Vacancy.side).filter(
+        Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open"
+    )
+    if freed_only:
+        query = query.filter(Vacancy.original_player_id.isnot(None))
+    return [side for (side,) in query]
+
+
+def _side_counts(
+    instance: LessonInstance,
+    coach_id: int,
+    *,
+    leaver_id: int | None = None,
+    freed_only: bool = False,
+) -> dict | None:
     """Rules 2b and 2c: the class's ``left`` / ``right`` count — the players holding a spot (their
     side with this coach; ``both`` and no side count on neither), minus ``leaver_id``, plus the
-    sides its open vacancies carry. ``None`` when nobody on the coach's roster plays a side: a sided
-    spot would only empty round 1 (a side-less player matches no side, rule 4a) and delay the fill
-    by a tick (rule 3c)."""
+    sides its open vacancies carry: all of them for rule 2b, only the freed ones for rule 2c
+    (``freed_only``, PAD-565 / B-401: the never-filled spots carry rule 2b's capacity-projected
+    sides, and a freed spot that counted them balanced the projection instead of the roster).
+    ``None`` when nobody on the coach's roster plays a side: a sided spot would only empty round 1
+    (a side-less player matches no side, rule 4a) and delay the fill by a tick (rule 3c)."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
 
     if Association_CoachPlayer.query.filter(
@@ -2892,27 +2864,37 @@ def _side_counts(instance: LessonInstance, coach_id: int, *, leaver_id: int | No
         ):
             if side in counts:
                 counts[side] += 1
-    for (side,) in (
-        db.session.query(Vacancy.side)
-        .filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open")
-    ):
+    for side in _open_vacancy_sides(instance, freed_only=freed_only):
         if side in counts:
             counts[side] += 1
     return counts
 
 
+def freed_spot_side_counts(
+    instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None
+) -> dict | None:
+    """PAD-541 / PAD-565 (notifications.invitations rule 2c; owner, 2026-10-09, option A): the side
+    of a spot a cancellation frees, with the numbers that chose it — ``{left, right, leaverSide,
+    chosen}`` — so the invite simulation and a tutorial show the engine's own count
+    (`notifications.invite-simulation` rule 9). The count is the players going without the leaver,
+    plus the class's other open freed spots; never-filled spots are not counted (B-401). A tie
+    keeps the leaver's side (which may be ``both`` or none). ``None`` when no player on the coach's
+    roster plays a side: the leaver's side is kept. Call it under the class lock (rule 10) so two
+    cancellations at once see each other's spot."""
+    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True)
+    if counts is None:
+        return None
+    if counts["left"] == counts["right"]:
+        chosen = leaver_side
+    else:
+        chosen = "left" if counts["left"] < counts["right"] else "right"
+    return {"left": counts["left"], "right": counts["right"], "leaverSide": leaver_side, "chosen": chosen}
+
+
 def freed_spot_side(instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None) -> str | None:
-    """PAD-541 (notifications.invitations rule 2c; owner, 2026-10-08, option A): the side of a spot
-    a cancellation frees — the side the class is short of without the leaver, counting its other
-    open vacancies, so several freed spots balance across one another. A tie keeps the leaver's
-    side (which may be ``both`` or none), as does a roster with no sided player. Call it under the
-    class lock (rule 10) so two cancellations at once see each other's spot."""
-    counts = _side_counts(instance, coach_id, leaver_id=leaver_id)
-    # A roster with no sided player is named on purpose (rule 2c), though its 0 / 0 count would
-    # also fall to the tie below.
-    if counts is None or counts["left"] == counts["right"]:
-        return leaver_side
-    return "left" if counts["left"] < counts["right"] else "right"
+    """The side `freed_spot_side_counts` chooses, or the leaver's when the roster plays no side."""
+    counts = freed_spot_side_counts(instance, coach_id, leaver_id, leaver_side)
+    return leaver_side if counts is None else counts["chosen"]
 
 
 def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> list[str | None]:
@@ -3684,44 +3666,14 @@ def respond_to_reminder(
     if reminder_msg is None and _recorded_reminder_action(presence) == action:
         return {"action": _RESPONSE_STATE.get(action, "unknown"), "duplicate": True}
 
-    # PAD-313: a "yes" from someone who had given their spot up is a capacity
-    # decision, and it is taken BEFORE anything is recorded. Marking the
-    # reminder answered first and refusing afterwards would leave the student
-    # recorded as having said yes to a class they were just refused — the same
-    # shape of lie this ticket exists to remove.
-    retaking = (
-        action == "yes"
-        and presence is not None
-        and presence.status == "absent"
-        and not presence.validated
-    )
-    own = None
-    if retaking:
-        # B-284: the same lock order as every accept (rule 10) — their own vacancy, then the
-        # class. An invitee answering yes for that vacancy takes it in this order too; the
-        # return used to lock the class first and write the vacancy after, and the two
-        # deadlocked. From here to `presence.save()` nothing commits.
-        own, locked = _lock_vacancy_and_instance(
-            _open_vacancy_for(instance.id, player.id), instance
-        )
-        if own is not None and own.status != "open":
-            own = None
-        # Capacity is the override, else the lesson's (PAD-275, classes.edit
-        # rule 4) — never the copied column, which every sibling check already
-        # stopped reading; the copy goes stale the moment the coach edits the
-        # lesson's capacity after materialisation (batch-2 audit).
-        if (
-            locked.effective_max_players is not None
-            and _effective_filled_spots(locked) >= locked.effective_max_players
-        ):
-            db.session.commit()  # release the lock, change nothing
-            # PAD-501: no `spot_filled` message; the screen that sent this shows the refusal.
-            # The coach is the only one who can seat them by hand, and they were
-            # told of the cancellation — so they hear about the attempt too.
-            _notify_coach_of_refused_return(
-                instance, player, acting_user_id, coach_user_id, locale=locale
-            )
-            return {"action": "spot_filled"}
+    # PAD-570 (attendance.confirm rules 27-29): a "yes" is accepted only from a
+    # student who has been ASKED and is still `planned`. The answer is the same
+    # 200 contract as `spot_filled` (B-074): an old client's shared mapper writes
+    # nothing and says something went wrong; nothing is recorded here either.
+    if action == "yes":
+        refusal = _refuse_yes(presence, instance, config, now=_now)
+        if refusal is not None:
+            return {"action": refusal}
 
     # Mark the reminder as responded — on its reminder_attempts row (rule 14),
     # mirrored onto the message so the frontend shows the badge on reload.
@@ -3745,45 +3697,18 @@ def respond_to_reminder(
 
     # B-284: these writes commit, so a return records the answer after its own commit, never
     # inside the lock it holds.
-    if not retaking:
-        _record_reminder_answer()
+    _record_reminder_answer()
 
     if action == "yes":
-        retired_on_return = []
         if presence:
-            # PAD-313 (B-073): a "yes" must undo what a previous "no" wrote.
-            # The decline path sets status=absent/justification=justified and the
-            # yes branch used to leave them, so a student who cancelled and then
-            # answered yes kept a row that said absent: the class did not count
-            # them (`effective_filled_spots` subtracts absent presences) and their
-            # spot stayed open for the engine to give away, while the app told
-            # them they were confirmed. The columns carry no timestamp, so no
-            # reader can tell which answer was newer — only the writer can.
-            # The coach's own record is never touched: `validated` rows are the
-            # coach's to change.
-            if retaking:
-                # The capacity decision was taken above, under the class lock,
-                # before anything was recorded. Re-seat them.
-                presence.status = None
-                presence.justification = None
-                # (PAD-271 M5: lateness is derived from the response, which
-                # the "yes" below records as `confirmed`; no column to clear.)
-                # Their own vacancy's premise — that this player left — is void
-                # now they are back, and capacity alone will not close it: a
-                # half-empty class has open spots to spare, so the general
-                # reconciliation leaves it standing and the engine keeps
-                # offering the seat its owner just re-took.
-                # (`own` was locked above, before the class.)
-                if own is not None:
-                    retired_on_return = _close_vacancy(own, player.id)
+            # PAD-570: `_refuse_yes` above guarantees the row is `planned` here —
+            # a "yes" never undoes a "no" any more (rule 28), so there is nothing
+            # to clear. The coach's own record is never touched.
             presence.confirmed = True
             # status is not set to "present": only the coach marks attendance.
             # PAD-271 M5: the answer as one field (attendance.presence rule 7).
             record_response(presence, "confirmed", when=now)
-            _publish_retired(retired_on_return)  # PAD-499: queued now, sent by the commit below
             presence.save()
-        if retaking:
-            _record_reminder_answer()
         if coach_user_id:
             _send_system_message(
                 coach_user_id,
@@ -3961,6 +3886,69 @@ def proactive_decline_window_is_open(
     if deadline is None:
         return False
     return (now or utcnow_naive()) < deadline
+
+
+def student_may_confirm(presence, instance, config=None, *, now: datetime | None = None) -> bool:
+    """PAD-570 (attendance.confirm rule 27): may this student answer "Vou" right now?
+
+    ONE predicate, served as ``pendingConfirmation`` on the class-detail payload and on
+    every dashboard surface, and enforced by ``respond_to_reminder`` — so a client never
+    recomputes the reminder instant. True when ALL hold:
+
+    - the student has been asked: the first-reminder instant has passed (the SAME
+      ``_fire_time_utc`` boundary that closes rule 10's proactive-decline window), or a
+      reminder was actually sent to them for this occurrence (the coach's manual
+      "Enviar lembretes" ahead of the instant) — voided rounds included (PAD-318): a
+      student the coach re-added was already asked about this class, and the cap that
+      ignores voided rounds is about how many more reminders to SEND, not about this;
+    - the occurrence would ever ask: ``notifications_enabled`` — a class with reminders
+      off never asks (owner decision in the ticket), unless a reminder was sent by hand;
+      when no instant is computable the time-based opener stays closed (fail closed);
+    - the student's ``attendance_state`` is ``planned`` (``coming`` has answered,
+      ``not_coming`` is final — rule 28; ``attended``/``missed`` is the coach's — rule 29);
+    - the class has not started.
+
+    ``invited`` is deliberately not read: ``enrol()`` writes it at enrolment (B-441).
+    ``presence`` may be None for an occurrence that has no row yet (``planned``).
+    """
+    if instance is None:
+        return False
+    _now = now or utcnow_naive()
+    if _instance_is_over(instance, _now):
+        return False
+    state = presence.attendance_state if presence is not None else "planned"
+    if state != "planned":
+        return False
+    instance_id = getattr(instance, "id", None)
+    if presence is not None and instance_id is not None:
+        from padel_app.services import reminder_attempt_service as attempts
+
+        if attempts.latest_attempt(instance_id, presence.player_id) is not None:
+            return True
+    if not getattr(instance, "notifications_enabled", True):
+        return False
+    deadline = proactive_decline_deadline(instance, config)
+    if deadline is None:
+        return False
+    return _now >= deadline
+
+
+def _refuse_yes(presence, instance, config, *, now: datetime) -> "str | None":
+    """PAD-570: why a "yes" is refused, or None when it may be recorded.
+
+    ``already_declined`` (rule 28) and ``already_marked`` (rule 29) name the state the
+    row is in; ``not_yet_asked`` (rule 27) is a ``planned`` row whose ask has not come.
+    """
+    state = presence.attendance_state if presence is not None else "planned"
+    if state == "not_coming":
+        return "already_declined"
+    if state in ("attended", "missed"):
+        return "already_marked"
+    if state == "coming":
+        return None  # the duplicate branch above already answered a repeat
+    if not student_may_confirm(presence, instance, config, now=now):
+        return "not_yet_asked"
+    return None
 
 
 def _resolve_occurrence_for_student(player, model, original_id, date):
@@ -5121,24 +5109,36 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
 # Respond to notification (player presses Yes / No on invite)
 # ---------------------------------------------------------------------------
 
-def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
-    """PAD-499 (#527 review item 3): record a student's "yes" — the answer, and the invite bubble's
-    state — under rule 10's lock, flushed into the commit that decides it, so a failed commit leaves
-    the bubble unanswered (the buttons back) rather than "Accepted" on a spot they do not hold.
-    ``response`` is what the bubble shows: "yes" (Accepted) or "spot_filled" when the yes was
-    refused. The bubble's live edit is published after that commit."""
+def _record_answer(
+    event: NotificationEvent, invite_msg, answer: str, response: str, *, by: str
+) -> None:
+    """PAD-499 (#527 review item 3) and PAD-563 (rule 9): record an answer — on the invitation and
+    on the invite bubble's state — under the lock, flushed into the commit that decides it, so a
+    failed commit leaves the bubble unanswered (the buttons back) rather than "Accepted" on a spot
+    they do not hold. ``answer`` is what the invitation stores ("yes" | "no"); ``response`` is what
+    the bubble shows ("yes", "no", or "spot_filled" when a yes was refused); ``by`` is who gave it
+    ("student" | "coach", PAD-548), kept on the bubble as ``answeredBy`` so both shells can say
+    "marcado pelo treinador". The bubble's live edit is published after that commit
+    (`messaging.sse-realtime` rule 18)."""
     from padel_app.serializers.message import serialize_message
     from padel_app.tools.after_commit import on_commit
 
-    event.answer = "yes"
-    event.answered_by = "student"  # PAD-548 (rule 9)
+    event.answer = answer
+    event.answered_by = by
     if invite_msg is not None and invite_msg.msg_metadata is not None:
-        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": response}
+        invite_msg.msg_metadata = {
+            **invite_msg.msg_metadata, "responded": True, "response": response, "answeredBy": by,
+        }
     db.session.flush()
     if invite_msg is not None:
         payload = {"type": "message_edited", "payload": serialize_message(invite_msg, None)}
         recipients = list(message_recipient_ids(invite_msg))
         on_commit(lambda: publish(payload, recipients))
+
+
+def _record_yes(event: NotificationEvent, invite_msg, response: str) -> None:
+    """A student's "yes" (PAD-499); see `_record_answer`."""
+    _record_answer(event, invite_msg, "yes", response, by="student")
 
 
 def _repeated_answer(event: NotificationEvent, action: str, *, by_coach: bool = False) -> dict | None:
@@ -5245,7 +5245,9 @@ def respond_to_notification(
     invite_msg = Message.query.get(event.message_id) if event.message_id else None
     if action == "no" and invite_msg is not None and invite_msg.msg_metadata is not None:
         # Mark the invite message as answered (a "yes" does this under the lock, below).
-        invite_msg.msg_metadata = {**invite_msg.msg_metadata, "responded": True, "response": "no"}
+        invite_msg.msg_metadata = {
+            **invite_msg.msg_metadata, "responded": True, "response": "no", "answeredBy": "student",
+        }
         invite_msg.save()
         publish(
             {"type": "message_edited", "payload": serialize_message(invite_msg, None)},
@@ -5420,6 +5422,7 @@ def coach_respond_to_notification(
     now: datetime | None = None,
 ) -> dict:
     from flask import abort
+    from padel_app.models import Message
 
     event = NotificationEvent.query.get_or_404(notification_event_id)
     if event.coach_id != coach_id:
@@ -5439,16 +5442,18 @@ def coach_respond_to_notification(
 
     instance = event.lesson_instance
     vacancy = event.vacancy
+    invite_msg = Message.query.get(event.message_id) if event.message_id else None
 
     if action == "no":
-        event.answer = "no"  # PAD-497 (rule 18): the coach records the student's answer
-        event.answered_by = "coach"  # PAD-548 (rule 9)
+        # PAD-497 (rule 18): the coach records the student's answer; PAD-548 (rule 9): stamped
+        # "coach"; PAD-563: the bubble's state goes into the same commit, its edit out after it.
+        _record_answer(event, invite_msg, "no", "no", by="coach")
         event.status = "expired"
         _settle_waiting_list_entry(event, "no")  # PAD-446 (waiting-list rule 15)
-        event.save()
         if vacancy:
             vacancy.last_activity_at = utcnow_naive()
-            vacancy.save()
+        db.session.flush()
+        event.save()  # the ONE commit; it ends the lock and sends the bubble edit
         return {"action": "declined"}
 
     elif action == "yes":
@@ -5478,8 +5483,9 @@ def coach_respond_to_notification(
         # PAD-499: the answer and the confirmation are flushed first and land with the close and
         # the enrolment in ONE commit; a second coach yes waiting on the lock then finds it
         # confirmed.
-        event.answer = "yes"
-        event.answered_by = "coach"  # PAD-548 (rule 9)
+        # PAD-548 (rule 9): stamped "coach"; PAD-563: the winner's own bubble is marked in the
+        # same commit and its edit published after it, as the student's yes does.
+        _record_answer(event, invite_msg, "yes", "yes", by="coach")
         event.status = "confirmed"
         db.session.flush()
         retired = []
@@ -5900,7 +5906,11 @@ def respond_to_waiting_list(
 
 def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict]:
     """A class's active waiting list (notifications.waiting-list rules 5 and 20, PAD-547): each row
-    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation)."""
+    with its origin, in the order rule 4 asks them (join time — a standing row's entry creation).
+    PAD-560: and its ``scope`` — how long the student is on this list — ``occurrence`` (no standing
+    entry), ``period`` (an entry scoped to this series, which today always runs to a date the coach
+    chose), ``standing`` (a coach-wide entry); ``series`` is reserved for the whole-series entries
+    PAD-560's scope change introduces — with the entry's ``expiresOn``."""
     query = WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, is_active=True)
     if coach_id is not None:
         query = query.filter_by(coach_id=coach_id)
@@ -5921,18 +5931,115 @@ def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict
             "origin": origin,
             "standingEntryId": standing.id if standing else None,
             "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
+            "scope": _waiting_list_row_scope(standing),
+            "expiresOn": standing_end_on(standing) if standing is not None else None,
         }))
     return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
 
 
+def _waiting_list_row_scope(standing: "StandingWaitingListEntry | None") -> str:
+    """PAD-560 (rule 20): ``occurrence`` | ``series`` (a series-scoped entry marked whole-series)
+    | ``period`` (a series-scoped window) | ``standing`` (coach-wide)."""
+    if standing is None:
+        return "occurrence"
+    if standing.lesson_id is None:
+        return "standing"
+    return "series" if standing.whole_series else "period"
+
+
+# PAD-560 (notifications.waiting-list rule 19a): "durante X aulas" is at most this many; the dialogs
+# share the bound as WAITING_LIST_MAX_PERIOD_CLASSES in @levelup/config.
+WAITING_LIST_MAX_PERIOD_CLASSES = 52
+
+
+def _standing_cap_day(today):
+    """Rule 2's horizon: the last club day a standing entry may run to (12 months from today)."""
+    from dateutil.relativedelta import relativedelta
+
+    return today + relativedelta(months=STANDING_MAX_MONTHS)
+
+
+def _club_day_expiry(day) -> datetime:
+    """A club day (inclusive) → the UTC instant the entry expires: the start of the next club day."""
+    return wall_to_utc_naive(datetime.combine(day + timedelta(days=1), time.min))
+
+
+def _series_end_day(lesson, today):
+    """Rule 19: the series' end date, or rule 2's cap when the series has no end or ends later."""
+    cap_day = _standing_cap_day(today)
+    series_end = lesson.recurrence_end
+    return min(series_end, cap_day) if series_end is not None and series_end >= today else cap_day
+
+
+def _period_end_day(lesson, now_wall, classes):
+    """Rule 19a: the club day of the X-th occurrence of this series that has not started (this class
+    included), read from the recurrence rule and exclusions; the series' (capped) end when fewer
+    remain."""
+    from flask import abort
+
+    try:
+        count = int(classes)
+    except (TypeError, ValueError):
+        count = 0
+    if count < 1 or count > WAITING_LIST_MAX_PERIOD_CLASSES:
+        abort(400, f"classes must be between 1 and {WAITING_LIST_MAX_PERIOD_CLASSES}")
+    end_day = _series_end_day(lesson, now_wall.date())
+    range_end = datetime.combine(end_day + timedelta(days=1), time.min)
+    upcoming = sorted(
+        occ.replace(tzinfo=None) if getattr(occ, "tzinfo", None) else occ
+        for occ in lesson.occurrences_between(now_wall, range_end)
+    )
+    upcoming = [occ for occ in upcoming if occ > now_wall]
+    return upcoming[count - 1].date() if len(upcoming) >= count else end_day
+
+
+def _series_scope_end(lesson, instance: LessonInstance, scope: str, *, classes=None, expires_at=None) -> datetime:
+    """PAD-560 (notifications.waiting-list rules 19, 19a): the UTC expiry instant of a series-scoped
+    entry. ``series`` asks nothing (``classes``/``expires_at`` from old builds are ignored) and runs
+    to the series' capped end, fixed at creation. ``period`` is exactly one of ``classes`` or
+    ``expires_at`` (already rule 2's instant)."""
+    from flask import abort
+
+    from padel_app.utils.dates import club_now_naive
+
+    now_wall = club_now_naive()
+    if scope == "series":
+        return _club_day_expiry(_series_end_day(lesson, now_wall.date()))
+    if (classes is None) == (expires_at is None):
+        abort(400, "a period is exactly one of classes or expiresOn")
+    if expires_at is not None:
+        return expires_at
+    return _club_day_expiry(_period_end_day(lesson, now_wall, classes))
+
+
+def _repoint_class_row(instance: LessonInstance, player_id: int, entry: StandingWaitingListEntry):
+    """PAD-560 (rule 19): the row this class already holds for the student follows the new entry,
+    keeping its join time, so the class's list shows the new scope — unless a coach-wide standing
+    entry holds it: that row stays the coach-wide entry's ("a class both reach holds one row",
+    rule 19), since re-pointing it would drop the class from the coach-wide reach when the series
+    entry ends."""
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+    if row is None or not row.is_active or row.standing_entry_id == entry.id:
+        return row
+    current = db.session.get(StandingWaitingListEntry, row.standing_entry_id) if row.standing_entry_id else None
+    if current is not None and current.lesson_id is None:
+        return row
+    row.standing_entry_id = entry.id
+    row.coach_id = entry.coach_id
+    db.session.commit()
+    return row
+
+
 def add_to_class_waiting_list(
     coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
-    credits: int | None = None, expires_at: datetime | None = None,
+    credits: int | None = None, expires_at: datetime | None = None, classes: int | None = None,
 ) -> dict:
     """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
-    class's waiting list — this occurrence, or the whole series as a standing entry scoped to it.
-    No full-class or eligibility check (the engine decides when a spot opens); nothing is sent to
-    the student; the coach's views get ``waiting_list_changed``."""
+    class's waiting list — this occurrence, the whole series (PAD-560: no credit limit, to the
+    series' capped end) or a period (rule 19a: X classes or an end date), the last two as a
+    standing entry scoped to the series. No full-class or eligibility check (the engine decides
+    when a spot opens); nothing is sent to the student; the coach's views get
+    ``waiting_list_changed``. ``credits`` is accepted and ignored (old builds sent it)."""
     from flask import abort, jsonify, make_response
 
     from sqlalchemy.exc import IntegrityError
@@ -5945,22 +6052,21 @@ def add_to_class_waiting_list(
     if player_id in set(instance.enrolled_player_ids):
         abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
 
-    if scope == "series":
+    if scope in ("series", "period"):
         lesson = instance.lesson
         if lesson is None or not lesson.is_recurring:
             abort(400, "Only a recurring class has a series")
-        if credits is None or int(credits) < 1 or expires_at is None:
-            # #588 review: a series entry is paid for in whole classes, at least one.
-            abort(400, "credits (at least 1) and an end date are required")
+        # PAD-560 (rules 19, 19a): no credit limit; the end is the series' (capped) or the window's.
+        end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         entry = add_standing_waiting_list_entry(
-            coach_id, player_id, int(credits), expires_at=expires_at, lesson_id=lesson.id
+            coach_id, player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=scope == "series",
         )
-        row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+        row = _repoint_class_row(instance, player_id, entry)
         if row is not None:
             _publish_waiting_list_changed(row)
         return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
     if scope != "occurrence":
-        abort(400, "scope must be occurrence or series")
+        abort(400, "scope must be occurrence, series or period")
 
     row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
     if row is not None and row.is_active:
@@ -5982,6 +6088,84 @@ def add_to_class_waiting_list(
         return {"action": "already_on_list", "entryId": row.id if row else None}
     _publish_waiting_list_changed(row)
     return {"action": "added", "entryId": row.id}
+
+
+def change_class_waiting_list_scope(
+    entry_id: int, coach_id: int, *, scope: str, classes: int | None = None, expires_at: datetime | None = None,
+) -> dict:
+    """PAD-560 (notifications.waiting-list rule 22): the class's coach moves one active row between
+    this class only, the whole series and a period. A coach-wide standing row answers 409
+    ``coach_wide`` (managed in Settings). Nothing outside this series' occurrences changes; nothing
+    is sent to the student."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.services.academy_class_service import _publish_waiting_list_changed
+
+    row = WaitingListEntry.query.get_or_404(entry_id)
+    if row.coach_id != coach_id:
+        abort(403, "Not authorized")
+    if not row.is_active:
+        abort(404, "Not on the list")
+    standing = db.session.get(StandingWaitingListEntry, row.standing_entry_id) if row.standing_entry_id else None
+    if standing is not None and standing.lesson_id is None:
+        abort(make_response(jsonify({"code": "coach_wide", "message": "Managed in Settings"}), 409))
+    instance = row.lesson_instance
+    lesson = instance.lesson if instance is not None else None
+
+    if scope == "occurrence":
+        if standing is not None:
+            _demote_row_to_occurrence(row, standing)
+            _publish_waiting_list_changed(row)
+    elif scope in ("series", "period"):
+        if lesson is None or not lesson.is_recurring:
+            abort(400, "Only a recurring class has a series")
+        whole = scope == "series"
+        end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
+        if standing is not None:
+            _retarget_standing_entry(standing, end, whole_series=whole, keep_row_id=row.id)
+        else:
+            entry = add_standing_waiting_list_entry(
+                coach_id, row.player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=whole,
+            )
+            _repoint_class_row(instance, row.player_id, entry)
+        _publish_waiting_list_changed(row)
+    else:
+        abort(400, "scope must be occurrence, series or period")
+    db.session.expire_all()
+    return next(r for r in get_waiting_list(row.lesson_instance_id) if r["id"] == row.id)
+
+
+def _demote_row_to_occurrence(row: WaitingListEntry, standing: StandingWaitingListEntry) -> None:
+    """Rule 22 → occurrence: the series entry goes with its rows on the other occurrences; this row
+    stays active as the coach's, keeping its join time."""
+    _deactivate_standing_entry(standing)
+    row.is_active = True
+    row.standing_entry_id = None
+    row.added_by = "coach"
+    db.session.commit()
+
+
+def _retarget_standing_entry(
+    standing: StandingWaitingListEntry, end: datetime, *, whole_series: bool, keep_row_id: int,
+) -> None:
+    """Rule 22 → series/period on a row that already has a series entry: move its end and mark,
+    drop the credit limit, trim rows past the new end (as a renewal, rule 2) and fan out again."""
+    standing.expires_at = end
+    standing.whole_series = whole_series
+    standing.credits_total = None
+    standing.save()
+    end_wall = utc_to_wall_naive(end)
+    rows = WaitingListEntry.query.filter_by(standing_entry_id=standing.id, is_active=True).all()
+    instances = {
+        inst.id: inst
+        for inst in LessonInstance.query.filter(LessonInstance.id.in_({r.lesson_instance_id for r in rows})).all()
+    } if rows else {}
+    for other in rows:
+        inst = instances.get(other.lesson_instance_id)
+        if inst is not None and inst.start_datetime >= end_wall and other.id != keep_row_id:
+            other.is_active = False
+    db.session.commit()
+    _fan_out_standing_entry(standing)
 
 
 def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
@@ -6098,7 +6282,8 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
             standing = StandingWaitingListEntry.query.get(row.standing_entry_id)
             if standing is not None and standing.is_active:
                 standing.credits_used += 1
-                if standing.credits_used >= standing.credits_total:
+                # PAD-560 (rules 19, 19a): no credit limit (NULL) never closes the entry.
+                if standing.credits_total is not None and standing.credits_used >= standing.credits_total:
                     standing.is_active = False
                     for other in WaitingListEntry.query.filter_by(
                         standing_entry_id=standing.id, is_active=True
@@ -6329,9 +6514,9 @@ def standing_end_from_date(value) -> datetime:
         except ValueError:
             day = None
     today = club_now_naive().date()
-    if day is None or day < today or day > today + relativedelta(months=STANDING_MAX_MONTHS):
+    if day is None or day < today or day > _standing_cap_day(today):
         raise InvalidStandingEndError("expiresOn")
-    return wall_to_utc_naive(datetime.combine(day + timedelta(days=1), time.min))
+    return _club_day_expiry(day)
 
 
 def standing_end_from_days(value) -> datetime:
@@ -6355,12 +6540,13 @@ def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
 
 
 def add_standing_waiting_list_entry(
-    coach_id: int, player_id: int, credits_total: int, duration_days: int | None = None,
-    *, expires_at: datetime | None = None, lesson_id: int | None = None,
+    coach_id: int, player_id: int, credits_total: int | None, duration_days: int | None = None,
+    *, expires_at: datetime | None = None, lesson_id: int | None = None, whole_series: bool = False,
 ) -> StandingWaitingListEntry:
     """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
     (or, for the legacy callers, `duration_days` from now). PAD-547 (rule 19): ``lesson_id``
-    scopes it to one series; one active entry per coach, player and scope."""
+    scopes it to one series; one active entry per coach, player and scope. PAD-560: a NULL
+    ``credits_total`` is no credit limit; ``whole_series`` marks rule 19's entry."""
     # Deactivate any existing active entry for this coach/player pair in the same scope
     existing = StandingWaitingListEntry.query.filter_by(
         coach_id=coach_id, player_id=player_id, is_active=True, lesson_id=lesson_id
@@ -6373,6 +6559,7 @@ def add_standing_waiting_list_entry(
         player_id=player_id,
         lesson_id=lesson_id,
         credits_total=credits_total,
+        whole_series=whole_series,
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
         is_active=True,
@@ -6428,7 +6615,8 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "playerId": e.player_id,
             "playerName": user.name if user else None,
             "creditsUsed": e.credits_used,
-            "creditsTotal": e.credits_total,
+            "creditsTotal": e.credits_total,  # PAD-560: null is no credit limit
+            "wholeSeries": bool(e.whole_series),
             "expiresAt": e.expires_at.isoformat() if e.expires_at else None,
             # PAD-507: the club date the entry runs to, inclusive.
             "expiresOn": standing_end_on(e),

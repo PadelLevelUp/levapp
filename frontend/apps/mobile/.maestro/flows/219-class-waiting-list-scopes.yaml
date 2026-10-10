@@ -1,0 +1,98 @@
+# PAD-560 — calendar.event-detail rules 19–20, notifications.waiting-list rules 19 and 22 on iOS: on
+# a weekly class the coach adds "E2E Student Two" to the waiting list for the whole series (the sheet
+# asks nothing more and says the date it runs to), the row says "whole series" by id, and the row's
+# edit control moves it to this class only. Seeded through the API (R-040): a weekly series five
+# days out with "E2E Student" enrolled; opened by its instance id (PAD-326 deep link). Driven and
+# asserted by ids, never by rendered copy (PAD-320). Flow number 219 is from 0910-SessionB's reserved
+# block (unconfirmed).
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleanup && output.cleanup()}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.auth = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }}"
+- evalScript: "${output.players = (function (r) { return r.items ? r.items : r; })(json(http.get(output.api + '/api/app/coach_players', { headers: output.auth }).body))}"
+- evalScript: "${output.find = function (n) { return output.players.filter(function (p) { return p.name === n; })[0]; }}"
+- evalScript: "${output.enrolled = output.find('E2E Student')}"
+- evalScript: "${output.two = output.find('E2E Student Two')}"
+- assertTrue: "${output.enrolled != null && output.two != null}"
+- evalScript: "${output.iso = function (d) { var m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (x < 10 ? '0' + x : '' + x); }}"
+- evalScript: "${output.first = new Date(Date.now() + 5 * 86400000)}"
+- evalScript: "${output.day = output.iso(output.first)}"
+- evalScript: "${output.endDay = output.iso(new Date(output.first.getTime() + 5 * 7 * 86400000))}"
+- evalScript: "${output.made = json(http.post(output.api + '/api/app/add_class', { headers: output.auth, body: JSON.stringify({ name: 'E2E Waiting List Series iOS', classType: 'academy', maxPlayers: 4, levelId: output.enrolled.levelId, date: output.day, startTime: '17:00', endTime: '18:00', playerIds: [output.enrolled.playerId], isRecurring: true, recurrenceRule: { frequency: 'weekly', daysOfWeek: [output.first.getDay()] }, recursUntilSeasonEnd: false, endDate: output.endDay, notificationsEnabled: true }) }).body)}"
+- evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day }, scope: 'future' }) }); }}"
+# Materialise the first occurrence so the class opens by instance id, as flow 170 does: the API
+# puts "Filler Player 01" on this class's list (rule 18), which materialises it; that row stays.
+- evalScript: "${output.filler = output.find('Filler Player 01')}"
+- assertTrue: "${output.filler != null}"
+- evalScript: "${output.added = json(http.post(output.api + '/api/app/notify/class_waiting_list', { headers: output.auth, body: JSON.stringify({ model: output.made.model || 'Lesson', originalId: output.made.originalId, date: output.day, playerId: output.filler.playerId, scope: 'occurrence' }) }).body).action}"
+- assertTrue: "${output.added === 'added'}"
+- evalScript: "${output.instanceId = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: output.auth }).body).filter(function (e) { return e.title === 'E2E Waiting List Series iOS' && e.model === 'LessonInstance'; })[0].originalId}"
+- assertTrue: "${output.instanceId > 0}"
+
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://class/${output.instanceId}"
+- scrollUntilVisible:
+    element:
+      id: "class-waiting-list-toggle"
+    direction: DOWN
+    timeout: 30000
+# The section is open already: it opens by itself when the list has rows (the filler's), as in 170.
+# The add button sits below the rows: under load the toggle scroll can leave it past the edge,
+# where it is not in the hierarchy (2026-10-10 run 3), so scroll to it before tapping.
+- scrollUntilVisible:
+    element:
+      id: "class-waiting-list-add"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-waiting-list-add"
+# The simulator keyboard drops keystrokes under load ("Sudnt Two", 2026-10-10 run 2): type, close
+# the keyboard (it can cover the scope and confirm buttons, Session D 2026-10-08), and retype
+# until the row the search should surface is there.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "class-waiting-list-search"
+      - eraseText: 40
+      - inputText: "Student Two"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            id: "class-waiting-list-candidate-${output.two.playerId}"
+          timeout: 8000
+- tapOn:
+    id: "class-waiting-list-candidate-${output.two.playerId}"
+
+# ── rule 19: the whole series asks nothing more and says the date it runs to ──
+- tapOn:
+    id: "class-waiting-list-scope-series"
+- assertVisible:
+    id: "class-waiting-list-series-until"
+- assertNotVisible:
+    id: "class-waiting-list-end-date"
+- tapOn:
+    id: "class-waiting-list-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-waiting-list-row-scope-${output.two.playerId}-series"
+    timeout: 15000
+
+# ── rule 22: the row's edit control moves it to this class only ──
+- tapOn:
+    id: "class-waiting-list-edit-${output.two.playerId}"
+- assertVisible:
+    id: "class-waiting-list-editing-name"
+- assertNotVisible:
+    id: "class-waiting-list-search"
+- tapOn:
+    id: "class-waiting-list-scope-occurrence"
+- tapOn:
+    id: "class-waiting-list-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "class-waiting-list-row-scope-${output.two.playerId}-occurrence"
+    timeout: 15000

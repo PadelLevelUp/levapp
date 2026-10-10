@@ -37,6 +37,16 @@ a coach acts by hand. The coach's roster always wins.
    hand, the action proceeds after an explicit confirmation. This mirrors the existing
    availability-blocker behaviour (`calendar.student-blockers` rule 4): enrolment is the coach's
    decision.
+6a. **A manual invitation warns the same way (PAD-562; owner, 2026-10-09).** When a coach invites
+   a student by hand (`notifications.manual`, the "Convidar" modal on web and iOS) and that student
+   fails the class's bar, the client runs the same check (`POST /api/app/notify/eligibility_check`,
+   rule 7c) BEFORE `POST /api/app/notify/manual` and opens the same confirmation (rule 7d's dialog,
+   `describeEligibilityFailure`), one block per failing student with one line per failed rule —
+   one dialog for the whole selection, never one per student. The dialog's verb matches the
+   action: "Convidar alunos que não cumprem a fasquia?" / "Convidar mesmo assim". Confirming sends
+   the invitations exactly as before; cancelling sends nothing and keeps the selection; a failed
+   check falls through to the send (the warning never blocks). The backend is unchanged: it never
+   filtered manual invitations by the bar, and still does not.
 7. **The warning must name what failed**, in the coach's locale — e.g. "2 levels below this class",
    "over the unjustified-absence limit (4, limit is 2)". A bare "this student is not eligible" is not
    sufficient: the reason is what makes it a decision instead of a nag. One line per failed rule.
@@ -170,6 +180,19 @@ a coach acts by hand. The coach's roster always wins.
 - **Then** a confirmation names the failed rule (e.g. "2 levels below this class")
 - **And** confirming enrols the student normally
 - **And** cancelling aborts the add
+
+#### A manual invitation to a student who fails the bar asks first (rule 6a, PAD-562)
+- **Given** a class whose bar a roster student fails ("2 levels below this class")
+- **When** the coach selects that student in the "Convidar" modal and sends
+- **Then** the eligibility confirmation opens naming the student and the failed rule, with the invite verb, before anything is sent
+- **And** cancelling sends no invitation and keeps the modal and the selection as they were
+- **And** confirming sends the invitation as before (the server's answer unchanged)
+
+#### Several failing students get one combined warning (rule 6a, PAD-562)
+- **Given** two selected students fail the bar and one passes
+- **When** the coach sends
+- **Then** one confirmation lists the two failing students, each with their reasons, and the passing one is not named
+- **And** confirming sends to all three
 
 #### Tightening the bar leaves enrolled students in place
 - **Given** a class with 6 enrolled students, 3 of whom would fail a stricter bar

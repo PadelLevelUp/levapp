@@ -44,6 +44,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { RecurrenceEndChoice } from "@/features/calendar/recurrence-end-choice";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
+import { endFromUsualLength, usualClassMinutes } from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
@@ -178,6 +179,8 @@ export default function NewClassScreen() {
     `${date}T00:00:00`,
     `${date}T23:59:59`
   );
+  // PAD-559: the coach's usual class length, from the day's classes (what this screen loads).
+  const usualMinutes = React.useMemo(() => usualClassMinutes(dayEvents ?? []), [dayEvents]);
 
   // PAD-170 C7: the coach's seasons, so the screen can warn BEFORE submitting
   // that no season covers this date. Web only learns that from the backend's
@@ -487,6 +490,9 @@ export default function NewClassScreen() {
                   setStartTime(value);
                   // classes.clone rule 5: the clone keeps the original's length.
                   if (cloneDuration != null && !endTime) setEndTime(addMinutesClamped(value, cloneDuration));
+                  // PAD-559 (rule 8c): otherwise the end follows the start by the usual length
+                  // when it would sit at or before it.
+                  else if (cloneDuration == null && (!endTime || endTime <= value)) setEndTime(endFromUsualLength(value, usualMinutes));
                   setErrors((prev) => ({ ...prev, startTime: undefined }));
                 }}
               />
@@ -497,6 +503,10 @@ export default function NewClassScreen() {
                 label={t("calendar.addEvent.endShort")}
                 value={endTime}
                 error={errors.endTime}
+                from={startTime}
+                usualMinutes={usualMinutes}
+                // PAD-559 (rule 8c): an end at or before the start is refused in the field.
+                onRefused={() => setErrors((prev) => ({ ...prev, endTime: t("classDetail.new.mustBeAfterStart") }))}
                 onChange={(value) => {
                   setEndTime(value);
                   setErrors((prev) => ({ ...prev, endTime: undefined }));

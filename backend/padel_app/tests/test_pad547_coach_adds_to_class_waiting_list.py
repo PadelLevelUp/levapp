@@ -161,12 +161,11 @@ def test_a_second_series_entry_for_the_same_series_replaces_the_first(app, monke
     series = _add_class(app, ids, days=3, title="Terça 18h", max_players=4, filled=1, recurring=True)
     carla = _student(app, ids, "carla")
     with app.app_context():
-        end = utcnow_naive() + timedelta(days=30)
-        first = _add(ids["coach_id"], series["instance_id"], carla, scope="series", credits=2, expires_at=end)
-        second = _add(ids["coach_id"], series["instance_id"], carla, scope="series", credits=5, expires_at=end)
+        first = _add(ids["coach_id"], series["instance_id"], carla, scope="series")
+        second = _add(ids["coach_id"], series["instance_id"], carla, scope="period", classes=2)
         db.session.expire_all()
         assert db.session.get(StandingWaitingListEntry, first["standingEntryId"]).is_active is False
-        assert db.session.get(StandingWaitingListEntry, second["standingEntryId"]).credits_total == 5
+        assert db.session.get(StandingWaitingListEntry, second["standingEntryId"]).whole_series is False
 
 
 def test_the_series_scope_needs_a_recurring_class(app, monkeypatch):
@@ -177,10 +176,10 @@ def test_the_series_scope_needs_a_recurring_class(app, monkeypatch):
     one_off = _add_class(app, ids, days=3, title="Sábado", max_players=4, filled=1)
     carla = _student(app, ids, "carla")
     with app.app_context():
-        with pytest.raises(HTTPException) as e:
-            _add(ids["coach_id"], one_off["instance_id"], carla, scope="series", credits=1,
-                 expires_at=utcnow_naive() + timedelta(days=10))
-        assert e.value.code == 400
+        for scope in ("series", "period"):
+            with pytest.raises(HTTPException) as e:
+                _add(ids["coach_id"], one_off["instance_id"], carla, scope=scope, classes=1)
+            assert e.value.code == 400
 
 
 # ── rules 20–21: origin, order, remove ────────────────────────────────────────
@@ -322,7 +321,10 @@ def test_a_coach_added_row_is_asked_first_as_group_zero(app, monkeypatch):
         assert _invites(instance_id) == [(carla, 0)], _invites(instance_id)
 
 
-def test_a_series_entry_needs_at_least_one_credit(app, monkeypatch):
+def test_a_series_entry_ignores_the_credits_old_builds_still_send(app, monkeypatch):
+    """PAD-560 (rule 19): the whole series asks nothing; a build from before it that sends
+    `credits` and `expiresOn` with "series" still gets a whole-series entry with no limit."""
+    from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
     from padel_app.utils.dates import utcnow_naive
 
     _quiet(monkeypatch)
@@ -330,8 +332,7 @@ def test_a_series_entry_needs_at_least_one_credit(app, monkeypatch):
     series = _add_class(app, ids, days=3, title="Terça 18h", recurring=True)
     carla = _student(app, ids, "carla")
     with app.app_context():
-        for credits in (0, -3):
-            with pytest.raises(HTTPException) as e:
-                _add(ids["coach_id"], series["instance_id"], carla, scope="series", credits=credits,
-                     expires_at=utcnow_naive() + timedelta(days=10))
-            assert e.value.code == 400
+        result = _add(ids["coach_id"], series["instance_id"], carla, scope="series", credits=0,
+                      expires_at=utcnow_naive() + timedelta(days=10))
+        entry = db.session.get(StandingWaitingListEntry, result["standingEntryId"])
+        assert entry.credits_total is None and entry.whole_series is True

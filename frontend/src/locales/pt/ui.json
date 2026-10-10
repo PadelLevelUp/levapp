@@ -28,7 +28,8 @@
     "timePicker": {
       "placeholder": "Seleciona uma hora",
       "fieldLabel": "Hora",
-      "dialogTitle": "Selecionar hora"
+      "dialogTitle": "Selecionar hora",
+      "typeHint": "Ou escreve a hora (ex.: 18:30)"
     },
     "validation": {
       "useTimeFormat": "Usa HH:MM",

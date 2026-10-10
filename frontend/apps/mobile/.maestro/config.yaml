@@ -114,6 +114,19 @@ executionOrder:
     # duplicate badge, the one-tap merge dialog, preselection and the dry run, never sends the
     # request, and deletes the placeholder in onFlowComplete (R-040).
     - 189-merge-duplicate-preview
+    # 209 (PAD-563, notifications.invitations rule 9; number unconfirmed, wave-13 range
+    # 209–218): the coach marks an invitation accepted on the class screen, then opens the
+    # invitee's chat and sees the bubble "Marcado como aceite pelo treinador" with no buttons.
+    # Seeds and removes its own class through the API; position not load bearing.
+    - 209-coach-answer-reaches-chat
+    # 210 (PAD-562, eligibility.enforcement rule 6a; number unconfirmed, wave-13 range 209–218):
+    # inviting a student who fails the class's own bar asks first (the add dialog, invite verb)
+    # on top of the notify modal; cancel sends nothing, confirm sends. Seeds and removes its own
+    # class; position not load bearing.
+    - 210-invite-below-bar-asks-first
+    # 239 (PAD-568, B-461): a student with no coach opens the picker and is offered
+    # "Ligar-me a um treinador"; tapping it lands on the connect screen.
+    - 239-no-coach-connect-shortcut
     - 26-message-by-username
     - 27-unknown-sender-block
     # 151/152 (PAD-486/490) join e2e-student-3 to the coach by link and remove the link in
@@ -141,9 +154,6 @@ executionOrder:
     # 48 books, cancels and removes its own class through the API (PAD-288), so its
     # position is not load bearing.
     - 48-early-cancellation
-    # 50 books, cancels, comes back and removes its own class through the API
-    # (PAD-315), so its position is not load bearing.
-    - 50-come-back
     # 53 creates, marks and deletes its own one-off class (PAD-335); the delete
     # is the subject, so it leaves nothing behind and its position is not load
     # bearing.
@@ -222,6 +232,10 @@ executionOrder:
     # posts one message, and the app returns on the push-tap route; the message must be on
     # screen. Teardown deletes the message. iOS only (pressKey Home, app suspension).
     - 122-warm-push-tap-shows-the-message
+    # 240 (PAD-569, B-462, conversation-detail rule 7): the student opens a long thread at the
+    # bottom, the keyboard opens and the newest bubble stays above the composer; send scrolls
+    # to the new bubble; closing the keyboard does not jump. Screenshots are the evidence.
+    - 240-thread-follows-keyboard
     # 113 joins e2e-student-3 to the coach through a minted join link and asserts the next
     # dashboard has no connect prompt (PAD-444); teardown disconnects her again.
     - 113-join-first-dashboard
@@ -314,7 +328,18 @@ executionOrder:
     # 181 (PAD-524, classes.clone): "Clonar aula" opens the new-class screen prefilled, start
     # empty, Create disabled; goes back without saving.
     - 181-clone-class
+    # 229 (PAD-570, attendance.confirm rules 27-28; number self-assigned, unconfirmed): books,
+    # is asked by the coach's manual reminder, confirms, declines and removes its own class
+    # through the API, so its position is not load bearing. Replaces 50-come-back.
+    - 229-vou-after-reminder
     - 170-class-waiting-list
+    # 219 (PAD-560, calendar.event-detail rules 19–20): the whole-series scope asks nothing more;
+    # the row says its scope by id; the edit control moves it back to this class only.
+    - 219-class-waiting-list-scopes
+    # 230 (PAD-567, attendance.validation rule 26; number self-assigned, unconfirmed): books,
+    # marks, clears and removes its own class through the API, so its position is not load
+    # bearing.
+    - 230-clear-mark
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

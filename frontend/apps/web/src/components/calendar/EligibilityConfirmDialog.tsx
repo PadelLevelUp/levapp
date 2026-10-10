@@ -21,18 +21,38 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const COPY = {
+  add: {
+    title: "calendar.eligibilityConfirm.title",
+    body: "calendar.eligibilityConfirm.body",
+    confirm: "calendar.eligibilityConfirm.confirm",
+  },
+  invite: {
+    title: "calendar.eligibilityConfirm.inviteTitle",
+    body: "calendar.eligibilityConfirm.inviteBody",
+    confirm: "calendar.eligibilityConfirm.inviteConfirm",
+  },
+} as const;
+
 export function EligibilityConfirmDialog({
   open,
   ineligible,
   onCancel,
   onConfirm,
+  action = "add",
 }: {
   open: boolean;
   ineligible: EligibilityCheckEntry[];
   onCancel: () => void;
   onConfirm: () => void;
+  /** eligibility.enforcement rule 6a (PAD-562): the same dialog for a manual invite, with the
+   *  invite verb — "Convidar alunos…?" / "Convidar mesmo assim". */
+  action?: "add" | "invite";
 }) {
   const { t } = useTranslation();
+  // One entry per verb (eligibility.enforcement rules 6 and 6a): the add dialog's copy, or the
+  // invite dialog's — the same sentence with the verb swapped.
+  const copy = COPY[action];
   const students = describeIneligible(ineligible);
 
   return (
@@ -41,9 +61,9 @@ export function EligibilityConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            {t("calendar.eligibilityConfirm.title")}
+            {t(copy.title)}
           </AlertDialogTitle>
-          <AlertDialogDescription>{t("calendar.eligibilityConfirm.body")}</AlertDialogDescription>
+          <AlertDialogDescription>{t(copy.body)}</AlertDialogDescription>
         </AlertDialogHeader>
         <ul className="space-y-2 text-sm">
           {students.map((s) => (
@@ -70,7 +90,7 @@ export function EligibilityConfirmDialog({
             }}
             data-testid="eligibility-confirm-proceed"
           >
-            {t("calendar.eligibilityConfirm.confirm")}
+            {t(copy.confirm)}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -576,6 +576,14 @@ export interface ClassInstance {
   // classify the decline differently.
   proactiveDeclineDeadline?: string | null;
   canDeclineProactively?: boolean;
+  /**
+   * PAD-570 (`attendance.confirm` rule 27): may the viewing student answer "Vou"
+   * now? ONE server predicate (asked, class would ask, still `planned`, not
+   * started), the same one the dashboard serves. `false` for a coach viewer.
+   */
+  pendingConfirmation?: boolean;
+  /** PAD-570 rule 28: the user behind `coachId`, for the chat shortcut after "Não vou". */
+  coachUserId?: string | null;
 }
 
 export interface Presence {
@@ -770,6 +778,12 @@ export interface Message {
     lessonInstanceId?: number;
     responded?: boolean;
     response?: string;
+    /**
+     * notifications.invitations rule 9 (PAD-563): who gave the recorded answer. "coach" makes
+     * the invite bubble read "Marcado como aceite/recusado pelo treinador". Absent on older rows
+     * and on a student's own answer before PAD-563.
+     */
+    answeredBy?: "student" | "coach";
     /** ISO start time of the class (on reminder messages), used to gate cancel. */
     startsAt?: string;
     /**
@@ -936,6 +950,10 @@ export interface DashboardNextClassBlock {
      */
     lessonInstanceId?: number | null;
     pendingConfirmation?: boolean;
+    /** PAD-570: the student's one state word (`planned` for a projected occurrence). */
+    attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
+    /** PAD-570: how to decline a projected occurrence (`cancel_attendance` target). */
+    declineTarget?: { model: string; originalId: string | number; date: string } | null;
   };
 }
 
@@ -1076,6 +1094,9 @@ export interface DashboardSchedule7dBlock {
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
+      /** PAD-570 — see `DashboardNextClassBlock`. */
+      attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
+      declineTarget?: { model: string; originalId: string | number; date: string } | null;
     }>;
     calendarHref: string;
   };
@@ -1401,6 +1422,11 @@ export interface InviteSimulationSpot {
   levelId: string | null;
   levelCode: string | null;
   levelSource: "player" | "class" | "none";
+  /** notifications.invite-simulation rule 9 (PAD-565): the numbers rule 2c used to pick `side`
+   *  (players going minus the departing player, plus the class's other open freed spots;
+   *  never-filled spots are not counted); `chosen` equals `side`. `null` when the coach's roster
+   *  has no left/right player. A tutorial shows these, never a recount. */
+  sideCounts: { left: number; right: number; leaverSide: PlayerSide | null; chosen: PlayerSide | null } | null;
 }
 
 export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";
@@ -1533,7 +1559,10 @@ export interface StandingWaitingListEntry {
   playerId: number;
   playerName: string | null;
   creditsUsed: number;
-  creditsTotal: number;
+  /** PAD-560 (waiting-list rules 19, 19a): null is no credit limit. */
+  creditsTotal: number | null;
+  /** PAD-560 (rule 19): the entry covers its whole series; false is a dated window. */
+  wholeSeries?: boolean;
   expiresAt: string;
   /** PAD-507: the date the entry runs to, inclusive (club calendar). */
   expiresOn: string | null;
@@ -1556,7 +1585,28 @@ export interface CoachClassWaitingListRow {
   origin: WaitingListOrigin;
   standingEntryId: number | null;
   seriesScoped: boolean;
+  /**
+   * PAD-560 (notifications.waiting-list rule 20): how long the student is on this list —
+   * `occurrence` (this class only), `series` (the whole series), `period` (a window: written once
+   * the scope change lands), `standing` (a coach-wide standing entry, managed in Settings).
+   */
+  scope: WaitingListScope;
+  /** The standing entry's end date (club day, inclusive, `YYYY-MM-DD`); null for `occurrence`. */
+  expiresOn: string | null;
 }
+
+export type WaitingListScope = 'occurrence' | 'series' | 'period' | 'standing';
+
+/**
+ * PAD-560 (notifications.waiting-list rules 18, 19, 19a, 22): what the coach asks for a row —
+ * this class only; the whole series (asks nothing more); a period of `classes` upcoming
+ * occurrences OR until `expiresOn` (exactly one).
+ */
+export type ClassWaitingListScopeRequest =
+  | { scope: 'occurrence' }
+  | { scope: 'series' }
+  | { scope: 'period'; classes: number }
+  | { scope: 'period'; expiresOn: string };
 
 export interface NotificationEventItem {
   id: string;

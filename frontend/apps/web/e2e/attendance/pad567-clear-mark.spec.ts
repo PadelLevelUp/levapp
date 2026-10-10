@@ -1,18 +1,13 @@
 /**
- * PAD-315 (`attendance.confirm` rule 26): a student who said they are not
- * coming can say they can come after all, and gets their spot back while it is
- * still free.
+ * PAD-567 (`attendance.validation` rule 26): the coach takes a mark back.
  *
- * The refusal half (`spot_filled`) is pinned by unit tests in
- * `@levelup/config` rather than here: making it happen end to end means filling
- * the class from another account between two taps, which is a race this spec
- * would have to win rather than assert. What this spec proves is the half a
- * unit test cannot — that the affordance appears on the real screen for a real
- * declined student, calls the real endpoint, and that the row comes back as
- * `coming` from server data after a reload.
+ * The class is booked eight to fourteen days out (as pad570 does), so clearing arms no
+ * reminder and nothing seeded is touched. The coach marks the student present, saves,
+ * sees "Presente" recorded; presses "Presente" again — the row is unmarked — saves, and
+ * the server row is back to the never-answered shape (`planned`, not validated).
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { COACH_PASSWORD, COACH_USERNAME, loginAsStudent } from "../helpers/auth";
+import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
 import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
@@ -35,7 +30,6 @@ async function token(request: APIRequestContext, username: string, password: str
   return (json.accessToken ?? json.access_token) as string;
 }
 
-/** Scan by the card, not by the title: the student's own name is also the sidebar chip. */
 async function openClassDetail(page: Page, weeks: number) {
   await openCalendar(page);
   const card = page.getByTestId("calendar-event-card").filter({ hasText: STUDENT_NAME }).first();
@@ -49,10 +43,16 @@ async function openClassDetail(page: Page, weeks: number) {
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 }
 
-test("US-PAD-315: a student who said they are not coming can come back while the spot is free", async ({
-  page,
-  request,
-}) => {
+async function presenceOf(request: APIRequestContext, coachAuth: Record<string, string>, day: string) {
+  const event = (await dayEvents(request, coachAuth, day)).find((e) => e.title === STUDENT_NAME);
+  expect(event, "the class is on the coach's day").toBeTruthy();
+  const res = await request.get(`${API_ROOT}/app/lesson_instance/${event!.originalId}/presences`, { headers: coachAuth });
+  expect(res.ok()).toBeTruthy();
+  const rows = (await res.json()) as Array<{ attendanceState: string; validated: boolean; status: string | null }>;
+  return rows[0];
+}
+
+test("US-PAD-567: pressing the selected mark again returns the student to 'no answer'", async ({ page, request }) => {
   test.setTimeout(240_000);
   const coachAuth = { Authorization: `Bearer ${await token(request, COACH_USERNAME, COACH_PASSWORD)}` };
   const studentAuth = { Authorization: `Bearer ${await token(request, STUDENT_USERNAME, STUDENT_PASSWORD)}` };
@@ -85,45 +85,55 @@ test("US-PAD-315: a student who said they are not coming can come back while the
     const acceptRes = await request.post(`${API_ROOT}/app/class-requests/${created.id}/accept`, { headers: coachAuth });
     expect(acceptRes.ok(), await acceptRes.text()).toBeTruthy();
 
-    // Decline through the UI, which is the state this ticket starts from.
-    await loginAsStudent(page);
+    await loginAsCoach(page);
     await openClassDetail(page, 3);
-    await page.getByTestId("class-cancel-attendance").click();
-    await expect(page.locator('[role="alertdialog"]')).toBeVisible({ timeout: 5000 });
+    const row = page.getByTestId("attendance-row").first();
+    await expect(row).toBeVisible({ timeout: 10_000 });
+
+    // The marks live behind "Marcar presenças": the row's buttons and the save button
+    // render only in the editor, and saving leaves it (first CI run of this spec
+    // waited forever on a save button that was never rendered).
+    await page.getByTestId("attendance-edit").click();
+    await expect(row.getByTestId("attendance-present")).toBeVisible({ timeout: 5000 });
+
+    // Mark present and save: the coach's record.
+    await row.getByTestId("attendance-present").click();
+    await expect(row.getByTestId("attendance-present")).toHaveAttribute("aria-pressed", "true");
     await Promise.all([
-      page.waitForResponse((r) => /\/api\/app\/notify\/cancel_attendance(\?|$)/.test(r.url()), { timeout: 10_000 }),
-      page.getByTestId("class-cancel-attendance-confirm").click(),
+      page.waitForResponse((r) => /\/api\/app\/class_instance\/presences\/confirm(\?|$)/.test(r.url()), { timeout: 10_000 }),
+      page.getByTestId("attendance-save").click(),
     ]);
-    const declined = page.getByTestId("attendance-state").first();
-    await expect(declined).toHaveAttribute("data-state", "not_coming", { timeout: 10_000 });
+    await expect(row.getByTestId("attendance-state")).toHaveAttribute("data-state", "attended", { timeout: 10_000 });
+    const marked = await presenceOf(request, coachAuth, day);
+    expect(marked.status).toBe("present");
+    expect(marked.validated).toBe(true);
 
-    // Rule 26: the way back is offered on that state — and offered without the
-    // client having asked anything about capacity.
-    const comeBack = page.getByTestId("class-come-back");
-    await expect(comeBack).toBeVisible({ timeout: 10_000 });
-
-    const [answer] = await Promise.all([
-      page.waitForResponse((r) => /\/api\/app\/notify\/respond_reminder(\?|$)/.test(r.url()), { timeout: 10_000 }),
-      comeBack.click(),
+    // Press "Presente" again: the row is unmarked — visibly, before any save.
+    await page.getByTestId("attendance-edit").click();
+    await expect(row.getByTestId("attendance-present")).toHaveAttribute("aria-pressed", "true", { timeout: 5000 });
+    await row.getByTestId("attendance-present").click();
+    await expect(row.getByTestId("attendance-present")).toHaveAttribute("aria-pressed", "false");
+    const [cleared] = await Promise.all([
+      page.waitForResponse((r) => /\/api\/app\/class_instance\/presences\/confirm(\?|$)/.test(r.url()), { timeout: 10_000 }),
+      page.getByTestId("attendance-save").click(),
     ]);
-    expect(answer.status(), await answer.text()).toBe(200);
-    expect((await answer.json()).action, "the spot was free, so the server re-seats them").toBe("confirmed");
+    expect(cleared.status(), await cleared.text()).toBe(200);
+    expect((await cleared.json()).cleared, "the server names the cleared row").toHaveLength(1);
+    await expect(row.getByTestId("attendance-state")).toHaveAttribute("data-state", "planned", { timeout: 10_000 });
 
-    // The row reports the server's answer, and still does after a reload.
-    await expect(page.getByTestId("attendance-state").first()).toHaveAttribute("data-state", "coming", {
-      timeout: 10_000,
-    });
+    // The never-answered shape, from the server, and still after a reload.
+    const back = await presenceOf(request, coachAuth, day);
+    expect(back.attendanceState).toBe("planned");
+    expect(back.validated).toBe(false);
+    expect(back.status).toBeNull();
     await page.reload();
     await openClassDetail(page, 3);
-    await expect(page.getByTestId("attendance-state").first()).toHaveAttribute("data-state", "coming", {
-      timeout: 10_000,
-    });
-    // Having come back, they can say they are not coming again — the edge goes both ways.
-    await expect(page.getByTestId("class-cancel-attendance")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId("class-come-back")).toHaveCount(0);
+    await expect(page.getByTestId("attendance-row").first().getByTestId("attendance-state")).toHaveAttribute(
+      "data-state",
+      "planned",
+      { timeout: 10_000 }
+    );
   } finally {
-    // PAD-341: the class needs two passes (the cancel materialised an instance
-    // over a one-off lesson), and the accepted request outlives the class.
     await removeClassesOnDay(request, coachAuth, day, (e) => e.title === STUDENT_NAME);
     await removeBlocksOnDay(request, coachAuth, day, (e) => String(e.title).includes(STUDENT_NAME));
     await deleteClassRequests(request, coachAuth, requestIds);

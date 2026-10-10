@@ -21,7 +21,10 @@ import {
   UserX,
   Copy,
   MoreHorizontal,
+  MessageCircle,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createConversation } from "@/api/messages";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
@@ -46,7 +49,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canComeBack, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -316,9 +319,13 @@ export function ClassDetailSheet({
 
   // PAD-46: student cancels attendance from the class-detail view.
   const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
-  const [returning, setReturning] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
+  const navigate = useNavigate();
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
   const [attendanceCancelled, setAttendanceCancelled] = useState(false);
+  // PAD-567: the over-capacity warning before a cleared absence is saved.
+  const [clearOverCapacity, setClearOverCapacity] = useState<{ filled: number; capacity: number } | null>(null);
 
   // PAD-73: student proactively declines a future class from the participants
   // section, before they would even have been reminded to confirm.
@@ -900,7 +907,7 @@ export function ClassDetailSheet({
     }));
   };
 
-  const handleConfirmAttendance = async () => {
+  const handleConfirmAttendance = async (force = false) => {
     if (!classInstance) return;
     if (!classInstance.participants?.length) return;
 
@@ -912,11 +919,26 @@ export function ClassDetailSheet({
       }))
       .filter((x) => x.status !== null) as Array<{
       playerId: string;
-      status: PresenceStatus;
+      status?: PresenceStatus;
       justification?: AbsenceJustification;
+      clear?: true;
     }>;
-
+    // PAD-567 (attendance.validation rule 26): rows the coach cleared back to "no answer".
+    const serverRows = classInstance.presences ?? [];
+    const clears = clearsFor(serverRows, attendance);
+    for (const playerId of clears) payload.push({ playerId, clear: true });
     if (payload.length === 0) return;
+    // A cleared absence takes its seat back; when the class is already full the
+    // coach is warned and may go ahead (owner decision, 2026-10-09).
+    const absentClears = clearsFor(serverRows, attendance, { absencesOnly: true });
+    if (!force && absentClears.length > 0) {
+      const filledNow = effectiveFilledSpotsOf(active.participants, serverRows);
+      const capacity = active.maxPlayers ?? 0;
+      if (capacity > 0 && filledNow >= capacity) {
+        setClearOverCapacity({ filled: filledNow + absentClears.length, capacity });
+        return;
+      }
+    }
 
     setSavingAttendance(true);
 
@@ -991,35 +1013,54 @@ export function ClassDetailSheet({
     }
   };
 
-  // PAD-315 rule 26: coming back after saying no. Offered on the STATE alone —
-  // never on a guess about capacity, which the client cannot know without
-  // racing the invitation engine — and the server decides the outcome.
+  // PAD-570 (attendance.confirm rule 27): "Vou" is offered on the SERVER's
+  // `pendingConfirmation` — asked (the reminder instant, or a reminder sent by
+  // hand), still `planned`, not started — and never on a date derived here.
+  // Rule 28: `not_coming` is final; the PAD-315 come-back that lived here is gone.
   const ownState = attendanceStateOf(ownPresence);
-  const canReturn =
-    isStudentParticipant && canComeBack({ state: ownState, classStarted });
+  const canConfirm =
+    isStudentParticipant &&
+    canConfirmAttendance({
+      state: ownState,
+      pendingConfirmation: classInstance?.pendingConfirmation,
+      classStarted,
+    });
   const ownInstanceId = Number(ownPresence?.lessonInstanceId);
 
-  const handleComeBack = async () => {
-    if (!Number.isFinite(ownInstanceId) || returning) return;
-    setReturning(true);
+  const handleConfirmMyAttendance = async () => {
+    if (!Number.isFinite(ownInstanceId) || confirming) return;
+    setConfirming(true);
     try {
       const outcome = reminderAnswerOutcome(await respondToReminder(ownInstanceId, "yes"));
-      if (outcome.messageKey) {
+      if (outcome.record === "confirmed") {
+        toast({ title: t("calendar.detail.confirmAttendanceDone") });
+      } else if (outcome.messageKey) {
         toast({
           title: t(outcome.messageKey),
           variant: outcome.tone === "error" ? "destructive" : "default",
         });
-      }
-      if (outcome.record === "confirmed") {
-        setAttendanceCancelled(false);
-        toast({ title: t("calendar.detail.comeBackDone") });
       }
       // Either way the server is the truth: re-read rather than paint.
       await refreshInstance();
     } catch {
       toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
     } finally {
-      setReturning(false);
+      setConfirming(false);
+    }
+  };
+
+  // PAD-570 rule 28: the way forward after "Não vou" is the coach's chat.
+  const openCoachChat = async () => {
+    const coachUserId = classInstance?.coachUserId;
+    if (!coachUserId || openingChat) return;
+    setOpeningChat(true);
+    try {
+      const conversation = await createConversation({ otherParticipants: [String(coachUserId)] });
+      navigate(`/messages/${conversation.id}`);
+    } catch {
+      toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
+    } finally {
+      setOpeningChat(false);
     }
   };
 
@@ -1167,6 +1208,14 @@ export function ClassDetailSheet({
                     value={active.endTime}
                     from={active.startTime}
                     onChange={(endTime) => setDraft((d) => (d ? { ...d, endTime } : d))}
+                    // PAD-559 (rule 8c): an end typed at or before the start is refused in the field.
+                    onRefused={() =>
+                      toast({
+                        variant: "destructive",
+                        title: t("calendar.addClass.missingFieldsTitle"),
+                        description: t("calendar.addClass.endBeforeStart"),
+                      })
+                    }
                   />
                 </div>
               ) : (
@@ -1472,6 +1521,7 @@ export function ClassDetailSheet({
                     variant="ghost"
                     size="sm"
                     className="text-xs"
+                    data-testid="attendance-edit"
                     onClick={() => setIsValidating(true)}
                   >
                     {attendanceAlreadyMarked ? t("calendar.detail.editAttendance") : t("calendar.detail.markAttendance")}
@@ -1797,6 +1847,8 @@ export function ClassDetailSheet({
               <Separator />
               <ClassWaitingListSection
                 event={event}
+                isRecurring={event.isRecurring === true || classInstance.isRecurring === true}
+                recurrenceEnd={classInstance.recurrenceEnd ?? null}
                 rows={classInstance.waitingList ?? []}
                 roster={players}
                 enrolledIds={(classInstance.participants ?? []).map((p) => p.id)}
@@ -1958,26 +2010,48 @@ export function ClassDetailSheet({
                       `attendanceCancelled`) so this state survives a reload —
                       it is re-derived from the student's own serialized
                       presence, no new column required. */}
-                  {/* PAD-315 rule 26: the way back. Same place as the decline
-                      action it undoes, offered on the state alone. */}
-                  {canReturn && (
-                    <div className="space-y-1">
-                      <Button
-                        data-testid="class-come-back"
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleComeBack}
-                        disabled={returning}
-                      >
-                        {returning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        {t("calendar.detail.comeBack")}
-                      </Button>
+                  {/* PAD-570 (attendance.confirm rule 27): "Vou" only once asked — the
+                      server's `pendingConfirmation`, never a date computed here. */}
+                  {canConfirm && (
+                    <Button
+                      data-testid="class-confirm-attendance"
+                      className="w-full"
+                      onClick={handleConfirmMyAttendance}
+                      disabled={confirming}
+                    >
+                      {confirming ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
+                      {t("calendar.detail.confirmAttendance")}
+                    </Button>
+                  )}
+                  {/* PAD-570 rule 28: "Não vou" is final — no way back (the PAD-315
+                      come-back lived here); the hint points to the coach's chat. */}
+                  {hasDeclined && (
+                    <div className="space-y-2" data-testid="class-declined-hint">
                       <p className="text-xs text-muted-foreground">
-                        {t("calendar.detail.comeBackHint")}
+                        {t("calendar.detail.declinedFinalHint")}
                       </p>
+                      {classInstance?.coachUserId ? (
+                        <Button
+                          data-testid="class-chat-coach"
+                          variant="outline"
+                          size="sm"
+                          onClick={openCoachChat}
+                          disabled={openingChat}
+                        >
+                          {openingChat ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                          )}
+                          {t("calendar.detail.declinedFinalChat")}
+                        </Button>
+                      ) : null}
                     </div>
                   )}
-
                   {/* PAD-313 rule 25: one action, and no state pill here — the
                       student's state is the one word on their row above. */}
                   {hasDeclined ? null : canCancelAttendance ? (
@@ -2010,9 +2084,10 @@ export function ClassDetailSheet({
                     {t("common.cancel")}
                   </Button>
                   <Button
+                    data-testid="attendance-save"
                     className="flex-1"
                     disabled={savingAttendance}
-                    onClick={handleConfirmAttendance}
+                    onClick={() => handleConfirmAttendance()}
                   >
                     <Check className="w-4 h-4 mr-2" />
                     {t("calendar.detail.confirm")}
@@ -2121,6 +2196,34 @@ export function ClassDetailSheet({
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* PAD-567 (attendance.validation rule 26): a cleared absence takes its seat back. */}
+      <AlertDialog open={clearOverCapacity !== null} onOpenChange={(o) => !o && setClearOverCapacity(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("calendar.detail.clearOverCapacityTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("calendar.detail.clearOverCapacityBody", {
+                filled: clearOverCapacity?.filled ?? 0,
+                capacity: clearOverCapacity?.capacity ?? 0,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("calendar.detail.clearOverCapacityKeep")}</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="attendance-clear-over-capacity-confirm"
+              onClick={(e) => {
+                e.preventDefault();
+                setClearOverCapacity(null);
+                void handleConfirmAttendance(true);
+              }}
+            >
+              {t("calendar.detail.clearOverCapacityConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EligibilityConfirmDialog
         open={pendingEdit !== null}

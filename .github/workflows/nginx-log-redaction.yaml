@@ -26,9 +26,33 @@ jobs:
     name: nginx keeps tokens out of its logs
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      NGINX_IMAGE: public.ecr.aws/docker/library/nginx:1.27
     steps:
       - uses: actions/checkout@v4
+      # PAD-598 follow-up: one image for both steps (one pull per job), and that image cached
+      # between runs as a tarball keyed by its tag, so a runner with a warm cache pulls nothing.
+      # Even AWS's public mirror throttles anonymous pulls per IP (`toomanyrequests: Rate
+      # exceeded` on 2026-10-09 when the two steps pulled two different tags seconds apart).
+      - uses: actions/cache@v4
+        id: nginx-image
+        with:
+          path: /tmp/nginx-image.tar
+          key: docker-image-${{ env.NGINX_IMAGE }}
+      - name: Load the cached nginx image, or pull it once
+        run: |
+          if [ -f /tmp/nginx-image.tar ]; then
+            docker load -i /tmp/nginx-image.tar
+          else
+            docker pull "$NGINX_IMAGE"
+            docker save -o /tmp/nginx-image.tar "$NGINX_IMAGE"
+          fi
       - name: Host nginx (infra/nginx)
         run: bash infra/nginx/check-log-redaction.sh infra/nginx
       - name: Web image nginx (frontend/apps/web/nginx.conf)
+        env:
+          # The script's --web path reads NGINX_WEB_IMAGE; the same image as the host step, so
+          # the job pulls once. The web container's real base is nginx:1.27-alpine; the check
+          # exercises config and logging, which do not differ between the two builds.
+          NGINX_WEB_IMAGE: ${{ env.NGINX_IMAGE }}
         run: bash infra/nginx/check-log-redaction.sh --web frontend/apps/web/nginx.conf

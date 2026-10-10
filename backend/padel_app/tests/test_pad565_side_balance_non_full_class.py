@@ -1,0 +1,208 @@
+"""PAD-565 (notifications.invitations rule 2c, option A; owner, 2026-10-09; ledger B-401): in a class
+that is NOT full, a freed spot counts the players going and the class's other freed spots, never
+the never-filled spots.
+
+Before: rule 2b sides the never-filled spots toward an even class AT CAPACITY (6L/2R + 8 spots →
+6 right + 2 left, projecting 8/8) and rule 2c counted them ("plus the sides of the class's other
+open vacancies"), so on the ticket's roster (16 places, 6 left + 2 right, one left leaver) the freed
+spot saw 7 / 8 and asked LEFT, not the 5 / 2 the coach sees. Only when the never-filled spots were
+already open (rule 1c's tick, PAD-540, or the invite-start job); every leaver path — the coach's
+absent mark, a reminder "no", a cancellation — converges on ``_create_vacancy_for_absent_player``
+→ ``freed_spot_side``. Tests marked OLD-RED fail on #591's code.
+Run:
+    pytest padel_app/tests/test_pad565_side_balance_non_full_class.py -v
+"""
+from collections import Counter
+
+from padel_app.sql_db import db
+from padel_app.tests.test_pad541_freed_spot_balances_sides import _absent, _class
+
+
+def _open_sides(instance_id):
+    from padel_app.models.vacancy import Vacancy
+
+    return Counter(v.side for v in Vacancy.query.filter_by(lesson_instance_id=instance_id, status="open"))
+
+
+def _ticket_class(username):
+    """The ticket's roster: 16 places, 6 left + 2 right enrolled."""
+    return _class(username, ["left"] * 6 + ["right"] * 2, max_players=16)
+
+
+# ── precondition: rule 2b sides the never-filled spots toward capacity ──────────────────────────
+
+def test_rule_2b_sides_the_eight_never_filled_spots_six_right_two_left(app):
+    """Rule 2b on the ticket's roster: R,R,R,R then L,R,L,R — the class would end 8 / 8."""
+    from padel_app.services.notification_service import _create_structural_vacancies
+
+    with app.app_context():
+        coach, instance, _ = _ticket_class("b565-2b")
+        vacancies = _create_structural_vacancies(instance, coach.id)
+        assert Counter(v.side for v in vacancies) == Counter({"right": 6, "left": 2})
+
+
+# ── the 2×2: never-filled spots already open × the leaver's path ────────────────────────────────
+
+def test_with_the_never_filled_spots_open_a_left_leaver_frees_a_right_spot(app):
+    """OLD-RED, the ticket's observation: 5L/2R holding + 2L/6R open counted 7 / 8 → left.
+    Criterion "A freed spot in a class that is not full counts the players going": 5 / 2 → right."""
+    from padel_app.services.notification_service import (
+        _create_structural_vacancies,
+        _create_vacancy_for_absent_player,
+    )
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-open")
+        _create_structural_vacancies(instance, coach.id)
+        _absent(instance, pids[0])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == "right"
+
+
+def test_with_no_never_filled_spot_open_yet_the_same_leaver_frees_a_right_spot(app):
+    """Green before and after: with no vacancy yet the count was already the roster's 5 / 2 → right.
+    Then the 8 never-filled spots balance around it (rule 2b counts the freed spot: 5L/3R →
+    R,R,L,R,L,R,L,R), so the class still projects 8 / 8 with 6 right + 3 left open."""
+    from padel_app.services.notification_service import (
+        _create_structural_vacancies,
+        _create_vacancy_for_absent_player,
+    )
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-closed")
+        _absent(instance, pids[0])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == "right"
+        structural = _create_structural_vacancies(instance, coach.id)
+        assert len(structural) == 8
+        assert _open_sides(instance.id) == Counter({"right": 6, "left": 3})
+
+
+def test_the_coach_absent_mark_and_tick_path_lands_in_the_same_place(app):
+    """OLD-RED. ``trigger_invitations`` → ``_find_or_create_open_vacancies``: with a spot already
+    open it creates only the leaver's vacancy, through the same ``freed_spot_side`` → right."""
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import (
+        _create_structural_vacancies,
+        _find_or_create_open_vacancies,
+    )
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-mark")
+        _create_structural_vacancies(instance, coach.id)
+        _absent(instance, pids[0])
+        _find_or_create_open_vacancies(instance, coach.id)
+        leaver = Vacancy.query.filter_by(lesson_instance_id=instance.id, original_player_id=pids[0]).one()
+        assert leaver.side == "right"
+        assert _open_sides(instance.id) == Counter({"right": 7, "left": 2})
+
+
+def test_the_reminder_no_path_lands_in_the_same_place(app):
+    """``_free_spot_for_declining_player`` (reminder "no" and cancellation) → ``_ensure_vacancy_for_player``
+    → the same side (OLD-RED). The engine is left off so nothing is sent; the vacancy row is the
+    evidence."""
+    from padel_app.models.players import Player
+    from padel_app.models.presences import Presence
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import (
+        _create_structural_vacancies,
+        _free_spot_for_declining_player,
+        get_or_create_config,
+    )
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-no")
+        _create_structural_vacancies(instance, coach.id)
+        config = get_or_create_config(coach.id)
+        config.auto_notify_enabled = False
+        db.session.commit()
+        presence = Presence.query.filter_by(player_id=pids[0], lesson_instance_id=instance.id).one()
+        player = Player.query.get(pids[0])
+        _free_spot_for_declining_player(
+            instance, presence, player, coach, None, player.user_id, config, {}
+        )
+        leaver = Vacancy.query.filter_by(lesson_instance_id=instance.id, original_player_id=pids[0]).one()
+        assert presence.status == "absent"
+        assert leaver.side == "right"
+
+
+def test_two_left_leavers_with_the_never_filled_spots_open_balance_across_each_other(app):
+    """Rule 2c counts the other freed spots (and only those): 5 / 2 → right, then 4 / 2 + that
+    right spot = 4 / 3 → right again, so the class heads for 4 / 4. Counting the never-filled
+    spots too gave left for the first (7 / 8)."""
+    from padel_app.services.notification_service import (
+        _create_structural_vacancies,
+        _create_vacancy_for_absent_player,
+    )
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-two")
+        _create_structural_vacancies(instance, coach.id)
+        _absent(instance, pids[0])
+        first = _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side
+        _absent(instance, pids[1])
+        second = _create_vacancy_for_absent_player(instance, coach.id, pids[1]).side
+        assert (first, second) == ("right", "right")
+
+
+# ── the ticket's table rows 2 and 3 (full classes) already hold ─────────────────────────────────
+
+def test_a_full_class_of_two_two_losing_a_left_asks_left(app):
+    from padel_app.services.notification_service import _create_vacancy_for_absent_player
+
+    with app.app_context():
+        coach, instance, pids = _class("b565-22", ["left", "left", "right", "right"])
+        _absent(instance, pids[0])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == "left"
+
+
+def test_a_full_class_of_three_one_losing_a_left_asks_right(app):
+    from padel_app.services.notification_service import _create_vacancy_for_absent_player
+
+    with app.app_context():
+        coach, instance, pids = _class("b565-31", ["left", "left", "left", "right"])
+        _absent(instance, pids[0])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == "right"
+
+
+# ── the owner's case: 5 right + 2 left going, 12 places ─────────────────────────────────────────
+
+def test_the_owners_twelve_place_class_opens_four_left_and_one_right(app):
+    """Rule 2b unchanged (owner, 2026-10-09): 2L/5R + 5 spots: L,L,L (5/5), tie → L (6/5), R (6/6).
+    Four left invitations go out at once for four distinct spots; a "yes" closes only its own spot's
+    other invitations. The dynamic "withdraw on balance" rule is the follow-up ticket, not this."""
+    from padel_app.services.notification_service import _create_structural_vacancies
+
+    with app.app_context():
+        coach, instance, _ = _class("b565-owner", ["right"] * 5 + ["left"] * 2, max_players=12)
+        vacancies = _create_structural_vacancies(instance, coach.id)
+        assert Counter(v.side for v in vacancies) == Counter({"left": 4, "right": 1})
+
+
+# ── the simulation shows the engine's numbers (invite-simulation rule 9) ────────────────────────
+
+def test_the_simulation_shows_the_counts_behind_the_side(app):
+    """Rule 9 (PAD-565): `spot.sideCounts` is the count rule 2c used — the players going minus the
+    departing player, the never-filled spots left out — so a tutorial never recounts it."""
+    from padel_app.services.invite_simulation_service import simulate_vacancy
+    from padel_app.services.notification_service import _create_structural_vacancies
+
+    from padel_app.services.notification_service import _create_vacancy_for_absent_player
+
+    with app.app_context():
+        coach, instance, pids = _ticket_class("b565-sim")
+        _create_structural_vacancies(instance, coach.id)
+        spot = simulate_vacancy(instance, coach.id, pids[0])["spot"]
+        assert spot["side"] == "right"
+        assert spot["sideCounts"] == {"left": 5, "right": 2, "leaverSide": "left", "chosen": "right"}
+        # The simulation and the engine agree (R-029): the live spot takes the simulated side.
+        _absent(instance, pids[0])
+        assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == spot["sideCounts"]["chosen"]
+
+
+def test_the_simulation_counts_are_null_when_the_roster_plays_no_side(app):
+    from padel_app.services.invite_simulation_service import simulate_vacancy
+
+    with app.app_context():
+        coach, instance, pids = _class("b565-sim-none", ["both", None, "both"])
+        spot = simulate_vacancy(instance, coach.id, pids[0])["spot"]
+        assert spot["side"] == "both"
+        assert spot["sideCounts"] is None

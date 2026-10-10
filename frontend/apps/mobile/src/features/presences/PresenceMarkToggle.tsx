@@ -26,7 +26,8 @@ export function PresenceMarkToggle({
   playerName,
 }: {
   value: PresenceMark | null;
-  onChange: (mark: PresenceMark) => void;
+  /** PAD-567: `null` when the selected mark is pressed again (cleared). */
+  onChange: (mark: PresenceMark | null) => void;
   disabled?: boolean;
   playerName: string;
 }) {
@@ -49,7 +50,7 @@ export function PresenceMarkToggle({
           <Pressable
             key={option}
             disabled={disabled}
-            onPress={() => onChange(option)}
+            onPress={() => onChange(active ? null : option)}
             testID={`presence-mark-${option}`}
             accessibilityRole="radio"
             accessibilityState={{ selected: active, disabled: !!disabled }}

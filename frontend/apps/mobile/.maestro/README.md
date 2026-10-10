@@ -129,6 +129,7 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
 | messaging/direct-messages.spec.ts | `09-direct-messages.yaml` |
 | messaging/message-timestamp-timezone.spec.ts | skipped: timezone assertions need clock control Maestro does not provide (timestamps rendering is implicitly covered by 09) |
 | messaging/participant-role-header.spec.ts | `09-direct-messages.yaml` (chat-header-role assertion) |
+| messaging/no-coach-connect-shortcut.spec.ts | `239-no-coach-connect-shortcut.yaml` (the no-coach empty state and its "Ligar-me a um treinador" action; the web spec's second case, a linked student with every thread already open, has no iOS counterpart: the iOS picker never hides people you already talk to) |
 | notification-engine/auto-reminder.spec.ts | not applicable — notification engine not in mobile scope |
 | notification-engine/cancel-attendance.spec.ts | not covered — mobile has student cancel-attendance, but the journey destroys the seeded presence other flows rely on; needs dedicated seeding (future flow) |
 | notification-engine/notification-config.spec.ts | not applicable — notification engine not in mobile scope |

@@ -15,6 +15,8 @@
  * Run:
  *   npx playwright test e2e/settings/tutorials-understand-invites.spec.ts
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
   loginAsCoach,
@@ -45,6 +47,20 @@ async function setEligibility(request: APIRequestContext, rules: unknown[] | nul
     data: { eligibilityRules: rules },
   });
   expect(res.ok(), `config save failed: ${res.status()}`).toBeTruthy();
+}
+
+function sideReasonPattern(): RegExp {
+  const sentences: string[] = [];
+  for (const lang of ["pt", "en"]) {
+    // ESM: no __dirname here; the locale files sit at frontend/src/locales.
+    const json = JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../src/locales/${lang}/tutorials.json`, import.meta.url)), "utf8"));
+    const reasons = json.tutorials.sideReason as Record<string, string | Record<string, string>>;
+    for (const v of Object.values(reasons)) {
+      for (const s of typeof v === "string" ? [v] : Object.values(v)) sentences.push(s);
+    }
+  }
+  const escaped = sentences.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{\\\{(left|right)\\\}\\\}/g, "\\d+"));
+  return new RegExp(`^(${escaped.join("|")})$`);
 }
 
 async function openTutorial(page: Page) {
@@ -92,6 +108,9 @@ test.describe("PAD-196: Settings › Tutorials › Understand invites", () => {
 
     const results = page.getByTestId("tutorial-results");
     await expect(results.getByTestId("tutorial-spot")).toBeVisible();
+    // PAD-566 (rule 4.4): the spot says why its side, from the engine's own counts — one of the
+    // locale's side-reason sentences, with numbers in place of {{left}}/{{right}} (never typed here).
+    await expect(results.getByTestId("tutorial-spot-side-reason")).toHaveText(sideReasonPattern());
     await expect(results.getByTestId("tutorial-round-1")).toBeVisible();
 
     // Round 1 = same level + same side as the spot (B1 / right): only students

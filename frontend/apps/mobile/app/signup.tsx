@@ -29,7 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
-import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
+import { PRIVACY_POLICY_URL, TERMS_URL, legalUrl } from "@/lib/config";
 import { describeApiError } from "@/lib/apiError";
 import { COUNTRIES, countryName } from "@levelup/config";
 import { CODE_KEYS, formatBirthInput, signUpSchema, toIso } from "@/features/auth/signup-form";
@@ -408,11 +408,11 @@ export default function SignUpScreen() {
                 </Pressable>
                 <View className="flex-1 flex-row flex-wrap items-center gap-x-1">
                   <Text className="text-sm">{t("auth.signup.termsAcceptPrefix")}</Text>
-                  <Pressable accessibilityRole="link" testID="signup-terms-privacy" onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}>
+                  <Pressable accessibilityRole="link" testID="signup-terms-privacy" onPress={() => void Linking.openURL(legalUrl(PRIVACY_POLICY_URL, i18n.language))}>
                     <Text className="text-sm text-primary underline">{t("auth.legal.privacyPolicy")}</Text>
                   </Pressable>
                   <Text className="text-sm">{t("auth.signup.termsAcceptJoin")}</Text>
-                  <Pressable accessibilityRole="link" testID="signup-terms-terms" onPress={() => void Linking.openURL(TERMS_URL)}>
+                  <Pressable accessibilityRole="link" testID="signup-terms-terms" onPress={() => void Linking.openURL(legalUrl(TERMS_URL, i18n.language))}>
                     <Text className="text-sm text-primary underline">{t("auth.legal.terms")}</Text>
                   </Pressable>
                 </View>

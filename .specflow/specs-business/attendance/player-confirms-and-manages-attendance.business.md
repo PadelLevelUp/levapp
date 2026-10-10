@@ -19,10 +19,15 @@ The player is offered exactly ONE way to say they are not coming, in their own w
 they and their coach then see ONE answer to "where does this person stand for this class?" —
 never two or three status words at once (PAD-313, after a founder's report on TestFlight 20).
 
-Saying "I am not coming" is not a one-way door: a player whose plans change can say they can come
-after all, and they get their spot back whenever it is still free. When it is not — because freeing
-it is precisely what let somebody else take it — they are told plainly that it has gone rather than
-shown a failure (PAD-315).
+A player can say "I'm coming" only once the coach has asked them — at the first reminder, or
+earlier if the coach sends one by hand. Before that, the only thing they can tell the coach is
+"I'm not coming", so the coach has time to find a replacement; a class whose reminders are off
+never asks at all, and the coach simply counts on them. The dashboard and the class detail say the
+same thing at every moment (PAD-570).
+
+Saying "I am not coming" is a one-way door for the player: the coach may already have found a
+replacement, so the app offers no way back. A player whose plans change tells the coach in the
+chat, and the coach puts them back by hand. (This reverses PAD-315, owner decision 2026-10-09.)
 
 ## Who This Is For
 
@@ -32,7 +37,8 @@ Students/players responding to and managing their own attendance; the coach, who
 
 1. A player enrolled in a class is automatically marked as invited when the occurrence is
    created.
-2. They respond to a reminder — yes, I'll attend, or no, I can't.
+2. Once asked — at the first reminder, or by a reminder the coach sent by hand — they respond:
+   yes, I'll attend, or no, I can't. Before being asked they can only say no.
 3. Having confirmed, they can still change their mind and cancel any time before the class
    starts.
 4. If they cancel close to the class's start (inside the coach's cancellation-deadline window),
@@ -47,7 +53,14 @@ Students/players responding to and managing their own attendance; the coach, who
 
 ## Business Rules
 
-- Every enrolled player starts a class occurrence "invited but not yet confirmed."
+- Every enrolled player starts a class occurrence "planned": on the list, not yet asked.
+- "Yes" is accepted only once the player has been asked (the first reminder's moment, or a
+  reminder the coach sent by hand), on web, iOS and Android alike, and the server refuses an
+  earlier "yes" even from an old app. A class whose reminders are off never asks; its players can
+  only say "no" (PAD-570).
+- "No" is final for the player: after it the buttons are gone everywhere, including the chat, and
+  a short note points them to the coach's conversation. The coach's own earlier mark (present or
+  absent) stands; such a player is never asked and can only say "no" (PAD-570).
 - A confirmed player can cancel any time before the class actually starts — never after.
 - A cancellation inside the coach's configured deadline window (default 24 hours before start) is
   still allowed, just flagged as late.

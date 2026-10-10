@@ -5,6 +5,7 @@ import type {
   InviteSimulationGate,
   InviteSimulationPriority,
   InviteSimulationRule,
+  InviteSimulationSpot,
 } from "@levelup/types";
 
 /**
@@ -172,6 +173,24 @@ export function describeRules(rules: InviteSimulationRule[]): I18nText[] {
     key: `${NS}.rules.${r.attribute}.${r.operation}`,
     params: { value: r.value ?? "" },
   }));
+}
+
+/**
+ * PAD-566 (settings.tutorials rule 4.4): why the spot asks for its side, in the engine's own
+ * numbers (`spot.sideCounts`, notifications.invite-simulation rule 9). Nothing is recounted or
+ * re-decided here: `chosen` is the engine's side, the counts are its counts — the words only say
+ * which case they make. No counts (the roster has no left/right player) has its own line.
+ */
+export function describeSideReasoning(spot: Pick<InviteSimulationSpot, "sideCounts">): I18nText {
+  const counts = spot.sideCounts;
+  if (!counts) return { key: `${NS}.sideReason.noSides` };
+  const params = { left: counts.left, right: counts.right };
+  if (counts.chosen !== "left" && counts.chosen !== "right") {
+    // `both` or no side: the spot accepts any side, whatever the counts.
+    return { key: `${NS}.sideReason.balancedAny`, params };
+  }
+  const kind = counts.left === counts.right ? "tie" : "fewer";
+  return { key: `${NS}.sideReason.${kind}.${counts.chosen}`, params };
 }
 
 export function describeSendStatus(status: InviteSendStatus): I18nText {

@@ -78,6 +78,12 @@ export function ParticipantRow({
   const playerId = String(player.id);
 
   const setStatus = (status: PresenceStatus) => {
+    // PAD-567 (attendance.validation rule 26): the selected state pressed again clears the
+    // row back to "no answer" — visibly: the button drops its tone at once.
+    if (attendance.status === status) {
+      onChange?.({ status: null, justification: undefined });
+      return;
+    }
     if (status === "present") {
       onChange?.({ status: "present", justification: undefined });
     } else {

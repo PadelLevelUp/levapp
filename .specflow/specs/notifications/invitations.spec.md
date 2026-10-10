@@ -105,21 +105,31 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    way that makes the class simetrical if possible") named none, so balancing is the default for
    every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
 2c. **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
-   option A).** When a player's cancellation opens a vacancy, the vacancy's
-   side is the side the class needs, not automatically the leaver's. It is counted as rule 2b counts:
-   the players still holding a spot, minus the leaver, plus the sides of the class's other open
-   vacancies. The spot takes `left` or `right`, whichever has fewer. **On a tie it keeps the
-   leaver's side**, which may be `both` or none. So several freed spots balance across one another,
-   each counted as its side for the next, whether they open together or one by one. A class of 6 left
-   and 3 right whose two leavers both played left ends 5 / 4: the first spot asks right (it counts
-   5 / 3 if the second leaver still holds their place, 4 / 3 if both are already out), and the second
-   counts 4 / 4 with that spot and keeps left. The side is chosen under the class lock that already
-   serialises vacancy creation (rule 10), so two cancellations at once still see each other's spot;
-   nothing in that section commits before the new vacancy does (the coach's settings are read first).
-   As in rule 2b, if no player on the coach's roster plays `left` or `right`, the leaver's side is
-   kept as before; balancing ranks and orders and is never an eligibility bar. Open vacancies created
-   before this rule keep their side. The invite simulation shows the side this rule would choose
-   (`notifications.invite-simulation` rule 9).
+   option A; counting corrected by PAD-565; owner, 2026-10-09, option A).** When a player's
+   cancellation opens a vacancy, the vacancy's side is the side the class needs, not automatically
+   the leaver's. The count is **the players going**: the players still holding a spot
+   (`effective_filled_spots`'s predicate; `left` / `right`, with `both` and no side on neither),
+   minus the leaver, plus the sides of the class's other open **freed** spots (vacancies with a
+   departing player). **The class's never-filled spots are not counted (PAD-565, ledger B-401):**
+   rule 2b sides them toward an even class at capacity, and counting them made a freed spot in a
+   class that is not full balance that projection instead of the roster — 6 left / 2 right going
+   in a class of 16 asked `left` for a left leaver, because the 8 never-filled spots carried 6
+   right and 2 left. The spot takes `left` or `right`, whichever has fewer. **On a tie it keeps the
+   leaver's side**, which may be `both` or none. So several freed spots balance across one
+   another, each counted as its side for the next, whether they open together or one by one. A
+   class of 6 left and 3 right whose two leavers both played left ends 5 / 4: the first spot asks
+   right (it counts 5 / 3 if the second leaver still holds their place, 4 / 3 if both are already
+   out), and the second counts 4 / 4 with that spot and keeps left. A class of 16 with 6 left and
+   2 right going whose left player leaves asks right (5 / 2), whether or not its never-filled spots
+   are already open. Rule 2b is unchanged: a never-filled spot still counts every open vacancy,
+   freed ones included, so the never-filled spots balance around a freed one. The side is chosen
+   under the class lock that already serialises vacancy creation (rule 10), so two cancellations
+   at once still see each other's spot; nothing in that section commits before the new vacancy
+   does (the coach's settings are read first). As in rule 2b, if no player on the coach's roster
+   plays `left` or `right`, the leaver's side is kept as before; balancing ranks and orders and is
+   never an eligibility bar. Open vacancies created before this rule keep their side. The invite
+   simulation shows the side this rule would choose and the numbers it used
+   (`notifications.invite-simulation` rule 9), so a tutorial never recounts them.
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -203,7 +213,20 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    run is asked on the next batch, ahead of the group. A group-0 invitation is answered through the
    same paths (rules 9, 10, 17, 18); its yes and its no also settle the waiting-list entry
    (`notifications.waiting-list` rule 15).
-9. Coach can manually record response: `POST /api/app/notify/coach_respond` with `{notificationEventId, action: "yes" | "no"}` (path corrected, PAD-548). The answer stamps `NotificationEvent.answered_by = "coach"`; a student's own answer stamps `"student"` (PAD-548), and the class detail says which (`calendar.event-detail` rule 16)
+9. Coach can manually record response: `POST /api/app/notify/coach_respond` with `{notificationEventId, action: "yes" | "no"}` (path corrected, PAD-548). The answer stamps `NotificationEvent.answered_by = "coach"`; a student's own answer stamps `"student"` (PAD-548), and the class detail says which (`calendar.event-detail` rule 16).
+   **The coach's answer reaches the student's chat (PAD-563; owner, 2026-10-09).** Recording it
+   also writes the invitation message's metadata — `responded: true`, `response: "yes" | "no"`,
+   `answeredBy: "coach"` (a student's own answer writes `answeredBy: "student"`) — flushed into
+   the same commit as the answer (a "yes": with the close and the enrolment, as `_record_yes`
+   does; a "no": with the expiry), and its `message_edited` is queued with `on_commit` and
+   published only after that real commit (`messaging.sse-realtime` rule 18). Both shells then
+   show the bubble as "Marcado como aceite pelo treinador" / "Marcado como recusado pelo
+   treinador" ("Marked as accepted / declined by the coach"), to the student and to the coach
+   alike, with the Yes/No buttons gone, live and without a reload. A student's later answer to
+   an invitation the coach resolved is refused by the server, not only hidden: a "yes" after the
+   coach's "no" answers `declined` and enrols nobody (rule 18), a "no" or "yes" after the
+   coach's "yes" answers `confirmed` and the student keeps the spot (rule 17). "Eliminar
+   convite" (rule 19) already shows "Vaga preenchida" at once, the same way.
 10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
@@ -837,6 +860,24 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** the engine sends the next batch for that occurrence
 - **Then** Dinis is tagged `declined_this_class` in `evaluate_candidates` and receives no invitation, while a manual invitation from the coach still reaches him
 
+#### The coach's recorded answer reaches the student's chat (rule 9, PAD-563)
+- **Given** Dinis holds a `sent` invitation whose message shows Yes/No in his chat
+- **When** the coach records his "yes" (or his "no") from the class detail
+- **Then** the invitation message's metadata reads `responded: true`, `response: "yes"` (or `"no"`), `answeredBy: "coach"`, written in the one commit that records the answer
+- **And** a `message_edited` for that message is published to Dinis and the coach after that commit, never before it
+- **And** both shells show "Marcado como aceite pelo treinador" (or "… recusado …") with no buttons, to Dinis and to the coach, without a reload (test id `invite-recorded-by-coach` replaces `invite-accepted` / `invite-declined` on that bubble; the Yes/No buttons are `invite-respond-yes` / `invite-respond-no` on web, `message-respond-yes` / `-no` on iOS)
+
+#### A manual invitation's recorded answer reaches the chat too (rule 9, PAD-563)
+- **Given** a manual invitation (no vacancy) still `sent`
+- **When** the coach records the answer
+- **Then** the same metadata and the same `message_edited` follow, under the invitation row's own lock
+
+#### A student's answer after the coach's is refused (rules 9, 17, 18, PAD-563)
+- **Given** the coach recorded Dinis's "no"
+- **When** Dinis taps "yes"
+- **Then** the answer is `declined`, Dinis is not enrolled and his bubble still reads declined by the coach
+- **And** after a coach-recorded "yes", Dinis's "no" answers `confirmed` and he keeps the spot
+
 #### A late yes on a withdrawn invitation is refused (rule 19)
 - **Given** Dinis's invitation was withdrawn and the vacancy is still open
 - **When** Dinis answers "yes" on his invitation
@@ -867,3 +908,14 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** the 6 left / 3 right class above
 - **When** both left-side leavers' vacancies are created on two connections at once
 - **Then** the two vacancies are one `right` and one `left`, never two `right`
+
+#### A freed spot in a class that is not full counts the players going, not the never-filled spots (rule 2c, PAD-565)
+- **Given** a class of 16 with 6 left and 2 right enrolled, whose 8 never-filled spots are already open with rule 2b's sides (6 right, 2 left)
+- **When** a left-side player leaves, through the coach's absent mark, a reminder "no" or a cancellation
+- **Then** the freed spot asks `right` (5 / 2 going), not `left` (the 7 / 8 that counting the never-filled spots gave)
+- **And** the same leaver gets `right` when no never-filled spot is open yet, and the never-filled spots then balance around that spot (rule 2b counts it)
+
+#### The ticket's table holds in a full class too (rule 2c, PAD-565)
+- **Given** a full class of 2 left and 2 right, or of 3 left and 1 right
+- **When** a left-side player leaves
+- **Then** the first asks `left` (1 / 2) and the second asks `right` (2 / 1)

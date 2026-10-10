@@ -455,6 +455,7 @@
       },
       "operations": {
         "sameAsVacancy": "Igual à vaga",
+        "balanceSides": "Equilibrar lados da aula",
         "oneAboveVacancy": "Um nível acima da vaga",
         "oneBelowVacancy": "Um nível abaixo da vaga",
         "allAboveVacancy": "Todos os níveis acima da vaga",
@@ -466,6 +467,13 @@
         "greaterThan": "Maior que",
         "atLeast": "Pelo menos",
         "is": "É"
+      },
+      "sideBalanceHelp": {
+        "intro": "Quando abre uma vaga, convida-se primeiro o lado com menos jogadores a ir, para a aula ficar equilibrada:",
+        "example1": "2 esquerda + 2 direita, falta 1 esquerda → convida esquerda.",
+        "example2": "2 esquerda + 2 direita, falta 1 direita → convida direita.",
+        "example3": "3 esquerda + 1 direita, falta 1 esquerda → convida direita (fica 2 + 2).",
+        "special": "As vagas que outros alunos já deixaram contam também para o seu lado. Um jogador sem lado, ou que joga dos dois, não conta para nenhum e pode ser convidado de qualquer forma; uma aula já equilibrada mantém o lado de quem faltou."
       },
       "subscriptionActive": "Ativa",
       "subscriptionInactive": "Inativa"
@@ -528,6 +536,7 @@
       "empty": "Nenhum aluno na lista de espera permanente.",
       "unknown": "Desconhecido",
       "credits": "{{used}}/{{total}} créditos",
+      "creditsUnlimited": "Sem limite de créditos",
       "expires": "Expira a {{date}}",
       "expired": "Expirado",
       "classCount_one": "{{count}} aula",
@@ -587,7 +596,7 @@
           "level": "O nível da aula",
           "weekday": "O dia da semana da aula",
           "time": "A hora de início da aula",
-          "day": "O dia da aula dito de forma natural, em relação ao momento do envio: hoje, amanhã, esta sexta-feira, a próxima segunda-feira, ou a data",
+          "day": "O dia da aula dito de forma natural, em relação ao momento do envio: hoje, amanhã, esta sexta-feira, na próxima segunda-feira, ou dia 23/10. Encaixa em frases como «A aula é {day} às {time}»",
           "date": "A data da aula em dia/mês",
           "type": "O tipo de aula: academia ou privada",
           "court": "O campo da aula (vazio quando não tem)",

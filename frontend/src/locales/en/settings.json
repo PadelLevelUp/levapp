@@ -455,6 +455,7 @@
       },
       "operations": {
         "sameAsVacancy": "Same as vacancy",
+        "balanceSides": "Balance the class sides",
         "oneAboveVacancy": "One level above vacancy",
         "oneBelowVacancy": "One level below vacancy",
         "allAboveVacancy": "All levels above vacancy",
@@ -466,6 +467,13 @@
         "greaterThan": "Greater than",
         "atLeast": "At least",
         "is": "Is"
+      },
+      "sideBalanceHelp": {
+        "intro": "When a spot opens, the side with fewer players going is asked first, so the class stays balanced:",
+        "example1": "2 left + 2 right, 1 left leaves → invites left.",
+        "example2": "2 left + 2 right, 1 right leaves → invites right.",
+        "example3": "3 left + 1 right, 1 left leaves → invites right (ends 2 + 2).",
+        "special": "Spots other students have already freed count for their side too. A player with no side, or who plays both, counts for neither and can be invited either way; an already balanced class keeps the leaving player's side."
       },
       "subscriptionActive": "Active",
       "subscriptionInactive": "Inactive"
@@ -528,6 +536,7 @@
       "empty": "No students on the standing waiting list.",
       "unknown": "Unknown",
       "credits": "{{used}}/{{total}} credits",
+      "creditsUnlimited": "No credit limit",
       "expires": "Expires {{date}}",
       "expired": "Expired",
       "classCount_one": "{{count}} class",
@@ -587,7 +596,7 @@
           "level": "The class's level",
           "weekday": "The day of the week of the class",
           "time": "The class's start time",
-          "day": "The class's day said naturally, relative to when the message is sent: today, tomorrow, this Friday, next Monday, or the date",
+          "day": "The class's day said naturally, relative to when the message is sent: today, tomorrow, this Friday, next Monday, or 23/10. Fits sentences like \"The class is {day} at {time}\"",
           "date": "The class's date as day/month",
           "type": "The kind of class: academy or private",
           "court": "The class's court (empty when it has none)",

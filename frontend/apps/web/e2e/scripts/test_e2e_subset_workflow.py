@@ -81,7 +81,8 @@ def test_the_database_is_seeded_before_playwright_starts_on_an_isolated_stack():
     assert names.index("Migrate + seed the isolated database") < names.index("Run the subset")
     env = wf["jobs"]["subset"]["env"]
     assert {"E2E_DB_NAME", "E2E_BACKEND_PORT", "E2E_WEB_PORT"} <= set(env)
-    assert wf["jobs"]["subset"]["services"]["postgres"]["image"] == "postgres:15"
+    # PAD-598: the official image may come from a mirror registry; the version is what matters.
+    assert wf["jobs"]["subset"]["services"]["postgres"]["image"].endswith("postgres:15")
 
 
 def test_the_check_is_red_when_the_run_is_red_and_says_when_the_cap_cut_it():

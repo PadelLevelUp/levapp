@@ -24,6 +24,7 @@ import {
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
+import { mergeEditedMessage } from "@levelup/api";
 import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
@@ -46,6 +47,8 @@ export default function MessagesPage() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { user, token } = useAuth();
+  // PAD-568: only a student is ever offered the connect-with-a-coach shortcut.
+  const canConnectWithCoach = !(user?.roles?.includes("coach") ?? false);
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -221,14 +224,14 @@ export default function MessagesPage() {
       // ---------------------------------------------------------------
       if (data.type === "message_edited") {
         const edited: Message = data.payload;
+        // messaging.sse-realtime rule 18 (PAD-563): the metadata rides along, so a retired,
+        // withdrawn or coach-answered invite bubble changes without a reload.
         setSelectedConversation((prev) =>
           prev
             ? {
                 ...prev,
                 messages: prev.messages.map((m) =>
-                  String(m.id) === String(edited.id)
-                    ? { ...m, content: edited.content, edited: true }
-                    : m
+                  String(m.id) === String(edited.id) ? mergeEditedMessage(m, edited) : m
                 ),
               }
             : prev
@@ -562,6 +565,9 @@ export default function MessagesPage() {
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}
                 onNewConversationByUsername={handleNewConversationByUsername}
+                // PAD-568: a student with no linked coach is sent to "Connect with a coach"
+                // (players.join-token rule 8); coaches never see the shortcut.
+                onConnectWithCoach={canConnectWithCoach ? () => navigate("/connect") : undefined}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}

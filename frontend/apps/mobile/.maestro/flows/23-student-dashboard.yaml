@@ -25,9 +25,13 @@ appId: com.padellevelup.app
     id: "dashboard-queue-invite"
 - assertVisible:
     text: "E2E Academy Class"
+# PAD-570 follow-up: `dashboard-schedule` is the whole Upcoming section (header + rows), taller
+# than the screen once the rows load, so a 100 % visibility wait on it can never be met (A's
+# run at 6317d2e53). A single row fits on screen: scroll until the first one is visible.
 - scrollUntilVisible:
     element:
-      id: "dashboard-schedule"
+      id: "dashboard-schedule-row"
+      index: 0
     direction: DOWN
     timeout: 20000
 
@@ -61,10 +65,23 @@ appId: com.padellevelup.app
 #    invited-but-unanswered on "E2E Academy Class", so the buttons must be
 #    there. Not tapped: answering would change the seed the calendar flows
 #    (14-student-calendar) rely on. ──
+# Where the dashboard lands after attendance-back is not fixed: it kept its scroll (near the
+# bottom, row 0 above the viewport) at staging 81badc6a1, and was at the top on ccd74bb7d, so
+# a single-direction scroll fails one way or the other. Bring the dashboard to the top first:
+# the next-class hero is the first block and fits on screen, so scrolling UP until it is fully
+# visible ends at the top from any position (a no-op when already there). Then scroll DOWN to
+# the first Upcoming row. `dashboard-schedule` itself is taller than the screen, so a 100 %
+# visibility wait on the section can never be met (run at 6317d2e53); one row fits.
 - scrollUntilVisible:
     element:
-      id: "dashboard-schedule"
+      id: "dashboard-next-class"
     direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "dashboard-schedule-row"
+      index: 0
+    direction: DOWN
     timeout: 20000
 - assertVisible:
     id: "dashboard-confirm-yes"

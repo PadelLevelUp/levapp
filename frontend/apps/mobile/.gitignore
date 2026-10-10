@@ -39,3 +39,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Raw Maestro takeScreenshot output (flows) and the control-run copies a 2x2 sitting makes;
+# curated composites go in .maestro/evidence/ instead.
+screenshots/
+screenshots-control/

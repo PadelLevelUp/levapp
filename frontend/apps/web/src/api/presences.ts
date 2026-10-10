@@ -20,12 +20,16 @@ export async function confirmClassPresences(
   classInstance: ClassInstance,
   presences: Array<{
     playerId: string;
-    status: PresenceStatus;
+    status?: PresenceStatus;
     justification?: AbsenceJustification;
+    /** PAD-567: clear this row back to "no answer" (attendance.validation rule 26). */
+    clear?: true;
   }>
 ): Promise<{
   presences: Presence[];
   notifiedPlayers: { id: string; name: string }[];
+  /** PAD-567: the player ids this call cleared. */
+  cleared?: number[];
   /** Present in semi-automatic mode when absences created vacancies awaiting approval */
   approvalBundle?: ApprovalBundle;
 }> {

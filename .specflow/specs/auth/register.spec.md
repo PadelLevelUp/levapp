@@ -103,9 +103,9 @@ create one, or ask to join an existing one — happens right after approval (`cl
     declares the capability `terms-acceptance` (web, iOS 29+) sends `termsAccepted: true`; for such a
     client anything else answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and writes nothing. The
     User then records `terms_accepted_at` (the request's instant, UTC), `terms_version` and
-    `privacy_version` — the two pages' effective dates (`2026-07-14`, `2026-10-02`; `TERMS_VERSION` and
-    `PRIVACY_VERSION` in `registration_service.py`, each tied to its page's `EFFECTIVE_DATE` by a test —
-    change a page and its constant together). **Any client that does not declare the capability**
+    `privacy_version` — the two pages' effective dates (`2026-10-10` for both since PAD-601; `TERMS_VERSION`
+    and `PRIVACY_VERSION` in `registration_service.py`, each tied by a test to the version the legal
+    page shows and to its text's "Effective date" line (`auth.legal-pages` rule 4) — change them together). **Any client that does not declare the capability**
     registers exactly as before, with the three columns NULL: today that is App Store 1.2.0 (27) and
     1.2.1 (28). **Removal:** drop that path, and the token's gate, once no App Store build older than
     the first declaring one is in use (a compat-audit question at each promotion). A separate
@@ -121,8 +121,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **When** the newcomer taps Create account
 - **Then** "Para criar conta tens de aceitar…" shows under the box and no request is sent
 - **And** with the box ticked the request carries `termsAccepted: true`, and the new User has
-  `terms_accepted_at` = the request's instant, `terms_version` = `2026-07-14` and `privacy_version` =
-  `2026-10-02`
+  `terms_accepted_at` = the request's instant, `terms_version` = `2026-10-10` and `privacy_version` =
+  `2026-10-10`
 
 #### A declaring client that does not accept is refused (rule 19)
 - **Given** a request declaring `terms-acceptance` with `termsAccepted` absent, `false` or not a boolean

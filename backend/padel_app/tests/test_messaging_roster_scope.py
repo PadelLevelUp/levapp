@@ -7,9 +7,12 @@ that table — adding a player, importing one, or accepting an invitation
 creates a `coach_in_player` roster row instead. So a coach could not message a
 student they had added through the app.
 
-The messageable set for a coach is now the UNION of the roster
+The messageable set for a coach was then the UNION of the roster
 (`coach_in_player`) and the players of the coach's clubs (`player_in_club`).
-The student branch (any active coach) is unchanged.
+PAD-568 / B-461 removed the club half again: a coach's join link puts every
+joiner in the club, so the club arm handed every coach of a club every joiner.
+A coach's set is now the roster plus the students of a class they teach that
+is not yet over (messaging.conversations rule 7).
 """
 import pytest
 from flask_jwt_extended import create_access_token
@@ -122,14 +125,18 @@ def test_coach_can_start_conversation_with_roster_only_player(
     assert resp.status_code == 201
 
 
-def test_club_player_without_roster_row_stays_messageable(client, app, roster_scenario):
-    """The union keeps the old club behaviour — seeded data must not regress."""
+def test_club_player_without_roster_row_is_not_messageable(client, app, roster_scenario):
+    """PAD-568 / B-461: the seed-only club shape is not a link any more."""
     resp = client.get(
         "/api/app/messageable-users",
         headers=_auth_header(app, roster_scenario["coach_user_id"]),
     )
     ids = {u["id"] for u in resp.get_json()}
-    assert roster_scenario["club_user_id"] in ids
+    assert roster_scenario["club_user_id"] not in ids
+    resp = _create_conversation(
+        client, app, roster_scenario["coach_user_id"], roster_scenario["club_user_id"]
+    )
+    assert resp.status_code == 403
 
 
 def test_player_on_neither_roster_nor_club_is_not_messageable(
