@@ -75,6 +75,9 @@ the waiting list.
   already paid for (PAD-507).
 - A student is never offered, through the waiting list, a class they just left or a class they're
   already enrolled in.
+- A student whose invitation shows "Vaga preenchida" because someone else was faster can join that
+  class's waiting list from the message itself, and is asked first if a spot opens again
+  (PAD-577).
 - The coach can see a class's waiting list from the class itself, with where each student came from
   (the standing list, their own request, or the coach) and for how long they are on it (this class
   only, the whole series, or until a date), add students to it — for that class only, for the whole

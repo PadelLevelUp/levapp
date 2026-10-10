@@ -1,0 +1,24 @@
+"""PAD-577 — notifications.invitations rule 15a: an invitation message carries the class's start
+(``startsAt``, club wall clock), so a retired invitation can offer the waiting list only while the
+class is still ahead.
+"""
+from unittest.mock import patch
+
+from padel_app.tests.test_pad493_invitations_run_twice import NOW, PATCHES, _seed
+
+
+def test_an_invitation_message_says_when_the_class_starts(app, monkeypatch):
+    from padel_app.models import Message
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=1, max_players=1)
+        instance = LessonInstance.query.get(instance_id)
+        trigger_invitations(instance, coach_id, now=NOW)
+        invite = Message.query.filter_by(message_type="notification_invite").order_by(Message.id.desc()).first()
+        assert invite is not None
+        assert invite.msg_metadata["lessonInstanceId"] == instance_id
+        assert invite.msg_metadata["startsAt"] == instance.start_datetime.isoformat()
