@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+import time
 from datetime import timedelta
 
 from flask import url_for
@@ -30,6 +32,50 @@ PUBLIC_BASE = f"https://storage.googleapis.com/{GCS_BUCKET}"
 # expired while a page was still open; an hour outlives a render without
 # turning the URL into a durable capability.
 SIGNED_URL_MINUTES = 60
+# PAD-593: a signed URL is reused for this long, which is shorter than its own life, so a
+# reused URL always has at least 10 minutes left. Within the window the same image keeps the
+# same URL, which is what lets browsers and React Native's image cache hit.
+SIGNED_URL_REUSE_MINUTES = 50
+# A signer that failed (B-018) is not asked again for the same image for this long.
+SIGNING_FAILURE_RETRY_SECONDS = 60
+# Bounded: past this many keys the expired entries are swept, then the oldest go.
+_SIGNED_URL_CACHE_MAX = 5000
+_monotonic = time.monotonic
+
+# object_key -> (url or None, expires_at on the _monotonic clock). Per process: each worker
+# signs an image at most once per window instead of once per image per response.
+_SIGNED_URL_CACHE = {}
+_SIGNED_URL_CACHE_LOCK = threading.Lock()
+
+
+def _reset_signed_url_cache():
+    """Tests only: forget every cached signing."""
+    with _SIGNED_URL_CACHE_LOCK:
+        _SIGNED_URL_CACHE.clear()
+
+
+def _cached_signing(object_key, sign):
+    """`sign()`'s result for this key, reused until it expires (a failure is cached as None)."""
+    now = _monotonic()
+    with _SIGNED_URL_CACHE_LOCK:
+        hit = _SIGNED_URL_CACHE.get(object_key)
+        if hit is not None and hit[1] > now:
+            return hit[0]
+    try:
+        url = sign()
+        expires_at = now + SIGNED_URL_REUSE_MINUTES * 60
+    except Exception as exc:  # noqa: BLE001 — any signer failure degrades (B-018)
+        logging.getLogger(__name__).warning("could not sign image %s: %s", object_key, exc)
+        url = None
+        expires_at = now + SIGNING_FAILURE_RETRY_SECONDS
+    with _SIGNED_URL_CACHE_LOCK:
+        if len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
+            for key in [k for k, (_, exp) in _SIGNED_URL_CACHE.items() if exp <= now]:
+                del _SIGNED_URL_CACHE[key]
+            while len(_SIGNED_URL_CACHE) >= _SIGNED_URL_CACHE_MAX:
+                del _SIGNED_URL_CACHE[next(iter(_SIGNED_URL_CACHE))]
+        _SIGNED_URL_CACHE[object_key] = (url, expires_at)
+    return url
 
 # One storage client per process (B-018). `storage.Client()` resolves
 # credentials against the metadata server every time it is built; doing that
@@ -541,19 +587,15 @@ class Image(db.Model):
         binding was never applied) must degrade to "no image", never to a 500
         on every page that serializes a user, club or message. Signing is
         also per image, so a page of avatars cannot afford a fresh client each
-        time — see :func:`_storage_client`.
+        time — see :func:`_storage_client` — nor a fresh signature: the result is
+        reused per object key for ``SIGNED_URL_REUSE_MINUTES`` (PAD-593).
         """
         if self.is_public:
             return self.public_url()
         if not GCS_BUCKET:
             return None
-        try:
-            return self.signed_url()
-        except Exception as exc:  # noqa: BLE001 — any signer failure degrades
-            logging.getLogger(__name__).warning(
-                "could not sign image %s: %s", self.object_key, exc
-            )
-            return None
+        # PAD-593: one signing per image per window, not per image per response.
+        return _cached_signing(self.object_key, self.signed_url)
 
 
 class Imageable(db.Model):
