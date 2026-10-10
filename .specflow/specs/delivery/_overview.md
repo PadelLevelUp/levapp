@@ -10,6 +10,9 @@ they have behaviour worth specifying.
 - `delivery.pr-e2e-subset` — implementing (PAD-511: on every PR into `staging`, run the web
   Playwright specs the change drives, bounded and advisory, with a second look at every red)
 
+- `delivery.zero-downtime-deploy` — implementing (PAD-588: one scheduler leader by advisory lock,
+  reschedule off the boot path; start-before-stop rollout behind a two-port nginx upstream)
+
 ## Why it's grouped this way
 
 These leaves describe the delivery pipeline, not the product. They sit in their own domain so a

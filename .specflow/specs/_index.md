@@ -16,7 +16,7 @@ governing leaf spec and its dependencies before touching code.
 - `classes/` — Lessons & Instances (13 leaves; `classes.clone` added 2026-10-07, PAD-524; `classes.class-requests` added 2026-09-10, PAD-104; `classes.availability` added 2026-09-17, PAD-357)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
-- `delivery/` — How changes reach production safely (1 leaf; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511)
+- `delivery/` — How changes reach production safely (2 leaves; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511; `delivery.zero-downtime-deploy` added 2026-10-10, PAD-588)
 - `eligibility/` — Who May Join a Class (4 leaves)
 - `evaluations/` — Player Evaluation System (13 leaves: 4 implemented, 9 draft; `evaluations.legacy-client-contract`, `.competencies`, `.records`, `.class-panel`, `.history`, `.evolution`, `.sharing`, `.student-view`, `.reminders` drafted 2026-09-21 from the "Sistema de Avaliações" canvas ingest, and the four shipped leaves corrected for drift the same day; sharing, student-view and reminders are owner-pending)
 - `import/` — Bulk Data Import (4 leaves)
