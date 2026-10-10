@@ -5378,7 +5378,7 @@ def respond_to_notification(
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
-        event.save()
+        # PAD-596: no `save()` after it — `enrol()` committed the answer with the enrolment.
 
         if coach_user_id:
             _send_system_message(
@@ -5494,9 +5494,9 @@ def coach_respond_to_notification(
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
-        event.save()
-        if vacancy:
-            vacancy.save()
+        # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
+        # settlement and the enrolment together and releases the lock; the two `save()` calls
+        # that followed committed nothing and cost two round-trips.
 
         return {"action": "confirmed"}
 

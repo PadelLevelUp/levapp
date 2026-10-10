@@ -362,9 +362,9 @@ def test_a_waiting_list_yes_and_a_group_yes_on_two_spots_cannot_overfill(app, mo
 
 def test_a_crash_right_after_the_accepts_commit_leaves_the_entry_settled(app, monkeypatch):
     """Rule 15: the entry and the credit are written IN the accept's single commit, not after it. A
-    crash right after that commit (here: in the next save) must find the student enrolled AND the
-    entry closed with the credit spent — never enrolled with a live entry and an unspent credit."""
-    from padel_app.models.notification_event import NotificationEvent
+    crash right after that commit (here: the moment the enrolment returns — PAD-596 removed the
+    `save()` that used to follow it) must find the student enrolled AND the entry closed with the
+    credit spent — never enrolled with a live entry and an unspent credit."""
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
     from padel_app.models.waiting_list_entry import WaitingListEntry
     from padel_app.services import notification_service as ns
@@ -382,9 +382,8 @@ def test_a_crash_right_after_the_accepts_commit_leaves_the_entry_settled(app, mo
         real_add = ns._add_player_to_instance
 
         def add_then_crash(player_id, instance):
-            result = real_add(player_id, instance)  # the accept's commit happens in here
-            monkeypatch.setattr(NotificationEvent, "save", lambda self: (_ for _ in ()).throw(RuntimeError("crash")))
-            return result
+            real_add(player_id, instance)  # the accept's commit happens in here
+            raise RuntimeError("crash")
 
         monkeypatch.setattr(ns, "_add_player_to_instance", add_then_crash)
         with pytest.raises(RuntimeError):
