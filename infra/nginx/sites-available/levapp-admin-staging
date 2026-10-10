@@ -14,7 +14,7 @@ server {
     if ($arg_access_token != "") { return 404; }
 
     location /admin/api/ {
-        proxy_pass http://127.0.0.1:5100;
+        proxy_pass http://levapp_api_staging;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

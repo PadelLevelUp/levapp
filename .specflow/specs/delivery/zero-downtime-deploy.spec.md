@@ -51,9 +51,11 @@ gunicorn's boot path into the leadership thread.
    levapp_api { server 127.0.0.1:5000; server 127.0.0.1:5002; }` with `proxy_next_upstream error
    timeout`. A refused connection is retried on the other port; nginx retries even a POST in that
    case because no byte of the request reached the dead port.
-6. **The rollout gates itself on the host.** When the host nginx has no `levapp_api` upstream (the
-   owner has not applied rule 5 yet), the deploy falls back to today's stop-then-start, so merging
-   the workflow can never break a deploy.
+6. **The rollout gates itself on the host.** When the host nginx has no `levapp_api` upstream, or
+   no enabled vhost proxies to it (the owner has not applied rule 5 yet), the deploy falls back to
+   today's stop-then-start on the first port, so merging the workflow can never break a deploy.
+   Every vhost that reaches the API moves to the upstream: `levapp`, `levapp-admin`,
+   `padellevelup` (prod) and `levapp-staging`, `levapp-admin-staging` (staging).
 7. **Migrations must work with the previous release's code.** The new container's entrypoint
    migrates while the old one still serves. A migration the old code cannot run against (a dropped
    or renamed column it reads) is deployed with the `workflow_dispatch` choice `rollout:
@@ -81,9 +83,25 @@ gunicorn's boot path into the leadership thread.
 - **Then** the scheduler starts paused, no reschedule runs, and the leadership thread's acquire runs
   the reschedule and then resumes
 
-#### Rollout (rules 4–7; criteria written with the rollout half)
-- **Given** a host with the upstream applied **When** a staging deploy runs while a probe curls
-  `/api/app/healthz` every 0.5 s **Then** no probe answers non-200.
+#### The new container answers before the old one stops (rule 4)
+- **Given** `padelapp` live on 5000 and the upstream applied
+- **When** `rollout.sh` runs
+- **Then** `padelapp_next` starts on 5002, answers `/healthz`, and only then is `padelapp` stopped;
+  `padelapp_next` is renamed `padelapp`; the next deploy goes back to 5000
+
+#### A bad release never takes the old one down (rule 4)
+- **Given** a new container that never answers, or restarts
+- **When** `rollout.sh` runs **Then** it is removed, the old container was never stopped, and the
+  deploy fails with the new container's log
+
+#### No upstream on the host, no rolling (rule 6)
+- **Given** no upstream file, or no enabled vhost proxying to it
+- **When** `rollout.sh` runs **Then** it stops, runs on the first port and waits for health
+
+#### No 502 across a real deploy (rules 4, 5; owner-verified)
+- **Given** the host with the upstream applied
+- **When** a staging deploy runs while a probe curls `/api/app/healthz` every 0.5 s
+- **Then** no probe answers non-200
 
 ### Notes
 - Memory during the overlap: two prod API containers at the PAD-590 cap (512 MB) for a few seconds;
