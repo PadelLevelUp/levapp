@@ -1,6 +1,8 @@
 import * as React from "react";
 // Must be the first import (react-native-gesture-handler setup requirement).
 import "react-native-gesture-handler";
+// PAD-587: the launch clock starts with the first app module.
+import { launchMark } from "@/lib/launch-timeline";
 import "../global.css";
 
 import { PortalHost } from "@rn-primitives/portal";
@@ -71,7 +73,10 @@ export default function RootLayout() {
   // system font and reflow. A font ERROR must not block the app, though —
   // falling back to system type beats a permanently blank screen.
   React.useEffect(() => {
-    if (fontsLoaded || fontError) void SplashScreen.hideAsync().catch(() => {});
+    if (fontsLoaded || fontError) {
+      launchMark("fonts-ready");
+      void SplashScreen.hideAsync().catch(() => {});
+    }
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
@@ -90,7 +95,12 @@ export default function RootLayout() {
           <ToastHost />
           <StatusBar style="light" />
           {showLaunch ? (
-            <LaunchAnimation onDone={() => setShowLaunch(false)} />
+            <LaunchAnimation
+              onDone={() => {
+                launchMark("overlay-gone");
+                setShowLaunch(false);
+              }}
+            />
           ) : null}
         </AuthProvider>
       </QueryClientProvider>

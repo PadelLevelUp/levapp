@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
+import { launchMark } from "@/lib/launch-timeline";
 import { getPushRegistrar } from "@/lib/push";
 import { endSessionState, signOut } from "./sign-out";
 
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token = await secureTokenStorage.getToken();
         if (!token) return;
         const me = await authApi.getMe();
+        launchMark("auth-restored");
         if (!cancelled) setUser(me);
         // Refresh push registration on every silent restore (mirrors web).
         // Fire-and-forget: the registrar never throws.
