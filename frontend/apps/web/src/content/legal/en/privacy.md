@@ -1,67 +1,171 @@
 # Privacy Policy
 
-Effective date: October 2, 2026
+Effective date: October 10, 2026
 
-LevelUp ("LevelUp", "we", "us", or "our") provides a scheduling, coaching, and communication platform for padel coaches and their players (the "Service"). This Privacy Policy explains what information we collect, how we use it, and the choices you have. By creating an account or otherwise using the Service, you agree to the practices described here.
+This Privacy Policy explains how Sucesso Fractal – Lda ("LevApp", "we", "us", or "our") collects, uses, shares, stores, and protects personal data when you use LevApp, including our mobile applications, websites, and related services (collectively, the "Service").
+
+LevApp provides tools for coaches and players to manage coaching activities, including lessons, schedules, attendance, evaluations, calendars, messaging, and related information.
 
 ## 1. Information we collect
 
-We collect the following categories of information:
+Depending on how you use LevApp, we may collect or process:
 
-- **Account information** — your name, username, email address, and password (stored as a salted hash, never in plain text).
-- **Phone number (optional)** — if you choose to provide it, used for coach-player communication and contact purposes.
-- **Message content** — the content of messages you exchange with your coach or players within the app.
-- **Class, attendance, and evaluation data** — schedules, class rosters, attendance records, skill levels, and coaching evaluations/notes entered by your coach.
+- Account information, such as your name, username, email address, phone number, password in hashed form, profile photo, account type, and account status.
+- Date of birth and country, including to verify account eligibility and support age-related features such as birthdays, player categories, and tournament categories.
+- Coaching information, such as lessons, schedules, attendance, rankings, evaluations, coaching notes, waiting lists, and related activity.
+- Messages and User Content, including messages, comments, images, attachments, and other content submitted through the Service.
+- Information about other people provided by users who are authorized to manage that information in connection with coaching activities.
+- Reports and safety information when users block another user, report content or behaviour, or contact us about abuse or security.
+- Technical information, such as IP address, device or browser information, app version, login and session information, notification tokens, and security or error logs.
 
-We do not use any third-party login (social sign-in) — accounts are created with a username and password only.
+LevApp accounts are available only to individuals aged 18 or over.
 
-The app itself contains no advertising or analytics SDKs and uses no device advertising identifiers (IDFA). On our public website we use HubSpot (HubSpot, Inc., EU data centre) to measure visits and to receive demo requests. Tracking cookies are set only if you accept them in the cookie banner, and you can withdraw that consent at any time under "Cookie preferences" at the bottom of the home page; with your consent, HubSpot receives the pages you visit, your IP address, browser details, the referring page and its own visitor cookie. Opening the demo request form loads it from HubSpot, which may set a short-lived security cookie on its own domain; what you submit in that form is stored in HubSpot.
+## 2. How we use personal data
 
-When a coach creates an account, we record their name, email, phone (if given) and account status in our CRM (HubSpot, EU data centre) to follow up on their use of LevApp; we never share their students' data.
+We use personal data as reasonably necessary to:
 
-## 2. How we use your information
+- create, authenticate, and maintain accounts;
+- verify account eligibility;
+- provide lessons, scheduling, calendars, attendance, evaluations, rankings, messaging, and other LevApp features;
+- process invitations and coach-player relationships;
+- provide notifications and customer support;
+- investigate reports, abuse, fraud, or security incidents;
+- protect users and the Service;
+- maintain and improve the reliability of LevApp;
+- enforce our Terms of Service;
+- comply with legal obligations and lawful requests.
 
-We use the information above solely to operate the Service:
+We do not sell personal data.
 
-- To create and maintain your account and authenticate you.
-- To let coaches schedule classes, track attendance, and record evaluations for their players.
-- To deliver in-app and, where enabled, email notifications about classes, attendance, and messages.
-- To enable direct messaging between coaches and their players.
+We do not share personal data with advertisers for their own advertising purposes or use advertising identifiers for behavioural advertising.
 
-## 3. We do not sell your data
+## 3. Legal bases
 
-We do not sell, rent, or share your personal information with advertisers or data brokers. We do not use your data to serve third-party ads. Information you provide is used exclusively to provide the coaching and scheduling service described above.
+Where the General Data Protection Regulation ("GDPR") applies, we rely on one or more appropriate legal bases, depending on the circumstances.
 
-## 4. Message content between coaches and players
+These may include:
 
-Messages you send through the Service are visible to the coach or player you are messaging, and stored so that conversation history is available to both participants. Messages are not reviewed by LevelUp staff except as needed to investigate abuse reports, comply with law, or maintain the security of the Service.
+- performance of our contract with you, where processing is necessary to provide LevApp;
+- legitimate interests, such as operating and securing the Service, enabling ordinary coaching-management functionality, preventing abuse, and supporting users, where those interests are not overridden by your rights;
+- legal obligations, where processing is required by law;
+- consent, where applicable law requires it or where we specifically ask for it.
 
-## 5. Data retention
+Where processing is based on consent, you may withdraw that consent at any time.
 
-We retain your account and activity data for as long as your account is active, and afterwards for as long as needed to provide the Service, resolve disputes, and comply with our legal obligations. Message history is retained so that the other participant in a conversation continues to see it, even after your own account has been deleted (see below).
+## 4. Information provided about other people
 
-## 6. Deleting your account and your data
+Users may provide personal data relating to other individuals when using LevApp.
 
-You can delete your account at any time from within the app: go to **Settings → Account** and select **"Delete account"**. Confirming this action:
+Users are required by our [Terms of Service](/terms) to be authorized to provide and manage such information.
 
-- Immediately signs you out and invalidates your session on every device.
-- Anonymizes your personal information (name, email, phone number, and profile photo) so it is no longer identifiable.
-- Removes your account from coach/player lists so it can no longer be selected or contacted going forward.
+If you believe LevApp contains personal data relating to you, or to a person you are legally authorized to represent, you may contact us to request access, correction, deletion, restriction, or another applicable data-protection right.
 
-We retain the anonymized record (rather than deleting the row outright) only so that existing class, attendance, and message history remains coherent for other users (e.g. a coach's past class rosters, or the other side of a conversation) — no identifiable personal information remains associated with it. If you would like additional data removed beyond what the in-app flow anonymizes, contact us at the address below.
+## 5. Service providers and sharing
 
-## 7. Security
+We use trusted third-party providers where necessary to operate LevApp, including providers of:
 
-We use industry-standard measures — including password hashing and encrypted connections (HTTPS) — to protect your information. No method of transmission or storage is 100% secure, and we cannot guarantee absolute security.
+- cloud hosting, databases, file storage, and backups;
+- email and communications;
+- push notifications;
+- customer and relationship management;
+- website analytics, where any required consent has been provided;
+- optional AI-assisted functionality;
+- security and other technical infrastructure.
 
-## 8. Children's privacy
+These providers may receive personal data only as reasonably necessary to provide their services to us.
 
-The Service is intended for use by coaches and players managing padel coaching relationships. It is not directed at children under 13, and we do not knowingly collect personal information from children under 13 without appropriate consent.
+Some optional features, such as AI-assisted spreadsheet import, may send limited information to an external AI provider where necessary to perform the requested feature. Users should avoid including unnecessary or sensitive information in material submitted for import.
 
-## 9. Changes to this policy
+We may also disclose personal data where required by law, necessary to respond to a valid request from a competent authority, necessary to protect users or the Service, or necessary to establish, exercise, or defend legal claims.
 
-We may update this Privacy Policy from time to time. We will update the effective date above when we do. Continued use of the Service after a change constitutes acceptance of the updated policy.
+## 6. Messages and notifications
 
-## 10. Contact us
+Messages are processed so they can be delivered to the intended participants.
 
-If you have questions about this Privacy Policy or how your data is handled, contact us at [privacy@levelup.app](mailto:privacy@levelup.app).
+LevApp does not routinely read or pre-screen private conversations, but we may review relevant information where reasonably necessary to investigate reports, abuse, fraud, security incidents, or legal obligations.
+
+If notifications are enabled, notification providers may process information necessary to deliver those notifications.
+
+You can manage notification permissions through your device settings.
+
+## 7. Cookies and similar technologies
+
+Our web services may use cookies, local storage, or session storage where necessary for authentication, security, session management, functionality, and user preferences.
+
+Our public website may also use optional analytics technologies where any consent required by applicable law has been provided.
+
+## 8. Medical and sensitive information
+
+LevApp is not designed to collect or store medical records or detailed health information.
+
+Users are instructed not to intentionally submit medical diagnoses, medication information, clinical records, detailed medical conditions, or other sensitive health information through the Service.
+
+## 9. International transfers
+
+Our main application infrastructure is hosted in the European Economic Area.
+
+Some service providers may process personal data outside the EEA.
+
+Where required by applicable data-protection law, we use an appropriate legal mechanism for such transfers, such as an adequacy decision, Standard Contractual Clauses, or another lawful safeguard.
+
+## 10. Retention and account deletion
+
+We retain personal data only for as long as reasonably necessary to provide the Service, fulfil the purposes described in this Policy, comply with legal obligations, maintain security, or establish or defend legal claims.
+
+When information is no longer required, we delete or anonymize it.
+
+You can delete your LevApp account through:
+
+**Settings → Account → Delete account**
+
+Deleting an account results in deletion or anonymization of personal data associated with it, except where limited retention is required or permitted by applicable law or necessary for security, fraud prevention, or legal claims.
+
+Temporary copies may remain in backups for a limited period before being deleted or overwritten through our normal backup procedures.
+
+## 11. Security
+
+We use appropriate technical and organizational measures intended to protect personal data.
+
+These include measures such as encrypted network connections, password hashing, access controls, and security monitoring where appropriate.
+
+No online system can guarantee absolute security.
+
+If you believe your account or personal data has been compromised, contact [admin@levapp.app](mailto:admin@levapp.app).
+
+## 12. Your rights
+
+Where the GDPR applies, you may have rights including:
+
+- access to personal data relating to you;
+- correction of inaccurate information;
+- deletion of personal data;
+- restriction of processing;
+- objection to certain processing;
+- data portability where applicable;
+- withdrawal of consent where processing is based on consent;
+- the right to lodge a complaint with a competent data-protection authority.
+
+To exercise a right or ask a privacy question, contact:
+
+[admin@levapp.app](mailto:admin@levapp.app)
+
+We may take reasonable steps to verify your identity before responding.
+
+If you are in Portugal, you may also lodge a complaint with the Comissão Nacional de Proteção de Dados (CNPD).
+
+## 13. Changes to this Policy
+
+We may update this Privacy Policy to reflect changes to LevApp, our data practices, our service providers, or applicable law.
+
+We will update the effective date above when we do.
+
+Where appropriate, we will provide notice of material changes.
+
+## 14. Contact
+
+The operator responsible for LevApp is:
+
+Sucesso Fractal – Lda  
+NIF/NIPC: 519 271 335  
+Registered office: Rua Doutor Eugénio da Cunha e Freitas, 141 H, 4250-004 Porto, Portugal  
+Email: [admin@levapp.app](mailto:admin@levapp.app)

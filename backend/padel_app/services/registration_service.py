@@ -25,12 +25,12 @@ ROLES = ("coach", "student")
 
 
 # PAD-485 (auth.register rule 19): the Terms version a sign-up accepts — the effective date the Terms
-# page states (`frontend/apps/web/src/pages/TermsPage.tsx` EFFECTIVE_DATE, tied by
-# test_pad485_terms_acceptance.py). Change both together when the Terms change.
-TERMS_VERSION = "2026-07-14"
-# The Privacy Policy's version, the same way (`PrivacyPolicyPage.tsx` EFFECTIVE_DATE). Not merged with
+# page states (`frontend/apps/web/src/content/legal/index.ts` and the "Effective date:" line of
+# `en/terms.md`, tied by test_pad485_terms_acceptance.py). Change them together when the Terms change.
+TERMS_VERSION = "2026-10-10"
+# The Privacy Policy's version, the same way (`index.ts` and `en/privacy.md`). Not merged with
 # config.LEGAL_TERMS_VERSION (the retired guardian-consent record) on purpose; see auth.register rule 19.
-PRIVACY_VERSION = "2026-10-02"
+PRIVACY_VERSION = "2026-10-10"
 
 
 def validate_terms(data):

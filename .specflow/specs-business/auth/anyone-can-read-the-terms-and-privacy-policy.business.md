@@ -30,8 +30,8 @@ translation exists.
 
 - The published text is the source of truth for what the product promises; the pages change
   only when the operator publishes a new version, and the version and effective date on the
-  page always match the text (PAD-601, 2026-10-10: the v2026-10-10 texts are published only
-  once the lawyer-reviewed documents are in hand; until then the previous text stays live).
+  page always match the text (PAD-601: v2026-10-10, effective 10 October 2026, published from
+  the owner's final documents; new sign-ups record that version).
 - English is the prevailing language; a Portuguese version is a courtesy translation.
 - The pages are public, need no account, and are served by the web app so the store listings
   and the apps can link to them.

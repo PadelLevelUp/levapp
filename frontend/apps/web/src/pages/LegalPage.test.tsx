@@ -47,8 +47,8 @@ vi.mock("@/content/legal", async (importOriginal) => {
 describe("LegalPage", () => {
   it("renders the English terms with the version header", () => {
     renderAt("/terms");
-    expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-07-14");
-    expect(screen.getByTestId("legal-effective-date")).toHaveTextContent("July 14, 2026");
+    expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-10-10");
+    expect(screen.getByTestId("legal-effective-date")).toHaveTextContent("October 10, 2026");
     expect(screen.getByTestId("legal-body").querySelector("h1")).toHaveTextContent("Terms of Service");
     expect(screen.queryByTestId("legal-fallback-notice")).toBeNull();
     expect(screen.getByTestId("legal-lang-en")).toHaveAttribute("aria-current", "page");
@@ -56,7 +56,7 @@ describe("LegalPage", () => {
 
   it("renders the privacy policy with its own version", () => {
     renderAt("/privacy");
-    expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-10-02");
+    expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-10-10");
     expect(screen.getByTestId("legal-body").querySelector("h1")).toHaveTextContent("Privacy Policy");
   });
 

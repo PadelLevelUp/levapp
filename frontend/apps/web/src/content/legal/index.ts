@@ -4,8 +4,8 @@
  *
  * English is the canonical text. A Portuguese translation is in preparation; until it lands the PT
  * view renders the English body under a Portuguese notice saying the English version prevails.
- * The v2026-10-10 drafts live under ./drafts/ and are NOT imported: they wait for the owner's
- * lawyer-reviewed .docx and are swapped in by replacing these files.
+ * Publishing a version: replace the markdown, the version and effective date below, and
+ * TERMS_VERSION / PRIVACY_VERSION in backend registration_service.py, in one commit.
  */
 import privacyEn from "./en/privacy.md?raw";
 import termsEn from "./en/terms.md?raw";
@@ -24,8 +24,8 @@ export interface LegalDocument {
 }
 
 export const LEGAL_DOCUMENTS: Record<LegalDocumentId, LegalDocument> = {
-  terms: { id: "terms", version: "2026-07-14", effectiveDate: "July 14, 2026", bodies: { en: termsEn } },
-  privacy: { id: "privacy", version: "2026-10-02", effectiveDate: "October 2, 2026", bodies: { en: privacyEn } },
+  terms: { id: "terms", version: "2026-10-10", effectiveDate: "October 10, 2026", bodies: { en: termsEn } },
+  privacy: { id: "privacy", version: "2026-10-10", effectiveDate: "October 10, 2026", bodies: { en: privacyEn } },
 };
 
 export const PREVAILING_LANGUAGE: LegalLanguage = "en";

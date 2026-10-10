@@ -44,7 +44,7 @@ def test_an_accepted_sign_up_records_when_and_which_terms(app, client, role):
     res = client.post("/api/auth/register", json=_body(role=role, termsAccepted=True), headers=DECLARING)
 
     assert res.status_code == 201, res.get_json()
-    assert _user(app, "ana") == (NOW, "2026-07-14", "2026-10-02")
+    assert _user(app, "ana") == (NOW, "2026-10-10", "2026-10-10")
 
 
 @pytest.mark.parametrize("terms", ["absent", False, None, "true", 1])
@@ -69,15 +69,25 @@ def test_builds_27_and_28_register_exactly_as_before(app, client, headers):
     assert sorted(res.get_json()) == ["accessToken", "user"]
 
 
-@pytest.mark.parametrize("page, constant", [("TermsPage.tsx", "TERMS_VERSION"), ("PrivacyPolicyPage.tsx", "PRIVACY_VERSION")])
-def test_each_version_is_the_effective_date_its_page_states(page, constant):
-    """One date, two places, per document: the server constant and the page's EFFECTIVE_DATE."""
+@pytest.mark.parametrize("doc, constant", [("terms", "TERMS_VERSION"), ("privacy", "PRIVACY_VERSION")])
+def test_each_version_is_the_effective_date_its_page_states(doc, constant):
+    """One date per document, held in three places that must agree: the server constant, the
+    version/effective date the web legal page shows (content/legal/index.ts, PAD-601), and the
+    "Effective date:" line of the English text itself."""
     from padel_app.services import registration_service
 
-    path = pathlib.Path(__file__).resolve().parents[3] / "frontend/apps/web/src/pages" / page
-    stated = re.search(r'EFFECTIVE_DATE = "([^"]+)"', path.read_text(encoding="utf-8")).group(1)
+    legal = pathlib.Path(__file__).resolve().parents[3] / "frontend/apps/web/src/content/legal"
+    index = (legal / "index.ts").read_text(encoding="utf-8")
+    entry = re.search(rf'{doc}: \{{ id: "{doc}", version: "([^"]+)", effectiveDate: "([^"]+)"', index)
+    assert entry, f"no {doc} entry in content/legal/index.ts"
+    version, stated = entry.groups()
+    in_text = re.search(r"^Effective date: (.+)$", (legal / "en" / f"{doc}.md").read_text(encoding="utf-8"), re.M)
+    assert in_text, f"en/{doc}.md states no effective date"
 
-    assert dt.datetime.strptime(stated, "%B %d, %Y").date().isoformat() == getattr(registration_service, constant)
+    expected = getattr(registration_service, constant)
+    assert version == expected
+    assert dt.datetime.strptime(stated, "%B %d, %Y").date().isoformat() == expected
+    assert in_text.group(1).strip() == stated
 
 
 def test_the_capability_spelling_matches_both_shells():

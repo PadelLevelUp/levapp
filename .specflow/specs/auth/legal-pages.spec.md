@@ -22,9 +22,9 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
   `version` (the effective date in ISO form), `effectiveDate` (as the text states it), `bodies`
   (markdown per language). The markdown bodies live beside the index as `en/<id>.md` and, once
   published, `pt/<id>.md`.
-- **Drafts** (`content/legal/drafts/<version>/<lang>/<id>.md`): texts staged for review, never
-  imported by the app. The v2026-10-10 drafts (18+, controller, delete path, admin@levapp.app)
-  wait for the owner's lawyer-reviewed documents and are swapped in by replacing the live files.
+- **Drafts** (`content/legal/drafts/<version>/<lang>/<id>.md`, when one is staged): texts kept
+  for review, never imported by the app. None is staged: v2026-10-10 (18+, Sucesso Fractal – Lda
+  as controller, delete path, admin@levapp.app) is published from the owner's final .docx.
 
 ### Rules
 1. **One source, rendered.** `/terms` and `/privacy` render `LegalPage`, which renders the
@@ -41,8 +41,9 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
    is published its body carries its own precedence line. The iOS app opens the hosted pages
    through `legalUrl(base, i18n.language)` (`?lang=` from the account's language) from the sign-up
    form, the pre-auth legal links and Settings → Legal; it keeps no copy of the text.
-4. **Publishing a version** means replacing the live markdown and the `version`/`effectiveDate`
-   in the index in one commit; the drafts folder is for review only and nothing imports it
+4. **Publishing a version** means replacing the live markdown, the `version`/`effectiveDate`
+   in the index and `TERMS_VERSION`/`PRIVACY_VERSION` (`auth.register` rule 19) in one commit,
+   all three tied by a test; a drafts folder is for review only and nothing imports it
    (no `import.meta.glob` reaches it).
 5. **Store listings** link to `https://levapp.app/privacy` (App Store Connect
    `appInfoLocalizations.privacyPolicyUrl`, both locales) and `/terms`; the legacy
