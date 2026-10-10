@@ -3326,13 +3326,18 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
             )
 
 
-def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> None:
+def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, response: str = "expired") -> None:
     """Flag the conversation message that delivered ``event`` as no longer live.
 
     PAD-68: reuses the ``responded`` flag the invite bubble already keys off, so
     the Yes/No buttons stop rendering on both web and mobile with no client
     change. ``response`` is set to ``"expired"`` — neither "yes" nor "no" — which
     both clients already fall through to a neutral non-actionable badge.
+
+    ``response`` (PAD-609): ``"spot_filled"`` when the invitation ends because the spot was filled —
+    by another student, by the coach's recorded yes, by any enrolment that closes the vacancy — so
+    the bubble reads "Vaga preenchida" and offers the waiting list (rule 15a). ``"expired"`` stays
+    for the class starting and for the coach's withdrawal.
 
     ``defer`` (PAD-499, ledger B-261): flush the edit instead of committing it, and publish nothing;
     the caller commits and then calls `_publish_retired`. `_close_vacancy` always defers, so the
@@ -3348,7 +3353,7 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> 
         return
     if msg.msg_metadata.get("responded"):
         return
-    msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "expired"}
+    msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": response}
     if defer:
         db.session.flush()
         return
@@ -4809,7 +4814,8 @@ def _close_vacancy(
         event.status = "expired"
         # PAD-499 (B-261): flushed, never committed here — a commit would end the caller's rule-10
         # lock before the winner is enrolled. The caller commits and calls `_publish_retired`.
-        _retire_invite_message(event, defer=True)
+        # PAD-609 (rule 15a): the spot was filled, whoever filled it — "spot_filled", not "expired".
+        _retire_invite_message(event, defer=True, response="spot_filled")
         retired.append(event)
     db.session.flush()
     return retired
@@ -4904,7 +4910,29 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         retired.extend(_close_vacancy(locked, filled_by_player_id))
         closed.append(locked)
         to_close -= 1
-    if closed:
+    # PAD-609 (rule 15a): a manual invitation carries no vacancy, so no close above retires it. When
+    # the class has no open place left, its live manual invitations end as "spot_filled" too — the
+    # spot they offered is gone, and the bubble offers the waiting list. The enrolled player's own
+    # is spared (their caller settles it); one another answer holds is passed over (SKIP LOCKED, as
+    # above): that answer finds the class full and records spot_filled itself.
+    if open_spots == 0:
+        manual = (
+            NotificationEvent.query.filter(
+                NotificationEvent.lesson_instance_id == instance.id,
+                NotificationEvent.vacancy_id.is_(None),
+                NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            )
+            .with_for_update(skip_locked=True)
+            .all()
+        )
+        enrolled = set(instance.enrolled_player_ids or [])
+        for event in manual:
+            if event.player_id == filled_by_player_id or event.player_id in enrolled:
+                continue
+            event.status = "expired"
+            _retire_invite_message(event, defer=True, response="spot_filled")
+            retired.append(event)
+    if closed or retired:
         _publish_retired(retired)  # PAD-499: queued now, sent by this commit (or the enclosing one)
         commit_or_flush()
     return closed

@@ -124,7 +124,13 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
 
     cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player.id).first()
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
-    if cp is None or not effective_open_spots_visible(instance, coach_id, config):
+    # PAD-609 (invitations rule 15a; coordinator for the owner, 2026-10-10): a student who held an
+    # invitation to this class has already been shown it, so the open-spot visibility switch does
+    # not hide its waiting list from them — "ainda que naquele momento não hajam vagas". Their own
+    # "no" is final (rule 18) and grants nothing. The roster, has-spots and eligibility gates stand.
+    if cp is None or not (
+        effective_open_spots_visible(instance, coach_id, config) or _was_invited(instance.id, player.id)
+    ):
         _refuse("not_visible", "This class is not open to requests")
     if not _is_full(instance):
         _refuse("has_spots", "This class has room: ask to join it instead")
@@ -157,6 +163,20 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     _tell_coach_of_waiting_list_join(player, instance, coach_id)
     _publish_waiting_list_changed(entry)
     return entry, True
+
+
+def _was_invited(instance_id, player_id) -> bool:
+    """PAD-609: the student held an invitation to this occurrence they did not refuse."""
+    from padel_app.models.notification_event import NotificationEvent
+
+    return (
+        NotificationEvent.query.filter(
+            NotificationEvent.lesson_instance_id == instance_id,
+            NotificationEvent.player_id == player_id,
+            db.or_(NotificationEvent.answer.is_(None), NotificationEvent.answer != "no"),
+        ).first()
+        is not None
+    )
 
 
 def _existing_entry(instance_id, player_id):
