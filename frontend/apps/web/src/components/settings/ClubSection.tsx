@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { publicWebLink, resolvePublicWebOrigin } from "@/lib/publicWebLink";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ export function ClubSection({
 }: {
   onJoinRequestCountChange?: (n: number) => void;
 }) {
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
   const [joinRequests, setJoinRequests] = useState<ClubJoinRequest[]>([]);
@@ -130,7 +133,8 @@ export function ClubSection({
     setCreating(true);
     try {
       const created = await createCoachInvitation(club.id);
-      setInviteUrl(`${window.location.origin}${created.inviteLink}`);
+      // PAD-595: the environment's public origin (levapp.app), never the address browsed from.
+      setInviteUrl(publicWebLink(await resolvePublicWebOrigin(queryClient), created.inviteLink));
       setInviteDialogOpen(true);
       await refreshInvitations(club.id);
     } catch {

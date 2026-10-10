@@ -69,6 +69,9 @@ the invite-link half of the journey.
 
 ## Business Rules
 
+- Every link and QR code a coach hands out shows the LevApp address (levapp.app), whichever address
+  the coach opened the app from; links and QR codes already shared on the old padellevelup.com
+  address keep working (PAD-595).
 - A coach never sets a student's username — not at creation, not afterward. The student picks it
   themselves when they activate or complete their profile.
 - A newly created player starts as an inactive account until the student completes it (directly via

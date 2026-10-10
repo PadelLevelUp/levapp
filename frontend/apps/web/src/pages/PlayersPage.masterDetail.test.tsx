@@ -6,6 +6,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const state = vi.hoisted(() => ({ isMobile: false }));
 
@@ -110,13 +111,17 @@ import PlayersPage from "./PlayersPage";
 import { getCoachPlayersPaginated, removePlayer } from "@/api/players";
 
 function renderAt(path: string) {
+  // The app's QueryClientProvider: PlayersPage reads the public web origin through it (PAD-595).
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/players" element={<PlayersPage />} />
-        <Route path="/players/:playerId" element={<PlayersPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/players" element={<PlayersPage />} />
+          <Route path="/players/:playerId" element={<PlayersPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

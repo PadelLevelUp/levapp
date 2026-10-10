@@ -32,6 +32,17 @@ serves a whole class and a leaked one can be retired. This is the student-initia
    only the hash is stored (PAD-269), so a code can be shown only when it is minted.
 3. `url` is `<web origin>/join/coach/<token>`. PAD-184's universal links route
    `/join/coach/:token` into the iOS app; the web page is the fallback.
+3a. **Every link and QR code a coach shares is built on the public web origin (PAD-595).** The
+   origin is this environment's `PUBLIC_WEB_ORIGIN` (levapp.app on prod, staging.levapp.app on
+   staging), served publicly by `GET /api/app/public-web-origin` → `{webOrigin}` (`null` when
+   unset). Web builds the join QR and link, the player invite link (`players.invite-completion`),
+   the activation link (`auth.activate`) and the coach invitation link (`clubs.coach-invitation`)
+   on it, never on `window.location.origin` — the old padellevelup.com domain still serves the
+   app, so a coach browsing there handed out old-domain links. While the origin is being read no
+   QR is drawn; when the server has none, or the read fails, the browser's own origin is used, so
+   rolling back is changing the variable. iOS builds the same links on its configured
+   `WEB_APP_URL` (levapp.app), the coach invitation link included. The old domain keeps
+   redirecting (PAD-595 step 2, nginx).
 4. `GET /api/app/join-tokens/<token>` is public: `{coachName, clubName, clubLogoUrl}` — enough for
    the student to see who they are joining. 404 unknown; 410 inactive or expired (an expired
    token is flipped to `is_active=false` on read, as invitations do).
@@ -82,6 +93,12 @@ serves a whole class and a leaked one can be retired. This is the student-initia
     the coach finds them to set one. No new roster UI.
 
 ### Acceptance Criteria
+
+#### Shared links and QR codes use the public web origin (rule 3a, PAD-595)
+- **Given** prod's `PUBLIC_WEB_ORIGIN=https://levapp.app` and a coach browsing the app at padellevelup.com
+- **When** they open "Adicionar por QR", create a player, copy an activation link or invite a coach to their club
+- **Then** the QR and every link read `https://levapp.app/...`, on web and on iOS
+- **And** with `PUBLIC_WEB_ORIGIN` unset, `GET /api/app/public-web-origin` answers `{webOrigin: null}` and web falls back to the browsed origin
 
 #### Coach mints a token bound to their current club
 - **Given** an authenticated coach whose current club is `Padel Academy`
