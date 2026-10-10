@@ -1,5 +1,5 @@
 ---
-id: business.auth.anyone-can-read-the-terms-and-privacy-policy
+id: auth.anyone-can-read-the-terms-and-privacy-policy
 status: implemented
 implemented_by:
   - ../../specs/auth/legal-pages.spec.md
