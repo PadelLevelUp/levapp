@@ -475,12 +475,13 @@ function AudienceSelect({
         <button
           type="button"
           data-testid="landing-audience"
-          aria-label={t("landing.audience.label")}
           className={cn(
             "inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[15px] font-semibold text-foreground transition-colors hover:bg-muted/50 sm:px-4",
             className,
           )}
         >
+          {/* The visible text is the accessible name (label-in-name); the group label is read first. */}
+          <span className="sr-only">{t("landing.audience.label")}: </span>
           <span className="hidden md:inline">{t(`landing.audience.${value}`)}</span>
           <span className="md:hidden">{t(`landing.audience.short.${value}`)}</span>
           <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -524,7 +525,7 @@ function Header({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="mx-auto flex h-[68px] max-w-[1170px] items-center gap-6 px-5 sm:h-[76px] lg:gap-10 lg:px-6">
+      <div className="mx-auto flex h-[68px] max-w-[1170px] items-center gap-3 px-4 sm:gap-6 sm:h-[76px] sm:px-5 lg:gap-10 lg:px-6">
         <BrandLockup markSize={32} textClass="text-xl sm:text-2xl" />
 
         {/* PAD-582: the audience first, then the section links it governs. */}
@@ -1067,17 +1068,18 @@ const NEXT_AUDIENCE: Record<Audience, Audience> = {
 
 const LandingPage = () => {
   const { t } = useTranslation();
+  // PAD-582 (rule 4): the URL is the one source of truth for the audience. Choosing writes
+  // `?para=<slug>` in place (replace, no reload, the scroll position untouched), drops the older
+  // `?audience=`, and keeps every other parameter (utm and friends) as it was.
   const [searchParams, setSearchParams] = useSearchParams();
-  const [audience, setAudienceState] = useState<Audience>(() => audienceFromParams(searchParams));
-  // PAD-582 (rule 4): the choice is shareable — `?para=<slug>` is written in place (replace, no
-  // reload, the scroll position untouched); the older `?audience=` is dropped from the URL.
+  const audience = audienceFromParams(searchParams);
   const setAudience = (next: Audience) => {
-    setAudienceState(next);
     setSearchParams(
       (prev) => {
-        prev.set("para", AUDIENCE_SLUG[next]);
-        prev.delete("audience");
-        return prev;
+        const params = new URLSearchParams(prev);
+        params.set("para", AUDIENCE_SLUG[next]);
+        params.delete("audience");
+        return params;
       },
       { replace: true },
     );
