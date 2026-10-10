@@ -4,6 +4,7 @@ import {
   describePriority,
   describeRules,
   describeSendStatus,
+  describeSideReasoning,
   describeVerdict,
   formatClubTime,
   resolveText,
@@ -251,6 +252,7 @@ function SimulationResults({
   const { t } = useTranslation();
   const gates = sortGates(simulation.gates);
   const blocked = gates.filter((g) => g.blocked);
+  const sideReason = describeSideReasoning(simulation.spot);
   const spotParams = {
     side: t(`tutorials.sides.${simulation.spot.side ?? "none"}`),
     level: simulation.spot.levelCode ?? "",
@@ -308,6 +310,10 @@ function SimulationResults({
         {simulation.spot.levelCode
           ? t("tutorials.understandInvites.spot", spotParams)
           : t("tutorials.understandInvites.spotNoLevel", spotParams)}
+      </Text>
+      {/* PAD-566 (rule 4.4): why that side — the engine's own counts, never recomputed here. Mirrors web. */}
+      <Text className="text-xs text-muted-foreground" testID="tutorial-spot-side-reason">
+        {resolveText(t, sideReason)}
       </Text>
 
       {simulation.rounds.map((round) => (

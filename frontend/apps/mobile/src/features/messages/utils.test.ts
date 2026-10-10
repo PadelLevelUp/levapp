@@ -5,6 +5,7 @@ import {
   formatConversationTime,
   formatMessageTime,
   initialsOf,
+  mergeEditedMessage,
   messageCopyText,
   normalizeId,
   roleLabelKey,
@@ -150,5 +151,14 @@ describe("messageCopyText", () => {
     expect(
       messageCopyText({ content: undefined as unknown as string })
     ).toBeNull();
+  });
+});
+
+// messaging.sse-realtime rule 18 (PAD-563): the merge itself is tested once in
+// @levelup/api (message-edits.test.ts); this pins that the screen's helper is that function.
+describe("mergeEditedMessage", () => {
+  it("is the shared @levelup/api merge", async () => {
+    const shared = await import("@levelup/api");
+    expect(mergeEditedMessage).toBe(shared.mergeEditedMessage);
   });
 });

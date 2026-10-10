@@ -213,7 +213,20 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    run is asked on the next batch, ahead of the group. A group-0 invitation is answered through the
    same paths (rules 9, 10, 17, 18); its yes and its no also settle the waiting-list entry
    (`notifications.waiting-list` rule 15).
-9. Coach can manually record response: `POST /api/app/notify/coach_respond` with `{notificationEventId, action: "yes" | "no"}` (path corrected, PAD-548). The answer stamps `NotificationEvent.answered_by = "coach"`; a student's own answer stamps `"student"` (PAD-548), and the class detail says which (`calendar.event-detail` rule 16)
+9. Coach can manually record response: `POST /api/app/notify/coach_respond` with `{notificationEventId, action: "yes" | "no"}` (path corrected, PAD-548). The answer stamps `NotificationEvent.answered_by = "coach"`; a student's own answer stamps `"student"` (PAD-548), and the class detail says which (`calendar.event-detail` rule 16).
+   **The coach's answer reaches the student's chat (PAD-563; owner, 2026-10-09).** Recording it
+   also writes the invitation message's metadata — `responded: true`, `response: "yes" | "no"`,
+   `answeredBy: "coach"` (a student's own answer writes `answeredBy: "student"`) — flushed into
+   the same commit as the answer (a "yes": with the close and the enrolment, as `_record_yes`
+   does; a "no": with the expiry), and its `message_edited` is queued with `on_commit` and
+   published only after that real commit (`messaging.sse-realtime` rule 18). Both shells then
+   show the bubble as "Marcado como aceite pelo treinador" / "Marcado como recusado pelo
+   treinador" ("Marked as accepted / declined by the coach"), to the student and to the coach
+   alike, with the Yes/No buttons gone, live and without a reload. A student's later answer to
+   an invitation the coach resolved is refused by the server, not only hidden: a "yes" after the
+   coach's "no" answers `declined` and enrols nobody (rule 18), a "no" or "yes" after the
+   coach's "yes" answers `confirmed` and the student keeps the spot (rule 17). "Eliminar
+   convite" (rule 19) already shows "Vaga preenchida" at once, the same way.
 10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
@@ -846,6 +859,24 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** Dinis's invitation for the occurrence was withdrawn and a second vacancy opens on the same occurrence
 - **When** the engine sends the next batch for that occurrence
 - **Then** Dinis is tagged `declined_this_class` in `evaluate_candidates` and receives no invitation, while a manual invitation from the coach still reaches him
+
+#### The coach's recorded answer reaches the student's chat (rule 9, PAD-563)
+- **Given** Dinis holds a `sent` invitation whose message shows Yes/No in his chat
+- **When** the coach records his "yes" (or his "no") from the class detail
+- **Then** the invitation message's metadata reads `responded: true`, `response: "yes"` (or `"no"`), `answeredBy: "coach"`, written in the one commit that records the answer
+- **And** a `message_edited` for that message is published to Dinis and the coach after that commit, never before it
+- **And** both shells show "Marcado como aceite pelo treinador" (or "… recusado …") with no buttons, to Dinis and to the coach, without a reload (test id `invite-recorded-by-coach` replaces `invite-accepted` / `invite-declined` on that bubble; the Yes/No buttons are `invite-respond-yes` / `invite-respond-no` on web, `message-respond-yes` / `-no` on iOS)
+
+#### A manual invitation's recorded answer reaches the chat too (rule 9, PAD-563)
+- **Given** a manual invitation (no vacancy) still `sent`
+- **When** the coach records the answer
+- **Then** the same metadata and the same `message_edited` follow, under the invitation row's own lock
+
+#### A student's answer after the coach's is refused (rules 9, 17, 18, PAD-563)
+- **Given** the coach recorded Dinis's "no"
+- **When** Dinis taps "yes"
+- **Then** the answer is `declined`, Dinis is not enrolled and his bubble still reads declined by the coach
+- **And** after a coach-recorded "yes", Dinis's "no" answers `confirmed` and he keeps the spot
 
 #### A late yes on a withdrawn invitation is refused (rule 19)
 - **Given** Dinis's invitation was withdrawn and the vacancy is still open

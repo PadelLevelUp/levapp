@@ -51,6 +51,12 @@ Coaches finalizing attendance for classes that have already happened.
   attendance note.
 - Undoing a validation reopens the record for editing — it never erases what was already
   recorded.
+- The coach can take a mark back: pressing the selected state again returns the player to "no
+  answer yet", exactly as if nobody had answered — the seat counts again, the player is asked by
+  the reminders again, and the class waits for a decision again. If the player's freed seat was
+  taken by somebody else in the meantime, the coach is warned the class will be over its capacity
+  and may go ahead (PAD-567, owner decision 2026-10-09). A validated class can have a mark taken
+  back too; it then waits for a decision again. The player is not messaged about it.
 - A coach only ever sees their own classes and players here — never another coach's roster.
 - Classes waiting to be validated are hard to miss: the coach sees how many — every class still
   waiting, however many weeks ago it ran, in the same number — on the dashboard and on the

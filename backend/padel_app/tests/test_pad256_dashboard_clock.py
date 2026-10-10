@@ -106,7 +106,9 @@ def _frozen_datetime(utc_now):
 def test_kpi_to_confirm_uses_the_club_clock(app, monkeypatch, utc_now, wall_start, to_confirm):
     from test_pad256_cancel_windows import _seed
 
-    from padel_app.helpers.dashboard import kpis
+    # PAD-570: the Invites tile is the ask predicate (`askable_instances`), read through
+    # the block builder; "started" is still judged on the club's clock.
+    from padel_app.helpers.dashboard.player_home import build_player_kpi_block
     from padel_app.models.presences import Presence
 
     with app.app_context():
@@ -115,8 +117,8 @@ def test_kpi_to_confirm_uses_the_club_clock(app, monkeypatch, utc_now, wall_star
         presence.status, presence.invited, presence.confirmed = None, True, False
         db.session.commit()
         _pin_utc(monkeypatch, utc_now)
-        monkeypatch.setattr(kpis, "datetime", _frozen_datetime(utc_now))
-        values = {k: v for k, v in asdict(kpis.compute_player_kpis(player_id=player_id)).items() if "confirm" in k.lower()}
+        items = build_player_kpi_block(player_id=player_id)["data"]["items"]
+        values = {i["label"]: i["value"] for i in items if i["label"] == "Invites"}
     assert list(values.values()) == [to_confirm], values
 
 

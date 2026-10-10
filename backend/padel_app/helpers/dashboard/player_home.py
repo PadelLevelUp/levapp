@@ -58,43 +58,64 @@ def _instance_id(event: Dict[str, Any]) -> Optional[int]:
         return None
 
 
-def _pending_instance_ids(player_id: int, instance_ids: List[int]) -> set:
-    """Instances the student was asked to confirm and has not answered.
-
-    Both answers set ``confirmed`` (see respond_to_reminder), so "asked and
-    unanswered" is exactly ``invited and not confirmed``.
-    """
-    if not instance_ids:
-        return set()
-    rows = (
-        db.session.query(Presence.lesson_instance_id)
-        .filter(Presence.player_id == player_id)
-        .filter(Presence.lesson_instance_id.in_(instance_ids))
-        .filter(Presence.invited.is_(True))
-        .filter(Presence.confirmed.is_(False))
-        .all()
-    )
-    return {r[0] for r in rows}
-
-
-def _decorate_with_confirmation(player_id: int, events: List[Dict[str, Any]], items: List[Dict[str, Any]]) -> None:
-    """Add ``lessonInstanceId`` + ``pendingConfirmation`` to rows/hero built from ``events``.
+def _decorate_with_confirmation(
+    player_id: int, events: List[Dict[str, Any]], items: List[Dict[str, Any]], *, now: datetime
+) -> None:
+    """Add ``lessonInstanceId``, ``pendingConfirmation``, ``attendanceState`` and
+    ``declineTarget`` to rows/hero built from ``events`` (dashboard.blocks rule 3a).
 
     The shared builders key rows by the calendar event id, so the instance id is
     recovered from the event list rather than re-queried (rule 3 — the two
-    surfaces always agree on the id).
+    surfaces always agree on the id). PAD-570: ``pendingConfirmation`` is the ONE
+    server predicate (``attendance.confirm`` rule 27), never ``invited``; a
+    projected occurrence has no row, so it is ``planned`` and its ask is the
+    time-based one computed on the virtual occurrence.
     """
+    from padel_app.helpers.dashboard.confirmation import ask_state
+
     by_event_id = {str(e.get("id") or ""): e for e in events}
     instance_ids: Dict[str, Optional[int]] = {}
     for item in items:
         key = str(item.get("id") or item.get("classId") or "")
         instance_ids[key] = _instance_id(by_event_id.get(key, {}))
-    pending = _pending_instance_ids(player_id, [i for i in instance_ids.values() if i is not None])
+    state = ask_state(player_id, [i for i in instance_ids.values() if i is not None], now)
     for item in items:
         key = str(item.get("id") or item.get("classId") or "")
+        event = by_event_id.get(key, {})
         iid = instance_ids.get(key)
         item["lessonInstanceId"] = iid
-        item["pendingConfirmation"] = iid is not None and iid in pending
+        own = state.get(iid) if iid is not None else None
+        item["pendingConfirmation"] = bool(own and own["pendingConfirmation"]) or (
+            iid is None and _virtual_ask_open(event, now)
+        )
+        item["attendanceState"] = own["attendanceState"] if own else "planned"
+        item["declineTarget"] = (
+            {"model": event.get("model"), "originalId": event.get("originalId"), "date": event.get("date")}
+            if event.get("model") and event.get("originalId") is not None
+            else None
+        )
+
+
+def _virtual_ask_open(event: Dict[str, Any], now: datetime) -> bool:
+    """PAD-570: a projected occurrence (no row yet) is ``planned``; its ask is the
+    time-based one, on the series' own notifications switch."""
+    from datetime import date as _date
+    from types import SimpleNamespace
+
+    from padel_app.models import Lesson
+    from padel_app.services.notification_service import student_may_confirm
+
+    if event.get("model") != "Lesson" or event.get("originalId") is None or not event.get("date"):
+        return False
+    lesson = db.session.get(Lesson, int(event["originalId"]))
+    if lesson is None or lesson.start_datetime is None:
+        return False
+    start = datetime.combine(_date.fromisoformat(str(event["date"])[:10]), lesson.start_datetime.time())
+    stand_in = SimpleNamespace(
+        id=None, start_datetime=start, status="scheduled",
+        notifications_enabled=bool(lesson.notifications_enabled), lesson=lesson,
+    )
+    return student_may_confirm(None, stand_in, None, now=wall_to_utc_naive(now))
 
 
 # ── 1. next class hero ─────────────────────────────────────────────────────
@@ -106,7 +127,7 @@ def build_player_next_class_block(*, player_id: int, now: Optional[datetime] = N
     events = load_events(player_id=player_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
     block = next_class_block(events, now=now)
     if block is not None:
-        _decorate_with_confirmation(player_id, events, [block["data"]])
+        _decorate_with_confirmation(player_id, events, [block["data"]], now=now)
     return block
 
 
@@ -140,23 +161,16 @@ def build_player_needs_you_block(*, player_id: int, user_id: int, now: Optional[
 
 
 def _invite_items(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
-    """Presences the student was invited to and has neither confirmed nor declined.
+    """Occurrences the student has been ASKED to confirm and has not answered.
 
-    A declined invite is marked ``status = "absent"`` (and left unconfirmed), so
-    it must be excluded explicitly or it would nag forever.
+    PAD-570: the same predicate as the rows' ``pendingConfirmation``
+    (``attendance.confirm`` rule 27) — before it this read ``invited and not
+    confirmed``, which ``enrol()`` makes true from enrolment (B-441), so a student
+    was nagged from day one.
     """
-    rows = (
-        db.session.query(LessonInstance)
-        .join(Presence, Presence.lesson_instance_id == LessonInstance.id)
-        .filter(Presence.player_id == player_id)
-        .filter(Presence.invited.is_(True))
-        .filter(Presence.confirmed.is_(False))
-        .filter((Presence.status.is_(None)) | (Presence.status != "absent"))
-        .filter(LessonInstance.start_datetime >= now)
-        .order_by(LessonInstance.start_datetime.asc())
-        .limit(QUEUE_INVITE_LIMIT)
-        .all()
-    )
+    from padel_app.helpers.dashboard.confirmation import askable_instances
+
+    rows = askable_instances(player_id, now, limit=QUEUE_INVITE_LIMIT)
 
     out: List[Dict[str, Any]] = []
     for instance in rows:
@@ -303,7 +317,7 @@ def build_player_schedule_block(*, player_id: int, now: Optional[datetime] = Non
     now = now or club_now_naive()
     events = _upcoming_events(player_id, now)
     block = schedule_block(events)
-    _decorate_with_confirmation(player_id, events, block["data"]["items"])
+    _decorate_with_confirmation(player_id, events, block["data"]["items"], now=now)
     return block
 
 
@@ -319,10 +333,14 @@ def build_player_kpi_block(*, player_id: int, now: Optional[datetime] = None) ->
     "Upcoming lessons" is ``len(_upcoming_events(...))`` — the schedule's own
     number (dashboard.blocks rule 3, PAD-235).
     """
+    from padel_app.helpers.dashboard.confirmation import askable_instances
+
     now = now or club_now_naive()
     kpis = compute_player_kpis(player_id=player_id)
     total = int(kpis.lessons_attended) + int(kpis.lessons_missed)
     upcoming = len(_upcoming_events(player_id, now))
+    # PAD-570: the tile counts the same asks the queue lists — never a raw `invited` count.
+    invites = len(askable_instances(player_id, now))
 
     return {
         "id": "kpis",
@@ -351,7 +369,7 @@ def build_player_kpi_block(*, player_id: int, now: Optional[datetime] = None) ->
                 },
                 {
                     "label": "Invites",
-                    "value": int(kpis.invites_to_confirm),
+                    "value": invites,
                     "icon": "mail",
                 },
             ]

@@ -23,6 +23,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
+import { inviteState } from "../invite-state";
 import { reminderState } from "../reminder-state";
 import { waitingListOfferState } from "../waiting-list-state";
 import { formatMessageTime } from "../utils";
@@ -200,8 +201,9 @@ export function MessageBubble({
   // (see conversation/[id].tsx's handleRespondToInvite), so this component
   // just renders off message.metadata like any other steady-state field.
   const isInvite = message.messageType === "notification_invite";
-  const alreadyResponded = !!message.metadata?.responded;
-  const response = message.metadata?.response;
+  // PAD-563: the four resolved states and the "by the coach" line live in invite-state.ts.
+  const invite = inviteState(message.metadata);
+  const alreadyResponded = invite.waiting === false;
 
   // PAD-151: attendance reminders were rendered with no buttons at all, so a
   // student could not answer one from the app. Its state rules (superseded,
@@ -919,26 +921,32 @@ export function MessageBubble({
             )}
           >
             {alreadyResponded ? (
-              response === "yes" ? (
-                <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
+              invite.accepted ? (
+                <View
+                  testID={invite.byCoach ? "invite-recorded-by-coach" : "invite-accepted"}
+                  className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5"
+                >
                   <Ionicons
                     name="checkmark"
                     size={14}
                     color={ACCEPTED_ICON_COLOR}
                   />
                   <Text className="text-xs font-medium text-success">
-                    {t("messages.accepted")}
+                    {t(invite.byCoach ? "messages.acceptedByCoach" : "messages.accepted")}
                   </Text>
                 </View>
-              ) : response === "no" ? (
-                <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
+              ) : invite.declined ? (
+                <View
+                  testID={invite.byCoach ? "invite-recorded-by-coach" : "invite-declined"}
+                  className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5"
+                >
                   <Ionicons
                     name="close"
                     size={14}
                     color={lightTheme.destructive}
                   />
                   <Text className="text-xs font-medium text-destructive">
-                    {t("messages.declined")}
+                    {t(invite.byCoach ? "messages.declinedByCoach" : "messages.declined")}
                   </Text>
                 </View>
               ) : (

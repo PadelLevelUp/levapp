@@ -55,7 +55,7 @@ export function ApprovalsPage() {
             {list.data.items.map((c: PendingCoach) => (
               <li key={c.coachId} className="border-t py-3 first:border-t-0" data-testid={`admin-approval-${c.coachId}`}>
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
+                  <div className="w-full min-w-0 break-words md:w-auto md:flex-1">
                     <div className="font-medium">
                       {c.name} <span className="font-normal text-muted-foreground">@{c.username}</span>
                     </div>
@@ -70,11 +70,11 @@ export function ApprovalsPage() {
                     </span>
                   ) : null}
                   {operator ? (
-                    <div className="flex gap-2">
-                      <Button disabled={busy} onClick={() => approve.mutate(c.coachId)} data-testid={`admin-approve-${c.coachId}`}>
+                    <div className="flex w-full gap-2 md:w-auto">
+                      <Button className="flex-1 md:flex-none" disabled={busy} onClick={() => approve.mutate(c.coachId)} data-testid={`admin-approve-${c.coachId}`}>
                         {t("admin.approvals.approve")}
                       </Button>
-                      <Button variant="destructive" disabled={busy} onClick={() => { setRejecting(c.coachId); setReason(""); }} data-testid={`admin-reject-${c.coachId}`}>
+                      <Button variant="destructive" className="flex-1 md:flex-none" disabled={busy} onClick={() => { setRejecting(c.coachId); setReason(""); }} data-testid={`admin-reject-${c.coachId}`}>
                         {t("admin.approvals.reject")}
                       </Button>
                     </div>
@@ -101,10 +101,10 @@ export function ApprovalsPage() {
                       />
                     </label>
                     <div className="flex gap-2">
-                      <Button type="submit" variant="destructive" disabled={busy} data-testid="admin-reject-confirm">
+                      <Button type="submit" variant="destructive" className="flex-1 md:flex-none" disabled={busy} data-testid="admin-reject-confirm">
                         {t("admin.approvals.confirmReject")}
                       </Button>
-                      <Button type="button" variant="ghost" onClick={() => setRejecting(null)} data-testid="admin-reject-cancel">
+                      <Button type="button" variant="ghost" className="flex-1 md:flex-none" onClick={() => setRejecting(null)} data-testid="admin-reject-cancel">
                         {t("admin.common.cancel")}
                       </Button>
                     </div>

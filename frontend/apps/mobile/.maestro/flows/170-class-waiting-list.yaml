@@ -1,5 +1,6 @@
 # PAD-547 — calendar.event-detail rules 19–20 on iOS: the coach's class screen shows the class's
 # waiting list with each row's origin, removes a row, and adds a student for this class only.
+# PAD-560 (rule 19): each row also says how long the student is on the list (its scope, by id).
 # Seeded through the API (R-040): a class three days out with "E2E Student" enrolled and
 # "Filler Player 01" put on its list by the coach (which also materialises the occurrence); the
 # class is opened by its instance id (PAD-326 deep link). Driven and asserted by ids carrying the
@@ -35,6 +36,8 @@ onFlowComplete:
     timeout: 30000
 - assertVisible:
     id: "class-waiting-list-row-${output.filler.playerId}-coach"
+- assertVisible:
+    id: "class-waiting-list-row-scope-${output.filler.playerId}-occurrence"
 
 # ── rule 21: remove ──
 - tapOn:
@@ -72,3 +75,5 @@ onFlowComplete:
     visible:
       id: "class-waiting-list-row-${output.two.playerId}-coach"
     timeout: 15000
+- assertVisible:
+    id: "class-waiting-list-row-scope-${output.two.playerId}-occurrence"

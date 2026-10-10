@@ -85,6 +85,9 @@ export function MessageBubble({
     </span>
   );
   const alreadyResponded = !!message.metadata?.responded;
+  // notifications.invitations rule 9 (PAD-563): an answer the coach recorded says so. Mirrors
+  // iOS's invite-state.ts `byCoach`.
+  const answeredByCoach = alreadyResponded && message.metadata?.answeredBy === "coach";
 
   const approvalBundle = isReplacementApproval
     ? (message.metadata as unknown as ApprovalBundle | undefined)
@@ -416,15 +419,23 @@ export function MessageBubble({
                 {t("messages.declined")}
               </span>
             ) : alreadyResponded ? (
+              // notifications.invitations rule 9 (PAD-563): an answer the coach recorded says so,
+              // to the student and to the coach alike; the buttons are gone either way.
               message.metadata?.response === "yes" ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
+                <span
+                  data-testid={answeredByCoach ? "invite-recorded-by-coach" : "invite-accepted"}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success"
+                >
                   <Check className="w-3.5 h-3.5" />
-                  {t("messages.accepted")}
+                  {t(answeredByCoach ? "messages.acceptedByCoach" : "messages.accepted")}
                 </span>
               ) : message.metadata?.response === "no" ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                <span
+                  data-testid={answeredByCoach ? "invite-recorded-by-coach" : "invite-declined"}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive"
+                >
                   <X className="w-3.5 h-3.5" />
-                  {t("messages.declined")}
+                  {t(answeredByCoach ? "messages.declinedByCoach" : "messages.declined")}
                 </span>
               ) : (
                 <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-warning/15 text-warning">
@@ -436,6 +447,7 @@ export function MessageBubble({
             ) : (
               <>
                 <button
+                  data-testid="invite-respond-yes"
                   onClick={() => handleRespond("yes")}
                   disabled={responding}
                   className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
@@ -443,6 +455,7 @@ export function MessageBubble({
                   {responding ? "…" : t("messages.yes")}
                 </button>
                 <button
+                  data-testid="invite-respond-no"
                   onClick={() => handleRespond("no")}
                   disabled={responding}
                   className="flex-1 py-1.5 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"

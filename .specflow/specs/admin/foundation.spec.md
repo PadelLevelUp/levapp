@@ -163,8 +163,8 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     coach or student user, and is not built for phones; it has no iOS or Android counterpart. This
     does not breach R-024, which is about `apps/web` features reaching `apps/mobile`: the parity
     move in this epic is that the product's Admin section leaves web and iOS in the same ticket
-    (PAD-532). The console is responsive enough to read on a phone browser but makes no promise
-    beyond that.
+    (PAD-532). Staff also use the console from a phone browser: `admin.phone-console` (PAD-572)
+    specifies that layout. There is still no iOS or Android console.
 16. **Language.** The console's strings use the shared i18n setup with `pt` and `en`, defaulting to
     the browser language, falling back to `pt`.
 

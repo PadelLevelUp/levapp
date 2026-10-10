@@ -131,12 +131,13 @@ def test_a_join_request_accept_retires_the_invitations_without_a_message(app):
         assert _sorry_messages() == []
 
 
-def test_a_refused_come_back_sends_the_student_no_message(app):
-    from padel_app.models import LessonInstance
-    from padel_app.services.lesson_service import enrol
+def test_a_yes_after_a_cancellation_sends_nobody_a_message(app):
+    """PAD-570 (attendance.confirm rule 28) kept PAD-501's promise: the refusal is the
+    screen's to show. A yes after "Não vou" answers `already_declined` and sends no
+    message — not to the student, and (unlike the PAD-315 come-back) not to the coach."""
+    from padel_app.models import Message
     from padel_app.services.notification_service import cancel_attendance, respond_to_reminder
     from padel_app.tests.test_notification_reminder_flow import PATCHES as REMINDER_PATCHES
-    from padel_app.tests.test_pad259_readers import _second_student
     from padel_app.tests.test_pad313_attendance_state import _world
 
     ids, iid = _world(app, max_players=1)
@@ -145,10 +146,10 @@ def test_a_refused_come_back_sends_the_student_no_message(app):
         with patch(REMINDER_PATCHES[0]), patch(REMINDER_PATCHES[1]):
             respond_to_reminder(iid, "yes", ids["student_user_id"])
             cancel_attendance(ids["student_user_id"], lesson_instance_id=iid)
-            carol, _ = _second_student(app, ids["coach_id"], "carol")
-            enrol(carol, db.session.get(LessonInstance, iid), "fill", confirmed=True)
+            before = Message.query.count()
             result = respond_to_reminder(iid, "yes", ids["student_user_id"])
 
         db.session.expire_all()
-        assert result["action"] == "spot_filled"
-        assert _sorry_messages() == [], "the refused come-back was messaged"
+        assert result["action"] == "already_declined"
+        assert _sorry_messages() == [], "the refused yes was messaged"
+        assert Message.query.count() == before, "nobody is told; the screen shows the refusal"

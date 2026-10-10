@@ -88,6 +88,10 @@ export default function NewConversationScreen() {
     }
   };
 
+  // PAD-568: a student linked to no coach gets "Ligar-me a um treinador" under the empty
+  // state (players.join-token rule 8). Coaches never see it.
+  const offersConnect = !(me?.roles?.includes("coach") ?? false);
+
   const connected = React.useMemo(
     () =>
       (users ?? [])
@@ -180,6 +184,16 @@ export default function NewConversationScreen() {
       <Text className="text-center text-sm text-muted-foreground">
         {term ? t("messages.tryDifferentSearch") : t("messages.notConnectedYetHint")}
       </Text>
+      {!term && offersConnect && connected.length === 0 ? (
+        <Button
+          variant="outline"
+          className="mt-3"
+          testID="new-conversation-connect"
+          onPress={() => router.push("/connect")}
+        >
+          <Text>{t("players.connect.dashboardLink")}</Text>
+        </Button>
+      ) : null}
     </View>
   );
 

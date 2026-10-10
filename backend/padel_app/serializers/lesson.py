@@ -236,6 +236,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
 
     data = {
         "coachId": str(coach_id) if coach_id else None,
+        # PAD-570 (attendance.confirm rule 28): the chat shortcut after "Não vou" opens the
+        # conversation with this user (`POST /app/conversation` takes user ids).
+        "coachUserId": str(_coach.user_id) if _coach is not None else None,
         "name": obj.title,
         "levelId": (
             str(lesson.default_level_id)
@@ -320,6 +323,7 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         from padel_app.services.notification_service import (
             proactive_decline_deadline,
             proactive_decline_window_is_open,
+            student_may_confirm,
         )
 
         proactive_config = None
@@ -370,6 +374,22 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                     else None
                 ),
                 "canDeclineProactively": can_decline_proactively,
+                # PAD-570 (attendance.confirm rule 27): may the viewing student
+                # answer "Vou" now? ONE server predicate, the same one the
+                # dashboard serves and `respond_to_reminder` enforces. A coach
+                # viewer never has it raised.
+                "pendingConfirmation": (
+                    student_may_confirm(
+                        next(
+                            (p for p in getattr(obj, "presences", []) if p.player_id == viewer_player_id),
+                            None,
+                        ),
+                        obj,
+                        proactive_config,
+                    )
+                    if is_student
+                    else False
+                ),
             }
         )
         # PAD-275: the occurrence's own level when set, else the lesson's.
@@ -411,11 +431,18 @@ def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
     from padel_app.services.notification_service import (
         proactive_decline_deadline,
         proactive_decline_window_is_open,
+        student_may_confirm,
     )
     from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
 
     start = datetime.combine(occurrence_date, lesson.start_datetime.time())
-    stand_in = SimpleNamespace(id=None, start_datetime=start)
+    # PAD-570: the stand-in carries what `student_may_confirm` reads of an occurrence.
+    stand_in = SimpleNamespace(
+        id=None,
+        start_datetime=start,
+        status="scheduled",
+        notifications_enabled=bool(lesson.notifications_enabled),
+    )
     config = (
         NotificationConfig.query.filter_by(coach_id=coach_id).first()
         if coach_id is not None else None
@@ -434,4 +461,6 @@ def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
             utc_to_wall_naive(proactive_dt).isoformat() if proactive_dt is not None else None
         ),
         "canDeclineProactively": proactive_decline_window_is_open(stand_in, config),
+        # PAD-570: no row yet means `planned`; the time-based ask alone can open it.
+        "pendingConfirmation": student_may_confirm(None, stand_in, config),
     }

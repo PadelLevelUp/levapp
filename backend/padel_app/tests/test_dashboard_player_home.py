@@ -97,8 +97,9 @@ def _seed(app, *, now):
             for p in signed_up:
                 db.session.add(Association_PlayerLesson(player_id=p.id, lesson_id=lesson.id))
                 # PAD-259/PAD-301: the presence row is the enrolment.
-                # `invited=False` here means "enrolled, not asked yet" —
-                # the queue reads `invited and not confirmed` as an open ask.
+                # PAD-570: `invited` no longer means anything to the queue — the ask
+                # is `attendance.confirm` rule 27's predicate (the reminder instant
+                # has passed and the row is `planned`), see test_pad570_*.
                 db.session.add(
                     Presence(lesson_instance_id=inst.id, player_id=p.id, invited=False,
                              enrolment_source="roster")
@@ -116,7 +117,13 @@ def _seed(app, *, now):
                 own.confirmed = bool(confirmed)
             return inst
 
-        soon = make_class("A1 Class", now + timedelta(minutes=45), 6, signed_up=[student, mate])
+        # PAD-570: 45 minutes out is long past the reminder instant, so an unanswered
+        # student here WOULD be asked; the student has answered yes so the one open ask
+        # in this world stays "Invite Class" (the new rule itself is pinned in test_pad570_*).
+        soon = make_class(
+            "A1 Class", now + timedelta(minutes=45), 6, signed_up=[student, mate],
+            invited=True, confirmed=True,
+        )
         make_class(
             "Invite Class",
             (now + timedelta(days=1)).replace(hour=18, minute=0),

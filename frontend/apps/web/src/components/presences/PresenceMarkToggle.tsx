@@ -37,7 +37,8 @@ export function PresenceMarkToggle({
   playerName,
 }: {
   value: PresenceMark | null;
-  onChange: (mark: PresenceMark) => void;
+  /** PAD-567: `null` when the selected mark is pressed again (cleared). */
+  onChange: (mark: PresenceMark | null) => void;
   size?: "sm" | "md";
   disabled?: boolean;
   playerName: string;
@@ -64,7 +65,7 @@ export function PresenceMarkToggle({
             aria-pressed={active}
             data-testid={`presence-mark-${option}`}
             data-tone={tone}
-            onClick={() => onChange(option)}
+            onClick={() => onChange(active ? null : option)}
             className={cn(
               "rounded-md border transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",

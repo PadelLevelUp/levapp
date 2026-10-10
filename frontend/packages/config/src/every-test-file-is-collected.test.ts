@@ -40,7 +40,12 @@ const RUNNERS: { name: string; cwd: string; args: string[] }[] = [
 
 /** Looks like a test to a human: `x.test.ts`, `x.spec.tsx`, `x.test.mjs`, or anything under `__tests__/`. */
 const LOOKS_LIKE_A_TEST = /(\.(test|spec)\.[cm]?[jt]sx?$)|(^|\/)__tests__\//;
-const PLAYWRIGHT_DIR = "apps/web/e2e/";
+// Every Playwright suite: the product web app and, since PAD-572, the staff console.
+const PLAYWRIGHT_APPS = [
+  { app: "apps/web", e2e: "apps/web/e2e/" },
+  { app: "apps/admin", e2e: "apps/admin/e2e/" },
+];
+const isPlaywrightFile = (f: string) => PLAYWRIGHT_APPS.some(({ e2e }) => f.startsWith(e2e));
 
 /**
  * B-173: git's repository variables. A git hook exports GIT_DIR (a worktree's gitdir) and
@@ -80,12 +85,12 @@ function collectedBy(runner: (typeof RUNNERS)[number]): string[] {
 }
 
 /** What Playwright would run, from Playwright itself. Paths relative to frontend/. */
-function collectedByPlaywright(): string[] {
+function collectedByPlaywright(app: string, e2e: string): string[] {
   const require = createRequire(import.meta.url);
   const cli = join(dirname(require.resolve("@playwright/test/package.json")), "cli.js");
   const env = childEnv();
   const out = execFileSync(process.execPath, [cli, "test", "--list", "--reporter=json"], {
-    cwd: join(FRONTEND, "apps", "web"),
+    cwd: join(FRONTEND, app),
     env,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
@@ -101,7 +106,7 @@ function collectedByPlaywright(): string[] {
   };
   for (const suite of report.suites ?? []) walk(suite);
   // The report's paths are relative to the config's testDir.
-  const testDir = report.config?.rootDir ?? join(FRONTEND, PLAYWRIGHT_DIR);
+  const testDir = report.config?.rootDir ?? join(FRONTEND, e2e);
   return [...files].map((f) => relative(FRONTEND, realpathSync(join(testDir, f))).split("\\").join("/"));
 }
 
@@ -136,7 +141,7 @@ describe("every test file is collected by a runner (B-127)", () => {
       onDisk.filter((f) => f.startsWith("frontend/")),
       "git listed paths from the repository root, not frontend/ — is GIT_DIR inherited?",
     ).toEqual([]);
-    const candidates = onDisk.filter((f) => LOOKS_LIKE_A_TEST.test(f) && !f.startsWith(PLAYWRIGHT_DIR));
+    const candidates = onDisk.filter((f) => LOOKS_LIKE_A_TEST.test(f) && !isPlaywrightFile(f));
     expect(candidates.length).toBeGreaterThan(0);
 
     const orphans = candidates.filter((f) => !collected.has(f));
@@ -150,17 +155,19 @@ describe("every test file is collected by a runner (B-127)", () => {
     expect(twice, "collected by more than one vitest config").toEqual([]);
   }, 180_000);
 
-  it("no test-looking file under the Playwright folder is left out by Playwright", () => {
-    const listed = collectedByPlaywright();
-    expect(listed.length, "playwright --list listed no test files").toBeGreaterThan(0);
+  it("no test-looking file under a Playwright folder is left out by Playwright", () => {
+    for (const { app, e2e } of PLAYWRIGHT_APPS) {
+      const listed = collectedByPlaywright(app, e2e);
+      expect(listed.length, `${app}: playwright --list listed no test files`).toBeGreaterThan(0);
 
-    const candidates = filesOnDisk().filter((f) => f.startsWith(PLAYWRIGHT_DIR) && LOOKS_LIKE_A_TEST.test(f));
-    expect(candidates.length).toBeGreaterThan(0);
+      const candidates = filesOnDisk().filter((f) => f.startsWith(e2e) && LOOKS_LIKE_A_TEST.test(f));
+      expect(candidates.length, `${app}: no test-looking files under ${e2e}`).toBeGreaterThan(0);
 
-    const orphans = candidates.filter((f) => !listed.includes(f));
-    expect(
-      orphans,
-      "under e2e/ and looks like a test, but `playwright test --list` does not list it — check its name against the config's testMatch / testIgnore and the project filters, move it out of e2e/, or delete it if it is a stray"
-    ).toEqual([]);
+      const orphans = candidates.filter((f) => !listed.includes(f));
+      expect(
+        orphans,
+        `under ${e2e} and looks like a test, but \`playwright test --list\` does not list it — check its name against the config's testMatch / testIgnore and the project filters, move it out of e2e/, or delete it if it is a stray`
+      ).toEqual([]);
+    }
   }, 180_000);
 });
