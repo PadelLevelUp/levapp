@@ -74,6 +74,9 @@ export default defineConfig({
         JWT_SECRET_KEY: "e2e-test-secret",
         E2E_DEBUG_ENDPOINTS: "true",
         TEST_MODE: "true",
+        // PAD-610: this backend is up before global-setup reseeds the database;
+        // its scheduler starts held and global-setup releases it afterwards.
+        E2E_SCHEDULER_HELD: "1",
         // PAD-228: the suite signs in from 127.0.0.1 far more often than any
         // person; the throttle is covered by pytest, not here.
         AUTH_RATE_LIMIT_ENABLED: "0",
