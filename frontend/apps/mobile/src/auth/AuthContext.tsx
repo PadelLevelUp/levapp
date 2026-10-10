@@ -67,7 +67,8 @@ export function startSessionRestore(): Promise<AuthUser | null> {
   return restorePromise;
 }
 
-/** Test seam: forget a restore so the next provider mount starts a fresh one. */
+/** Forget the restore: the provider calls it once it has consumed the result, so a remount
+ *  (Fast Refresh, a future key change) restores afresh instead of reading a stale user. */
 export function resetSessionRestore(): void {
   restorePromise = null;
 }
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await secureTokenStorage.removeToken().catch(() => undefined);
         if (!cancelled) setUser(null);
       } finally {
+        resetSessionRestore();
         if (!cancelled) setLoading(false);
       }
     })();

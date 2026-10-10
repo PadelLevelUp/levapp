@@ -151,8 +151,12 @@ const BASE: Pt = [200, 286];
 const APEX: Pt = [239.5, 114];
 const FOOT_PIVOT: Pt = [123.5, 274];
 
-/** The last part of the clock that is the fade-out; `release` jumps the clock to its start. */
-const RELEASE_FADE_MS = 300;
+/**
+ * PAD-587: on `release` the clock jumps to the start of the final fade. This must stay equal to
+ * the fade-out segment at the end of the land scene (`frameAt`'s opacity ramp), so the jump lands
+ * exactly where the mark starts to go — not the same number as the layout's grace, by design.
+ */
+const FINAL_FADE_MS = 300;
 
 export function LaunchAnimation({ onDone, release = false }: { onDone: () => void; release?: boolean }) {
   const { width, height } = useWindowDimensions();
@@ -162,14 +166,15 @@ export function LaunchAnimation({ onDone, release = false }: { onDone: () => voi
   const glowSize = size * 1.5;
 
   const [c, setC] = React.useState(0);
+  // `Date.now()` here runs on every render; the first value is the one that sticks (useRef).
   const t0Ref = React.useRef(Date.now());
 
   // PAD-587: when the app is ready before the animation is, the clock jumps to the start of
-  // the final fade (unless it is already past it), so the overlay is gone within RELEASE_FADE_MS.
+  // the final fade (unless it is already past it), so the overlay is gone within FINAL_FADE_MS.
   React.useEffect(() => {
     if (!release) return;
     const elapsed = Date.now() - t0Ref.current;
-    const fadeStart = TOTAL_MS - RELEASE_FADE_MS;
+    const fadeStart = TOTAL_MS - FINAL_FADE_MS;
     if (elapsed < fadeStart) t0Ref.current = Date.now() - fadeStart;
   }, [release]);
 
