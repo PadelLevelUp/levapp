@@ -34,6 +34,9 @@ export function dayAbbrClass(selected: boolean): string {
 export function dotColor(event: CalendarEvent, now: Date): string {
   const { variant } = resolveCardVariant(event, { now });
   if (variant === "block") return "hsl(var(--muted-foreground))";
+  // B-541 (rule 10): an outlined treatment's surface is the white card — the dot takes
+  // the outline colour instead.
+  if (variant === "open-spot" || variant === "next") return event.color ?? "hsl(var(--primary))";
   return cardSurfaceWeb(event.color, variant).backgroundColor ?? "hsl(var(--primary))";
 }
 
