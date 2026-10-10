@@ -27,13 +27,21 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
    the page header comment and in this spec so the "web and iOS ship together" rule is met. The
    HubSpot tracking, the cookie banner and the demo dialog (rules 10–13) are web-only for the same
    reason: the mobile app has no landing page and carries no tracking.
-3. Three audiences: `coaches` (default), `players`, `others`. A `tablist` at the top of the hero
-   switches between them; switching re-renders the hero, benefits, how-it-works, results and final
-   CTA for that audience without a navigation. `others` replaces the three middle sections with a
-   single "ideas" section.
-4. `?audience=<id>` seeds the initial audience. Both the i18n ids (`coaches`, `players`, `others`)
-   and the Portuguese slugs (`treinadores`, `alunos`, `outros`) are accepted; anything else falls
-   back to `coaches`. Switching tabs does not rewrite the URL.
+3. Three audiences: `coaches` (default), `players`, `others`. **The audience is chosen in the
+   header (PAD-582):** a dropdown left of the section links — "Para treinadores ▾", "Para
+   jogadores", "Para outros" — on every width (the short labels "Treinadores / Jogadores / Outros"
+   below `md`), so the visitor sees whom "Vantagens · Como funciona · Resultados" speak to. It is the
+   only place the audience is chosen: the tabs that used to sit at the top of the hero are gone
+   (owner decision). Choosing re-renders the hero, benefits, how-it-works, results and final CTA for
+   that audience without a navigation and without moving the scroll position. `others` replaces the
+   three middle sections with a single "ideas" section. On this page the player audience is
+   "jogadores" / "players" throughout; the app keeps "alunos" for its own students.
+4. **The choice is in the URL (PAD-582).** Choosing writes `?para=<slug>` in place (`treinadores`,
+   `jogadores`, `outros`; `history.replaceState`, no reload), so a link opens the page on an
+   audience — campaigns share `/?para=jogadores`. Reading: `?para=` first, then the older
+   `?audience=`, which keeps accepting the i18n ids (`coaches`, `players`, `others`) and the old
+   Portuguese slugs (`treinadores`, `alunos`, `outros`) so links already out there still work;
+   `jogadores` is accepted everywhere; anything else falls back to `coaches`.
 5. CTA destinations (no backend of ours exists for any of them):
    - coach "Pedir demonstração" (header, mobile menu, hero, how-it-works, final CTA) → when the
      build carries a demo form ID (`VITE_HUBSPOT_DEMO_FORM_ID`), the demo dialog (rule 10);
@@ -96,18 +104,23 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **When** they open `/`
 - **Then** the dashboard renders and the landing heading is not on the page
 
-#### Switching audience swaps the content
-- **Given** the landing page on the default (coach) audience
-- **When** the visitor selects the "Para alunos" tab
-- **Then** the player hero heading ("Joga mais.") replaces the coach one and the tab is `aria-selected`
-- **When** they select "Outros"
-- **Then** the "Novidades a caminho." hero and the ideas section render, and the benefits / how /
-  results sections are gone
+#### Switching audience swaps the content (PAD-582)
+- **Given** the landing page on the default (coach) audience, whose header dropdown reads "Para
+  treinadores"
+- **When** the visitor opens the dropdown and picks "Para jogadores"
+- **Then** the player hero heading ("Joga mais.") replaces the coach one, the dropdown reads "Para
+  jogadores", the URL is `/?para=jogadores`, and no navigation or reload happened
+- **When** they pick "Para outros"
+- **Then** the "Novidades a caminho." hero and the ideas section render, the benefits / how /
+  results sections are gone, and the URL is `/?para=outros`
+- **And** there is no audience `tablist` anywhere on the page
 
-#### A link can open the page on an audience
+#### A link can open the page on an audience (PAD-582)
 - **Given** no session
-- **When** the visitor opens `/?audience=alunos` (or `/?audience=players`)
-- **Then** the players tab is selected and the player hero renders
+- **When** the visitor opens `/?para=jogadores`, `/?audience=alunos` or `/?audience=players`
+- **Then** the dropdown reads "Para jogadores" and the player hero renders
+- **When** they open `/?audience=nope`
+- **Then** the coach page renders
 
 #### The final CTA rotates audiences
 - **Given** the coach audience
