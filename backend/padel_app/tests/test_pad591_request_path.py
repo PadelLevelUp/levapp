@@ -281,3 +281,82 @@ def test_the_presences_list_does_not_grow_with_the_roster(app, client):
     assert small_resp.status_code == 200 and big_resp.status_code == 200
     assert len(small_resp.get_json()) == 3 and len(big_resp.get_json()) == 12  # R-032
     _assert_same_count(small, big, "presences list")
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — attendance.validation rule 27
+# ---------------------------------------------------------------------------
+WINDOW = (datetime(2026, 3, 1), datetime(2026, 3, 31, 23, 59, 59))
+
+
+def _coach_with_pending(app, *, tag, in_window, backlog, validated=2):
+    """A coach with `in_window` ended classes (each with two unvalidated presences) inside
+    WINDOW, `backlog` more before it, and `validated` fully validated ones inside it."""
+    from padel_app.models import Association_CoachLesson, LessonInstance, Presence
+    from padel_app.models.lessons import Lesson
+
+    coach_id, user_id, club_id = _make_coach(app, tag)
+    players = [_make_player(app, f"{tag}{n}")[0] for n in range(2)]
+    with app.app_context():
+        def ended_class(title, start, is_validated):
+            lesson = Lesson(title=title, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                            is_recurring=False, type="academy", max_players=4, status="active", club_id=club_id)
+            db.session.add(lesson)
+            db.session.flush()
+            db.session.add(Association_CoachLesson(coach_id=coach_id, lesson_id=lesson.id))
+            inst = LessonInstance(lesson_id=lesson.id, start_datetime=start, end_datetime=start + timedelta(hours=1),
+                                  max_players=4, status="scheduled", original_lesson_occurence_date=start.date())
+            db.session.add(inst)
+            db.session.flush()
+            for pid in players:
+                db.session.add(Presence(lesson_instance_id=inst.id, player_id=pid, invited=True, confirmed=True,
+                                        validated=is_validated, enrolment_source="roster"))
+
+        for i in range(in_window):
+            ended_class(f"{tag} pending {i}", WINDOW[0] + timedelta(days=1 + i, hours=9), False)
+        for i in range(validated):
+            ended_class(f"{tag} validated {i}", WINDOW[0] + timedelta(days=1 + i, hours=12), True)
+        for i in range(backlog):
+            ended_class(f"{tag} backlog {i}", WINDOW[0] - timedelta(days=5 + i, hours=-9), False)
+        db.session.commit()
+    return coach_id, user_id
+
+
+def _pending_count(app, client, user_id):
+    return client.get(
+        "/api/app/class_instances/pending_validation/count",
+        query_string={"from": WINDOW[0].isoformat(), "to": WINDOW[1].isoformat()},
+        headers=_headers(app, user_id),
+    )
+
+
+def test_the_pending_count_does_not_load_the_rows(app, client):
+    from padel_app.services.presence_overview_service import list_pending_validation
+
+    small_coach, small_user = _coach_with_pending(app, tag="vsmall", in_window=2, backlog=15)
+    big_coach, big_user = _coach_with_pending(app, tag="vbig", in_window=12, backlog=15)
+
+    with _statements(app) as small:
+        small_resp = _pending_count(app, client, small_user)
+    with _statements(app) as big:
+        big_resp = _pending_count(app, client, big_user)
+
+    assert small_resp.status_code == 200 and big_resp.status_code == 200
+    # R-032: each count found its own classes, and the backlog sits outside the window.
+    assert (small_resp.get_json()["pendingCount"], small_resp.get_json()["pendingTotal"]) == (2, 17)
+    assert (big_resp.get_json()["pendingCount"], big_resp.get_json()["pendingTotal"]) == (12, 27)
+    _assert_same_count(small, big, "pending count")
+    # Rule 27: the window's count is a COUNT, not the listing's rows. (The listing's eager loads
+    # keep the statement count flat anyway, so the count is pinned by what is selected.)
+    for recorded in (small, big):
+        touching = [s for s in recorded if "FROM lesson_instances" in s]
+        assert touching and all("count(" in s.lower() for s in touching), touching
+        assert not any("lesson_instances_id" in s for s in recorded)
+        assert not any("FROM presences" in s and "users" in s for s in recorded)
+
+    # Rule 18: the count is still the listing's length for the same bounds.
+    with app.app_context():
+        for coach_id, expected in ((small_coach, 2), (big_coach, 12)):
+            listed = list_pending_validation(coach_id=coach_id, range_start=WINDOW[0], range_end=WINDOW[1])
+            assert len(listed["pending"]) == expected
+            assert len(listed["validated"]) == 2  # the control: validated classes are not counted
