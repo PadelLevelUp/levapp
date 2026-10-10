@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { CONTACT_EMAIL } from "@levelup/config";
 import {
   Card,
   CardContent,
@@ -7,7 +8,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const SUPPORT_CONTACT_EMAIL = "padellevelup2026@gmail.com";
+// PAD-599: the one contact address, from @levelup/config.
+const SUPPORT_CONTACT_EMAIL = CONTACT_EMAIL;
 
 const SupportPage = () => {
   return (
