@@ -70,9 +70,9 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
     expect(screen.getByTestId("approval-reason-declined").textContent).toBe("notificationsUi.replacementApproval.declinedReason:name=Ana");
     expect(screen.getByTestId("approval-reason-open").textContent).toBe("notificationsUi.replacementApproval.openSpotReason");
     expect(screen.getByTestId("approval-group-label").textContent).toBe(
-      "notificationsUi.replacementApproval.openSpotGroupOne:count=1,side=notificationsUi.replacementApproval.sideRight",
+      "notificationsUi.replacementApproval.openSpotGroup:count=1,side=notificationsUi.replacementApproval.sideRight",
     );
-    expect(screen.queryByText(/confirmedWontAttend/)).toBeNull();
+    expect(screen.getAllByTestId("approval-block")).toHaveLength(2);
   });
 
   it("groups identical open-spot lists by side with a count; freed spots stay apart", () => {
@@ -83,7 +83,7 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
       vac(3, { openSpot: true, side: "left", queue: a }),
       vac(4, { declinedPlayerId: 9, declinedPlayerName: "Bob", openSpot: false, side: "left", queue: a }),
     ])} />);
-    const groups = screen.getAllByTestId(/^approval-group-/).filter((el) => el.hasAttribute("data-kind"));
+    const groups = screen.getAllByTestId("approval-block");
     expect(groups.map((g) => g.getAttribute("data-kind"))).toEqual(["open", "open", "declined"]);
     expect(screen.getAllByTestId("approval-group-label")[0].textContent).toContain("openSpotGroup:count=2,side=notificationsUi.replacementApproval.sideLeft");
   });

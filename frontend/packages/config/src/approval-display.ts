@@ -17,8 +17,39 @@ export type ApprovalDisplayGroup =
   | { kind: "declined"; key: string; vacancyIds: number[]; declinedPlayerName: string | null; queue: ApprovalQueuePlayer[] }
   | { kind: "open"; key: string; vacancyIds: number[]; count: number; side: PlayerSide | null; queue: ApprovalQueuePlayer[] };
 
+/** The payload's flag wins; an older payload without it reads "no declined player" as open. */
 export function isOpenSpot(v: Pick<ApprovalVacancyInfo, "declinedPlayerId" | "openSpot">): boolean {
-  return v.openSpot === true || v.declinedPlayerId == null;
+  return v.openSpot ?? v.declinedPlayerId == null;
+}
+
+/** Rule 7a's label names one side; `both` and no side both read "any side" — and group together. */
+export function approvalSideKey(side: PlayerSide | null | undefined): string {
+  if (side === "left") return "notificationsUi.replacementApproval.sideLeft";
+  if (side === "right") return "notificationsUi.replacementApproval.sideRight";
+  return "notificationsUi.replacementApproval.sideAny";
+}
+
+function sideGroupKey(side: PlayerSide | null | undefined): "left" | "right" | "any" {
+  return side === "left" || side === "right" ? side : "any";
+}
+
+/** The counted label of an open-spot block: `t(key, params)` with `side` already resolved by the caller. */
+export function approvalGroupLabel(
+  group: Extract<ApprovalDisplayGroup, { kind: "open" }>,
+  sideLabel: string,
+): { key: string; params: { count: number; side: string } } {
+  return { key: "notificationsUi.replacementApproval.openSpotGroup", params: { count: group.count, side: sideLabel } };
+}
+
+/** What a block says when some of its spots are already filled or expired (rule 7a). */
+export function approvalStaleLabel(
+  group: Pick<ApprovalDisplayGroup, "vacancyIds">,
+  stale: number,
+): { key: string; params?: { stale: number; total: number } } {
+  if (group.vacancyIds.length > 1) {
+    return { key: "notificationsUi.replacementApproval.groupStale", params: { stale, total: group.vacancyIds.length } };
+  }
+  return { key: "notificationsUi.replacementApproval.noLongerNeeded" };
 }
 
 export function approvalDisplayGroups(vacancies: ApprovalVacancyInfo[]): ApprovalDisplayGroup[] {
@@ -30,7 +61,7 @@ export function approvalDisplayGroups(vacancies: ApprovalVacancyInfo[]): Approva
       continue;
     }
     const side = v.side ?? null;
-    const key = `open-${side ?? "any"}-${v.queue.map((p) => p.id).join(",")}`;
+    const key = `open-${sideGroupKey(side)}-${v.queue.map((p) => p.id).join(",")}`;
     const existing = openByKey.get(key);
     if (existing) {
       existing.vacancyIds.push(v.vacancyId);

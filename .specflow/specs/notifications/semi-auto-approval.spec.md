@@ -53,7 +53,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
      or expired"; approving still sends for the others.
    - Shared logic (`@levelup/config` `approval-display`: groups, preview, stale count); web
      `ReplacementApprovalCard` and iOS `replacement-approval-card` render it. Test ids:
-     `approval-group-<key>`, `approval-reason-declined` / `approval-reason-open`,
+     `approval-block` (with `data-kind` on web), `approval-reason-declined` / `approval-reason-open`,
      `approval-show-more`, `approval-showing-of`, `approval-group-stale`.
 8. Coach actions (three):
    - **"Yes, right now"** → approval_status "approved" and invitations are sent right away, bypassing the invitation window

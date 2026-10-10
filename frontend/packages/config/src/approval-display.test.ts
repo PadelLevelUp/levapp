@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { ApprovalQueuePlayer, ApprovalVacancyInfo } from "@levelup/types";
 
-import { APPROVAL_QUEUE_PREVIEW, approvalDisplayGroups, approvalQueuePreview, isOpenSpot, staleCount } from "./approval-display";
+import {
+  APPROVAL_QUEUE_PREVIEW,
+  approvalDisplayGroups,
+  approvalGroupLabel,
+  approvalQueuePreview,
+  approvalSideKey,
+  approvalStaleLabel,
+  isOpenSpot,
+  staleCount,
+} from "./approval-display";
 
 const p = (id: number): ApprovalQueuePlayer => ({ id: String(id), name: `P${id}` });
 const declined = (vacancyId: number, name: string, queue: ApprovalQueuePlayer[]): ApprovalVacancyInfo =>
   ({ vacancyId, declinedPlayerId: vacancyId * 10, declinedPlayerName: name, queue, openSpot: false, side: "left" }) as ApprovalVacancyInfo;
-const open = (vacancyId: number, side: "left" | "right" | null, queue: ApprovalQueuePlayer[]): ApprovalVacancyInfo =>
+const open = (vacancyId: number, side: "left" | "right" | "both" | null, queue: ApprovalQueuePlayer[]): ApprovalVacancyInfo =>
   ({ vacancyId, declinedPlayerId: null, declinedPlayerName: null, queue, openSpot: true, side }) as unknown as ApprovalVacancyInfo;
 
 describe("PAD-574 the approval card's display groups (semi-auto-approval rules 4, 7)", () => {
@@ -33,9 +42,28 @@ describe("PAD-574 the approval card's display groups (semi-auto-approval rules 4
     expect(groups.map((g) => (g.kind === "open" ? [g.side, g.count] : null))).toEqual([["left", 1], ["right", 1], ["left", 1]]);
   });
 
-  it("reads an old payload without the flag: no declined player means an open spot", () => {
+  it("groups `both` and no side together: both read 'any side', so they are one block", () => {
+    const a = [p(1), p(2)];
+    const groups = approvalDisplayGroups([open(1, "both", a), open(2, null, a)]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ kind: "open", count: 2 });
+    expect(approvalSideKey("both")).toBe(approvalSideKey(null));
+    expect(approvalSideKey("left")).toBe("notificationsUi.replacementApproval.sideLeft");
+  });
+
+  it("labels a block by count and side, and names its stale spots", () => {
+    const [g] = approvalDisplayGroups([open(1, "left", [p(1)]), open(2, "left", [p(1)])]);
+    expect(approvalGroupLabel(g as Extract<typeof g, { kind: "open" }>, "esquerda")).toEqual({
+      key: "notificationsUi.replacementApproval.openSpotGroup", params: { count: 2, side: "esquerda" },
+    });
+    expect(approvalStaleLabel(g, 1)).toEqual({ key: "notificationsUi.replacementApproval.groupStale", params: { stale: 1, total: 2 } });
+    expect(approvalStaleLabel({ vacancyIds: [9] }, 1)).toEqual({ key: "notificationsUi.replacementApproval.noLongerNeeded" });
+  });
+
+  it("reads an old payload without the flag: no declined player means an open spot; the flag wins when present", () => {
     expect(isOpenSpot({ declinedPlayerId: null as unknown as number, openSpot: undefined })).toBe(true);
     expect(isOpenSpot({ declinedPlayerId: 7, openSpot: undefined })).toBe(false);
+    expect(isOpenSpot({ declinedPlayerId: null as unknown as number, openSpot: false })).toBe(false);
     const legacy = { vacancyId: 9, declinedPlayerId: null, declinedPlayerName: null, queue: [p(1)] } as unknown as ApprovalVacancyInfo;
     expect(approvalDisplayGroups([legacy])[0]).toMatchObject({ kind: "open", side: null, count: 1 });
   });

@@ -7,19 +7,15 @@ import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/ty
 import { respondToApproval } from "@/api/notificationEngine";
 import {
   approvalDisplayGroups,
+  approvalGroupLabel,
   approvalQueuePreview,
+  approvalSideKey,
+  approvalStaleLabel,
   lisbonNowMs,
   queueBadgeLabel,
   staleCount,
   wallClockISOMs,
 } from "@levelup/config";
-
-/** Rule 7a's group label names one side; `both` or none reads "any side". */
-function sideKey(side: "left" | "right" | "both" | null): string {
-  if (side === "left") return "notificationsUi.replacementApproval.sideLeft";
-  if (side === "right") return "notificationsUi.replacementApproval.sideRight";
-  return "notificationsUi.replacementApproval.sideAny";
-}
 
 function formatWindowOpen(iso: string): string {
   const date = new Date(iso);
@@ -153,7 +149,7 @@ export function ReplacementApprovalCard({
         const isExpanded = !!expanded[group.key];
         const { shown, hidden } = approvalQueuePreview(group.queue, isExpanded);
         return (
-          <div key={group.key} className="space-y-2" data-testid={`approval-group-${group.key}`} data-kind={group.kind}>
+          <div key={group.key} className="space-y-2" data-testid="approval-block" data-kind={group.kind}>
             {/* PAD-574 (rule 4): a freed spot names the student; a never-filled spot is an open spot. */}
             {group.kind === "declined" ? (
               <p className="text-sm leading-relaxed" data-testid="approval-reason-declined">
@@ -165,12 +161,10 @@ export function ReplacementApprovalCard({
                   {t("notificationsUi.replacementApproval.openSpotReason")}
                 </p>
                 <p className="text-xs font-medium text-muted-foreground" data-testid="approval-group-label">
-                  {t(
-                    group.count === 1
-                      ? "notificationsUi.replacementApproval.openSpotGroupOne"
-                      : "notificationsUi.replacementApproval.openSpotGroup",
-                    { count: group.count, side: t(sideKey(group.side)) },
-                  )}
+                  {(() => {
+                    const label = approvalGroupLabel(group, t(approvalSideKey(group.side)));
+                    return t(label.key, label.params);
+                  })()}
                 </p>
               </div>
             )}
@@ -224,9 +218,10 @@ export function ReplacementApprovalCard({
                 className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning/15 text-warning-strong"
                 data-testid="approval-group-stale"
               >
-                {group.vacancyIds.length > 1
-                  ? t("notificationsUi.replacementApproval.groupStale", { stale, total: group.vacancyIds.length })
-                  : t("notificationsUi.replacementApproval.noLongerNeeded")}
+                {(() => {
+                  const label = approvalStaleLabel(group, stale);
+                  return t(label.key, label.params);
+                })()}
               </span>
             )}
           </div>
