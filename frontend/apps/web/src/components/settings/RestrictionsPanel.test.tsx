@@ -80,6 +80,7 @@ describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications
     const onChange = vi.fn();
     render(<RestrictionsPanel restrictions={withQuiet({ enabled: true, start: "23:00", end: "08:00" })} onChange={onChange} />);
     fireEvent.change(screen.getByTestId("restriction-quietHours-start"), { target: { value: "22:30" } });
+    fireEvent.keyDown(screen.getByTestId("restriction-quietHours-start"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     expect(onChange).toHaveBeenCalledWith({ ...RESTRICTIONS, quietHours: { enabled: true, start: "22:30", end: "08:00" } });
   });
 
@@ -87,9 +88,11 @@ describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications
     const onChange = vi.fn();
     render(<RestrictionsPanel restrictions={withQuiet({ enabled: true, start: "23:00", end: "08:00" })} onChange={onChange} />);
     fireEvent.change(screen.getByTestId("restriction-quietHours-start"), { target: { value: "08:00" } });
+    fireEvent.keyDown(screen.getByTestId("restriction-quietHours-start"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByTestId("restriction-quietHours-error")).toBeInTheDocument();
     fireEvent.change(screen.getByTestId("restriction-quietHours-start"), { target: { value: "22:15" } });
+    fireEvent.keyDown(screen.getByTestId("restriction-quietHours-start"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     expect(onChange).not.toHaveBeenCalled();
   });
 

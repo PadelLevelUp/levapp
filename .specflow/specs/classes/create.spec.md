@@ -106,9 +106,15 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      the other web time fields — events (`AddEventSheet`, `EventDetailSheet`), blockers
      (`BlockerSheet`), class-request proposals (`ClassRequestsSection`), reminder time
      (`RemindersSection`), restriction quiet hours (`RestrictionsPanel`), working hours
-     (`WorkingHoursSection`) — with their test ids kept and no end/length behaviour where they had
-     none. This part may ship as a second PR if it threatens the first's date (orchestrator,
-     2026-10-09).
+     (`WorkingHoursSection`) — with their test ids kept (events gain `add-event-start-time` /
+     `-end-time` and `event-detail-start-time` / `-end-time`; the reminder time `reminder-time`)
+     and no end/length behaviour where they had none. The settings fields span the whole day
+     (`first` / `last` props) and quiet hours keep their 30-minute grid (`step`); working hours
+     still snap a typed time to the quarter hour on commit (`settings.coach-working-hours` rule
+     6). One consequence travels with the field: it is never empty (rule 8b), so a blocker's
+     cleared time comes back when the student leaves the field and the old "time required"
+     error is unreachable from the UI (the draft validation keeps it for the API shape). Shipped
+     as the second PR (orchestrator, 2026-10-09).
    - **iOS in step** (`time-picker-input`): the native wheel stays, and the field also accepts a
      typed "18:30" (a numeric text entry beside the wheel; invalid text keeps the last value), its
      touch target is at least 44 pt, the new-class end is suggested from the same usual length

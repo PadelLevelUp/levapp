@@ -146,8 +146,8 @@ test("US-71: switching to days-before mode shows days stepper and time input", a
   await selects.first().click();
   await page.getByRole("option", { name: /days before at specific time/i }).click();
 
-  // Should now show a time input (HH:MM)
-  await expect(page.locator('input[type="time"]').first()).toBeVisible({ timeout: 3000 });
+  // Should now show the time field (PAD-559 PR-2: the shared typeable field, not a native input)
+  await expect(page.getByTestId("reminder-time").first()).toBeVisible({ timeout: 3000 });
 });
 
 test("US-71: hours-between-reminders field appears only when reminder count > 1", async ({ page }) => {
