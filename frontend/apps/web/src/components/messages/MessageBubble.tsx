@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
-import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+import { lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
 import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest } from '@/api/classJoinRequests';
@@ -451,7 +451,7 @@ export function MessageBubble({
               ) : (
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-warning/15 text-warning">
-                    {t("messages.spotFilled")}
+                    {t(retiredInviteLabelKey(message.metadata))}
                   </span>
                   {/* PAD-577 (rule 15a): the waiting list, from the message that lost the spot. */}
                   {inviteWaitingList.onWaitingList ? (

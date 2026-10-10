@@ -47,6 +47,10 @@ class NotificationEvent(db.Model, model.Model):
     # engine reads it as a "no" for the occurrence (rule 18).
     answered_by = Column(String(8), nullable=True)
     withdrawn_by_coach_at = Column(DateTime, nullable=True)
+    # PAD-581 (invitations rule 2d): 'side_balanced' when the engine withdrew this live round-1
+    # invitation because its spot re-counted to the other side; NULL otherwise. Not a "no" (rule 18):
+    # it keeps the student out of round 1 of the class only, and lets them join its waiting list.
+    retired_reason = Column(String(16), nullable=True)
 
     lesson_instance = relationship("LessonInstance")
     player = relationship("Player")

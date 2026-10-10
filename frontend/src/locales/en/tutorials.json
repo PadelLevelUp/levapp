@@ -174,8 +174,8 @@
     "sideReason": {
       "noSides": "Nobody on your roster plays a set side, so the spot keeps the leaving player's side.",
       "fewer": {
-        "left": "The class has {{left}} left and {{right}} right going. To balance the sides, left players are asked first.",
-        "right": "The class has {{left}} left and {{right}} right going. To balance the sides, right players are asked first."
+        "left": "The class has {{left}} left and {{right}} right going. Left players are asked until the sides are balanced; if the class changes meanwhile, the invitations of the side no longer needed are withdrawn.",
+        "right": "The class has {{left}} left and {{right}} right going. Right players are asked until the sides are balanced; if the class changes meanwhile, the invitations of the side no longer needed are withdrawn."
       },
       "tie": {
         "left": "The class has {{left}} left and {{right}} right going and the leaving player played left, so left players are asked first to keep it balanced.",

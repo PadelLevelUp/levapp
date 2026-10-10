@@ -88,7 +88,9 @@ point that composes them (PAD-358).
    - `POST /api/app/class-waiting-list` `{model, originalId, date}` → `201 {lessonInstanceId,
      onWaitingList: true}`, or `200` with the same body when the entry was already active. Refusals
      are `409` with a `code`: `already_enrolled`, `class_closed`, `not_visible`, `ineligible`,
-     `has_spots` (the class has room: request it instead).
+     `has_spots` (the class has room: request it instead) — except for a student whose invitation to
+     that class the engine withdrew for side balance, who may join while it has places
+     (`notifications.invitations` rule 2d, PAD-581).
    - `POST /api/app/class-waiting-list/<lessonInstanceId>/leave` → `200 {lessonInstanceId,
      onWaitingList: false}`; deactivates the caller's active entry for that class, whatever its origin
      (rule 7); `404` when they have none.

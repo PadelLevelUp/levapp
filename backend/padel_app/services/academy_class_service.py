@@ -132,7 +132,9 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
         effective_open_spots_visible(instance, coach_id, config) or _was_invited(instance.id, player.id)
     ):
         _refuse("not_visible", "This class is not open to requests")
-    if not _is_full(instance):
+    # PAD-581 (invitations rule 2d, owner Q3): a student whose invitation was withdrawn for side
+    # balance may join the list while the class has places — the places left are for the other side.
+    if not _is_full(instance) and not _withdrawn_for_balance(instance.id, player.id):
         _refuse("has_spots", "This class has room: ask to join it instead")
     if not passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)):
         _refuse("ineligible", "You do not meet this class's eligibility bar")
@@ -180,6 +182,16 @@ def _was_invited(instance_id, player_id) -> bool:
         ).first()
         is not None
     )
+
+
+def _withdrawn_for_balance(instance_id, player_id) -> bool:
+    """PAD-581: the engine withdrew this student's invitation to the occurrence for side balance."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services.notification_service import SIDE_BALANCED
+
+    return NotificationEvent.query.filter_by(
+        lesson_instance_id=instance_id, player_id=player_id, retired_reason=SIDE_BALANCED,
+    ).first() is not None
 
 
 def _existing_entry(instance_id, player_id):

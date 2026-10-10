@@ -1377,11 +1377,17 @@ def evaluate_candidates(
             NotificationEvent.answer == "no",
             NotificationEvent.withdrawn_by_coach_at.isnot(None),  # PAD-548 (rule 19): a withdrawal is a "no"
             NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            NotificationEvent.retired_reason == SIDE_BALANCED,  # PAD-581 (rule 2d)
             *own_clauses,
         ),
     ).all():
         if e.answer == "no" or e.withdrawn_by_coach_at is not None:
             declined_ids.add(e.player_id)
+        elif e.retired_reason == SIDE_BALANCED:
+            # PAD-581 (rule 2d): withdrawn for balance is not a "no" — a widened round may ask them
+            # again — but round 1 of this class does not (one round-1 invitation per student and class).
+            if tuple(wave) == ("group", 1):
+                active_invite_ids.add(e.player_id)
         elif own_vacancy_id is not None and e.vacancy_id == own_vacancy_id:
             active_invite_ids.add(e.player_id)
         elif e.status in LIVE_INVITATION_STATES:
@@ -2868,6 +2874,102 @@ def _side_counts(
         if side in counts:
             counts[side] += 1
     return counts
+
+
+SIDE_BALANCED = "side_balanced"  # PAD-581: NotificationEvent.retired_reason and the bubble's response
+
+
+def _rebalanced_side(vacancy: Vacancy, instance: LessonInstance, coach_id: int, *, extra_going: str | None = None):
+    """PAD-581 (invitations rule 2d): the side ``vacancy`` asks for now — rule 2b's count for a
+    never-filled spot, rule 2c's for a freed one (players going plus the other open spots, freed
+    ones only for a freed spot), the spot itself left out, ``extra_going`` (an accepter not yet
+    enrolled) counted as going. Fewer wins; a tie keeps the spot's side. The spot's own side when
+    the coach's roster plays no side."""
+    freed = vacancy.original_player_id is not None
+    counts = _side_counts(instance, coach_id, freed_only=freed)
+    if counts is None:
+        return vacancy.side
+    if vacancy.status == "open" and vacancy.side in counts:
+        counts[vacancy.side] -= 1  # the spot itself
+    if extra_going in counts:
+        counts[extra_going] += 1
+    if counts["left"] < counts["right"]:
+        return "left"
+    if counts["right"] < counts["left"]:
+        return "right"
+    return vacancy.side
+
+
+def _withdraw_for_balance(vacancy: Vacancy, coach_id: int, left_side: str) -> list:
+    """PAD-581 (rule 2d): retire ``vacancy``'s live round-1 invitations to students who play exactly
+    ``left_side`` — the side the spot no longer asks for. Flushes only (rule 10's one commit); the
+    caller publishes the edits after its commit (`_publish_retired`). Not a "no": ``answer`` stays
+    NULL and ``withdrawn_by_coach_at`` unset."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    events = (
+        NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.round_number == 1,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        )
+        .with_for_update(skip_locked=True)
+        .populate_existing()
+        .all()
+    )
+    if not events:
+        return []
+    sides = dict(
+        db.session.query(Association_CoachPlayer.player_id, Association_CoachPlayer.side)
+        .filter(Association_CoachPlayer.coach_id == coach_id,
+                Association_CoachPlayer.player_id.in_([e.player_id for e in events]))
+    )
+    retired = []
+    for event in events:
+        if sides.get(event.player_id) != left_side:
+            continue  # a "both" or side-less student, or the other side's, stays invited
+        event.status = "expired"
+        event.retired_reason = SIDE_BALANCED
+        _retire_invite_message(event, defer=True, response=SIDE_BALANCED)
+        retired.append(event)
+    db.session.flush()
+    return retired
+
+
+def _recount_spot(vacancy: Vacancy, instance: LessonInstance, coach_id: int, *, extra_going: str | None = None) -> list:
+    """PAD-581 (rule 2d): store the re-counted side on ``vacancy``; when it flips between left and
+    right, withdraw its live round-1 invitations of the side it left. Returns the withdrawn events."""
+    new_side = _rebalanced_side(vacancy, instance, coach_id, extra_going=extra_going)
+    old_side = vacancy.side
+    if new_side == old_side:
+        return []
+    vacancy.side = new_side
+    db.session.flush()
+    if old_side in ("left", "right") and new_side in ("left", "right"):
+        return _withdraw_for_balance(vacancy, coach_id, old_side)
+    return []
+
+
+def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: int) -> list:
+    """PAD-581 (rule 2d): after a "yes" (under rule 10's locks, before its one commit), re-count the
+    class's OTHER open spots with the accepter counted as going, one after another so each sees the
+    ones before it. A spot another answer holds is passed over (SKIP LOCKED); its own next batch
+    re-counts it. Returns the invitations withdrawn for balance, for the caller to publish."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=accepter_id).first()
+    accepter_side = cp.side if cp is not None else None
+    others = (
+        Vacancy.query.filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open")
+        .order_by(Vacancy.id.asc())
+        .with_for_update(skip_locked=True)
+        .populate_existing()
+        .all()
+    )
+    retired = []
+    for vacancy in others:
+        retired.extend(_recount_spot(vacancy, instance, coach_id, extra_going=accepter_side))
+    return retired
 
 
 def freed_spot_side_counts(
@@ -4528,6 +4630,8 @@ def _send_batch_locked(
     if locked.status != "open":
         db.session.commit()  # release the lock; nothing was written
         return []
+    # PAD-581 (rule 2d): the spot asks for the side it re-counts to, before its candidates are read.
+    _publish_retired(_recount_spot(locked, instance, coach_id))  # sent by the batch's commit
     sent = _send_invitation_batch(
         locked, instance, config, coach_id, max_sim_override=max_sim_override, now=now
     )
@@ -5412,6 +5516,9 @@ def respond_to_notification(
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        # PAD-581 (rule 2d): the other spots re-count with this yes as going; a flip withdraws its old
+        # side's round-1 invitations — kept apart from `retired`, whose bubbles read "spot_filled".
+        _publish_retired(_rebalance_after_yes(instance, event.coach_id, event.player_id))
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
@@ -5528,6 +5635,9 @@ def coach_respond_to_notification(
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        # PAD-581 (rule 2d): the other spots re-count with this yes as going; a flip withdraws its old
+        # side's round-1 invitations — kept apart from `retired`, whose bubbles read "spot_filled".
+        _publish_retired(_rebalance_after_yes(instance, event.coach_id, event.player_id))
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         event.save()
@@ -6286,6 +6396,29 @@ def _waiting_list_candidates(
         ).all()
     }
     keyed = [(key, entry) for key, entry in keyed if entry.player_id not in asked_elsewhere]
+    # PAD-581 (invitations rule 2d): a member whose invitation was withdrawn for side balance is
+    # asked only for a spot of their own side or one with no side, so the list never undoes the
+    # balance. Their `both` or side-less self matches any spot.
+    if vacancy.side in ("left", "right") and keyed:
+        balanced = {
+            e.player_id
+            for e in NotificationEvent.query.filter(
+                NotificationEvent.lesson_instance_id == instance.id,
+                NotificationEvent.retired_reason == SIDE_BALANCED,
+                NotificationEvent.player_id.in_([entry.player_id for _, entry in keyed]),
+            ).all()
+        }
+        if balanced:
+            side_of = dict(
+                db.session.query(Association_CoachPlayer.player_id, Association_CoachPlayer.side)
+                .filter(Association_CoachPlayer.coach_id == coach_id,
+                        Association_CoachPlayer.player_id.in_(balanced))
+            )
+            keyed = [
+                (key, entry) for key, entry in keyed
+                if entry.player_id not in balanced or side_of.get(entry.player_id) not in ("left", "right")
+                or side_of.get(entry.player_id) == vacancy.side
+            ]
     if not keyed:
         return []
 

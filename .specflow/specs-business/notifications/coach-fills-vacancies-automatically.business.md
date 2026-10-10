@@ -57,6 +57,10 @@ the waiting list.
 - When a class has spots that were never filled, the app aims to balance left- and right-side
   players: each open spot looks for the side the class is short of first, and falls back to any
   side, so no spot stays empty for lack of the "right" side.
+- The sides re-balance as the class fills (PAD-581): every "yes" re-counts the open spots, and a
+  spot that now needs the other side withdraws the invitations it sent to the side no longer
+  needed. Those students see "Já não é preciso deste lado" and can join the class's waiting list,
+  where they are asked first only for a spot of their own side. A withdrawal is not a "no".
 - The same holds when students cancel (PAD-541): a freed spot first asks the side the class is now
   short of, not automatically the side of whoever left. When the sides are even, it keeps the
   leaver's side. Two left-side students leaving a 6-left / 3-right class are replaced by one right

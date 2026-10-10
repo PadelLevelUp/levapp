@@ -77,6 +77,14 @@ describe("PAD-577 a lost spot offers that class's waiting list", () => {
     expect(screen.queryByTestId("invite-on-waiting-list")).toBeNull();
   });
 
+  it("PAD-581: an invitation withdrawn for side balance says so and offers the list too", async () => {
+    renderBubble(invite({ response: "side_balanced" }));
+    expect(await screen.findByText("messages.noLongerNeededOnSide")).toBeInTheDocument();
+    expect(screen.queryByText("messages.spotFilled")).toBeNull();
+    fireEvent.click(await screen.findByTestId("invite-join-waiting-list"));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }));
+  });
+
   it("reads the student's own lists: already on this class's list shows the on-list state, not the button", async () => {
     api.listClassWaitingList.mockImplementation(() => Promise.resolve([{ kind: "waiting_list", id: 1, lessonInstanceId: 7, status: "active" }]));
     renderBubble(invite({}));

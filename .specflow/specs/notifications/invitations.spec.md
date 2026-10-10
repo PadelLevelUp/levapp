@@ -16,7 +16,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 
 ### Entities
 - **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
-- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued), answer (yes|no|null — the student's answer, rule 18) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
+- **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued), answer (yes|no|null — the student's answer, rule 18), retired_reason (null|"side_balanced" — rule 2d, PAD-581) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
 
 ### Rules
 1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
@@ -130,6 +130,35 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    never an eligibility bar. Open vacancies created before this rule keep their side. The invite
    simulation shows the side this rule would choose and the numbers it used
    (`notifications.invite-simulation` rule 9), so a tutorial never recounts them.
+2d. **The sides re-balance as the class fills (PAD-581; owner, 2026-10-10, via the coordinator,
+   option C with the proposal's defaults except Q3).** A spot's side is no longer fixed at creation:
+   it is **re-counted** — the count of rule 2b for a never-filled spot (players going plus the sides
+   of the class's other open spots), of rule 2c for a freed one (players going plus the other open
+   **freed** spots, never the never-filled ones, B-401), the spot itself left out, a tie keeping the
+   spot's current side — at two moments, and stored on the spot when it changes:
+   - **each batch** of the spot, under its lock, before the candidates are read (round 1's
+     "same side" and the side sort use the re-counted side);
+   - **each "yes"** of the class (a student's or the coach's), under rule 10's locks and in the
+     same one commit, for the class's **other** open spots, the yes counted as going. A spot another
+     answer holds is passed over (SKIP LOCKED) and re-counted at its own next batch.
+   When a re-count flips a spot to the other side, its live **round-1** invitations to students of
+   the side it left (exactly `left` or `right`; a `both` or side-less student stays invited) are
+   **withdrawn for balance**: the invitation is expired with `retired_reason = "side_balanced"`,
+   `answer` NULL and no `withdrawn_by_coach_at`, and its bubble reads `response: "side_balanced"`,
+   "Já não é preciso deste lado" / "No longer needed on this side", with no second message
+   (PAD-501), its edit published after the commit. The spot then invites the new side at its next
+   batch. In the owner's class of 12 (5 right + 2 left going; spots 4 left + 1 right by rule 2b)
+   nothing flips while left students fill the left spots; if a left student takes the right spot in
+   a widened round, the remaining left spot re-counts to right and its live left invitations are
+   withdrawn. Rounds 2–3 still widen to any side (Q1: they do not wait for balance), and only
+   round-1 invitations are withdrawn. A withdrawal for balance:
+   - is **not a "no"** (rule 18, Q4): the student may be invited again by a widened round — but
+     **not by round 1 of that class again** (one round-1 invitation per student and class);
+   - **offers the class's waiting list** from the bubble (Q3, owner): the student may join it even
+     while the class has places (the `has_spots` refusal does not apply to them) and even with
+     open spots hidden (rule 15); on that list they are group 0 (rule 8a) only for a spot of their
+     own side or one with no side, so the list never undoes the balance.
+   A class whose coach's roster plays no side keeps every spot's side as it is (rule 2b's `None`).
 2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
@@ -842,6 +871,23 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** no student holds two live invitations for the class, and a skipped student's reason is `offered_another_spot`
 - **And** when a student's offer for the first spot is retired because someone else took it, they are invited for the second spot on the next pass
 - **And** when it is declined instead, they are not
+
+#### A spot whose side flips withdraws its live round-1 invitations of the old side (rule 2d, PAD-581)
+- **Given** a class of 4 with 1 left and 1 right going, two never-filled spots sided left and right, the left spot's round-1 invitations out to Ana and Bia (left) and Carla (both)
+- **When** Duarte, a left student, says yes on the right spot (a widened round)
+- **Then** in that one commit the left spot re-counts to right (2 left / 1 right going), Ana's and Bia's invitations are expired with `retired_reason = "side_balanced"` and their bubbles read `response: "side_balanced"`
+- **And** Carla's invitation stays live, and nobody's answer is recorded
+
+#### A batch invites the side its spot re-counts to (rule 2d, PAD-581)
+- **Given** that left spot, now sided right
+- **When** its next batch runs
+- **Then** round 1 invites right players first, and Ana and Bia are not invited by round 1 of that class again
+
+#### A balance-withdrawn student may join the waiting list while the class has places (rule 2d, PAD-581)
+- **Given** Ana's invitation withdrawn for balance, the class with a place open and open spots hidden
+- **When** Ana joins the class's waiting list from the bubble
+- **Then** she holds an active row; a student never invited to the class is still refused `has_spots`
+- **And** group 0 asks Ana for a left or side-less spot of that class, never a right one
 
 #### Every fill retires the others as "spot_filled" (rule 15, PAD-609)
 - **Given** Ana and Bruno invited to Friday's one spot, and Carla and Dinis invited to it by hand
