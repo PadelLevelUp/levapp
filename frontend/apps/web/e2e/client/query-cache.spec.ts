@@ -36,6 +36,18 @@ function countRequests(page: Page, pathSuffix: string) {
   return state;
 }
 
+/**
+ * Asserts a counter holds `expected` for a whole second, sampled every 100 ms. `networkidle` cannot
+ * be used here: the signed-in app keeps an SSE stream open, so the network is never idle.
+ */
+async function expectStableCount(page: Page, counter: { count: number }, expected: number) {
+  for (let sample = 0; sample < 10; sample += 1) {
+    expect(counter.count).toBe(expected);
+    await page.waitForTimeout(100);
+  }
+  expect(counter.count).toBe(expected);
+}
+
 async function goToPlayers(page: Page) {
   await page.getByRole("link", { name: ui("nav.players") }).first().click();
   await expect(page.getByTestId("players-list")).toBeVisible({ timeout: 15_000 });
@@ -72,8 +84,7 @@ test("PAD-586: back to players within the window makes no coach_players_paginate
   await expect(page.getByTestId("players-list")).toBeVisible();
   await expect(page.getByTestId("players-list-loading")).toHaveCount(0);
   // Any request the mount would have made has left the browser once the network is idle.
-  await page.waitForLoadState("networkidle");
-  await expect.poll(() => paginated.count, { intervals: [250, 250, 500] }).toBe(0);
+  await expectStableCount(page, paginated, 0);
 });
 
 test("PAD-586: back to players after the window shows the cached rows and refreshes once behind", async ({ page }) => {
@@ -114,8 +125,7 @@ test("PAD-586: back to the dashboard within the window makes no dashboard reques
   await goToDashboard(page);
 
   await expect(page.getByTestId("dashboard-kpis")).toBeVisible();
-  await page.waitForLoadState("networkidle");
-  await expect.poll(() => dashboard.count, { intervals: [250, 250, 500] }).toBe(0);
+  await expectStableCount(page, dashboard, 0);
 });
 
 test("PAD-586: calendar, presences, calendar fetches the roster and levels once and the unread count at most once", async ({ page }) => {
@@ -130,7 +140,7 @@ test("PAD-586: calendar, presences, calendar fetches the roster and levels once 
   await goToPresences(page);
   await page.getByTestId("presences-kpi-total").waitFor({ timeout: 15_000 });
   await goToCalendar(page);
-  await page.waitForLoadState("networkidle");
+  await expectStableCount(page, roster, 1);
 
   expect(roster.count).toBe(1);
   expect(levels.count).toBe(1);
@@ -182,7 +192,7 @@ test("PAD-586: presences requests the trend exactly once on load", async ({ page
   await goToPresences(page);
   await page.getByTestId("presences-kpi-total").waitFor({ timeout: 15_000 });
   await expect.poll(() => trend.count).toBe(1);
-  await page.waitForLoadState("networkidle");
+  await expectStableCount(page, trend, 1);
   expect(trend.count).toBe(1);
 });
 
@@ -232,7 +242,7 @@ test("PAD-586: a live message refetches the conversations list once and never pr
     messageId = (await sent.json()).id;
 
     await expect.poll(() => listReads.count, { timeout: 15_000 }).toBe(1);
-    await page.waitForLoadState("networkidle");
+    await expectStableCount(page, listReads, 1);
     expect(listReads.count).toBe(1);
     expect(probes).toEqual([]);
   } finally {
