@@ -37,6 +37,13 @@ LogBox.ignoreLogs([
 import "@/lib/api";
 // i18next init (side effect) — must run before any screen calls useTranslation().
 import "@/lib/i18n";
+import { startSessionRestore } from "@/auth/AuthContext";
+import { useFirstScreenReady } from "@/lib/first-screen-ready";
+import { overlayShouldRelease, LAUNCH_RELEASE_GRACE_MS } from "@/lib/launch-overlay";
+
+// PAD-587: the session restore (keychain, /auth/me) starts now, in parallel with the fonts,
+// instead of after the root has rendered.
+void startSessionRestore().catch(() => undefined);
 
 // Keep the native splash up until the JS launch animation is on screen —
 // otherwise there is a white frame between the two.
@@ -79,6 +86,29 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  // PAD-587: the overlay ends at the earlier of its own animation and "first screen ready" plus
+  // a short grace — never before the fonts (launch-overlay.ts). `release` tells the animation to
+  // run its final fade now and to stop catching touches.
+  const fontsReady = !!(fontsLoaded || fontError);
+  const firstScreenReady = useFirstScreenReady();
+  const [firstScreenReadyAt, setFirstScreenReadyAt] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (firstScreenReady && firstScreenReadyAt === null) {
+      launchMark("first-screen-ready");
+      setFirstScreenReadyAt(Date.now());
+    }
+  }, [firstScreenReady, firstScreenReadyAt]);
+  const [release, setRelease] = React.useState(false);
+  React.useEffect(() => {
+    if (release || !showLaunch) return;
+    const check = () => {
+      if (overlayShouldRelease({ fontsReady, firstScreenReadyAt, now: Date.now() })) setRelease(true);
+    };
+    check();
+    const timer = setTimeout(check, LAUNCH_RELEASE_GRACE_MS + 10);
+    return () => clearTimeout(timer);
+  }, [fontsReady, firstScreenReadyAt, release, showLaunch]);
+
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -96,6 +126,7 @@ export default function RootLayout() {
           <StatusBar style="light" />
           {showLaunch ? (
             <LaunchAnimation
+              release={release}
               onDone={() => {
                 launchMark("overlay-gone");
                 setShowLaunch(false);
