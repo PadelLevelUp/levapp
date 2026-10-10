@@ -3,11 +3,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from padel_app.utils.dates import club_now_naive
+
 from padel_app.helpers.dashboard.player_home import (
     build_player_kpi_block,
     build_player_needs_you_block,
     build_player_next_class_block,
     build_player_schedule_block,
+    decorate_home_blocks,
+    load_player_home_events,
 )
 
 
@@ -33,13 +37,22 @@ def build_player_dashboard_blocks(*, player, user_id: int, now: Optional[datetim
     if incomplete is not None:
         blocks.append(incomplete)
 
-    hero = build_player_next_class_block(player_id=player.id, now=now)
+    # PAD-583 (dashboard.blocks rule 8): the student's classes load ONCE over the hero's
+    # 90-day window; the hero, the schedule and the "Upcoming lessons" tile cut their own
+    # windows from that set, and the confirmation state is computed once over hero + rows.
+    now = now or club_now_naive()
+    events = load_player_home_events(player_id=player.id, now=now)
+
+    hero = build_player_next_class_block(player_id=player.id, now=now, events=events, decorate=False)
+    schedule = build_player_schedule_block(player_id=player.id, now=now, events=events, decorate=False)
+    decorate_home_blocks(player.id, events, [hero, schedule], now=now)
+
     if hero is not None:
         blocks.append(hero)
 
     blocks.append(build_player_needs_you_block(player_id=player.id, user_id=user_id, now=now))
-    blocks.append(build_player_schedule_block(player_id=player.id, now=now))
-    blocks.append(build_player_kpi_block(player_id=player.id, now=now))
+    blocks.append(schedule)
+    blocks.append(build_player_kpi_block(player_id=player.id, now=now, events=events))
 
     evaluations_block = _build_player_evaluations_block(player=player)
     if evaluations_block is not None:
