@@ -157,7 +157,5 @@ that both apps import, so the two never drift.
   the calendar's many ranges.
 - The web `AppLayout` stays mounted per page (19 pages render it); the cache, not a routing
   change, is what makes its badges cheap. A layout route is a later cleanup if wanted.
-- The test clock: a Playwright spec cannot wait 61 s per case; the web app reads an optional
-  `VITE_QUERY_STALE_TIME_MS` only when `import.meta.env.MODE !== "production"`, which the E2E
-  config sets to 2000 for the after-the-window cases. Production builds never read it.
+- The test clock: a Playwright spec cannot wait 61 s per case. The E2E fakes the browser clock (`page.clock`) for the after-the-window case; no env override exists.
 - OPEN: none.

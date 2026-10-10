@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as playersApi from "@levelup/api/src/resources/players";
 import * as presencesApi from "@levelup/api/src/resources/presences";
 import { queryKeys } from "./queryKeys";
+import type { QueryOverrides } from "./queries";
 
 /**
  * Presences and roster reads for the web (client.query-cache rules 6-8, PAD-586). Same shapes and
@@ -29,11 +30,15 @@ export function usePresenceStats() {
  * `playerIds`: the players the filter left visible, so the over-time chart follows the filters.
  * `undefined` is the whole roster.
  */
-export function usePresenceTrend(playerIds?: number[]) {
+export function usePresenceTrend(
+  playerIds?: number[],
+  options?: QueryOverrides<Awaited<ReturnType<typeof presencesApi.getPresenceTrend>>>
+) {
   const key = playerIds ? [...playerIds].sort((a, b) => a - b).join(",") : "all";
   return useQuery({
     queryKey: queryKeys.presenceTrend(key),
     queryFn: () => presencesApi.getPresenceTrend(playerIds ? { playerIds } : {}),
+    ...options,
   });
 }
 

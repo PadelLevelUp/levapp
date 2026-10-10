@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatThread } from "@/components/messages/ChatThread";
@@ -20,7 +21,9 @@ import {
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
   mergeOlderPage,
+  queryKeys,
   threadLoadErrorKey,
+  useConversations,
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
@@ -79,7 +82,7 @@ export default function MessagesPage() {
 
   const { setScrollMode, refreshUnreadCount } = useLayout();
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const queryClient = useQueryClient();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   // PAD-415 (messaging.conversation-detail rule 9a): the open response's
   // firstUnreadMessageId, frozen for this visit — the follow-up
@@ -90,11 +93,16 @@ export default function MessagesPage() {
     string | number | null
   >(null);
 
-  const [initialLoading, setInitialLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
   // D137: why the last thread open failed; a 403 names another account.
   const [threadError, setThreadError] = useState<ThreadLoadErrorKey | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  // client.query-cache rule 6: page 1 of the list is a query (a return inside the stale window
+  // renders from cache); pages 2+ are fetched on "load more" and appended here, as before.
+  const listQuery = useConversations(1);
+  const initialLoading = listQuery.isPending;
+  const [extraPages, setExtraPages] = useState<Conversation[]>([]);
+  const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
+  const hasMore = extraHasMore ?? listQuery.data?.hasMore ?? true;
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   // PAD-208 — one page of older messages at a time (conversation-detail rule 11).
@@ -102,6 +110,13 @@ export default function MessagesPage() {
   const loadingOlderRef = useRef(false);
   const mobileView = id ? "thread" : "list";
   const selectedConversationIdRef = useRef<string | null>(null);
+
+  // Page 1 (the query) wins over a later page's copy of the same row: it is the fresher read.
+  const conversations = useMemo(() => {
+    const first = listQuery.data?.conversations ?? [];
+    const seen = new Set(first.map((c) => normalizeConversationId(c.id)));
+    return [...first, ...extraPages.filter((c) => !seen.has(normalizeConversationId(c.id)))];
+  }, [listQuery.data, extraPages]);
 
   const sortedConversations = useMemo(() => {
     return [...conversations].sort((a, b) => {
@@ -111,36 +126,40 @@ export default function MessagesPage() {
     });
   }, [conversations]);
 
-  const ensureConversationExists = async (conversationId: string) => {
-    // Only the summary is wanted here — a row for the sidebar — so ask for the
-    // smallest page there is rather than the thread (PAD-208 rule 1).
-    const convo = await getConversation(conversationId, { limit: 1 });
-    setConversations((prev) => {
-      if (prev.some((c) => normalizeConversationId(c.id) === normalizeConversationId(convo.id))) {
-        return prev;
-      }
-      return [convo, ...prev];
-    });
-  };
+  // Page-1 cache edits: a row changed or created on this device shows at once; the server's list
+  // replaces it on the next refetch. Rows on later pages are patched in `extraPages`.
+  const patchConversationList = useCallback(
+    (update: (list: Conversation[]) => Conversation[]) => {
+      queryClient.setQueryData<{ conversations: Conversation[]; hasMore: boolean }>(
+        queryKeys.conversations(1),
+        (old) => (old ? { ...old, conversations: update(old.conversations) } : old)
+      );
+    },
+    [queryClient]
+  );
+  const markListRowRead = useCallback(
+    (conversationId: string | number) => {
+      const same = (c: Conversation) =>
+        normalizeConversationId(c.id) === normalizeConversationId(conversationId);
+      patchConversationList((list) => list.map((c) => (same(c) ? { ...c, unreadCount: 0 } : c)));
+      setExtraPages((prev) => prev.map((c) => (same(c) ? { ...c, unreadCount: 0 } : c)));
+    },
+    [patchConversationList]
+  );
+  const addListRow = useCallback(
+    (conversation: Conversation) => {
+      patchConversationList((list) =>
+        list.some((c) => normalizeConversationId(c.id) === normalizeConversationId(conversation.id))
+          ? list
+          : [conversation, ...list]
+      );
+    },
+    [patchConversationList]
+  );
 
   useEffect(() => {
     selectedConversationIdRef.current = normalizeConversationId(selectedConversation?.id);
   }, [selectedConversation]);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        setInitialLoading(true);
-        const result = await getConversations(1);
-        setConversations(result.conversations);
-        setHasMore(result.hasMore);
-        setPage(1);
-      } finally {
-        setInitialLoading(false);
-      }
-    }
-    load();
-  }, []);
 
   const loadMoreConversations = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -148,13 +167,13 @@ export default function MessagesPage() {
     try {
       const nextPage = page + 1;
       const result = await getConversations(nextPage);
-      setConversations(prev => {
-        const existingIds = new Set(prev.map(c => normalizeConversationId(c.id)));
-        const fresh = result.conversations.filter(c => !existingIds.has(normalizeConversationId(c.id)));
+      setExtraPages((prev) => {
+        const existingIds = new Set(prev.map((c) => normalizeConversationId(c.id)));
+        const fresh = result.conversations.filter((c) => !existingIds.has(normalizeConversationId(c.id)));
         return [...prev, ...fresh];
       });
       setPage(nextPage);
-      setHasMore(result.hasMore);
+      setExtraHasMore(result.hasMore);
     } finally {
       setLoadingMore(false);
     }
@@ -176,8 +195,6 @@ export default function MessagesPage() {
 
         const isOwnMessage = Number(message.senderId) === Number(user.id);
 
-        await ensureConversationExists(messageConversationId);
-
         setSelectedConversation((prev) => {
           if (!prev || normalizeConversationId(prev.id) !== messageConversationId) return prev;
           // PAD-208 rule 10 — the arrival goes onto the newest page, which is
@@ -187,32 +204,16 @@ export default function MessagesPage() {
           return applyIncomingMessage(prev, message);
         });
 
-        setConversations((prev) => {
-          const existing = prev.find(
-            (c) => normalizeConversationId(c.id) === messageConversationId
-          );
-          if (!existing) return prev;
-
-          const isOpen = selectedConversationIdRef.current === messageConversationId;
-
-          return [
-            {
-              ...existing,
-              lastMessage: message.content,
-              lastMessageAt: message.timestamp,
-              unreadCount: isOpen
-                ? 0
-                : isOwnMessage
-                ? existing.unreadCount
-                : existing.unreadCount + 1,
-            },
-            ...prev.filter((c) => c.id !== existing.id),
-          ];
-        });
-
+        // client.query-cache rule 8: a live message invalidates the list (one refetch of the
+        // conversations key) instead of probing the conversation for a row to patch. The mark-read
+        // of an open thread goes first, so the refetch reads the server's cleared unread count.
         const isOpenConversation = selectedConversationIdRef.current === messageConversationId;
-        if (isOpenConversation && !isOwnMessage) {
-          await markConversationRead(messageConversationId);
+        try {
+          if (isOpenConversation && !isOwnMessage) {
+            await markConversationRead(messageConversationId);
+          }
+        } finally {
+          void queryClient.invalidateQueries({ queryKey: ["conversations"] });
         }
 
         void refreshUnreadCount();
@@ -275,7 +276,7 @@ export default function MessagesPage() {
         return;
       }
     });
-  }, [token, user.id, refreshUnreadCount]);
+  }, [token, user.id, refreshUnreadCount, queryClient]);
 
   useEffect(() => {
     setScrollMode("none");
@@ -339,13 +340,7 @@ export default function MessagesPage() {
       // badge and the app-icon badge stale.
       await markConversationRead(convo.id);
       void refreshUnreadCount();
-      setConversations((prev) =>
-        prev.map((c) =>
-          normalizeConversationId(c.id) === normalizeConversationId(convo.id)
-            ? { ...c, unreadCount: 0 }
-            : c
-        )
-      );
+      markListRowRead(convo.id);
       // PAD-408: opening the thread already in the URL (a deep link, a push)
       // keeps its `?message=` target; choosing another thread drops it.
       navigate({
@@ -488,7 +483,7 @@ export default function MessagesPage() {
       return;
     }
     const newConversation = await createConversation({ otherParticipants: [userId] });
-    setConversations((prev) => [newConversation, ...prev]);
+    addListRow(newConversation);
     setSelectedConversation(newConversation);
     navigate(`/messages/${newConversation.id}`);
   };
@@ -499,11 +494,7 @@ export default function MessagesPage() {
   // which renders the 404 inline.
   const handleNewConversationByUsername = async (username: string) => {
     const conversation = await createConversation({ otherUsername: username });
-    setConversations((prev) =>
-      prev.some((c) => c.id === conversation.id)
-        ? prev
-        : [conversation, ...prev]
-    );
+    addListRow(conversation);
     setSelectedConversation(conversation);
     navigate(`/messages/${conversation.id}`);
   };
