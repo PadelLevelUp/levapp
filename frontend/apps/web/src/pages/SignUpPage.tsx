@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
 import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { signupDraftStore } from "@/lib/signupDraft";
+import { browserSignupDraft } from "@/lib/signupDraft";
 
 type Role = RegisterPayload["role"];
 
@@ -90,9 +90,7 @@ const SignUpPage = () => {
   // from the first keystroke until the account exists, so a trip to the Terms and back — a
   // same-tab navigation, a back-forward-cache miss on iOS Safari, a discarded tab — restores
   // what was typed. Passwords are never stored. Read once, on mount.
-  const [draftStore] = useState(() =>
-    signupDraftStore(typeof window === "undefined" ? null : window.sessionStorage)
-  );
+  const [draftStore] = useState(browserSignupDraft);
   const [restored] = useState(() => draftStore.read());
   const [role, setRole] = useState<Role>(() => (restored?.role === "coach" ? "coach" : "student"));
   const [form, setForm] = useState(() => ({

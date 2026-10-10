@@ -1,4 +1,4 @@
-import { test, expect, devices } from "@playwright/test";
+import { test, expect, devices, type Page } from "@playwright/test";
 
 /**
  * PAD-575 (auth.register rule 20) — what a student typed into the sign-up form survives opening
@@ -21,41 +21,57 @@ const FILLED = {
   email: `draft-${STAMP}@example.com`,
   birthDate: "2001-05-04",
 };
+const PASSWORD = "Segura123!";
 
-test("PAD-575: the typed form is still there after a same-tab Terms detour and back", async ({ page }) => {
-  await page.goto("/signup");
+/** Fill every field the draft is expected to carry, plus the passwords and the Terms box. */
+async function fillSignup(page: Page) {
   await expect(page.locator("#signup-name")).toBeVisible({ timeout: 15000 });
   await page.locator("#signup-name").fill(FILLED.name);
   await page.locator("#signup-username").fill(FILLED.username);
   await page.locator("#signup-email").fill(FILLED.email);
-  await page.locator("#signup-password").fill("Segura123!");
-  await page.locator("#signup-repeatPassword").fill("Segura123!");
+  await page.locator("#signup-password").fill(PASSWORD);
+  await page.locator("#signup-repeatPassword").fill(PASSWORD);
   await page.locator("#signup-birthDate").fill(FILLED.birthDate);
   await page.getByTestId("signup-terms").click();
   await expect(page.getByTestId("signup-terms")).toHaveAttribute("data-state", "checked");
+}
 
-  // The detour: same tab, then back — the shape the iPhone report describes.
-  await page.goto("/terms");
-  await expect(page.locator("main, article, h1").first()).toBeVisible({ timeout: 15000 });
-  await page.goBack();
-  await expect(page.locator("#signup-name")).toBeVisible({ timeout: 15000 });
-
-  await expect(page.locator("#signup-name")).toHaveValue(FILLED.name);
+async function expectRestored(page: Page) {
+  await expect(page.locator("#signup-name")).toHaveValue(FILLED.name, { timeout: 15000 });
   await expect(page.locator("#signup-username")).toHaveValue(FILLED.username);
   await expect(page.locator("#signup-email")).toHaveValue(FILLED.email);
   await expect(page.locator("#signup-birthDate")).toHaveValue(FILLED.birthDate);
   await expect(page.getByTestId("signup-terms")).toHaveAttribute("data-state", "checked");
   // Passwords are not persisted on purpose.
   await expect(page.locator("#signup-password")).toHaveValue("");
+}
+
+test("PAD-575: the typed form is still there after a same-tab Terms detour and back", async ({ page }) => {
+  await page.goto("/signup");
+  await fillSignup(page);
+
+  // The detour: same tab, then back — the shape the iPhone report describes.
+  await page.goto("/terms");
+  await expect(page).toHaveURL(/\/terms$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/signup$/);
+  await expectRestored(page);
 });
 
 test("PAD-575: a full reload of the sign-up tab keeps the draft too (the discarded-tab case)", async ({ page }) => {
   await page.goto("/signup");
-  await expect(page.locator("#signup-name")).toBeVisible({ timeout: 15000 });
-  await page.locator("#signup-name").fill(FILLED.name);
-  await page.locator("#signup-email").fill(FILLED.email);
+  await fillSignup(page);
   await page.reload();
-  await expect(page.locator("#signup-name")).toHaveValue(FILLED.name, { timeout: 15000 });
-  await expect(page.locator("#signup-email")).toHaveValue(FILLED.email);
+  await expectRestored(page);
   await expect(page.getByTestId("signup-submit")).toBeVisible();
+});
+
+test("PAD-575: a successful sign-up removes the draft, so the next student on this tab starts blank", async ({ page }) => {
+  await page.goto("/signup");
+  await fillSignup(page);
+  await page.getByTestId("signup-submit").click();
+  // auth.register rule 11: a brand-new student lands on "Connect with a coach".
+  await expect(page).toHaveURL(/\/connect$/, { timeout: 20000 });
+  const stored = await page.evaluate(() => window.sessionStorage.getItem("levapp.signupDraft"));
+  expect(stored).toBeNull();
 });
