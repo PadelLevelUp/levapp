@@ -360,3 +360,23 @@ def test_the_pending_count_does_not_load_the_rows(app, client):
             listed = list_pending_validation(coach_id=coach_id, range_start=WINDOW[0], range_end=WINDOW[1])
             assert len(listed["pending"]) == expected
             assert len(listed["validated"]) == 2  # the control: validated classes are not counted
+
+
+# ---------------------------------------------------------------------------
+# Task 5 — auth.logout rule 5
+# ---------------------------------------------------------------------------
+def test_one_blocklist_lookup_per_request(app, client):
+    from padel_app.tests.admin_helpers import make_user
+
+    maria = make_user(app, "p591_maria", "p591_maria@example.com")
+    twenty_days_ago = int((datetime.now(timezone.utc) - timedelta(days=20)).timestamp())
+    # 10 days left of a 30-day token: inside the sliding-refresh window (< 15 days).
+    headers = _headers(app, maria, expires_delta=timedelta(days=10), additional_claims={"auth_time": twenty_days_ago})
+
+    with _statements(app) as recorded:
+        resp = client.get("/api/auth/me", headers=headers)
+
+    assert resp.status_code == 200 and resp.get_json()["id"] == maria  # R-032: it authenticated
+    assert resp.headers.get("X-New-Token"), "the refresh ran, so the second lookup was reachable"
+    lookups = [s for s in recorded if "token_blocklist" in s]
+    assert len(lookups) == 1, lookups
