@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { cardSurfaceWeb, resolveCardVariant } from "@levelup/config";
+import { cardSurfaceWeb, resolveCardVariant, showsEnrolledMark } from "@levelup/config";
+import { useCalendarViewer } from "../viewer-context";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { ClassFillBar } from "@/components/calendar/ClassFillBar";
@@ -29,6 +30,8 @@ export function MobileEventCard({
 }) {
   const { t } = useTranslation();
   const { variant, seatsShort } = resolveCardVariant(event, { isNext, now });
+  // PAD-578 (rule 19): a student's own class is ticked — never by colour alone.
+  const enrolledMark = showsEnrolledMark(event, variant, useCalendarViewer());
   const isBlock = variant === "block";
   const isCanceled = variant === "canceled";
   const surface = cardSurfaceWeb(event.color, variant);
@@ -80,6 +83,16 @@ export function MobileEventCard({
       )}
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 flex-1 truncate text-[15px] font-bold leading-snug">
+          {enrolledMark && (
+            <span
+              data-testid="calendar-enrolled-mark"
+              role="img"
+              aria-label={t("calendar.eventCard.enrolled")}
+              className="mr-1"
+            >
+              ✓
+            </span>
+          )}
           {title}
         </span>
         {levelCode && !isBlock && (

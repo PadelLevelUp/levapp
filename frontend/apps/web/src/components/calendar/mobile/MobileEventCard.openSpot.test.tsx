@@ -12,6 +12,7 @@ import type { CalendarEvent } from "@levelup/types";
 import { MobileEventCard } from "./MobileEventCard";
 import { TimeGrid } from "./TimeGrid";
 import { dotColor } from "./DayStrip";
+import { CalendarViewerProvider } from "../viewer-context";
 
 const BLUE = "#1355DC";
 const NOW = new Date(2026, 9, 10, 12, 0);
@@ -71,5 +72,47 @@ describe("the phone Semana grid block for an open spot", () => {
 describe("the day's dot for an outlined treatment (rule 10)", () => {
   it("is the class colour for an open spot, never the white card", () => {
     expect(dotColor(openSpot(), NOW)).toBe(BLUE);
+  });
+});
+
+// PAD-578 (calendar.mobile-views rule 19): a student's enrolled class is ticked on the card and
+// the grid block; an open spot carries the chip and no tick; a coach sees no tick.
+describe("the ✓ on a student's enrolled class (PAD-578)", () => {
+  const enrolled = () => openSpot({ id: "class-8-2026-10-19", openSpot: false, title: "Treino" });
+  const day = new Date(2026, 9, 19);
+
+  it("marks the card for a student, not an open spot", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <MobileEventCard event={enrolled()} now={NOW} />
+        <MobileEventCard event={openSpot()} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    const cards = screen.getAllByTestId("calendar-event-card");
+    expect(cards[0].querySelector('[data-testid="calendar-enrolled-mark"]')).not.toBeNull();
+    expect(cards[1].querySelector('[data-testid="calendar-enrolled-mark"]')).toBeNull();
+    expect(cards[1].querySelector('[data-testid="calendar-open-spot-chip"]')).not.toBeNull();
+  });
+
+  it("marks the grid block for a student", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <TimeGrid
+          weekDays={[day]}
+          selectedDay={day}
+          onSelectDay={() => undefined}
+          eventsByDay={{ "2026-10-19": [enrolled(), openSpot()] }}
+          hourRange={{ startHour: 8, endHour: 12 }}
+        />
+      </CalendarViewerProvider>
+    );
+    const blocks = screen.getAllByTestId("calendar-grid-block");
+    const marked = blocks.filter((b) => b.querySelector('[data-testid="calendar-enrolled-mark"]'));
+    expect(marked.map((b) => b.getAttribute("data-event-id"))).toEqual(["class-8-2026-10-19"]);
+  });
+
+  it("a coach (the default viewer) sees no tick", () => {
+    render(<MobileEventCard event={enrolled()} now={NOW} />);
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
   });
 });

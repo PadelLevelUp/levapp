@@ -4,6 +4,7 @@ import {
   lightTheme,
   nativeCalendarSurfaces,
   resolveCardVariant,
+  showsEnrolledMark,
   withAlpha,
 } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
@@ -13,6 +14,7 @@ import { Pressable, View, type ViewStyle } from "react-native";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { ClassFillBar } from "./ClassFillBar";
+import { useCalendarViewer } from "./viewer-context";
 
 type EventCardProps = {
   event: CalendarEvent;
@@ -48,6 +50,8 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
   // PAD-130 / B-541: an open spot is an offer — the shared `open-spot` variant
   // (dashed outline, readable ink), so the ink and the week grid agree with it.
   const isOpenSpot = variant === "open-spot";
+  // PAD-578 (rule 19): a student's own class is ticked — never by colour alone.
+  const enrolledMark = showsEnrolledMark(event, variant, useCalendarViewer());
   const stateStyle: ViewStyle = isBlock
     ? {}
     : {
@@ -113,6 +117,16 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
         </Text>
       ) : null}
       <View className="flex-row items-start justify-between gap-2">
+        {enrolledMark ? (
+          <Text
+            testID="calendar-enrolled-mark"
+            accessibilityLabel={t("calendar.eventCard.enrolled")}
+            className="text-[15px] font-sans-bold"
+            style={{ color: ink }}
+          >
+            ✓
+          </Text>
+        ) : null}
         <Text
           numberOfLines={1}
           className="flex-shrink text-[15px] font-sans-bold"
