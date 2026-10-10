@@ -21,10 +21,40 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
 2. In semi-automatic mode, every vacancy-creation path sets approval_status "pending" and creates a replacement approval prompt instead of sending invitations: player declines via reminder response, coach confirms presences marking players absent, and the `invite_start` scheduler job
 3. One prompt per vacancy (idempotent): re-triggering invitations for a vacancy that already has a prompt does not create a duplicate
-4. The prompt shows which student(s) declined and the FULL ordered invite queue — all eligible candidates across all rounds/groups, in the exact order the engine would invite them, computed at prompt-creation time. Exactness principle: the list shown to the coach is exactly the set of players who may receive invitations — the engine may never invite anyone not on the shown list. Eligibility is recomputed at send time using the same rules, which may shrink or reorder the list; a player who wasn't shown may be invited only because their eligibility changed between prompt creation and send time
+4. **The prompt says why each spot is open (PAD-574, B-521).** A spot a student freed reads "O
+   {{nome}} não vai. Convites para a vaga libertada" / "{{name}} isn't coming. Invitations for the
+   freed spot"; a spot the class never filled (a structural vacancy, `original_player_id` NULL)
+   reads "Vaga por preencher. Convites sugeridos" / "Open spot. Suggested invitations" — never a
+   student's name, never "confirmou que não vai comparecer". The payload says which with
+   `openSpot` and carries the vacancy's `side`; the persisted Assistant text (rule 6) makes the
+   same split ("Open spot." / "Spot freed by {name}."). The prompt shows the FULL ordered invite queue — all eligible candidates across all rounds/groups, in the exact order the engine would invite them, computed at prompt-creation time. Exactness principle: the list shown to the coach is exactly the set of players who may receive invitations — the engine may never invite anyone not on the shown list. Eligibility is recomputed at send time using the same rules, which may shrink or reorder the list; a player who wasn't shown may be invited only because their eligibility changed between prompt creation and send time
 5. **The waiting list heads the queue (PAD-446).** The class's waiting-list students the engine would ask first (`notifications.invitations` rule 8a) open the queue, in their order, each entry marked `fromWaitingList: true`; clients tag them "from the waiting list". Nobody is placed without an invitation any more, so the old disclosure ("Player X from the waiting list will be added directly to the class") is never made: `waiting_list_player_id` is stored null, which older builds read as "no disclosure"
 6. Every prompt is persisted as a message in the coach's Assistant conversation — the source of truth — regardless of which surface triggered it
 7. Presence-confirmation surface: when confirming presences creates N vacancies, the frontend immediately shows one inline approval card bundling all N vacancies (declined players + invite queues concatenated). One decision applies to the whole bundle; the same bundle is also persisted in the Assistant conversation
+7a. **How a card presents a bundle (PAD-574; coordinator 2026-10-10, owner veto in the morning).**
+   Display only — a decision still reaches the server per vacancy and the engine still invites
+   vacancy by vacancy with the rules of today (simultaneous maximum, order, batches, inactivity),
+   so one student never gets two invitations for one class because the class has two spots.
+   - A freed spot (rule 4's first case) is always its own block with the student's name, even
+     when its list equals another spot's.
+   - Open spots with the **same side and the same ordered list** are one block, counted: "3 vagas ·
+     prioridade esquerda" / "3 spots · left priority" (one: "1 vaga · prioridade esquerda"; no
+     side: "qualquer lado" / "any side"). The key includes the side because the label names one;
+     identical lists on different sides stay apart; a reordered list is a different list. Grouping
+     compares the lists themselves — it never assumes two lists (left, right): the lists change
+     when a spot is filled and the suggestions are recomputed (rule 12) or with the side rule
+     (PAD-565).
+   - Every list shows its **first 5** students; "Ver mais (N)" / "Show more (N)" reveals the rest,
+     "Ver menos" / "Show less" folds it back. **Whenever a list is truncated** the block carries the
+     line "A mostrar 5 de 31 · ao aprovar, são convidados todos" / "Showing 5 of 31 · approving
+     invites them all", on both shells, so the coach never reads the preview as the invite set.
+   - Staleness inside a block: when some of a block's spots are already filled or expired (rule
+     11), the block reads "N de M vagas já preenchidas ou expiradas" / "N of M spots already filled
+     or expired"; approving still sends for the others.
+   - Shared logic (`@levelup/config` `approval-display`: groups, preview, stale count); web
+     `ReplacementApprovalCard` and iOS `replacement-approval-card` render it. Test ids:
+     `approval-group-<key>`, `approval-reason-declined` / `approval-reason-open`,
+     `approval-show-more`, `approval-showing-of`, `approval-group-stale`.
 8. Coach actions (three):
    - **"Yes, right now"** → approval_status "approved" and invitations are sent right away, bypassing the invitation window
    - **"Yes, at {window open time}"** → approval_status "approved"; invitations are sent when the invitation window opens (per `invitation_start_timing`). The button label shows the concrete window-open datetime. `windowOpenAt` is sent as a naive ISO string on the club's wall clock (`notifications.invitations` rule 11, PAD-256); the clients decide "window still ahead" against the club's clock (`lisbonNow()`), not the device's (PAD-295)
@@ -65,6 +95,26 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **And** the frontend shows ONE inline approval card bundling both vacancies with their full ordered invite queues
 - **And** the same bundled prompt is persisted in the Assistant conversation
 - **And** one decision on the card applies to both vacancies
+
+#### A never-filled spot says so, a freed spot names the student (rule 4, PAD-574)
+- **Given** semi-automatic mode and a class of 4 with Alice and Bob enrolled, so two spots were never filled
+- **When** the coach marks Alice absent and the prompt is built
+- **Then** the bundle has three vacancies: Alice's with `openSpot: false` and her name, and two with `openSpot: true`, `declinedPlayerName` null and each one's `side`
+- **And** on web and iOS Alice's block reads "A Alice não vai. Convites para a vaga libertada" and the open spots read "Vaga por preencher. Convites sugeridos"
+- **And** the persisted Assistant text says "Open spot." for them and "Spot freed by Alice." for hers
+
+#### Identical open-spot lists are one block, freed spots never are (rule 7a)
+- **Given** a bundle with 8 open spots: 3 left-side spots with list A, 5 right-side spots with list B, and Bob's freed spot with list A
+- **When** the card renders, on web and iOS
+- **Then** it shows three blocks: "3 vagas · prioridade esquerda" over list A, "5 vagas · prioridade direita" over list B, and Bob's own block over list A
+- **And** approving sends vacancy by vacancy, as before (nine vacancies, one request)
+
+#### Long lists show five with "Ver mais" and say approval invites everyone (rule 7a)
+- **Given** a block whose list holds 31 students
+- **When** the card renders
+- **Then** it shows the first 5, "Ver mais (26)" and "A mostrar 5 de 31 · ao aprovar, são convidados todos"
+- **And** "Ver mais" shows all 31 and the line goes; "Ver menos" folds it back
+- **And** a list of 5 or fewer shows neither the button nor the line
 
 #### Prompt on scheduler invite-start path
 - **Given** semi-automatic mode and the `invite_start` job firing for an instance with an unconfirmed spot
