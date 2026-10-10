@@ -42,6 +42,14 @@ on:
         type: choice
         default: both
         options: [ both, backend, frontend ]
+      # PAD-589 (delivery.staging-data-sync): how the sync-db job refreshes staging's
+      # database. auto = the newest nightly dump, only if not restored yet (every push);
+      # reload = that dump again (e.g. after a rebased migration); live = pg_dump of prod.
+      sync_db:
+        description: "Staging database refresh"
+        type: choice
+        default: auto
+        options: [ auto, reload, live ]
 
 concurrency:
   group: deploy-staging
@@ -202,8 +210,10 @@ jobs:
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
 
-  # PAD-200: refresh staging's database from prod on EVERY staging deploy, so
-  # staging tests against current, realistic data. Best-effort by contract:
+  # PAD-200 / PAD-589: refresh staging's database. On a push the script restores the
+  # newest NIGHTLY DUMP from GCS, and only when that dump has not been restored yet
+  # (otherwise it exits before stopping staging), so prod's Postgres is no longer
+  # dumped on every push; `reload` and `live` are workflow_dispatch only. Best-effort by contract:
   # `continue-on-error` keeps a failed copy from failing the deploy, the script
   # itself exits 0 on every guard, and it always restarts the staging app.
   # Runs after `backend` (which may be skipped on a frontend-only push — the
@@ -235,7 +245,7 @@ jobs:
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
         script: |
-          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging || true
+          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging "${{ inputs.sync_db || 'auto' }}" || true
 
   frontend:
     needs: [ changes, backend ]

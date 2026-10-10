@@ -1,15 +1,22 @@
 #!/bin/bash
 # =============================================================================
-# sync-staging-db.sh — refresh the STAGING database from PRODUCTION (PAD-200)
+# sync-staging-db.sh — refresh the STAGING database (PAD-200, PAD-589)
 #
-# Runs ON THE VM (levelup-instance), invoked by deploy-staging.yaml after the
-# staging backend container is up. Copies `padel_app` (prod) into
-# `padel_app_staging` as a full replace, then restarts the staging app so its
-# entrypoint runs `flask db upgrade` and the copied schema matches staging's
-# code (staging can carry migrations prod does not have yet).
+# Runs ON THE VM, invoked by deploy-staging.yaml after the staging backend
+# container is up. Replaces `padel_app_staging` with a copy of production data,
+# then restarts the staging app so its entrypoint runs `flask db upgrade` and
+# the copied schema matches staging's code (staging can carry migrations prod
+# does not have yet).
 #
-# Contract (ticket PAD-200):
-#   * every staging deploy, not a schedule;
+# Source (PAD-589, spec delivery.staging-data-sync), by MODE (2nd argument):
+#   auto   (every push)  the newest NIGHTLY DUMP in GCS ($BACKUP_BUCKET/padel_app/,
+#                        written by backup.sh), and only if that dump has not been
+#                        restored yet (~/staging-sync.state). Otherwise exit before
+#                        touching staging. Live prod is never read.
+#   reload (by hand)     the newest nightly dump, even if already restored.
+#   live   (by hand)     the PAD-200 path: pg_dump of live prod. Records no state.
+#
+# Contract (PAD-200, still true):
 #   * no anonymisation — prod data is copied as-is (staging has no push / mail
 #     / AI credentials, so copied students can never be contacted from it);
 #   * BEST-EFFORT: nothing here may fail the deploy. Every failure path logs
@@ -27,9 +34,10 @@
 #     the restore always lands on an empty schema (staging-only tables that
 #     prod does not have would otherwise block `--clean`).
 #
-# Usage:  bash sync-staging-db.sh [/path/to/.env.staging]
+# Usage:  bash sync-staging-db.sh [/path/to/.env.staging] [auto|reload|live]
 # Env overrides: APP_CONTAINER, PG_CONTAINER, SOURCE_DB, MIN_FREE_MB,
-#                HEALTH_URL, EXPECTED_TARGET_DB
+#                HEALTH_URL, EXPECTED_TARGET_DB, BACKUP_CONFIG, BACKUP_BUCKET,
+#                SYNC_STATE_FILE, SYNC_STALE_HOURS, SYNC_NOW_EPOCH (tests)
 # =============================================================================
 set -uo pipefail
 
@@ -40,11 +48,15 @@ SOURCE_DB="${SOURCE_DB:-padel_app}"
 EXPECTED_TARGET_DB="${EXPECTED_TARGET_DB:-padel_app_staging}"
 MIN_FREE_MB="${MIN_FREE_MB:-1024}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:5100/api/app/healthz}"
+MODE="${2:-auto}"
+STATE_FILE="${SYNC_STATE_FILE:-$HOME/staging-sync.state}"
+STALE_HOURS="${SYNC_STALE_HOURS:-48}"
 
 log() { echo "[sync-staging-db] $*"; }
 skip() { log "SKIPPED: $*"; exit 0; }
 
 # ── 1. Read the staging DB identity from .env.staging (KEY=VALUE lines only) ──
+case "$MODE" in auto|reload|live) ;; *) skip "unknown mode '$MODE' (auto, reload or live)" ;; esac
 [ -f "$ENV_FILE" ] || skip "env file not found: $ENV_FILE"
 PG_USER=$(grep -E '^POSTGRES_USER=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '[:space:]')
 TARGET_DB=$(grep -E '^POSTGRES_DB=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '[:space:]')
@@ -67,8 +79,39 @@ fi
 
 pg() { docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$1" -Atc "$2"; }
 
-SOURCE_USERS=$(pg "$SOURCE_DB" "select count(*) from users;" 2>/dev/null || echo "?")
-log "source $SOURCE_DB has $SOURCE_USERS users; target $TARGET_DB; ${FREE_MB} MB free"
+# ── 2b. Pick the source; in auto mode, stop here if it is already restored ──
+# Everything up to the `docker stop` below must leave staging untouched: a push
+# whose dump is already loaded costs one `gsutil ls` and nothing else (rule 2).
+DUMP=""
+if [ "$MODE" = "live" ]; then
+  SOURCE_USERS=$(pg "$SOURCE_DB" "select count(*) from users;" 2>/dev/null || echo "?")
+  log "mode live: source $SOURCE_DB has $SOURCE_USERS users; target $TARGET_DB; ${FREE_MB} MB free"
+else
+  BACKUP_CONFIG="${BACKUP_CONFIG:-$HOME/.backup.env}"
+  if [ -z "${BACKUP_BUCKET:-}" ] && [ -f "$BACKUP_CONFIG" ]; then
+    BACKUP_BUCKET=$(grep -E '^BACKUP_BUCKET=' "$BACKUP_CONFIG" | tail -1 | cut -d= -f2- | tr -d '[:space:]')
+  fi
+  [ -n "${BACKUP_BUCKET:-}" ] || skip "no BACKUP_BUCKET (in $BACKUP_CONFIG, written by deploy-prod)"
+  BACKUP_BUCKET="${BACKUP_BUCKET%/}"
+  command -v gsutil >/dev/null 2>&1 || skip "gsutil not found"
+  # The selection backup.sh restore-check uses: the stamp sorts lexicographically.
+  # Only the prod prefix; padel_app_staging/ dumps are never a source.
+  DUMP=$(gsutil ls "$BACKUP_BUCKET/$SOURCE_DB/" 2>/dev/null | grep -E "/$SOURCE_DB-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}\.dump$" | sort | tail -1 || true)
+  [ -n "$DUMP" ] || skip "no nightly dump under $BACKUP_BUCKET/$SOURCE_DB/"
+  DUMP_SIZE=$(gsutil stat "$DUMP" 2>/dev/null | awk '/Content-Length/ {print $2}')
+  [ "${DUMP_SIZE:-0}" -gt 0 ] 2>/dev/null || skip "$DUMP is empty"
+  if [ "$MODE" = "auto" ] && [ -f "$STATE_FILE" ] && [ "$(head -1 "$STATE_FILE")" = "$DUMP" ]; then
+    skip "$DUMP already restored"
+  fi
+  # Rule 8: say so when the newest backup is old (backup.sh owns the alarm).
+  STAMP="${DUMP##*/$SOURCE_DB-}"; STAMP="${STAMP%.dump}"
+  NOW_EPOCH="${SYNC_NOW_EPOCH:-$(date -u +%s)}"
+  DUMP_EPOCH=$(python3 -c "import calendar,datetime,sys; print(calendar.timegm(datetime.datetime.strptime(sys.argv[1], '%Y-%m-%d_%H%M').timetuple()))" "$STAMP" 2>/dev/null || echo "")
+  if [ -n "$DUMP_EPOCH" ] && [ $((NOW_EPOCH - DUMP_EPOCH)) -gt $((STALE_HOURS * 3600)) ]; then
+    log "WARNING: newest backup is from $STAMP (more than ${STALE_HOURS} h old)"
+  fi
+  log "mode $MODE: source $DUMP (${DUMP_SIZE} bytes); target $TARGET_DB; ${FREE_MB} MB free"
+fi
 
 # ── 3. Stop the staging app; ALWAYS start it again, whatever happens below ──
 restart_app() {
@@ -104,12 +147,30 @@ pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/
   || log "WARNING: could not wipe schema public on $TARGET_DB"
 # pg_restore exits 1 for non-fatal "errors ignored"; the restore itself has
 # still completed. Log and go on.
-log "copying $SOURCE_DB -> $TARGET_DB (streamed, no dump file)"
-if docker exec "$PG_CONTAINER" sh -c \
-  "pg_dump -U '$PG_USER' -Fc '$SOURCE_DB' | pg_restore -U '$PG_USER' -d '$TARGET_DB' --no-owner --no-privileges"; then
-  log "copy finished cleanly"
+if [ "$MODE" = "live" ]; then
+  log "copying $SOURCE_DB -> $TARGET_DB (streamed, no dump file)"
+  if docker exec "$PG_CONTAINER" sh -c \
+    "pg_dump -U '$PG_USER' -Fc '$SOURCE_DB' | pg_restore -U '$PG_USER' -d '$TARGET_DB' --no-owner --no-privileges"; then
+    log "copy finished cleanly"
+  else
+    log "copy finished with pg_restore exit $? (non-fatal errors are normal)"
+  fi
 else
-  log "copy finished with pg_restore exit $? (non-fatal errors are normal with --clean)"
+  log "restoring $DUMP -> $TARGET_DB (streamed, no dump file)"
+  if gsutil cp "$DUMP" - | docker exec -i "$PG_CONTAINER" pg_restore -U "$PG_USER" -d "$TARGET_DB" --no-owner --no-privileges; then
+    log "restore finished cleanly"
+  else
+    log "restore finished with a non-zero exit (pg_restore exits 1 for ignored errors)"
+  fi
+  # Rule 3: the exit status is not the test; rows are. Record the dump only
+  # when the restore produced users, so a failed one is retried on the next push.
+  RESTORED_USERS=$(pg "$TARGET_DB" "select count(*) from users;" 2>/dev/null || echo 0)
+  if [ "${RESTORED_USERS:-0}" -gt 0 ] 2>/dev/null; then
+    printf '%s\n' "$DUMP" > "$STATE_FILE" || log "WARNING: could not write $STATE_FILE"
+    log "restored $RESTORED_USERS users from $DUMP"
+  else
+    log "WARNING: restore of $DUMP produced no users; it will be tried again on the next push"
+  fi
 fi
 
 # ── 5. Safety scrub — nothing on staging may ever reach a real person ────────
