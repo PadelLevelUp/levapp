@@ -81,6 +81,15 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 17. **Retries, ignored payloads and failing listeners are logged at debug level only**
     (`console.debug` by default), never `console.log`, `warn` or `error`. A listener that throws
     never stops the others from receiving the event
+18. **A `message_edited` payload is the whole serialised message, and a client merges what can
+    change (PAD-563, ledger B-402).** The server publishes `serialize_message(msg, None)` for a
+    text edit and for every metadata edit — a retired invitation (`notifications.invitations`
+    rule 15), a withdrawn one (rule 19), a superseded reminder (`notifications.reminders` rule 9),
+    an answer the coach recorded (`notifications.invitations` rule 9). The open conversation on
+    each shell merges `content`, `edited` (as sent; a metadata-only edit is not "edited") and
+    `metadata` into the cached message, and never `isRead` or `status`, which the viewer-less
+    payload does not know. Both shells merged only `content` and forced `edited: true` before
+    this rule, so no bubble changed live until a refetch.
 
 ### Acceptance Criteria
 
@@ -150,6 +159,12 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** it retries
 - **Then** it waits 500 ms, 1 s and 2 s; after a successful open the next error waits 500 ms again
 - **And** no delay ever exceeds 30 s
+
+#### A metadata edit reaches the open conversation live (rule 18, PAD-563)
+- **Given** a conversation open on web or iOS with an invitation message showing Yes/No
+- **When** a `message_edited` arrives whose payload carries `metadata.responded: true`, `metadata.answeredBy: "coach"` and `edited: false`
+- **Then** the cached message's `metadata` is replaced by the payload's, its `content` and `edited` follow the payload, and its `isRead` and `status` are untouched
+- **And** the bubble re-renders without a reload
 
 #### Under load the API stays responsive
 - **Given** gunicorn with the production flags (1 worker, 64 threads) and 70 clients opening streams

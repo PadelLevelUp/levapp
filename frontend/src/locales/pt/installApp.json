@@ -1,0 +1,8 @@
+{
+  "installApp": {
+    "title": "A LevApp também está na App Store",
+    "body": "Notificações push e chat nativo: instala a app iOS.",
+    "open": "Ir para a App Store",
+    "dismiss": "Agora não"
+  }
+}

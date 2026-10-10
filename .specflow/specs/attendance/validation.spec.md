@@ -299,6 +299,72 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     ("0 presentes"), because pt's CLDR puts 0 in `one` (rule 14). Test id
     `presences-class-present-count` on both shells. Decided with the coordinator, 2026-10-07.
 
+26. **A mark can be cleared back to "no answer" (PAD-567; rule number self-assigned by Session C on
+    2026-10-09, unconfirmed).** The ticket's scenario: the coach marked a student present, the
+    student later says they are no longer sure, and the coach wants the row back to *"ainda sem
+    resposta"* without having to call it an absence.
+    - **Toggle on both shells, in both editors.** In the class detail's attendance editor
+      (`AttendanceRow` on web, the presences section of `app/class/[id].tsx` on iOS) and in the
+      Presences validate view (`PresenceMarkToggle` on both shells), pressing the mark that is
+      already selected deselects it: the row's local mark becomes `null` (`effectiveMark`'s
+      undecided, rule 5), the PAD-443 "needs a decision" highlight returns, and `presentCount` /
+      `undecidedCount` move with it. The deselect is **visible** on iOS too — the control leaves
+      its selected tone and the row's state word returns to "Inscrito" at once — so a cleared
+      tap never reads as a dead one (orchestrator, 2026-10-09; Maestro asserts the state change). There is no separate "Limpar" control: the toggle is the
+      explicit option the ticket offers as an alternative, and one gesture is less chrome.
+      Test ids: web `attendance-present` / `attendance-absent` (with `aria-pressed`) and
+      `attendance-save` on the class detail; iOS `attendance-present-<playerId>` and
+      `attendance-confirm`; `attendance-clear-over-capacity-confirm` on both shells.
+    - **Wire contract.** Saving sends the row through the existing
+      `POST /class_instance/presences/confirm` as `{"playerId", "clear": true}` — an explicit
+      key, never `status: null`, so an old client (which never sends a null status: rule 5 blocks
+      saving an undecided row) cannot clear by accident and the falsy-dropping form layer
+      (PAD-367) cannot swallow it. `add_presences` writes the **never-answered shape**, exactly
+      what `enrol()` leaves: `status = None`, `justification = None`, `validated = False`,
+      `response = "none"`, `responded_at = None`, `recorded_by = None`, `confirmed = False`
+      (`invited` untouched). This is the one coach action that moves `response`
+      (`attendance.presence` rule 7, amended): the ticket says it must work when the state came
+      from the student's own answer, "exatamente como se ninguém tivesse respondido".
+      The reply carries `cleared: [playerId…]` beside the rows it already returns.
+    - **A validated row may be cleared** (decided here, documented for the owner): the clear
+      is per row, and it sets that row's `validated = False`, so a validated class with a cleared
+      row has an unvalidated presence again and comes back to "Precisa da sua decisão" (rule 18's
+      backlog predicate and rule 23's badge read the rows, nothing else to do). Undo (rule 9)
+      stays the per-class door and still never erases a mark.
+    - **Capacity reopens.** An absent row does not occupy a seat (`effective_filled_spots`); a
+      cleared one does again. Clearing an absence closes the student's own open vacancy
+      (`_open_vacancy_for` → `_close_vacancy`, retiring its live invitations, PAD-499 publish on
+      commit) and runs `reconcile_vacancies`, the same path `add_presences` runs for absent →
+      present. **If the freed spot was taken meanwhile** — the class is at or over
+      `effective_max_players` before the clear — the coach is **warned and the clear is allowed**
+      (owner decision, 2026-10-09): both shells show a confirmation dialog on the class detail
+      ("a aula fica acima da lotação: N/M") before saving, judged on the payload's `filled` /
+      `capacity`, and the server never refuses. The validate view lists only ended classes
+      (rule 3), where capacity is moot, so it needs no dialog.
+    - **Reminders.** `notifications.reminders` rule 23 reads `status` at send time, so a cleared
+      student is eligible again for every pass still to run. When the occurrence's first-reminder
+      instant has already passed and the student has had no counted reminder, the clear **arms
+      the late ask** through the same door enrolment uses (`arm_ask_for_student`, rule 18) — the
+      ticket's "volta a ser elegível para lembretes" would otherwise be empty words on a class
+      whose chain has ended. Nothing is armed when a reminder of theirs is still live, when the
+      instant is ahead (the ordinary reminder will ask), when the occurrence's notifications are
+      off, or when the class is over. **Bound (orchestrator, 2026-10-09, owner-vetoable as it
+      touches reminder volume): at most one send per clear**, counted like any reminder against
+      `reminderCount`; clearing twice sends once, because the second clear finds the first
+      pass's reminder live and arms nothing.
+    - **Semi-automatic mode.** Clearing creates no vacancy and no suggestion (nothing is freed).
+      When the cleared row was an absence and the coach is in semi-automatic mode, the server
+      runs `recompute_suggestions` (`notifications.semi-auto-approval` rule 12) after the write,
+      so a suggestion born of that absence is withdrawn and the class's suggestion state is
+      re-derived; the confirm reply's `approvalBundle` reflects it.
+    - **The student is not told** (decided here, default for the owner to reverse): the coach is
+      editing their own record, and the reminder — ordinary or re-armed — is how the student
+      hears they are asked again; a message saying "your answer was cleared" would be noise. The
+      student's surfaces follow `attendanceState` (`planned` again) and `pendingConfirmation`
+      (`attendance.confirm` rule 27) on the next read.
+    - PAD-570 interplay: a cleared student is `planned`; whether they may say "Vou" is rule 27's
+      predicate, not this rule's business.
+
 ### Acceptance Criteria
 
 #### The count endpoint is the listing's count
@@ -548,3 +614,43 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the list reads ana silva, Bruno Silva Ramos, Zé Costa
 - **When** they type "silva ana"
 - **Then** only "ana silva" is listed
+
+#### Pressing the selected mark clears it (PAD-567, rule 26)
+- **Given** a coach editing attendance on the class detail with Ana marked present
+- **When** they press "Presente" again
+- **Then** Ana's row shows no mark, the "needs a decision" highlight returns and `presentCount` drops by one, on web and on iOS, and the same happens in the Presences validate view through `PresenceMarkToggle`
+
+#### Saving a cleared row writes the never-answered shape (PAD-567, rule 26)
+- **Given** Ana's row `status = "present"`, `validated = true`, `response = "confirmed"`, `responded_at` set, `recorded_by = "student"`
+- **When** the coach saves `{"playerId": <ana>, "clear": true}` through `POST /class_instance/presences/confirm`
+- **Then** the row reads `status = null`, `justification = null`, `validated = false`, `response = "none"`, `responded_at = null`, `recorded_by = null`, `confirmed = false`, its `attendanceState` is `planned`, and the reply lists her in `cleared`
+
+#### Clearing an absence reopens the seat and closes her vacancy (PAD-567, rule 26)
+- **Given** Ana absent on a 4-place class with 3 others coming, her open vacancy inviting Bea
+- **When** the coach clears Ana's mark
+- **Then** `effective_filled_spots` is 4, Ana's vacancy is closed and Bea's invitation retired, and no new vacancy exists
+
+#### The freed spot was taken: warn and allow (PAD-567, rule 26)
+- **Given** Ana absent on a 4-place class where Bea has since taken the seat (4 coming)
+- **When** the coach clears Ana's mark on the class detail
+- **Then** a dialog warns that the class goes to 5/4 before saving, and on confirm the server records the clear without refusing
+
+#### A cleared student is asked again (PAD-567, rule 26)
+- **Given** a class whose first-reminder instant passed, where Ana was marked present before the pass (so rule 23 skipped her) and has no counted reminder
+- **When** the coach clears her mark
+- **Then** one reminder pass is armed for her (`arm_ask_for_student`), and none is armed when her reminder is still live, the class's notifications are off, or the class is over
+
+#### Clearing twice sends one reminder (PAD-567, rule 26)
+- **Given** the same class and Ana cleared once, her armed pass having sent her reminder
+- **When** the coach marks her present and clears her again
+- **Then** no second pass is armed and she has exactly one counted reminder
+
+#### A cleared row brings a validated class back to the backlog (PAD-567, rule 26)
+- **Given** a validated past class
+- **When** the coach clears one row
+- **Then** that row's `validated` is false, the class is pending again in rule 18's count and rule 23's badge, and the other rows keep their marks
+
+#### A cleared absence withdraws its suggestion (PAD-567, rule 26)
+- **Given** a coach in semi-automatic mode with a pending replacement suggestion born of Ana's absence
+- **When** the coach clears Ana's mark
+- **Then** `recompute_suggestions` runs, the suggestion for her seat is gone, and no new vacancy or suggestion was created

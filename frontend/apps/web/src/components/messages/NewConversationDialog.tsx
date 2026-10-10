@@ -32,6 +32,13 @@ interface NewConversationDialogProps {
    * with that username") can be shown inline.
    */
   onStartByUsername?: (username: string) => Promise<void>;
+  /**
+   * PAD-568 (messaging.conversations rule 7, "A student with no coach sees the connect
+   * shortcut"): when the server's list is EMPTY — not merely filtered down to nothing by
+   * `existingParticipantIds` — a student is offered "Ligar-me a um treinador". The page
+   * passes this for students only; a coach with no roster sees the plain empty line.
+   */
+  onConnectWithCoach?: () => void;
 }
 
 function errorStatus(error: unknown): number | undefined {
@@ -46,11 +53,17 @@ export function NewConversationDialog({
   existingParticipantIds,
   onSelectUser,
   onStartByUsername,
+  onConnectWithCoach,
 }: NewConversationDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
+  // PAD-568: how many people the server listed BEFORE the existing-thread filter, so the
+  // dialog can tell "not connected to anyone" from "already talking to everyone". `null`
+  // until a load has answered, so neither state flashes before the request returns.
+  const [connectedCount, setConnectedCount] = useState<number | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -96,9 +109,11 @@ export function NewConversationDialog({
           (user) => !existingParticipantIds.includes(user.id)
         );
 
+        setConnectedCount(allUsers.length);
         setUsers(availableUsers);
       } catch (error) {
         console.error('Failed to load users', error);
+        setLoadFailed(true);
       } finally {
         setLoading(false);
       }
@@ -106,6 +121,8 @@ export function NewConversationDialog({
 
     if (open) {
       setPickerError(null);
+      setConnectedCount(null);
+      setLoadFailed(false);
       loadUsers();
     }
   }, [open, existingParticipantIds]);
@@ -113,6 +130,35 @@ export function NewConversationDialog({
   const filteredUsers = users.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Why the list is empty, in order of precedence; `null` when there are rows to show.
+  const emptyKind =
+    loading || (connectedCount === null && !loadFailed)
+      ? 'loading'
+      : loadFailed
+      ? 'failed'
+      : connectedCount === 0
+      ? 'not-connected'
+      : users.length === 0
+      ? 'all-taken'
+      : filteredUsers.length === 0
+      ? 'no-match'
+      : null;
+  const emptyCopy: Record<Exclude<typeof emptyKind, null>, string> = {
+    loading: t('messages.loadingUsers'),
+    failed: t('messages.couldNotLoadPeople'),
+    'not-connected': t('messages.notConnectedYet'),
+    'all-taken': t('messages.allUsersHaveConversations'),
+    'no-match': t('messages.noUsersFound'),
+  };
+  // Literal ids (never built from a string) so the E2E specs' `getByTestId` calls stay greppable.
+  const emptyTestId: Record<Exclude<typeof emptyKind, null>, string> = {
+    loading: 'new-conversation-loading',
+    failed: 'new-conversation-failed',
+    'not-connected': 'new-conversation-not-connected',
+    'all-taken': 'new-conversation-all-taken',
+    'no-match': 'new-conversation-no-match',
+  };
 
   const getInitials = (name: string) =>
     name
@@ -167,13 +213,35 @@ export function NewConversationDialog({
           {/* User List */}
           <ScrollArea className="h-[300px]">
             <div className="space-y-1">
-              {loading || filteredUsers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  {loading
-                    ? t('messages.loadingUsers')
-                    : users.length === 0
-                    ? t('messages.allUsersHaveConversations')
-                    : t('messages.noUsersFound')}
+              {emptyKind === 'not-connected' && onConnectWithCoach ? (
+                /* PAD-568: a student linked to no coach. The shortcut leads to
+                   players.join-token rule 8's "Connect with a coach"; the username
+                   field below stays available. */
+                <div
+                  className="flex flex-col items-center gap-2 text-center py-6 px-4"
+                  data-testid="new-conversation-empty"
+                >
+                  <p className="text-sm font-medium">{emptyCopy['not-connected']}</p>
+                  <p className="text-sm text-muted-foreground">{t('messages.notConnectedYetHint')}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2"
+                    data-testid="new-conversation-connect"
+                    onClick={() => {
+                      setOpen(false);
+                      onConnectWithCoach();
+                    }}
+                  >
+                    {t('players.connect.dashboardLink')}
+                  </Button>
+                </div>
+              ) : emptyKind ? (
+                <div
+                  className="text-center py-8 text-muted-foreground text-sm"
+                  data-testid={emptyTestId[emptyKind]}
+                >
+                  {emptyCopy[emptyKind]}
                 </div>
               ) : (
                 filteredUsers.map((user) => (

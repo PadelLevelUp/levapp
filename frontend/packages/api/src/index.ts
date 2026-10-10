@@ -8,6 +8,7 @@ export {
   SSE_RETRY_MAX_MS,
 } from "./sse";
 export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
+export { mergeEditedMessage } from "./message-edits";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as academyClassesApi from "./resources/academyClasses";

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
-import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
+import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeSideReasoning, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
 
 import type {
   CalendarEvent,
@@ -280,6 +280,7 @@ function SimulationResults({
   const gates = sortGates(simulation.gates);
   const blocked = gates.filter((g) => g.blocked);
   const sideKey = simulation.spot.side ?? "none";
+  const sideReason = describeSideReasoning(simulation.spot);
   const spotParams = {
     side: t(`tutorials.sides.${sideKey}`),
     level: simulation.spot.levelCode ?? "",
@@ -343,6 +344,10 @@ function SimulationResults({
         {simulation.spot.levelCode
           ? t("tutorials.understandInvites.spot", spotParams)
           : t("tutorials.understandInvites.spotNoLevel", spotParams)}
+      </p>
+      {/* PAD-566 (rule 4.4): why that side — the engine's own counts, never recomputed here. Mirrored on iOS. */}
+      <p className="text-xs text-muted-foreground" data-testid="tutorial-spot-side-reason">
+        {resolveText(t, sideReason)}
       </p>
 
       <div className="space-y-3">

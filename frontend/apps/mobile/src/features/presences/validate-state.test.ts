@@ -246,3 +246,14 @@ describe("selection", () => {
     expect(clearValidated([1, 2], [1])).toEqual([2]);
   });
 });
+
+describe("PAD-567: a cleared mark is undecided and never sent as a mark", () => {
+  it("a null edit on a stored mark leaves the player out of the payload and counts as remaining", () => {
+    const klass = {
+      lessonInstanceId: 9,
+      players: [{ playerId: 1, name: "Ana", status: "present", justification: null, response: "confirmed" }],
+    } as never;
+    expect(resolvePresences(klass, { 1: null } as never)).toEqual([]);
+    expect(remainingFor(klass, { 9: { 1: null } } as never)).toBe(1);
+  });
+});

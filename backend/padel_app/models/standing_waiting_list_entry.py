@@ -38,9 +38,13 @@ class StandingWaitingListEntry(db.Model, model.Model):
     # PAD-547 (notifications.waiting-list rule 19): an entry scoped to one series fans out only to
     # that series' occurrences; NULL is the coach-wide reach of rule 3a.
     lesson_id = Column(Integer, ForeignKey("lessons.id", ondelete="CASCADE"), nullable=True)
-    credits_total = Column(Integer, nullable=False)
+    # PAD-560 (notifications.waiting-list rules 19, 19a): NULL is "no credit limit" — a yes spends
+    # nothing (credits_used still counts) and never closes the entry.
+    credits_total = Column(Integer, nullable=True)
     credits_used = Column(Integer, default=0, nullable=False)
     expires_at = Column(DateTime, nullable=False)
+    # PAD-560 (rule 19): the entry covers the whole series; false is a dated window (rule 19a).
+    whole_series = Column(Boolean, default=False, nullable=False, server_default="0")
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: utcnow_naive())
 

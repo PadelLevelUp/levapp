@@ -128,8 +128,10 @@ def test_shared_club_is_known(client, app, people):
 
 
 def test_club_member_and_club_coach_are_known(client, app, people):
-    """carla is in maria's club but not on her roster."""
-    conv = _start_by_ids(client, app, people["maria"], [people["carla"]])
+    """carla is in maria's club but not on her roster. Since PAD-568 a shared club is not a
+    messaging link, so maria reaches carla by exact username; the banner rule (block-and-report
+    rule 7) still reads club membership and is what this test is about."""
+    conv = _start_by_username(client, app, people["maria"], "kc_carla")
     assert _detail(client, app, people["carla"], conv)["isKnownContact"] is True
 
 

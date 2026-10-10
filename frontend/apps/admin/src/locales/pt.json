@@ -20,7 +20,9 @@
         "support": "support"
       },
       "readOnly": "Só leitura",
-      "language": "Idioma"
+      "language": "Idioma",
+      "menu": "Menu",
+      "closeMenu": "Fechar menu"
     },
     "signIn": {
       "title": "Consola de staff",

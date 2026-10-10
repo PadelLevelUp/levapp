@@ -1,0 +1,230 @@
+# PAD-570 — attendance.confirm rules 27-28: a student may say "Vou" only once
+# asked (the coach's first reminder, or one sent by hand), and "Não vou" is final.
+#
+# Replaces 50-come-back (rule 26 is reversed by this ticket). The class is booked
+# eight to fourteen days out, so under the seeded coach's 48 h first reminder the
+# student has NOT been asked: the detail offers only the decline and no confirm.
+# The coach's manual reminder (API) is the ask; then "Vou" appears, records
+# `coming`, and after "Não vou" the hint shows and the confirm never comes back.
+#
+# Setup and teardown through the API exactly like 42-cancel-requested-class
+# (the request form is flow 13's subject): book the first free block eight to
+# fourteen days out, accept as the coach, drive the student UI, remove.
+# Order: not load bearing. Backend: -e API_BASE=http://localhost:<port>, else :5001.
+# Flow number 229 is self-assigned from Session C's range (229-238), unconfirmed.
+#
+# Mirrors: apps/web/e2e/attendance/pad570-vou-after-reminder.spec.ts
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.from = output.fmt(new Date(Date.now() + 8 * 86400000))}"
+- evalScript: "${output.to = output.fmt(new Date(Date.now() + 14 * 86400000))}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.slot = json(http.get(output.api + '/api/app/class-requests/free-blocks?coachId=' + output.coachId + '&from=' + output.from + '&to=' + output.to, { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0]}"
+- evalScript: "${output.day = output.slot.date}"
+- evalScript: "${output.endTime = (function (t) { var h = parseInt(t.split(':')[0], 10) + 1; return (h < 10 ? '0' + h : '' + h) + ':' + t.split(':')[1]; })(output.slot.startTime)}"
+- evalScript: "${output.requestId = json(http.post(output.api + '/api/app/class-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ coachId: output.coachId, date: output.day, startTime: output.slot.startTime, endTime: output.endTime }) }).body).id}"
+- evalScript: "${output.accepted = http.post(output.api + '/api/app/class-requests/' + output.requestId + '/accept', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: '{}' }).ok}"
+- assertTrue: "${output.accepted == true}"
+# The occurrence as the calendar addresses it (the manual reminder needs it).
+- evalScript: "${output.event = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
+- assertTrue: "${output.event != null}"
+
+# ── Rule 27, before the ask: the student sees only "Não vou" ──
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+# Same calendar walk as flow 48/50: reset the week in Semana, switch to Dia, then
+# step forward until the class's own day cell is on the strip.
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-cancel-attendance"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible:
+    id: "class-confirm-attendance"
+# The dashboard agrees (dashboard.blocks rule 3a): the booked class's row offers one
+# "Avisar que não vou" and no hint yet. (Other rows may offer it too; the hint is
+# the discriminating assertion, below, after the decline.)
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "tab-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "student-dashboard"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "dashboard-decline-open"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible:
+    id: "dashboard-declined-hint"
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+
+# ── The coach asks by hand (API): now "Vou" is offered ──
+- evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/send_reminders', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ model: output.event.model, originalId: String(output.event.originalId), date: output.day }) }).body).sent}"
+- assertTrue: "${output.sent >= 1}"
+# Leave and re-enter the class so the screen re-reads the payload. The class query keeps
+# its data for 30 s (staleTime, app/_layout.tsx); re-entering inside that window renders the
+# cached pre-ask payload (A's run at ccd74bb7d), so wait out the window first — the web spec's
+# `page.reload()` equivalent. The reminder's live event does not refetch the open class
+# detail; that is noted in the PR, not this flow's business.
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "pad570-stale-window-elapsed"
+    timeout: 31000
+    optional: true
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E Student"
+    timeout: 15000
+- tapOn: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-confirm-attendance"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-confirm-attendance"
+- extendedWaitUntil:
+    visible:
+      id: "attendance-state-coming"
+    timeout: 20000
+- assertNotVisible:
+    id: "class-confirm-attendance"
+
+# ── Rule 28: "Não vou" is final ──
+- scrollUntilVisible:
+    element:
+      id: "class-cancel-attendance"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-cancel-attendance"
+- extendedWaitUntil:
+    visible:
+      id: "class-cancel-attendance-confirm"
+    timeout: 10000
+- tapOn:
+    id: "class-cancel-attendance-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "attendance-state-not_coming"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "class-declined-hint"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "class-chat-coach"
+- assertNotVisible:
+    id: "class-confirm-attendance"
+- assertNotVisible:
+    id: "class-cancel-attendance"
+
+# The dashboard row now shows the hint (dashboard.blocks rule 3a).
+- tapOn:
+    id: "class-detail-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "tab-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "student-dashboard"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "dashboard-declined-hint"
+    direction: DOWN
+    timeout: 30000
+
+# ── The server agrees, then clean up ──
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.instance = output.events.filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
+- evalScript: "${output.presences = json(http.get(output.api + '/api/app/lesson_instance/' + output.instance.originalId + '/presences', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- assertTrue: "${output.presences.length === 1 && output.presences[0].attendanceState === 'not_coming'}"
+- evalScript: "${output.lateYes = json(http.post(output.api + '/api/app/notify/respond_reminder', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ lessonInstanceId: output.instance.originalId, action: 'yes' }) }).body).action}"
+- assertTrue: "${output.lateYes === 'already_declined'}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"

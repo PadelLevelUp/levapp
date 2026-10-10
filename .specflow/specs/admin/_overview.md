@@ -21,6 +21,9 @@ hold a role, and every write is audited. Epic PAD-530, owner decisions 2026-10-0
   deployed SHA and migration head per environment, per-coach engine settings)
 - `admin.commercial-groundwork` — draft, **blocked** (PAD-535, by PAD-536 and PAD-472: `plans`,
   `coach_plans`, entitlements through capabilities, no payment provider)
+- `admin.phone-console` — draft (PAD-572: every console page usable at 375 px from a phone
+  browser; the sidebar collapses to a top bar and drawer, tables become cards or scroll in their
+  own container, 44 px tap targets, Playwright at phone viewport; still web-only, no staff app)
 
 ## Why it's grouped this way
 

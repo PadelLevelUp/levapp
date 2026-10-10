@@ -23,9 +23,10 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Eyebrow, FillBar, FillCount, StatusBadge } from "./primitives";
-import { AnswerButtons } from "./AnswerButtons";
+import { AnswerButtons, DeclineButton, DeclinedHint } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
-import { weekdayShort } from "@levelup/config";
+import { useDeclineFromDashboard } from "./useDeclineFromDashboard";
+import { studentRowAction, weekdayShort } from "@levelup/config";
 
 type Row = DashboardSchedule7dBlock["data"]["items"][number];
 
@@ -68,6 +69,7 @@ export function Schedule7Days({
   const { items, totalCount, calendarHref } = block.data;
   const student = role === "student";
   const { answer, busyId } = useAnswerReminder(onAnswered);
+  const { decline, busyKey } = useDeclineFromDashboard(onAnswered);
 
   return (
     <section className="flex flex-col gap-2.5" data-testid="dashboard-schedule">
@@ -93,7 +95,12 @@ export function Schedule7Days({
         <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border [container-type:inline-size]">
           {items.map((row) => {
             const short = row.capacity > 0 && row.filled < row.capacity;
-            const pending = student && row.pendingConfirmation === true && typeof row.lessonInstanceId === "number";
+            // PAD-570 (dashboard.blocks rule 3a): Yes / No only while the server says
+            // asked; one "Avisar que não vou" before that or after a yes; a hint after a no.
+            const action = student ? studentRowAction(row) : "none";
+            const pending = action === "answer" && typeof row.lessonInstanceId === "number";
+            const declineTarget =
+              typeof row.lessonInstanceId === "number" ? row.lessonInstanceId : row.declineTarget ?? null;
             return (
               <div
                 key={row.id}
@@ -143,6 +150,18 @@ export function Schedule7Days({
                     busy={busyId === row.lessonInstanceId}
                     onAnswer={(action) => answer(row.lessonInstanceId as number, action)}
                   />
+                )}
+                {action === "decline" && declineTarget !== null && (
+                  <DeclineButton
+                    className="flex shrink-0 items-center"
+                    busy={busyKey === row.id}
+                    onDecline={() => decline(declineTarget, row.id)}
+                  />
+                )}
+                {action === "declined" && (
+                  <div className="shrink-0 max-w-[12rem]">
+                    <DeclinedHint />
+                  </div>
                 )}
 
                 {/* Fixed-width so rows with and without a badge stay aligned. */}

@@ -21,9 +21,11 @@ interface ConversationListProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
+  /** PAD-568: students only — the picker's "connect with a coach" shortcut when nobody is linked. */
+  onConnectWithCoach?: () => void;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -83,6 +85,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
           existingParticipantIds={existingParticipantIds}
           onSelectUser={onNewConversation}
           onStartByUsername={onNewConversationByUsername}
+          onConnectWithCoach={onConnectWithCoach}
         />
         </div>
       </div>

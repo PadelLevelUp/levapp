@@ -40,8 +40,9 @@ can't search for usernames unless you are already connected."*
    connected-users picker — web `NewConversationDialog`, iOS `conversation/new`. No
    autocomplete. On 404 it shows "No user with that username".
 7. **Discovery stays connection-scoped.** The picker (`GET /api/app/messageable-users`) lists only
-   people the caller is already connected with — a coach's roster and club players, a student's
-   linked coaches (`messaging.conversations` rule 7, B-267) — and its search box filters that list by name on both platforms. The general
+   people the caller is already connected with — a coach's roster and live-class students, a
+   student's linked coaches; a shared club is not a connection (`messaging.conversations` rule 7,
+   B-267, PAD-568) — and its search box filters that list by name on both platforms. The general
    user list (`GET /api/app/users`) answers exactly the same set (PAD-500, B-268; it used to list every
    active user to any signed-in caller). No endpoint lists or fuzzy-searches users beyond that set.
    Two exact-match lookups remain, each on a value the caller already has: this rule's own

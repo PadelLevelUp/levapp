@@ -21,6 +21,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -493,6 +494,10 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+
+        {/* PAD-573 (mobile.install-suggestion rule 4): a student on an iPhone is offered the iOS
+            app above the page — pushes the content down, never overlays it. */}
+        <InstallAppBanner />
 
         {/* Page Content */}
         <main

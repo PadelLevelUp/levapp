@@ -61,10 +61,13 @@ appId: com.padellevelup.app
 #    invited-but-unanswered on "E2E Academy Class", so the buttons must be
 #    there. Not tapped: answering would change the seed the calendar flows
 #    (14-student-calendar) rely on. ──
+# PAD-570: returning from the attendance screen lands the dashboard at the TOP, and the
+# schedule sits below the fold (its rows grew a decline button), so the scroll is DOWN;
+# scrolling UP from the top could never reach it (A's run on ccd74bb7d).
 - scrollUntilVisible:
     element:
       id: "dashboard-schedule"
-    direction: UP
+    direction: DOWN
     timeout: 20000
 - assertVisible:
     id: "dashboard-confirm-yes"

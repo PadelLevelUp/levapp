@@ -67,10 +67,31 @@ export function prefillMark(response: PresenceResponse): PresenceMark | null {
  */
 export function effectiveMark(
   player: PendingValidationPlayer,
-  edit: PresenceMark | undefined
+  edit: PresenceMark | null | undefined
 ): PresenceMark | null {
+  // PAD-567 (attendance.validation rule 26): an explicit `null` edit is a CLEARED mark —
+  // the coach pressed the selected state again — and reads as undecided, whatever is
+  // stored. `undefined` is "no edit": fall back to the stored mark, then the prefill.
+  if (edit === null) return null;
   if (edit) return edit;
   return toMark(player.status, player.justification) ?? prefillMark(player.response);
+}
+
+/**
+ * PAD-567: the rows a class-detail save must send as `{playerId, clear: true}` — those
+ * with a mark on the SERVER whose local state the coach cleared (`status: null`).
+ * `absencesOnly` narrows to the cleared absences, the ones that take a seat back and may
+ * put the class over capacity (rule 26's warning).
+ */
+export function clearsFor(
+  server: ReadonlyArray<{ playerId: string | number; status?: PresenceStatus | null }>,
+  local: Record<string, { status: PresenceStatus | null } | undefined>,
+  opts: { absencesOnly?: boolean } = {}
+): string[] {
+  return server
+    .filter((row) => (opts.absencesOnly ? row.status === "absent" : row.status != null))
+    .map((row) => String(row.playerId))
+    .filter((id) => local[id] !== undefined && local[id]?.status === null);
 }
 
 /**
@@ -80,7 +101,7 @@ export function effectiveMark(
  */
 export function presentCount(
   players: PendingValidationPlayer[],
-  edits: Record<number, PresenceMark>
+  edits: Record<number, PresenceMark | null>
 ): number {
   return players.filter((p) => effectiveMark(p, edits[p.playerId]) === "present").length;
 }
@@ -88,7 +109,7 @@ export function presentCount(
 /** A class can be validated once every player has a determination. */
 export function undecidedCount(
   players: PendingValidationPlayer[],
-  edits: Record<number, PresenceMark>
+  edits: Record<number, PresenceMark | null>
 ): number {
   return players.filter((p) => effectiveMark(p, edits[p.playerId]) === null).length;
 }

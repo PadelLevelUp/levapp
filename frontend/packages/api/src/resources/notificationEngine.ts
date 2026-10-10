@@ -1,17 +1,19 @@
 import type {
+  ApprovalAction,
+  ApprovalSuggestionState,
+  ApprovalVacancyResult,
+  ClassWaitingListScopeRequest,
+  CoachClassWaitingListRow,
   EligibilityCheckResult,
   EligibilityImpact,
-  ApprovalAction,
-  ApprovalVacancyResult,
-  ApprovalSuggestionState,
   InviteExplain,
   InviteSimulation,
   InviteSimulationRequest,
+  MessageTemplates,
   NotificationConfig,
   NotificationEventItem,
-  StudentGroup,
-  MessageTemplates,
   StandingWaitingListEntry,
+  StudentGroup,
 } from "@levelup/types";
 import { getApi } from "../client";
 
@@ -279,7 +281,17 @@ export async function respondToReminder(
   // branching per call site: four sites branched on three values and turned a
   // refusal into a confident "declined".
 ): Promise<{
-  action: "confirmed" | "declined" | "expired" | "not_enrolled" | "spot_filled";
+  // PAD-570: a "yes" refused because the student was not asked yet, said no already,
+  // or the coach's record stands. Nothing recorded; `reminderAnswerOutcome` explains it.
+  action:
+    | "confirmed"
+    | "declined"
+    | "expired"
+    | "not_enrolled"
+    | "spot_filled"
+    | "not_yet_asked"
+    | "already_declined"
+    | "already_marked";
   duplicate?: boolean;
 }> {
   const res = await getApi().post("/app/notify/respond_reminder", { lessonInstanceId, action });
@@ -380,16 +392,24 @@ export async function explainInviteCandidate(
 /** PAD-547 (notifications.waiting-list rules 18–19): the coach adds a roster student to this
  * class's waiting list — this occurrence, or the whole series (credits + end date, like the
  * standing list). `already_on_list` when an active row exists. */
-export async function addToClassWaitingList(req: {
-  model: string;
-  originalId: string | number;
-  date: string | null | undefined;
-  playerId: number;
-  scope: "occurrence" | "series";
-  credits?: number;
-  expiresOn?: string;
-}): Promise<{ action: "added" | "already_on_list"; entryId: number | null; standingEntryId?: number }> {
+export async function addToClassWaitingList(
+  req: {
+    model: string;
+    originalId: string | number;
+    date: string | null | undefined;
+    playerId: number;
+  } & ClassWaitingListScopeRequest,
+): Promise<{ action: "added" | "already_on_list"; entryId: number | null; standingEntryId?: number }> {
   const res = await getApi().post("/app/notify/class_waiting_list", { ...req, date: req.date ?? null });
+  return res.data;
+}
+
+/** PAD-560 (notifications.waiting-list rule 22): move one row between the scopes; 409 coach_wide for a coach-wide standing row. */
+export async function changeClassWaitingListScope(
+  entryId: number,
+  req: ClassWaitingListScopeRequest,
+): Promise<CoachClassWaitingListRow> {
+  const res = await getApi().patch(`/app/notify/class_waiting_list/${entryId}`, req);
   return res.data;
 }
 

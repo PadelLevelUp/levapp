@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { PendingValidationPlayer } from "@levelup/types";
 import {
+  clearsFor,
   effectiveMark,
+  presentCount,
   fromMark,
   prefillMark,
   toMark,
@@ -61,6 +63,32 @@ describe("prefill", () => {
 
   it("refuses to guess when nobody answered", () => {
     expect(prefillMark("none")).toBeNull();
+  });
+});
+
+describe("PAD-567: a cleared mark (attendance.validation rule 26)", () => {
+  const stored = { playerId: 1, name: "Ana", status: "present", justification: null, response: "confirmed" } as never;
+  it("a null edit beats the stored mark and reads as undecided", () => {
+    expect(effectiveMark(stored, null)).toBeNull();
+    expect(undecidedCount([stored], { 1: null })).toBe(1);
+    expect(presentCount([stored], { 1: null })).toBe(0);
+  });
+  it("an absent edit (undefined) still falls back to what is stored", () => {
+    expect(effectiveMark(stored, undefined)).toBe("present");
+  });
+  it("clearsFor names the rows that had a mark on the server and lost it locally", () => {
+    const server = [
+      { playerId: "1", status: "present", justification: null },
+      { playerId: "2", status: "absent", justification: "justified" },
+      { playerId: "3", status: null, justification: null },
+    ] as never;
+    const local = { "1": { status: null }, "2": { status: "absent", justification: "justified" }, "3": { status: null } } as never;
+    expect(clearsFor(server, local)).toEqual(["1"]);
+  });
+  it("clearsFor says which cleared rows were absences — the ones that may overfill the class", () => {
+    const server = [{ playerId: "2", status: "absent", justification: "unjustified" }] as never;
+    expect(clearsFor(server, { "2": { status: null } } as never, { absencesOnly: true })).toEqual(["2"]);
+    expect(clearsFor([{ playerId: "1", status: "present", justification: null }] as never, { "1": { status: null } } as never, { absencesOnly: true })).toEqual([]);
   });
 });
 

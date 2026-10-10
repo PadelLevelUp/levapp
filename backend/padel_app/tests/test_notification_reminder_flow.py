@@ -78,8 +78,12 @@ def _presence(instance_id, player_id, **flags):
     return p
 
 
-def _seed_instance(app, coach_id, student_id, start_offset_hours=48):
-    """Create a lesson and instance. Returns instance_id."""
+def _seed_instance(app, coach_id, student_id, start_offset_hours=48, *, start=None):
+    """Create a lesson and instance. Returns instance_id.
+
+    ``start`` (PAD-570): a pinned wall-clock start instead of the real clock plus
+    ``start_offset_hours`` — for tests that pin "now" relative to the reminder instant.
+    """
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.coach_levels import CoachLevel
@@ -95,7 +99,7 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=48):
         db.session.add(level)
         db.session.flush()
 
-        start = datetime.utcnow() + timedelta(hours=start_offset_hours)
+        start = start or (datetime.utcnow() + timedelta(hours=start_offset_hours))
         end = start + timedelta(hours=1)
 
         lesson = Lesson(

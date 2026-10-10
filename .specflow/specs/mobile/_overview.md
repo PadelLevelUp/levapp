@@ -16,6 +16,8 @@ server a given build talks to.
   server in Settings and on sign-in)
 - `mobile.status-bar` — implementing (PAD-419 / D136: dark status-bar content on the light
   screens, light on the navy ones; the shared `Screen` decides)
+- `mobile.install-suggestion` — draft (PAD-573: the web app on an iPhone suggests the iOS app to a
+  student, dismissible for 30 days, plus Safari's Smart App Banner; web-only by nature)
 
 ## Why it's grouped this way
 

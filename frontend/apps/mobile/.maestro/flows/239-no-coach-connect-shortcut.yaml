@@ -1,0 +1,38 @@
+# Mirrors: apps/web/e2e/messaging/no-coach-connect-shortcut.spec.ts (PAD-568, B-461,
+# messaging.conversations rule 7 + "A student with no coach sees the connect shortcut").
+# e2e-student-3 has no roster, club or class link (seed.py, PAD-215), so the picker lists
+# nobody: the empty state carries "Ligar-me a um treinador", which opens the connect screen
+# (players.join-token rule 8), and the "Message by username" section stays below it.
+# Flow number 239 (wave-13 range 239–248, unconfirmed). Asserted by test id, never copy.
+appId: com.padellevelup.app
+---
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: e2e-student-3
+      PASSWORD: E2eStudent3123!
+- tapOn:
+    id: "tab-messages"
+- tapOn:
+    id: "messages-new"
+- extendedWaitUntil:
+    visible:
+      id: "new-conversation-empty"
+    timeout: 20000
+- assertVisible:
+    id: "new-conversation-connect"
+- assertVisible:
+    id: "message-by-username"
+- tapOn:
+    id: "new-conversation-connect"
+- extendedWaitUntil:
+    visible:
+      id: "connect-with-coach"
+    timeout: 15000
+# Leave the app on the tabs for the next flow.
+- tapOn:
+    id: "connect-go-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 20000

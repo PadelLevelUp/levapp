@@ -70,6 +70,12 @@ export function AttendanceRow({
   };
 
   const handleStatusChange = (status: PresenceStatus) => {
+    // PAD-567 (attendance.validation rule 26): the selected state pressed again clears the
+    // row back to "no answer"; the save then sends `{playerId, clear: true}`.
+    if (attendance.status === status) {
+      onChange({ status: null, justification: undefined });
+      return;
+    }
     if (status === "present") {
       onChange({ status: "present", justification: undefined });
     } else {
@@ -143,6 +149,8 @@ export function AttendanceRow({
               attendance.status === "present" &&
                 "bg-success hover:bg-success/90 text-success-foreground"
             )}
+            data-testid="attendance-present"
+            aria-pressed={attendance.status === "present"}
             onClick={() => handleStatusChange("present")}
           >
             <CheckCircle2 className="w-4 h-4 mr-1" />
@@ -158,6 +166,8 @@ export function AttendanceRow({
               attendance.status === "absent" &&
                 "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             )}
+            data-testid="attendance-absent"
+            aria-pressed={attendance.status === "absent"}
             onClick={() => handleStatusChange("absent")}
           >
             <X className="w-4 h-4 mr-1" />
@@ -179,6 +189,7 @@ export function AttendanceRow({
               attendance.justification === "justified" &&
                 "bg-warning hover:bg-warning/90 text-warning-foreground"
             )}
+            data-testid="attendance-justified"
             onClick={() => handleJustificationChange("justified")}
           >
             <AlertCircle className="w-3 h-3 mr-1" />
@@ -194,6 +205,7 @@ export function AttendanceRow({
             }
             size="sm"
             className="flex-1 text-xs"
+            data-testid="attendance-unjustified"
             onClick={() => handleJustificationChange("unjustified")}
           >
             <X className="w-3 h-3 mr-1" />

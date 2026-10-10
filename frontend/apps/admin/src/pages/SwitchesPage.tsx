@@ -41,7 +41,7 @@ export function SwitchesPage() {
         {(list.data?.items ?? []).map((row) => (
           <Card key={row.capability} data-testid={`switch-${row.capability}`}>
             <div className="flex flex-wrap items-center gap-2">
-              <code className="text-sm font-semibold">{row.capability}</code>
+              <code className="break-all text-sm font-semibold">{row.capability}</code>
               <Badge tone={row.off ? "destructive" : "success"}>{row.off ? t("admin.switches.off") : t("admin.switches.on")}</Badge>
               <Badge tone={row.kind === "feature" ? "primary" : "warning"}>{t(`admin.switches.kind.${row.kind}`)}</Badge>
             </div>

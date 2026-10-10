@@ -51,7 +51,19 @@ about anyone who is missing. Web and iOS ship it together (R-024).
       the waiting list:" and the students in their order, each marked "(standing entry)" when
       `standing`. Nothing is shown for an empty list.
    4. **The spot** — side and level and where the level came from ("a left-side, level 5 spot —
-      level taken from the player").
+      level taken from the player") and, under it (PAD-566), why that side, in the engine's own
+      numbers from `spot.sideCounts` (`notifications.invite-simulation` rule 9; the client never
+      recounts — two places counting sides is how PAD-541 started): when one side has fewer
+      players going, "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Para equilibrar
+      os lados, damos prioridade a jogadores de <lado>."; on a tie with a sided leaver, "… e faltou
+      um jogador de <lado>, por isso damos prioridade a <lado> para manter a aula equilibrada.";
+      on a tie with no side to keep, "A aula já está equilibrada ({{left}} + {{right}}) … o lado não
+      influenciou esta escolha."; with no counts (no sided player on the roster), "… a vaga mantém
+      o lado de quem faltou." The words follow `sideCounts.chosen`, the engine's own side — the
+      client never recounts or re-decides; `chosen` of `both`/none reads as "the side did not
+      influence" whatever the counts (`describeSideReasoning` in `@levelup/config`;
+      `tutorials.sideReason.*`, pt/en; both shells; the Playwright spec asserts the line against the
+      locale's sentences, numbers wild).
    5. **The rounds**, in order. Each round is headed by its rules rendered in words ("Same level
       and balance the class sides", "Same level", "Everyone eligible"; the side words are PAD-564's,
       `notifications.groups` rule 6). Each candidate row shows
@@ -104,6 +116,13 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 - **Then** the results show the spot line, then round 1 with its candidates numbered from 1
 - **And** the first two candidates carry the **first batch** badge and the rest carry **waiting**
 - **And** neither Alice, Bob nor Carol is listed
+
+#### The spot says why its side was chosen (rule 4.4, PAD-566)
+- **Given** a class with 6 left-side and 2 right-side students going and a left-side student who cancels, on web and on iOS
+- **When** the coach picks that class and student in the tutorial
+- **Then** under the spot line it reads "A aula tem 5 de esquerda e 2 de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de direita." — the same numbers `spot.sideCounts` carries
+- **And** for a class of 2 + 2 losing a left-side student it reads that left is kept to stay balanced
+- **And** for a class of 3 + 3 losing a student with no set side it reads that the side did not influence the choice
 
 #### A blocked gate is shown above the queue
 - **Given** the coach has `quietHours` enabled and the tutorial is run at 22:30 club-local
