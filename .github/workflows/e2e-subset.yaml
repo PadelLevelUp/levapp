@@ -158,12 +158,15 @@ jobs:
         if: steps.select.outputs.count != '0'
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('app/frontend/package-lock.json') }}
+          # PAD-559: the cache carries WebKit too (the key changes with the browser set).
+          key: playwright-webkit-${{ runner.os }}-${{ hashFiles('app/frontend/package-lock.json') }}
 
-      - name: Chromium
+      - name: Chromium + WebKit
         if: steps.select.outputs.count != '0'
         working-directory: app/frontend/apps/web
-        run: npx playwright install --with-deps chromium
+        # PAD-559 (classes.create rule 8c): the class-time list's wheel scrolling is proven on
+        # the Safari engine, so the `webkit` project's specs run here too.
+        run: npx playwright install --with-deps chromium webkit
 
       # Playwright starts its webServers BEFORE globalSetup resets the database, so Flask would
       # boot against a database that does not exist yet and exit (first phase-0 run). Migrate and
