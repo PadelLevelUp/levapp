@@ -61,6 +61,7 @@ import {
   Bell,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Mail,
   Menu,
@@ -73,6 +74,12 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CookieBanner } from "@/components/landing/CookieBanner";
 import { ExitLink } from "@/components/landing/ExitLink";
@@ -109,12 +116,25 @@ const AUDIENCE_ALIASES: Record<string, Audience> = {
   treinadores: "coaches",
   players: "players",
   alunos: "players",
+  jogadores: "players",
   others: "others",
   outros: "others",
 };
 
 function readAudience(raw: string | null): Audience {
   return (raw && AUDIENCE_ALIASES[raw.toLowerCase()]) || "coaches";
+}
+
+/** PAD-582 (rule 4): the slug the URL carries for each audience, `?para=<slug>`. */
+export const AUDIENCE_SLUG: Record<Audience, string> = {
+  coaches: "treinadores",
+  players: "jogadores",
+  others: "outros",
+};
+
+/** `?para=` wins; the older `?audience=` keeps working for links already out there. */
+export function audienceFromParams(params: URLSearchParams): Audience {
+  return readAudience(params.get("para") ?? params.get("audience"));
 }
 
 const mailto = (address: string, subject: string) =>
@@ -434,7 +454,65 @@ function OthersMockup() {
 
 /* ---------------------------------- header --------------------------------- */
 
-function Header({ demo }: { demo: DemoCta }) {
+/**
+ * PAD-582 (rule 3): the audience lives in the header, left of the section links, as a dropdown —
+ * "Para treinadores ▾ / Para jogadores / Para outros" — so the visitor sees whom the sections
+ * speak to. One control for every width: the full label from `md` up, the short one below it.
+ */
+function AudienceSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: Audience;
+  onChange: (next: Audience) => void;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          data-testid="landing-audience"
+          aria-label={t("landing.audience.label")}
+          className={cn(
+            "inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[15px] font-semibold text-foreground transition-colors hover:bg-muted/50 sm:px-4",
+            className,
+          )}
+        >
+          <span className="hidden md:inline">{t(`landing.audience.${value}`)}</span>
+          <span className="md:hidden">{t(`landing.audience.short.${value}`)}</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[200px]">
+        {AUDIENCES.map((id) => (
+          <DropdownMenuItem
+            key={id}
+            data-testid={`landing-audience-${id}`}
+            aria-current={id === value ? "true" : undefined}
+            onSelect={() => onChange(id)}
+            className={cn("flex items-center justify-between gap-3", id === value && "font-semibold")}
+          >
+            {t(`landing.audience.${id}`)}
+            {id === value && <Check className="h-4 w-4 text-primary" aria-hidden />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function Header({
+  demo,
+  audience,
+  onAudienceChange,
+}: {
+  demo: DemoCta;
+  audience: Audience;
+  onAudienceChange: (next: Audience) => void;
+}) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -448,6 +526,9 @@ function Header({ demo }: { demo: DemoCta }) {
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex h-[68px] max-w-[1170px] items-center gap-6 px-5 sm:h-[76px] lg:gap-10 lg:px-6">
         <BrandLockup markSize={32} textClass="text-xl sm:text-2xl" />
+
+        {/* PAD-582: the audience first, then the section links it governs. */}
+        <AudienceSelect value={audience} onChange={onAudienceChange} />
 
         <nav className="hidden items-center gap-7 text-[15px] font-medium text-muted-foreground md:flex">
           {navLinks.map((link) => (
@@ -503,47 +584,6 @@ function Header({ demo }: { demo: DemoCta }) {
         </nav>
       )}
     </header>
-  );
-}
-
-function AudienceTabs({
-  value,
-  onChange,
-}: {
-  value: Audience;
-  onChange: (next: Audience) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div
-      role="tablist"
-      aria-label={t("landing.audience.label")}
-      className={cn(
-        "inline-flex max-w-full overflow-x-auto rounded-full border border-border bg-card p-1",
-        cardShadow,
-      )}
-    >
-      {AUDIENCES.map((id) => {
-        const active = id === value;
-        return (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(id)}
-            className={cn(
-              "whitespace-nowrap rounded-full px-4 py-2.5 text-[14px] font-semibold transition-colors sm:px-5 sm:text-[15px]",
-              active
-                ? cn("bg-primary text-primary-foreground", cardShadow)
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t(`landing.audience.${id}`)}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -1027,10 +1067,21 @@ const NEXT_AUDIENCE: Record<Audience, Audience> = {
 
 const LandingPage = () => {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
-  const [audience, setAudience] = useState<Audience>(() =>
-    readAudience(searchParams.get("audience")),
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [audience, setAudienceState] = useState<Audience>(() => audienceFromParams(searchParams));
+  // PAD-582 (rule 4): the choice is shareable — `?para=<slug>` is written in place (replace, no
+  // reload, the scroll position untouched); the older `?audience=` is dropped from the URL.
+  const setAudience = (next: Audience) => {
+    setAudienceState(next);
+    setSearchParams(
+      (prev) => {
+        prev.set("para", AUDIENCE_SLUG[next]);
+        prev.delete("audience");
+        return prev;
+      },
+      { replace: true },
+    );
+  };
 
   const demoHref = mailto(SUPPORT_CONTACT_EMAIL, t("landing.mail.demoSubject"));
   const ideaHref = mailto(ADMIN_CONTACT_EMAIL, t("landing.mail.ideaSubject"));
@@ -1070,12 +1121,9 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-card">
-      <Header demo={demo} />
+      <Header demo={demo} audience={audience} onAudienceChange={setAudience} />
       <main>
         <section className="bg-card">
-          <div className="mx-auto max-w-[1170px] px-5 pt-8 lg:px-6 lg:pt-10">
-            <AudienceTabs value={audience} onChange={setAudience} />
-          </div>
           <Hero audience={audience} demo={demo} ideaHref={ideaHref} />
         </section>
         {audience === "others" ? (

@@ -65,50 +65,50 @@ test.describe("landing page", () => {
     await page.waitForURL("**/terms");
   });
 
-  test("the audience tabs swap the whole page without navigating", async ({
+  test("PAD-582: the header dropdown swaps the whole page, writes ?para= and keeps the scroll", async ({
     page,
   }) => {
     await page.goto("/");
-    const tabs = page.getByRole("tablist");
-    await expect(tabs.getByRole("tab", { name: ui("landing.audience.coaches") })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    const select = page.getByTestId("landing-audience");
+    await expect(select).toHaveText(ui("landing.audience.coaches"));
+    // The audience is chosen in the header only: no tablist anywhere (rule 3).
+    await expect(page.getByRole("tablist")).toHaveCount(0);
 
-    await tabs.getByRole("tab", { name: ui("landing.audience.players") }).click();
-    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /enche as aulas/i })).toHaveCount(0);
-    await expect(tabs.getByRole("tab", { name: ui("landing.audience.players") })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await expect(page).toHaveURL(/\/$/);
+    await page.locator("#como-funciona").scrollIntoViewIfNeeded();
+    const before = await page.evaluate(() => window.scrollY);
+    await select.click();
+    await page.getByTestId("landing-audience-players").click();
+    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
+    await expect(page.getByRole("heading", { name: ui("landing.hero.coaches.title1") })).toHaveCount(0);
+    await expect(select).toHaveText(ui("landing.audience.players"));
+    await expect(page).toHaveURL(/\/\?para=jogadores$/);
+    // In place: no reload (the scroll position is wherever it was, not the top).
+    expect(Math.abs((await page.evaluate(() => window.scrollY)) - before)).toBeLessThan(400);
 
-    await tabs.getByRole("tab", { name: ui("landing.audience.others") }).click();
-    await expect(
-      page.getByRole("heading", { name: /novidades a caminho/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: ui("landing.others.ideasTitle") }),
-    ).toBeVisible();
+    await select.click();
+    await page.getByTestId("landing-audience-others").click();
+    await expect(page.getByRole("heading", { name: ui("landing.hero.others.title1") })).toBeVisible();
+    await expect(page.getByRole("heading", { name: ui("landing.others.ideasTitle") })).toBeVisible();
     // "Others" has no benefits / how / results sections.
     await expect(page.locator("#como-funciona")).toHaveCount(0);
     await expect(page.locator("#resultados")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/\?para=outros$/);
   });
 
-  test("?audience= opens the page on that audience", async ({ page }) => {
+  test("PAD-582: ?para= and the older ?audience= open the page on that audience", async ({ page }) => {
+    await page.goto("/?para=jogadores");
+    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
+    await expect(page.getByTestId("landing-audience")).toHaveText(ui("landing.audience.players"));
+
     await page.goto("/?audience=alunos");
-    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
-    await expect(
-      page.getByRole("tablist").getByRole("tab", { name: ui("landing.audience.players") }),
-    ).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
 
     await page.goto("/?audience=players");
-    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: ui("landing.hero.players.title1") })).toBeVisible();
 
     // Anything unknown falls back to coaches.
     await page.goto("/?audience=nope");
-    await expect(page.getByRole("heading", { name: /enche as aulas/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: ui("landing.hero.coaches.title1") })).toBeVisible();
   });
 
   test("the final CTA rotates through the audiences", async ({ page }) => {
