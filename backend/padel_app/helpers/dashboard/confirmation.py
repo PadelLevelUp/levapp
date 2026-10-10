@@ -11,6 +11,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional
 
+from padel_app.helpers.calendar_helpers import instance_serializer_options
 from padel_app.services import reminder_attempt_service as attempts
 from padel_app.models import (
     Association_CoachLesson,
@@ -144,9 +145,8 @@ def askable_instances(player_id: int, now_wall: datetime, *, limit: Optional[int
         .order_by(LessonInstance.start_datetime.asc())
     )
     if limit:
-        # PAD-583: the queue serialises these rows; the Invites tile only counts them.
-        from padel_app.helpers.calendar_helpers import instance_serializer_options
-
+        # PAD-583: limit set = the queue serialises these instances, so eager-load; the tile
+        # (no limit) only counts.
         query = query.options(*instance_serializer_options())
     candidates = query.all()
     rows = own_rows(player_id, [c.id for c in candidates])

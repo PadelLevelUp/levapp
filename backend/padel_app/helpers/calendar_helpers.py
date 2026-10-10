@@ -51,6 +51,9 @@ def load_lessons_for_coach(coach_id, range_start, range_end):
 
 
 def load_lesson_instances_for_coach(coach_id, range_start, range_end):
+    # PAD-583: this option list deliberately differs from `instance_serializer_options()` —
+    # the coach path needs the coach junctions, and the court/club joins would change the
+    # statement count PAD-262 measured. No behaviour change here.
     # PAD-262 (audit H9, dashboard.blocks rule 8): the coach filter runs in SQL.
     # An instance belongs to the coach through its own coach junction, or —
     # when it has none — through its lesson's. Before this the query loaded

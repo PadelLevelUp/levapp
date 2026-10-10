@@ -114,16 +114,15 @@ def _virtual_ask_open(
     event: Dict[str, Any],
     now: datetime,
     *,
-    lessons: Optional[Dict[int, Any]] = None,
-    configs: Optional[Dict[int, Any]] = None,
+    lessons: Dict[int, Any],
+    configs: Dict[int, Any],
 ) -> bool:
     """PAD-570: a projected occurrence (no row yet) is ``planned``; its ask is the
     time-based one, on the series' own notifications switch.
 
     PAD-583: reads only the event's ``originalId`` and ``date`` plus the lesson's
-    ``start_datetime`` / ``notifications_enabled``. ``lessons`` / ``configs`` are the batched
-    lookups ``{lesson_id: Lesson}`` / ``{lesson_id: reminder config}`` of the caller; without
-    them it asks the database for this one lesson, as before.
+    ``start_datetime`` / ``notifications_enabled``. ``lessons`` / ``configs`` are the caller's
+    batched lookups ``{lesson_id: Lesson}`` / ``{lesson_id: reminder config}``, both required.
     """
     from datetime import date as _date
     from types import SimpleNamespace
@@ -133,7 +132,7 @@ def _virtual_ask_open(
     if event.get("model") != "Lesson" or event.get("originalId") is None or not event.get("date"):
         return False
     lesson_id = int(event["originalId"])
-    lesson = lessons.get(lesson_id) if lessons is not None else db.session.get(Lesson, lesson_id)
+    lesson = lessons.get(lesson_id)
     if lesson is None or lesson.start_datetime is None:
         return False
     start = datetime.combine(_date.fromisoformat(str(event["date"])[:10]), lesson.start_datetime.time())
@@ -141,8 +140,7 @@ def _virtual_ask_open(
         id=None, start_datetime=start, status="scheduled",
         notifications_enabled=bool(lesson.notifications_enabled), lesson=lesson,
     )
-    config = configs.get(lesson_id) if configs is not None else None
-    return student_may_confirm(None, stand_in, config, now=wall_to_utc_naive(now))
+    return student_may_confirm(None, stand_in, configs.get(lesson_id), now=wall_to_utc_naive(now))
 
 
 # ── 1. next class hero ─────────────────────────────────────────────────────
@@ -177,6 +175,7 @@ def decorate_home_blocks(
         if block is None:
             continue
         data = block["data"]
+        # A hero's ``data`` is the single item; a schedule's items are ``data["items"]``.
         items.extend(data["items"] if block["type"] == "schedule_7d" else [data])
     if items:
         _decorate_with_confirmation(player_id, list(events), items, now=now)
@@ -191,8 +190,9 @@ def build_player_next_class_block(
 ) -> Optional[Dict[str, Any]]:
     """The student's soonest class, with their classmates. ``None`` when nothing is scheduled.
 
-    PAD-583: ``events`` is the preloaded home set; ``decorate=False`` leaves the confirmation
-    state to ``decorate_home_blocks`` (the composer decorates hero and schedule together).
+    dashboard.blocks rule 8 (PAD-583): ``events`` is the preloaded home set the block cuts its
+    window from (``None`` loads its own); ``decorate=False`` leaves the confirmation state to
+    ``decorate_home_blocks`` (the composer decorates hero and schedule together).
     """
     now = now or club_now_naive()
     window = _window_events(
@@ -424,6 +424,12 @@ def build_player_schedule_block(
     events: Optional[Sequence[Dict[str, Any]]] = None,
     decorate: bool = True,
 ) -> Dict[str, Any]:
+    """The ``schedule_7d`` block over the student's 30-day window.
+
+    dashboard.blocks rule 8 (PAD-583): ``events`` is the preloaded home set the window is cut
+    from (``None`` loads its own); ``decorate=False`` leaves the confirmation state to
+    ``decorate_home_blocks``.
+    """
     now = now or club_now_naive()
     window = _upcoming_events(player_id, now, events)
     block = schedule_block(window)
