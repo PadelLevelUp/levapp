@@ -3893,7 +3893,9 @@ def proactive_decline_window_is_open(
     return (now or utcnow_naive()) < deadline
 
 
-def student_may_confirm(presence, instance, config=None, *, now: datetime | None = None) -> bool:
+def student_may_confirm(
+    presence, instance, config=None, *, now: datetime | None = None, was_asked: bool | None = None
+) -> bool:
     """PAD-570 (attendance.confirm rule 27): may this student answer "Vou" right now?
 
     ONE predicate, served as ``pendingConfirmation`` on the class-detail payload and on
@@ -3928,7 +3930,11 @@ def student_may_confirm(presence, instance, config=None, *, now: datetime | None
     if presence is not None and instance_id is not None:
         from padel_app.services import reminder_attempt_service as attempts
 
-        if attempts.latest_attempt(instance_id, presence.player_id) is not None:
+        # PAD-583: a caller holding many candidates passes ``was_asked`` from ONE batched
+        # lookup (``attempts.asked_instance_ids``); alone, the row is looked up here.
+        if was_asked is None:
+            was_asked = attempts.latest_attempt(instance_id, presence.player_id) is not None
+        if was_asked:
             return True
     if not getattr(instance, "notifications_enabled", True):
         return False

@@ -14,11 +14,12 @@ already counted — so the two cannot disagree.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from padel_app.sql_db import db
 from padel_app.models import (
     ConversationParticipant,
+    Lesson,
     LessonInstance,
     Message,
     NotificationEvent,
@@ -33,12 +34,14 @@ from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naiv
 from padel_app.helpers.dashboard.coach_home import (
     HERO_LOOKAHEAD_DAYS,
     class_href,
+    cut_events,
     fill,
     load_events,
     next_class_block,
     reply_items,
     schedule_block,
 )
+from padel_app.helpers.calendar_helpers import instance_serializer_options
 from padel_app.helpers.dashboard.kpis import compute_player_kpis
 
 QUEUE_INVITE_LIMIT = 5
@@ -71,7 +74,7 @@ def _decorate_with_confirmation(
     projected occurrence has no row, so it is ``planned`` and its ask is the
     time-based one computed on the virtual occurrence.
     """
-    from padel_app.helpers.dashboard.confirmation import ask_state
+    from padel_app.helpers.dashboard.confirmation import ask_state, lesson_reminder_configs
 
     by_event_id = {str(e.get("id") or ""): e for e in events}
     instance_ids: Dict[str, Optional[int]] = {}
@@ -79,6 +82,17 @@ def _decorate_with_confirmation(
         key = str(item.get("id") or item.get("classId") or "")
         instance_ids[key] = _instance_id(by_event_id.get(key, {}))
     state = ask_state(player_id, [i for i in instance_ids.values() if i is not None], now)
+    # PAD-583: the projected occurrences' lessons and reminder configs, once for the set.
+    virtual_events = [by_event_id.get(key, {}) for key, iid in instance_ids.items() if iid is None]
+    virtual_ids = {
+        int(e["originalId"])
+        for e in virtual_events
+        if e.get("model") == "Lesson" and e.get("originalId") is not None and e.get("date")
+    }
+    lessons = (
+        {int(l.id): l for l in Lesson.query.filter(Lesson.id.in_(virtual_ids)).all()} if virtual_ids else {}
+    )
+    configs = lesson_reminder_configs(virtual_ids)
     for item in items:
         key = str(item.get("id") or item.get("classId") or "")
         event = by_event_id.get(key, {})
@@ -86,7 +100,7 @@ def _decorate_with_confirmation(
         item["lessonInstanceId"] = iid
         own = state.get(iid) if iid is not None else None
         item["pendingConfirmation"] = bool(own and own["pendingConfirmation"]) or (
-            iid is None and _virtual_ask_open(event, now)
+            iid is None and _virtual_ask_open(event, now, lessons=lessons, configs=configs)
         )
         item["attendanceState"] = own["attendanceState"] if own else "planned"
         item["declineTarget"] = (
@@ -96,18 +110,29 @@ def _decorate_with_confirmation(
         )
 
 
-def _virtual_ask_open(event: Dict[str, Any], now: datetime) -> bool:
+def _virtual_ask_open(
+    event: Dict[str, Any],
+    now: datetime,
+    *,
+    lessons: Dict[int, Any],
+    configs: Dict[int, Any],
+) -> bool:
     """PAD-570: a projected occurrence (no row yet) is ``planned``; its ask is the
-    time-based one, on the series' own notifications switch."""
+    time-based one, on the series' own notifications switch.
+
+    PAD-583: reads only the event's ``originalId`` and ``date`` plus the lesson's
+    ``start_datetime`` / ``notifications_enabled``. ``lessons`` / ``configs`` are the caller's
+    batched lookups ``{lesson_id: Lesson}`` / ``{lesson_id: reminder config}``, both required.
+    """
     from datetime import date as _date
     from types import SimpleNamespace
 
-    from padel_app.models import Lesson
     from padel_app.services.notification_service import student_may_confirm
 
     if event.get("model") != "Lesson" or event.get("originalId") is None or not event.get("date"):
         return False
-    lesson = db.session.get(Lesson, int(event["originalId"]))
+    lesson_id = int(event["originalId"])
+    lesson = lessons.get(lesson_id)
     if lesson is None or lesson.start_datetime is None:
         return False
     start = datetime.combine(_date.fromisoformat(str(event["date"])[:10]), lesson.start_datetime.time())
@@ -115,19 +140,67 @@ def _virtual_ask_open(event: Dict[str, Any], now: datetime) -> bool:
         id=None, start_datetime=start, status="scheduled",
         notifications_enabled=bool(lesson.notifications_enabled), lesson=lesson,
     )
-    return student_may_confirm(None, stand_in, None, now=wall_to_utc_naive(now))
+    return student_may_confirm(None, stand_in, configs.get(lesson_id), now=wall_to_utc_naive(now))
 
 
 # ── 1. next class hero ─────────────────────────────────────────────────────
 
 
-def build_player_next_class_block(*, player_id: int, now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
-    """The student's soonest class, with their classmates. ``None`` when nothing is scheduled."""
+def player_home_window(now: datetime) -> tuple:
+    """PAD-583: the one window the student home loads — the hero's look-ahead, the widest any block needs."""
+    return now, now + timedelta(days=HERO_LOOKAHEAD_DAYS)
+
+
+def load_player_home_events(*, player_id: int, now: datetime) -> List[Dict[str, Any]]:
+    """PAD-583 (dashboard.blocks rule 8): the student's classes, loaded ONCE; each block cuts its own window."""
+    start, end = player_home_window(now)
+    return load_events(player_id=player_id, start=start, end=end)
+
+
+def _window_events(
+    events: Optional[Sequence[Dict[str, Any]]], *, player_id: int, start: datetime, end: datetime
+) -> List[Dict[str, Any]]:
+    """Cut the preloaded set when there is one, otherwise load just this window."""
+    if events is not None:
+        return cut_events(events, start=start, end=end)
+    return load_events(player_id=player_id, start=start, end=end)
+
+
+def decorate_home_blocks(
+    player_id: int, events: Sequence[Dict[str, Any]], blocks: Sequence[Optional[Dict[str, Any]]], *, now: datetime
+) -> None:
+    """PAD-583: confirmation state for the hero and the schedule rows, computed ONCE over their union."""
+    items: List[Dict[str, Any]] = []
+    for block in blocks:
+        if block is None:
+            continue
+        data = block["data"]
+        # A hero's ``data`` is the single item; a schedule's items are ``data["items"]``.
+        items.extend(data["items"] if block["type"] == "schedule_7d" else [data])
+    if items:
+        _decorate_with_confirmation(player_id, list(events), items, now=now)
+
+
+def build_player_next_class_block(
+    *,
+    player_id: int,
+    now: Optional[datetime] = None,
+    events: Optional[Sequence[Dict[str, Any]]] = None,
+    decorate: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """The student's soonest class, with their classmates. ``None`` when nothing is scheduled.
+
+    dashboard.blocks rule 8 (PAD-583): ``events`` is the preloaded home set the block cuts its
+    window from (``None`` loads its own); ``decorate=False`` leaves the confirmation state to
+    ``decorate_home_blocks`` (the composer decorates hero and schedule together).
+    """
     now = now or club_now_naive()
-    events = load_events(player_id=player_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
-    block = next_class_block(events, now=now)
-    if block is not None:
-        _decorate_with_confirmation(player_id, events, [block["data"]], now=now)
+    window = _window_events(
+        events, player_id=player_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS)
+    )
+    block = next_class_block(window, now=now)
+    if block is not None and decorate:
+        _decorate_with_confirmation(player_id, window, [block["data"]], now=now)
     return block
 
 
@@ -227,6 +300,7 @@ def _vacancy_invite_items(*, player_id: int, now: datetime) -> List[Dict[str, An
     rows = (
         db.session.query(NotificationEvent, LessonInstance)
         .join(LessonInstance, LessonInstance.id == NotificationEvent.lesson_instance_id)
+        .options(*instance_serializer_options())  # PAD-583: _class_item serialises each instance
         .filter(NotificationEvent.player_id == player_id)
         .filter(NotificationEvent.status == "sent")
         .filter(LessonInstance.start_datetime >= now)
@@ -234,13 +308,21 @@ def _vacancy_invite_items(*, player_id: int, now: datetime) -> List[Dict[str, An
         .order_by(LessonInstance.start_datetime.asc(), NotificationEvent.id.desc())
         .all()
     )
-    out: List[Dict[str, Any]] = []
+    newest: List[Any] = []
     seen: set = set()
     for event, instance in rows:
         if instance.id in seen:
             continue
         seen.add(instance.id)
-        message = db.session.get(Message, event.message_id) if event.message_id else None
+        newest.append((event, instance))
+    # PAD-583: the invite messages in one query, not one ``get`` per event.
+    message_ids = {int(e.message_id) for e, _ in newest if e.message_id}
+    messages = (
+        {int(m.id): m for m in Message.query.filter(Message.id.in_(message_ids)).all()} if message_ids else {}
+    )
+    out: List[Dict[str, Any]] = []
+    for event, instance in newest:
+        message = messages.get(int(event.message_id)) if event.message_id else None
         if not _message_open(message):
             continue
         item = _class_item(instance, now=now)
@@ -275,7 +357,7 @@ def _waiting_list_offer_items(*, player_id: int, user_id: int, now: datetime) ->
         .order_by(Message.id.desc())
         .all()
     )
-    out: List[Dict[str, Any]] = []
+    candidates: List[Any] = []
     seen: set = set()
     for message in rows:
         meta = message.msg_metadata or {}
@@ -285,7 +367,22 @@ def _waiting_list_offer_items(*, player_id: int, user_id: int, now: datetime) ->
         seen.add(instance_id)
         if not _message_open(message):
             continue
-        instance = db.session.get(LessonInstance, int(instance_id))
+        candidates.append((message, int(instance_id)))
+    # PAD-583: the offered instances in one query (with the serialiser's eager loads), not one ``get`` each.
+    wanted = {iid for _, iid in candidates}
+    instances = (
+        {
+            int(i.id): i
+            for i in LessonInstance.query.options(*instance_serializer_options())
+            .filter(LessonInstance.id.in_(wanted))
+            .all()
+        }
+        if wanted
+        else {}
+    )
+    out: List[Dict[str, Any]] = []
+    for message, instance_id in candidates:
+        instance = instances.get(instance_id)
         if (
             instance is None
             or instance.start_datetime is None
@@ -302,29 +399,51 @@ def _waiting_list_offer_items(*, player_id: int, user_id: int, now: datetime) ->
 # ── 3. next 7 days ─────────────────────────────────────────────────────────
 
 
-def _upcoming_events(player_id: int, now: datetime) -> List[Dict[str, Any]]:
+def _upcoming_events(
+    player_id: int, now: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     """The student's scheduled classes over the 30-day window.
 
     One loader for the schedule block AND the "Upcoming lessons" tile (PAD-235,
     B-032): the tile used to count confirmed presences while the list counted
     enrolments, so a student with unanswered reminders read "0 upcoming" above
     three upcoming classes.
+
+    PAD-583: given the home set (``events``) it cuts the 30-day window from it — the single
+    definition of that cut, shared by the schedule and the tile — instead of loading.
     """
-    return load_events(player_id=player_id, start=now, end=now + timedelta(days=PLAYER_SCHEDULE_DAYS))
+    return _window_events(
+        events, player_id=player_id, start=now, end=now + timedelta(days=PLAYER_SCHEDULE_DAYS)
+    )
 
 
-def build_player_schedule_block(*, player_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_player_schedule_block(
+    *,
+    player_id: int,
+    now: Optional[datetime] = None,
+    events: Optional[Sequence[Dict[str, Any]]] = None,
+    decorate: bool = True,
+) -> Dict[str, Any]:
+    """The ``schedule_7d`` block over the student's 30-day window.
+
+    dashboard.blocks rule 8 (PAD-583): ``events`` is the preloaded home set the window is cut
+    from (``None`` loads its own); ``decorate=False`` leaves the confirmation state to
+    ``decorate_home_blocks``.
+    """
     now = now or club_now_naive()
-    events = _upcoming_events(player_id, now)
-    block = schedule_block(events)
-    _decorate_with_confirmation(player_id, events, block["data"]["items"], now=now)
+    window = _upcoming_events(player_id, now, events)
+    block = schedule_block(window)
+    if decorate:
+        _decorate_with_confirmation(player_id, window, block["data"]["items"], now=now)
     return block
 
 
 # ── 4. KPIs ────────────────────────────────────────────────────────────────
 
 
-def build_player_kpi_block(*, player_id: int, now: Optional[datetime] = None) -> Dict[str, Any]:
+def build_player_kpi_block(
+    *, player_id: int, now: Optional[datetime] = None, events: Optional[Sequence[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """Attended / Missed / Upcoming / Invites, each with the context that makes it readable.
 
     ``href`` policy is unchanged (dashboard.navigation rules 6, 7, 11, 11a):
@@ -338,7 +457,7 @@ def build_player_kpi_block(*, player_id: int, now: Optional[datetime] = None) ->
     now = now or club_now_naive()
     kpis = compute_player_kpis(player_id=player_id)
     total = int(kpis.lessons_attended) + int(kpis.lessons_missed)
-    upcoming = len(_upcoming_events(player_id, now))
+    upcoming = len(_upcoming_events(player_id, now, events))
     # PAD-570: the tile counts the same asks the queue lists — never a raw `invited` count.
     invites = len(askable_instances(player_id, now))
 
