@@ -18,7 +18,8 @@ A coach who belongs to a club can invite another coach to join that club via a s
 ### Rules
 1. Only a coach with a `coach_in_club` association for the club can create or revoke invitations for it
 2. Each invitation has a unique single-use token, expiring after 7 days. Only its SHA-256 hash is stored (PAD-269); the token appears once, in the creation response's `inviteLink`, and links issued before PAD-269 keep working because its migration hashed the stored tokens in place.
-3. Frontend route: `/invite/coach/:token` — shows club name and accept form
+3. Frontend route: `/invite/coach/:token` — shows club name and accept form. The coach is handed
+   the link on the public web origin, on web and iOS (`players.join-token` rule 3a, PAD-595)
 4. Accepting as a new user creates a User and Coach (status `active`), the coach's default level ladder, and the `coach_in_club` association, and marks the invitation accepted. **All of this is one transaction (PAD-476, B-246):** a failure at any step leaves no User, Coach, level or club link, the invitation stays pending, and accepting it again succeeds. The first email-verification code (rule 9) is sent only after that transaction has committed, and never when it rolls back.
 5. Accepting while authenticated as an existing coach: only creates the `coach_in_club` association (no-op if already a member)
 6. Used, revoked, or expired tokens are rejected (410)

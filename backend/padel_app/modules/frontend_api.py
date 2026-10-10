@@ -918,6 +918,18 @@ def report_message(message_id):
     return jsonify({"ok": True}), 201
 
 
+@bp.get("/public-web-origin")
+def public_web_origin_route():
+    """PAD-595 (players.join-token rule 3, players.invite-completion, clubs.coach-invitation,
+    auth.activate): the one origin every shareable link and QR code is built on — this
+    environment's `PUBLIC_WEB_ORIGIN` (levapp.app on prod, staging.levapp.app on staging), never
+    the address the coach happens to be browsing from (an old domain keeps serving the app).
+    Public: it is the same value every e-mail already prints. `null` when unset, and the client
+    falls back to its own origin — so rolling back is changing the variable."""
+    origin = (current_app.config.get("PUBLIC_WEB_ORIGIN") or "").rstrip("/")
+    return jsonify({"webOrigin": origin or None})
+
+
 @bp.get("/coach_players")
 @jwt_required()
 def coach_players():

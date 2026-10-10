@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { CalendarBlockType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TimeSelect } from '@/components/ui/time-select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -219,11 +220,11 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t("calendar.addEvent.startTime")}</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <TimeSelect data-testid="add-event-start-time" aria-label={t("calendar.addEvent.startTime")} first="00:00" value={startTime} onChange={setStartTime} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t("calendar.addEvent.endTime")}</Label>
-                  <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  <TimeSelect data-testid="add-event-end-time" aria-label={t("calendar.addEvent.endTime")} first="00:00" last="23:59" value={endTime} onChange={setEndTime} />
                 </div>
               </div>
             </div>
@@ -240,11 +241,11 @@ export function AddEventSheet({ open, onClose, initialDate, initialTime, onSave 
               </div>
               <div className="space-y-2">
                 <Label>{t("calendar.addEvent.startShort")}</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <TimeSelect data-testid="add-event-start-time" aria-label={t("calendar.addEvent.startShort")} first="00:00" value={startTime} onChange={setStartTime} />
               </div>
               <div className="space-y-2">
                 <Label>{t("calendar.addEvent.endShort")}</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <TimeSelect data-testid="add-event-end-time" aria-label={t("calendar.addEvent.endShort")} first="00:00" last="23:59" value={endTime} onChange={setEndTime} />
               </div>
             </div>
           )}

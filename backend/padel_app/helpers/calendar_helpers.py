@@ -1,5 +1,5 @@
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from padel_app.tools.calendar_tools import ensure_utc, expand_occurrences
 from padel_app.models import (
@@ -12,6 +12,21 @@ from padel_app.models import (
     Presence,
 )
 from padel_app.serializers.calendar_event import serialize_calendar_event
+
+
+def instance_serializer_options():
+    """PAD-583: the eager loads ``serialize_calendar_event`` needs for a ``LessonInstance``.
+
+    ``effective_filled_spots`` / ``confirmed_spots`` walk the presences, the event reads the
+    lesson, and ``_club_ref`` / ``_court_ref`` read the lesson's club and the occurrence's
+    own or inherited court — each otherwise a lazy load per instance.
+    """
+    return (
+        selectinload(LessonInstance.presences),
+        joinedload(LessonInstance.court),
+        joinedload(LessonInstance.lesson).joinedload(Lesson.club),
+        joinedload(LessonInstance.lesson).joinedload(Lesson.court),
+    )
 
 
 # ----------------------------
@@ -36,6 +51,9 @@ def load_lessons_for_coach(coach_id, range_start, range_end):
 
 
 def load_lesson_instances_for_coach(coach_id, range_start, range_end):
+    # PAD-583: this option list deliberately differs from `instance_serializer_options()` —
+    # the coach path needs the coach junctions, and the court/club joins would change the
+    # statement count PAD-262 measured. No behaviour change here.
     # PAD-262 (audit H9, dashboard.blocks rule 8): the coach filter runs in SQL.
     # An instance belongs to the coach through its own coach junction, or —
     # when it has none — through its lesson's. Before this the query loaded
@@ -125,9 +143,14 @@ def load_lesson_instances_for_player(
     """
     indexed = {}
 
-    pres_q = (
-        Presence.query
-        .join(LessonInstance, Presence.lesson_instance_id == LessonInstance.id)
+    # PAD-583 (dashboard.blocks rule 8): the instance query joins the player's presence
+    # rows in SQL and eager-loads what the calendar serializer reads, so a window costs a
+    # fixed number of statements however many classes it holds. The student path reads no
+    # coach junction, so none is loaded (unlike the coach loader above).
+    q = (
+        LessonInstance.query
+        .join(Presence, Presence.lesson_instance_id == LessonInstance.id)
+        .options(*instance_serializer_options())
         .filter(
             Presence.player_id == player_id,
             LessonInstance.start_datetime >= range_start,
@@ -136,16 +159,11 @@ def load_lesson_instances_for_player(
     )
 
     if include_confirmed_only:
-        pres_q = pres_q.filter(Presence.confirmed == True)  # noqa: E712
+        q = q.filter(Presence.confirmed == True)  # noqa: E712
     elif not include_invited:
-        pres_q = pres_q.filter(Presence.invited == False)  # noqa: E712
+        q = q.filter(Presence.invited == False)  # noqa: E712
 
-    presences = pres_q.all()
-
-    for p in presences:
-        instance = p.lesson_instance
-        if not instance:
-            continue
+    for instance in q.all():
         indexed[(instance.lesson_id, instance.original_lesson_occurence_date)] = instance
 
     return indexed

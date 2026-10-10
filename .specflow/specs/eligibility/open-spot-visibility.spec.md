@@ -63,7 +63,10 @@ separate browse screen. A coach controls whether their open spots are advertised
 11. **(PAD-130) Both shells render the flag, not a colour of their own choosing:** an open-spot
     card keeps the class's colour as an outline on a plain surface with a dashed edge and an
     "Open spot" chip, so it reads as an offer beside the filled cards that are the student's
-    own. Tapping it opens the same class detail the student already has (their own data only,
+    own. **(B-541)** The treatment is one shared `open-spot` card variant
+    (`calendar.mobile-views` rule 5): title, time and chip in the readable form of the class
+    colour — never the white ink of the solid surface — and the week-grid block and the day's
+    dot follow the same variant, so the grid and the day panel never disagree about one class. Tapping it opens the same class detail the student already has (their own data only,
     `classes.detail-visibility`), where `classes.join-requests` adds the request action.
 12. **(PAD-352) Only a client that says it understands open spots is sent them. It fails
     closed.**
@@ -106,6 +109,13 @@ separate browse screen. A coach controls whether their open spots are advertised
 - **When** the student loads their calendar
 - **Then** that class appears, visually distinct from their enrolled classes
 - **And** it is marked as having an open spot
+
+#### An open-spot card is legible and the grid agrees with it (rule 11, B-541)
+- **Given** a student eligible for a visible class coloured `#1355DC`, 12 of 16 filled
+- **When** their calendar renders it on the phone (web or iOS), in the day panel and the week grid
+- **Then** the card and the grid block are the card surface with a 1.5px dashed `#1355DC`
+  outline, title and time in `readableInk(#1355DC)`, the "Open spot" chip on the card
+- **And** the day's dot is `#1355DC`
 
 #### An ineligible student sees nothing
 - **Given** the same class and a student two levels below it

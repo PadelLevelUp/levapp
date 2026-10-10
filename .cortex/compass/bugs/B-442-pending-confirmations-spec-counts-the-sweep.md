@@ -3,7 +3,7 @@ id: B-442
 title: "E2E pending-confirmations.spec counts the invitations the engine sweep adds on the seeded tomorrow class, so it reds after any run of two minutes or more"
 type: incomplete-rule
 severity: low
-status: open
+status: resolved
 affects:
   - delivery.pr-e2e-subset
   - frontend/apps/web/e2e/dashboard/pending-confirmations.spec.ts
@@ -11,6 +11,7 @@ affects:
   - backend/padel_app/helpers/dashboard/pending.py
 proposed_fix: "Seed the pending class with no open Vacancy, or make the spec count the seeded pair only (its own class, or a filtered reply)."
 opened: 2026-10-09T20:00:00Z
+resolved: 2026-10-10T02:30:00Z
 ---
 
 # B-442: pending-confirmations.spec reds after any run of two minutes or more
@@ -39,3 +40,13 @@ engine. CI's shard order happened to run it early.
 
 **Fix (not applied in #602, by the coordinator's instruction; Linear PAD-597, Low):** the seeded
 pending class carries no open Vacancy, or the spec counts the seeded pair only.
+
+### Resolution (PAD-597, 2026-10-10)
+
+The seeded pending-confirm instance carries `auto_invites=False` (`e2e/scripts/seed.py`), so the
+never-filled-places scan skips it; manual notifications check `notifications_enabled` only, so the
+notify endpoint still reaches the two pending fillers, and the class keeps its open spots for
+`class-join-request.spec` and `open-spot-visibility.spec`. Rule 7a and a criterion added to
+`delivery.pr-e2e-subset`. Filling the class instead was rejected: those two specs need its free
+places; asserting `sent` against the dashboard's pending count was rejected as tautological (both
+read `_pending_pairs`).

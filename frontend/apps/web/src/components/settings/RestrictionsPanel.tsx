@@ -5,16 +5,17 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { TimeSelect } from "@/components/ui/time-select";
 import type { NotificationRestrictions } from "@/types";
 import { searchPlayers } from "@/api/notificationEngine";
 import {
   canStepRestriction,
   isValidQuietWindow,
-  QUIET_HOURS_STEP_SECONDS,
   quietWindowOf,
   stepRestriction,
   type QuietWindow,
   type SteppedRestrictionKey,
+  QUIET_HOURS_STEP_MINUTES,
 } from "@levelup/config";
 
 interface RestrictionRowProps {
@@ -312,25 +313,29 @@ function QuietHoursRow({
             <label className="text-xs text-muted-foreground" htmlFor="quiet-hours-start">
               {t("settings.restrictions.quietHoursStart")}
             </label>
-            <Input
+            <TimeSelect
               id="quiet-hours-start"
-              type="time"
-              step={QUIET_HOURS_STEP_SECONDS}
+              step={QUIET_HOURS_STEP_MINUTES}
+              first="00:00"
+              last="23:30"
               value={window.start}
-              onChange={(e) => edit({ start: e.target.value })}
-              className="h-8 w-28 text-sm"
+              onChange={(start) => edit({ start })}
+              className="w-28"
+              aria-label={t("settings.restrictions.quietHoursStart")}
               data-testid="restriction-quietHours-start"
             />
             <label className="text-xs text-muted-foreground" htmlFor="quiet-hours-end">
               {t("settings.restrictions.quietHoursEnd")}
             </label>
-            <Input
+            <TimeSelect
               id="quiet-hours-end"
-              type="time"
-              step={QUIET_HOURS_STEP_SECONDS}
+              step={QUIET_HOURS_STEP_MINUTES}
+              first="00:00"
+              last="23:30"
               value={window.end}
-              onChange={(e) => edit({ end: e.target.value })}
-              className="h-8 w-28 text-sm"
+              onChange={(end) => edit({ end })}
+              className="w-28"
+              aria-label={t("settings.restrictions.quietHoursEnd")}
               data-testid="restriction-quietHours-end"
             />
           </div>

@@ -795,15 +795,52 @@ def init_scheduler(app, test_config=None) -> None:
     )
     sched.add_listener(_on_job_missed, EVENT_JOB_MISSED)
 
-    sched.start()
+    # PAD-610: Playwright boots this backend BEFORE global-setup drops and recreates
+    # the database. The startup reschedule and the 30-second batch job then query
+    # tables the reseed is replacing, and Postgres reports a deadlock on the reset.
+    # Under E2E_SCHEDULER_HELD the scheduler starts paused and touches nothing until
+    # global-setup releases it (POST /api/app/notify/debug/scheduler/release) once the
+    # database is ready. Default off: production and a bare `flask run` are unchanged.
+    held = scheduler_held_at_boot()
+    sched.start(paused=held)
     _scheduler = sched
     app.extensions["scheduler"] = sched
 
     # Graceful shutdown when the process exits
     atexit.register(lambda: sched.shutdown(wait=False))
 
+    if held:
+        app.logger.info(
+            "APScheduler held at boot (E2E_SCHEDULER_HELD) — released by "
+            "POST /api/app/notify/debug/scheduler/release once the test database is ready."
+        )
+        return
+
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+
+
+def scheduler_held_at_boot() -> bool:
+    """PAD-610: whether the scheduler starts paused, waiting for the E2E release."""
+    return os.environ.get("E2E_SCHEDULER_HELD", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def release_scheduler(app) -> dict:
+    """PAD-610: run the startup reschedule and resume a scheduler held at boot.
+
+    Idempotent: a scheduler that is already running is left alone and reported as
+    such, so a second release (a retried global-setup) never re-arms the jobs twice.
+    Raises RuntimeError when no scheduler exists in this process.
+    """
+    from apscheduler.schedulers.base import STATE_PAUSED
+
+    if _scheduler is None:
+        raise RuntimeError("no scheduler in this process")
+    if _scheduler.state != STATE_PAUSED:
+        return {"released": False, "state": "running"}
+    _startup_reschedule(app)
+    _scheduler.resume()
+    return {"released": True, "state": "running"}
 
 
 def _startup_reschedule(app) -> None:

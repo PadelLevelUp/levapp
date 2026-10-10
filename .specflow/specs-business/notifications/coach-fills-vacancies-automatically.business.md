@@ -44,6 +44,11 @@ the waiting list.
    further action needed.
 7. A student who missed out because a spot was filled by someone else can answer that same message
    with Yes to join the waiting list for that class themselves, in case another spot opens later.
+8. An invitation does not run out because the student has not answered yet: while the spot is open
+   they can still say yes. It reads "Vaga preenchida" only once the spot is taken — by another
+   student or by the coach on someone's behalf — and from there the student can join that class's
+   waiting list, even if the coach does not show open spots to students (PAD-609, owner
+   2026-10-10).
 
 ## Business Rules
 
@@ -75,6 +80,9 @@ the waiting list.
   already paid for (PAD-507).
 - A student is never offered, through the waiting list, a class they just left or a class they're
   already enrolled in.
+- A student whose invitation shows "Vaga preenchida" because someone else was faster can join that
+  class's waiting list from the message itself, and is asked first if a spot opens again
+  (PAD-577).
 - The coach can see a class's waiting list from the class itself, with where each student came from
   (the standing list, their own request, or the coach) and for how long they are on it (this class
   only, the whole series, or until a date), add students to it — for that class only, for the whole

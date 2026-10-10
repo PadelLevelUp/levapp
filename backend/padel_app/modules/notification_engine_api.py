@@ -927,6 +927,26 @@ def debug_cleanup_reminder_test_classes():
     return jsonify({"removed": removed, "remaining": remaining})
 
 
+@bp.post("/debug/scheduler/release")
+@jwt_required(optional=True)
+def debug_scheduler_release():
+    """PAD-610 — E2E only. 404 unless E2E_DEBUG_ENDPOINTS is on. Playwright's
+    global-setup calls this once the test database is reseeded, so a backend that
+    booted with E2E_SCHEDULER_HELD runs its startup reschedule and starts its jobs
+    against the finished schema instead of the one being dropped. No token: the
+    runner holds none yet, and the route exists only on the flag-gated backend.
+    Idempotent — a running scheduler answers {"released": false}."""
+    from padel_app.utils.debug_flags import debug_endpoints_enabled
+    from padel_app.scheduler import release_scheduler
+
+    if not debug_endpoints_enabled():
+        abort(404)
+    try:
+        return jsonify(release_scheduler(current_app._get_current_object())), 200
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
 @bp.post("/debug/reset_presence")
 @jwt_required()
 def debug_reset_presence():

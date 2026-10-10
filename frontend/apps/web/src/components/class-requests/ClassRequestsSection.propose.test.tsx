@@ -94,19 +94,23 @@ describe("propose another time keeps the length (PAD-491, rule 20)", () => {
   it("moving the start moves the end by the request's length", async () => {
     await openProposalForm();
     fireEvent.change(screen.getByTestId("class-request-proposal-start"), { target: { value: "14:30" } });
+    fireEvent.keyDown(screen.getByTestId("class-request-proposal-start"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     expect(await sent()).toEqual({ date: "2026-10-07", startTime: "14:30", endTime: "15:30" });
   });
 
   it("after the coach sets the end, moving the start keeps the coach's length", async () => {
     await openProposalForm();
     fireEvent.change(screen.getByTestId("class-request-proposal-end"), { target: { value: "11:30" } });
+    fireEvent.keyDown(screen.getByTestId("class-request-proposal-end"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     fireEvent.change(screen.getByTestId("class-request-proposal-start"), { target: { value: "15:00" } });
+    fireEvent.keyDown(screen.getByTestId("class-request-proposal-start"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     expect(await sent()).toEqual({ date: "2026-10-07", startTime: "15:00", endTime: "16:30" });
   });
 
   it("changing the end never moves the start", async () => {
     await openProposalForm();
     fireEvent.change(screen.getByTestId("class-request-proposal-end"), { target: { value: "12:00" } });
+    fireEvent.keyDown(screen.getByTestId("class-request-proposal-end"), { key: "Enter" }); // PAD-559 PR-2: the shared field commits on Enter
     expect(await sent()).toEqual({ date: "2026-10-07", startTime: "10:00", endTime: "12:00" });
   });
 });

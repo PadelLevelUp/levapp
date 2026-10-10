@@ -3,7 +3,7 @@
  * before any request, maps a server `UNDERAGE` to the same message, and never asks for a
  * guardian's email any more.
  */
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
@@ -19,6 +19,10 @@ vi.mock("react-i18next", () => ({
 }));
 
 import SignUpPage from "./SignUpPage";
+
+// PAD-575 (auth.register rule 20): the page keeps a draft of the form in sessionStorage; each case
+// starts from a blank tab, or a Terms box ticked in one case is restored in the next.
+afterEach(() => sessionStorage.clear());
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** A local date `years` years ago, shifted by `days`. */

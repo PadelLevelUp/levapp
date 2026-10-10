@@ -17,6 +17,25 @@ def _query(instance_id, player_id):
     return ReminderAttempt.query.filter_by(lesson_instance_id=instance_id, player_id=player_id)
 
 
+def asked_instance_ids(player_id, instance_ids) -> set:
+    """PAD-583: the ids among ``instance_ids`` this player has at least one reminder attempt
+    for — voided rounds included, exactly what ``latest_attempt(...) is not None`` answers
+    per row (``student_may_confirm``), in ONE query for the whole candidate set."""
+    from padel_app.models import ReminderAttempt
+
+    ids = {int(i) for i in instance_ids if i is not None}
+    if not ids:
+        return set()
+    rows = (
+        db.session.query(ReminderAttempt.lesson_instance_id)
+        .filter(ReminderAttempt.player_id == player_id)
+        .filter(ReminderAttempt.lesson_instance_id.in_(ids))
+        .distinct()
+        .all()
+    )
+    return {int(r[0]) for r in rows}
+
+
 def count_attempts(instance_id, player_id) -> int:
     """How many reminders this player has had for the spot they hold NOW.
 

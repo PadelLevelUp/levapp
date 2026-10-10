@@ -193,12 +193,18 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - Skips vacancies with approval_status "pending" or "dismissed"
    - Sends batched invitations (maxSimultaneous at a time)
    - Respects restrictions (quiet hours, max per student per day, etc.)
-   - Expires unanswered invitations after maxInactiveTime
+   - After maxInactiveTime without a yes, sends the next batch or round. **An invitation never
+     expires because nobody answered it (PAD-609; owner, 2026-10-10):** while its spot is open it
+     stays live and can be accepted; it ends only when the spot is filled (rule 15, "spot_filled"),
+     the student answers, the coach withdraws it (rule 19) or the class starts (rule 9's stale
+     sweep).
 6. Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no
 7. If confirmed: Vacancy.status = "filled", player added to instance
-8. If all decline or expire: moves to next round. A player invited for a vacancy in a round is
-   not invited for it again in that round, whatever they answered: a decline, a timeout and a
-   still-open invitation all count. The next round applies its own criteria (B-056), within the
+8. If all decline, or maxInactiveTime passes with no yes: moves to next round, and the earlier
+   rounds' invitations stay live alongside it (PAD-609) — the first yes wins. A player invited for
+   a vacancy is not invited for it again while that invitation is live, in that round or a later
+   one (rule 18's one-offer skip); in that round, whatever they answered, a decline and a
+   still-open invitation both count. The next round applies its own criteria (B-056), within the
    class-wide exclusions of rule 18: a student who said "no" is never asked again for the class,
    in any round.
 8a. **The waiting list is group 0 (PAD-446; numbering unconfirmed).** Every batch for a vacancy
@@ -347,6 +353,36 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     message saying the same was redundant (owner: "no message when an invitation expires or the
     spot is filled"; `notifications.message-templates` rule 15). The join-request accept still
     tells pending join requesters whose request it closes (`classes.join-requests` rule 10).
+    **Every fill reads "spot_filled" (PAD-609; owner, 2026-10-10).** The retired message's
+    `response` is `"spot_filled"` on every closing path — a student's yes, the coach's recorded
+    yes, an accepted join request, any enrolment that leaves no place — so the bubble offers the
+    waiting list (rule 15a). A **manual** invitation carries no vacancy and no close reaches it:
+    when an enrolment takes the class's last place, capacity reconciliation (rule 13) retires the
+    class's live manual invitations the same way, sparing the students who hold a place and passing
+    over one another answer holds (that answer finds the class full and records `spot_filled`
+    itself). The tick and a class edit retire none: a coach may invite by hand to a class that is
+    already full, and that invitation stays live (its late yes reads `spot_filled`).
+    `"expired"` stays for the class starting (rule 9's stale sweep) and the coach's withdrawal
+    (rule 19). A student who held an invitation to the class (one with its message), neither
+    answered "no" nor withdrawn by the coach, may join its
+    waiting list from the bubble even when the coach's open spots are hidden (`classes.academy-class-booking`
+    rule 6's `not_visible` does not apply to them: the invitation already showed them the class).
+15a. **A retired invitation offers the waiting list (PAD-577).** When a student's invitation
+    reads "Vaga preenchida" because someone else took the spot (`response: "spot_filled"`), the
+    bubble — web and iOS, the chat and anywhere else the invitation is shown — adds "Juntar-me à
+    lista de espera" / "Join the waiting list". Pressing it puts the student on **that
+    occurrence's** waiting list through the student's own join (`notifications.waiting-list` rule
+    14, `POST /api/app/class-waiting-list` with the message's `lessonInstanceId`): group 0, no
+    automatic enrolment, asked first when a spot opens. The bubble then reads "Estás na lista de
+    espera" / "You're on the waiting list" with "Sair" / "Leave" (rule 14's leave). The button is
+    **not** shown when: the class has started (`startsAt` on the invitation's metadata, written at
+    send; an older message without it relies on the join's `class_closed` refusal), the student is
+    already on that class's list (their own lists, `GET /api/app/class-waiting-list`), or the
+    invitation ended for another reason — a timeout (`expired`), the coach's withdrawal
+    (`withdrawn`), the student's own "no". A join the server refuses (`has_spots`; `ineligible`) shows the refusal and hides the button. The
+    join is subject to the engine's exclusions when a spot opens, as any waiting-list row (PAD-576).
+    `spot_filled` is written on every fill (rule 15, PAD-609), and a student who held the invitation
+    is not refused `not_visible` (rule 15). Manual invitations carry `startsAt` too.
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
     still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
@@ -807,6 +843,25 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **And** when a student's offer for the first spot is retired because someone else took it, they are invited for the second spot on the next pass
 - **And** when it is declined instead, they are not
 
+#### Every fill retires the others as "spot_filled" (rule 15, PAD-609)
+- **Given** Ana and Bruno invited to Friday's one spot, and Carla and Dinis invited to it by hand
+- **When** the coach records Ana's yes (or Ana answers yes herself)
+- **Then** Bruno's bubble reads `response: "spot_filled"` and offers the waiting list
+- **And** once that yes takes the last place, Carla's and Dinis's manual invitations are expired with `response: "spot_filled"`; on a class with a place left they stay live
+- **And** a manual invitation the coach sends to a class that is already full stays live through the tick
+- **And** a withdrawn invitation and one for a class that started still read `"expired"`
+
+#### An invitation does not time out (rule 5, PAD-609)
+- **Given** Bruno's round-1 invitation unanswered past maxInactiveTime, and round 2 sent
+- **When** the spot is still open
+- **Then** Bruno's invitation is still live, he is not invited again for it, and his yes takes the spot
+
+#### An invited student joins the waiting list with open spots hidden (rule 15, PAD-609)
+- **Given** the coach's open spots hidden, and Bruno's invitation retired because Ana took the spot
+- **When** Bruno joins that class's waiting list from the bubble
+- **Then** he holds an active row on it
+- **And** Carla, never invited, Eva, who answered "no", and Filipe, whose invitation the coach withdrew, are still refused `not_visible`
+
 #### An unanswered or retired invitation is not a "no" (PAD-497)
 - **Given** a student whose invitation was retired (spot filled by someone else) without an answer
 - **When** another spot of the same class invites
@@ -821,6 +876,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** a student the coach excluded from automatic invitations, holding the coach's manual invitation for the class
 - **When** a spot's round has nobody else to ask
 - **Then** the spot moves on (an earlier round) or expires (the last round) — it does not wait on that student
+
+#### A student who lost the spot joins that class's waiting list from the message (rule 15a, PAD-577)
+- **Given** Carla's invitation for Friday's class reads "Vaga preenchida" because Bruno accepted first, on web and on iOS
+- **When** Carla presses "Juntar-me à lista de espera" on it
+- **Then** she holds an active row on that occurrence's waiting list (origin `student`, this class only) and the bubble reads "Estás na lista de espera" with "Sair"
+- **And** her retired invitation for a class that has started, or one that timed out, or one the coach withdrew, shows no button
+- **And** the bubble shows no button when she is already on that class's list
 
 #### A manual invitation counts for the one-offer skip (PAD-497, rule 18)
 - **Given** a student holding the coach's live manual invitation for the class

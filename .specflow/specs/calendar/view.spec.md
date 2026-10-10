@@ -12,23 +12,28 @@ governed_by: []
 ### Intent
 Display a unified calendar view showing lesson instances, calendar blocks, and availability for the current user.
 
-> **Forward-looking rules:** the open-spot clauses of rules 4 and 6 are **not built** — they are
-> specced ahead of PAD-130. Everything else in this spec is implemented. Rules added ahead of
-> their ticket are marked inline.
+> The open-spot clauses of rules 4 and 6 were specced ahead of PAD-130 and are **built** since
+> it (phone treatment: `calendar.mobile-views` rule 5, `eligibility.open-spot-visibility`
+> rule 11; B-541 fixed the phone shells).
 
 ### Rules
 1. `GET /api/app/calendar?from=ISO&to=ISO` returns events in date range
 2. Events include both lesson instances (materialized + virtual from recurrence) and calendar blocks
 3. For coaches: shows all classes they teach + personal blocks
-4. For players: shows classes they're enrolled in. **(pending PAD-130)** plus future classes with an
+4. For players: shows classes they're enrolled in. **(PAD-130)** plus future classes with an
    empty spot that the player is eligible for and whose coach has made open spots visible — see
    `eligibility.open-spot-visibility` for the full conditions. With the visibility toggle off, or
    with no such class, this is exactly rule 4 as it has always been: enrolled classes only
 5. Frontend renders week view (7-day grid) with `useCalendar` hook
-6. Events are color-coded: academy classes, private classes, calendar block types. **(pending
-   PAD-130)** an **open-spot class a player is not enrolled in uses a distinct colour** from that
+6. Events are color-coded: academy classes, private classes, calendar block types. **(PAD-130)**
+   an **open-spot class a player is not enrolled in uses a distinct colour** from that
    player's own classes — the two must never be mistaken for each other, since one is a commitment
-   and the other is an offer
+   and the other is an offer. **(PAD-578)** Not by colour alone: for a **student** viewer every
+   class they are enrolled in carries a ✓ mark (`calendar-enrolled-mark`, accessible label
+   `calendar.eventCard.enrolled`) on its card and on its grid block; an open spot carries the
+   "Open spot" chip instead; a canceled class carries no mark (red already says what matters);
+   a coach's calendar carries no mark at all. The viewer's role reaches the cards through the
+   calendar page, never through a card reading the session itself
 7. Mobile-responsive: below 768px on web, and always on iOS, the calendar is the three-mode
    phone screen specified by `calendar.mobile-views` (Dia / Semana / Mês). Rules 5–6 and
    13–14 below describe what that leaf inherits or supersedes; desktop web is unchanged by it
@@ -46,7 +51,10 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     so each sample uses a neutral stand-in and what it carries is the border, the fade and the
     dashed edge. The whole row is ONE accessibility element reading the five labels, because a
     legend is reference material and five VoiceOver stops between the nav and the grid would be
-    five stops in the way. **(Superseded on phones by `calendar.mobile-views` rule 9 when that
+    five stops in the way. **(PAD-578)** For a **student** viewer the desktop legend adds
+    `calendar.legend.enrolled` (a solid swatch with the ✓) and `calendar.legend.openSpots` (the
+    dashed outline) ahead of the shared items, so the two treatments rule 6 distinguishes are
+    explained where the legend exists; the coach's legend is unchanged. **(Superseded on phones by `calendar.mobile-views` rule 9 when that
     leaf ships: the iOS legend is removed and web hides it below 768px; desktop web keeps it.)**
 
 14. **(PAD-172)** On iOS the week strip and the day-detail list are a `flex-1` / `flex-1` pair
@@ -106,8 +114,17 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Given** a player enrolled in 2 classes this week
 - **When** they GET `/api/app/calendar?from=2026-04-13&to=2026-04-19`
 - **Then** only their enrolled classes appear
-- **(pending PAD-130)** once open-spot visibility ships, this criterion holds for a coach whose
+- **(PAD-130)** this criterion holds for a coach whose
   visibility toggle is off; the visible case is covered by `eligibility.open-spot-visibility`
+
+#### A student's own class carries a mark that is not a colour (rule 6, PAD-578)
+- **Given** a student enrolled in a class coloured `#1355DC` on Monday and eligible for an open spot
+  coloured `#1355DC` on Tuesday
+- **When** they view that week on desktop web
+- **Then** Monday's card and grid block carry `calendar-enrolled-mark` (✓, labelled
+  `calendar.eventCard.enrolled`) and Tuesday's carry `calendar-open-spot-chip` and no ✓
+- **And** the legend lists `calendar.legend.enrolled` and `calendar.legend.openSpots`
+- **And** the coach who teaches both sees neither mark nor the two legend items
 
 #### Declined students do not count toward the calendar participant count
 - **Given** a class instance with 6 enrolled players, `maxPlayers` 6, of which 3 have a presence with status `absent` (declined)
