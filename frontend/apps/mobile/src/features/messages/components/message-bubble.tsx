@@ -150,7 +150,7 @@ type MessageBubbleProps = {
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
 /** PAD-592: a dev-only render counter the measurement reads from the Metro log. */
 function countBubbleRender(): void {
-  if (__DEV__) console.log("[render] bubble");
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[render] bubble");
 }
 
 function MessageBubbleImpl({

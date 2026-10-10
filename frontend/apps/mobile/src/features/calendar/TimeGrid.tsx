@@ -21,7 +21,12 @@ const SURFACES = nativeCalendarSurfaces("light");
  * rules, blocks positioned by minutes and sharing a column when they overlap.
  * A tap on a column's empty area selects the day; a tap on a block opens it.
  */
-export function TimeGrid({
+/** PAD-592: a dev-only render counter the drag measurement reads from the Metro log. */
+function countGridRender(): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[render] timegrid");
+}
+
+function TimeGridImpl({
   weekDays,
   selectedDay,
   onSelectDay,
@@ -40,6 +45,7 @@ export function TimeGrid({
   onEventPress?: (event: CalendarEvent) => void;
   rowHeight?: number;
 }) {
+  countGridRender();
   const { t } = useTranslation();
   const locale = useDateLocale();
   const { startHour, endHour } = hourRange;
@@ -149,3 +155,10 @@ export function TimeGrid({
     </ScrollView>
   );
 }
+
+/**
+ * PAD-592: memoised — the sheet's drag no longer re-renders the container per frame (DaySheet),
+ * and when the container does re-render, the grid skips unless its week, events, range or
+ * callbacks changed.
+ */
+export const TimeGrid = React.memo(TimeGridImpl);

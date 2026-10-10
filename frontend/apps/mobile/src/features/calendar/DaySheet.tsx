@@ -1,6 +1,7 @@
 import { clampSheetTop, SHEET_HANDLE_HEIGHT, type SheetBounds } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import * as React from "react";
+import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -48,6 +49,15 @@ export function DaySheet({
 }) {
   const { t } = useTranslation();
   const startTop = React.useRef(top);
+  // PAD-592: while the finger moves, only this shared value changes — the sheet's `top` is an
+  // animated style, so no React state and no re-render of the grid under it per frame. The
+  // committed position (`top`, React state in GridWithSheet) is written once, on release, which
+  // is what the bounds, the raised flag and the Android back key read.
+  const sheetY = useSharedValue(top);
+  React.useEffect(() => {
+    sheetY.value = top;
+  }, [sheetY, top]);
+  const animatedTop = useAnimatedStyle(() => ({ top: sheetY.value }));
 
   const pan = React.useMemo(
     () =>
@@ -57,16 +67,19 @@ export function DaySheet({
           startTop.current = top;
         })
         .onUpdate((e) => {
+          sheetY.value = clampSheetTop(startTop.current + e.translationY, bounds);
+        })
+        .onEnd((e) => {
           onTopChange(clampSheetTop(startTop.current + e.translationY, bounds));
         }),
-    [top, bounds, onTopChange]
+    [top, bounds, onTopChange, sheetY]
   );
 
   return (
-    <View
+    <Animated.View
       testID="calendar-day-sheet"
       accessibilityValue={{ min: bounds.min, max: bounds.max, now: top }}
-      style={{ position: "absolute", left: 0, right: 0, bottom: 0, top, ...TOP_CORNERS, ...SHEET_SHADOW }}
+      style={[{ position: "absolute", left: 0, right: 0, bottom: 0, ...TOP_CORNERS, ...SHEET_SHADOW }, animatedTop]}
       className="bg-background"
     >
       <View style={TOP_CORNERS} className="flex-1 overflow-hidden bg-background">
@@ -113,6 +126,6 @@ export function DaySheet({
           )}
         </ScrollView>
       </View>
-    </View>
+    </Animated.View>
   );
 }
