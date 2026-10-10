@@ -52,4 +52,16 @@ export default async function globalSetup() {
     },
   });
   console.log("[global-setup] Test database ready.");
+
+  // PAD-610: the backend booted (E2E_SCHEDULER_HELD) with its scheduler paused so
+  // that neither the startup reschedule nor the batch job could deadlock the reseed
+  // above. The database is ready now — release it, and fail loudly if that is
+  // refused, because every reminder spec depends on the jobs running.
+  const release = `http://127.0.0.1:${isolation.backendPort}/api/app/notify/debug/scheduler/release`;
+  const res = await fetch(release, { method: "POST" });
+  const body = await res.text();
+  if (!res.ok) {
+    throw new Error(`[global-setup] Scheduler release refused: ${res.status} ${body}`);
+  }
+  console.log(`[global-setup] Scheduler released: ${body}`);
 }
