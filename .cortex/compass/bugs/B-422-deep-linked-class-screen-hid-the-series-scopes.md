@@ -3,7 +3,8 @@ id: B-422
 title: "iOS class screen opened by deep link offered only \"Só esta aula\": the class payload had no isRecurring, only the calendar event did"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
+resolved: 2026-10-10T00:13:00Z
 affects:
   - calendar.event-detail
   - backend/padel_app/serializers/lesson.py
@@ -43,4 +44,7 @@ on the payload; iOS source-grep test; flow 219 re-run. Follow-up PR after the wa
 promotion (coordinator 2026-10-10).
 
 ### Resolution
-_Pending._
+- Spec: calendar.event-detail rule 15 names `isRecurring` as part of the class payload.
+- Code: `serialize_class_instance` emits `isRecurring` (both views); `app/class/[id].tsx` reads it and falls back to a non-null `recurrenceEnd`.
+- Tests: `test_pad560_deeplink_recurring.py` (payload, 1 test); iOS source-grep `class-screen-recurring.test.ts` (2); flow 219 hardened (scroll to the add button; retry the search typing) and run green on the simulator at the fix branch: rc 0, 540 s, 2026-10-10 00:13Z (`scratchpad/flow-219e.log`), after three environment reds (keystroke drop "Sudnt Two", add button below the fold, iOS driver startup timeout at load ~200).
+- Resolved: 2026-10-10 (follow-up PR to PAD-560, before promotion).

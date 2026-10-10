@@ -40,17 +40,30 @@ onFlowComplete:
     direction: DOWN
     timeout: 30000
 # The section is open already: it opens by itself when the list has rows (the filler's), as in 170.
+# The add button sits below the rows: under load the toggle scroll can leave it past the edge,
+# where it is not in the hierarchy (2026-10-10 run 3), so scroll to it before tapping.
+- scrollUntilVisible:
+    element:
+      id: "class-waiting-list-add"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
     id: "class-waiting-list-add"
-- tapOn:
-    id: "class-waiting-list-search"
-- inputText: "Student Two"
-# Close the keyboard first: it can cover the sheet's scope and confirm buttons (Session D, 2026-10-08).
-- pressKey: Enter
-- extendedWaitUntil:
-    visible:
-      id: "class-waiting-list-candidate-${output.two.playerId}"
-    timeout: 15000
+# The simulator keyboard drops keystrokes under load ("Sudnt Two", 2026-10-10 run 2): type, close
+# the keyboard (it can cover the scope and confirm buttons, Session D 2026-10-08), and retype
+# until the row the search should surface is there.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "class-waiting-list-search"
+      - eraseText: 40
+      - inputText: "Student Two"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            id: "class-waiting-list-candidate-${output.two.playerId}"
+          timeout: 8000
 - tapOn:
     id: "class-waiting-list-candidate-${output.two.playerId}"
 
