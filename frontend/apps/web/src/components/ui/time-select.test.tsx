@@ -88,7 +88,7 @@ describe("the list", () => {
     render(<Harness />);
     fireEvent.click(field());
     const list = screen.getByTestId("t-list");
-    const options = within(list).getAllByRole("button");
+    const options = within(list).getAllByRole("option");
     expect(options).toHaveLength(72);
     expect(options[0].textContent).toBe("06:00");
     expect(options[71].textContent).toBe("23:45");
@@ -108,7 +108,7 @@ describe("the list", () => {
   it("the end list starts after the start and shows each option's duration", () => {
     render(<Harness initial="19:30" from="18:00" />);
     fireEvent.click(field());
-    const options = within(screen.getByTestId("t-list")).getAllByRole("button");
+    const options = within(screen.getByTestId("t-list")).getAllByRole("option");
     expect(options[0].textContent).toBe("18:1515 min");
     const byTime = (t: string) => options.find((o) => o.textContent?.startsWith(t))!;
     expect(byTime("19:00").textContent).toBe("19:001 h");
@@ -125,5 +125,108 @@ describe("endAfterStartMove (classes.edit rule 7b)", () => {
     ["21:00", "23:00", "23:00", "23:59"], // never past the day
   ])("%s–%s, start to %s → end %s", (start, end, next, out) => {
     expect(endAfterStartMove(start, end, next)).toBe(out);
+  });
+});
+
+// ── PAD-559 (classes.create rule 8c): wheel, keyboard, touch, combobox, end guard, opens near now ──
+
+describe("PAD-559: the keyboard walks the list (rule 8c)", () => {
+  it("↓ twice then Enter commits a quarter hour later twice, and closes the list", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.focus(field());
+    fireEvent.keyDown(field(), { key: "ArrowDown" });
+    fireEvent.keyDown(field(), { key: "ArrowDown" });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(field().value).toBe("09:30");
+    expect(onChange).toHaveBeenLastCalledWith("09:30");
+    expect(field().getAttribute("aria-expanded")).toBe("false");
+  });
+  it("↑ from a typed time walks from that time, and Escape keeps the value and closes", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.focus(field());
+    fireEvent.change(field(), { target: { value: "10:00" } });
+    fireEvent.keyDown(field(), { key: "ArrowUp" });
+    expect(field().value).toBe("09:45"); // the highlight is shown in the field before Enter
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(field().value).toBe("09:45");
+    fireEvent.focus(field());
+    fireEvent.keyDown(field(), { key: "ArrowDown" });
+    fireEvent.keyDown(field(), { key: "Escape" });
+    expect(field().value).toBe("09:45");
+    expect(onChange).toHaveBeenLastCalledWith("09:45");
+    expect(field().getAttribute("aria-expanded")).toBe("false");
+  });
+  it("is a combobox over a listbox, naming the highlighted option", () => {
+    render(<Harness />);
+    expect(field().getAttribute("role")).toBe("combobox");
+    fireEvent.focus(field());
+    expect(field().getAttribute("aria-expanded")).toBe("true");
+    const list = screen.getByTestId("t-list");
+    expect(list.getAttribute("role")).toBe("listbox");
+    expect(field().getAttribute("aria-controls")).toBe(list.id);
+    fireEvent.keyDown(field(), { key: "ArrowDown" });
+    const active = field().getAttribute("aria-activedescendant");
+    expect(active).toBeTruthy();
+    expect(within(list).getAllByRole("option").some((o) => o.id === active && o.textContent?.includes("09:15"))).toBe(true);
+  });
+});
+
+describe("PAD-559: the end never precedes the start (rule 8c)", () => {
+  it("an end typed at or before the start snaps to the start plus the usual length and reports it", () => {
+    const onChange = vi.fn();
+    const onRefused = vi.fn();
+    function EndHarness() {
+      const [value, setValue] = useState("19:00");
+      return (
+        <TimeSelect data-testid="t" aria-label="Fim" value={value} from="18:00" usualMinutes={60} onRefused={onRefused}
+          onChange={(v) => { setValue(v); onChange(v); }} />
+      );
+    }
+    render(<EndHarness />);
+    fireEvent.change(field(), { target: { value: "17:30" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(field().value).toBe("19:00");
+    expect(onChange).not.toHaveBeenCalledWith("17:30");
+    expect(onRefused).toHaveBeenCalledTimes(1);
+    fireEvent.change(field(), { target: { value: "18:00" } });
+    fireEvent.blur(field());
+    expect(field().value).toBe("19:00");
+    expect(onRefused).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("PAD-559: the list opens near now, never at dawn (rule 8c)", () => {
+  it("an empty field (a clone's start) opens scrolled to the next quarter hour from the club's clock", () => {
+    const scrolled: string[] = [];
+    Element.prototype.scrollIntoView = function () { scrolled.push(this.textContent ?? ""); };
+    render(<TimeSelect data-testid="t" aria-label="Início" value="" placeholder="Escolhe" onChange={() => {}} now={() => new Date(2026, 9, 9, 14, 7)} />);
+    fireEvent.focus(field());
+    return new Promise<void>((resolve) => setTimeout(() => {
+      expect(scrolled.at(-1)).toContain("14:15");
+      resolve();
+    }, 10));
+  });
+  it("a field with a value opens at that value", () => {
+    const scrolled: string[] = [];
+    Element.prototype.scrollIntoView = function () { scrolled.push(this.textContent ?? ""); };
+    render(<Harness initial="20:30" />);
+    fireEvent.focus(field());
+    return new Promise<void>((resolve) => setTimeout(() => {
+      expect(scrolled.at(-1)).toContain("20:30");
+      resolve();
+    }, 10));
+  });
+});
+
+describe("PAD-559: the list is inside the sheet and its rows are finger-sized", () => {
+  it("renders the list without a portal (inside the field's own tree) with 44 px rows on touch", () => {
+    render(<Harness />);
+    fireEvent.focus(field());
+    const list = screen.getByTestId("t-list");
+    expect(field().closest("[data-time-select]")?.contains(list)).toBe(true);
+    const row = within(list).getAllByRole("option")[0];
+    expect(row.className).toMatch(/min-h-11|h-11/);
   });
 });

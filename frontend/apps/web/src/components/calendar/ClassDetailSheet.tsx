@@ -1167,6 +1167,14 @@ export function ClassDetailSheet({
                     value={active.endTime}
                     from={active.startTime}
                     onChange={(endTime) => setDraft((d) => (d ? { ...d, endTime } : d))}
+                    // PAD-559 (rule 8c): an end typed at or before the start is refused in the field.
+                    onRefused={() =>
+                      toast({
+                        variant: "destructive",
+                        title: t("calendar.addClass.missingFieldsTitle"),
+                        description: t("calendar.addClass.endBeforeStart"),
+                      })
+                    }
                   />
                 </div>
               ) : (
