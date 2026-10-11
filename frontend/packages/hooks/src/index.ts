@@ -14,3 +14,4 @@ export { useEvaluationFormSession } from "./useEvaluationFormSession";
 export { usePendingValidationBadge } from "./pendingValidationBadge";
 export * from "./queryDefaults";
 export * from "./presences";
+export { useInviteWaitingList, joinRefusalMessageKey, JOIN_REFUSAL_CODES, type InviteWaitingListApi } from "./useInviteWaitingList";

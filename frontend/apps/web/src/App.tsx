@@ -23,18 +23,17 @@ import {
   ForgotPasswordPage,
   JoinCoachPage,
   LandingPage,
+  LegalPage,
   MessagesPage,
   NotFound,
   PlayerInvitePage,
   PlayersPage,
   PresencesPage,
-  PrivacyPolicyPage,
   RegisterPage,
   SettingsPage,
   SignUpPage,
   StudentEvaluations,
   SupportPage,
-  TermsPage,
   TrainingExercisesPage,
   TrainingGroupsPage,
   TrainingPage,
@@ -86,8 +85,8 @@ const App = () => (
               <Route path="/invite/player/:token" element={<PlayerInvitePage />} />
               {/* players.join-token rule 9 — public: the preview needs no session. */}
               <Route path="/join/coach/:token" element={<JoinCoachPage />} />
-              <Route path="/privacy" element={<PrivacyPolicyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<LegalPage document="privacy" />} />
+              <Route path="/terms" element={<LegalPage document="terms" />} />
               <Route path="/support" element={<SupportPage />} />
 
               {/* `/` is the public page when there is no session and the

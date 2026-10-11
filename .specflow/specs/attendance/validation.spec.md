@@ -341,25 +341,21 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       ("a aula fica acima da lotação: N/M") before saving, judged on the payload's `filled` /
       `capacity`, and the server never refuses. The validate view lists only ended classes
       (rule 3), where capacity is moot, so it needs no dialog.
-    - **Reminders.** `notifications.reminders` rule 23 reads `status` at send time, so a cleared
-      student is eligible again for every pass still to run. When the occurrence's first-reminder
-      instant has already passed and the student has had no counted reminder, the clear **arms
-      the late ask** through the same door enrolment uses (`arm_ask_for_student`, rule 18) — the
-      ticket's "volta a ser elegível para lembretes" would otherwise be empty words on a class
-      whose chain has ended. Nothing is armed when a reminder of theirs is still live, when the
-      instant is ahead (the ordinary reminder will ask), when the occurrence's notifications are
-      off, or when the class is over. **Bound (orchestrator, 2026-10-09, owner-vetoable as it
-      touches reminder volume): at most one send per clear**, counted like any reminder against
-      `reminderCount`; clearing twice sends once, because the second clear finds the first
-      pass's reminder live and arms nothing.
+    - **Reminders — the clear sends nothing (owner decision, 2026-10-10).** `notifications.reminders`
+      rule 23 reads `status` at send time, so a cleared student is eligible again for any pass
+      that has not fired yet, and that is all: the clear itself writes no message, sends no push
+      and arms no job. When the occurrence's first-reminder instant has already passed and its
+      chain is spent, the cleared student is not asked again automatically; the coach may still
+      send reminders by hand. (Supersedes the PAD-567 late ask through `arm_ask_for_student`,
+      which shipped in #608 and was removed before promotion.)
     - **Semi-automatic mode.** Clearing creates no vacancy and no suggestion (nothing is freed).
       When the cleared row was an absence and the coach is in semi-automatic mode, the server
       runs `recompute_suggestions` (`notifications.semi-auto-approval` rule 12) after the write,
       so a suggestion born of that absence is withdrawn and the class's suggestion state is
       re-derived; the confirm reply's `approvalBundle` reflects it.
-    - **The student is not told** (decided here, default for the owner to reverse): the coach is
-      editing their own record, and the reminder — ordinary or re-armed — is how the student
-      hears they are asked again; a message saying "your answer was cleared" would be noise. The
+    - **The student is not told** (owner decision, 2026-10-10): the coach is
+      editing their own record, and an ordinary reminder still to run is how the student
+      hears they are asked; a message saying "your answer was cleared" would be noise. The
       student's surfaces follow `attendanceState` (`planned` again) and `pendingConfirmation`
       (`attendance.confirm` rule 27) on the next read.
     - PAD-570 interplay: a cleared student is `planned`; whether they may say "Vou" is rule 27's
@@ -635,15 +631,15 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the coach clears Ana's mark on the class detail
 - **Then** a dialog warns that the class goes to 5/4 before saving, and on confirm the server records the clear without refusing
 
-#### A cleared student is asked again (PAD-567, rule 26)
+#### A clear after the reminder instant sends nothing (PAD-567, rule 26, owner 2026-10-10)
 - **Given** a class whose first-reminder instant passed, where Ana was marked present before the pass (so rule 23 skipped her) and has no counted reminder
 - **When** the coach clears her mark
-- **Then** one reminder pass is armed for her (`arm_ask_for_student`), and none is armed when her reminder is still live, the class's notifications are off, or the class is over
+- **Then** no job is armed, no message is written and she has no counted reminder — likewise when the class's notifications are off, the class is over, or the instant is ahead
 
-#### Clearing twice sends one reminder (PAD-567, rule 26)
-- **Given** the same class and Ana cleared once, her armed pass having sent her reminder
-- **When** the coach marks her present and clears her again
-- **Then** no second pass is armed and she has exactly one counted reminder
+#### A clear before the instant leaves her to the ordinary reminder (PAD-567, rule 26)
+- **Given** a class whose first-reminder instant is two hours ahead and Ana marked present
+- **When** the coach clears her mark and the instant then passes
+- **Then** the ordinary reminder pass sends her one reminder
 
 #### A cleared row brings a validated class back to the backlog (PAD-567, rule 26)
 - **Given** a validated past class

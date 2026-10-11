@@ -121,17 +121,19 @@ test("PAD-369 (B-141): a time typed off the 15-minute grid is brought onto it be
     const card = page.getByTestId("working-hours");
     await expect(card).toHaveAttribute("data-state", "default", { timeout: 15_000 });
 
-    // step={900} only drives the arrows: a typed 22:07 reaches the editor's state.
+    // PAD-559 PR-2: the shared field commits a complete time as it is typed and the editor
+    // snaps it to the grid at once, so a 22:07 over a stored 22:00 is no change at all (Save
+    // stays disabled, rightly). Type one that lands on a NEW slot instead.
     const end = card.getByTestId("working-hours-tue-0-end");
-    await end.fill("22:07");
+    await end.fill("21:37");
     const saved = page.waitForResponse(isPut);
     await page.getByTestId("settings-header-save").click();
     const res = await saved;
     const { workingHours } = res.request().postDataJSON();
     expect(res.status(), `sent tue=${JSON.stringify(workingHours.tue)} → ${await res.text()}`).toBeLessThan(300);
     // Rule 6: the coach sees the value that was saved, the nearest quarter hour.
-    expect(workingHours.tue).toEqual([["08:00", "22:00"]]);
-    await expect(end).toHaveValue("22:00");
+    expect(workingHours.tue).toEqual([["08:00", "21:30"]]);
+    await expect(end).toHaveValue("21:30");
     await expect(card).toHaveAttribute("data-state", "set");
   } finally {
     await clearWorkingHours(request);

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { TimeSelect } from "@/components/ui/time-select";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -108,12 +109,15 @@ function TimingSelector({
               </Button>
               <span className="text-xs text-muted-foreground">{t("settings.reminders.daysAt")}</span>
             </div>
-            <input
-              type="time"
+            <TimeSelect
+              data-testid="reminder-time"
+              aria-label={t("settings.reminders.daysAt")}
+              first="00:00"
+              last="23:45"
+              className="h-7 w-28"
               value={(value as { type: "days_before_at_time"; days: number; time: string }).time}
-              onChange={(e) => onChange({ ...(value as { type: "days_before_at_time"; days: number; time: string }), time: e.target.value })}
+              onChange={(time) => onChange({ ...(value as { type: "days_before_at_time"; days: number; time: string }), time })}
               disabled={disabled}
-              className="h-7 rounded-md border border-input bg-background px-2 text-sm text-foreground"
             />
           </div>
         )}

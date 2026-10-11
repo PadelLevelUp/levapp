@@ -19,6 +19,9 @@ server a given build talks to.
 - `mobile.install-suggestion` — draft (PAD-573: the web app on an iPhone suggests the iOS app to a
   student, dismissible for 30 days, plus Safari's Smart App Banner; web-only by nature)
 
+- `mobile.launch` — draft (PAD-587: the session restore overlaps the font load and the launch
+  overlay ends when the first screen is ready, never before the fonts; measured on the simulator)
+
 ## Why it's grouped this way
 
 Every other domain describes a feature that exists on web and iOS alike. Android runtime rules
