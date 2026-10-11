@@ -36,11 +36,13 @@ screenshot (one word per line beside the button), read in
 ### Change Plan
 - Rule 4a and its criterion (done in this branch).
 - `InstallAppBanner`: tighter padding below `sm`, title `line-clamp-2`, body `hidden sm:block`,
-  button `openShort` below `sm` with the full label as its accessible name, an 8×8 close button.
+  button `openShort` below `sm` with an sr-only " App Store" so its accessible name contains the
+  visible label (WCAG 2.5.3), the 44 px close button kept (negative margins).
 - `installApp.openShort` in pt ("Abrir") and en ("Open").
 - E2E `install-suggestion.spec.ts`: 320 and 375 px cases on /settings (height, no overlap with the
   first h1, no sideways scroll, dismiss) and on /calendar (height, page starts below the card).
-  Red on staging's component, green on the fix, in one sitting.
+  Red on staging's component, green on the fix, in one sitting: staging's card measured 306 px
+  (320 wide) and 218 px (375 wide) against the 72 px bound; the fix passed the file 7/7.
 
 ### Resolution
 

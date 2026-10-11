@@ -40,11 +40,12 @@ a surface that only exists off the phone app).
 4. **Never a hold.** The card sits above the page content inside the app shell, pushes the page
    down, and is the first thing after the header; it never overlays, never traps focus, never
    delays rendering. It is absent while `/api/auth/me` has not answered.
-4a. **A slim strip on the narrowest phones (PAD-628).** At 320–375 px wide the card is one strip
-   at most 72 px tall: the title clamped to two lines, the body line left out below `sm`, the
-   button labelled "Abrir" / "Open" (the full "Ir para a App Store" from `sm` up, and as its
-   accessible name throughout), and the close control always on screen. It never widens the page
-   (no sideways scroll) and its bottom edge sits above the page's first heading.
+4a. **A slim strip on a phone (PAD-628).** Below `sm` (640 px), so on every iPhone, the card is
+   one strip: the title clamped to two lines, the body line left out, the button labelled "Abrir" /
+   "Open" (the full "Ir para a App Store" from `sm` up), and the 44 px close control always on
+   screen. The button's accessible name contains its visible label ("Abrir App Store"). Pinned at
+   320 and 375 px: at most 72 px tall, never widening the page (no sideways scroll), and placed
+   before the page's first heading.
 5. **Smart App Banner.** `index.html` carries `<meta name="apple-itunes-app"
    content="app-id=6794271800">`, so Safari on iOS shows Apple's banner on every page (the
    zero-code path; it opens the app directly when installed). The custom card covers the other

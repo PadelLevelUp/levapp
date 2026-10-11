@@ -37,25 +37,24 @@ export function InstallAppBanner() {
     >
       <Smartphone className="h-4 w-4 shrink-0 text-primary sm:h-5 sm:w-5" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-sm font-medium leading-5">{t("installApp.title")}</p>
+        <p data-testid="install-app-title" className="line-clamp-2 text-sm font-medium leading-5">
+          {t("installApp.title")}
+        </p>
         <p className="hidden text-xs text-muted-foreground sm:block">{t("installApp.body")}</p>
       </div>
       <Button size="sm" className="h-8 shrink-0 px-3" asChild>
-        <a
-          data-testid="install-app-open"
-          href={APP_STORE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={t("installApp.open")}
-        >
+        <a data-testid="install-app-open" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+          {/* The accessible name is the visible text (WCAG 2.5.3): "Abrir App Store" on a phone. */}
           <span className="sm:hidden">{t("installApp.openShort")}</span>
+          <span className="sr-only sm:hidden"> App Store</span>
           <span className="hidden sm:inline">{t("installApp.open")}</span>
         </a>
       </Button>
       <Button
         size="icon"
         variant="ghost"
-        className="h-8 w-8 shrink-0"
+        // The default 44 px tap target, with negative margins so it does not make the strip taller.
+        className="-my-1.5 shrink-0"
         data-testid="install-app-dismiss"
         aria-label={t("installApp.dismiss")}
         onClick={() => {
