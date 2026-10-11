@@ -62,7 +62,11 @@ def _make_user(app, username="ana", email="ana@example.com", role="student"):
     from padel_app.sql_db import db
 
     with app.app_context():
-        u = User(name="Ana Silva", username=username, email=email, password="x", status="active")
+        # A verified account (rule 2b links only those); the takeover test unverifies it.
+        import datetime as dt
+
+        u = User(name="Ana Silva", username=username, email=email, password="x", status="active",
+                 email_verified_at=dt.datetime(2026, 1, 1))
         db.session.add(u)
         db.session.flush()
         db.session.add(Player(user_id=u.id) if role == "student" else Coach(user_id=u.id, approval_status="approved"))
@@ -276,3 +280,118 @@ def test_the_google_verifier_checks_issuer_and_audience(monkeypatch):
         social._real_verify_google("t", ["web"])
     claims["aud"] = "web"
     assert social._real_verify_google("t", ["web"])["sub"] == "1"
+
+
+# ── security review round ─────────────────────────────────────────────────────
+
+def _unverify(app, uid):
+    from padel_app.models import User
+    from padel_app.sql_db import db
+
+    with app.app_context():
+        u = User.query.get(uid)
+        u.email_verified_at = None
+        u.email_verification_required = True
+        db.session.commit()
+
+
+def test_an_account_whose_own_email_is_unverified_is_never_linked(client, app, google):
+    """Pre-hijack: someone registers the victim's address by password and never verifies it.
+    The victim's Google sign-in must not land in that account."""
+    uid = _make_user(app)
+    _unverify(app, uid)
+    google.claims = gclaims()
+    res = social_post(client)
+    assert res.status_code == 409, res.get_json()
+    assert res.get_json()["error"] == "ACCOUNT_EMAIL_UNVERIFIED"
+    assert _identities(app) == []
+
+
+def test_a_returning_apple_user_without_email_signs_in_by_identity(client, app, apple):
+    uid = _make_user(app)
+    raw = "n-1"
+    nonce = hashlib.sha256(raw.encode()).hexdigest()
+    apple.claims = {"sub": "a-9", "email": "ana@example.com", "email_verified": "true", "nonce": nonce}
+    assert social_post(client, provider="apple", nonce=raw).status_code == 200
+    # Apple sends the email only on the first authorization.
+    apple.claims = {"sub": "a-9", "nonce": nonce}
+    res = social_post(client, provider="apple", nonce=raw)
+    assert res.status_code == 200, res.get_json()
+    assert res.get_json()["user"]["id"] == uid
+
+
+def test_an_unknown_apple_account_without_email_is_refused(client, app, apple):
+    raw = "n-2"
+    apple.claims = {"sub": "a-new", "nonce": hashlib.sha256(raw.encode()).hexdigest()}
+    assert social_post(client, provider="apple", nonce=raw).status_code == 401
+    assert _identities(app) == []
+
+
+def test_two_accounts_sharing_an_email_up_to_case_are_not_linked_at_random(client, app, google):
+    first = _make_user(app, username="ana1", email="ana@example.com")
+    _make_user(app, username="ana2", email="ANA@example.com")
+    google.claims = gclaims()
+    res = social_post(client)
+    assert res.status_code == 200, res.get_json()
+    assert res.get_json()["user"]["id"] == first
+
+
+def test_a_concurrent_completion_that_loses_the_race_is_a_409(client, app, google, monkeypatch):
+    from padel_app.services import registration_service
+
+    google.claims = gclaims(sub="g-race", email="race@example.com")
+    ticket = social_post(client).get_json()["signupTicket"]
+    # The other request wins between our checks and our insert: the identity already exists.
+    real = registration_service._create_account
+
+    def lose_the_race(**kw):
+        real(**{**kw, "username": kw["username"] + "x"})
+        return real(**kw)
+
+    monkeypatch.setattr(registration_service, "_create_account", lose_the_race)
+    res = _complete(client, ticket)
+    assert res.status_code == 409, res.get_json()
+    assert res.get_json()["error"] == "ALREADY_COMPLETED"
+
+
+def test_the_new_username_does_not_expose_the_email(client, app, google):
+    google.claims = gclaims(sub="g-u", email="secret.address@example.com", name="Rita Lopes")
+    ticket = social_post(client).get_json()["signupTicket"]
+    uid = _complete(client, ticket).get_json()["user"]["id"]
+    from padel_app.models import User
+
+    with app.app_context():
+        username = User.query.get(uid).username
+    assert "secret" not in username and username.startswith("rita")
+
+
+def test_apple_tokens_must_carry_the_standard_claims_and_an_outage_is_503(monkeypatch):
+    import jwt
+
+    seen = {}
+
+    class FakeKey:
+        key = "k"
+
+    class FakeClient:
+        def __init__(self, url, **kw):
+            seen["kw"] = kw
+
+        def get_signing_key_from_jwt(self, token):
+            if token == "down":
+                raise jwt.PyJWKClientConnectionError("unreachable")
+            return FakeKey()
+
+    def fake_decode(token, key, **kw):
+        seen["decode"] = kw
+        return {"sub": "a"}
+
+    monkeypatch.setattr(jwt, "PyJWKClient", FakeClient)
+    monkeypatch.setattr(jwt, "decode", fake_decode)
+    monkeypatch.setattr(social, "_apple_jwks", None)
+    social._real_verify_apple("t", ["com.padellevelup.app"])
+    assert set(seen["decode"]["options"]["require"]) >= {"exp", "iss", "aud", "sub"}
+    assert seen["kw"]["timeout"] == 5
+    monkeypatch.setattr(social, "_apple_jwks", None)
+    with pytest.raises(social.ProviderUnavailable):
+        social._real_verify_apple("down", ["com.padellevelup.app"])

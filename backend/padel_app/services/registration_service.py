@@ -307,18 +307,23 @@ def _create_account(*, role, name, username, email, password_hash, birth_date, c
     return user
 
 
-def _username_from_email(email):
-    """A free username from the email's local part (auth.social-sign-in rule 4)."""
-    base = re.sub(r"[^A-Za-z0-9._-]", "", email.split("@", 1)[0])[:60] or "user"
-    if len(base) < 3:
-        base = (base + "user")[:6]
+def _username_for(name):
+    """A free username from the first name plus four digits (auth.social-sign-in rule 4). Never
+    from the email: usernames are searchable in messaging, and the address's local part is not
+    something the person chose to publish."""
+    import secrets
+    import unicodedata
+
+    first = (name or "").split()[0] if (name or "").split() else ""
+    ascii_first = unicodedata.normalize("NFKD", first).encode("ascii", "ignore").decode()
+    base = re.sub(r"[^a-z0-9]", "", ascii_first.lower())[:20] or "user"
     if base.startswith(PLACEHOLDER_USERNAME_PREFIX):
         base = "u" + base
-    candidate, n = base, 1
-    while User.query.filter(db.func.lower(User.username) == candidate.lower()).first() is not None:
-        n += 1
-        candidate = f"{base}{n}"
-    return candidate
+    for _ in range(50):
+        candidate = f"{base}{secrets.randbelow(9000) + 1000}"
+        if User.query.filter(db.func.lower(User.username) == candidate).first() is None:
+            return candidate
+    return f"{base}{secrets.token_hex(4)}"
 
 
 def complete_social_signup(ticket, data, now=None):
@@ -347,8 +352,16 @@ def complete_social_signup(ticket, data, now=None):
         raise SocialAuthError(409, "ALREADY_COMPLETED")
     assert_email_free(email)
     name = identity["name"] or email.split("@", 1)[0]
-    return _create_account(
-        role=role, name=name, username=_username_from_email(email), email=email, password_hash=None,
-        birth_date=birth_date, country=country, terms_accepted=terms_accepted, now=now,
-        identity={"provider": identity["provider"], "subject": identity["subject"]},
-    )
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        return _create_account(
+            role=role, name=name, username=_username_for(name), email=email, password_hash=None,
+            birth_date=birth_date, country=country, terms_accepted=terms_accepted, now=now,
+            identity={"provider": identity["provider"], "subject": identity["subject"]},
+        )
+    except IntegrityError:
+        # A concurrent completion of the same ticket (or the same email) won between our checks
+        # and the insert; the unit of work rolled back. The account exists: sign in instead.
+        db.session.rollback()
+        raise SocialAuthError(409, "ALREADY_COMPLETED") from None

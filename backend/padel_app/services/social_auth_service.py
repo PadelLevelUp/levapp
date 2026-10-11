@@ -35,6 +35,10 @@ class ProviderTokenInvalid(Exception):
     """The ID token did not verify (signature, expiry, audience, issuer, nonce or shape)."""
 
 
+class ProviderUnavailable(Exception):
+    """The provider's keys could not be fetched (an outage, not a bad token)."""
+
+
 # ── verifiers ──────────────────────────────────────────────────────────────────
 
 def _real_verify_google(token, audiences):
@@ -62,13 +66,15 @@ def _real_verify_apple(token, audiences):
     global _apple_jwks
     try:
         if _apple_jwks is None:
-            _apple_jwks = jwt.PyJWKClient(APPLE_KEYS_URL, cache_keys=True, lifespan=3600)
+            _apple_jwks = jwt.PyJWKClient(APPLE_KEYS_URL, cache_keys=True, lifespan=3600, timeout=5)
         key = _apple_jwks.get_signing_key_from_jwt(token)
         return jwt.decode(
             token, key.key, algorithms=["RS256"], audience=list(audiences), issuer=APPLE_ISSUER,
-            leeway=10,
+            leeway=10, options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
-    except Exception as exc:  # noqa: BLE001 — every failure is an invalid token
+    except jwt.PyJWKClientConnectionError as exc:
+        raise ProviderUnavailable(type(exc).__name__) from exc
+    except Exception as exc:  # noqa: BLE001 — every other failure is an invalid token
         raise ProviderTokenInvalid(type(exc).__name__) from exc
 
 
@@ -95,6 +101,8 @@ def _verified_claims(provider, id_token, nonce):
         claims = verify(id_token, audiences)
     except ProviderTokenInvalid:
         raise SocialAuthError(401, "INVALID_PROVIDER_TOKEN") from None
+    except ProviderUnavailable:
+        raise SocialAuthError(503, "PROVIDER_UNAVAILABLE") from None
     if provider == "apple":
         # Replay guard: the token carries the SHA-256 of the nonce the app generated.
         expected = hashlib.sha256(str(nonce or "").encode()).hexdigest()
@@ -103,12 +111,11 @@ def _verified_claims(provider, id_token, nonce):
     subject = str(claims.get("sub") or "").strip()
     if not subject:
         raise SocialAuthError(401, "INVALID_PROVIDER_TOKEN")
-    # Apple sends email_verified as the string "true"; Google as a boolean.
+    # The email counts only when the provider verified it (Apple sends "true", Google True);
+    # an unverified address can neither link nor create an account (rule 2). Apple sends the email
+    # only on the first authorization, so a returning Apple user has none: the identity finds them.
     verified = claims.get("email_verified") in (True, "true")
-    email = str(claims.get("email") or "").strip().lower() or None
-    if not verified:
-        # Rule 2: an unverified address can neither link nor create an account.
-        raise SocialAuthError(401, "INVALID_PROVIDER_TOKEN")
+    email = (str(claims.get("email") or "").strip().lower() or None) if verified else None
     name = str(claims.get("name") or "").strip()
     return subject, email, name
 
@@ -121,20 +128,24 @@ def resolve(provider, id_token, nonce=None):
     identity = UserIdentity.query.filter_by(provider=provider, subject=subject).first()
     if identity is not None:
         return "user", identity.user
-    if email:
-        user = User.query.filter(db.func.lower(User.email) == email).first()
-        if user is not None:
-            if user.status != "active":
-                # Answered as login answers it (rule 3); never linked.
-                return "user", user
-            db.session.add(UserIdentity(user_id=user.id, provider=provider, subject=subject, email=email))
-            db.session.commit()
-            return "user", user
     if not email:
-        # Apple sends the email only on the first authorization; without it nobody can be
-        # created or found.
+        # No identity and no verified email: nobody can be found, linked or created.
         raise SocialAuthError(401, "INVALID_PROVIDER_TOKEN")
-    return "new", {"name": name, "email": email, "ticket": signup_ticket(provider, subject, email, name)}
+    # Deterministic when legacy rows share an address up to case: the oldest account.
+    user = User.query.filter(db.func.lower(User.email) == email).order_by(User.id).first()
+    if user is None:
+        return "new", {"name": name, "email": email, "ticket": signup_ticket(provider, subject, email, name)}
+    if user.status != "active":
+        # Answered as login answers it (rule 3); never linked.
+        return "user", user
+    if user.email_verified_at is None:
+        # B-567 (rule 2b): the LevApp account never proved it owns this address — it may be
+        # someone who pre-registered the victim's email by password. Linking would hand the
+        # provider's owner an account whose password a stranger knows. Never link it.
+        raise SocialAuthError(409, "ACCOUNT_EMAIL_UNVERIFIED")
+    db.session.add(UserIdentity(user_id=user.id, provider=provider, subject=subject, email=email))
+    db.session.commit()
+    return "user", user
 
 
 # ── the signup ticket (rule 4) ─────────────────────────────────────────────────
@@ -143,6 +154,9 @@ def _serializer():
     return URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"], salt=TICKET_SALT)
 
 
+# The ticket reuses JWT_SECRET_KEY with its own salt: itsdangerous derives a distinct key from the
+# salt and the format differs, so an access token can never pass as a ticket (nor the reverse).
+# Rotating JWT_SECRET_KEY only invalidates tickets still in flight.
 def signup_ticket(provider, subject, email, name):
     return _serializer().dumps({"p": provider, "s": subject, "e": email, "n": name})
 

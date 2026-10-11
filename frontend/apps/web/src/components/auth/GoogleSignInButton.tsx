@@ -46,6 +46,8 @@ function GoogleButton({ clientId, onResult, text }: Props & { clientId: string; 
         setError(
           status === 503
             ? tRef.current("auth.social.errorUnavailable")
+            : code === "ACCOUNT_EMAIL_UNVERIFIED"
+              ? tRef.current("auth.social.errorEmailUnverified")
             : code === "COACH_REJECTED"
               ? tRef.current("auth.social.errorCoachRejected", { email: CONTACT_EMAIL })
               : code === "ACCOUNT_DISABLED"

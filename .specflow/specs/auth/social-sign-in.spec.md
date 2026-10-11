@@ -27,18 +27,25 @@ neither. Every provider ships dark: its button appears only where its client id 
    - Google: signature against Google's certificates (the cached verifier of admin.foundation
      rule 1), `iss` = accounts.google.com, `aud` ∈ the configured Google client ids
      (`GOOGLE_CLIENT_IDS`: web and iOS), not expired, `email_verified` true.
-   - Apple: signature against Apple's published keys, `iss` = https://appleid.apple.com, `aud` =
-     the iOS bundle id (`APPLE_CLIENT_IDS`), not expired, and its `nonce` claim equal to the
+   - Apple: signature against Apple's published keys (fetched with a 5 s timeout; an outage is 503
+     `PROVIDER_UNAVAILABLE`), `iss` = https://appleid.apple.com, `aud` = the iOS bundle id
+     (`APPLE_CLIENT_IDS`), `exp`/`iat`/`sub` required, not expired, and its `nonce` claim equal to the
      SHA-256 of the `nonce` the client sent (replay guard).
    A provider with no configured client id answers 503 `PROVIDER_NOT_CONFIGURED`; a token that fails
    any check answers 401 `INVALID_PROVIDER_TOKEN` and nothing is written. The route shares the
    login throttle (`auth.login` rule 7).
 2. **Who it is.** In order: (a) a `UserIdentity` for (provider, `sub`) signs that user in; (b) else an
    account whose email equals the token's verified email (case-insensitive) gets a new identity row
-   and is signed in — linking needs the provider to have verified the email, so an attacker cannot
-   claim an account with an unverified address; (c) else no account exists: the answer is
+   and is signed in — linking needs the provider to have verified the email **and the LevApp
+   account to have verified it too** (`email_verified_at` set): an account whose own address was
+   never confirmed may be someone who pre-registered the victim's email, so it is never linked and
+   the answer is 409 `ACCOUNT_EMAIL_UNVERIFIED` (sign in with the password and confirm the email
+   first; B-567). Several legacy accounts sharing the address up to case: the oldest. (c) else no
+   account exists: the answer is
    `200 {needsProfile: true, signupTicket, name, email}` and nothing is written. A deleted or
-   inactive account is not linked (it answers as auth.login answers that account).
+   inactive account is not linked (it answers as auth.login answers that account). The identity is
+   looked up first, so a returning Apple user (whose token carries no email after the first
+   authorization) signs in; without an identity and without a verified email the answer is 401.
 3. **Signed in is signed in.** Cases (a) and (b) answer exactly what the password login answers
    (`auth.login`: the same tokens, the same refusals — a rejected coach is refused, a pending coach
    is told so), so every screen after sign-in is unchanged.
@@ -47,8 +54,9 @@ neither. Every provider ships dark: its button appears only where its client id 
    the verified provider, subject, email and name; a forged or expired one is 401. The account is
    created by sign-up's own checks and side effects (`auth.register` rules 16–19: adults only,
    country, the Terms accepted and recorded; a coach goes through `auth.coach-approval` and the CRM
-   sync), with `email` from the provider, no password, a username derived from the email and made
-   unique, and its `UserIdentity` row. The answer is the login answer of rule 3. The email counts as
+   sync), with `email` from the provider, no password, a username from the first name and four digits
+   (never from the email: usernames are searchable in messaging), and its `UserIdentity` row. Two completions of one ticket racing: the loser gets 409
+   `ALREADY_COMPLETED`, never a 500. The answer is the login answer of rule 3. The email counts as
    verified (the provider verified it), so no email code is sent.
 5. **Invitations and the coach's QR code are unchanged.** A client that holds a join token or a
    pending invite claim keeps it across the provider round-trip and calls the same join / claim
@@ -89,6 +97,11 @@ neither. Every provider ships dark: its button appears only where its client id 
   answer is her login answer
 - **And** completing with an under-18 birth date, no country or no Terms is refused as sign-up
   refuses it, and nothing is written
+
+#### A pre-registered, unconfirmed account is never taken over (rule 2b, B-567)
+- **Given** an active account with email ana@example.com whose email was never confirmed
+- **When** a verified Google token for ana@example.com arrives
+- **Then** it is 409 `ACCOUNT_EMAIL_UNVERIFIED`, nothing is linked and no token is issued
 
 #### Tokens are verified (rule 1)
 - **Given** a Google token signed for another client id, an expired one, a wrong issuer, or an Apple

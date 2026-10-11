@@ -66,6 +66,7 @@ describe("GoogleSignInButton", () => {
     [503, undefined, "auth.social.errorUnavailable"],
     // A Google-only account has no password: the refusals say what happened, not "use your password".
     [403, "COACH_REJECTED", "auth.social.errorCoachRejected"],
+    [409, "ACCOUNT_EMAIL_UNVERIFIED", "auth.social.errorEmailUnverified"],
     [401, "ACCOUNT_DISABLED", "auth.social.errorDisabled"],
     [undefined, undefined, "auth.social.errorNetwork"],
   ])("shows an inline error for %s %s", async (status, code, key) => {
