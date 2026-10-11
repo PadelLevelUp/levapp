@@ -52,6 +52,17 @@ describe("the day card (rule 19)", () => {
   });
 });
 
+describe("the ✓ sits beside the title, not across the card (PAD-580 QA)", () => {
+  it("the mark and the title share one leading group, so justify-between cannot push the title away", async () => {
+    const n = await renderNative(student(<EventCard event={cls()} onPress={() => undefined} />));
+    const group = n.byTestId("calendar-event-title-group");
+    const inGroup = (pred: (x: { props: Record<string, unknown>; type: unknown }) => boolean) =>
+      group.findAll((x) => typeof x.type === "string" && pred(x)).length;
+    expect(inGroup((x) => x.props.testID === "calendar-enrolled-mark")).toBe(1);
+    expect(inGroup((x) => x.props.children === "PEAK PERFORMANCE")).toBe(1);
+  });
+});
+
 describe("the Semana grid block (rule 19)", () => {
   it("ticks the enrolled class's block and not the open spot's", async () => {
     const day = new Date(2026, 9, 19);
