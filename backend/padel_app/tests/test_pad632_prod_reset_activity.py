@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from padel_app.sql_db import db
+from padel_app.tests.git_env import git_env
 from padel_app.tests.test_pad128_eligibility import _add_student, _seed, utcnow_naive
 
 POSTGRES_ONLY = pytest.mark.skipif(
@@ -138,6 +139,7 @@ def _run(world, *, apply):
         ["psql", world["uri"], "-v", "ON_ERROR_STOP=1", "-v", f"apply={1 if apply else 0}",
          "-v", f"spare_coach_id={world['demo_coach']}", "-f", str(SCRIPT)],
         capture_output=True, text=True, timeout=120,
+        env=git_env(),  # B-173: no subprocess inherits git's repository variables
     )
 
 
