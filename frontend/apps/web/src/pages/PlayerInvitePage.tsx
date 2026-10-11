@@ -24,10 +24,6 @@ const BIRTH_CODE_KEYS: Record<string, string> = {
 };
 
 /** PAD-604: the server's country codes, in this form's own words (as sign-up). */
-const COUNTRY_CODE_KEYS: Record<string, string> = {
-  COUNTRY_REQUIRED: "countryRequired",
-  INVALID_COUNTRY: "countryRequired",
-};
 import {
   getPlayerInvitation,
   acceptPlayerInvitation,
@@ -35,6 +31,11 @@ import {
 } from "@/api/playerInvitations";
 import { useAuth } from "@/auth/AuthContext";
 import { rememberPostAuthRedirect } from "@/auth/postAuthRedirect";
+
+const COUNTRY_CODE_KEYS: Record<string, string> = {
+  COUNTRY_REQUIRED: "countryRequired",
+  INVALID_COUNTRY: "countryRequired",
+};
 
 type InvitationStatus = "loading" | "valid" | "invalid";
 /** players.claim trigger A — the signed-in student takes the record over. */

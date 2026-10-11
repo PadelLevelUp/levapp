@@ -137,6 +137,54 @@ export function AccountSetupNotice({
   );
 }
 
+/**
+ * PAD-604: the country picker on the completion forms, as sign-up's (`app/signup.tsx`): required,
+ * default PT, the `COUNTRIES` list in the reader's language. Error id `<form>-country-error`, as
+ * every field of the form.
+ */
+function CountryField({
+  testID,
+  label,
+  value,
+  error,
+  disabled,
+  onChange,
+}: {
+  testID: string;
+  label: string;
+  value: string;
+  error?: string;
+  disabled: boolean;
+  onChange: (code: string) => void;
+}) {
+  const { i18n } = useTranslation();
+  return (
+    <View className="gap-1.5">
+      <Label testID={`${testID}-label`}>{label}</Label>
+      <Select
+        value={{ value, label: value ? countryName(value, i18n.language) : "" }}
+        onValueChange={(opt) => {
+          if (opt?.value) onChange(opt.value);
+        }}
+      >
+        <SelectTrigger testID={testID} disabled={disabled}>
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent>
+          {COUNTRIES.map((c) => (
+            <SelectItem key={c.code} value={c.code} label={countryName(c.code, i18n.language)} />
+          ))}
+        </SelectContent>
+      </Select>
+      {error ? (
+        <Text className="text-sm text-destructive" testID={`${testID}-error`} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function AccountSetupForm({
   title,
   description,
@@ -166,7 +214,6 @@ export function AccountSetupForm({
   /** Rendered under the card — the legal links on the register screen. */
   footer?: React.ReactNode;
 }) {
-  const { i18n } = useTranslation();
   return (
     <PreAuthShell testID={testID}>
       <Card className="w-full">
@@ -178,58 +225,40 @@ export function AccountSetupForm({
         <CardContent className="gap-4">
           {fields.map((field) =>
             field.kind === "country" ? (
-              // PAD-604: required, default PT, as sign-up. Error id `<form>-country-error`, as every field here.
+              <CountryField
+                key={field.id}
+                testID={`${testID}-${field.id}`}
+                label={field.label}
+                value={values[field.id] ?? ""}
+                error={errors[field.id]}
+                disabled={submitting}
+                onChange={(code) => onChangeField(field.id, code)}
+              />
+            ) : (
               <View key={field.id} className="gap-1.5">
                 <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
-                <Select
-                  value={{
-                    value: values[field.id] ?? "",
-                    label: values[field.id] ? countryName(values[field.id], i18n.language) : "",
-                  }}
-                  onValueChange={(opt) => {
-                    if (opt?.value) onChangeField(field.id, opt.value);
-                  }}
-                >
-                  <SelectTrigger testID={`${testID}-${field.id}`} disabled={submitting}>
-                    <SelectValue placeholder={field.label} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((c) => (
-                      <SelectItem key={c.code} value={c.code} label={countryName(c.code, i18n.language)} />
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  testID={`${testID}-${field.id}`}
+                  accessibilityLabel={field.label}
+                  value={values[field.id] ?? ""}
+                  onChangeText={(next) => onChangeField(field.id, next)}
+                  secureTextEntry={field.secure}
+                  keyboardType={field.keyboardType ?? "default"}
+                  placeholder={field.placeholder}
+                  autoComplete={field.autoComplete}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                />
                 {errors[field.id] ? (
-                  <Text className="text-sm text-destructive" testID={`${testID}-${field.id}-error`}>
+                  <Text
+                    className="text-sm text-destructive"
+                    testID={`${testID}-${field.id}-error`}
+                  >
                     {errors[field.id]}
                   </Text>
                 ) : null}
               </View>
-            ) : (
-            <View key={field.id} className="gap-1.5">
-              <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
-              <Input
-                testID={`${testID}-${field.id}`}
-                accessibilityLabel={field.label}
-                value={values[field.id] ?? ""}
-                onChangeText={(next) => onChangeField(field.id, next)}
-                secureTextEntry={field.secure}
-                keyboardType={field.keyboardType ?? "default"}
-                placeholder={field.placeholder}
-                autoComplete={field.autoComplete}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting}
-              />
-              {errors[field.id] ? (
-                <Text
-                  className="text-sm text-destructive"
-                  testID={`${testID}-${field.id}-error`}
-                >
-                  {errors[field.id]}
-                </Text>
-              ) : null}
-            </View>
             )
           )}
 

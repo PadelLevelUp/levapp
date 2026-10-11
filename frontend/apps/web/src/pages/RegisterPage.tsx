@@ -17,6 +17,11 @@ import { registerUser, activateAccount } from "@/api/register";
 import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const COUNTRY_CODE_KEYS: Record<string, string> = {
+  COUNTRY_REQUIRED: "countryRequired",
+  INVALID_COUNTRY: "countryRequired",
+};
+
 type RegistrationStatus = "loading" | "ok" | "already-registered" | "invalid";
 
 /** auth.activate rule 13 (PAD-457): the server's birth-date codes, in the form's own words. */
@@ -27,10 +32,6 @@ const BIRTH_CODE_KEYS: Record<string, string> = {
 };
 
 /** PAD-604: the server's country codes, in this form's own words (as sign-up). */
-const COUNTRY_CODE_KEYS: Record<string, string> = {
-  COUNTRY_REQUIRED: "countryRequired",
-  INVALID_COUNTRY: "countryRequired",
-};
 
 const registerSchema = z
   .object({

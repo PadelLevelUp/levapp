@@ -39,11 +39,20 @@ vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("@/components/brand/LevAppMark", () => ({ LevAppMark: () => null }));
 vi.mock("@/features/auth/LegalLinks", () => ({ LegalLinks: () => null }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }) }));
+// The picker's options render as pressables `country-opt-<code>` wired to the Select's
+// onValueChange, so a test can choose a country the way the real Select reports it.
+const selectHandler = vi.hoisted(() => ({ current: undefined as undefined | ((o: { value: string; label: string }) => void) }));
 vi.mock("@/components/ui/select", async () => {
-  const { View } = await import("react-native");
+  const { View, Pressable } = await import("react-native");
+  const Select = (p: { children?: ReactNode; onValueChange?: (o: { value: string; label: string }) => void }) => {
+    selectHandler.current = p.onValueChange;
+    return createElement(View, null, p.children);
+  };
   const Pass = (p: { children?: ReactNode }) => createElement(View, null, p.children);
   const Trigger = (p: { testID?: string; children?: ReactNode }) => createElement(View, { testID: p.testID }, p.children);
-  return { Select: Pass, SelectContent: Pass, SelectItem: () => null, SelectTrigger: Trigger, SelectValue: () => null };
+  const Item = (p: { value: string; label: string }) =>
+    createElement(Pressable, { testID: `country-opt-${p.value}`, onPress: () => selectHandler.current?.({ value: p.value, label: p.label }) });
+  return { Select, SelectContent: Pass, SelectItem: Item, SelectTrigger: Trigger, SelectValue: () => null };
 });
 vi.mock("react-native", async (orig) => {
   const rn = await orig<Record<string, unknown>>();
@@ -89,6 +98,14 @@ describe("PlayerInviteScreen — the country (PAD-604)", () => {
     await n.flush();
     expect(n.queryByTestId("player-invite-country-error")).not.toBeNull();
   });
+  it("sends the country the person picks", async () => {
+    api.acceptPlayer.mockResolvedValue({ accessToken: "t", success: true });
+    const n = await mount();
+    await n.press("country-opt-ES");
+    await n.press("player-invite-submit");
+    await n.flush();
+    expect(api.acceptPlayer.mock.calls[0][1]).toMatchObject({ country: "ES" });
+  });
 });
 
 describe("CoachInviteScreen — the country (PAD-604)", () => {
@@ -113,6 +130,14 @@ describe("CoachInviteScreen — the country (PAD-604)", () => {
     await n.flush();
     expect(n.queryByTestId("coach-invite-country-error")).not.toBeNull();
   });
+  it("sends the country the person picks", async () => {
+    api.acceptCoach.mockResolvedValue({ accessToken: "t", success: true });
+    const n = await mount();
+    await n.press("country-opt-ES");
+    await n.press("coach-invite-submit");
+    await n.flush();
+    expect(api.acceptCoach.mock.calls[0][1]).toMatchObject({ country: "ES" });
+  });
 });
 
 describe("RegisterScreen — the country (PAD-604)", () => {
@@ -136,5 +161,13 @@ describe("RegisterScreen — the country (PAD-604)", () => {
     await n.press("register-submit");
     await n.flush();
     expect(n.queryByTestId("register-country-error")).not.toBeNull();
+  });
+  it("sends the country the person picks", async () => {
+    api.activate.mockResolvedValue({ accessToken: "t", success: true });
+    const n = await mount();
+    await n.press("country-opt-ES");
+    await n.press("register-submit");
+    await n.flush();
+    expect(api.activate.mock.calls[0][0].content.country).toBe("ES");
   });
 });

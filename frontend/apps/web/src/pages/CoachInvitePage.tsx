@@ -24,13 +24,14 @@ const BIRTH_CODE_KEYS: Record<string, string> = {
 };
 
 /** PAD-604: the server's country codes, in this form's own words (as sign-up). */
+import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
+import { useAuth } from "@/auth/AuthContext";
+import { needsEmailVerification } from "@/auth/postLoginPath";
+
 const COUNTRY_CODE_KEYS: Record<string, string> = {
   COUNTRY_REQUIRED: "countryRequired",
   INVALID_COUNTRY: "countryRequired",
 };
-import { getCoachInvitation, acceptCoachInvitation } from "@/api/invitations";
-import { useAuth } from "@/auth/AuthContext";
-import { needsEmailVerification } from "@/auth/postLoginPath";
 
 type InvitationStatus = "loading" | "valid" | "invalid";
 

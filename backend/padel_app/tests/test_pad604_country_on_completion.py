@@ -144,3 +144,37 @@ def test_coach_invite_from_a_legacy_build_needs_no_country(client, app):
     res = _accept_coach(client, app, LEGACY, "c604c")
     assert res.status_code == 200, res.get_json()
     assert _user(app, "c604c")["country"] is None
+
+
+# ── review round: the edges of rules 13a / 10a / 8a ─────────────────────────────
+
+def test_a_legacy_activation_keeps_a_country_the_account_already_has(client, app):
+    from padel_app.models import User
+    from padel_app.sql_db import db
+
+    uid = _inactive_user(app)
+    with app.app_context():
+        User.query.get(uid).country = "ES"
+        db.session.commit()
+    res = _activate(client, app, uid, LEGACY)
+    assert res.status_code == 200, res.get_json()
+    assert _user(app, user_id=uid) == {"status": "active", "country": "ES"}
+
+
+def test_a_declaring_client_sending_a_bad_country_gets_invalid_not_required(client, app):
+    uid = _inactive_user(app)
+    _refusal(_activate(client, app, uid, CAPABLE, country="P1"), "INVALID_COUNTRY")
+    _refusal(_accept_coach(client, app, CAPABLE, "c604e", country="Portugal"), "INVALID_COUNTRY")
+    assert _user(app, "c604e") is None
+
+
+def test_an_existing_coach_joining_a_club_is_not_asked_for_a_country(client, app):
+    from padel_app.tests.test_coach_invitation import _make_coach_without_club
+
+    _, inviter_coach_id, club_id = _make_coach_with_club(app)
+    outsider_user_id, _ = _make_coach_without_club(app)
+    token = _make_invitation(app, club_id, inviter_coach_id)
+    res = client.post(f"/api/app/coach-invitations/{token}/accept", json={},
+                      headers={**_auth_header(app, outsider_user_id), **CAPABLE})
+    assert res.status_code == 200, res.get_json()
+    assert res.get_json() == {"success": True}

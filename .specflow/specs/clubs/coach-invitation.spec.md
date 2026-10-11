@@ -31,7 +31,7 @@ A coach who belongs to a club can invite another coach to join that club via a s
    nothing on a refusal. The existing-coach branch creates no account and is unchanged. Web and iOS
    add the field.
 8a. **The country (PAD-604; Privacy Policy §1).** The new-user branch also takes
-   `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`) is validated with sign-up's
+   `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`), validated with sign-up's
    check (`auth.register` rule 18): a value that is not two letters is 400 `{field: "country", code:
    "INVALID_COUNTRY"}`. A request that declares the client capability `country-on-completion`
    (`X-LevApp-Capabilities`, PAD-352) and sends no country is 400 `{field: "country", code:

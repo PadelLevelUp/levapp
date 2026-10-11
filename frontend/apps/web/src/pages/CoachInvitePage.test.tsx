@@ -117,8 +117,8 @@ describe("CoachInvitePage — the country (PAD-604, clubs.coach-invitation rule 
     expect(accept.mock.calls[0][1]).toMatchObject({ country: "PT" });
   });
 
-  it("puts a server COUNTRY_REQUIRED on the country field", async () => {
-    accept.mockRejectedValue({ response: { status: 400, data: { field: "country", code: "COUNTRY_REQUIRED" } } });
+  it.each(["COUNTRY_REQUIRED", "INVALID_COUNTRY"])("puts a server %s on the country field", async (code) => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "country", code } } });
     await mount();
     fill("rita@example.com");
     submit();

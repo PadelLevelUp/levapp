@@ -85,8 +85,8 @@ describe("RegisterPage — the country (PAD-604, auth.activate rule 13a)", () =>
     expect(activateAccount.mock.calls[0][0].content.country).toBe("PT");
   });
 
-  it("puts a server COUNTRY_REQUIRED on the country field", async () => {
-    activateAccount.mockRejectedValue({ response: { status: 400, data: { field: "country", code: "COUNTRY_REQUIRED" } } });
+  it.each(["COUNTRY_REQUIRED", "INVALID_COUNTRY"])("puts a server %s on the country field", async (code) => {
+    activateAccount.mockRejectedValue({ response: { status: 400, data: { field: "country", code } } });
     await mountFilled(yearsAgo(30));
     fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
     expect(await screen.findByTestId("register-country-error")).toHaveTextContent("auth.register.countryRequired");

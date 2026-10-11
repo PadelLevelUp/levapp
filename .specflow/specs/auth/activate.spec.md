@@ -80,7 +80,7 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     stored on `users.birth_date`. Web and iOS add the birth-date field to the activation form (iOS
     typed DD/MM/AAAA like sign-up) and refuse under 18 on the field before sending.
 13a. **The country, at activation too (PAD-604; Privacy Policy §1).** The POST also carries
-    `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`) is validated with sign-up's
+    `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`), validated with sign-up's
     check (`auth.register` rule 18): a value that is not two letters is 400 `{field: "country", code:
     "INVALID_COUNTRY"}`. A request that declares the client capability `country-on-completion`
     (`X-LevApp-Capabilities`, PAD-352) and sends no country is 400 `{field: "country", code:

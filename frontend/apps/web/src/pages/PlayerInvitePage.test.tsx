@@ -56,8 +56,8 @@ describe("PlayerInvitePage — the country (PAD-604, rule 10a)", () => {
     expect(accept.mock.calls[0][1]).toMatchObject({ country: "PT" });
   });
 
-  it("puts a server COUNTRY_REQUIRED on the country field", async () => {
-    accept.mockRejectedValue({ response: { status: 400, data: { field: "country", code: "COUNTRY_REQUIRED" } } });
+  it.each(["COUNTRY_REQUIRED", "INVALID_COUNTRY"])("puts a server %s on the country field", async (code) => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "country", code } } });
     await mount();
     submit();
     expect(await screen.findByTestId("playerInvite-country-error")).toHaveTextContent("auth.playerInvite.countryRequired");
