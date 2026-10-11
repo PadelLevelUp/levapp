@@ -253,6 +253,12 @@ class Config:
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
     # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
     AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
+    # auth.social-sign-in rule 1 (PAD-618): the ID-token audiences each provider accepts. Unset →
+    # that provider answers 503 and the clients show no button (ships dark).
+    GOOGLE_CLIENT_IDS = [
+        v.strip() for v in (os.getenv("GOOGLE_WEB_CLIENT_ID", ""), os.getenv("GOOGLE_IOS_CLIENT_ID", "")) if v.strip()
+    ]
+    APPLE_CLIENT_IDS = [v.strip() for v in os.getenv("APPLE_CLIENT_IDS", "").split(",") if v.strip()]
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.

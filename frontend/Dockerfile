@@ -13,6 +13,9 @@ ENV VITE_USE_MOCK_DATA=false
 # PAD-469: the landing page's HubSpot demo form ID (public). Empty = mailto.
 ARG VITE_HUBSPOT_DEMO_FORM_ID=""
 ENV VITE_HUBSPOT_DEMO_FORM_ID=$VITE_HUBSPOT_DEMO_FORM_ID
+# auth.social-sign-in (PAD-618): the Google web client id; unset = no Google button.
+ARG VITE_GOOGLE_WEB_CLIENT_ID=""
+ENV VITE_GOOGLE_WEB_CLIENT_ID=$VITE_GOOGLE_WEB_CLIENT_ID
 
 RUN npm run build -w @levelup/web
 

@@ -229,6 +229,9 @@ jobs:
             -e VAPID_CLAIMS_EMAIL="${{ secrets.VAPID_CLAIMS_EMAIL }}" \
             -e EXPO_ACCESS_TOKEN="${{ secrets.EXPO_ACCESS_TOKEN }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.HUBSPOT_PRIVATE_APP_TOKEN }}" \
+            -e GOOGLE_WEB_CLIENT_ID="${{ vars.GOOGLE_WEB_CLIENT_ID }}" \
+            -e GOOGLE_IOS_CLIENT_ID="${{ vars.GOOGLE_IOS_CLIENT_ID }}" \
+            -e APPLE_CLIENT_IDS="${{ vars.APPLE_CLIENT_IDS }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:$TAG
           # PAD-338: keep the last three images of this repository instead of
           # pruning on success. `docker image prune -f` deleted the image we had
@@ -348,6 +351,7 @@ jobs:
           # its own HUBSPOT_DEMO_FORM_ID_STAGING (see deploy-staging.yaml).
           build-args: |
             VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID }}
+            VITE_GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:

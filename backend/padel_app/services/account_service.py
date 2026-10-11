@@ -121,6 +121,11 @@ def delete_account_service(user_id, *, now=None):
 
     # Rule 4: pushes stop. Rule 5: their own social state goes.
     DeviceToken.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+    # auth.social-sign-in (PAD-618): the Google / Apple links go too, so the same provider
+    # account can never sign back into the deleted one.
+    from padel_app.models import UserIdentity
+
+    UserIdentity.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     PushSubscription.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     BlockedUser.query.filter(
         (BlockedUser.blocker_id == user.id) | (BlockedUser.blocked_id == user.id)
