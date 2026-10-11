@@ -64,6 +64,16 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     the next request) and the legacy route opened a session. Numbered 12 to stay clear of rules 10
     and 11 in open PRs.
 
+13. **The country, asked once after sign-in (PAD-630; Privacy Policy §1).** Accounts created before
+    the country was asked, and accounts completed by an App Store build that predates PAD-604, have
+    `country` null. After a signed-in user lands, web and iOS show a short prompt — "Em que país
+    vives?" with the `COUNTRIES` list of `@levelup/config`, PT preselected — when `GET /api/auth/me`
+    answers `country: null`. "Guardar" sends `PATCH /api/auth/me {country}`, checked as sign-up
+    checks it (two letters, upper-cased; anything else is 400 and nothing changes); "Agora não"
+    hides the prompt on that device for 30 days. It never blocks the app, never shows while
+    another gate holds the user (email code, pending coach), and never shows once a country is
+    stored. App Store builds that predate it simply never show it; the server needs no capability.
+
 ### Acceptance Criteria
 
 #### Successful login
@@ -137,3 +147,11 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 ### Notes
 - Rate limiting: rule 7 (PAD-228, closes B-001).
 - OPEN: No account lockout after failed attempts
+
+#### An account without a country is asked once (rule 13, PAD-630)
+- **Given** a signed-in student whose `country` is null
+- **When** they land in the app on the web or on iOS
+- **Then** the country prompt shows with PT selected; "Guardar" stores `PT` and the prompt never
+  shows again; "Agora não" hides it on that device for 30 days
+- **And** `PATCH /api/auth/me {country: "br"}` stores `BR`; `"Brazil"` is 400 and changes nothing
+- **And** a user whose country is set never sees the prompt
