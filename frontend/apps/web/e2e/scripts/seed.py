@@ -610,28 +610,6 @@ with app.app_context(), unit_of_work():
     )
     db.session.flush()
 
-    # PAD-620: every invitation has its chat message (invitations rule 18 — the engine never leaves an
-    # invitation without one), and the "notify pending" nudge re-pushes THAT message. The seeded events
-    # used to have none, so the nudge had nothing to re-push. Stamped two days back, older than every
-    # other seeded message, so the coach's conversation list keeps its order for the messaging specs.
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
-
-    _invite_at = _utcnow_naive() - timedelta(days=2)
-    for _event in NotificationEvent.query.filter_by(lesson_instance_id=pending_instance.id).all():
-        _player = db.session.get(Player, _event.player_id)
-        _conv = _get_or_create_direct_conversation(coach_user.id, _player.user_id)
-        _meta = {"notificationEventId": _event.id, "lessonInstanceId": pending_instance.id,
-                 "responded": _event.status != "sent"}
-        if _event.status == "confirmed":
-            _meta["response"] = "yes"
-        elif _event.status == "expired":
-            _meta["response"] = "no"
-        _msg = Message(conversation_id=_conv.id, sender_id=coach_user.id, sent_at=_invite_at,
-                       text="Abriu uma vaga na E2E Pending Confirm Class amanhã. Queres vir?",
-                       message_type="notification_invite", msg_metadata=_meta)
-        db.session.add(_msg)
-        db.session.flush()
-        _event.message_id = _msg.id
 
     # ── Attended history (PAD-114) ───────────────────────────────────────────
     # The attendance page (.specflow/specs/attendance/history.spec.md) counts a
@@ -912,6 +890,32 @@ with app.app_context(), unit_of_work():
         text="See you next week!",
         sent_at=yesterday_noon,
     ))
+
+    # Placed AFTER the two seeded coach conversations above (B-505): conversation 1 must stay
+    # e2e-coach <-> e2e-student and 2 coach <-> student 3 — 13 Maestro flows and setup scripts address
+    # them by id, and e2e/messaging/seed-conversation-ids.spec.ts holds that.
+    # PAD-620: every invitation has its chat message (invitations rule 18 — the engine never leaves an
+    # invitation without one), and the "notify pending" nudge re-pushes THAT message. The seeded events
+    # used to have none, so the nudge had nothing to re-push. Stamped two days back, older than every
+    # other seeded message, so the coach's conversation list keeps its order for the messaging specs.
+    from padel_app.services.notification_service import _get_or_create_direct_conversation
+
+    _invite_at = _utcnow_naive() - timedelta(days=2)
+    for _event in NotificationEvent.query.filter_by(lesson_instance_id=pending_instance.id).all():
+        _player = db.session.get(Player, _event.player_id)
+        _conv = _get_or_create_direct_conversation(coach_user.id, _player.user_id)
+        _meta = {"notificationEventId": _event.id, "lessonInstanceId": pending_instance.id,
+                 "responded": _event.status != "sent"}
+        if _event.status == "confirmed":
+            _meta["response"] = "yes"
+        elif _event.status == "expired":
+            _meta["response"] = "no"
+        _msg = Message(conversation_id=_conv.id, sender_id=coach_user.id, sent_at=_invite_at,
+                       text="Abriu uma vaga na E2E Pending Confirm Class amanhã. Queres vir?",
+                       message_type="notification_invite", msg_metadata=_meta)
+        db.session.add(_msg)
+        db.session.flush()
+        _event.message_id = _msg.id
 
     # ── Coach "Next 7 days" fixture (PAD-343) ────────────────────────────────
     # "E2E Upcoming Class": the class the coach dashboard's upcoming list is
