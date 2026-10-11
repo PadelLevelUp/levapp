@@ -173,10 +173,13 @@ test("PAD-616: the open thread shows a message sent while the stream was down", 
   await killStreams(page);
   const text = `PAD-616 missed in the thread ${Date.now()}`;
   await seedUnreadForCoach(request, text); // its message_created event is lost
+  // Scoped to the thread: the conversation LIST also shows the text, as its row's preview, once the
+  // app-level resync refetches the list — which is not what this case proves.
+  const thread = page.getByTestId("message-scroller");
   await page.waitForTimeout(3_000);
-  await expect(page.getByText(text), "a lost event must not show by itself").toHaveCount(0);
+  await expect(thread.getByText(text), "a lost event must not show by itself").toHaveCount(0);
 
   await reportFailure(page);
-  await expect(page.getByText(text), "the re-open folds the newest page into the thread").toBeVisible({ timeout: 20_000 });
+  await expect(thread.getByText(text), "the re-open folds the newest page into the thread").toBeVisible({ timeout: 20_000 });
   await clearCoachUnread(request);
 });
