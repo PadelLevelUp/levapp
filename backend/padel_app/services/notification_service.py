@@ -791,11 +791,49 @@ def _attendance_counts_for(player_ids, coach_id: int) -> dict[int, tuple[int, in
 
 def _attendance_stats_for(player_ids, coach_id: int) -> dict[int, tuple[float, float]]:
     """``{player_id: (attendance_rate, justified_miss_rate)}`` for every id, in
-    ONE query (PAD-276, audit M17), over this coach's occurrences (PAD-382)."""
+    ONE query (PAD-276, audit M17), over this coach's occurrences (PAD-382).
+    Since PAD-505 the justified-miss rate ranks nothing: the tiebreaker sorts on
+    ``makeups_owed_for``; the rate survives only as the simulation's legacy ``rate``."""
     return {
         pid: ((present / total, justified / total) if total else (0.0, 0.0))
         for pid, (total, present, justified) in _attendance_counts_for(player_ids, coach_id).items()
     }
+
+
+def makeups_owed_for(player_ids, coach_id: int) -> dict[int, int]:
+    """``{player_id: classes owed}`` over THIS coach's occurrences, in one query (PAD-505,
+    attendance.stats rule 3): justified absences minus make-ups taken, never below 0.
+
+    A justified absence is ``status == "absent"`` AND ``justification == "justified"`` (PAD-381).
+    A make-up taken is a class the student ATTENDED as a fill: ``status == "present"`` AND
+    ``enrolment_source == "fill"`` — every way into another class's spot (an invitation "yes",
+    a waiting-list "yes", an accepted join request) enrols through ``_add_player_to_instance``.
+    An accepted invitation the student then missed is not a make-up. Rows from before PAD-259
+    carry ``enrolment_source == "unknown"`` and are not counted as make-ups."""
+    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+
+    ids = [int(pid) for pid in player_ids]
+    balance: dict[int, int] = {pid: 0 for pid in ids}
+    instance_ids = _coach_instances(coach_id) if ids else set()
+    if not ids or not instance_ids:
+        return balance
+    rows = (
+        db.session.query(Presence.player_id, Presence.status, Presence.justification,
+                         Presence.enrolment_source)
+        .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids))
+        .all()
+    )
+    for pid, status, justification, source in rows:
+        if status == "absent" and justification == "justified":
+            balance[pid] += 1
+        elif status == "present" and source == "fill":
+            balance[pid] -= 1
+    return {pid: max(n, 0) for pid, n in balance.items()}
+
+
+def makeups_owed(player_id: int, coach_id: int) -> int:
+    """One player's ``makeups_owed_for``."""
+    return makeups_owed_for([player_id], coach_id)[int(player_id)]
 
 
 def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy = None):
@@ -812,7 +850,8 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
             if criterion == "level":
                 parts.append(_level_sort_key(cp, ladder))
             elif criterion == "justified_misses":
-                parts.append(-stats.get("justified_miss_rate", 0.0))
+                # PAD-505: the classes owed — the number the coach reads — not a rate.
+                parts.append(-stats.get("makeups_owed", 0))
             elif criterion == "attendance":
                 parts.append(-stats.get("attendance_rate", 0.0))
             elif criterion == "playing_side":
@@ -855,24 +894,9 @@ def _unjustified_absence_count(player_id: int, coach_id: int) -> int:
 # ---------------------------------------------------------------------------
 
 def _has_makeups(player_id: int, coach_id: int) -> bool:
-    """True when a player has more justified absences than accepted invitations for this coach."""
-    from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
-
-    coach_instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
-    if not coach_instance_ids:
-        return False
-    justified = Presence.query.filter(
-        Presence.player_id == player_id,
-        Presence.lesson_instance_id.in_(coach_instance_ids),
-        # PAD-381 (B-152): as above — a justification left on a PRESENT row is not
-        # a justified absence, and must not earn a place in the make-up wave.
-        Presence.status == "absent",
-        Presence.justification == "justified",
-    ).count()
-    accepted = NotificationEvent.query.filter_by(
-        player_id=player_id, coach_id=coach_id, status="confirmed"
-    ).count()
-    return justified > accepted
+    """True when the player is owed at least one class by this coach (PAD-505: the same count
+    the tiebreaker and the simulation show — ``makeups_owed``)."""
+    return makeups_owed(player_id, coach_id) > 0
 
 
 def _level_ids_one_above(vacancy_level, coach_id: int) -> set:
@@ -1551,11 +1575,13 @@ def _rank_invited(
     """The survivors of a wave, ranked by the coach's priority criteria — the
     exact stats + sort the engine has always applied."""
     coach_players = [v.cp for v in verdicts if v.invited]
-    stats = _attendance_stats_for([cp.player_id for cp in coach_players], vacancy.coach_id)
+    player_ids = [cp.player_id for cp in coach_players]
+    stats = _attendance_stats_for(player_ids, vacancy.coach_id)
+    owed = makeups_owed_for(player_ids, vacancy.coach_id)
     player_stats = {
         cp.player_id: {
             "attendance_rate": stats[cp.player_id][0],
-            "justified_miss_rate": stats[cp.player_id][1],
+            "makeups_owed": owed[int(cp.player_id)],
         }
         for cp in coach_players
     }
