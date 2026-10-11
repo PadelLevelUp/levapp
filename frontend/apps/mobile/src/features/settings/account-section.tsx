@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { DeleteAccountSection } from "@/features/settings/delete-account-section";
-import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
+import { PRIVACY_POLICY_URL, TERMS_URL, legalUrl } from "@/lib/config";
 
 function LegalLinkRow({
   label,
@@ -140,7 +140,7 @@ export function BlockedUsersCard() {
  * settings-terms / settings-account) are preserved on the same elements.
  */
 export function AccountSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
 
@@ -156,12 +156,12 @@ export function AccountSection() {
           <LegalLinkRow
             testID="settings-privacy-policy"
             label={t("settings.legal.privacyPolicy")}
-            url={PRIVACY_POLICY_URL}
+            url={legalUrl(PRIVACY_POLICY_URL, i18n.language)}
           />
           <LegalLinkRow
             testID="settings-terms"
             label={t("settings.legal.termsOfService")}
-            url={TERMS_URL}
+            url={legalUrl(TERMS_URL, i18n.language)}
           />
         </CardContent>
       </Card>

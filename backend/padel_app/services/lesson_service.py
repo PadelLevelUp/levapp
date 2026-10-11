@@ -453,7 +453,10 @@ def coaches_for(instance):
     assignment order (junction id ascending), so `primary_coach` is the coach
     assigned first and every engine read agrees on it. The junction stays
     (decision 2026-09-11); this is the one reader, so an occurrence with no
-    junction row is never coach-less. A plain read: it never creates config."""
+    junction row is never coach-less. A plain read: it never creates config.
+
+    Batched twin for dashboard sets: `helpers/dashboard/confirmation.reminder_configs`
+    (PAD-583) — keep the ordering rule identical."""
     from padel_app.models.coaches import Coach
 
     instance_id = getattr(instance, "id", None)
@@ -813,11 +816,9 @@ def _clear_presence(lesson_instance, presence_obj):
     - A cleared row is validated no more, so a validated class comes back to the
       backlog by construction (rule 18 reads the rows).
     - She is reminder-eligible again (`notifications.reminders` rule 23 reads `status`
-      at send time), and when the chain has already run she is ASKED again through the
-      enrolment door, `arm_ask_for_student` — at most one send per clear, because the
-      door arms nothing while a reminder of hers is live, when the instant is still
-      ahead, or when the class is over; nothing is armed for a class with reminders off.
-    The student is not messaged: the reminder is how they hear they are asked again.
+      at send time) for any pass that has not run yet — and nothing more: the clear
+      itself sends her nothing and arms nothing (owner decision 2026-10-10; the PAD-567
+      late ask that re-armed the chain was removed).
     """
     was_absent = presence_obj.status == "absent"
     presence_obj.status = None
@@ -837,16 +838,6 @@ def _clear_presence(lesson_instance, presence_obj):
         _publish_retired(retired)  # PAD-499: queued now, sent by the next commit
         reconcile_vacancies(lesson_instance, filled_by_player_id=presence_obj.player_id)
         db.session.commit()
-    if lesson_instance.notifications_enabled:
-        try:
-            from padel_app.scheduler import arm_ask_for_student
-
-            arm_ask_for_student(lesson_instance, presence_obj.player_id)
-        except Exception:  # noqa: BLE001
-            current_app.logger.exception(
-                "clear: could not arm a reminder for player %s on instance %s",
-                presence_obj.player_id, lesson_instance.id,
-            )
 
 
 def create_lesson_helper(data, *, notify_students=True):

@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { TimeSelect } from '@/components/ui/time-select';
+import { endFromUsualLength, usualClassMinutes } from '@levelup/config';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
 import {
@@ -112,12 +113,31 @@ function addMinutesClamped(start: string, minutes: number) {
 }
 
 /** `start` + 90 min, clamped to the same day — the sheet's long-standing default. */
-function defaultEndTime(start: string) {
+function defaultEndTime(start: string, minutes: number = DEFAULT_DURATION_MIN) {
   const [h, m] = start.split(':').map(Number);
-  const totalMin = h * 60 + m + DEFAULT_DURATION_MIN;
+  const totalMin = h * 60 + m + minutes;
   const newH = Math.min(Math.floor(totalMin / 60), 23);
   const newM = totalMin % 60;
   return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
+
+// PAD-559 (classes.create rule 8c): the last start the coach chose in this browser session is the
+// next new class's default; sessionStorage so it never outlives the tab.
+const LAST_START_KEY = 'levapp.lastClassStart';
+function lastUsedStart(): string | null {
+  try {
+    const v = sessionStorage.getItem(LAST_START_KEY);
+    return v && /^\d{2}:\d{2}$/.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+function rememberStart(v: string) {
+  try {
+    if (/^\d{2}:\d{2}$/.test(v)) sessionStorage.setItem(LAST_START_KEY, v);
+  } catch {
+    /* private mode: the default stays 09:00 */
+  }
 }
 
 export function AddClassSheet({
@@ -203,6 +223,8 @@ export function AddClassSheet({
 
   // classes.clone rule 5 (PAD-524): the clone's length, applied when the coach picks its start.
   const [cloneDuration, setCloneDuration] = useState<number | null>(null);
+  // PAD-559: the coach's usual class length, from the calendar the sheet opened from.
+  const usualMinutes = useMemo(() => usualClassMinutes(existingEvents ?? []), [existingEvents]);
   useEffect(() => {
     if (!open || !clone) {
       setCloneDuration(null);
@@ -229,13 +251,15 @@ export function AddClassSheet({
   useEffect(() => {
     if (!open || clone) return;
     setDate(initialDate ? format(initialDate, 'yyyy-MM-dd', { locale: enUS }) : '');
-    const nextStart = initialTime || '09:00';
+    // PAD-559: a clicked slot wins; else the last start chosen this session; else 09:00.
+    const nextStart = initialTime || lastUsedStart() || '09:00';
     setStartTime(nextStart);
     // PAD-106: a dragged range pins the end time; anything else falls back to the
-    // default duration. Always assigning it (rather than only when pinned) keeps
-    // reopening the sheet deterministic — otherwise the end time of a previous
-    // drag would leak into the next single-slot click.
-    setEndTime(initialEndTime || defaultEndTime(nextStart));
+    // coach's usual class length (PAD-559; 60 min with nothing to read). Always
+    // assigning it (rather than only when pinned) keeps reopening the sheet
+    // deterministic — otherwise the end time of a previous drag would leak into
+    // the next single-slot click.
+    setEndTime(initialEndTime || defaultEndTime(nextStart, usualClassMinutes(existingEvents ?? [])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate, initialTime, initialEndTime]);
 
@@ -501,7 +525,13 @@ export function AddClassSheet({
                   aria-label={t("calendar.addClass.timeStart")}
                   aria-invalid={errors.time ? true : undefined}
                   value={startTime}
-                  onChange={setStartTime}
+                  onChange={(v) => {
+                    setStartTime(v);
+                    rememberStart(v);
+                    // PAD-559: the end follows the start by the usual length when it would otherwise
+                    // sit at or before it; a clone carries its own length (PAD-524) below.
+                    if (!clone && isHhMm(endTime) && endTime <= v) setEndTime(endFromUsualLength(v, usualMinutes));
+                  }}
                 />
                 {clone && !isHhMm(startTime) && (
                   <p className="text-xs text-muted-foreground" data-testid="add-class-start-hint">
@@ -515,6 +545,11 @@ export function AddClassSheet({
                   value={endTime}
                   onChange={setEndTime}
                   from={startTime}
+                  usualMinutes={usualMinutes}
+                  onRefused={() => {
+                    setErrors((er) => ({ ...er, time: true }));
+                    toast({ variant: 'destructive', title: t('calendar.addClass.missingFieldsTitle'), description: t('calendar.addClass.endBeforeStart') });
+                  }}
                 />
               </div>
             </div>

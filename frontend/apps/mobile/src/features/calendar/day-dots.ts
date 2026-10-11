@@ -18,9 +18,12 @@ export function dayDotColors(
   return events.slice(0, MAX_DAY_DOTS).map((event) => {
     const { variant } = resolveCardVariant(event, { now });
     if (variant === "block") return surfaces.mutedForeground;
+    const surface = cardSurfaceNative(event.color, variant, surfaces);
+    // B-541 (rule 10): an outlined treatment's surface is the white card — the dot takes
+    // the outline colour instead.
+    const outlined = variant === "open-spot" || variant === "next";
     return (
-      cardSurfaceNative(event.color, variant, surfaces).backgroundColor ??
-      lightTheme.primary
+      (outlined ? surface.borderColor : surface.backgroundColor) ?? lightTheme.primary
     );
   });
 }

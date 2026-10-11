@@ -53,6 +53,13 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      // PAD-559: the class-time list's wheel scrolling broke on Safari; WebKit is where the
+      // repro and the fix are proven. Opt in with `--project=webkit`; CI's lanes stay chromium.
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+      testMatch: /pad559-.*\.spec\.ts/,
+    },
   ],
 
   /* Start Flask backend with test DB */
