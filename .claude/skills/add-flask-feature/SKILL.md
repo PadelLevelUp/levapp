@@ -39,11 +39,11 @@ Create `padel_app/models/<name>.py`. Read `references/models.md` for the full
 pattern, but the essentials:
 
 - Inherit `(db.Model, model.Model)`
-- Set `__tablename__`, `__table_args__ = {"extend_existing": True}`, `page_title`, `model_name`
+- Set `__tablename__`, `__table_args__ = {"extend_existing": True}`, `model_name`
 - Define columns using SQLAlchemy types
 - Add relationships with `back_populates` and `cascade="all, delete-orphan"` on owning side
 - Define `get_create_form()` returning a `Form` with `Field` definitions
-- Implement `display_all_info()` classmethod and a `name` property
+- Implement a `name` property
 
 Before writing: read an existing model of similar complexity to match the style.
 Good reference models:
@@ -52,17 +52,13 @@ Good reference models:
 - Complex with relationships: `models/lesson_instances.py`
 - Association table: `models/Association_CoachPlayer.py`
 
-### 2. Register the Model
+### 2. Import the Model
 
-Add the import and MODELS entry in `padel_app/models/__init__.py`:
+Add the import in `padel_app/models/__init__.py` (so `create_all` and Alembic see it;
+there is no `MODELS` registry since PAD-550):
 
 ```python
 from padel_app.models.my_model import MyModel
-
-MODELS = {
-    # ... existing ...
-    "mymodel": MyModel,
-}
 ```
 
 ### 3. Migration
@@ -168,7 +164,7 @@ Response codes: GET → 200, POST → 201, PUT → 200, DELETE → 204.
 
 1. Add FK column + `relationship()` to both sides
 2. Create an association model if the junction needs extra columns
-3. Register the association model in `models/__init__.py`
+3. Import the association model in `models/__init__.py`
 4. Run the migration
 5. Update serializers on both sides
 
@@ -199,7 +195,7 @@ notification events). Not needed for standard CRUD that the frontend fetches on 
 padel_app/
   model.py              # Base Model mixin (read this first)
   sql_db.py             # db and migrate singletons
-  models/               # All domain models + __init__.py registry
+  models/               # All domain models + __init__.py imports
   services/             # Business logic functions
   modules/              # Blueprint route files
     frontend_api.py     # Main app API routes (/api/app/*)

@@ -12,7 +12,7 @@
  * headless Chromium is not an installed PWA.
  *
  * R-040: the one message this spec sends is deleted in `finally` through the
- * superadmin editor, by the id the send returned.
+ * E2E-only cleanup route, by the id the send returned.
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import {

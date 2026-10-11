@@ -7,7 +7,7 @@
  * Setup through the API as the seeded coach: one court on the seeded club ("E2E Club", where
  * "E2E Academy Class" sits); a second, newer club the coach creates (so it becomes their current
  * club) with a court of its own. Cleanup in `finally`: the class's court is cleared, the test court
- * deleted, and the newer club deleted through the superadmin editor (cascades its membership and
+ * deleted, and the newer club deleted through the E2E-only cleanup route (cascades its membership and
  * court) — no route removes a coach from a club. Court names are the spec's own fixtures.
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
