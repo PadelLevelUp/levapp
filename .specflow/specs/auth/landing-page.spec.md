@@ -97,7 +97,8 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     `CONTACT_EMAIL` in `@levelup/config`. No other address is typed in the site's sources.
 15. **App Store buttons (PAD-619).** "Descarrega na App Store" opens LevApp's App Store page,
     `APP_STORE_URL` from `@levelup/config` (the link the install suggestion uses, PAD-573), in a new
-    tab (`target="_blank"`, `rel="noopener noreferrer"`), with an accessible name that says so. It
+    tab (`target="_blank"`, `rel="noopener noreferrer"`). Its accessible name is the visible text plus
+    a screen-reader-only "(abre num separador novo)", so it contains the visible label (WCAG 2.5.3). It
     sits under the hero's ✓ points for coaches and players, and in the players' closing call to
     action; the "others" audience has none. A drawn button, not Apple's badge artwork. The Google
     Play button waits for the Play listing (PAD-355). The redesigned site of the prototype is a

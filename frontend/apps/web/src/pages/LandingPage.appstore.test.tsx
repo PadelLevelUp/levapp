@@ -19,13 +19,15 @@ const renderAt = (search: string) =>
   );
 
 function placements() {
+  // R-032: the page rendered (its hero is there) before counting what it has.
+  expect(screen.getByTestId("landing-hero")).toBeInTheDocument();
   return screen.queryAllByTestId("landing-app-store").map((a) => {
     expect(a.tagName).toBe("A");
     expect(a.getAttribute("href")).toBe("https://apps.apple.com/app/id6794271800");
     expect(a.getAttribute("target")).toBe("_blank");
     expect(a.getAttribute("rel")).toContain("noopener");
-    // The accessible name says where it goes and that it opens a new tab.
-    expect(a.getAttribute("aria-label")).toBe("landing.appStore.aria");
+    // WCAG 2.5.3: the accessible name is the visible text, then the new-tab note.
+    expect(a).toHaveAccessibleName("landing.appStore.eyebrow landing.appStore.name landing.appStore.newTab");
     return a.getAttribute("data-placement");
   });
 }
