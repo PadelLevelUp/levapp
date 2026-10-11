@@ -174,8 +174,8 @@
     "sideReason": {
       "noSides": "Ninguém no teu plantel joga de um lado definido, por isso a vaga mantém o lado de quem faltou.",
       "fewer": {
-        "left": "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de esquerda.",
-        "right": "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de direita."
+        "left": "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Convidamos esquerda até os lados ficarem equilibrados; se entretanto a aula mudar, os convites do lado que já não é preciso são retirados.",
+        "right": "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Convidamos direita até os lados ficarem equilibrados; se entretanto a aula mudar, os convites do lado que já não é preciso são retirados."
       },
       "tie": {
         "left": "A aula tem {{left}} de esquerda e {{right}} de direita a ir e faltou um jogador de esquerda, por isso damos prioridade a esquerda para manter a aula equilibrada.",
