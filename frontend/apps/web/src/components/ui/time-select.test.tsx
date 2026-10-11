@@ -230,3 +230,35 @@ describe("PAD-559: the list is inside the sheet and its rows are finger-sized", 
     expect(row.className).toMatch(/min-h-11|h-11/);
   });
 });
+
+describe("PAD-559 PR-2: a complete HH:MM commits as it is typed; shorthands wait for Enter or leave", () => {
+  it.each([["09:30", "09:30"], ["7:00", "07:00"]])("a fully typed %s reaches onChange at once as %s, so a Save watching for a change enables", (typed, committed) => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.change(field(), { target: { value: typed } });
+    expect(onChange).toHaveBeenLastCalledWith(committed);
+    expect(field().value).toBe(committed);
+  });
+  it("07:0 is not yet complete", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.change(field(), { target: { value: "07:0" } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it("a shorthand does not commit until Enter or leaving the field", () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    fireEvent.change(field(), { target: { value: "930" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(onChange).toHaveBeenLastCalledWith("09:30");
+  });
+  it("a complete end typed at or before the start is still refused in the field", () => {
+    const onChange = vi.fn();
+    const onRefused = vi.fn();
+    render(<TimeSelect data-testid="t" aria-label="Fim" value="19:00" from="18:00" usualMinutes={60} onRefused={onRefused} onChange={onChange} />);
+    fireEvent.change(field(), { target: { value: "17:30" } });
+    expect(onRefused).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith("19:00");
+  });
+});

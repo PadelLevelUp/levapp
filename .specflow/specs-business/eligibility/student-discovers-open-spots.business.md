@@ -25,7 +25,8 @@ invited — and a coach deciding whether they want their open spots advertised a
    visible" — either as their standard, or for just one recurring class or occurrence.
 2. A student who's eligible for that class opens their calendar and sees it appear alongside their
    own enrolled classes, but in a distinctly different color, clearly marked as a spot they could
-   join rather than one they're already in.
+   join rather than one they're already in. Their own classes carry a ✓, so telling the two
+   apart never depends on colour alone (PAD-578).
 3. A student who isn't eligible for that class — too far below its level, say — never sees it at
    all; visibility and eligibility are checked together.
 4. A class that's already full, already happened, or been canceled never shows up as an open spot,
@@ -59,6 +60,11 @@ invited — and a coach deciding whether they want their open spots advertised a
   they update. Those versions would draw an open spot as one of the student's own bookings, and
   showing nothing is better than showing that. This is temporary and lifts once nobody uses those
   versions any more.
+- **The difference never rests on colour alone (PAD-578, owner, 2026-10-09).** A student's own
+  classes carry a ✓ mark and an open spot carries its "Vaga" chip — on the day cards and in the
+  week grid, on web and on the phone apps — and the desktop calendar's legend explains both.
+  The student's own classes keep their coach's colour: the colour says which class it is, the
+  mark and the dashed outline say what it is to the student.
 
 ## Success Metrics
 

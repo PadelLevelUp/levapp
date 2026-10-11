@@ -23,7 +23,7 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 1. An account created on someone's behalf starts `inactive`. Only an `inactive` account can be
    activated; any other status is refused (rule 6).
 2. **The link carries a per-account secret.** The activation link is
-   `/register/<userId>?t=<token>`. The token is `HMAC-SHA256(SECRET_KEY, "activate:<userId>:<createdAt ISO>")`
+   `/register/<userId>?t=<token>`, on the public web origin (`players.join-token` rule 3a, PAD-595). The token is `HMAC-SHA256(SECRET_KEY, "activate:<userId>:<createdAt ISO>")`
    in hex (64 chars): deterministic, so it needs no column and survives restarts; unguessable
    without the server secret; and it changes only if `SECRET_KEY` rotates. It is compared in
    constant time. `padel_app/tools/activation_token.py` is the single place that builds and
