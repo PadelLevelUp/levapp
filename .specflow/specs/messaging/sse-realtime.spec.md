@@ -91,6 +91,19 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     payload does not know. Both shells merged only `content` and forced `edited: true` before
     this rule, so no bubble changed live until a refetch.
 
+19. **(PAD-616, B-546; rule number unconfirmed) A re-open resyncs what is live.** An event the
+    server published while a client's stream was down (a network blip, an app back from the
+    background, a deploy overlapping two API containers) never arrives. So when the hub's stream
+    opens after its first open, the hub delivers a local `{ type: "resync" }` to every listener
+    (`RESYNC_EVENT`, `@levelup/api`) — never on the first open, and at most once per
+    `SSE_RESYNC_MIN_INTERVAL_MS` (5 s): re-opens inside that window fold into one trailing resync,
+    so a flapping connection cannot set off a refetch storm. `close()` forgets the stream. Both
+    shells' app-level handlers (web `AppLayout`, iOS tabs layout) answer it first with the shared
+    `answerResync` → `resyncLiveData` (`@levelup/hooks`): the unread count, the conversation list,
+    the request lists and what refreshes with them (calendar, class sheets, dashboard), the
+    pending-validation badge and the academy classes are invalidated — React Query refetches the
+    ones on screen and marks the rest stale (`client.query-cache` rule 4).
+
 ### Acceptance Criteria
 
 #### An event reaches only its named recipients
@@ -171,6 +184,21 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** they are all connected
 - **Then** 40 streams are accepted, the other 30 get `503` at once, and an ordinary request still answers within 2 s
 - **And** this is measured with `backend/scripts/sse_load_test.py`; the baseline and the result are recorded in the 2026-08-25 single-VM decision
+
+#### A re-open resyncs, the first open does not (rule 19, PAD-616)
+- **Given** a client whose stream opened, then dropped
+- **When** the hub's retry opens it again
+- **Then** every listener receives one `resync`; the first open delivered none
+
+#### A flapping stream does not storm (rule 19)
+- **Given** a stream that re-opens at 10 s, 11 s and 12 s
+- **When** the hub handles the three opens
+- **Then** listeners receive one `resync` at 10 s and one trailing `resync` at 15 s, no more
+
+#### The screen catches up after a drop (rule 19)
+- **Given** a coach on the dashboard with 0 unread messages, whose stream drops
+- **When** a student sends them a message while the stream is down, and the stream re-opens
+- **Then** the unread badge shows 1 without navigation or a reload
 
 ### Notes
 - In-memory only — does not persist across server restarts

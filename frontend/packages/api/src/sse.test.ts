@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  RESYNC_EVENT,
+  SSE_RESYNC_MIN_INTERVAL_MS,
   SSE_RETRY_MAX_MS,
   createSseHub,
   sseRetryDelay,
@@ -27,7 +29,7 @@ class FakeSource implements SseSourceLike {
   }
 }
 
-function harness(overrides: { url?: string | null; random?: () => number } = {}) {
+function harness(overrides: { url?: string | null; random?: () => number; now?: () => number } = {}) {
   const sources: FakeSource[] = [];
   const timers: { fn: () => void; ms: number; cleared: boolean }[] = [];
   const debug = vi.fn();
@@ -39,6 +41,7 @@ function harness(overrides: { url?: string | null; random?: () => number } = {})
       return source;
     },
     random: overrides.random ?? (() => 0),
+    ...(overrides.now ? { now: overrides.now } : {}),
     setTimer: (fn, ms) => {
       const timer = { fn, ms, cleared: false };
       timers.push(timer);
@@ -199,5 +202,90 @@ describe("createSseHub — logging", () => {
     expect(log).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
+  });
+});
+
+
+// PAD-616 (messaging.sse-realtime rule 18): an event published while the stream was down never
+// arrives, so a re-open tells every listener to resync — once per re-open, never on the first
+// open, and throttled so a flapping connection cannot set off a refetch storm.
+describe("createSseHub — resync after a re-open (PAD-616)", () => {
+  const resyncs = (events: { type: string }[]) => events.filter((e) => e.type === RESYNC_EVENT).length;
+
+  it("the first open is not a resync", async () => {
+    const { hub, sources, flush } = harness();
+    const seen: { type: string }[] = [];
+    hub.subscribe((e) => seen.push(e));
+    await flush();
+    sources[0].emit("open");
+    expect(resyncs(seen)).toBe(0);
+  });
+
+  it("open, drop, re-open: exactly one resync, delivered to every listener", async () => {
+    let t = 0;
+    const { hub, sources, timers, flush } = harness({ now: () => t });
+    const a: { type: string }[] = [];
+    const b: { type: string }[] = [];
+    hub.subscribe((e) => a.push(e));
+    hub.subscribe((e) => b.push(e));
+    await flush();
+    sources[0].emit("open");
+    sources[0].emit("error"); // the stream drops
+    t = 60_000;
+    timers[timers.length - 1].fn(); // the back-off retry fires
+    await flush();
+    sources[1].emit("open");
+    expect(resyncs(a)).toBe(1);
+    expect(resyncs(b)).toBe(1);
+  });
+
+  it("an app returning to the foreground (reconnectNow) resyncs too", async () => {
+    let t = 0;
+    const { hub, sources, flush } = harness({ now: () => t });
+    const seen: { type: string }[] = [];
+    hub.subscribe((e) => seen.push(e));
+    await flush();
+    sources[0].emit("open");
+    t = 60_000;
+    hub.reconnectNow();
+    await flush();
+    sources[1].emit("open");
+    expect(resyncs(seen)).toBe(1);
+  });
+
+  it("a flapping stream resyncs at most once per window, with one trailing resync", async () => {
+    let t = 0;
+    const { hub, sources, timers, flush } = harness({ now: () => t });
+    const seen: { type: string }[] = [];
+    hub.subscribe((e) => seen.push(e));
+    await flush();
+    sources[0].emit("open"); // first open: no resync
+    for (const at of [10_000, 11_000, 12_000]) {
+      t = at;
+      hub.reconnectNow();
+      await flush();
+      sources[sources.length - 1].emit("open");
+    }
+    expect(resyncs(seen)).toBe(1); // 10 s resyncs; 11 s and 12 s fold into one trailing resync
+    const trailing = timers.filter((x) => !x.cleared && x.ms === SSE_RESYNC_MIN_INTERVAL_MS - 1_000);
+    expect(trailing).toHaveLength(1);
+    t = 15_000;
+    trailing[0].fn();
+    expect(resyncs(seen)).toBe(2);
+  });
+
+  it("close() forgets the stream: the next session's first open is not a resync", async () => {
+    let t = 0;
+    const { hub, sources, flush } = harness({ now: () => t });
+    hub.subscribe(() => undefined);
+    await flush();
+    sources[0].emit("open");
+    hub.close();
+    const seen: { type: string }[] = [];
+    t = 60_000;
+    hub.subscribe((e) => seen.push(e));
+    await flush();
+    sources[1].emit("open");
+    expect(resyncs(seen)).toBe(0);
   });
 });

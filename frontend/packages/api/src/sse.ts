@@ -41,6 +41,8 @@ export interface SseHubOptions {
   /** Injected for tests; default setTimeout / clearTimeout. */
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
+  /** Injected for tests; defaults to Date.now. PAD-616's resync throttle reads it. */
+  now?: () => number;
   /** Debug-level log sink; defaults to console.debug. Never console.log/warn. */
   debug?: (message: string, detail?: Record<string, unknown>) => void;
 }
@@ -53,6 +55,16 @@ export interface SseHub {
   /** Disconnects and forgets every listener. */
   close(): void;
 }
+
+/**
+ * PAD-616 (messaging.sse-realtime rule 18): a local event, never sent by the server. An event the
+ * server published while the stream was down never arrives, so when the stream re-opens after its
+ * first open the hub delivers `{ type: "resync" }` to every listener, which refreshes what it keeps
+ * live. At most one per `SSE_RESYNC_MIN_INTERVAL_MS`; re-opens inside the window fold into one
+ * trailing resync, so a flapping connection cannot set off a refetch storm.
+ */
+export const RESYNC_EVENT = "resync";
+export const SSE_RESYNC_MIN_INTERVAL_MS = 5_000;
 
 export const SSE_RETRY_BASE_MS = 1_000;
 export const SSE_RETRY_MAX_MS = 30_000;
@@ -76,7 +88,13 @@ export function createSseHub(options: SseHubOptions): SseHub {
     options.debug ??
     ((message: string, detail?: Record<string, unknown>) => console.debug(`[sse] ${message}`, detail ?? {}));
 
+  const now = options.now ?? (() => Date.now());
   const listeners = new Set<(event: AppEvent) => void>();
+  // PAD-616: whether this hub has ever had a stream open (a later open is a RE-open), when it last
+  // told its listeners to resync, and the trailing resync a throttled re-open leaves behind.
+  let everOpened = false;
+  let lastResyncAt = -Infinity;
+  let resyncTimer: unknown = null;
   let source: SseSourceLike | null = null;
   let timer: unknown = null;
   let attempt = 0;
@@ -97,6 +115,39 @@ export function createSseHub(options: SseHubOptions): SseHub {
     current?.close();
   };
 
+  const fanOut = (data: AppEvent) => {
+    for (const listener of [...listeners]) {
+      try {
+        listener(data);
+      } catch (error) {
+        // One broken screen must never stop the others hearing about events.
+        debug("sse listener threw", { error: String(error) });
+      }
+    }
+  };
+  const emitResync = () => {
+    lastResyncAt = now();
+    debug("sse resync");
+    fanOut({ type: RESYNC_EVENT });
+  };
+  const requestResync = () => {
+    const sinceLast = now() - lastResyncAt;
+    if (sinceLast >= SSE_RESYNC_MIN_INTERVAL_MS) {
+      emitResync();
+      return;
+    }
+    if (resyncTimer !== null) return; // one trailing resync covers every re-open in the window
+    resyncTimer = setTimer(() => {
+      resyncTimer = null;
+      if (listeners.size > 0) emitResync();
+    }, SSE_RESYNC_MIN_INTERVAL_MS - sinceLast);
+  };
+  const cancelResync = () => {
+    if (resyncTimer !== null) {
+      clearTimer(resyncTimer);
+      resyncTimer = null;
+    }
+  };
   const deliver = (event: { data?: unknown }) => {
     const raw = event?.data;
     if (typeof raw !== "string" || raw === "") return;
@@ -111,14 +162,7 @@ export function createSseHub(options: SseHubOptions): SseHub {
       debug("sse payload ignored", { reason: "no type" });
       return;
     }
-    for (const listener of [...listeners]) {
-      try {
-        listener(data as AppEvent);
-      } catch (error) {
-        // One broken screen must never stop the others hearing about events.
-        debug("sse listener threw", { error: String(error) });
-      }
-    }
+    fanOut(data as AppEvent);
   };
 
   const scheduleRetry = () => {
@@ -143,6 +187,8 @@ export function createSseHub(options: SseHubOptions): SseHub {
       if (source !== current) return;
       attempt = 0;
       debug("sse open");
+      if (everOpened) requestResync();
+      everOpened = true;
     });
     current.addEventListener("message", (event) => {
       if (source === current) deliver(event);
@@ -178,7 +224,11 @@ export function createSseHub(options: SseHubOptions): SseHub {
     },
     close() {
       reset();
+      cancelResync();
       listeners.clear();
+      // A closed hub forgets its stream: the next session's first open is not a resync.
+      everOpened = false;
+      lastResyncAt = -Infinity;
     },
   };
 }
