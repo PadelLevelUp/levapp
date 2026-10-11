@@ -26,12 +26,8 @@ def _live_invitations(instance_id, player_id):
     ).count()
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "PAD-612 R1 → PAD-620: send_manual_notifications has no live-invitation check (invitations rule 18 lives "
-    "only in the engine's candidate path), so a second manual notify stacks a second live "
-    "invitation, message and push on the same occurrence."
-))
 def test_a_second_manual_notify_does_not_stack_a_second_live_invitation(app, monkeypatch):
+    """PAD-612 R1, fixed by PAD-620 (invitations rule 18)."""
     from padel_app.services import notification_service as ns
     from padel_app.tests.helpers import pin_clock
 
@@ -44,11 +40,8 @@ def test_a_second_manual_notify_does_not_stack_a_second_live_invitation(app, mon
         assert _live_invitations(instance_id, a) == 1
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "PAD-612 R2 → PAD-620: the dashboard's 'notify pending' nudge re-sends a full new invitation through "
-    "send_manual_notifications on every press, with no spacing, stacking live invitations."
-))
 def test_the_notify_pending_nudge_twice_leaves_one_live_invitation(app, monkeypatch):
+    """PAD-612 R2, fixed by PAD-620: the nudge re-pushes the invitation the student holds."""
     from padel_app.helpers.dashboard.pending import notify_pending_confirmations
     from padel_app.services import notification_service as ns
     from padel_app.tests.helpers import pin_clock
@@ -82,3 +75,52 @@ def test_a_second_yes_on_a_waiting_list_offer_sends_no_second_confirmation(app):
             after_first = Message.query.filter_by(sender_id=coach_user_id).count()
             respond_to_waiting_list(instance_id, "yes", player_user_id)
             assert Message.query.filter_by(sender_id=coach_user_id).count() == after_first
+
+
+def test_the_manual_notify_route_names_a_student_who_already_holds_an_invitation(app, monkeypatch):
+    """PAD-620: the coach is told by name, cause "already_invited", and nothing is sent to them."""
+    from flask_jwt_extended import create_access_token
+
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        monkeypatch.setattr(ns, "send_push_notification", lambda **kw: None)
+        instance_id, coach_id, _, (a, b) = _seed(enrolled=0, candidates=2, max_players=3)
+        ns.send_manual_notifications(instance_id, [a], coach_id)
+        coach_user_id = db.session.get(Coach, coach_id).user_id
+        app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
+        token = create_access_token(identity=str(coach_user_id))
+        with patch("padel_app.services.notification_service.publish"), patch(
+            "padel_app.services.notification_service.send_push_notification"
+        ):
+            res = app.test_client().post(
+                "/api/app/notify/manual",
+                json={"model": "LessonInstance", "originalId": instance_id, "playerIds": [a, b]},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert res.status_code == 200, res.get_json()
+        body = res.get_json()
+        assert body["sent"] == 1
+        assert [(e["playerId"], e["cause"]) for e in body["blocked"]] == [(a, "already_invited")]
+        assert _live_invitations(instance_id, a) == 1 and _live_invitations(instance_id, b) == 1
+
+
+def test_a_queued_invitation_counts_as_live_for_the_manual_skip(app, monkeypatch):
+    """PAD-620 (notifications.manual rule 9): live is `sent` OR `queued`."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        monkeypatch.setattr(ns, "send_push_notification", lambda **kw: None)
+        instance_id, coach_id, _, (a,) = _seed(enrolled=0, candidates=1, max_players=2)
+        db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id, player_id=a,
+                                         type="auto", round_number=1, status="queued"))
+        db.session.commit()
+        assert ns.send_manual_notifications(instance_id, [a], coach_id) == []
+        assert [e["cause"] for e in ns.already_invited_players(instance_id, [a])] == ["already_invited"]

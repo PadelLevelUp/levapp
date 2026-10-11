@@ -25,9 +25,21 @@ Coaches manually select players to notify about a class, bypassing the automatic
    modal runs `eligibility_check` for the selection and, when any selected student fails the
    class's bar, opens the same confirmation the manual add uses, with the invite verb
    (`eligibility.enforcement` rule 6a). Cancel sends nothing; confirm sends as before. Web and iOS.
+9. **No second invitation to a student who holds one (PAD-620; PAD-612 R1).** A selected student who
+   already holds a live invitation (`sent` or `queued`) for the occurrence — automatic or manual — is
+   not invited again: no event, no message, no push. The response lists them in `blocked` with
+   `cause: "already_invited"` and their name, and web and iOS say so by name in the warning slot
+   ("Já têm um convite em aberto para esta aula: …"), as for the other two causes. The rest of the
+   selection is sent as before.
 6. Selection rows (both search results and rows inside a notification group) are a single click target: clicking the checkbox, the avatar or the name each produce exactly one toggle of that player's selection. The row must not carry a click handler that competes with the checkbox's own change handler
 
 ### Acceptance Criteria
+
+#### A student holding a live invitation is not invited twice (rule 9, PAD-620)
+- **Given** Ana holds a live invitation for Friday's class and Bruno holds none
+- **When** the coach notifies Ana and Bruno by hand
+- **Then** only Bruno gets an invitation (`sent: 1`), Ana still holds exactly one live invitation
+- **And** the response lists Ana in `blocked` with `cause: "already_invited"`, and the coach is told her name
 
 #### Send manual notifications
 - **Given** an instance with 2 open spots

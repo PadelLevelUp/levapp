@@ -70,20 +70,33 @@ def notify_pending_confirmations(
     *, coach_id: int, now: Optional[datetime] = None
 ) -> Dict[str, int]:
     """
-    Send an extra *manual* notification to every student who is still pending
-    confirmation for tomorrow's classes. Students who already confirmed or
-    declined are never targeted (they are not in the pending set).
+    Nudge every student still pending confirmation for tomorrow's classes about the invitation they
+    already hold. Students who already confirmed or declined are never targeted (they are not in the
+    pending set).
 
-    Reuses the existing notification engine (``send_manual_notifications``) so
-    behaviour, templating and messaging stay consistent with automatic sends.
-    Sending an extra nudge does not change the pending count — the students are
-    still pending until they respond.
+    PAD-620 (PAD-612 R2): the nudge used to send each of them a brand-new invitation through
+    ``send_manual_notifications`` — a second live invitation, message and push on every press. It now
+    re-sends the push of the invitation they already hold (its own text, opening its conversation):
+    no new invitation, no new chat message, so the pending set and every bubble stay as they were.
+    ``sent`` is the number of students pushed.
     """
-    from padel_app.services.notification_service import send_manual_notifications
+    from padel_app.services.notification_service import push_existing_invitation
 
     targets = get_pending_confirmation_targets(coach_id=coach_id, now=now)
     sent = 0
     for instance_id, player_ids in targets:
-        events = send_manual_notifications(instance_id, player_ids, coach_id)
-        sent += len(events)
+        latest = {}
+        for event in (
+            NotificationEvent.query.filter(
+                NotificationEvent.coach_id == coach_id,
+                NotificationEvent.lesson_instance_id == instance_id,
+                NotificationEvent.player_id.in_(player_ids),
+                NotificationEvent.status == "sent",
+                NotificationEvent.message_id.isnot(None),
+            ).order_by(NotificationEvent.id.asc())
+        ):
+            latest[event.player_id] = event  # the newest wins
+        for event in latest.values():
+            if push_existing_invitation(event):
+                sent += 1
     return {"instances": len(targets), "sent": sent}
