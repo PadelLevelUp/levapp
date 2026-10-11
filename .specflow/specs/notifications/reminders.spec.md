@@ -158,8 +158,11 @@ Automatically send class reminders to enrolled players at a configured time befo
     **An answer survives a cleared mark (PAD-622; PAD-612 R5).** A student who answered one of the
     occurrence's reminders is not asked again by a later pass, even after the coach marks them and
     clears the mark (PAD-567's clear resets `confirmed`, not the answer they gave): the pass skips a
-    student with an answered, counted `ReminderAttempt`. A student who was asked and never answered
-    is asked again as before, and voided attempts (a returning student, rule 19) do not count.
+    student with an answered (`yes`/`no`), counted `ReminderAttempt`, on every pass including the
+    coach's manual send, and the late ask (rule 18) is not armed for them. A student who was asked
+    and never answered is asked again as before; voided attempts (a returning student, rule 19) do
+    not count, and neither does a `not_enrolled` outcome (a stale reminder tapped while off the
+    date): a student the coach re-adds is asked.
 
 ### Acceptance Criteria
 

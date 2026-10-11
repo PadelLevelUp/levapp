@@ -11,7 +11,7 @@ import pytest
 
 from padel_app.sql_db import db
 from padel_app.tests.helpers import pin_clock
-from padel_app.tests.test_pad567_clear_presence import START, _fire, _mark, world  # noqa: F401 — fixture
+from padel_app.tests.test_pad567_clear_presence import START, _fire, _mark, _row, world  # noqa: F401,F811 — `world` is a fixture
 
 
 def _attempts(app, iid, player_id):
@@ -60,8 +60,65 @@ def test_a_clear_on_a_student_who_never_answered_still_gets_the_next_reminder(ap
     pin_clock(monkeypatch, first)
     with app.app_context():
         send_class_reminders(iid, now=first, scheduled=True)
+    assert _attempts(app, iid, ids["student_id"]) == 1, "reminder 1 went out"
     _mark(app, iid, ids["student_id"], status="present")
     _mark(app, iid, ids["student_id"], clear=True)
+    from padel_app.services import reminder_attempt_service as attempts
+    with app.app_context():
+        assert attempts.has_answered(iid, ids["student_id"]) is False, "she never answered"
+    assert _row(app, iid, ids["student_id"]).confirmed is False, "the clear took"
+    later = first + timedelta(hours=25)
+    pin_clock(monkeypatch, later)
+    with app.app_context():
+        send_class_reminders(iid, now=later, scheduled=True)
+    assert _attempts(app, iid, ids["student_id"]) == 2
+
+
+
+def test_the_coachs_manual_send_also_leaves_an_answer_standing(app, world, monkeypatch):
+    """Rule 23 (PAD-622): the coach's "Enviar lembretes" (a non-scheduled pass) does not re-ask an
+    answered student whose mark was cleared either."""
+    from padel_app.services.notification_service import get_or_create_config, respond_to_reminder, send_class_reminders
+
+    ids, iid = world
+    with app.app_context():
+        get_or_create_config(ids["coach_id"]).reminder_count = 2
+        db.session.commit()
+    first = _fire()
+    pin_clock(monkeypatch, first)
+    with app.app_context():
+        send_class_reminders(iid, now=first, scheduled=True)
+        respond_to_reminder(iid, "yes", ids["student_user_id"])
+    _mark(app, iid, ids["student_id"], status="present")
+    _mark(app, iid, ids["student_id"], clear=True)
+    with app.app_context():
+        send_class_reminders(iid, now=first + timedelta(minutes=5), scheduled=False)
+    assert _attempts(app, iid, ids["student_id"]) == 1
+
+
+def test_a_stale_not_enrolled_tap_does_not_silence_a_student_the_coach_re_adds(app, world, monkeypatch):
+    """Review of PAD-622: a student removed from the date who taps the stale reminder gets
+    "not_enrolled" — not an answer. Re-added by the coach, they are asked (rules 18, 19)."""
+    from padel_app.models import LessonInstance
+    from padel_app.services.lesson_service import enrol, unenrol
+    from padel_app.services.notification_service import get_or_create_config, respond_to_reminder, send_class_reminders
+
+    ids, iid = world
+    with app.app_context():
+        get_or_create_config(ids["coach_id"]).reminder_count = 2
+        db.session.commit()
+    first = _fire()
+    pin_clock(monkeypatch, first)
+    with app.app_context():
+        send_class_reminders(iid, now=first, scheduled=True)
+        unenrol(ids["student_id"], db.session.get(LessonInstance, iid))
+        db.session.commit()
+        # The stale tap of a student taken off this date while on the series roster: respond_to_reminder
+        # records "not_enrolled" on the attempt (PAD-259 branch). Recorded here the same way.
+        from padel_app.services import reminder_attempt_service as attempts
+        attempts.mark_responded(attempts.latest_attempt(iid, ids["student_id"]), "not_enrolled", when=first)
+        enrol(ids["student_id"], db.session.get(LessonInstance, iid), "coach")
+        db.session.commit()
     later = first + timedelta(hours=25)
     pin_clock(monkeypatch, later)
     with app.app_context():

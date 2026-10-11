@@ -630,10 +630,11 @@ class TestReminderSupersede:
                 # now reads as an attendance mark and skips; clear it too so the row is owed again.
                 presence.status = None
                 presence.save()
-                # PAD-622: an answered attempt now stops further reminders for the occurrence. This
-                # test forces a second send anyway (only that new check is switched off; the attempt
-                # data stays real), because its subject is the supersede step: the answered MESSAGE
-                # keeps its badge and is not superseded when a later reminder goes out.
+                # PAD-622: an answered attempt now stops further reminders for the occurrence, so this
+                # state (a later reminder after an answer) is no longer reachable through a pass — the
+                # supersede guard below is defence in depth. The test forces the second send anyway
+                # (only that new check is switched off; the attempt data stays real) to keep it: the
+                # answered MESSAGE keeps its badge and is not superseded when a later reminder goes out.
                 with patch("padel_app.services.reminder_attempt_service.has_answered", return_value=False):
                     send_class_reminders(instance_id, now=t0 + timedelta(hours=1))
 
