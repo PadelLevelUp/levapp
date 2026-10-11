@@ -166,7 +166,8 @@ export function layoutDayColumn<T extends GridEventLike>(
   options: BlockGeometryOptions & { maxColumns?: number }
 ): DayColumnLayout<T> {
   const maxColumns = Math.max(1, options.maxColumns ?? Infinity);
-  const timed = events.filter(hasTimes).sort((a, b) => {
+  type Timed = T & { startTime: string; endTime: string };
+  const timed = events.filter((e): e is Timed => hasTimes(e)).sort((a, b) => {
     const d = toMinutes(a.startTime) - toMinutes(b.startTime);
     return d !== 0 ? d : endMinutes(b) - endMinutes(a);
   });
