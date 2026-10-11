@@ -115,3 +115,7 @@ neither. Every provider ships dark: its button appears only where its client id 
 - The Privacy Policy wording for the data in rule 8 is A's (#672).
 - iOS needs a new store build: the Google and Apple modules are native.
 - Android (PAD-355) and Apple on the web are later.
+- A rejected coach who signed up with a provider has no password, so the re-apply form
+  (`auth.coach-approval` rule 12, username + password) is out of reach; the sign-in screen tells them
+  they were not approved and gives the contact address. Password recovery can set a password, after
+  which re-apply works. A provider-based re-apply is a follow-up if it is ever needed.
