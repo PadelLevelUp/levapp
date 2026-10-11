@@ -30,6 +30,16 @@ A coach who belongs to a club can invite another coach to join that club via a s
    shared check; 400 on `birthDate` with `BIRTH_DATE_REQUIRED`, `INVALID_BIRTH_DATE` or `UNDERAGE`), creating
    nothing on a refusal. The existing-coach branch creates no account and is unchanged. Web and iOS
    add the field.
+8a. **The country (PAD-604; Privacy Policy §1).** The new-user branch also takes
+   `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`) is validated with sign-up's
+   check (`auth.register` rule 18): a value that is not two letters is 400 `{field: "country", code:
+   "INVALID_COUNTRY"}`. A request that declares the client capability `country-on-completion`
+   (`X-LevApp-Capabilities`, PAD-352) and sends no country is 400 `{field: "country", code:
+   "COUNTRY_REQUIRED"}` with the bilingual "update the app" text. **Legacy path:** a request that does
+   not declare it (iOS up to 1.3.0 (32), whose form predates the field) and sends none is accepted, and
+   the country stays as it was (null on a new account; PAD-630 asks for it later). Checked after the
+   birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
+   `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability. The existing-coach branch is unchanged.
 
 9. **A coach who joins by invitation confirms their email (PAD-477, B-241; owner decision 2026-10-02).**
    - The new-user accept takes an `email`, validated as sign-up validates it (`auth.register`): a valid
@@ -121,6 +131,13 @@ A coach who belongs to a club can invite another coach to join that club via a s
 - **When** a member coach POSTs `/api/app/club/1/coach-invitations/7/revoke`
 - **Then** the invitation becomes `revoked` and accepting its link answers 410
 - **And** the same call from a coach outside club 1 is 403
+
+#### A coach who joins by invitation gives their country (rule 8a, PAD-604)
+- **Given** a pending coach invitation and a client declaring `country-on-completion` and `coach-invite-email`
+- **When** a new coach accepts with name, username, password, email, an adult `birthDate` and `country: "PT"`
+- **Then** the coach account exists and `users.country` is `PT`
+- **And** without `country` it is 400 `COUNTRY_REQUIRED` and no account is created
+- **And** with no capability declared and no `country`, the account is created with no country
 
 #### A club invitation does not create an under-18 coach (PAD-457)
 - **Given** a pending coach invitation and no user `teencoach457`, today 2026-09-25 (UTC)

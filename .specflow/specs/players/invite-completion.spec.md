@@ -60,6 +60,16 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
     400 `INVALID_BIRTH_DATE`, under 18 → 400 `UNDERAGE`, all on `field: "birthDate"`. A refusal writes
     nothing (no username, no password, the account stays `inactive`, the invitation stays pending); an
     accepted date is stored on the user. Web and iOS add the field (iOS typed DD/MM/AAAA).
+10a. **The country (PAD-604; Privacy Policy §1).** The body also carries
+    `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`) is validated with sign-up's
+    check (`auth.register` rule 18): a value that is not two letters is 400 `{field: "country", code:
+    "INVALID_COUNTRY"}`. A request that declares the client capability `country-on-completion`
+    (`X-LevApp-Capabilities`, PAD-352) and sends no country is 400 `{field: "country", code:
+    "COUNTRY_REQUIRED"}` with the bilingual "update the app" text. **Legacy path:** a request that does
+    not declare it (iOS up to 1.3.0 (32), whose form predates the field) and sends none is accepted, and
+    the country stays as it was (null on a new account; PAD-630 asks for it later). Checked after the
+    birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
+    `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability.
 
 ### Acceptance Criteria
 
@@ -102,6 +112,13 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 - **Given** a coach's pending player invitation, today 2026-09-25 (UTC)
 - **When** it is accepted with username `teen457`, a password and `birthDate` `2008-09-26`
 - **Then** the response is 400 `UNDERAGE` on `birthDate` and no user holds `teen457`
+
+#### Completing the invitation stores the country (rule 10a, PAD-604)
+- **Given** a pending player invitation and a client declaring `country-on-completion`
+- **When** the invitee accepts with a username, a password, an adult `birthDate` and `country: "BR"`
+- **Then** the account is active and `users.country` is `BR`
+- **And** without `country` it is 400 `COUNTRY_REQUIRED`, and the invitation stays pending
+- **And** with no capability declared and no `country`, the accept succeeds with no country
 
 #### An adult completes the invitation with a birth date (PAD-457)
 - **Given** the same invitation

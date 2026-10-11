@@ -79,6 +79,16 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     register). Every refusal writes nothing and the account stays `inactive`. An accepted date is
     stored on `users.birth_date`. Web and iOS add the birth-date field to the activation form (iOS
     typed DD/MM/AAAA like sign-up) and refuse under 18 on the field before sending.
+13a. **The country, at activation too (PAD-604; Privacy Policy §1).** The POST also carries
+    `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`) is validated with sign-up's
+    check (`auth.register` rule 18): a value that is not two letters is 400 `{field: "country", code:
+    "INVALID_COUNTRY"}`. A request that declares the client capability `country-on-completion`
+    (`X-LevApp-Capabilities`, PAD-352) and sends no country is 400 `{field: "country", code:
+    "COUNTRY_REQUIRED"}` with the bilingual "update the app" text. **Legacy path:** a request that does
+    not declare it (iOS up to 1.3.0 (32), whose form predates the field) and sends none is accepted, and
+    the country stays as it was (null on a new account; PAD-630 asks for it later). Checked after the
+    birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
+    `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability.
 12. **No proxy logs the secret (B-183, PAD-435).** The secret rides in URLs: the link's `?t=`
     and rule 4's `?token=`. Every nginx in front of the app (the VM's host nginx, `infra/nginx/`,
     and the web image's `frontend/apps/web/nginx.conf`) logs such a request with its query cut to
@@ -195,6 +205,14 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Given** the same user
 - **When** POST without `birthDate` (an older app)
 - **Then** 400 `BIRTH_DATE_REQUIRED` with the "update the app" text; nothing is written
+
+#### Activation stores the country (rule 13a, PAD-604)
+- **Given** an inactive coach-created player and a client declaring `country-on-completion`
+- **When** they activate with a valid adult `birthDate` and `country: "es"`
+- **Then** the account is active and `users.country` is `ES`
+- **And** the same request with no `country` is 400 `COUNTRY_REQUIRED` and the account stays inactive
+- **And** `country: "Spain"` is 400 `INVALID_COUNTRY`
+- **And** with no capability declared and no `country`, activation succeeds and `users.country` stays null
 
 #### Both activation screens ask for the birth date (PAD-457)
 - **Given** the activation link opened on web and on iOS
