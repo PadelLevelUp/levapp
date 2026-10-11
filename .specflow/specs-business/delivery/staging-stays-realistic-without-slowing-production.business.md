@@ -35,8 +35,10 @@ the sessions that test on staging, who keep realistic data.
 2. The same backup is loaded into staging at most once, however many changes reach staging.
 3. Routine deploys never read the live database to refresh staging.
 4. A copy from the live database happens only when the owner asks for it by hand.
-5. Nothing on staging can reach a real person: contact details are rewritten on every load, as
-   today.
+5. Nothing on staging identifies a real person: names, usernames, emails, phones, birth dates,
+   messages, notes, evaluations, guardian contacts and push tokens are rewritten on every load
+   (PAD-606). Testers sign in with known staging accounts and a shared password kept in the
+   staging secrets.
 6. Refreshing staging never fails a deploy.
 
 ## Success Metrics
