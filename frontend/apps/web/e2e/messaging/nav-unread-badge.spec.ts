@@ -136,11 +136,14 @@ test("PAD-149: opening the conversation clears the nav unread badge without a re
   });
 
   // Exact participant name (B-179): "E2E Student" also matches "E2E Student Two".
-  await conversationRow(page, CONVERSATION_PARTNER).click();
-  await page.waitForResponse(
+  // Wait registered BEFORE the click: with the messages chunk already loaded (PAD-585 prefetch)
+  // the thread request fires at once, and a wait started after the click could miss it.
+  const threadLoaded = page.waitForResponse(
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
     { timeout: 10_000 }
   );
+  await conversationRow(page, CONVERSATION_PARTNER).click();
+  await threadLoaded;
 
   await expect(badge, "the nav badge must clear in-session").toBeHidden({
     timeout: 10_000,

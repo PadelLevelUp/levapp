@@ -33,4 +33,25 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // client.route-loading rules 5 and 8 (PAD-585). Pages are lazy chunks (src/routes/lazyPages.ts);
+  // these groups only keep slow-moving vendors in their own long-cached files. There is no
+  // catch-all vendor chunk: that would put every library back in the first download. The
+  // manifest feeds scripts/check-entry-budget.mjs.
+  build: {
+    manifest: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          // A lazily loaded language is one chunk, not one per area file (rule 6).
+          const locale = /\/src\/locales\/([^/]+)\/[^/]+\.json$/.exec(id);
+          if (locale && locale[1] !== "pt") return `locale-${locale[1]}`;
+          if (!id.includes("node_modules")) return undefined;
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "vendor-react";
+          if (id.includes("node_modules/@radix-ui/")) return "vendor-radix";
+          if (/node_modules\/(i18next|react-i18next)\//.test(id)) return "vendor-i18n";
+          return undefined;
+        },
+      },
+    },
+  },
 }));
