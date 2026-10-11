@@ -6,8 +6,8 @@
  * inline values, so the surface and the ink are pinned by `calendar-card.test.ts` on the shared
  * helper; here the variant and the dashed border prove the card resolved through it.
  */
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { CalendarEvent } from "@levelup/types";
 import { MobileEventCard } from "./MobileEventCard";
 import { TimeGrid } from "./TimeGrid";
@@ -114,5 +114,28 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
   it("a coach (the default viewer) sees no tick", () => {
     render(<MobileEventCard event={enrolled()} now={NOW} />);
     expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+  });
+});
+
+// B-543 (calendar.mobile-views rule 13): past two classes at once, one "+N" selects the day.
+describe("the phone grid on a busy hour (B-543)", () => {
+  it("three at 18:00: one block and a '+2' that selects the day", () => {
+    const day = new Date(2026, 9, 28);
+    const onSelectDay = vi.fn();
+    const at6 = (id: string) => openSpot({ id, openSpot: false, title: id, date: "2026-10-28", startTime: "18:00", endTime: "19:00" });
+    render(
+      <TimeGrid
+        weekDays={[day]}
+        selectedDay={new Date(2026, 9, 27)}
+        onSelectDay={onSelectDay}
+        eventsByDay={{ "2026-10-28": [at6("x1"), at6("x2"), at6("x3")] }}
+        hourRange={{ startHour: 17, endHour: 20 }}
+      />
+    );
+    expect(screen.getAllByTestId("calendar-grid-block")).toHaveLength(1);
+    const marker = screen.getByTestId("calendar-overflow");
+    expect(marker.getAttribute("data-count")).toBe("2");
+    fireEvent.click(marker);
+    expect(onSelectDay).toHaveBeenCalledWith(day);
   });
 });

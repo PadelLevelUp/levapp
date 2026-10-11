@@ -551,6 +551,11 @@
         "coach": "Faltou"
       },
       "reminderSent": "Lembrete enviado"
+    },
+    "overflow": {
+      "label": "+{{count}}",
+      "aria": "Mais {{count}} aulas",
+      "title": "Mais aulas a esta hora"
     }
   }
 }
