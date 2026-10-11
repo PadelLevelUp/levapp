@@ -140,6 +140,10 @@
     "notConnectedYet": "You're not connected with anyone yet",
     "notConnectedYetHint": "Join a coach's student base or use a username to start a conversation.",
     "messageByUsernameExplain": "Know someone's username? Message them directly.",
-    "connectedPeople": "People you're connected with"
+    "connectedPeople": "People you're connected with",
+    "joinWaitingList": "Join the waiting list",
+    "onWaitingList": "You're on the waiting list",
+    "leaveWaitingList": "Leave",
+    "joinWaitingListFailed": "Could not join the waiting list."
   }
 }

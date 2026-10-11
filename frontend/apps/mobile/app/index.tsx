@@ -1,10 +1,17 @@
+import { useEffect } from "react";
 import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
+import { markFirstScreenReady } from "@/lib/first-screen-ready";
 
 export default function Index() {
   const { loading, isAuthenticated, user } = useAuth();
+
+  // PAD-587: the session is known and the redirect goes out — the next frame is a real screen.
+  useEffect(() => {
+    if (!loading) markFirstScreenReady();
+  }, [loading]);
 
   if (loading) {
     return (

@@ -90,3 +90,41 @@ Rollback, per host: `sudo rm /etc/nginx/sites-enabled/levapp-admin-staging{,-htt
 `sudo nginx -t && sudo systemctl reload nginx`. The certificate can stay; certbot keeps renewing it
 only while the `-http` block answers, so delete it with `sudo certbot delete --cert-name
 admin.staging.levapp.app` if the host is retired.
+
+## The old domain redirects (PAD-595 step 2)
+
+`padellevelup` answers every **page** with a 301 to the same path and query on levapp.app
+(`return 301 https://levapp.app$request_uri`), so QR codes and links already printed or shared
+keep working. Two prefixes are **not** redirected and proxy exactly as before:
+
+- `/api/` (and its SSE and `/api/app/register/` locations): store builds of the app call the API
+  on this host, and a redirect would break them.
+- `/.well-known/`: iOS reads `apple-app-site-association` from it (universal links). Android's
+  `assetlinks.json` is not served on either host today.
+
+`/register/` keeps `Referrer-Policy: no-referrer` on its 301 (B-183), and its `?t=` secret travels
+in the redirect because the new page needs it; no upstream is contacted, and the access log is the
+redacted one.
+
+Applied by the owner on the VM. Step 0 compares the live file with the copy this change was made
+from; a difference means the VM was edited since, so stop and copy it back here first.
+
+```bash
+# on this Mac, from the repo root: send the file
+gcloud compute scp infra/nginx/sites-available/padellevelup levelup-instance:~/padellevelup.new --zone europe-west1-b
+# on the VM (gcloud compute ssh levelup-instance --zone europe-west1-b)
+sudo cp /etc/nginx/sites-available/padellevelup ~/padellevelup.bak-$(date +%F)       # rollback copy
+diff ~/padellevelup.bak-$(date +%F) ~/padellevelup.new                              # 0. expect only the PAD-595 hunks
+sudo install -m 644 ~/padellevelup.new /etc/nginx/sites-available/padellevelup
+sudo nginx -t && sudo systemctl reload nginx
+# rollback, if any check below fails
+sudo install -m 644 ~/padellevelup.bak-$(date +%F) /etc/nginx/sites-available/padellevelup && sudo nginx -t && sudo systemctl reload nginx
+```
+
+Checks (from anywhere), all three must hold:
+
+```bash
+curl -sI 'https://padellevelup.com/join/coach/abc?x=1' | grep -iE '^(HTTP|location)'   # 301, location: https://levapp.app/join/coach/abc?x=1
+curl -s -o /dev/null -w '%{http_code}\n' https://padellevelup.com/api/app/public-web-origin   # 200 (after PAD-595 step 1 is on prod; else /api/notifications/vapid-public-key → 200)
+curl -s https://padellevelup.com/.well-known/apple-app-site-association | head -c 80; echo      # 200, JSON starting {"applinks"
+```

@@ -13,7 +13,7 @@
   },
   "GET /api/app/calendar (week) [student]": {
     "bytes": 1045,
-    "statements": 19
+    "statements": 10
   },
   "GET /api/app/class_instances/pending_validation [coach]": {
     "bytes": 12131,
@@ -56,8 +56,8 @@
     "statements": 46
   },
   "GET /api/app/dashboard [student]": {
-    "bytes": 3626,
-    "statements": 221
+    "bytes": 3847,
+    "statements": 36
   },
   "GET /api/app/lesson_instance/<id>/presences [coach]": {
     "bytes": 923,
@@ -84,12 +84,12 @@
     "statements": 9
   },
   "POST /api/app/class_instance [coach]": {
-    "bytes": 2209,
+    "bytes": 2255,
     "statements": 33
   },
   "POST /api/app/class_instance [student]": {
-    "bytes": 1207,
-    "statements": 30
+    "bytes": 1252,
+    "statements": 33
   },
   "POST /api/app/conversation/<id>/read [coach]": {
     "bytes": 0,

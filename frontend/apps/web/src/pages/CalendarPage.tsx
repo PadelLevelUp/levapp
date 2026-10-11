@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
+import { CalendarViewerProvider } from "@/components/calendar/viewer-context";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClassDetailSheet } from "@/components/calendar/ClassDetailSheet";
@@ -532,6 +533,8 @@ export default function CalendarPage() {
 
   return (
     <AppLayout>
+      {/* PAD-578: who is looking — the cards and the legend read it, never the session. */}
+      <CalendarViewerProvider viewer={canManageClasses ? "coach" : "student"}>
       <div className="flex flex-col h-full">
         {/* PAD-246 (calendar.mobile-views rules 9, 18, 21): the toolbar — and
             the legend inside it — is desktop-only. On a phone the add actions
@@ -673,6 +676,7 @@ export default function CalendarPage() {
           existingEvents={allEvents}
         />
       )}
+      </CalendarViewerProvider>
     </AppLayout>
   );
 }

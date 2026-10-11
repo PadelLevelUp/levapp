@@ -453,7 +453,10 @@ def coaches_for(instance):
     assignment order (junction id ascending), so `primary_coach` is the coach
     assigned first and every engine read agrees on it. The junction stays
     (decision 2026-09-11); this is the one reader, so an occurrence with no
-    junction row is never coach-less. A plain read: it never creates config."""
+    junction row is never coach-less. A plain read: it never creates config.
+
+    Batched twin for dashboard sets: `helpers/dashboard/confirmation.reminder_configs`
+    (PAD-583) — keep the ordering rule identical."""
     from padel_app.models.coaches import Coach
 
     instance_id = getattr(instance, "id", None)
