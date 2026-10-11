@@ -15,6 +15,8 @@ export const queryKeys = {
     ["class-instance", event.model, event.originalId, event.date] as const,
   coachPlayersPaginated: (params: PlayersQueryParams = {}) =>
     ["coach-players-paginated", params] as const,
+  // client.query-cache: the prefix every roster write invalidates (all pages and filters).
+  coachPlayersPaginatedPrefix: ["coach-players-paginated"] as const,
   playerProfile: (playerId: string) => ["player-profile", playerId] as const,
   // PAD-374: the v2 evaluation API. One key per coach-player history; the competency set is the coach's.
   playerEvaluations: (playerId: string) => ["player-evaluations", playerId] as const,
@@ -56,4 +58,14 @@ export const queryKeys = {
   // PAD-443: the Presences badge. Under the `presence-pending` prefix, so every presence write that
   // already invalidates the pending list (iOS `useInvalidatePresences`) refreshes the badge too.
   pendingValidationBadge: ["presence-pending", "badge"] as const,
+  // client.query-cache rule 7 (PAD-586): the shared roster and the presences reads. The key strings
+  // are the mobile ones (`features/presences/presence-invalidation.ts`, `hooks.ts`) so both apps invalidate alike.
+  coachRoster: ["coach-players"] as const,
+  presenceStats: ["presence-stats"] as const,
+  presenceTrendPrefix: ["presence-trend"] as const,
+  presenceTrend: (playerIdsKey: string) => ["presence-trend", playerIdsKey] as const,
+  presencePendingPrefix: ["presence-pending"] as const,
+  presencePending: (from: string, to: string) => ["presence-pending", from, to] as const,
+  presencePendingCount: (from: string, to: string) =>
+    ["presence-pending", "count", from, to] as const,
 };

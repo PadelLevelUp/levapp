@@ -5,6 +5,8 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
+  hasConversation,
+  mergeConversationPages,
   isAtBottom,
   isNearTop,
   mergeOlderPage,
@@ -285,5 +287,44 @@ describe("shouldShowJumpToBottom — rule 12", () => {
     const metrics = { distanceFromBottom: 700, hasUnseen: false };
     expect(shouldShowJumpToBottom({ ...metrics, viewportHeight: 400 })).toBe(true);
     expect(shouldShowJumpToBottom({ ...metrics, viewportHeight: 1000 })).toBe(false);
+  });
+});
+
+describe("mergeConversationPages", () => {
+  const norm = (id: string | number | null | undefined) => (id == null ? null : String(id));
+  const row = (id: string | number, lastMessage: string) =>
+    ({ id, lastMessage } as unknown as Conversation);
+
+  it("does not duplicate a row a page-1 refetch brought that page 2 already holds", () => {
+    const merged = mergeConversationPages(
+      [row(1, "a"), row(2, "b"), row(3, "c")],
+      [[row(3, "c-old"), row(4, "d")]],
+      norm
+    );
+    expect(merged.map((c) => String(c.id))).toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("keeps page 1's version of a row present on both pages", () => {
+    const merged = mergeConversationPages([row("3", "fresh")], [[row(3, "stale")]], norm);
+    expect(merged).toHaveLength(1);
+    expect((merged[0] as unknown as { lastMessage: string }).lastMessage).toBe("fresh");
+  });
+
+  it("preserves page order and de-duplicates across extra pages", () => {
+    const merged = mergeConversationPages(
+      [row(1, "")],
+      [[row(2, ""), row(3, "")], [row(3, ""), row(4, "")]],
+      norm
+    );
+    expect(merged.map((c) => String(c.id))).toEqual(["1", "2", "3", "4"]);
+  });
+});
+
+describe("hasConversation", () => {
+  const norm = (id: string | number | null | undefined) => (id == null ? null : String(id));
+  it("matches by normalized id", () => {
+    const list = [{ id: 7 } as unknown as Conversation];
+    expect(hasConversation(list, "7", norm)).toBe(true);
+    expect(hasConversation(list, 8, norm)).toBe(false);
   });
 });

@@ -147,12 +147,9 @@ const REVIEWED: string[] = [
   // Read-only lists and statistics.
   "apps/mobile/src/features/settings/import-section.tsx :: getImportHistory",
   "apps/web/src/components/players/detail/AddToClassesDialog.tsx :: getClassInstances",
-  "apps/web/src/pages/PresencesPage.tsx :: getCoachPlayers",
-  "apps/web/src/pages/PresencesPage.tsx :: getPresenceStats",
   // The validation queue is NOT read-only — it feeds an editor. Harmless because
   // ValidateClassesDialog keeps its edits and extras in its own state keyed by id and
   // never re-derives them from `pending` when the queue refetches.
-  "apps/web/src/pages/PresencesPage.tsx :: getPendingValidation",
 ];
 
 /** The shapes the scan must see — each was a blind spot named in #367's review. */
