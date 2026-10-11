@@ -6,6 +6,9 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
+import { COUNTRIES, countryName } from "@levelup/config";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +46,8 @@ export type AccountFormField = {
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
   /** PAD-457: e.g. "DD/MM/AAAA" for the activation form's birth date. */
   placeholder?: string;
+  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box. */
+  kind?: "country";
 };
 
 export function PreAuthShell({
@@ -161,6 +166,7 @@ export function AccountSetupForm({
   /** Rendered under the card — the legal links on the register screen. */
   footer?: React.ReactNode;
 }) {
+  const { i18n } = useTranslation();
   return (
     <PreAuthShell testID={testID}>
       <Card className="w-full">
@@ -170,7 +176,36 @@ export function AccountSetupForm({
         </CardHeader>
 
         <CardContent className="gap-4">
-          {fields.map((field) => (
+          {fields.map((field) =>
+            field.kind === "country" ? (
+              // PAD-604: required, default PT, as sign-up. Error id `<form>-country-error`, as every field here.
+              <View key={field.id} className="gap-1.5">
+                <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
+                <Select
+                  value={{
+                    value: values[field.id] ?? "",
+                    label: values[field.id] ? countryName(values[field.id], i18n.language) : "",
+                  }}
+                  onValueChange={(opt) => {
+                    if (opt?.value) onChangeField(field.id, opt.value);
+                  }}
+                >
+                  <SelectTrigger testID={`${testID}-${field.id}`} disabled={submitting}>
+                    <SelectValue placeholder={field.label} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code} label={countryName(c.code, i18n.language)} />
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors[field.id] ? (
+                  <Text className="text-sm text-destructive" testID={`${testID}-${field.id}-error`}>
+                    {errors[field.id]}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
             <View key={field.id} className="gap-1.5">
               <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
               <Input
@@ -195,7 +230,8 @@ export function AccountSetupForm({
                 </Text>
               ) : null}
             </View>
-          ))}
+            )
+          )}
 
           {submitError ? (
             <Text
