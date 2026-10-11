@@ -273,11 +273,50 @@
       "decline": "Recusar"
     },
     "demo": {
+      "eyebrow": "Demonstração",
       "title": "Pedir demonstração",
-      "providedBy": "Este formulário é fornecido pela HubSpot, onde guardamos os pedidos de demonstração. Ver a",
-      "privacyLink": "Política de Privacidade",
-      "failed": "Não foi possível carregar o formulário.",
-      "failedLink": "Envia-nos um email."
+      "subtitle": "Conta-nos sobre a tua academia e marcamos uma demonstração de 20 minutos.",
+      "fields": {
+        "fullname": "Nome e apelido",
+        "email": "Email",
+        "phone": "Telemóvel",
+        "company": "Clube ou academia",
+        "city": "Cidade",
+        "alunos": "Número de alunos (aprox.)",
+        "horas": "Horas de aulas por semana",
+        "message": "Mensagem (opcional)"
+      },
+      "placeholders": {
+        "fullname": "Rita Pereira Lopes",
+        "email": "rita@academia.pt",
+        "phone": "+351 912 345 678",
+        "company": "Academia Norte",
+        "city": "Porto",
+        "message": "Há algo que queiras que saibamos?"
+      },
+      "errors": {
+        "fullname": "Indica o teu nome e apelido.",
+        "email": "Indica um email válido.",
+        "phone": "Indica um telemóvel válido.",
+        "company": "Indica o clube ou academia.",
+        "city": "Indica a cidade.",
+        "alunos": "Indica um número inteiro maior que zero.",
+        "horas": "Indica um número inteiro maior que zero.",
+        "message": "A mensagem pode ter no máximo 2000 caracteres.",
+        "consent": "Tens de aceitar para enviar o pedido."
+      },
+      "consent": "Aceito ser contactado pela LevApp sobre a demonstração",
+      "submit": "Pedir demonstração",
+      "sending": "A enviar…",
+      "close": "Fechar",
+      "sent": {
+        "title": "Obrigado, {{name}}!",
+        "message": "Recebemos o teu pedido e entramos em contacto em breve."
+      },
+      "failed": "Não foi possível enviar o pedido.",
+      "failedLink": "Envia-nos um email.",
+      "providedBy": "Os pedidos de demonstração ficam guardados na HubSpot. Ver a",
+      "privacyLink": "Política de Privacidade"
     },
     "loader": {
       "label": "A entrar…"

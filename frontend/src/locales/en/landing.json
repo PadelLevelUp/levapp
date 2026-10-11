@@ -273,11 +273,50 @@
       "decline": "Decline"
     },
     "demo": {
+      "eyebrow": "Demo",
       "title": "Request a demo",
-      "providedBy": "This form is provided by HubSpot, where we keep demo requests. See the",
-      "privacyLink": "Privacy Policy",
-      "failed": "The form could not be loaded.",
-      "failedLink": "Send us an email."
+      "subtitle": "Tell us about your academy and we will book a 20-minute demo.",
+      "fields": {
+        "fullname": "Full name",
+        "email": "Email",
+        "phone": "Phone",
+        "company": "Club or academy",
+        "city": "City",
+        "alunos": "Number of students (approx.)",
+        "horas": "Class hours per week",
+        "message": "Message (optional)"
+      },
+      "placeholders": {
+        "fullname": "Rita Pereira Lopes",
+        "email": "rita@academy.com",
+        "phone": "+351 912 345 678",
+        "company": "Northside Academy",
+        "city": "Porto",
+        "message": "Anything you would like us to know?"
+      },
+      "errors": {
+        "fullname": "Enter your first and last name.",
+        "email": "Enter a valid email.",
+        "phone": "Enter a valid phone number.",
+        "company": "Enter your club or academy.",
+        "city": "Enter your city.",
+        "alunos": "Enter a whole number above zero.",
+        "horas": "Enter a whole number above zero.",
+        "message": "The message can be at most 2000 characters.",
+        "consent": "You need to accept to send the request."
+      },
+      "consent": "I agree to be contacted by LevApp about the demo",
+      "submit": "Request a demo",
+      "sending": "Sending…",
+      "close": "Close",
+      "sent": {
+        "title": "Thank you, {{name}}!",
+        "message": "We received your request and will be in touch soon."
+      },
+      "failed": "We could not send your request.",
+      "failedLink": "Send us an email.",
+      "providedBy": "Demo requests are stored in HubSpot. See the",
+      "privacyLink": "Privacy Policy"
     },
     "loader": {
       "label": "Signing in…"
