@@ -281,6 +281,11 @@
     },
     "loader": {
       "label": "A entrar…"
+    },
+    "appStore": {
+      "eyebrow": "Descarrega na",
+      "name": "App Store",
+      "aria": "Descarregar a LevApp na App Store (abre num separador novo)"
     }
   }
 }

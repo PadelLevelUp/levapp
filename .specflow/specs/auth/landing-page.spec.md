@@ -95,6 +95,13 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     page's demo and ideas links and its footer, `/support`, the static `public/support.html` the App
     Store listing points at, and the landing copy that names it — shows `admin@levapp.app`, read from
     `CONTACT_EMAIL` in `@levelup/config`. No other address is typed in the site's sources.
+15. **App Store buttons (PAD-619).** "Descarrega na App Store" opens LevApp's App Store page,
+    `APP_STORE_URL` from `@levelup/config` (the link the install suggestion uses, PAD-573), in a new
+    tab (`target="_blank"`, `rel="noopener noreferrer"`), with an accessible name that says so. It
+    sits under the hero's ✓ points for coaches and players, and in the players' closing call to
+    action; the "others" audience has none. A drawn button, not Apple's badge artwork. The Google
+    Play button waits for the Play listing (PAD-355). The redesigned site of the prototype is a
+    separate piece of work; when it lands, its App Store buttons use this component.
 
 ### Acceptance Criteria
 
@@ -212,6 +219,14 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Given** a build with no demo form ID
 - **When** the landing page renders
 - **Then** "Pedir demonstração" is a `mailto:` link to the support address
+
+#### The App Store buttons open LevApp's page in a new tab (rule 15, PAD-619)
+- **Given** the landing page for coaches, for players and for others
+- **When** it renders
+- **Then** coaches show one App Store link under the hero's points, players show one there and one
+  in the closing call to action, others show none
+- **And** every one points at `https://apps.apple.com/app/id6794271800` with `target="_blank"` and
+  `rel` containing `noopener`
 
 #### The site shows the owner's contact address everywhere (PAD-599, B-562)
 - **Given** the landing page, `/support`, `public/support.html` and the landing copy in both languages

@@ -85,6 +85,7 @@ import { cn } from "@/lib/utils";
 import { CookieBanner } from "@/components/landing/CookieBanner";
 import { ExitLink } from "@/components/landing/ExitLink";
 import { DemoRequestDialog } from "@/components/landing/DemoRequestDialog";
+import { AppStoreLink } from "@/components/landing/AppStoreLink";
 import { demoFormId, loadTrackingScript } from "@/lib/hubspot";
 import {
   clearHubSpotCookies,
@@ -658,6 +659,8 @@ function Hero({
             </li>
           ))}
         </ul>
+        {/* PAD-619 (rule 15): under the ✓ points, for the two audiences the app serves. */}
+        {audience !== "others" && <AppStoreLink placement="hero" className="mt-8" />}
       </div>
       {audience === "others" ? (
         <OthersMockup />
@@ -1019,6 +1022,12 @@ function FinalCta({
               {t(`${k}.switch`)}
             </Button>
           </div>
+          {/* PAD-619 (rule 15): players can get the app straight from the closing call to action. */}
+          {audience === "players" && (
+            <div className="mt-6 flex justify-center">
+              <AppStoreLink placement="cta" />
+            </div>
+          )}
         </div>
       </div>
     </section>

@@ -281,6 +281,11 @@
     },
     "loader": {
       "label": "Signing in…"
+    },
+    "appStore": {
+      "eyebrow": "Download on the",
+      "name": "App Store",
+      "aria": "Download LevApp on the App Store (opens in a new tab)"
     }
   }
 }
