@@ -113,7 +113,13 @@ neither. Every provider ships dark: its button appears only where its client id 
   iOS client ids (repo variables `GOOGLE_WEB_CLIENT_ID`, `_STAGING`, `GOOGLE_IOS_CLIENT_ID`); Apple
   App ID capability "Sign in with Apple" and the private-relay email domain.
 - The Privacy Policy wording for the data in rule 8 is A's (#672).
-- iOS needs a new store build: the Google and Apple modules are native.
+- **Delivered in two steps (coordinator, 2026-10-11).** The server and the web client ship first, dark.
+  iOS (Google and Apple together) follows in its own PR: it needs native modules
+  (expo-auth-session, expo-web-browser, expo-apple-authentication), the "Sign in with Apple"
+  capability on the App ID that only the owner can enable, and a new store build; shipping the
+  entitlement before the capability exists would break the next release build
+  (`scripts/ios-release.sh` signs with Xcode). Until it lands, iOS shows no provider buttons and
+  nothing changes there.
 - Android (PAD-355) and Apple on the web are later.
 - A rejected coach who signed up with a provider has no password, so the re-apply form
   (`auth.coach-approval` rule 12, username + password) is out of reach; the sign-in screen tells them
