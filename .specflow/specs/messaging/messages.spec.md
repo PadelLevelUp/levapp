@@ -22,8 +22,12 @@ Send, edit, and delete messages within conversations, with support for replies a
 4. Messages can reply to another message (`reply_to_id`)
 5. Messages can have image attachments (`attachment_id`)
 5a. An attachment is **private**. It is stored in a bucket with no public ACL and
-    served as a short-lived signed URL minted per response, never as a durable
-    public link; its storage key carries a random segment so it cannot be guessed
+    served as a short-lived signed URL, never as a durable public link. A signed URL
+    lives `SIGNED_URL_MINUTES` (60) and is **reused per object key for
+    `SIGNED_URL_REUSE_MINUTES` (50) within a process** (PAD-593): an image costs one signing
+    (on the VM, one IAM `signBlob` round trip) per window instead of one per response, keeps the
+    same URL within the window so browsers and the iOS image cache hit, and a reused URL always
+    has at least 10 minutes left; its storage key carries a random segment so it cannot be guessed
     from the sender, the send time or the original filename (B-047)
 5b. **A signer that is missing or failing degrades to "no image", never to an error** (B-018).
     When no uploads bucket is configured, or the runtime cannot mint a signed URL (no
@@ -31,7 +35,8 @@ Send, edit, and delete messages within conversations, with support for replies a
     attachment URL — and every other image URL built the same way: avatars, club logos —
     serializes as `null` and the failure is logged. A payload that carries an image must never
     fail because the image cannot be signed. The storage client is created once per process,
-    not once per image.
+    not once per image, and a failed signing is not retried for the same image for
+    `SIGNING_FAILURE_RETRY_SECONDS` (60) (PAD-593).
 6. **Automatic messages are told apart from typed ones (PAD-492).** A message the app generated
    (reminder, vacancy invitation — a waiting-list one included —, waiting-list offer, class added/cancelled notice,
    join- and class-request notices and replies, spot-filled/confirm/decline replies, replacement
@@ -98,6 +103,14 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Then** the response succeeds with `attachmentUrl` `null`
 - **And** the same holds for a user's avatar and a club's logo in any payload
 - **And** one storage client serves every image signed in that process
+- **And** a second payload within a minute does not ask the signer again for that image
+
+#### An image is signed once per window and keeps its URL (PAD-593)
+- **Given** a private image with object key `images/user/a.jpg` and a working signer
+- **When** it is serialized twice, by two different row objects, 49 minutes apart
+- **Then** the signer is called once and both payloads carry the same URL
+- **And** 50 minutes after the first signing the next payload carries a freshly signed URL
+- **And** eight participants with photos, serialized twice, cost eight signings in total
 
 #### Send message
 - **Given** a conversation between users 1 and 5
