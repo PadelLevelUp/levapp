@@ -87,7 +87,7 @@ test("B-266: editing a class at the coach's older club offers that club's courts
       data: { event: academy, scope: "single", updates: { courtId: null } },
     });
     await request.delete(`${API_ROOT}/app/courts/${oldCourt.id}`, { headers: auth });
-    const gone = await request.delete(`${API_ROOT}/editor/club/${newClubId}`, { headers: auth });
+    const gone = await request.delete(`${API_ROOT}/app/notify/debug/rows/club/${newClubId}`, { headers: auth });
     expect.soft(gone.ok(), `delete club ${newClubId}: ${gone.status()}`).toBeTruthy();
   }
 });

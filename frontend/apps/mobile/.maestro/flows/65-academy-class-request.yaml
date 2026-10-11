@@ -21,7 +21,7 @@
 appId: com.padellevelup.app
 onFlowComplete:
   - evalScript: "${output.jr = output.jr || null}"
-  - evalScript: "${output.jrDeleted = output.jr ? http.delete(output.api + '/api/editor/classjoinrequest/' + output.jr, { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok : true}"
+  - evalScript: "${output.jrDeleted = output.jr ? http.delete(output.api + '/api/app/notify/debug/rows/classjoinrequest/' + output.jr, { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok : true}"
   - evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
   - evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
   # Second pass: removing a materialised instance leaves its Lesson re-projecting.

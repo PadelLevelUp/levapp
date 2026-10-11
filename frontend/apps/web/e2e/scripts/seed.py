@@ -106,8 +106,9 @@ with app.app_context(), unit_of_work():
         password=generate_password_hash("E2eCoach123!"),
         status="active",
         language="en",
-        # PAD-55: super-admin, which the E2E cleanup helpers still need for the
-        # dev-only /api/editor deletes (the web /editor page is gone, PAD-532).
+        # PAD-55: super-admin, which `/api/app/notify/process_rounds` requires
+        # (proactive-decline spec). The editor deletes this once served are the
+        # E2E-only cleanup routes now (PAD-550).
         is_superadmin=True,
     )
     db.session.add(coach_user)
