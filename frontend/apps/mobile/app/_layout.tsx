@@ -1,6 +1,10 @@
 import * as React from "react";
 // Must be the first import (react-native-gesture-handler setup requirement).
 import "react-native-gesture-handler";
+// PAD-587: the launch clock starts with the first app module. It may sit this early only because
+// launch-timeline imports nothing from React Native; the gesture-handler rule above still holds
+// for every module that does.
+import { launchMark } from "@/lib/launch-timeline";
 import "../global.css";
 
 import { PortalHost } from "@rn-primitives/portal";
@@ -18,11 +22,13 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider } from "@/auth/AuthContext";
+import { AuthProvider, startSessionRestore } from "@/auth/AuthContext";
 import { LaunchAnimation } from "@/components/brand/LaunchAnimation";
 import { PushTapRouter } from "@/components/PushTapRouter";
 import { ToastHost } from "@/components/ui/toast";
 import { useAppStateFocus } from "@/hooks/useAppStateFocus";
+import { useFirstScreenReady } from "@/lib/first-screen-ready";
+import { LAUNCH_RELEASE_GRACE_MS, overlayMayRelease } from "@/lib/launch-overlay";
 import { usePushNotificationRouting } from "@/hooks/usePushNotificationRouting";
 
 // Known-noisy RN Animated warning; its LogBox toast covers the tab bar and
@@ -35,6 +41,11 @@ LogBox.ignoreLogs([
 import "@/lib/api";
 // i18next init (side effect) — must run before any screen calls useTranslation().
 import "@/lib/i18n";
+
+// PAD-587: the session restore (keychain, /auth/me) starts now, in parallel with the fonts,
+// instead of after the root has rendered. The provider awaits the same promise and handles its
+// error; the catch here only keeps a rejection from surfacing as an unhandled warning.
+void startSessionRestore().catch(() => undefined);
 
 // Keep the native splash up until the JS launch animation is on screen —
 // otherwise there is a white frame between the two.
@@ -71,8 +82,26 @@ export default function RootLayout() {
   // system font and reflow. A font ERROR must not block the app, though —
   // falling back to system type beats a permanently blank screen.
   React.useEffect(() => {
-    if (fontsLoaded || fontError) void SplashScreen.hideAsync().catch(() => {});
+    if (fontsLoaded || fontError) {
+      launchMark("fonts-ready");
+      void SplashScreen.hideAsync().catch(() => {});
+    }
   }, [fontsLoaded, fontError]);
+
+  // PAD-587: the overlay ends at the earlier of its own animation and "first screen ready" plus
+  // a short grace — never before the fonts (launch-overlay.ts). `release` tells the animation to
+  // run its final fade now and to stop catching touches.
+  const fontsReady = !!(fontsLoaded || fontError);
+  const firstScreenReady = useFirstScreenReady();
+  React.useEffect(() => {
+    if (firstScreenReady) launchMark("first-screen-ready");
+  }, [firstScreenReady]);
+  const [release, setRelease] = React.useState(false);
+  React.useEffect(() => {
+    if (release || !showLaunch || !overlayMayRelease({ fontsReady, firstScreenReady })) return;
+    const timer = setTimeout(() => setRelease(true), LAUNCH_RELEASE_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [fontsReady, firstScreenReady, release, showLaunch]);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -90,7 +119,13 @@ export default function RootLayout() {
           <ToastHost />
           <StatusBar style="light" />
           {showLaunch ? (
-            <LaunchAnimation onDone={() => setShowLaunch(false)} />
+            <LaunchAnimation
+              release={release}
+              onDone={() => {
+                launchMark("overlay-gone");
+                setShowLaunch(false);
+              }}
+            />
           ) : null}
         </AuthProvider>
       </QueryClientProvider>

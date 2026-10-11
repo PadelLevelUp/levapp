@@ -8,6 +8,7 @@ import { dateFnsLocale } from '@/lib/dateLocale';
 import type { CalendarEvent, CalendarBlockType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TimeSelect } from '@/components/ui/time-select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
@@ -288,8 +289,8 @@ export function EventDetailSheet({ event, open, onClose, onSaved, onDeleted }: E
               <Clock className="w-4 h-4 text-muted-foreground" />
               {isEditing ? (
                 <div className="flex gap-2">
-                  <Input type="time" value={active.startTime} onChange={(e) => setDraft(d => d ? { ...d, startTime: e.target.value } : d)} />
-                  <Input type="time" value={active.endTime} onChange={(e) => setDraft(d => d ? { ...d, endTime: e.target.value } : d)} />
+                  <TimeSelect data-testid="event-detail-start-time" aria-label={t("calendar.addEvent.startTime")} first="00:00" className="w-28" value={active.startTime} onChange={(startTime) => setDraft(d => d ? { ...d, startTime } : d)} />
+                  <TimeSelect data-testid="event-detail-end-time" aria-label={t("calendar.addEvent.endTime")} first="00:00" last="23:59" className="w-28" value={active.endTime} onChange={(endTime) => setDraft(d => d ? { ...d, endTime } : d)} />
                 </div>
               ) : (
                 <span>{active.startTime} – {active.endTime}</span>

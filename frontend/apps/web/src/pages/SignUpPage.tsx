@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
 import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { browserSignupDraft } from "@/lib/signupDraft";
 
 type Role = RegisterPayload["role"];
 
@@ -85,18 +86,28 @@ const SignUpPage = () => {
   const { toast } = useToast();
   const { login } = useAuth();
 
-  const [role, setRole] = useState<Role>("student");
-  const [form, setForm] = useState({
+  // PAD-575 (auth.register rule 20): the draft of this form lives in the tab's sessionStorage
+  // from the first keystroke until the account exists, so a trip to the Terms and back — a
+  // same-tab navigation, a back-forward-cache miss on iOS Safari, a discarded tab — restores
+  // what was typed. Passwords are never stored. Read once, on mount.
+  const [draftStore] = useState(browserSignupDraft);
+  const [restored] = useState(() => draftStore.read());
+  const [role, setRole] = useState<Role>(() => (restored?.role === "coach" ? "coach" : "student"));
+  const [form, setForm] = useState(() => ({
     name: "",
     username: "",
     email: "",
-    password: "",
-    repeatPassword: "",
     birthDate: "",
     country: "PT",
-  });
+    ...(restored?.form ?? {}),
+    password: "",
+    repeatPassword: "",
+  }));
   // auth.register rule 19 (PAD-485): the Terms must be accepted, explicitly, before an account exists.
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(() => restored?.termsAccepted === true);
+  useEffect(() => {
+    draftStore.write({ role, form, termsAccepted });
+  }, [draftStore, role, form, termsAccepted]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -157,6 +168,7 @@ const SignUpPage = () => {
       // goes straight back to it instead of the generic "Connect" screen.
       const destination =
         role === "student" ? (consumePostAuthRedirect() ?? "/connect") : postLoginPath({ ...me, emailVerification: "verified" });
+      draftStore.clear(); // PAD-575: the account exists; nothing to restore any more.
       // auth.register rule 14: the code screen comes first, then `destination`.
       navigate(pendingCode ? `/verify-email?next=${encodeURIComponent(destination)}` : destination, {
         replace: true,

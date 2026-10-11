@@ -1,3 +1,4 @@
+import { publicWebLink, usePublicWebOrigin } from "@/lib/publicWebLink";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
@@ -90,7 +91,9 @@ export function AddByQrDialog({ open, onOpenChange }: AddByQrDialogProps) {
     };
   }, [open, describeError]);
 
-  const url = token ? `${window.location.origin}${token.path}` : "";
+  // PAD-595: the QR encodes the environment's public origin (levapp.app); no QR until it is known.
+  const webOrigin = usePublicWebOrigin();
+  const url = token && webOrigin ? publicWebLink(webOrigin, token.path) : "";
 
   const handleCopy = async () => {
     if (!url) return;

@@ -48,6 +48,11 @@ Coaches who run padel lessons at a club and need to build and maintain their tea
 - Changing one occurrence never disturbs its siblings; only a future-scoped change ripples
   forward.
 - Deleting a whole class removes every occurrence and any reminders still pending for it.
+- Picking a class's start and end works the way the coach's device works: the time list scrolls
+  with the wheel or the trackpad, a time can be typed or walked with the arrow keys, a finger
+  can pick it, the end is suggested from the coach's usual class length and can never land before
+  the start, and the list opens near now rather than at dawn — on every browser and on the phone
+  (PAD-559).
 
 ## Success Metrics
 
