@@ -127,12 +127,31 @@ def _player_name(player_id: int | None) -> str | None:
     return player.user.name if player and player.user else None
 
 
+def _vacancy_payload(vacancy, queue: list[dict], wl_player_id) -> dict:
+    """One bundle entry (rule 4, PAD-574): a freed spot names the student; a never-filled spot
+    (``original_player_id`` NULL) is ``openSpot`` with no name; ``side`` is what the spot asks for
+    first, so a card can label a group of open spots."""
+    return {
+        "vacancyId": vacancy.id,
+        "declinedPlayerId": vacancy.original_player_id,
+        "declinedPlayerName": _player_name(vacancy.original_player_id),
+        "openSpot": vacancy.original_player_id is None,
+        "side": vacancy.side,
+        "queue": queue,
+        "waitingListPlayerId": wl_player_id,
+        "waitingListPlayerName": _player_name(wl_player_id),
+    }
+
+
 def _build_prompt_text(vacancies_payload: list[dict]) -> str:
     parts = []
     for v in vacancies_payload:
-        declined = v.get("declinedPlayerName") or "A player"
         queue_names = ", ".join(e["name"] for e in v.get("queue", []))
-        part = f"{declined} dropped out."
+        # PAD-574 (rule 4): a never-filled spot is not a decline.
+        if v.get("openSpot"):
+            part = "Open spot."
+        else:
+            part = f"Spot freed by {v.get('declinedPlayerName') or 'a player'}."
         if queue_names:
             part += f" Invite queue: {queue_names}."
         else:
@@ -213,14 +232,7 @@ def create_approval_prompts(
         db.session.add(prompt)
         prompts.append(prompt)
 
-        vacancies_payload.append({
-            "vacancyId": vacancy.id,
-            "declinedPlayerId": vacancy.original_player_id,
-            "declinedPlayerName": _player_name(vacancy.original_player_id),
-            "queue": queue,
-            "waitingListPlayerId": wl_player_id,
-            "waitingListPlayerName": _player_name(wl_player_id),
-        })
+        vacancies_payload.append(_vacancy_payload(vacancy, queue, wl_player_id))
 
     db.session.flush()
     return _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts)
@@ -545,14 +557,7 @@ def recompute_suggestions(instance_id: int, coach_id: int, *, now: datetime | No
         prompt.queue_snapshot = queue
         prompt.waiting_list_player_id = None
         prompts.append(prompt)
-        payload.append({
-            "vacancyId": vacancy.id,
-            "declinedPlayerId": vacancy.original_player_id,
-            "declinedPlayerName": _player_name(vacancy.original_player_id),
-            "queue": queue,
-            "waitingListPlayerId": None,
-            "waitingListPlayerName": None,
-        })
+        payload.append(_vacancy_payload(vacancy, queue, None))
     db.session.flush()
     bundle = _post_bundle(bundle_id, instance, coach.user_id if coach else None, window_open_dt, payload, prompts)
     return {"state": "pending", "bundle": bundle}
