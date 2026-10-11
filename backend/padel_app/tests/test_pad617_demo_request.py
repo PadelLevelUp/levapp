@@ -49,7 +49,7 @@ def body(**over):
         "message": "Gostava de ver as avaliações.",
         "consent": True,
         "pedido": "demonstracao",
-        "hutk": "abc123",
+        "hutk": "0123456789abcdef0123456789abcdef",
         "pageUri": "https://levapp.app/?para=treinadores",
         "pageName": "LevApp",
         "website": "",
@@ -86,7 +86,7 @@ def test_a_valid_request_is_forwarded_to_the_hubspot_form(client, hubspot):
         "levapp_tipo_origem": "inbound",
     }
     assert call["json"]["context"] == {
-        "hutk": "abc123",
+        "hutk": "0123456789abcdef0123456789abcdef",
         "pageUri": "https://levapp.app/?para=treinadores",
         "pageName": "LevApp",
         "ipAddress": "203.0.113.9",
@@ -179,3 +179,31 @@ def test_requests_are_rate_limited_per_ip(client, app, hubspot):
     assert res.get_json()["error"] == "RATE_LIMITED"
     assert post(client, body(), ip="198.51.100.8").status_code == 200
     assert len(hubspot) == 4
+
+
+# ── review round ────────────────────────────────────────────────────────────
+
+def test_a_bot_that_fills_the_honeypot_learns_nothing_even_with_invalid_fields(client, hubspot):
+    res = post(client, {"website": "http://spam.example", "email": "nope"})
+    assert res.status_code == 200 and res.get_json() == {"ok": True}
+    assert hubspot == []
+
+
+def test_a_body_that_is_not_an_object_is_a_400(client, hubspot):
+    res = client.post("/api/public/demo-request", json=[1, 2], headers={"X-Real-IP": "203.0.113.20"})
+    assert res.status_code == 400
+    assert hubspot == []
+
+
+def test_an_oversized_body_is_refused_before_parsing(client, hubspot):
+    res = post(client, body(message="x" * 20000))
+    assert res.status_code == 413
+    assert hubspot == []
+
+
+def test_a_malformed_hutk_or_page_is_not_forwarded(client, hubspot):
+    res = post(client, body(hutk="<script>", pageUri="javascript:alert(1)", pageName="P" * 300))
+    assert res.status_code == 200, res.get_json()
+    context = hubspot[0]["json"]["context"]
+    assert "hutk" not in context and "pageUri" not in context
+    assert len(context["pageName"]) == 100

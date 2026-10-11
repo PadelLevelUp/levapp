@@ -27,9 +27,14 @@ export interface DemoRequestBody {
   elapsedMs: number;
 }
 
-export type DemoRequestResult =
-  | { ok: true }
-  | { ok: false; status: number; field?: string; code?: string };
+/** One shape (the web tsconfig is not strict, so a union would not narrow): `status`, `field` and
+ * `code` are set when `ok` is false. */
+export interface DemoRequestResult {
+  ok: boolean;
+  status?: number;
+  field?: string;
+  code?: string;
+}
 
 /** Status 0 means the request never got an answer (network error). */
 export async function sendDemoRequest(body: DemoRequestBody): Promise<DemoRequestResult> {

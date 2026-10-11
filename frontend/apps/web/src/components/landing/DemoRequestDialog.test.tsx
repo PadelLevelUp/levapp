@@ -73,7 +73,9 @@ describe("DemoRequestDialog (PAD-617)", () => {
     const hp = screen.getByTestId("demo-website");
     expect(hp).toHaveAttribute("name", "website");
     expect(hp).toHaveAttribute("tabindex", "-1");
-    expect(hp.closest("[aria-hidden='true']")).not.toBeNull();
+    // inert, not aria-hidden: out of the tab order and the accessibility tree without an axe violation.
+    expect(hp.closest("[inert]")).not.toBeNull();
+    expect(hp.closest("[aria-hidden='true']")).toBeNull();
     expect(screen.getByTestId("demo-submit")).toBeEnabled();
   });
 
@@ -85,6 +87,14 @@ describe("DemoRequestDialog (PAD-617)", () => {
       expect(screen.getByTestId(`demo-${f}-error`)).toBeInTheDocument();
     }
     expect(screen.queryByTestId("demo-message-error")).toBeNull();
+  });
+
+  it("announces the errors and moves focus to the first invalid field", async () => {
+    renderDialog();
+    fireEvent.change(screen.getByTestId("demo-fullname"), { target: { value: "Rita Lopes" } });
+    fireEvent.click(screen.getByTestId("demo-submit"));
+    expect(screen.getByTestId("demo-email-error")).toHaveAttribute("role", "alert");
+    await waitFor(() => expect(screen.getByTestId("demo-email")).toHaveFocus());
   });
 
   it("rejects non-integer counts and a long message", () => {

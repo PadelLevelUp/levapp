@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { sendDemoRequest, type DemoPedido, type DemoRequestResult } from "@/lib/demoRequest";
+import { sendDemoRequest, type DemoPedido } from "@/lib/demoRequest";
 
 /**
  * The "Pedir demonstração" dialog (PAD-469, PAD-617; auth.landing-page rule 10).
@@ -49,14 +49,15 @@ const EMPTY: FormState = {
   consent: false,
 };
 
-const positiveInt = z.string().trim().regex(/^\d+$/).refine((v) => Number(v) > 0);
+// The server's limits (demo_request_service.validate), so a value the form accepts is never a 400.
+const positiveInt = z.string().trim().regex(/^\d+$/).refine((v) => Number(v) > 0 && Number(v) <= 100000);
 
 const schema = z.object({
-  fullname: z.string().trim().min(2),
-  email: z.string().trim().email(),
-  phone: z.string().trim().min(9),
-  company: z.string().trim().min(2),
-  city: z.string().trim().min(2),
+  fullname: z.string().trim().min(2).max(200),
+  email: z.string().trim().email().max(200),
+  phone: z.string().trim().min(9).max(40),
+  company: z.string().trim().min(2).max(200),
+  city: z.string().trim().min(2).max(200),
   alunos: positiveInt,
   horas: positiveInt,
   message: z.string().max(2000),
@@ -103,6 +104,12 @@ export function DemoRequestDialog({
     if (open) openedAt.current = performance.now();
   }, [open]);
 
+  /** Move focus to the first field with an error, in the form's order (WCAG 3.3.1). */
+  const focusFirstInvalid = (errs: Errors) => {
+    const first = FIELDS.find((f) => errs[f]);
+    if (first) requestAnimationFrame(() => document.getElementById(`demo-${first}-input`)?.focus());
+  };
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e));
@@ -119,6 +126,7 @@ export function DemoRequestDialog({
         next[key] = t(`landing.demo.errors.${key}`);
       }
       setErrors(next);
+      focusFirstInvalid(next);
       return;
     }
     setErrors({});
@@ -147,11 +155,10 @@ export function DemoRequestDialog({
       setSentName(form.fullname.trim().split(/\s+/)[0]);
       return;
     }
-    // The web tsconfig is not strict, so the union does not narrow on `ok`.
-    const bad = result as Exclude<DemoRequestResult, { ok: true }>;
-    const field = bad.field as FieldName | undefined;
-    if (bad.status === 400 && field && FIELDS.includes(field)) {
+    const field = result.field as FieldName | undefined;
+    if (result.status === 400 && field && FIELDS.includes(field)) {
       setErrors({ [field]: t(`landing.demo.errors.${field}`) });
+      focusFirstInvalid({ [field]: "x" });
       return;
     }
     setFailed(true);
@@ -168,6 +175,7 @@ export function DemoRequestDialog({
     errors[name] ? (
       <p
         id={`demo-${name}-error`}
+        role="alert"
         data-testid={`demo-${name}-error`}
         className="text-xs text-destructive"
       >
@@ -260,9 +268,10 @@ export function DemoRequestDialog({
               />
               {error("message")}
             </div>
-            {/* Honeypot: a person never sees or reaches it; a bot fills it. */}
+            {/* Honeypot: a person never sees or reaches it (inert: out of the tab order and the
+                accessibility tree); a bot that fills every input fills it. */}
             <div
-              aria-hidden="true"
+              {...{ inert: "" }}
               style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}
             >
               <input

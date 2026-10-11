@@ -7,8 +7,9 @@ The browser never talks to HubSpot. The form's GUID is deployment config
 the dialog offers the email address instead.
 
 Spam protection: a honeypot field (`website`) and a minimum time to fill (`elapsedMs`), both
-answered as a success and dropped so a bot learns nothing; the per-IP rate limit on the route;
-and HubSpot's own filter. Failures are logged with the step and HTTP status only, never the
+answered as a success and dropped, before any validation, so a bot learns nothing about the form.
+They only deter naive bots (`elapsedMs` is the client's word); the real defences are the per-IP
+rate limit on the route and HubSpot's own filter. Failures are logged with the step and HTTP status only, never the
 visitor's data.
 """
 import logging
@@ -29,6 +30,8 @@ CONSENT_TEXT = (
     "Aceito ser contactado pela LevApp sobre a demonstração, de acordo com a Política de Privacidade."
 )
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+#: HubSpot's visitor cookie is 32 hex characters; anything else is not forwarded.
+_HUTK_RE = re.compile(r"^[0-9a-f]{32}$")
 
 
 class DemoRequestError(Exception):
@@ -128,12 +131,17 @@ def hubspot_body(fields, data, ip):
         ("levapp_tipo_origem", "inbound"),
     ]
     if fields["message"]:
-        values.insert(8, ("message", fields["message"]))
+        values.append(("message", fields["message"]))
     context = {}
-    for key in ("hutk", "pageUri", "pageName"):
-        value = data.get(key)
-        if isinstance(value, str) and value.strip():
-            context[key] = value.strip()[:500]
+    hutk = data.get("hutk")
+    if isinstance(hutk, str) and _HUTK_RE.match(hutk.strip()):
+        context["hutk"] = hutk.strip()
+    page_uri = data.get("pageUri")
+    if isinstance(page_uri, str) and re.match(r"^https?://[^\s]{1,300}$", page_uri.strip()):
+        context["pageUri"] = page_uri.strip()
+    page_name = data.get("pageName")
+    if isinstance(page_name, str) and page_name.strip():
+        context["pageName"] = page_name.strip()[:100]
     context["ipAddress"] = ip
     return {
         "fields": [{"name": n, "value": v} for n, v in values],
@@ -147,10 +155,12 @@ def submit(data, ip):
     form_id = (current_app.config.get("HUBSPOT_DEMO_FORM_ID") or "").strip()
     if not form_id:
         raise DemoRequestError(503, "DEMO_UNAVAILABLE")
-    fields = validate(data)
+    if not isinstance(data, dict):
+        raise DemoRequestError(400, "INVALID_BODY")
     if looks_automated(data):
         logger.info("demo request dropped as automated")
         return
+    fields = validate(data)
     url = SUBMIT_URL.format(portal=HUBSPOT_PORTAL_ID, form=form_id)
     try:
         res = _post(url, json=hubspot_body(fields, data, ip), timeout=TIMEOUT_S)

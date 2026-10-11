@@ -78,10 +78,14 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     token), splitting the name into `firstname`/`lastname`, with the hidden fields
     `levapp_funcao` = treinador, `levapp_pedido_site` (`demonstracao`, or `mes_gratis` for the
     free-month button when the site has one), `levapp_canal_origem` = site,
-    `levapp_tipo_origem` = inbound, the visitor's IP, page and `hutk`, and the RGPD consent
-    (`legalConsentOptions`). **Spam:** a hidden honeypot field and a minimum of 3 s to fill are
-    answered as success and dropped; the route is limited per IP (`AUTH_RATE_LIMIT_DEMO`, 5 per
-    hour); HubSpot filters the rest. The form GUID is deployment config (GitHub repo variables
+    `levapp_tipo_origem` = inbound, the visitor's IP, page (an http(s) URL; title ≤ 100 chars) and
+    `hutk` (only a 32-hex value), and the RGPD consent (`legalConsentOptions`). Limits: text fields
+    ≤ 200 chars, phone 9–40, counts 1–100 000, message ≤ 2000, body ≤ 16 KB (else 413); the web form
+    holds the same limits, announces its errors (`role="alert"`) and moves focus to the first one.
+    **Spam:** a hidden, inert honeypot field and a minimum of 3 s to fill are answered as success and
+    dropped *before* any validation, so a bot learns nothing about the form (they deter naive bots
+    only; the fill time is the client's word); the route is limited per IP
+    (`AUTH_RATE_LIMIT_DEMO`, 5 per hour); HubSpot filters the rest. The form GUID is deployment config (GitHub repo variables
     `HUBSPOT_DEMO_FORM_ID` / `_STAGING`, passed to the web build and to the API container). Without
     it the buttons stay a `mailto:`; with it, a 503, a 502 (HubSpot refused or unreachable, logged
     with the status only, never the visitor's data) or a network failure shows the `mailto:` in
