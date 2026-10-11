@@ -381,6 +381,10 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     invitation ended for another reason — a timeout (`expired`), the coach's withdrawal
     (`withdrawn`), the student's own "no". A join the server refuses (`has_spots`; `ineligible`) shows the refusal and hides the button. The
     join is subject to the engine's exclusions when a spot opens, as any waiting-list row (PAD-576).
+    **At the fill, not at the answer (PAD-621; owner, 2026-10-11):** the bubble turns to "Vaga
+    preenchida" with the button the moment the spot fills — a live edit, no push, no new message —
+    and a later "yes" is refused (`spot_filled_waiting_list_offered`, the action string clients read)
+    without the separate waiting-list offer message it used to post.
     `spot_filled` is written on every fill (rule 15, PAD-609), and a student who held the invitation
     is not refused `not_visible` (rule 15). Manual invitations carry `startsAt` too.
 16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
