@@ -1,7 +1,7 @@
 ---
 id: auth.account-deletion
 status: implemented
-depends_on: [auth.login, auth.logout, auth.push-subscription, classes.instance-enrollment, classes.class-requests, notifications.invitations, notifications.waiting-list]
+depends_on: [auth.login, auth.logout, auth.push-subscription, auth.coach-crm-sync, classes.instance-enrollment, classes.class-requests, notifications.invitations, notifications.waiting-list]
 implements: ../../specs-business/auth/user-deletes-their-account.business.md
 governed_by: []
 ---
@@ -81,6 +81,14 @@ session login still let a disabled user in (audit M10). This leaf states the ful
     an answer that can never come (PAD-360, `classes.class-requests` rule 18). Their holds go
     with the rest of the coach's calendar blocks (rule 5).
 
+11. **External services (PAD-607).** What the account left outside LevApp's database goes too:
+    - **CRM:** a deleting coach's HubSpot contact is archived (`auth.coach-crm-sync` rule 9),
+      after the commit and best-effort — a HubSpot failure never undoes or blocks the deletion.
+    - **File storage:** the photo's object in the uploads bucket (rule 2a).
+    - **Push:** the device tokens and web-push subscriptions are deleted (rule 4). Notifications
+      already delivered through Expo, Apple and Google cannot be recalled; the privacy policy says
+      so (§5).
+
 ### Acceptance Criteria
 
 #### The account cannot be used again
@@ -97,6 +105,12 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 - **And** if the bucket refuses the delete, the account is still deleted and the failure is logged
 - **Given** instead a photo that is also a club's logo
 - **Then** the account is deleted and the image row and its object both stay
+
+#### A deleting coach leaves the CRM (PAD-607)
+- **Given** a coach with a HubSpot contact
+- **When** they delete their account
+- **Then** the contact is archived after the deletion is committed, and a HubSpot failure still
+  leaves the account deleted
 
 #### Pushes stop
 - **Given** a user with a device token and a web-push subscription

@@ -46,6 +46,9 @@ the coaches whose records must survive a student leaving.
 - Freeing a deleted student's seats is silent: no automatic invitations go out because of it; the
   coach decides.
 - The confirmation copy on every platform states exactly what is deleted and what is kept.
+- Deletion reaches the services LevApp uses, not only its own database: a coach's sales-CRM contact
+  is archived and the stored photo is deleted (PAD-605, PAD-607). A failure there never blocks the
+  deletion itself.
 
 ## Success Metrics
 
