@@ -253,6 +253,11 @@ class Config:
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
     # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
     AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
+    # auth.landing-page rule 10 (PAD-617): the site's demo request, per IP.
+    AUTH_RATE_LIMIT_DEMO = os.getenv("AUTH_RATE_LIMIT_DEMO", "5/3600")
+    # PAD-617: the HubSpot form the demo request is forwarded to (the GitHub repo variable
+    # HUBSPOT_DEMO_FORM_ID / _STAGING). Unset → the endpoint answers 503 and the site offers email.
+    HUBSPOT_DEMO_FORM_ID = os.getenv("HUBSPOT_DEMO_FORM_ID", "")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
