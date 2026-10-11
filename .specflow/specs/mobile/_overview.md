@@ -24,6 +24,9 @@ server a given build talks to.
   memoised grid, calendar ranges keep the previous data, the courts query waits for the club;
   iOS-only by nature)
 
+- `mobile.launch` — draft (PAD-587: the session restore overlaps the font load and the launch
+  overlay ends when the first screen is ready, never before the fonts; measured on the simulator)
+
 ## Why it's grouped this way
 
 Every other domain describes a feature that exists on web and iOS alike. Android runtime rules

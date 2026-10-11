@@ -6,7 +6,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,8 @@ import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+import { guardEnd, parseTypedTime } from "@/lib/time-entry";
 
 function toDate(value: string): Date {
   const date = new Date();
@@ -59,6 +61,14 @@ export interface TimePickerInputProps {
    * (settings.coach-working-hours rules 2 and 6, PAD-369).
    */
   minuteInterval?: 1 | 2 | 3 | 4 | 5 | 6 | 10 | 12 | 15 | 20 | 30;
+  /**
+   * PAD-559 (classes.create rule 8c), end fields: the start time and the coach's usual class
+   * length. A value at or before `from` is refused in the field (snapped to `from` plus the
+   * length) and `onRefused` is told, on the wheel and on the typed entry alike.
+   */
+  from?: string;
+  usualMinutes?: number;
+  onRefused?: () => void;
 }
 
 /**
@@ -80,6 +90,9 @@ export function TimePickerInput({
   testID,
   portalHost,
   minuteInterval,
+  from,
+  usualMinutes,
+  onRefused,
 }: TimePickerInputProps) {
   const { t, i18n } = useTranslation();
   // Resolved in the body, not the parameter list, so it follows the active
@@ -88,6 +101,14 @@ export function TimePickerInput({
     placeholder ?? t("ui.timePicker.placeholder");
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Date>(() => toDate(value));
+  // PAD-559: the typed entry beside the wheel ("18:30"); wins over the wheel when it parses.
+  const [typed, setTyped] = React.useState("");
+
+  const commit = (next: string) => {
+    const guarded = guardEnd(next, from, usualMinutes);
+    if (guarded.refused) onRefused?.();
+    onChange(guarded.value);
+  };
 
   const openPicker = () => {
     if (disabled) return;
@@ -101,7 +122,7 @@ export function TimePickerInput({
         minuteInterval,
         onChange: (event: DateTimePickerEvent, selected?: Date) => {
           if (event.type === "set" && selected) {
-            onChange(toTimeString(selected));
+            commit(toTimeString(selected));
           }
         },
       });
@@ -109,11 +130,13 @@ export function TimePickerInput({
     }
 
     setDraft(initial);
+    setTyped("");
     setOpen(true);
   };
 
   const confirm = () => {
-    onChange(toTimeString(draft));
+    const parsed = typed.trim() ? parseTypedTime(typed) : null;
+    commit(parsed ?? toTimeString(draft));
     setOpen(false);
   };
 
@@ -158,6 +181,20 @@ export function TimePickerInput({
             <DialogHeader>
               <DialogTitle>{label ?? t("ui.timePicker.dialogTitle")}</DialogTitle>
             </DialogHeader>
+            {/* PAD-559 (rule 8c): typed entry beside the wheel — "18:30", "930", "9h30". */}
+            <TextInput
+              testID={`${testID}-typed`}
+              accessibilityLabel={t("ui.timePicker.typeHint")}
+              placeholder={t("ui.timePicker.typeHint")}
+              placeholderTextColor={lightTheme.mutedForeground}
+              keyboardType="numbers-and-punctuation"
+              autoCorrect={false}
+              value={typed}
+              onChangeText={setTyped}
+              onSubmitEditing={confirm}
+              returnKeyType="done"
+              className="h-12 rounded-md border border-input bg-background px-3 text-base text-foreground"
+            />
             <DateTimePicker
               value={draft}
               mode="time"

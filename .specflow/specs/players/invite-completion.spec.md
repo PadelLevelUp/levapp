@@ -37,7 +37,8 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
    after 7 days (`secrets.token_urlsafe`), following the coach-invitation pattern. Only the
    token's SHA-256 hash is stored (PAD-269): the token appears once, in the creation response's
    `inviteLink`. Links issued before PAD-269 keep working, because its migration hashed the
-   stored tokens in place.
+   stored tokens in place. The coach is handed it on the public web origin (`players.join-token`
+   rule 3a, PAD-595).
 3. Only the coach associated with the player may create or revoke a player invitation.
 4. Frontend route: `/invite/player/:token` — a public (unauthenticated) profile-completion form.
 5. The completion form lets the player set their own username (unique across users), password, and

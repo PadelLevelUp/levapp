@@ -32,6 +32,7 @@ export * as evaluationScaleApi from "./resources/evaluationScale";
 export * as fieldsApi from "./resources/fields";
 export * as invitationsApi from "./resources/invitations";
 export * as joinTokensApi from "./resources/joinTokens";
+export * as publicWebOriginApi from "./resources/publicWebOrigin";
 export * as messagesApi from "./resources/messages";
 export * as notificationEngineApi from "./resources/notificationEngine";
 export * as playerClaimsApi from "./resources/playerClaims";

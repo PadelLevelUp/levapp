@@ -1,6 +1,7 @@
 import { CSSProperties } from 'react';
 import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useCalendarViewer } from './viewer-context';
 import { cn } from '@/lib/utils';
 import { CalendarEvent } from '@/types';
 import {
@@ -9,6 +10,8 @@ import {
   hasOpenSpots,
   readableInk,
   resolveEventState,
+  resolveCardVariant,
+  showsEnrolledMark,
   type EventVisualState,
 } from '@levelup/config';
 import { ClassFillBar } from './ClassFillBar';
@@ -97,6 +100,9 @@ export function CalendarEventCard({
   // PAD-130 (eligibility.open-spot-visibility rules 2, 11): an offer, not a
   // commitment — the class's colour as a dashed outline on a plain surface.
   const isOpenSpot = !!event.openSpot;
+  // PAD-578 (rule 6): a student's own class is ticked — never by colour alone.
+  const viewer = useCalendarViewer();
+  const enrolledMark = showsEnrolledMark(event, resolveCardVariant(event, { isNext }).variant, viewer);
   if (isOpenSpot) {
     stateStyle.backgroundColor = 'hsl(var(--card))';
     stateStyle.border = `1.5px dashed ${hex ?? 'hsl(var(--primary))'}`;
@@ -175,6 +181,16 @@ export function CalendarEventCard({
           so the eye can scan a column of levels. */}
       <div className="flex items-start justify-between gap-1">
         <p className={cn('font-semibold leading-tight truncate', isRow ? 'text-sm' : 'text-xs', isBlock && 'text-muted-foreground')}>
+          {enrolledMark && (
+            <span
+              data-testid="calendar-enrolled-mark"
+              role="img"
+              aria-label={t('calendar.eventCard.enrolled')}
+              className="mr-1 inline-block font-bold"
+            >
+              ✓
+            </span>
+          )}
           {isOpenSpot && (
             <span
               data-testid="calendar-open-spot-chip"

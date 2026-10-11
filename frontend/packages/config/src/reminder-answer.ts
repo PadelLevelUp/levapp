@@ -129,3 +129,23 @@ export function reminderAnswerOutcome(
   // client that guesses here reports a state the server never gave.
   return { record: null, messageKey: "messages.somethingWentWrong", tone: "error" };
 }
+
+/**
+ * B-542 (attendance.confirm rule 27, PAD-600): the live event that means "the coach's
+ * reminder for the open occurrence just landed". The server publishes the reminder as
+ * `message_created` with the serialized message; `messageType` names it and
+ * `metadata.lessonInstanceId` (or the older `instanceId`) names the occurrence. Both shells
+ * ask this one predicate before refetching the class detail — never their own string match.
+ */
+export function reminderArrivedFor(
+  evt: { type?: unknown; payload?: unknown } | null | undefined,
+  instanceId: number | string | null | undefined
+): boolean {
+  if (!evt || evt.type !== "message_created" || instanceId == null) return false;
+  const payload = evt.payload as { messageType?: unknown; metadata?: unknown } | null | undefined;
+  if (!payload || payload.messageType !== "notification_reminder") return false;
+  const meta = payload.metadata as { lessonInstanceId?: unknown; instanceId?: unknown } | null | undefined;
+  const raw = meta?.lessonInstanceId ?? meta?.instanceId;
+  if (raw == null) return false;
+  return String(raw) === String(instanceId);
+}

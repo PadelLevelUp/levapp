@@ -14,6 +14,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
+import { CalendarViewerProvider } from "@/features/calendar/viewer-context";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
@@ -156,6 +157,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   }, []);
 
   return (
+    // PAD-578: who is looking — the cards read it, never the session.
+    <CalendarViewerProvider viewer={isCoach ? "coach" : "student"}>
     <Screen testID="screen-calendar">
       <ViewModeControl
         value={calendar.viewMode}
@@ -293,5 +296,6 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
         </Pressable>
       ) : null}
     </Screen>
+    </CalendarViewerProvider>
   );
 }
