@@ -802,12 +802,21 @@ def init_scheduler(app, test_config=None) -> None:
     # global-setup releases it (POST /api/app/notify/debug/scheduler/release) once the
     # database is ready. Default off: production and a bare `flask run` are unchanged.
     held = scheduler_held_at_boot()
-    sched.start(paused=held)
+    # PAD-588 (delivery.zero-downtime-deploy rules 1-3): outside TEST_MODE the job store is shared
+    # Postgres, and a rolling deploy runs two containers for a few seconds. Each starts its
+    # scheduler paused; only the holder of the scheduler-leader advisory lock resumes it. The
+    # startup reschedule runs in the leadership thread, off gunicorn's boot path.
+    lead = use_scheduler_leadership(test_mode=test_mode, held=held)
+    sched.start(paused=held or lead)
     _scheduler = sched
     app.extensions["scheduler"] = sched
 
     # Graceful shutdown when the process exits
     atexit.register(lambda: sched.shutdown(wait=False))
+
+    if lead:
+        _start_scheduler_leadership(app, sched)
+        return
 
     if held:
         app.logger.info(
@@ -818,6 +827,35 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+
+
+def use_scheduler_leadership(*, test_mode: bool, held: bool) -> bool:
+    """PAD-588: whether this process competes for the scheduler-leader lock.
+
+    Off in TEST_MODE (in-memory job store, nothing shared) and under PAD-610's E2E hold, and when
+    SCHEDULER_LEADERSHIP is set to a false value (an escape hatch for a single-process host).
+    """
+    if test_mode or held:
+        return False
+    return os.environ.get("SCHEDULER_LEADERSHIP", "on").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _start_scheduler_leadership(app, sched) -> None:
+    from padel_app.scheduler_leadership import SchedulerLeadership, pg_lock_connector
+
+    def on_acquire() -> None:
+        _startup_reschedule(app)
+        sched.resume()
+
+    leadership = SchedulerLeadership(
+        pg_lock_connector(app.config["SQLALCHEMY_DATABASE_URI"]),
+        on_acquire=on_acquire,
+        on_lose=sched.pause,
+        logger=app.logger,
+    )
+    app.extensions["scheduler_leadership"] = leadership
+    atexit.register(leadership.stop)
+    leadership.start_thread()
 
 
 def scheduler_held_at_boot() -> bool:
