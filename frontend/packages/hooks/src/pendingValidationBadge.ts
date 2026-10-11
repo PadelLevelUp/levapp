@@ -6,7 +6,7 @@ import { queryKeys } from "./queryKeys";
 /**
  * PAD-443 (`attendance.validation` rule 23): the number of classes still to validate, as the
  * dashboard's validation item counts it, for the Presences badge on both shells. Coach-only —
- * pass `enabled: false` for a student. Refetches when the app regains focus; presence writes
+ * pass `enabled: false` for a student. The shared query defaults apply (client.query-cache rule 1); presence writes
  * refresh it through the `presence-pending` prefix.
  */
 export function usePendingValidationBadge(enabled = true) {
@@ -14,6 +14,5 @@ export function usePendingValidationBadge(enabled = true) {
     queryKey: queryKeys.pendingValidationBadge,
     queryFn: () => presencesApi.getPendingValidationBadge(),
     enabled,
-    refetchOnWindowFocus: true,
   });
 }
