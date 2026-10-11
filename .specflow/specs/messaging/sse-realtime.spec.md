@@ -102,7 +102,12 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     `answerResync` → `resyncLiveData` (`@levelup/hooks`): the unread count, the conversation list,
     the request lists and what refreshes with them (calendar, class sheets, dashboard), the
     pending-validation badge and the academy classes are invalidated — React Query refetches the
-    ones on screen and marks the rest stale (`client.query-cache` rule 4).
+    ones on screen and marks the rest stale (`client.query-cache` rule 4). **The open thread**
+    (web `MessagesPage`, iOS conversation screen) re-reads its newest page and folds it in with
+    the shared `mergeNewestPage` — missed messages appended, changed ones (edited, deleted,
+    reacted) replaced, older pages and pending sends kept; never an invalidation of the thread's
+    entry, which would drop the loaded older pages — and, when someone else's message was missed,
+    marks the thread read and flags "new below" as an arrival would.
 
 ### Acceptance Criteria
 
@@ -194,6 +199,12 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **Given** a stream that re-opens at 10 s, 11 s and 12 s
 - **When** the hub handles the three opens
 - **Then** listeners receive one `resync` at 10 s and one trailing `resync` at 15 s, no more
+
+#### The open thread shows a message missed while the stream was down (rule 19)
+- **Given** a coach with their conversation with E2E Student open, whose stream drops
+- **When** E2E Student sends a message while the stream is down, and the stream re-opens
+- **Then** the message appears in the open thread without navigation, the older messages stay,
+  and the thread is marked read
 
 #### The screen catches up after a drop (rule 19)
 - **Given** a coach on the dashboard with 0 unread messages, whose stream drops

@@ -20,6 +20,7 @@ import {
   STUDENT_PASSWORD,
 } from "../helpers/auth";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { conversationRow, openMessages } from "../helpers/navigation";
 
 /** The seeded coach's display name (e2e/scripts/seed.py). */
 const COACH_NAME = "E2E Coach";
@@ -58,7 +59,7 @@ async function clearCoachUnread(request: APIRequestContext): Promise<void> {
 }
 
 /** Send a message from the student to the coach, creating a fresh unread. */
-async function seedUnreadForCoach(request: APIRequestContext): Promise<void> {
+async function seedUnreadForCoach(request: APIRequestContext, text = `PAD-616 resync probe ${Date.now()}`): Promise<void> {
   const token = await apiToken(request, STUDENT_USERNAME, STUDENT_PASSWORD);
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -83,11 +84,39 @@ async function seedUnreadForCoach(request: APIRequestContext): Promise<void> {
     headers,
     data: {
       conversationId,
-      text: `PAD-616 resync probe ${Date.now()}`,
+      text,
     },
   });
   expect(sent.status(), "seeding an unread message must succeed").toBeLessThan(300);
 }
+
+type StreamWindow = { __levappStreams: EventSource[] };
+
+async function keepStreams(page: import("@playwright/test").Page) {
+  await page.addInitScript(() => {
+    const Native = window.EventSource;
+    const kept: EventSource[] = [];
+    (window as unknown as { __levappStreams: EventSource[] }).__levappStreams = kept;
+    class Kept extends Native {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(url, init);
+        kept.push(this);
+      }
+    }
+    window.EventSource = Kept as typeof EventSource;
+  });
+}
+const streamOpen = (page: import("@playwright/test").Page) =>
+  page.waitForFunction(() => (window as unknown as StreamWindow).__levappStreams.some((s) => s.readyState === 1));
+const killStreams = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => {
+    for (const s of (window as unknown as StreamWindow).__levappStreams) s.close();
+  });
+const reportFailure = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => {
+    const streams = (window as unknown as StreamWindow).__levappStreams;
+    streams[streams.length - 1].dispatchEvent(new Event("error"));
+  });
 
 test("PAD-616: a stream that drops and comes back brings the missed message's badge", async ({ page, request }) => {
   await page.addInitScript(() => {
@@ -129,5 +158,25 @@ test("PAD-616: a stream that drops and comes back brings the missed message's ba
   });
 
   await expect(badge, "the re-open resyncs the unread count").toHaveText("1", { timeout: 20_000 });
+  await clearCoachUnread(request);
+});
+
+// PAD-616 fold: the open thread itself shows the message it missed (rule 19's thread step).
+test("PAD-616: the open thread shows a message sent while the stream was down", async ({ page, request }) => {
+  await keepStreams(page);
+  await clearCoachUnread(request);
+  await loginAsCoach(page);
+  await openMessages(page);
+  await conversationRow(page, "E2E Student").click();
+  await streamOpen(page);
+
+  await killStreams(page);
+  const text = `PAD-616 missed in the thread ${Date.now()}`;
+  await seedUnreadForCoach(request, text); // its message_created event is lost
+  await page.waitForTimeout(3_000);
+  await expect(page.getByText(text), "a lost event must not show by itself").toHaveCount(0);
+
+  await reportFailure(page);
+  await expect(page.getByText(text), "the re-open folds the newest page into the thread").toBeVisible({ timeout: 20_000 });
   await clearCoachUnread(request);
 });

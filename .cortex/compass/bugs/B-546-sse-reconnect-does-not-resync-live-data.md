@@ -3,7 +3,8 @@ id: B-546
 title: "After an SSE reconnect, events published while the stream was down never reached the client; the screen caught up only at its next refetch (up to the one-minute stale window)"
 type: incomplete-rule
 severity: low
-status: triaged
+status: resolved
+resolved: 2026-10-11T18:10:00Z
 affects:
   - .specflow/specs/messaging/sse-realtime.spec.md
   - frontend/packages/api/src/sse.ts
@@ -41,4 +42,13 @@ Playwright check (stream killed, a message sent, the badge updates without navig
 
 ### Resolution
 
-_pending_
+- Spec: `messaging.sse-realtime` rule 19 (hub resync; live queries; the open thread's newest-page
+  merge) + four criteria.
+- Tests: hub (5 cases, 3 red on a stub), `resyncLiveData` with a real QueryClient (red on a no-op
+  mutant), the data-layer integration (red against a hub without resync), `mergeNewestPage`
+  (3 red on a stub), both app-level handlers and both thread screens (source-pinned), Playwright
+  `pad616-sse-resync` — the badge case red against a no-resync mutant, green on the fix.
+- Code: `createSseHub` resync (throttled, trailing, forgotten on close); `resyncLiveData`,
+  `answerResync`, `mergeNewestPage` in `@levelup/hooks`; web `AppLayout` + `MessagesPage`, iOS tabs
+  layout + conversation screen.
+- Resolved: 2026-10-11 (PAD-616; ledger id unconfirmed)
