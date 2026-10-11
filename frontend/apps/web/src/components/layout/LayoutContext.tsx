@@ -1,5 +1,7 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { getUnreadMessagesCount } from "@/api/messages";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys, useUnreadCount } from "@levelup/hooks";
+import { useAuth } from "@/auth/AuthContext";
 
 type ScrollMode = "page" | "none";
 type LatestMessageSummary = { sender: string; preview: string } | null;
@@ -14,7 +16,8 @@ type LayoutContextValue = {
 
   unreadCount: number;
   refreshUnreadCount: () => Promise<number>;
-  setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
+  /** Writes the count into the query cache (the dashboard payload carries the same number). */
+  setUnreadCount: (count: number) => void;
 
   latestMessage: LatestMessageSummary;
   setLatestMessage: React.Dispatch<React.SetStateAction<LatestMessageSummary>>;
@@ -57,17 +60,33 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
 
   const [scrollMode, setScrollMode] = useState<ScrollMode>("page");
   const [bottomNavHidden, setBottomNavHidden] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [latestMessage, setLatestMessage] = useState<LatestMessageSummary>(null);
 
+  // client.query-cache rule 7 (PAD-586): the unread count is one query shared by every screen, so
+  // moving between pages inside the stale window makes no request. Signed-in only.
+  const queryClient = useQueryClient();
+  const { token } = useAuth();
+  const unreadQuery = useUnreadCount({ enabled: !!token });
+  const unreadCount = Number(unreadQuery.data?.unreadCount ?? 0);
+
+  useEffect(() => {
+    syncAppBadge(unreadCount);
+  }, [unreadCount]);
+
+  const setUnreadCount = useCallback(
+    (count: number) => {
+      queryClient.setQueryData(queryKeys.unreadCount, { unreadCount: count });
+    },
+    [queryClient],
+  );
+
+  // Refetches the count and returns the fresh number; callers (SSE handler, MessagesPage) keep their shape.
   const refreshUnreadCount = useCallback(async () => {
-    const data = await getUnreadMessagesCount();
-    const count = Number(data?.unreadCount ?? 0);
-    setUnreadCount(count);
-    syncAppBadge(count);
-    return count;
-  }, []);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.unreadCount });
+    const data = queryClient.getQueryData<{ unreadCount: number }>(queryKeys.unreadCount);
+    return Number(data?.unreadCount ?? 0);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({
@@ -88,6 +107,7 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
       bottomNavHidden,
       unreadCount,
       refreshUnreadCount,
+      setUnreadCount,
       sidebarCollapsed,
       latestMessage,
       setLatestMessage,
