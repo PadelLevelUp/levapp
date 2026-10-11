@@ -21,6 +21,7 @@ import type { CoachWorkingHours } from "@levelup/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { TimeSelect } from "@/components/ui/time-select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useTabSave } from "@/context/SettingsUnsavedContext";
@@ -179,38 +180,30 @@ export function WorkingHoursSection() {
                       <div className="flex flex-1 flex-col gap-2">
                         {row.windows.map((w, i) => (
                           <div key={i} className="flex items-center gap-2">
-                            <Input
-                              type="time"
-                              step={900}
+                            <TimeSelect
+                              first="00:00"
+                              last="23:45"
                               className="w-28"
                               value={w[0]}
                               aria-label={t("settings.workingHours.startAria")}
                               data-testid={`working-hours-${key}-${i}-start`}
-                              onChange={(e) =>
-                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [e.target.value, x[1]] : x)) })
+                              // Rule 6: a typed 13:07 commits (Enter or leaving the field) and
+                              // moves to the grid where the coach can see it, before any save.
+                              onChange={(v) =>
+                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [snapToGrid(v), x[1]] : x)) })
                               }
-                              // Rule 6: step only drives the arrows, so a typed 13:07 lands here;
-                              // it moves to the grid where the coach can see it, before any save.
-                              onBlur={(e) => {
-                                const v = snapToGrid(e.target.value);
-                                if (v !== w[0]) update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [v, x[1]] : x)) });
-                              }}
                             />
                             <span className="text-muted-foreground">–</span>
-                            <Input
-                              type="time"
-                              step={900}
+                            <TimeSelect
+                              first="00:00"
+                              last="23:45"
                               className="w-28"
                               value={w[1]}
                               aria-label={t("settings.workingHours.endAria")}
                               data-testid={`working-hours-${key}-${i}-end`}
-                              onChange={(e) =>
-                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], e.target.value] : x)) })
+                              onChange={(v) =>
+                                update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], snapToGrid(v)] : x)) })
                               }
-                              onBlur={(e) => {
-                                const v = snapToGrid(e.target.value);
-                                if (v !== w[1]) update(key, { ...row, windows: row.windows.map((x, j) => (j === i ? [x[0], v] : x)) });
-                              }}
                             />
                             {row.windows.length > 1 && (
                               <Button

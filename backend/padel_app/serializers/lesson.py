@@ -246,6 +246,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             else None
         ),
         "participants": participants,
+        # B-422 (calendar.event-detail rule 15): a screen opened by deep link has no calendar event
+        # to read `isRecurring` from; the payload says it, so the series scopes are offered.
+        "isRecurring": bool(lesson.is_recurring),
         "recurrenceEnd": lesson.recurrence_end.isoformat() if lesson.recurrence_end else None,
         "notificationsEnabled": obj.notifications_enabled if hasattr(obj, "notifications_enabled") else True,
         # PAD-129 (eligibility.cascade rule 8): the tier this payload addresses,

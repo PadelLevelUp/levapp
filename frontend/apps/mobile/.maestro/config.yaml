@@ -336,6 +336,9 @@ executionOrder:
     # 219 (PAD-560, calendar.event-detail rules 19–20): the whole-series scope asks nothing more;
     # the row says its scope by id; the edit control moves it back to this class only.
     - 219-class-waiting-list-scopes
+    # 269 (PAD-577, notifications.invitations rule 15a): an invitation that lost the spot offers the
+    # waiting list; joining reads "Estás na lista de espera".
+    - 269-invite-lost-spot-waiting-list
     # 230 (PAD-567, attendance.validation rule 26; number self-assigned, unconfirmed): books,
     # marks, clears and removes its own class through the API, so its position is not load
     # bearing.
