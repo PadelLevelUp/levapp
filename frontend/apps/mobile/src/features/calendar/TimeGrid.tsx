@@ -15,6 +15,11 @@ export const ROW_HEIGHT = GRID_ROW_HEIGHT;
 
 const SURFACES = nativeCalendarSurfaces("light");
 
+/** PAD-592: a dev-only render counter the drag measurement reads from the Metro log. */
+function countGridRender(): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[render] timegrid");
+}
+
 /**
  * The Semana time grid — calendar.mobile-views rules 13 and 14. React Native
  * port of apps/web's `TimeGrid`, on the same shared geometry
@@ -22,7 +27,7 @@ const SURFACES = nativeCalendarSurfaces("light");
  * rules, blocks positioned by minutes and sharing a column when they overlap.
  * A tap on a column's empty area selects the day; a tap on a block opens it.
  */
-export function TimeGrid({
+function TimeGridImpl({
   weekDays,
   selectedDay,
   onSelectDay,
@@ -41,6 +46,7 @@ export function TimeGrid({
   onEventPress?: (event: CalendarEvent) => void;
   rowHeight?: number;
 }) {
+  countGridRender();
   const { t } = useTranslation();
   const viewer = useCalendarViewer();
   const locale = useDateLocale();
@@ -162,3 +168,10 @@ export function TimeGrid({
     </ScrollView>
   );
 }
+
+/**
+ * PAD-592: memoised — the sheet's drag no longer re-renders the container per frame (DaySheet),
+ * and when the container does re-render, the grid skips unless its week, events, range or
+ * callbacks changed.
+ */
+export const TimeGrid = React.memo(TimeGridImpl);

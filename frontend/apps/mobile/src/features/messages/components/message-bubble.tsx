@@ -151,8 +151,13 @@ type MessageBubbleProps = {
   onAnswerJoinRequest?: (accept: boolean) => void;
 };
 
+/** PAD-592: a dev-only render counter the measurement reads from the Metro log. */
+function countBubbleRender(): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[render] bubble");
+}
+
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
-export function MessageBubble({
+function MessageBubbleImpl({
   message,
   own,
   userId,
@@ -178,6 +183,7 @@ export function MessageBubble({
   onAnswerJoinRequest,
   onScrollToReply,
 }: MessageBubbleProps) {
+  countBubbleRender();
   const { t } = useTranslation();
 
   // PAD-281 / B-077 and rule 10a (PAD-461): the coach's proposal AND the
@@ -1040,3 +1046,11 @@ export function MessageBubble({
     </GestureDetector>
   );
 }
+
+/**
+ * PAD-592: memoised, so a keystroke in the composer (now its own component) or any other state
+ * change in the 1,700-line thread screen no longer re-renders every mounted bubble. Props are
+ * compared shallowly: the screen passes stable callbacks (useCallback) and a Map-resolved
+ * `replyToMessage`, so only the row whose message or live state changed re-renders.
+ */
+export const MessageBubble = React.memo(MessageBubbleImpl);

@@ -1,6 +1,7 @@
 import { focusManager } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { AppState, type AppStateStatus, Platform } from "react-native";
+import { isBackgrounded, isForegroundReturn, settleAppState } from "@/lib/app-state-focus";
 
 /**
  * Bridges React Native's AppState into React Query's focus tracking.
@@ -19,18 +20,27 @@ import { AppState, type AppStateStatus, Platform } from "react-native";
  * leaves already-cached screens stale, and refetching alone leaves the app
  * blind to subsequent live events.
  */
-function onAppStateChange(status: AppStateStatus): void {
-  // No-op on web, where focusManager's own DOM listeners already apply.
-  if (Platform.OS !== "web") {
-    focusManager.setFocused(status === "active");
-  }
+
+/**
+ * PAD-592: only a real return (`background → active`, possibly through a transient
+ * `inactive`) is a focus event. `inactive → active` on its own (Control Centre, Face ID, the
+ * app switcher) used to refocus every mounted query at once. Pure subscription so the
+ * sequence is unit-tested (`useAppStateFocus.test.ts`); the hook only mounts it.
+ */
+export function subscribeAppStateFocus(setFocused: (focused: boolean) => void): () => void {
+  let previous: AppStateStatus | null = settleAppState(null, AppState.currentState ?? "unknown");
+  const subscription = AppState.addEventListener("change", (status) => {
+    if (isForegroundReturn(previous, status)) setFocused(true);
+    else if (isBackgrounded(status)) setFocused(false);
+    previous = settleAppState(previous, status);
+  });
+  return () => subscription.remove();
 }
 
 export function useAppStateFocus(): void {
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", onAppStateChange);
-    return () => {
-      subscription.remove();
-    };
+    // No-op on web, where focusManager's own DOM listeners already apply.
+    if (Platform.OS === "web") return undefined;
+    return subscribeAppStateFocus((focused) => focusManager.setFocused(focused));
   }, []);
 }
