@@ -18,6 +18,7 @@ ENVIRONMENTS = {
         "container": "levelup_admin",
         "admin_port": "3200",
         "backend_port": "5000",
+        "backend_upstream": "levapp_api",
         "nginx": "levapp-admin",
         "host": "admin.levapp.app",
     },
@@ -27,6 +28,7 @@ ENVIRONMENTS = {
         "container": "levelup_admin_staging",
         "admin_port": "3300",
         "backend_port": "5100",
+        "backend_upstream": "levapp_api_staging",
         "nginx": "levapp-admin-staging",
         "host": "admin.staging.levapp.app",
     },
@@ -67,7 +69,12 @@ def test_the_tracked_nginx_block_routes_the_admin_host(env):
     text = (NGINX / cfg["nginx"]).read_text()
     assert f"server_name {cfg['host']};" in text
     api = re.search(r"location /admin/api/ \{(.*?)\}", text, re.S)
-    assert api and f"proxy_pass http://127.0.0.1:{cfg['backend_port']};" in api.group(1)
+    # PAD-588: the API is reached through the two-port upstream (rolling deploys), which lists
+    # the backend's first port.
+    assert api and f"proxy_pass http://{cfg['backend_upstream']};" in api.group(1)
+    upstreams = (NGINX.parent / "conf.d" / "levapp-api-upstream.conf").read_text()
+    block = re.search(rf"upstream {cfg['backend_upstream']} \{{(.*?)\}}", upstreams, re.S)
+    assert block and f"server 127.0.0.1:{cfg['backend_port']} " in block.group(1)
     assert "proxy_set_header Host $host;" in api.group(1), "the blueprint's host check needs the real Host"
     # PAD-554: the rate limits key on X-Real-IP alone; every proxied location must set it.
     assert "proxy_set_header X-Real-IP $remote_addr;" in api.group(1)

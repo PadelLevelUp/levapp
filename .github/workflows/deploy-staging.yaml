@@ -42,6 +42,13 @@ on:
         type: choice
         default: both
         options: [ both, backend, frontend ]
+      # PAD-588 (delivery.zero-downtime-deploy rule 7): `stop-first` for a migration the previous
+      # release cannot run against (a dropped or renamed column it still reads).
+      rollout:
+        description: "API rollout"
+        type: choice
+        default: rolling
+        options: [ rolling, stop-first ]
       # PAD-589 (delivery.staging-data-sync): how the sync-db job refreshes staging's
       # database. auto = the newest nightly dump, only if not restored yet (every push);
       # reload = that dump again (e.g. after a rebased migration); live = pg_dump of prod.
@@ -169,6 +176,17 @@ jobs:
         target: "/home/${{ secrets.GCE_USER }}/"
         strip_components: 1
         overwrite: true
+    # PAD-588: start-before-stop lives in a script so it has tests (test_pad588_rollout.py).
+    - name: Copy rollout script to VM
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        source: "backend/scripts/rollout.sh"
+        target: "/home/${{ secrets.GCE_USER }}/"
+        strip_components: 2
+        overwrite: true
     - name: Deploy on GCE
       uses: appleboy/ssh-action@v1.2.5
       with:
@@ -179,9 +197,14 @@ jobs:
           set -euo pipefail
           docker network create levelup_net || true
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
-          docker stop padelapp_staging || true && docker rm padelapp_staging || true
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
-          docker run -d --name padelapp_staging -p 127.0.0.1:5100:80 \
+          # PAD-588 (delivery.zero-downtime-deploy rules 4-7): rollout.sh starts padelapp_staging_next on the idle
+          # loopback port of 5100,5102, waits for /api/app/healthz (which also proves the entrypoint's
+          # migrations ran: PAD-220), stops the old container, and renames the new one padelapp_staging. Without
+          # the `levapp_api_staging` upstream on the host (owner's nginx step) it falls back to stop-then-start.
+          ROLLOUT_MODE=""
+          if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
+          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
@@ -193,20 +216,6 @@ jobs:
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
-          # PAD-220: `docker run` succeeding proves nothing about migrations — the
-          # entrypoint runs them, and a failed one crash-loops the container
-          # while this job reports green. Wait for the entrypoint to reach
-          # "Starting app..." and fail the deploy, with the log, if it does not.
-          for i in $(seq 1 45); do
-            if docker logs padelapp_staging 2>&1 | grep -q "Starting app..."; then echo "migrations applied"; break; fi
-            restarts=$(docker inspect -f '{{.RestartCount}}' padelapp_staging)
-            if [ "$restarts" -gt 0 ] || [ "$i" -eq 45 ]; then
-              echo "::error::padelapp_staging did not finish its migrations (restarts=$restarts)"
-              docker logs --tail 60 padelapp_staging
-              exit 1
-            fi
-            sleep 2
-          done
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true

@@ -12,6 +12,8 @@ they have behaviour worth specifying.
 
 - `delivery.staging-data-sync` — implementing (PAD-589: staging restored from the latest nightly
   dump, at most once per dump, never from live prod on push; `reload` / `live` by hand)
+- `delivery.zero-downtime-deploy` — implementing (PAD-588: one scheduler leader by advisory lock,
+  reschedule off the boot path; start-before-stop rollout behind a two-port nginx upstream)
 
 ## Why it's grouped this way
 
