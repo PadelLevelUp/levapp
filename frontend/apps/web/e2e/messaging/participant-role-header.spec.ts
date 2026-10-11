@@ -16,11 +16,14 @@ test.beforeEach(async ({ page }) => {
 
 test("PAD-31: coach participant shows 'Coach' role in chat header, not 'Player'", async ({ page }) => {
   // Open the seeded conversation with the coach.
-  await conversationRow(page, "E2E Coach").click();
-  await page.waitForResponse(
+  // Wait registered before the click (PAD-585): the thread request can finish before a wait
+  // started after the click is listening.
+  const threadLoaded = page.waitForResponse(
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
     { timeout: 10_000 }
   );
+  await conversationRow(page, "E2E Coach").click();
+  await threadLoaded;
 
   // Locate the chat header (contains the participant name heading).
   const header = page
