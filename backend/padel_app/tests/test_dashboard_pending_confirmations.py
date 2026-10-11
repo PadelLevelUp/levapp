@@ -122,29 +122,44 @@ def test_pending_targets_grouped_by_instance(app):
 
 
 def test_notify_pending_only_targets_pending_students(app, monkeypatch):
-    import padel_app.services.notification_service as ns
+    """PAD-620: the nudge re-pushes each pending student's own invitation (no new invitation, no new
+    message); the confirmed and declined students and the other day's class are not touched."""
     from padel_app.helpers.dashboard import pending as pending_mod
+    from padel_app.models import Message, NotificationEvent
+    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+    from padel_app.sql_db import db
 
     coach_id, tomo_inst_id, _ = _seed(app)
+    with app.app_context():
+        coach = db.session.get(Coach, coach_id)
+        for ev in NotificationEvent.query.filter_by(lesson_instance_id=tomo_inst_id).all():
+            conv = _get_or_create_direct_conversation(coach.user_id, db.session.get(Player, ev.player_id).user_id)
+            msg = Message(conversation_id=conv.id, sender_id=coach.user_id, text=f"Invite {ev.player_id}",
+                          message_type="notification_invite", msg_metadata={"notificationEventId": ev.id})
+            db.session.add(msg)
+            db.session.flush()
+            ev.message_id = msg.id
+        db.session.commit()
+        events_before = NotificationEvent.query.count()
+        messages_before = Message.query.count()
 
-    calls = []
-
-    def fake_send(instance_id, player_ids, cid):
-        calls.append((instance_id, sorted(player_ids), cid))
-        # mimic the real return shape (one event per player)
-        return [object() for _ in player_ids]
-
-    monkeypatch.setattr(ns, "send_manual_notifications", fake_send)
-
+    web, native = [], []
+    monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification",
+                        lambda **kw: web.append(kw))
+    monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user",
+                        lambda user_id, **kw: native.append((user_id, kw)))
     with app.app_context():
         result = pending_mod.notify_pending_confirmations(coach_id=coach_id, now=NOW)
-
-    assert result == {"instances": 1, "sent": 2}
-    assert len(calls) == 1
-    instance_id, player_ids, cid = calls[0]
-    assert instance_id == tomo_inst_id
-    assert cid == coach_id
-    assert len(player_ids) == 2
+        assert result == {"instances": 1, "sent": 2}
+        assert NotificationEvent.query.count() == events_before, "no new invitation"
+        assert Message.query.count() == messages_before, "no new chat message"
+    assert len(web) == 2 and len(native) == 2
+    with app.app_context():
+        pending_ids = {e.player_id for e in NotificationEvent.query.filter_by(
+            lesson_instance_id=tomo_inst_id, status="sent")}
+    assert sorted(kw["body"] for kw in web) == sorted(f"Invite {pid}" for pid in pending_ids)
 
 
 # ===========================================================================

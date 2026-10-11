@@ -70,20 +70,54 @@ def notify_pending_confirmations(
     *, coach_id: int, now: Optional[datetime] = None
 ) -> Dict[str, int]:
     """
-    Send an extra *manual* notification to every student who is still pending
-    confirmation for tomorrow's classes. Students who already confirmed or
-    declined are never targeted (they are not in the pending set).
+    Nudge every student still pending confirmation for tomorrow's classes about the invitation they
+    already hold. Students who already confirmed or declined are never targeted (they are not in the
+    pending set).
 
-    Reuses the existing notification engine (``send_manual_notifications``) so
-    behaviour, templating and messaging stay consistent with automatic sends.
-    Sending an extra nudge does not change the pending count — the students are
-    still pending until they respond.
+    PAD-620 (PAD-612 R2): the nudge used to send each of them a brand-new invitation through
+    ``send_manual_notifications`` — a second live invitation, message and push on every press. It now
+    re-sends the push of the invitation they already hold (its own text, opening its conversation):
+    no new invitation, no new chat message, so the pending set and every bubble stay as they were.
+    ``sent`` is the number of students pushed.
     """
-    from padel_app.services.notification_service import send_manual_notifications
+    from padel_app.models import Message
+    from padel_app.models.players import Player
+    from padel_app.services.messaging_service import get_unread_count
+    from padel_app.utils.expo_push import send_expo_push_to_user
+    from padel_app.utils.push_notifications import send_push_notification
 
     targets = get_pending_confirmation_targets(coach_id=coach_id, now=now)
     sent = 0
     for instance_id, player_ids in targets:
-        events = send_manual_notifications(instance_id, player_ids, coach_id)
-        sent += len(events)
+        for player_id in player_ids:
+            event = (
+                NotificationEvent.query.filter(
+                    NotificationEvent.lesson_instance_id == instance_id,
+                    NotificationEvent.player_id == player_id,
+                    NotificationEvent.status == "sent",
+                    NotificationEvent.message_id.isnot(None),
+                )
+                .order_by(NotificationEvent.id.desc())
+                .first()
+            )
+            msg = Message.query.get(event.message_id) if event is not None else None
+            player = Player.query.get(player_id)
+            user_id = player.user_id if player is not None else None
+            if msg is None or user_id is None:
+                continue
+            send_push_notification(
+                user_id=user_id,
+                title="New message",
+                body=(msg.text or "")[:100],
+                url=f"/messages/{msg.conversation_id}?message={msg.id}",
+            )
+            send_expo_push_to_user(
+                user_id,
+                title="New message",
+                body=(msg.text or "")[:100],
+                data={"type": "message", "conversationId": msg.conversation_id,
+                      "messageId": msg.id, "classInstanceId": instance_id},
+                badge=get_unread_count(user_id),
+            )
+            sent += 1
     return {"instances": len(targets), "sent": sent}

@@ -5628,6 +5628,21 @@ def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datet
 # Manual notifications
 # ---------------------------------------------------------------------------
 
+def players_with_live_invitation(instance_id: int, player_ids) -> set:
+    """PAD-620 (invitations rule 18): the players who already hold a live invitation (``sent`` or
+    ``queued``) for this occurrence, automatic or manual."""
+    ids = [int(p) for p in (player_ids or [])]
+    if not ids:
+        return set()
+    return {
+        pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
+            NotificationEvent.lesson_instance_id == instance_id,
+            NotificationEvent.player_id.in_(ids),
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        )
+    }
+
+
 def send_manual_notifications(
     instance_id: int, player_ids: list[int], coach_id: int
 ) -> list[NotificationEvent]:
@@ -5664,10 +5679,15 @@ def send_manual_notifications(
     blocked_ids = blocked_player_ids_for_window(
         player_ids, instance.start_datetime, instance.end_datetime
     )
+    # PAD-620 (invitations rule 18, PAD-612 R1): a student who already holds a live invitation for
+    # this occurrence gets no second one — no second event, message or push. The route names them.
+    already_invited = players_with_live_invitation(instance_id, player_ids)
 
     events = []
     for player_id in player_ids:
         if int(player_id) in blocked_ids:
+            continue
+        if int(player_id) in already_invited:
             continue
         if player_blocks_manual_invitations(player_id):
             continue
