@@ -56,7 +56,7 @@ describe("LegalPage", () => {
 
   it("renders the privacy policy with its own version", () => {
     renderAt("/privacy");
-    expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-10-10");
+    expect(screen.getByTestId("legal-version")).toHaveTextContent("2026-10-11");
     expect(screen.getByTestId("legal-body").querySelector("h1")).toHaveTextContent("Privacy Policy");
   });
 
