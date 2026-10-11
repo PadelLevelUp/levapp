@@ -10,6 +10,7 @@ on the change that broke it, so releases are on time.
 - The owner sees a broken screen on its change, not at the release.
 - Staging keeps realistic data without slowing production.
 - A release never drops a request.
+- Production starts clean for real use.
 
 ## Why it's grouped this way
 
