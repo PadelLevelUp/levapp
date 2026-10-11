@@ -107,3 +107,20 @@ def test_the_manual_notify_route_names_a_student_who_already_holds_an_invitation
         assert body["sent"] == 1
         assert [(e["playerId"], e["cause"]) for e in body["blocked"]] == [(a, "already_invited")]
         assert _live_invitations(instance_id, a) == 1 and _live_invitations(instance_id, b) == 1
+
+
+def test_a_queued_invitation_counts_as_live_for_the_manual_skip(app, monkeypatch):
+    """PAD-620 (notifications.manual rule 9): live is `sent` OR `queued`."""
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.services import notification_service as ns
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        monkeypatch.setattr(ns, "send_push_notification", lambda **kw: None)
+        instance_id, coach_id, _, (a,) = _seed(enrolled=0, candidates=1, max_players=2)
+        db.session.add(NotificationEvent(coach_id=coach_id, lesson_instance_id=instance_id, player_id=a,
+                                         type="auto", round_number=1, status="queued"))
+        db.session.commit()
+        assert ns.send_manual_notifications(instance_id, [a], coach_id) == []
+        assert [e["cause"] for e in ns.already_invited_players(instance_id, [a])] == ["already_invited"]

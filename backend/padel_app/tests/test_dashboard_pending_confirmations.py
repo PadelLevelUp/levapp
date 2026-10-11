@@ -146,7 +146,7 @@ def test_notify_pending_only_targets_pending_students(app, monkeypatch):
         messages_before = Message.query.count()
 
     web, native = [], []
-    monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification",
+    monkeypatch.setattr("padel_app.services.notification_service.send_push_notification",
                         lambda **kw: web.append(kw))
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user",
                         lambda user_id, **kw: native.append((user_id, kw)))
@@ -155,11 +155,54 @@ def test_notify_pending_only_targets_pending_students(app, monkeypatch):
         assert result == {"instances": 1, "sent": 2}
         assert NotificationEvent.query.count() == events_before, "no new invitation"
         assert Message.query.count() == messages_before, "no new chat message"
-    assert len(web) == 2 and len(native) == 2
-    with app.app_context():
-        pending_ids = {e.player_id for e in NotificationEvent.query.filter_by(
+        pending = {e.player_id: e for e in NotificationEvent.query.filter_by(
             lesson_instance_id=tomo_inst_id, status="sent")}
-    assert sorted(kw["body"] for kw in web) == sorted(f"Invite {pid}" for pid in pending_ids)
+        expected = {}
+        for e in pending.values():
+            msg = db.session.get(Message, e.message_id)
+            expected[msg.text] = (f"/messages/{msg.conversation_id}?message={msg.id}",
+                                  {"type": "message", "conversationId": msg.conversation_id,
+                                   "messageId": msg.id, "classInstanceId": tomo_inst_id})
+    # R-029: the same payload `_send_system_message` sends (one writer, `_push_message`).
+    assert {kw["body"]: kw["url"] for kw in web} == {t: v[0] for t, v in expected.items()}
+    assert {kw["body"]: kw["data"] for _, kw in native} == {t: v[1] for t, v in expected.items()}
+    assert all("badge" in kw for _, kw in native)
+
+
+def test_the_nudge_skips_a_student_who_blocked_notifications_or_whose_message_is_deleted(app, monkeypatch):
+    """PAD-620: the nudge keeps `_send_system_message`'s backstops (PAD-112) and never re-pushes a
+    deleted invitation message."""
+    from padel_app.helpers.dashboard import pending as pending_mod
+    from padel_app.models import Message, NotificationEvent
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.sql_db import db
+
+    coach_id, tomo_inst_id, _ = _seed(app)
+    with app.app_context():
+        coach = db.session.get(Coach, coach_id)
+        pending = NotificationEvent.query.filter_by(lesson_instance_id=tomo_inst_id, status="sent").order_by(NotificationEvent.id).all()
+        for ev in pending:
+            conv = _get_or_create_direct_conversation(coach.user_id, db.session.get(Player, ev.player_id).user_id)
+            msg = Message(conversation_id=conv.id, sender_id=coach.user_id, text=f"Invite {ev.player_id}",
+                          message_type="notification_invite", msg_metadata={"notificationEventId": ev.id})
+            db.session.add(msg)
+            db.session.flush()
+            ev.message_id = msg.id
+        db.session.get(Message, pending[0].message_id).is_deleted = True
+        db.session.commit()
+        blocked_user = db.session.get(Player, pending[1].player_id).user_id
+
+    monkeypatch.setattr("padel_app.services.student_notification_preferences.user_blocks_all_notifications",
+                        lambda user_id: user_id == blocked_user)
+    web = []
+    monkeypatch.setattr("padel_app.services.notification_service.send_push_notification",
+                        lambda **kw: web.append(kw))
+    monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda *a, **kw: None)
+    with app.app_context():
+        assert pending_mod.notify_pending_confirmations(coach_id=coach_id, now=NOW)["sent"] == 0
+    assert web == []
 
 
 # ===========================================================================

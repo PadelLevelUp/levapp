@@ -1,11 +1,10 @@
-import { splitBlockedByCause } from "@levelup/config";
 import { useState, useMemo, useEffect, useId } from "react";
 import { ChevronDown, ChevronRight, Search, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { CoachPlayer, StudentGroup } from "@/types";
 import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
-import { runManualInviteFlow } from "@levelup/config";
+import { runManualInviteFlow, splitBlockedByCause } from "@levelup/config";
 import type { EligibilityCheckEntry } from "@/types";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { toast } from "sonner";

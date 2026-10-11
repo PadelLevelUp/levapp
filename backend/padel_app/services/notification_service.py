@@ -2165,39 +2165,81 @@ def _send_system_message(
     if not push:
         return msg
 
+    _push_message(msg, player_user_id, resolved_instance_id)
+
+    return msg
+
+
+def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
+    """The web push and the native (Expo) push of one chat message to its student — the one writer
+    of this payload (R-029), used by `_send_system_message` and by the pending nudge (PAD-620).
+
+    Native: PAD-240 — a MESSAGE notification (messaging.push-notifications rule 7); the tap opens the
+    conversation, where the Yes/No and the reply live (routing to class/[id] dead-ended: a push never
+    carries the route params that screen rebuilds its event from). The instance id rides along as
+    context only. PAD-147: the badge is the recipient's real unread total (rule 5)."""
     send_push_notification(
         user_id=player_user_id,
         title="New message",
-        body=text[:100],
-        url=f"/messages/{conv.id}?message={msg.id}",
+        body=(msg.text or "")[:100],
+        url=f"/messages/{msg.conversation_id}?message={msg.id}",
     )
-
-    # Native (Expo) push — additive, best-effort. PAD-240: this is a MESSAGE
-    # notification (messaging.push-notifications rule 7). Every system message
-    # is a Message row in the coach–student thread, and what the student acts
-    # on (the Yes/No answer, the reply) lives there, so the tap opens the
-    # conversation. It used to route to class/[id] with the lesson instance id,
-    # which the mobile class screen cannot open from a push — it rebuilds its
-    # event from route params (model/originalId/date) a push never carries —
-    # so every tap dead-ended on "this class could not be found". The instance
-    # id (``resolved_instance_id``, computed above for the PAD-107 backstop)
-    # still rides along as context; the client never routes on it alone.
-    push_data = {"type": "message", "conversationId": conv.id, "messageId": msg.id}
-    if resolved_instance_id is not None:
-        push_data["classInstanceId"] = resolved_instance_id
-    # PAD-147: this is an unread Message row like any direct message, so the
-    # push carries the recipient's real unread total as the icon badge (rule
-    # 5). msg.create() has already committed, so the count includes it.
+    push_data = {"type": "message", "conversationId": msg.conversation_id, "messageId": msg.id}
+    if instance_id is not None:
+        push_data["classInstanceId"] = instance_id
     from padel_app.services.messaging_service import get_unread_count
+    from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         player_user_id,
         title="New message",
-        body=text[:100],
+        body=(msg.text or "")[:100],
         data=push_data,
         badge=get_unread_count(player_user_id),
     )
 
-    return msg
+
+def push_existing_invitation(event: NotificationEvent) -> bool:
+    """PAD-620 (dashboard.blocks rule 7): push again the invitation message ``event`` already has —
+    no new event, no new message. The same backstops as `_send_system_message` apply (PAD-107 an
+    availability blocker over the class, PAD-112 all notifications blocked), and a missing or deleted
+    message is not pushed. True when pushed."""
+    from padel_app.models import Message
+    from padel_app.models.players import Player
+    from padel_app.services.student_availability_service import instance_window_is_blocked_for_user
+    from padel_app.services.student_notification_preferences import user_blocks_all_notifications
+
+    msg = Message.query.get(event.message_id) if event.message_id else None
+    if msg is None or msg.is_deleted:
+        return False
+    player = Player.query.get(event.player_id)
+    user_id = player.user_id if player is not None else None
+    if user_id is None:
+        return False
+    if instance_window_is_blocked_for_user(user_id, event.lesson_instance):
+        return False
+    if user_blocks_all_notifications(user_id):
+        return False
+    _push_message(msg, user_id, event.lesson_instance_id)
+    return True
+
+
+def already_invited_players(instance_id: int, player_ids) -> list:
+    """PAD-620 (notifications.manual rule 9): ``[{playerId, name, cause: "already_invited"}]`` for the
+    players who hold a live invitation for this occurrence — names in one query."""
+    from sqlalchemy.orm import joinedload
+
+    from padel_app.models.players import Player
+
+    ids = sorted(players_with_live_invitation(instance_id, player_ids))
+    if not ids:
+        return []
+    players = {p.id: p for p in Player.query.options(joinedload(Player.user)).filter(Player.id.in_(ids))}
+    return [
+        {"playerId": pid,
+         "name": (players[pid].user.name if pid in players and players[pid].user else ""),
+         "cause": "already_invited"}
+        for pid in ids
+    ]
 
 
 def _notify_coach_of_cancellation(

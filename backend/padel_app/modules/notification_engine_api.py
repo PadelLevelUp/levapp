@@ -16,6 +16,7 @@ from padel_app.services.notification_service import (
     get_config_dict,
     update_config,
     send_class_reminders,
+    already_invited_players,
     send_manual_notifications,
     trigger_invitations,
     process_invitation_batches,
@@ -312,15 +313,10 @@ def manual_notify():
     }
     for entry in preference_blocked_players(player_ids, kind="manual"):
         blocked_by_id[entry["playerId"]] = entry
-    # PAD-620 (invitations rule 18): a student who already holds a live invitation for this class is
-    # not invited twice; the coach is told by name, like the two causes above.
-    from padel_app.services.notification_service import players_with_live_invitation
-    from padel_app.models.players import Player
-    for pid in sorted(players_with_live_invitation(instance.id, player_ids)):
-        if pid not in blocked_by_id:
-            player = Player.query.get(pid)
-            name = player.user.name if player and player.user else ""
-            blocked_by_id[pid] = {"playerId": pid, "name": name, "cause": "already_invited"}
+    # PAD-620 (notifications.manual rule 9): a student who already holds a live invitation for this
+    # class is not invited twice; the coach is told by name, like the two causes above.
+    for entry in already_invited_players(instance.id, player_ids):
+        blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
     events = send_manual_notifications(instance.id, player_ids, coach.id)
     return jsonify({"sent": len(events), "blocked": blocked})
