@@ -12,6 +12,8 @@ governed_by: [R-027, R-028]
 > study). Drafted 2026-10-10 by Session E (wave 14). Two halves: the scheduler-leadership half
 > (rules 1–3, backend, built first) and the rollout half (rules 4–8, deploy workflows and a host
 > nginx change the owner applies).
+> The staging sync's health check follows the published port (`docker port`), since staging may
+> answer on 5102 after a rolling deploy.
 
 ### Intent
 A deploy starts the new API container beside the old one, waits until it answers `/healthz`, and

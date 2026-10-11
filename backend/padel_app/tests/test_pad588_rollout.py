@@ -179,3 +179,35 @@ def test_an_upstream_no_vhost_uses_still_means_stop_first(sb):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "no enabled vhost" in r.stdout
     assert containers(sb) == {"padelapp": "5000"}
+
+
+WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+
+
+@pytest.mark.parametrize(
+    "workflow,name,ports,upstream",
+    [
+        ("deploy-prod.yaml", "padelapp", "5000,5002", "levapp_api"),
+        ("deploy-staging.yaml", "padelapp_staging", "5100,5102", "levapp_api_staging"),
+    ],
+)
+def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upstream):
+    """Rule 4 wiring: the backend job copies rollout.sh and calls it; it no longer stops the API itself."""
+    import yaml
+
+    text = (WORKFLOWS / workflow).read_text()
+    yaml.safe_load(text)  # still valid YAML
+    assert 'source: "backend/scripts/rollout.sh"' in text
+    assert f"rollout.sh --name {name} --ports {ports} --upstream {upstream} $ROLLOUT_MODE --" in text
+    assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"
+    assert f"docker run -d --name {name} " not in text
+    dispatch = text.split("workflow_dispatch:", 1)[1].split("concurrency:", 1)[0]
+    assert "rollout:" in dispatch and "options: [ rolling, stop-first ]" in dispatch
+    assert 'if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi' in text
+
+
+def test_the_staging_sync_finds_the_port_the_api_is_on():
+    """After a rolling deploy the staging API may answer on 5102; the sync's health check follows it."""
+    script = (SCRIPT.parent / "sync-staging-db.sh").read_text()
+    assert "127.0.0.1:5100/api/app/healthz}" not in script
+    assert 'docker port "$APP_CONTAINER" 80' in script

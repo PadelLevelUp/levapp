@@ -39,7 +39,7 @@ PG_CONTAINER="${PG_CONTAINER:-postgres}"
 SOURCE_DB="${SOURCE_DB:-padel_app}"
 EXPECTED_TARGET_DB="${EXPECTED_TARGET_DB:-padel_app_staging}"
 MIN_FREE_MB="${MIN_FREE_MB:-1024}"
-HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:5100/api/app/healthz}"
+HEALTH_URL="${HEALTH_URL:-}"  # default: the port the staging app publishes now (PAD-588: 5100 or 5102)
 
 log() { echo "[sync-staging-db] $*"; }
 skip() { log "SKIPPED: $*"; exit 0; }
@@ -74,6 +74,11 @@ log "source $SOURCE_DB has $SOURCE_USERS users; target $TARGET_DB; ${FREE_MB} MB
 restart_app() {
   log "starting $APP_CONTAINER (its entrypoint runs flask db upgrade)"
   docker start "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $APP_CONTAINER"
+  if [ -z "$HEALTH_URL" ]; then
+    local port
+    port=$(docker port "$APP_CONTAINER" 80 2>/dev/null | head -1 | sed -E 's/.*:([0-9]+)$/\1/')
+    HEALTH_URL="http://127.0.0.1:${port:-5100}/api/app/healthz"
+  fi
   # Report health so the deploy log shows whether staging came back.
   for _ in $(seq 1 45); do
     if curl -sf -m 3 "$HEALTH_URL" >/dev/null 2>&1; then
