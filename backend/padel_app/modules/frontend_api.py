@@ -43,6 +43,8 @@ from padel_app.helpers.calendar_helpers import (
     load_lessons_for_player,
     load_lesson_instances_for_player,
     load_open_spot_events_for_player,
+    annotate_own_relations,
+    load_relation_events_for_player,
     build_lesson_events,
     load_calendar_blocks_for_user,
     build_block_events,
@@ -680,17 +682,30 @@ def calendar():
         # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
         # that declares it understands them. App Store 1.0/1.1.0 would draw an
         # open spot as the student's own booking.
-        from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+        from padel_app.utils.client_capabilities import OPEN_SPOTS, STUDENT_RELATIONS, client_declares
 
         open_spots = (
             load_open_spot_events_for_player(player.id, range_start, range_end)
             if client_declares(OPEN_SPOTS)
             else []
         )
+        # PAD-611 (calendar.view rule 22): invited and waiting occurrences, only for a client that
+        # declares it understands them — App Store 1.3.0 would draw them as bookings. They take
+        # precedence over an open spot for the same occurrence.
+        relation_events = (
+            load_relation_events_for_player(player.id, range_start, range_end)
+            if client_declares(STUDENT_RELATIONS)
+            else []
+        )
+        if relation_events:
+            taken = {e["id"] for e in relation_events}
+            open_spots = [e for e in open_spots if e["id"] not in taken] + relation_events
     else:
         abort(403, "User has no coach or player profile")
 
     lesson_events = build_lesson_events(lessons, instances_by_key, range_start, range_end)
+    if player is not None and coach is None:
+        annotate_own_relations(lesson_events, player.id)  # PAD-611: harmless to an old client
     blocks = load_calendar_blocks_for_user(user.id, range_start, range_end)
     block_events = build_block_events(blocks, range_start, range_end)
 

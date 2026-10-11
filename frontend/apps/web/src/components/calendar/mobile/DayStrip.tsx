@@ -36,7 +36,9 @@ export function dotColor(event: CalendarEvent, now: Date): string {
   if (variant === "block") return "hsl(var(--muted-foreground))";
   // B-541 (rule 10): an outlined treatment's surface is the white card — the dot takes
   // the outline colour instead.
-  if (variant === "open-spot" || variant === "next") return event.color ?? "hsl(var(--primary))";
+  if (variant === "open-spot" || variant === "next" || variant === "invited") return event.color ?? "hsl(var(--primary))";
+  // PAD-611: a waiting place's outline is muted, so is its dot.
+  if (variant === "waiting") return "hsl(var(--muted-foreground))";
   return cardSurfaceWeb(event.color, variant).backgroundColor ?? "hsl(var(--primary))";
 }
 

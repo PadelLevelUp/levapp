@@ -438,7 +438,10 @@
       "full": "Full / upcoming",
       "done": "Finished",
       "event": "Event / not a class",
-      "fill": "Confirmed / awaiting / free"
+      "fill": "Confirmed / awaiting / free",
+      "invited": "Invited",
+      "waiting": "Waiting list",
+      "notComing": "Not going"
     },
     "eligibilityConfirm": {
       "title": "Add students who don't meet the bar?",
@@ -556,6 +559,11 @@
       "label": "+{{count}}",
       "aria": "{{count}} more classes",
       "title": "More classes at this time"
+    },
+    "relation": {
+      "invited": "Invited",
+      "waiting": "Waiting list",
+      "notComing": "Not going"
     }
   }
 }

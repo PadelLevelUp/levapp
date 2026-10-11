@@ -367,6 +367,7 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
                 return
             event = serialize_calendar_event(obj, override_id=override_id, override_date=override_date, now=now_utc.replace(tzinfo=None))
             event["openSpot"] = True
+            event["studentRelation"] = "open_spot"  # PAD-611 (calendar.view rule 22)
             event["coachName"] = cp.coach.user.name if cp.coach and cp.coach.user else None
             if include_full:
                 event["state"] = "full" if full else "open"
@@ -399,4 +400,104 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
                 continue
             consider(instance)
 
+    return events
+
+
+# ── PAD-611 (calendar.view rule 22): what each class is to the student ─────────────────────────
+
+_RELATION_BY_STATE = {
+    "planned": "enrolled",
+    "coming": "enrolled",
+    "not_coming": "not_coming",
+    "attended": "attended",
+    "missed": "missed",
+}
+
+
+def annotate_own_relations(events, player_id):
+    """Set `studentRelation` on the student's own lesson events, in place.
+
+    A materialised occurrence reads the student's presence (`attendance_state`); a virtual one
+    (a series occurrence with no row yet) is `enrolled` — nobody has answered for it."""
+    from padel_app.models.presences import Presence
+
+    instance_ids = [e["originalId"] for e in events if e.get("model") == "LessonInstance"]
+    states = {}
+    if instance_ids:
+        for p in Presence.query.filter(
+            Presence.player_id == player_id, Presence.lesson_instance_id.in_(instance_ids)
+        ).all():
+            states[p.lesson_instance_id] = p.attendance_state
+    for event in events:
+        if event.get("type") != "class" and event.get("model") not in ("LessonInstance", "Lesson"):
+            continue
+        state = states.get(event["originalId"]) if event.get("model") == "LessonInstance" else None
+        event["studentRelation"] = _RELATION_BY_STATE.get(state or "planned", "enrolled")
+    return events
+
+
+def load_relation_events_for_player(player_id, range_start, range_end, *, now=None):
+    """The occurrences a student is invited to or waiting for, as calendar events.
+
+    `invited`: a live (`sent` / `queued`) invitation, unanswered and not withdrawn. `waiting`: an
+    active waiting-list entry. Only future, non-canceled occurrences the student is not already
+    in; an occurrence both invited and waiting is `invited`. Whatever the coach's open-spot toggle
+    says — these are the student's own business."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.notification_event import NotificationEvent
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services.notification_service import LIVE_INVITATION_STATES
+    from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+
+    now = now or utcnow_naive()
+    now_wall = utc_to_wall_naive(now)
+    lo = ensure_utc(range_start).replace(tzinfo=None)
+    hi = ensure_utc(range_end).replace(tzinfo=None)
+    lo = max(lo, now_wall)
+    if lo > hi:
+        return []
+
+    own_instances = {
+        inst.id for inst in load_lesson_instances_for_player(player_id, range_start, range_end).values()
+    }
+    own_lessons = {l.id for l in load_lessons_for_player(player_id, range_start, range_end)}
+
+    def occurrences(query, model):
+        return (
+            query.join(LessonInstance, LessonInstance.id == model.lesson_instance_id)
+            .filter(
+                LessonInstance.start_datetime >= lo,
+                LessonInstance.start_datetime <= hi,
+                LessonInstance.status.notin_(("canceled", "completed")),
+            )
+            .with_entities(LessonInstance)
+            .all()
+        )
+
+    invited = occurrences(
+        NotificationEvent.query.filter(
+            NotificationEvent.player_id == player_id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            NotificationEvent.answer.is_(None),
+            NotificationEvent.withdrawn_by_coach_at.is_(None),
+        ),
+        NotificationEvent,
+    )
+    waiting = occurrences(
+        WaitingListEntry.query.filter(
+            WaitingListEntry.player_id == player_id,
+            WaitingListEntry.is_active.is_(True),
+        ),
+        WaitingListEntry,
+    )
+
+    events, seen = [], set()
+    for relation, instances in (("invited", invited), ("waiting", waiting)):
+        for instance in instances:
+            if instance.id in seen or instance.id in own_instances or instance.lesson_id in own_lessons:
+                continue
+            seen.add(instance.id)
+            event = serialize_calendar_event(instance, now=now)
+            event["studentRelation"] = relation
+            events.append(event)
     return events
