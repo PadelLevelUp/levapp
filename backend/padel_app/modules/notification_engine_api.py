@@ -1012,8 +1012,9 @@ def debug_offer_waiting_list():
     the caller presents a valid JWT.
 
     Sends a real ``waiting_list_offer`` message to a seeded student for a lesson
-    instance, through the very function the engine uses on the "sorry, that spot
-    was just filled" path (``_offer_waiting_list``). Reaching that path for real
+    instance, through ``_offer_waiting_list`` — the function the engine used on the
+    "sorry, that spot was just filled" path until PAD-621 (no engine path sends it
+    now; offers already in chats are still answered). Reaching that path for real
     takes two students racing for one vacancy; seeding the message this way keeps
     the spec about the *client wiring* PAD-124 adds, while still producing the
     production message shape rather than a hand-built row.

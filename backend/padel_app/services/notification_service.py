@@ -5405,10 +5405,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            # PAD-621 (owner, PAD-612 D4): no waiting-list offer message either — the bubble already
-            # reads "Vaga preenchida" with "Juntar-me à lista de espera" (rule 15a). The action string
-            # stays for the clients that read it (web's answer toast, installed iOS builds).
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5432,10 +5429,7 @@ def respond_to_notification(
             # the other offers for the missing seat are retired at once, not at the next tick.
             reconcile_vacancies(instance)
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            # PAD-621 (owner, PAD-612 D4): no waiting-list offer message either — the bubble already
-            # reads "Vaga preenchida" with "Juntar-me à lista de espera" (rule 15a). The action string
-            # stays for the clients that read it (web's answer toast, installed iOS builds).
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5823,9 +5817,9 @@ def _offer_waiting_list(
 ) -> None:
     """Send a waiting-list offer message to the player.
 
-    PAD-621 (owner, PAD-612 D4): no engine path sends this any more — a spot that fills retires every
-    live invitation as "spot_filled" (rule 15) and the bubble offers the list (rule 15a). Kept for the
-    offers already in students' chats, which `respond_to_waiting_list` still answers, and its tests.
+    PAD-621 (owner, PAD-612 D4): no engine path calls this any more — a spot that fills retires every
+    live invitation as "spot_filled" (rule 15) and the bubble offers the list (rule 15a). Kept as the
+    test and E2E seeding path (`debug_offer_waiting_list` in notification_engine_api.py).
     """
     from padel_app.models import Coach
     coach = Coach.query.get(coach_id)

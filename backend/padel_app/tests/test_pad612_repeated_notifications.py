@@ -144,9 +144,11 @@ def test_a_late_yes_on_a_filled_spot_sends_no_offer_message_and_no_push(app, mon
         db.session.expire_all()
         assert Message.query.get(ev_b.message_id).msg_metadata["response"] == "spot_filled", "the fill retired her bubble"
         messages_before, pushes_before = Message.query.count(), len(pushes)
+        loser_conversation = Message.query.get(ev_b.message_id).conversation_id
         late = ns.respond_to_notification(ev_b.id, "yes", Player.query.get(b).user_id, now=NOW + timedelta(minutes=2))
-        assert late["action"] in ("spot_filled", "spot_filled_waiting_list_offered", "expired")
-        assert Message.query.filter_by(message_type="waiting_list_offer").count() == 0
+        # The path that used to post the offer: the spot is gone, the yes is refused (the clients' string).
+        assert late["action"] == "spot_filled_waiting_list_offered"
+        assert Message.query.filter_by(conversation_id=loser_conversation, message_type="waiting_list_offer").count() == 0
         assert Message.query.count() == messages_before and len(pushes) == pushes_before
 
 
@@ -169,10 +171,35 @@ def test_the_fill_retires_the_losers_bubble_live_without_a_push_or_a_message(app
         monkeypatch.setattr(ns, "send_push_notification", lambda **kw: pushes.append(kw["user_id"]))
         monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda user_id, **kw: pushes.append(user_id))
         monkeypatch.setattr(ns, "publish", lambda event, users: edited.append((event.get("type"), (event.get("payload") or {}).get("id"))))
+        winner_user = Player.query.get(a).user_id
         loser_messages = Message.query.filter(Message.conversation_id == Message.query.get(ev_b.message_id).conversation_id).count()
         assert ns.respond_to_notification(ev_a.id, "yes", Player.query.get(a).user_id, now=NOW + timedelta(minutes=1)) == {"action": "confirmed"}
         db.session.expire_all()
         assert Message.query.get(ev_b.message_id).msg_metadata["response"] == "spot_filled"
         assert ("message_edited", ev_b.message_id) in edited, "the bubble flips live"
+        assert winner_user in pushes, "control: the patches capture the pushes this path does send (the winner's confirmation)"
         assert loser_user not in pushes, "no push to the student who lost the spot"
         assert Message.query.filter(Message.conversation_id == Message.query.get(ev_b.message_id).conversation_id).count() == loser_messages
+
+
+def test_a_yes_that_reactivates_a_left_place_is_confirmed_once(app):
+    """PAD-621: one confirmation per place — a student who left the list and says yes again is
+    confirmed (the entry reactivates), exactly once."""
+    from padel_app.models import Message
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services.notification_service import respond_to_waiting_list
+    from padel_app.tests.test_waiting_list_offer_response import PATCHES as WL_PATCHES, _seed as wl_seed, _send_offer
+
+    with app.app_context():
+        ids = wl_seed("p621re")
+        with patch(WL_PATCHES[0]), patch(WL_PATCHES[1]):
+            _send_offer(ids)
+            coach_user_id, instance_id, player_user_id = ids["coach_user_id"], ids["instance"].id, ids["player_user_id"]
+            respond_to_waiting_list(instance_id, "yes", player_user_id)
+            entry = WaitingListEntry.query.filter_by(lesson_instance_id=instance_id).one()
+            entry.is_active = False  # the student left
+            db.session.commit()
+            before = Message.query.filter_by(sender_id=coach_user_id).count()
+            respond_to_waiting_list(instance_id, "yes", player_user_id)
+            assert WaitingListEntry.query.filter_by(lesson_instance_id=instance_id).one().is_active
+            assert Message.query.filter_by(sender_id=coach_user_id).count() == before + 1
