@@ -578,11 +578,15 @@ def get_user_conversations(user, page=1, limit=20):
         .options(
             selectinload(Conversation.participants)
             .joinedload(ConversationParticipant.user)
-            # `participantRole` reads `User.role`, which is
-            # `'coach' if self.coach else 'player'` — a lazy load per
-            # participant if the relationship is left cold, and the single
-            # largest remaining term in the list's statement count.
-            .joinedload(User.coach)
+            .options(
+                # `participantRole` reads `User.role`, which is
+                # `'coach' if self.coach else 'player'` — a lazy load per
+                # participant if the relationship is left cold, and the single
+                # largest remaining term in the list's statement count.
+                joinedload(User.coach),
+                # PAD-593: `participantAvatar` reads the participant's image.
+                joinedload(User.user_image),
+            )
         )
         .order_by(nullslast(Conversation.last_message_at.desc()))
         .offset(offset)

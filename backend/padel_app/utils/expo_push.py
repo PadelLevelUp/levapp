@@ -41,6 +41,12 @@ def _headers() -> dict:
     return headers
 
 
+def expo_push_disabled() -> bool:
+    """PAD-624: ``EXPO_PUSH_DISABLED`` set to a true value (staging) stops every Expo send before any
+    request. Production does not set it. Read on each call, so a test or an env change applies at once."""
+    return (os.getenv("EXPO_PUSH_DISABLED") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _token_tail(token) -> str:
     """B-254: enough of a device token to tell two devices apart in a log, never the whole token."""
     core = str(token or "")
@@ -71,6 +77,11 @@ def send_expo_push(
     """
     tokens = [t for t in (tokens or []) if t]
     if not tokens:
+        return False
+    if expo_push_disabled():
+        # PAD-624: staging builds share production's Expo project, so a phone that ever ran the
+        # staging app keeps its token in the production app. Staging must never reach it.
+        logger.info("Expo push disabled in this environment (EXPO_PUSH_DISABLED); %d token(s) skipped", len(tokens))
         return False
 
     data = data or {}

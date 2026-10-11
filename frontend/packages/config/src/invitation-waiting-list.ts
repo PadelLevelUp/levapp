@@ -16,8 +16,23 @@ export type InviteWaitingListMetadata = {
   startsAt?: string | null;
 };
 
+/** The responses that offer the class's waiting list: the spot went to someone else ("spot_filled",
+ * PAD-577/609), or the engine withdrew the invitation for side balance ("side_balanced", PAD-581). */
+const OFFERS_WAITING_LIST = new Set(["spot_filled", "side_balanced"]);
+
 export function invitationLostToAnother(metadata: InviteWaitingListMetadata | undefined): boolean {
-  return !!metadata?.responded && metadata?.response === "spot_filled";
+  return !!metadata?.responded && OFFERS_WAITING_LIST.has(metadata?.response ?? "");
+}
+
+/** PAD-581 (invitations rule 2d): withdrawn because the spot now asks for the other side. */
+export function invitationWithdrawnForBalance(metadata: InviteWaitingListMetadata | undefined): boolean {
+  return !!metadata?.responded && metadata?.response === "side_balanced";
+}
+
+/** The badge of a retired invitation, both shells: "Já não é preciso deste lado" for a balance
+ * withdrawal (PAD-581), "Vaga preenchida" for every other end that is neither yes nor no. */
+export function retiredInviteLabelKey(metadata: InviteWaitingListMetadata | undefined): string {
+  return invitationWithdrawnForBalance(metadata) ? "messages.noLongerNeededOnSide" : "messages.spotFilled";
 }
 
 /**
