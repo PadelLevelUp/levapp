@@ -55,7 +55,7 @@ export function CountryPrompt() {
           <DialogDescription>{t("auth.countryPrompt.body")}</DialogDescription>
         </DialogHeader>
         <Select value={country} onValueChange={setCountry}>
-          <SelectTrigger data-testid="country-prompt-select" aria-label={t("auth.countryPrompt.title")}>
+          <SelectTrigger data-testid="country-prompt-select" aria-label={t("auth.countryPrompt.label")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

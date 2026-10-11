@@ -284,16 +284,17 @@ def update_own_profile_service(user_id, data):
         if key in data:
             setattr(user, column, _coerce_bool(data.get(key), key))
 
-    # PAD-232: same membership-checked boolean handling as the block toggles.
     if "country" in data:
-        # PAD-630: sign-up's own check (two letters, upper-cased); no way to clear it.
+        # PAD-630 (auth.login rule 13): sign-up's own check (two letters, upper-cased); a missing or
+        # empty value is refused like any other, so a stored country can never be cleared here.
         from padel_app.services.registration_service import RegistrationError, _two_letter_country
 
         try:
             user.country = _two_letter_country(data.get("country"))
         except RegistrationError:
-            raise ProfileValidationError("country must be a two-letter code") from None
+            raise ProfileValidationError("INVALID_COUNTRY: country must be a two-letter code") from None
 
+    # PAD-232: same membership-checked boolean handling as the block toggles.
     if "requestAlerts" in data:
         user.notif_request_alerts = _coerce_bool(data.get("requestAlerts"), "requestAlerts")
 

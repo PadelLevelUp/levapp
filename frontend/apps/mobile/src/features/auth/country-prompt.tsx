@@ -28,7 +28,10 @@ export function CountryPrompt() {
   const [saving, setSaving] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
 
+  // Only an account without a country needs the device's answer; skip the read otherwise.
+  const needsCountry = !!user && !user.country;
   React.useEffect(() => {
+    if (!needsCountry) return undefined;
     let alive = true;
     void loadCountryPromptStorage().then((storage) => {
       if (!alive) return;
@@ -39,7 +42,7 @@ export function CountryPrompt() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [needsCountry]);
 
   // Held on the email-code screen or as a pending coach: the same holds the tabs guard applies.
   const gated = postLoginRoute(user) !== "/(tabs)/dashboard";
@@ -70,7 +73,9 @@ export function CountryPrompt() {
           <DialogTitle>{t("auth.countryPrompt.title")}</DialogTitle>
           <DialogDescription>{t("auth.countryPrompt.body")}</DialogDescription>
         </DialogHeader>
-        <ScrollView testID="country-prompt-select" style={{ maxHeight: 280 }}>
+        <ScrollView testID="country-prompt-select"
+          role="radiogroup"
+          accessibilityLabel={t("auth.countryPrompt.label")} style={{ maxHeight: 280 }}>
           {COUNTRIES.map((c) => {
             const chosen = country === c.code;
             return (

@@ -66,13 +66,15 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 
 13. **The country, asked once after sign-in (PAD-630; Privacy Policy §1).** Accounts created before
     the country was asked, and accounts completed by an App Store build that predates PAD-604, have
-    `country` null. After a signed-in user lands, web and iOS show a short prompt — "Em que país
-    vives?" with the `COUNTRIES` list of `@levelup/config`, PT preselected — when `GET /api/auth/me`
-    answers `country: null`. "Guardar" sends `PATCH /api/auth/me {country}`, checked as sign-up
-    checks it (two letters, upper-cased; anything else is 400 and nothing changes); "Agora não"
-    hides the prompt on that device for 30 days. It never blocks the app, never shows while
-    another gate holds the user (email code, pending coach), and never shows once a country is
-    stored. App Store builds that predate it simply never show it; the server needs no capability.
+    `country` null. When `GET /api/auth/me` answers `country: null`, web and iOS show a short,
+    dismissible dialog over the signed-in app — "Em que país vives?" with the `COUNTRIES` list of
+    `@levelup/config`, PT preselected — on any page except while a hold keeps the user (the email
+    code, a pending or rejected coach, club onboarding: whenever the route guards' own landing is
+    not the dashboard). "Guardar" sends `PATCH /api/auth/me {country}`, checked as sign-up checks it
+    (two letters, upper-cased; anything else, empty included, is 400 and nothing changes); "Agora
+    não" — and closing it any other way (Esc, a click outside, the close button, Android back) —
+    hides it on that device for 30 days. It is never shown once a country is stored. App Store
+    builds that predate it simply never show it; the server needs no capability.
 
 ### Acceptance Criteria
 
@@ -144,14 +146,14 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **When** they attempt to login
 - **Then** the response status is 401
 
-### Notes
-- Rate limiting: rule 7 (PAD-228, closes B-001).
-- OPEN: No account lockout after failed attempts
-
 #### An account without a country is asked once (rule 13, PAD-630)
 - **Given** a signed-in student whose `country` is null
-- **When** they land in the app on the web or on iOS
+- **When** they sign in on the web or on iOS and no hold keeps them
 - **Then** the country prompt shows with PT selected; "Guardar" stores `PT` and the prompt never
   shows again; "Agora não" hides it on that device for 30 days
 - **And** `PATCH /api/auth/me {country: "br"}` stores `BR`; `"Brazil"` is 400 and changes nothing
 - **And** a user whose country is set never sees the prompt
+
+### Notes
+- Rate limiting: rule 7 (PAD-228, closes B-001).
+- OPEN: No account lockout after failed attempts
