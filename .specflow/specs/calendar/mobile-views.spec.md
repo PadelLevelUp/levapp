@@ -121,8 +121,10 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     rule 10's states, over 26px gutters that align with the hour labels.
 13. **Time grid.** Hour labels on both gutters. The visible range runs from one hour before
     the earliest `startTime` in the visible week to one hour after the latest `endTime`,
-    rounded to whole hours and clamped to 07:00–23:00; a week with no events shows
-    08:00–20:00. Rows are equal height and the grid scrolls vertically when taller than the
+    rounded to whole hours and clamped to 07:00–23:00 — **(B-544, PAD-626) except that the grid
+    never cuts a class:** a class outside that window widens it to the class's whole hours, and a
+    class ending at midnight ends at 24:00 (PAD-553), both for the range and for its block's
+    height; a week with no events shows 08:00–20:00. Rows are equal height and the grid scrolls vertically when taller than the
     space above the sheet. Each event is an absolutely positioned block: top and height from
     its start and end minutes (minimum height 18px), 6px radius, surface per rule 5 (an
     open spot's dashed outline included), title clamped to two lines. Overlapping events in one column share the width side by side
@@ -301,6 +303,12 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Given** a week with no events
 - **When** `Semana` renders
 - **Then** hour labels run 08 to 20
+
+#### The grid never cuts a class (rule 13, B-544)
+- **Given** a week with a class 05:30–06:30 and a class 22:30–00:00
+- **When** `Semana` renders
+- **Then** hour labels run 05 to 24, the early class is whole, and the late class's block is
+  90 minutes tall, ending at the grid's bottom
 
 #### Bottom sheet resizes within bounds
 - **Given** `Semana` with the sheet at its default position

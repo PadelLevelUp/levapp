@@ -115,6 +115,10 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     two render and the third holds one "+N" marker (`calendar-overflow`) spanning the hidden
     classes' time; activating it opens a list of those classes (title, time, fill), each opening
     the class exactly as its card does. Nothing is ever narrower than a third of the day column.
+21. **(B-544, PAD-626; rule number unconfirmed) The desktop week never cuts a class.** It shows
+    07:00–22:00 by default and widens to the whole hours of any class outside that window
+    (`desktopHourRange`, `@levelup/config`); a class ending at midnight ends at 24:00 (PAD-553) and
+    its card is its full height, with its time.
 
 ### Acceptance Criteria
 
@@ -210,6 +214,12 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Then** Wednesday's classes take two columns, each card showing its title and time
 - **And** given four classes at 18:00, two cards and a "+2" marker show; the marker lists the other
   two, and choosing one opens its class
+
+#### A late class is whole on the desktop week (rule 21, B-544)
+- **Given** a coach with a class on Friday 22:30–00:00 and none before 07:00
+- **When** they view that week on desktop
+- **Then** the grid runs 07:00 to 24:00 and the class's card is 90 minutes tall with "22:30 – 00:00"
+- **And** a week whose classes all sit between 07:00 and 22:00 still shows 07:00–22:00
 
 #### Calendar class card is reachable and activatable by keyboard
 - **Given** a signed-in coach on `/calendar` viewing a week that contains a class

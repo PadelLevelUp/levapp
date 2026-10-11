@@ -65,3 +65,25 @@ describe("desktop grid on a dense day (rule 20, B-543)", () => {
     expect(onEventClick).toHaveBeenCalledWith(expect.objectContaining({ id: "d4" }));
   });
 });
+
+// B-544 (calendar.view rule 21): the desktop week never cuts a class.
+describe("desktop grid hours (rule 21, B-544)", () => {
+  const hourLabels = () =>
+    Array.from(document.querySelectorAll(".h-\\[60px\\] span")).map((s) => s.textContent);
+
+  it("07:00–22:00 while every class fits", () => {
+    render(<CalendarGrid weekDays={[day]} events={[cls("a1", "09:00", "10:00")]} />);
+    const labels = hourLabels();
+    expect(labels[0]).toBe("07:00");
+    expect(labels[labels.length - 1]).toBe("21:00");
+  });
+
+  it("a class 22:30–00:00 widens the grid to 24:00 and is 90 minutes tall", () => {
+    render(<CalendarGrid weekDays={[day]} events={[cls("late", "22:30", "00:00")]} />);
+    const labels = hourLabels();
+    expect(labels[labels.length - 1]).toBe("23:00");
+    const card = screen.getByTestId("calendar-event-card");
+    expect(card.style.height).toBe("88px"); // 90 min at 60 px/h, minus the 2 px gap
+    expect(card.style.top).toBe("930px"); // 15.5 h below 07:00
+  });
+});
