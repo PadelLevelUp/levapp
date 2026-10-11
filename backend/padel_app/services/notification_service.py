@@ -3218,6 +3218,10 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
 
         if sent_count >= reminder_count:
             continue
+        # PAD-622 (rule 23; PAD-612 R5): an answer the student gave to one of these reminders stands
+        # even after a coach's mark is cleared (the clear resets `confirmed`, not the answer they gave).
+        if sent_count > 0 and attempts.has_answered(instance.id, player_id):
+            continue
         # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
         # It sends nothing and does not report `more_due`, so the twin chain ends here.
         if scheduled and sent_count > 0 and _sent_within_spacing(

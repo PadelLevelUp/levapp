@@ -52,6 +52,15 @@ def count_attempts(instance_id, player_id) -> int:
     return _query(instance_id, player_id).filter(_counted()).count()
 
 
+def has_answered(instance_id, player_id) -> bool:
+    """PAD-622 (notifications.reminders rule 23): the student answered one of the reminders they had
+    for the spot they hold now. A coach's mark and its clear (PAD-567) do not undo that answer, so
+    the next pass does not ask again. Voided attempts (a previous stint) do not count."""
+    from padel_app.models import ReminderAttempt
+
+    return _query(instance_id, player_id).filter(_counted(), ReminderAttempt.responded_at.isnot(None)).first() is not None
+
+
 def _counted():
     """The attempts that count toward the cap: everything but the voided ones (superseded
     AND expired). One expression, shared by the single and the bulk count."""
