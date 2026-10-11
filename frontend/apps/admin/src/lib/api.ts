@@ -172,7 +172,60 @@ export const adminApi = {
   capabilities: () => api<{ items: CapabilityRow[] }>("/settings/capabilities"),
   setCapability: (capability: string, off: boolean, reason: string | null) =>
     api<{ items: CapabilityRow[] }>(`/settings/capabilities/${capability}`, { method: "PUT", body: { off, reason } }),
+  // ── moderation (PAD-631, admin.moderation rules 2–6) ──
+  reports: (status: ReportStatus, page = 1) =>
+    api<{ items: ReportRow[]; total: number; hasMore: boolean; page: number }>(
+      `/reports?${new URLSearchParams({ status, page: String(page) }).toString()}`,
+    ),
+  reportsSummary: () => api<{ open: number }>("/reports/summary"),
+  report: (id: number) => api<ReportDetail>(`/reports/${id}`),
+  actOnReport: (id: number, action: ReportAction, note?: string) =>
+    api<ReportRow>(`/reports/${id}/${action}`, { method: "POST", body: note ? { note } : {} }),
+  deletionAudits: (entity: string, page = 1) =>
+    api<{ items: DeletionAuditRow[]; total: number; hasMore: boolean; page: number }>(
+      `/deletion-audits?${new URLSearchParams({ entity, page: String(page) }).toString()}`,
+    ),
 };
+
+export type ReportStatus = "open" | "closed";
+export type ReportAction = "dismiss" | "delete-message" | "disable-author";
+export type ReportOutcome = "dismissed" | "message_deleted" | "author_disabled";
+
+export interface ReportPerson {
+  id: number;
+  name: string;
+  username: string;
+}
+
+export interface ReportRow {
+  id: number;
+  createdAt: string;
+  status: ReportStatus;
+  outcome: ReportOutcome | null;
+  reason: string | null;
+  closedAt: string | null;
+  closedBy: string | null;
+  reporter: ReportPerson;
+  message: { id: number; text: string; deleted: boolean };
+  author: ReportPerson | null;
+  conversationId: number;
+}
+
+export interface ReportDetail extends ReportRow {
+  context: { id: number; text: string; deleted: boolean; senderId: number | null; sentAt: string; reported: boolean }[];
+  participants: ReportPerson[];
+}
+
+export interface DeletionAuditRow {
+  id: number;
+  createdAt: string;
+  actor: ReportPerson | null;
+  entity: string;
+  entityId: number | string | null;
+  action: string;
+  label: string | null;
+  details: Record<string, unknown> | null;
+}
 
 export interface PendingCoach {
   coachId: number;

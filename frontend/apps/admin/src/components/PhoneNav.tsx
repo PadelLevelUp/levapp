@@ -15,7 +15,7 @@ interface Props {
 }
 
 // admin.phone-console rule 2: below `md` the sidebar is replaced by a top bar and a drawer
-// carrying the same nine items, the session block, the language picker and sign-out.
+// carrying the same eleven items, the session block, the language picker and sign-out.
 export function PhoneNav({ items, session, onSignOut, title, pendingCount }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
