@@ -24,7 +24,6 @@ class ClassRequest(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Class Requests"
     model_name = "ClassRequest"
 
     id = Column(Integer, primary_key=True)
@@ -76,19 +75,6 @@ class ClassRequest(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "status", "label": "Status"}
-        columns = [
-            {"field": "player", "label": "Player"},
-            {"field": "coach", "label": "Coach"},
-            {"field": "start_datetime", "label": "Start"},
-            {"field": "status", "label": "Status"},
-        ]
-        return searchable, columns
-
-
 # ── classes.class-requests rule 18 (PAD-360, B-135): a hold never outlives its request ──
 #
 # The status transitions release the hold in class_request_service. These hooks
@@ -185,6 +171,7 @@ def _release_hold_when_closed_by_an_edit(mapper, connection, target):
 
 
 def _release_holds_before_cascade(column):
+
     def _listener(mapper, connection, target):
         # ON DELETE CASCADE takes the requests away inside the database, where
         # no hook on ClassRequest runs — so the holds go first.

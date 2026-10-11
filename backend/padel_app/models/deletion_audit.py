@@ -24,7 +24,6 @@ class DeletionAudit(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Deletion Audit"
     model_name = "DeletionAudit"
 
     id = Column(Integer, primary_key=True)
@@ -45,18 +44,6 @@ class DeletionAudit(db.Model, model.Model):
     @property
     def display_name(self):
         return self.name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "label", "label": "Label"}
-        columns = [
-            {"field": "entity", "label": "Entity"},
-            {"field": "entity_id", "label": "Id"},
-            {"field": "action", "label": "Action"},
-            {"field": "label", "label": "Label"},
-            {"field": "created_at", "label": "When"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):
