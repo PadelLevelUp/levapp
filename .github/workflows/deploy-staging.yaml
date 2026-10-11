@@ -213,6 +213,7 @@ jobs:
             -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
             -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
             -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+            -e STAGING_TEST_PASSWORD="${{ secrets.STAGING_TEST_PASSWORD }}" \
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging

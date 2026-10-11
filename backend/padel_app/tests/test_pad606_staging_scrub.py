@@ -216,3 +216,12 @@ def test_on_postgres_nothing_personal_survives(app):
         assert ins("SELECT count(*) FROM push_subscriptions") == 0
         assert ins("SELECT count(*) FROM device_tokens") == 0
         assert {t: ins(f"SELECT count(*) FROM {t}") for t in counts_before} == counts_before
+
+
+def test_only_the_staging_deploy_carries_the_shared_password():
+    """Rule 10: the secret reaches the staging container (which hashes it) and nothing else."""
+    workflows = SCRIPTS.parents[1] / ".github" / "workflows"
+    staging = (workflows / "deploy-staging.yaml").read_text()
+    assert '-e STAGING_TEST_PASSWORD="${{ secrets.STAGING_TEST_PASSWORD }}"' in staging
+    assert 'source: "backend/scripts/sync-staging-db.sh,backend/scripts/staging-scrub.sql"' in staging
+    assert "STAGING_TEST_PASSWORD" not in (workflows / "deploy-prod.yaml").read_text()
