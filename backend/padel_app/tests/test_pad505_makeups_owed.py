@@ -6,9 +6,10 @@ student there carried "faltas justificadas 33%": the `justified_misses` tiebreak
 (justified absences / every class). The rule that put them in the round used a third measure:
 justified absences > accepted invitations, all time (attendance.stats rule 3, an open question).
 
-Owner default (PAD-505, 2026-10-11): classes owed = justified absences - make-ups taken, never
-below 0, where a make-up taken is a class of this coach the student ATTENDED as a fill (presence
-`status == "present"`, `enrolment_source == "fill"`). One number drives all three:
+Owner decision (PAD-505, 2026-10-11): classes owed = justified absences - make-ups taken, never
+below 0, over this coach. A make-up taken is ANY ACCEPTED INVITATION of this coach (a
+`NotificationEvent` with `status == "confirmed"`), all time, even when the student then missed
+the class. One number drives all three:
   - the `has_makeups is_true` rule (owed > 0);
   - the `justified_misses` tiebreaker (more owed ranks first);
   - the simulation's priority entry (`{"id": "justified_misses", "owed": N, "rate": r}`; `rate`
@@ -65,31 +66,36 @@ def _owed(app, build):
 
 # ── the count ────────────────────────────────────────────────────────────────
 
-def test_owed_is_justified_absences_minus_classes_attended_as_a_fill(app):
+def _accepted(ids, s, days_ago, *, attended=True):
+    """An accepted invitation to a class of this coach the student joined as a fill."""
+    status, justification = ("present", None) if attended else ("absent", "unjustified")
+    inst = _past_class(ids, s, status=status, justification=justification, source="fill", days_ago=days_ago)
+    _accepted_invitation(ids, s, inst)
+
+
+def test_owed_is_justified_absences_minus_accepted_invitations(app):
     def record(ids, s):
         for d in (40, 39, 38):
             _justified(ids, s, d)
-        _past_class(ids, s, status="present", source="fill", days_ago=20)
+        _accepted(ids, s, 20)
 
     assert _owed(app, record) == (2, True)
 
 
-def test_an_attended_fill_with_no_invitation_event_is_a_makeup_taken(app):
-    """A fill reached through an accepted join request leaves no NotificationEvent; it is still
-    a class made up. Today: 1 justified > 0 events, so the student stays 'owed'."""
+def test_an_accepted_invitation_the_student_then_missed_still_counts_as_a_makeup_taken(app):
+    """Owner, PAD-505 Q2: the acceptance is the make-up, whatever happened at the class."""
     def record(ids, s):
         _justified(ids, s, 40)
-        _past_class(ids, s, status="present", source="fill", days_ago=20)
+        _accepted(ids, s, 20, attended=False)
 
     assert _owed(app, record) == (0, False)
 
 
-def test_an_accepted_invitation_the_student_then_missed_is_not_a_makeup_taken(app):
-    """Today the acceptance is the debit, so 1 justified - 1 accepted = nothing owed."""
+def test_a_class_attended_without_an_accepted_invitation_is_not_a_makeup_taken(app):
+    """A fill reached through the student's own join request leaves no invitation."""
     def record(ids, s):
         _justified(ids, s, 40)
-        missed = _past_class(ids, s, status="absent", justification="unjustified", source="fill", days_ago=20)
-        _accepted_invitation(ids, s, missed)
+        _past_class(ids, s, status="present", source="fill", days_ago=20)
 
     assert _owed(app, record) == (1, True)
 
@@ -98,17 +104,9 @@ def test_owed_never_goes_below_zero(app):
     def record(ids, s):
         _justified(ids, s, 40)
         for d in (20, 19, 18):
-            _past_class(ids, s, status="present", source="fill", days_ago=d)
+            _accepted(ids, s, d)
 
     assert _owed(app, record) == (0, False)
-
-
-def test_control_a_roster_class_attended_is_not_a_makeup(app):
-    def record(ids, s):
-        _justified(ids, s, 40)
-        _past_class(ids, s, status="present", source="roster", days_ago=20)
-
-    assert _owed(app, record) == (1, True)
 
 
 def test_a_justification_left_on_a_present_row_is_not_owed(app):
@@ -119,15 +117,14 @@ def test_a_justification_left_on_a_present_row_is_not_owed(app):
     assert _owed(app, record) == (0, False)
 
 
-def test_a_fill_attended_in_another_coachs_class_does_not_pay_this_coachs_debt(app):
-    """PAD-382 scoping: both sides of the count are this coach's occurrences."""
+def test_another_coachs_invitation_does_not_pay_this_coachs_debt(app):
+    """PAD-382 scoping: both sides of the count belong to this coach."""
     from padel_app.tests.test_pad382_attendance_readers_are_coach_scoped import _second_coach_with_rui
 
     def record(ids, s):
         _justified(ids, s, 40)
         other_coach, other_lesson = _second_coach_with_rui(ids, s)
-        _past_class({"coach_id": other_coach, "lesson_id": other_lesson}, s,
-                    status="present", source="fill", days_ago=20)
+        _accepted({"coach_id": other_coach, "lesson_id": other_lesson}, s, 20)
 
     assert _owed(app, record) == (1, True)
 

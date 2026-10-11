@@ -801,33 +801,37 @@ def _attendance_stats_for(player_ids, coach_id: int) -> dict[int, tuple[float, f
 
 
 def makeups_owed_for(player_ids, coach_id: int) -> dict[int, int]:
-    """``{player_id: classes owed}`` over THIS coach's occurrences, in one query (PAD-505,
+    """``{player_id: classes owed}`` for this coach, in two queries (PAD-505,
     attendance.stats rule 3): justified absences minus make-ups taken, never below 0.
 
-    A justified absence is ``status == "absent"`` AND ``justification == "justified"`` (PAD-381).
-    A make-up taken is a class the student ATTENDED as a fill: ``status == "present"`` AND
-    ``enrolment_source == "fill"`` — every way into another class's spot (an invitation "yes",
-    a waiting-list "yes", an accepted join request) enrols through ``_add_player_to_instance``.
-    An accepted invitation the student then missed is not a make-up. Rows from before PAD-259
-    carry ``enrolment_source == "unknown"`` and are not counted as make-ups."""
+    A justified absence is ``status == "absent"`` AND ``justification == "justified"`` on this
+    coach's occurrences (PAD-381, PAD-382). A make-up taken is an ACCEPTED INVITATION: a
+    ``NotificationEvent`` of this player and coach with ``status == "confirmed"``, all time, even
+    when the student then missed that class (owner decision, PAD-505 Q2)."""
+    from sqlalchemy import func
+
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
     ids = [int(pid) for pid in player_ids]
     balance: dict[int, int] = {pid: 0 for pid in ids}
-    instance_ids = _coach_instances(coach_id) if ids else set()
-    if not ids or not instance_ids:
+    if not ids:
         return balance
-    rows = (
-        db.session.query(Presence.player_id, Presence.status, Presence.justification,
-                         Presence.enrolment_source)
-        .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids))
-        .all()
-    )
-    for pid, status, justification, source in rows:
-        if status == "absent" and justification == "justified":
-            balance[pid] += 1
-        elif status == "present" and source == "fill":
-            balance[pid] -= 1
+    instance_ids = _coach_instances(coach_id)
+    if instance_ids:
+        for pid, n in (
+            db.session.query(Presence.player_id, func.count(Presence.id))
+            .filter(Presence.player_id.in_(ids), Presence.lesson_instance_id.in_(instance_ids),
+                    Presence.status == "absent", Presence.justification == "justified")
+            .group_by(Presence.player_id)
+        ):
+            balance[pid] += n
+    for pid, n in (
+        db.session.query(NotificationEvent.player_id, func.count(NotificationEvent.id))
+        .filter(NotificationEvent.player_id.in_(ids), NotificationEvent.coach_id == coach_id,
+                NotificationEvent.status == "confirmed")
+        .group_by(NotificationEvent.player_id)
+    ):
+        balance[pid] -= n
     return {pid: max(n, 0) for pid, n in balance.items()}
 
 
