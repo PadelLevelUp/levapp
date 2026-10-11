@@ -167,33 +167,43 @@ def test_on_postgres_nothing_personal_survives(app):
 
     real_name = re.compile(r"^(Coach|Player) \d+$")
     with app.app_context():
+        from padel_app.models import (
+            Association_CoachPlayer, Conversation, DeviceToken, Message, Player, PushSubscription, User,
+        )
+        from padel_app.models.coaches import Coach
+
+        # Seeded through the ORM so every column default is the app's own (raw INSERTs missed the
+        # NOT NULL columns without a server default, e.g. users.is_admin).
+        ana = User(name="Ana Ferreira", username="ana.ferreira@gmail.com", email="ana.ferreira@gmail.com",
+                   phone="+351912345678", birth_date=date(1988, 6, 14), password="pbkdf2:sha256:1$a$b")
+        joao = User(name="João Martins", username="joaom", email="joao.martins@sapo.pt",
+                    phone="+351934567890", birth_date=date(2009, 3, 2), password="pbkdf2:sha256:1$c$d")
+        rita = User(name="Rita Sousa", username="pending-0123456789abcdef")
+        db.session.add_all([ana, joao, rita])
+        db.session.flush()
+        coach = Coach(user_id=ana.id)
+        player = Player(user_id=joao.id)
+        pending_player = Player(user_id=rita.id)
+        db.session.add_all([coach, player, pending_player])
+        db.session.flush()
+        db.session.add(Association_CoachPlayer(coach_id=coach.id, player_id=player.id,
+                                               notes="Joelho direito lesionado"))
+        conv = Conversation(participant_key=Conversation.build_participant_key([ana.id, joao.id]))
+        db.session.add(conv)
+        db.session.flush()
+        db.session.add(Message(conversation_id=conv.id, sender_id=ana.id,
+                               text="Olá João, amanhã às 9h no clube",
+                               msg_metadata={"playerName": "João Martins", "lessonId": 4}))
+        db.session.add(PushSubscription(user_id=joao.id, subscription_json='{"endpoint": "https://fcm.googleapis.com/x"}'))
+        db.session.add(DeviceToken(user_id=joao.id, token="ExponentPushToken[abc]", platform="ios"))
+        db.session.commit()
+        u_coach, u_student, u_pending = ana.id, joao.id, rita.id
+
         conn = db.session.connection()
 
         def ins(sql, **kw):
             return conn.execute(text(sql), kw).scalar()
 
-        u_coach = ins("INSERT INTO users (name, username, email, phone, birth_date, password, status, created_at, updated_at) "
-                      "VALUES ('Ana Ferreira', 'ana.ferreira@gmail.com', 'ana.ferreira@gmail.com', '+351912345678', "
-                      "'1988-06-14', 'pbkdf2:sha256:1$a$b', 'active', now(), now()) RETURNING id")
-        u_student = ins("INSERT INTO users (name, username, email, phone, birth_date, password, status, created_at, updated_at) "
-                        "VALUES ('João Martins', 'joaom', 'joao.martins@sapo.pt', '+351934567890', '2009-03-02', "
-                        "'pbkdf2:sha256:1$c$d', 'active', now(), now()) RETURNING id")
-        u_pending = ins("INSERT INTO users (name, username, status, created_at, updated_at) "
-                        "VALUES ('Rita Sousa', 'pending-0123456789abcdef', 'pending', now(), now()) RETURNING id")
-        coach = ins("INSERT INTO coaches (user_id, created_at, updated_at) VALUES (:u, now(), now()) RETURNING id", u=u_coach)
-        player = ins("INSERT INTO players (user_id, created_at, updated_at) VALUES (:u, now(), now()) RETURNING id", u=u_student)
-        ins("INSERT INTO players (user_id, created_at, updated_at) VALUES (:u, now(), now()) RETURNING id", u=u_pending)
-        ins("INSERT INTO coach_in_player (coach_id, player_id, notes, created_at, updated_at) "
-            "VALUES (:c, :p, 'Joelho direito lesionado', now(), now()) RETURNING id", c=coach, p=player)
-        conv = ins("INSERT INTO conversations (participant_key, created_at, updated_at) VALUES (:k, now(), now()) RETURNING id",
-                   k=f"{u_coach}:{u_student}")
-        ins("INSERT INTO messages (conversation_id, sender_id, text, msg_metadata, created_at, updated_at) "
-            "VALUES (:c, :s, 'Olá João, amanhã às 9h no clube', '{\"playerName\": \"João Martins\", \"lessonId\": 4}', now(), now()) RETURNING id",
-            c=conv, s=u_coach)
-        ins("INSERT INTO push_subscriptions (user_id, subscription_json, created_at, updated_at) "
-            "VALUES (:u, '{\"endpoint\": \"https://fcm.googleapis.com/x\"}', now(), now()) RETURNING id", u=u_student)
-        ins("INSERT INTO device_tokens (user_id, token, platform, created_at, updated_at) "
-            "VALUES (:u, 'ExponentPushToken[abc]', 'ios', now(), now()) RETURNING id", u=u_student)
         counts_before = {t: ins(f"SELECT count(*) FROM {t}") for t in ("users", "messages", "players", "coach_in_player")}
 
         sql = SCRUB_SQL.read_text().replace(":'pwhash'", "'pbkdf2:sha256:600000$shared$hash'")
