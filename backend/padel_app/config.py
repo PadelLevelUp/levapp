@@ -190,11 +190,6 @@ class Config:
     JWT_TOKEN_LOCATION = ["headers"]
     JWT_QUERY_STRING_NAME = "token"
 
-    # settings.admin-editor rule 1 (PAD-267): whether the generic editor exists.
-    # Subclasses set the default; EDITOR_ENABLED in the environment overrides it
-    # (create_app reads it at startup).
-    EDITOR_ENABLED_DEFAULT = False
-
     # auth.token-refresh rule 6: a session ends this many days after its login,
     # however often its token is silently refreshed.
     JWT_ABSOLUTE_SESSION_DAYS = int(os.getenv("JWT_ABSOLUTE_SESSION_DAYS", "90"))
@@ -330,7 +325,6 @@ class Config:
 
 class DevConfig(Config):
     DEBUG = True
-    EDITOR_ENABLED_DEFAULT = True
     DEFAULT_POSTGRES_HOST = LOCAL_POSTGRES_HOST
 
 
@@ -343,8 +337,6 @@ class DevConfigProdDB(Config):
 
 class ProdConfig(Config):
     DEBUG = False
-    # Off unless the deploy sets EDITOR_ENABLED=1 (staging does; production must not).
-    EDITOR_ENABLED_DEFAULT = False
     DEFAULT_POSTGRES_HOST = "10.132.0.2"
 
 
@@ -353,22 +345,6 @@ Config.refresh_database_settings()
 
 
 DEV_SECRET_FALLBACKS = frozenset({"dev-secret-key", "dev-jwt-secret", ""})
-
-_TRUTHY = frozenset({"1", "true", "yes", "on"})
-
-
-def editor_enabled_from_env(environ=None, *, default):
-    """settings.admin-editor rule 1: EDITOR_ENABLED from the environment, or ``default``.
-
-    Unset or blank keeps the config class's default (on in development, off in
-    production); any other value is on only when it reads as true.
-    """
-    environ = os.environ if environ is None else environ
-    raw = (environ.get("EDITOR_ENABLED") or "").strip()
-    if not raw:
-        return default
-    return raw.lower() in _TRUTHY
-
 
 def assert_production_secrets(environ=None):
     """Refuse to run production with unset or dev-fallback signing secrets.

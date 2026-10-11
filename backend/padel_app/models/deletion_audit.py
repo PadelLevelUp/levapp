@@ -10,8 +10,10 @@ class DeletionAudit(db.Model, model.Model):
 
     Written by the service BEFORE it deletes, in the same transaction, so the
     record and the delete commit or fail together. `details` holds what the
-    delete took with it (counts), measured just before it ran. Superadmins read
-    it in the generic editor.
+    delete took with it (counts), measured just before it ran. Nothing reads it
+    since the generic editor was deleted (PAD-550); the staff console review is
+    the pending follow-up "Admin console: review message reports and deletion
+    audits".
     """
 
     __tablename__ = "deletion_audit"
