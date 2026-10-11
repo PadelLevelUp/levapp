@@ -18,8 +18,8 @@
 --   reminder_attempts, notification_events
 --   vacancies, waiting_list_entries, standing_waiting_list_entries, replacement_approval_prompts,
 --   class_requests (+ the calendar hold blocks they own), class_join_requests
---   presences OF OCCURRENCES THAT HAVE STARTED (attendance history). A future occurrence's
---     presences ARE its enrolment (PAD-259) and stay.
+--   presences OF OCCURRENCES THAT HAVE ENDED (attendance history). A future or running
+--     occurrence's presences ARE its enrolment (PAD-259) and stay.
 --   evaluation_records / evaluation_entries / evaluation_shares, player_level_history
 --   apscheduler follow-up jobs (`reminder_*_retry_*`, `ask_*`): they follow up reminder_attempts
 --     that no longer exist, and would send reminder 1 again.
@@ -38,6 +38,8 @@
 \endif
 
 BEGIN;
+-- A live transaction holding one of these tables makes the run give up, not wait forever.
+SET LOCAL lock_timeout = '10s';
 
 -- Nothing writes to these tables while the transaction runs (readers are not blocked).
 LOCK TABLE messages, message_reactions, message_reports, conversation_participants, conversations,
@@ -73,18 +75,24 @@ CREATE TEMP TABLE spare_coach_player ON COMMIT DROP AS
   WHERE coach_id IN (SELECT id FROM spare_coach) OR player_id IN (SELECT id FROM spare_player);
 CREATE TEMP TABLE spare_conversation ON COMMIT DROP AS
   SELECT DISTINCT conversation_id AS id FROM conversation_participants WHERE user_id IN (SELECT id FROM spare_user);
--- Class times are the club's wall clock (R-023): "started" is compared on Lisbon time.
-CREATE TEMP TABLE started_instance ON COMMIT DROP AS
-  SELECT id FROM lesson_instances WHERE start_datetime < (now() AT TIME ZONE 'Europe/Lisbon');
+-- Class times are the club's wall clock (R-023): "over" is compared on Lisbon time. A class that is
+-- running during the reset keeps its roster (the coach may be taking attendance).
+CREATE TEMP TABLE ended_instance ON COMMIT DROP AS
+  SELECT id FROM lesson_instances WHERE end_datetime < (now() AT TIME ZONE 'Europe/Lisbon');
 
 -- ── what must not move ─────────────────────────────────────────────────────────
-CREATE TEMP TABLE guard_before ON COMMIT DROP AS SELECT
-  (SELECT md5(string_agg(coach_id || ':' || player_id || ':' || coalesce(level_id::text, '-'), ',' ORDER BY id)) FROM coach_in_player) AS levels,
-  (SELECT count(*) FROM presences p JOIN lesson_instances li ON li.id = p.lesson_instance_id
-     WHERE li.id NOT IN (SELECT id FROM started_instance)) AS future_enrolments,
+-- One definition, read before the deletes and again before the commit.
+CREATE TEMP VIEW guard_now AS SELECT
+  (SELECT md5(coalesce(string_agg(coach_id || ':' || player_id || ':' || coalesce(level_id::text, '-'), ',' ORDER BY id), ''))
+     FROM coach_in_player) AS levels,
+  (SELECT count(*) FROM presences WHERE lesson_instance_id NOT IN (SELECT id FROM ended_instance)) AS future_enrolments,
   (SELECT count(*) FROM player_in_lesson) AS series_rosters,
   (SELECT count(*) FROM users) AS users,
-  (SELECT count(*) FROM lesson_instances) AS instances;
+  (SELECT count(*) FROM lesson_instances) AS instances,
+  (SELECT count(*) FROM messages m WHERE NOT EXISTS (SELECT 1 FROM conversations c WHERE c.id = m.conversation_id)) AS orphan_messages,
+  (SELECT count(*) FROM conversations c WHERE c.last_message_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.id = c.last_message_id)) AS dangling_last_message;
+CREATE TEMP TABLE guard_before ON COMMIT DROP AS SELECT * FROM guard_now;
 
 CREATE TEMP TABLE counts (tbl text PRIMARY KEY, before bigint, after bigint) ON COMMIT DROP;
 INSERT INTO counts (tbl, before)
@@ -113,9 +121,12 @@ WHERE coach_id NOT IN (SELECT id FROM spare_coach)
 DELETE FROM standing_waiting_list_entries
 WHERE coach_id NOT IN (SELECT id FROM spare_coach) AND player_id NOT IN (SELECT id FROM spare_player);
 
--- A vacancy's own events and prompts cascade; the spared ones share its coach or class.
-DELETE FROM vacancies
-WHERE coach_id NOT IN (SELECT id FROM spare_coach) AND lesson_instance_id NOT IN (SELECT id FROM spare_instance);
+-- A vacancy's events and prompts CASCADE with it. A demo student who also trains with a real coach
+-- keeps their event on that coach's vacancy, so a vacancy something spared still points at stays.
+DELETE FROM vacancies v
+WHERE v.coach_id NOT IN (SELECT id FROM spare_coach) AND v.lesson_instance_id NOT IN (SELECT id FROM spare_instance)
+  AND NOT EXISTS (SELECT 1 FROM notification_events ne WHERE ne.vacancy_id = v.id)
+  AND NOT EXISTS (SELECT 1 FROM replacement_approval_prompts rp WHERE rp.vacancy_id = v.id);
 
 DELETE FROM class_join_requests
 WHERE coach_id NOT IN (SELECT id FROM spare_coach)
@@ -142,7 +153,7 @@ DELETE FROM player_level_history
 WHERE coach_id NOT IN (SELECT id FROM spare_coach) AND player_id NOT IN (SELECT id FROM spare_player);
 
 DELETE FROM presences
-WHERE lesson_instance_id IN (SELECT id FROM started_instance)
+WHERE lesson_instance_id IN (SELECT id FROM ended_instance)
   AND lesson_instance_id NOT IN (SELECT id FROM spare_instance) AND player_id NOT IN (SELECT id FROM spare_player);
 
 -- ── 1. messages and conversations ──────────────────────────────────────────────
@@ -159,11 +170,21 @@ DELETE FROM conversation_participants WHERE conversation_id NOT IN (SELECT id FR
 DELETE FROM conversations WHERE id NOT IN (SELECT id FROM spare_conversation);
 
 -- ── scheduler follow-ups of the deleted reminder attempts ──────────────────────
+-- Job families (backend/padel_app/scheduler.py):
+--   reminder_<instance>, reminder_lesson_<lesson>_<date>, invite_start_<instance>,
+--   invite_start_lesson_<lesson>_<date>, pastdue_<instance>, process_batches,
+--   extend_schedule_window, prune_delivery_incidents          -> KEPT (lessons/occurrences stay)
+--   reminder_<instance>_retry_<ts>, reminder_lesson_<lesson>_<date>_retry_<ts>,
+--   ask_<instance>_<player>_<ts>                               -> DELETED: they follow up attempts that
+--     no longer exist and would send reminder 1 again. The demo coach's stay, and so does a
+--     spared student's own ask pass.
 DELETE FROM apscheduler_jobs j
-WHERE (j.id ~ '^reminder_[0-9]+_retry_' OR j.id ~ '^reminder_lesson_[0-9]+_.*_retry_' OR j.id ~ '^ask_[0-9]+_')
+WHERE (j.id ~ '^reminder_[0-9]+_retry_[0-9]+$' OR j.id ~ '^reminder_lesson_[0-9]+_[0-9-]+_retry_[0-9]+$'
+       OR j.id ~ '^ask_[0-9]+_[0-9]+_[0-9]+$')
   AND coalesce(substring(j.id FROM '^reminder_([0-9]+)_retry_'), substring(j.id FROM '^ask_([0-9]+)_'), '-1')::int
       NOT IN (SELECT id FROM spare_instance)
-  AND coalesce(substring(j.id FROM '^reminder_lesson_([0-9]+)_')::int, -1) NOT IN (SELECT id FROM spare_lesson);
+  AND coalesce(substring(j.id FROM '^reminder_lesson_([0-9]+)_')::int, -1) NOT IN (SELECT id FROM spare_lesson)
+  AND coalesce(substring(j.id FROM '^ask_[0-9]+_([0-9]+)_')::int, -1) NOT IN (SELECT id FROM spare_player);
 
 -- ── report ─────────────────────────────────────────────────────────────────────
 UPDATE counts SET after =
@@ -174,18 +195,14 @@ UPDATE counts SET after =
 SELECT tbl AS "table", before, after, before - after AS deleted FROM counts ORDER BY tbl;
 
 \echo '== guards: must all be true =='
-SELECT
-  (SELECT md5(string_agg(coach_id || ':' || player_id || ':' || coalesce(level_id::text, '-'), ',' ORDER BY id)) FROM coach_in_player)
-    = g.levels AS current_levels_unchanged,
-  (SELECT count(*) FROM presences p JOIN lesson_instances li ON li.id = p.lesson_instance_id
-     WHERE li.id NOT IN (SELECT id FROM started_instance)) = g.future_enrolments AS future_enrolments_unchanged,
-  (SELECT count(*) FROM player_in_lesson) = g.series_rosters AS series_rosters_unchanged,
-  (SELECT count(*) FROM users) = g.users AS users_unchanged,
-  (SELECT count(*) FROM lesson_instances) = g.instances AS instances_unchanged,
-  NOT EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id NOT IN (SELECT id FROM conversations)) AS no_orphan_messages,
-  NOT EXISTS (SELECT 1 FROM conversations c WHERE c.last_message_id IS NOT NULL
-              AND c.last_message_id NOT IN (SELECT id FROM messages)) AS no_dangling_last_message
-FROM guard_before g;
+SELECT n.levels = b.levels AS current_levels_unchanged,
+       n.future_enrolments = b.future_enrolments AS future_enrolments_unchanged,
+       n.series_rosters = b.series_rosters AS series_rosters_unchanged,
+       n.users = b.users AS users_unchanged,
+       n.instances = b.instances AS instances_unchanged,
+       n.orphan_messages = 0 AS no_orphan_messages,
+       n.dangling_last_message = 0 AS no_dangling_last_message
+FROM guard_now n, guard_before b;
 
 \echo '== spared (App Store demo coach and its students) =='
 SELECT (SELECT count(*) FROM spare_player) AS students,
@@ -193,14 +210,21 @@ SELECT (SELECT count(*) FROM spare_player) AS students,
        (SELECT count(*) FROM messages) AS messages_kept,
        (SELECT count(*) FROM presences WHERE lesson_instance_id IN (SELECT id FROM spare_instance)) AS presences_kept;
 
+-- Every guard is enforced: one that is not true aborts the transaction, whatever `apply` says.
 DO $$
+DECLARE n guard_now%ROWTYPE; b guard_now%ROWTYPE;
 BEGIN
-  IF EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id NOT IN (SELECT id FROM conversations))
-     OR (SELECT md5(string_agg(coach_id || ':' || player_id || ':' || coalesce(level_id::text, '-'), ',' ORDER BY id)) FROM coach_in_player)
-        IS DISTINCT FROM (SELECT levels FROM guard_before) THEN
+  SELECT * INTO n FROM guard_now;
+  SELECT * INTO b FROM guard_before;
+  IF n.levels IS DISTINCT FROM b.levels OR n.future_enrolments <> b.future_enrolments
+     OR n.series_rosters <> b.series_rosters OR n.users <> b.users OR n.instances <> b.instances
+     OR n.orphan_messages <> 0 OR n.dangling_last_message <> 0 THEN
     RAISE EXCEPTION 'a guard failed: rolling back';
   END IF;
 END $$;
+
+-- The view reads temp tables that drop at COMMIT; it goes first.
+DROP VIEW guard_now;
 
 \if :apply
   COMMIT;

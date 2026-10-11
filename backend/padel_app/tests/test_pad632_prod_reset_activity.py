@@ -37,14 +37,20 @@ def _no_scheduler_table_left_behind(app):
     yield
     with app.app_context():
         db.session.execute(db.text("DROP TABLE IF EXISTS apscheduler_jobs"))
+        db.session.execute(db.text("DROP TRIGGER IF EXISTS pad632_tamper ON presences"))
+        db.session.execute(db.text("DROP FUNCTION IF EXISTS pad632_tamper()"))
         db.session.commit()
 
 
-def _instance(ids, coach_id, *, days):
+def _instance(ids, coach_id, *, days=0, hours=0, wall=False):
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.lesson_instances import LessonInstance
 
-    start = utcnow_naive() + timedelta(days=days)
+    # Class times are the club's wall clock (R-023); `wall` places the class on it exactly.
+    from padel_app.utils.dates import utc_to_wall_naive
+
+    now = utc_to_wall_naive(utcnow_naive()) if wall else utcnow_naive()
+    start = now + timedelta(days=days, hours=hours)
     inst = LessonInstance(lesson_id=ids["lesson_id"], start_datetime=start,
                           end_datetime=start + timedelta(hours=1), max_players=4, status="scheduled")
     db.session.add(inst)
@@ -108,14 +114,20 @@ def _world(app, *, spare_username="applereview.coach"):
             "CREATE TABLE IF NOT EXISTS apscheduler_jobs (id varchar(191) PRIMARY KEY, "
             "next_run_time double precision, job_state bytea NOT NULL)"))
         db.session.execute(db.text("DELETE FROM apscheduler_jobs"))
-        for job in (f"reminder_{ids['instance_id']}_retry_1700000000",   # a real follow-up: goes
-                    f"ask_{ids['instance_id']}_{student}_1700000000",     # a real ask pass: goes
-                    f"reminder_{ids['instance_id']}",                      # the base reminder: stays
-                    f"invite_start_lesson_{ids['lesson_id']}_2026-12-01",  # stays
-                    f"reminder_{demo_future}_retry_1700000000"):           # the demo coach's: stays
+        lesson, inst, date = ids["lesson_id"], ids["instance_id"], "2026-12-01"
+        gone = [f"reminder_{inst}_retry_1700000000",                     # follow-ups of deleted attempts
+                f"reminder_lesson_{lesson}_{date}_retry_1700000000",
+                f"ask_{inst}_{student}_1700000000"]
+        kept_jobs = [f"reminder_{inst}", f"reminder_lesson_{lesson}_{date}",  # fire as before
+                     f"invite_start_{inst}", f"invite_start_lesson_{lesson}_{date}", f"pastdue_{inst}",
+                     "process_batches", "extend_schedule_window", "prune_delivery_incidents",
+                     f"reminder_{demo_future}_retry_1700000000",            # the demo coach's
+                     f"ask_{inst}_{demo_student}_1700000000"]               # a spared student's own pass
+        for job in gone + kept_jobs:
             db.session.execute(db.text("INSERT INTO apscheduler_jobs VALUES (:id, 1, ''::bytea)"), {"id": job})
         db.session.commit()
         world = {"ids": ids, "demo_coach": demo.id, "student": student, "real": real, "kept": kept,
+                 "demo_student": demo_student, "gone_jobs": gone, "kept_jobs": kept_jobs,
                  "uri": app.config["SQLALCHEMY_DATABASE_URI"]}
         db.session.remove()
     return world
@@ -194,17 +206,76 @@ def test_current_levels_do_not_move(app):
 
 
 def test_only_the_follow_ups_of_deleted_reminders_leave_the_scheduler(app):
+    """Every job family the scheduler writes: the follow-ups of deleted attempts go; the rest stays."""
     world = _world(app)
-    ids = world["ids"]
 
     assert _run(world, apply=True).returncode == 0
     with app.app_context():
         jobs = {r[0] for r in db.session.execute(db.text("SELECT id FROM apscheduler_jobs"))}
-    assert f"reminder_{ids['instance_id']}" in jobs
-    assert f"invite_start_lesson_{ids['lesson_id']}_2026-12-01" in jobs
-    assert not any(j.startswith(f"reminder_{ids['instance_id']}_retry_") for j in jobs)
-    assert not any(j.startswith(f"ask_{ids['instance_id']}_") for j in jobs)
-    assert len(jobs) == 3  # the base reminder, the invite start, the demo coach's follow-up
+    assert jobs == set(world["kept_jobs"])
+
+
+def test_a_class_running_during_the_reset_keeps_its_roster(app):
+    world = _world(app)
+    with app.app_context():
+        from padel_app.models.presences import Presence
+
+        running = _instance(world["ids"], world["ids"]["coach_id"], hours=-0.5, wall=True)  # started 30 min ago, ends in 30
+        row = Presence(lesson_instance_id=running, player_id=world["student"])
+        db.session.add(row)
+        db.session.commit()
+        row_id = row.id
+        db.session.remove()
+
+    assert _run(world, apply=True).returncode == 0
+    assert _count(app, "presences", "id = :i", i=row_id) == 1
+
+
+def test_a_demo_student_who_also_trains_with_a_real_coach_keeps_their_invitation(app):
+    """The real coach's vacancy would CASCADE the spared event away."""
+    world = _world(app)
+    ids = world["ids"]
+    with app.app_context():
+        from padel_app.models import NotificationEvent
+        from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+        from padel_app.models.vacancy import Vacancy
+
+        db.session.add(Association_CoachPlayer(coach_id=ids["coach_id"], player_id=world["demo_student"]))
+        vacancy = Vacancy(lesson_instance_id=ids["instance_id"], coach_id=ids["coach_id"], status="open",
+                          level_id=ids["level_ids"]["5"])
+        db.session.add(vacancy)
+        db.session.flush()
+        event = NotificationEvent(coach_id=ids["coach_id"], lesson_instance_id=ids["instance_id"],
+                                  player_id=world["demo_student"], type="auto", status="sent", vacancy_id=vacancy.id)
+        db.session.add(event)
+        db.session.commit()
+        event_id, vacancy_id = event.id, vacancy.id
+        db.session.remove()
+
+    assert _run(world, apply=True).returncode == 0
+    assert _count(app, "notification_events", "id = :i", i=event_id) == 1
+    assert _count(app, "vacancies", "id = :i", i=vacancy_id) == 1
+
+
+def test_a_guard_that_fails_rolls_everything_back(app):
+    """A write the script did not intend (here a trigger that clears a student's level when a presence
+    goes) trips the guard: apply exits with an error and nothing is deleted."""
+    world = _world(app)
+    with app.app_context():
+        db.session.execute(db.text(
+            "CREATE FUNCTION pad632_tamper() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+            "UPDATE coach_in_player SET level_id = NULL WHERE player_id = OLD.player_id; RETURN OLD; END $$"))
+        db.session.execute(db.text(
+            "CREATE TRIGGER pad632_tamper AFTER DELETE ON presences FOR EACH ROW EXECUTE FUNCTION pad632_tamper()"))
+        db.session.commit()
+        db.session.remove()
+    before = _counts(app)
+
+    out = _run(world, apply=True)
+
+    assert out.returncode != 0
+    assert "a guard failed" in out.stderr
+    assert _counts(app) == before
 
 
 def test_a_spare_coach_that_is_not_the_reviewer_account_stops_the_script(app):
