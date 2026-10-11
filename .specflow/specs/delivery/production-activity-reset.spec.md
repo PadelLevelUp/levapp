@@ -107,4 +107,4 @@ else, in a single transaction, with a dry run that shows what it would do.
 ### Notes
 - Tests: `backend/padel_app/tests/test_pad632_prod_reset_activity.py` (postgres backend only; runs
   the script through psql).
-- Rehearsal on a copy of staging, 2026-10-11 — counts in the PR (#PR) and on PAD-632.
+- Rehearsal on a copy of staging, 2026-10-11 — counts in PR #689 and on PAD-632.
