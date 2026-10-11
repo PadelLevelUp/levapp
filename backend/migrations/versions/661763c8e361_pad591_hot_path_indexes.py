@@ -1,7 +1,7 @@
 """PAD-591: four more hot-path indexes (the PAD-571 study)
 
 Revision ID: 661763c8e361
-Revises: 38891288dc5c
+Revises: 99aab91913e8
 Create Date: 2026-10-10
 
 - ``messages(message_type)`` — the messaging feed and the notification digests filter on it.
@@ -19,7 +19,7 @@ from alembic import op
 from sqlalchemy import inspect as sa_inspect
 
 revision = "661763c8e361"
-down_revision = "38891288dc5c"
+down_revision = "99aab91913e8"
 branch_labels = None
 depends_on = None
 
