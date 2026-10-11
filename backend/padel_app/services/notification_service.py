@@ -1672,6 +1672,9 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
         return None
     if attempts.pending_attempts(instance.id, player_id):
         return None
+    # PAD-622 (rule 23): an answer they gave stands even after a cleared mark; the pass would skip them.
+    if attempts.has_answered(instance.id, player_id):
+        return None
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -3221,7 +3224,8 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
-def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None):
+def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
+                         answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
 
     The one place that decides it. The pass sends to exactly these; PAD-478's "is this class
@@ -3288,6 +3292,14 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         )
 
         if sent_count >= reminder_count:
+            continue
+        # PAD-622 (rule 23; PAD-612 R5): an answer the student gave to one of these reminders stands
+        # even after a coach's mark is cleared (the clear resets `confirmed`, not the answer they gave).
+        # (`answered_pairs`: the same, read for many classes at once by the past-due listing.)
+        if sent_count > 0 and (
+            (instance.id, player_id) in answered_pairs if answered_pairs is not None
+            else attempts.has_answered(instance.id, player_id)
+        ):
             continue
         # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
         # It sends nothing and does not report `more_due`, so the twin chain ends here.
