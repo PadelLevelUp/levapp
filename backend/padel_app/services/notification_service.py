@@ -5568,8 +5568,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5593,8 +5592,7 @@ def respond_to_notification(
             # the other offers for the missing seat are retired at once, not at the next tick.
             reconcile_vacancies(instance)
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5982,7 +5980,12 @@ def _offer_waiting_list(
     templates: dict,
     locale: str | None = None,
 ) -> None:
-    """Send a waiting-list offer message to the player."""
+    """Send a waiting-list offer message to the player.
+
+    PAD-621 (owner, PAD-612 D4): no engine path calls this any more — a spot that fills retires every
+    live invitation as "spot_filled" (rule 15) and the bubble offers the list (rule 15a). Kept as the
+    test and E2E seeding path (`debug_offer_waiting_list` in notification_engine_api.py).
+    """
     from padel_app.models import Coach
     coach = Coach.query.get(coach_id)
     if not coach:
@@ -6147,6 +6150,10 @@ def respond_to_waiting_list(
             lesson_instance_id=lesson_instance_id,
             player_id=player.id,
         ).first()
+        # PAD-621 (PAD-612 R3): the confirmation is for the place, not for the tap. A "yes" that finds
+        # the student already on the list (a double tap, or they joined from the bubble) confirms nothing
+        # new and sends nothing; the upsert below stays idempotent (waiting-list rule 12).
+        already_on_list = existing is not None and existing.is_active
         if existing:
             if not existing.is_active:
                 # PAD-547 (rule 20): reactivated by the student's own yes, the row is theirs now.
@@ -6162,7 +6169,7 @@ def respond_to_waiting_list(
                 added_by="student",  # PAD-547 (rule 20)
             ).create()
 
-        if coach.user_id:
+        if coach.user_id and not already_on_list:
             _send_system_message(
                 coach_user_id=coach.user_id,
                 player_user_id=acting_user_id,

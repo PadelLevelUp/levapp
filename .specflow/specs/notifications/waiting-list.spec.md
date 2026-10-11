@@ -28,6 +28,13 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
    `WaitingListEntry` for that same instance on "yes", sends `waiting_list_confirm` back, and is a
    no-op on a late/expired instance per PAD-68). There is no separate "browse and join" surface —
    this message is the entire self-service join path.
+   **Since PAD-621 (owner, PAD-612 D4) no engine path sends a new offer.** A spot that fills retires
+   every live invitation for it as "Vaga preenchida" at once — a live bubble edit, no push, no new
+   message — and that bubble offers "Juntar-me à lista de espera" (`notifications.invitations` rules
+   15 and 15a), so a late "yes" is refused with no offer message on top. Offers already in students'
+   chats are still answered here. **One confirmation per place (PAD-621, PAD-612 R3):**
+   `waiting_list_confirm` is sent only when the "yes" adds the student or reactivates their entry; a
+   "yes" that finds them already on the list (a double tap, or a join from the bubble) sends nothing.
    **[DEC 2026-09-04, PAD-124]** the endpoint already existed but neither client rendered the
    offer's Yes/No, so the path above was unreachable in practice (the waiting list was
    coach-managed only). The decision was to **wire it**, and PAD-124 did: `waiting_list_offer` is
@@ -188,8 +195,8 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
       and, when it was fanned out by a standing entry, that entry spends one credit (and closes when
       its credits are used up). Both are written in the accept's single commit, under rule 10's
       lock, so a failed accept leaves the entry and the credit untouched.
-    - **yes, but the spot was taken first:** nothing is spent and the entry stays; the student is
-      offered the list again as any late yes is (`notifications.invitations` rule 17).
+    - **yes, but the spot was taken first:** nothing is spent and the entry stays (the student is
+      still on the list; since PAD-621 no offer message is sent).
     - **no:** the "no" is final for the class (`notifications.invitations` rule 18), so the entry for
       that class is closed too, in the decline's commit. No credit is spent. A standing entry stays
       active for its other classes.
@@ -279,6 +286,13 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     get `waiting_list_changed`. Nothing outside this series' occurrences changes.
 
 ### Acceptance Criteria
+
+#### The fill offers the list; a late yes posts nothing; one confirmation per place (PAD-621)
+- **Given** Ana and Bruno invited to Friday's one spot
+- **When** Ana's yes fills it
+- **Then** Bruno's bubble turns to "Vaga preenchida" with "Juntar-me à lista de espera" at once, with no push and no new message to him
+- **And** a later "yes" from Bruno posts no waiting-list offer message and sends no push
+- **And** a student who answers "yes" twice on an older offer gets one `waiting_list_confirm`, not two
 
 #### Coach searches for a player to add to the standing waiting list
 - **Given** a coach on Settings > Notifications with the standing waiting list section open
