@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useAuth } from "@/auth/AuthContext";
+import { routeSocialResult } from "@/auth/enterSession";
+import { SocialSignInButtons } from "@/features/auth/SocialSignInButtons";
 import { needsEmailVerification, postLoginRoute } from "@/auth/postLoginRoute";
 import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
@@ -48,7 +50,7 @@ type FieldErrors = Partial<Record<Field | "country" | "terms", string>>;
  */
 export default function SignUpScreen() {
   const { t, i18n } = useTranslation();
-  const { register } = useAuth();
+  const { register, login, refreshUser } = useAuth();
   const [role, setRole] = React.useState<Role>("student");
   const [form, setForm] = React.useState<Record<Field, string>>({
     name: "",
@@ -438,6 +440,9 @@ export default function SignUpScreen() {
             >
               {loading ? <ActivityIndicator color="#ffffff" /> : <Text>{t("auth.signup.create")}</Text>}
             </Button>
+
+            {/* auth.social-sign-in rule 7 (PAD-618): an existing account signs in; a new person completes sign-up. */}
+            <SocialSignInButtons onResult={(res) => routeSocialResult({ login, refreshUser }, res)} />
 
             <View className="flex-row items-center justify-center gap-1">
               <Text className="text-sm text-muted-foreground">{t("auth.signup.haveAccount")}</Text>

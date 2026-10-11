@@ -22,6 +22,8 @@ vi.mock("@/lib/config", () => ({
   legalUrl: (base: string, language: string | undefined) =>
     `${base}?lang=${(language ?? "").toLowerCase().startsWith("pt") ? "pt" : "en"}`,
 }));
+// PAD-618: the provider buttons pull native expo modules; their own tests cover them.
+vi.mock("@/features/auth/SocialSignInButtons", () => ({ SocialSignInButtons: () => null }));
 vi.mock("@/auth/pendingJoin", () => ({ consumePendingJoin: () => null }));
 vi.mock("@/auth/pendingClaim", () => ({ consumePendingClaim: () => null }));
 vi.mock("@/components/ui/select", async () => {
