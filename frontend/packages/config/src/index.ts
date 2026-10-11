@@ -18,6 +18,7 @@ export * from "./eligibility-tier";
 export * from "./class-request-slots";
 export * from "./availability";
 export * from "./academy-classes";
+export * from "./approval-display";
 export * from "./class-request-message";
 export * from "./invitation-waiting-list";
 export * from "./invite-simulation";

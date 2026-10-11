@@ -10,6 +10,9 @@ they have behaviour worth specifying.
 - `delivery.pr-e2e-subset` — implementing (PAD-511: on every PR into `staging`, run the web
   Playwright specs the change drives, bounded and advisory, with a second look at every red)
 
+- `delivery.staging-data-sync` — implementing (PAD-589: staging restored from the latest nightly
+  dump, at most once per dump, never from live prod on push; `reload` / `live` by hand)
+
 ## Why it's grouped this way
 
 These leaves describe the delivery pipeline, not the product. They sit in their own domain so a

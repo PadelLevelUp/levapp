@@ -36,6 +36,10 @@ Manage conversations between users (1:1 or group chats).
 3. `is_group=True` allows group_name display
 4. `last_read_at` per participant tracks read status
 5. `GET /api/app/conversations` returns all user's conversations
+5a. Each list entry's `participantAvatar` is the other participant's photo URL (`Image.url()`,
+    messaging.messages rules 5a–5b), or `null` with no photo or when the photo cannot be signed
+    (messages rule 5b). The photo is loaded with the participant (no statement per row; rule 12).
+    PAD-593.
 6. `POST /api/app/conversation` finds or creates by participant list, and answers with **the
    same paged shape as `GET /api/app/conversation/{id}`** (PAD-237): `messages` is the newest
    `30` (the clients' first-page size, `CONVERSATION_FIRST_PAGE_SIZE`) in ascending order,
@@ -119,6 +123,13 @@ Manage conversations between users (1:1 or group chats).
     (web `data-unread` on `conversation-row-<id>`, iOS `conversation-unread-<id>`).
 
 ### Acceptance Criteria
+
+#### The conversation list carries the participant's photo (rule 5a, PAD-593)
+- **Given** a thread whose other participant has a private photo and a working signer
+- **When** the caller lists their conversations
+- **Then** that entry's `participantAvatar` is the photo's signed URL
+- **And** listing five such threads costs the same number of statements as listing one
+- **And** with a signer that fails, the list answers 200 with `participantAvatar` `null`
 
 #### Create or find conversation
 - **Given** users 1 and 5 have no existing conversation

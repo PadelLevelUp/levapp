@@ -101,6 +101,9 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
      student answers one waiting-list offer before the next spot asks them from its list — a student
      holding a live group-0 invitation for any class of the coach is left out of every other class's
      group 0 until it resolves. The spots' own invitation groups are unaffected.
+   - **Side, for a balance-withdrawn member (PAD-581, `notifications.invitations` rule 2d):** a
+     member whose invitation to the class was withdrawn for side balance is in group 0 only for a
+     spot of their own side or one with no side; a `both` or side-less member matches any spot.
 4a. **Waiting-list invitations are gated by eligibility.** A waiting-list student is invited only if
    they pass `effective_eligibility()` for that class (`eligibility.cascade`). The side rules of the
    coach's invitation groups do **not** apply to group 0: the invitation names the spot's side
