@@ -1529,8 +1529,13 @@ export interface InviteSimulationRequest {
 
 export interface ApprovalVacancyInfo {
   vacancyId: number;
-  declinedPlayerId: number;
-  declinedPlayerName: string;
+  /** null for a spot the class never filled (PAD-574: an open spot, not a decline). */
+  declinedPlayerId: number | null;
+  declinedPlayerName: string | null;
+  /** PAD-574 (semi-auto-approval rule 4): true for a never-filled spot. Absent on older payloads: read `declinedPlayerId == null`. */
+  openSpot?: boolean;
+  /** PAD-574: the side the spot asks for first (rule 7a's group label). */
+  side?: PlayerSide | null;
   queue: ApprovalQueuePlayer[];
   waitingListPlayerId?: number;
   waitingListPlayerName?: string;

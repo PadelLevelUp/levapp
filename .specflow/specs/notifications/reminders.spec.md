@@ -167,6 +167,14 @@ Automatically send class reminders to enrolled players at a configured time befo
     stops reminders (`confirmed`, rule 3); a "no" sets `status` too, which changes nothing. The
     past-due listing (`notifications.config` rule 10f) reads the same list, so a class whose only
     owed students are marked is not listed.
+    **An answer survives a cleared mark (PAD-622; PAD-612 R5).** A student who answered one of the
+    occurrence's reminders is not asked again by a later pass, even after the coach marks them and
+    clears the mark (PAD-567's clear resets `confirmed`, not the answer they gave): the pass skips a
+    student with an answered (`yes`/`no`), counted `ReminderAttempt`, on every pass including the
+    coach's manual send, and the late ask (rule 18) is not armed for them. A student who was asked
+    and never answered is asked again as before; voided attempts (a returning student, rule 19) do
+    not count, and neither does a `not_enrolled` outcome (a stale reminder tapped while off the
+    date): a student the coach re-adds is asked.
 
 ### Acceptance Criteria
 
@@ -175,6 +183,12 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **When** the coach moves the class a week later
 - **Then** that follow-up is no longer armed, and the base reminder is armed for the new time
 - **And** an edit that keeps the class's time (a new title) leaves the follow-up armed
+
+#### A cleared mark does not bring the question back to a student who answered (rule 23, PAD-622)
+- **Given** a class with 2 reminders; Ana answered reminder 1; the coach marked her present and then cleared the mark
+- **When** the next scheduled pass runs after the spacing
+- **Then** Ana gets no second reminder
+- **And** Bruno, who got reminder 1, never answered, and whose mark was cleared the same way, does get reminder 2
 
 #### A student the coach marked present or absent is not reminded (rule 23)
 - **Given** a class 48 h out with three enrolled students, the coach having marked Ana present and

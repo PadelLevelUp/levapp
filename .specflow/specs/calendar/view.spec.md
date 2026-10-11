@@ -102,7 +102,21 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     invalidate `["calendar-events"]`, `["class-instance"]` and `["dashboard"]` on success. So the
     fix is web-only, and the reason is that the iOS behaviour was already right.
 
+19. **(PAD-591) The calendar reads only the lessons its range can show, and counts rosters in the
+    same pass.** The coach and student lesson loaders bound one-off lessons from below as well as
+    above (`start_datetime >= range_start - 1 day`; recurring series keep their own bounds), so a
+    coach's history is not read and discarded on every request. The roster size each event carries
+    (`participantCount`) comes from an eager load of the lesson's player junctions, never a lazy
+    collection per lesson. The response is unchanged.
+
 ### Acceptance Criteria
+
+#### A coach calendar costs a fixed number of statements (rule 19, PAD-591)
+- **Given** a coach with 3 one-off lessons in a 6-week range and another coach with 13, each with
+  20 one-off lessons in the past year
+- **When** each loads `GET /calendar` for that range under a statement recorder
+- **Then** both requests issue the same number of statements, no past lesson outside the range is
+  loaded, and each event's `participantCount` equals its roster size
 
 #### Coach calendar view
 - **Given** a coach with 3 classes this week and 1 calendar block

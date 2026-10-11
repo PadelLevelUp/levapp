@@ -38,9 +38,9 @@ def _user(player_id):
 
 
 def test_item_4_a_losing_students_repeated_yes_sends_nothing_more(app, monkeypatch):
-    """Two students asked for one spot; A takes it. B's "yes" is told the spot is filled and offered
-    the waiting list, once. B's second "yes" must send nothing: no second "spot filled", no second
-    waiting-list offer."""
+    """Two students asked for one spot; A takes it. B's "yes" is told the spot is filled (since PAD-621
+    the bubble offers the list; no offer message). B's second "yes" must send nothing: no second
+    "spot filled", no waiting-list offer."""
     from padel_app.models import Message
     from padel_app.services.notification_service import respond_to_notification, trigger_invitations
     from padel_app.tests.helpers import pin_clock

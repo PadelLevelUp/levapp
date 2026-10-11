@@ -79,11 +79,14 @@ test("PAD-75: enrolled student is notified when the coach cancels a class", asyn
   await openMessages(page);
 
   // Open the conversation with the coach.
-  await page.getByText(COACH_NAME).first().click();
-  await page.waitForResponse(
+  // Wait registered before the click (PAD-585): the thread request can finish before a wait
+  // started after the click is listening.
+  const threadLoaded = page.waitForResponse(
     (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
     { timeout: 10_000 }
   );
+  await page.getByText(COACH_NAME).first().click();
+  await threadLoaded;
 
   // The cancellation message body ("...has been cancelled...") is visible.
   await expect(page.getByText(/cancell?ed/i).last()).toBeVisible({ timeout: 10_000 });

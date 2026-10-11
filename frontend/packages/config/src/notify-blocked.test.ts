@@ -37,8 +37,8 @@ describe("splitBlockedByCause", () => {
   });
 
   it("handles an empty or absent list", () => {
-    expect(splitBlockedByCause([])).toEqual({ unavailable: [], optedOut: [] });
-    expect(splitBlockedByCause(undefined)).toEqual({ unavailable: [], optedOut: [] });
+    expect(splitBlockedByCause([])).toEqual({ unavailable: [], optedOut: [], alreadyInvited: [] });
+    expect(splitBlockedByCause(undefined)).toEqual({ unavailable: [], optedOut: [], alreadyInvited: [] });
   });
 });
 
@@ -81,5 +81,20 @@ describe("shouldReportSent", () => {
   it("stays quiet when everyone was blocked", () => {
     // PAD-107's ordering: no "sent to 0" on top of the blocked toast.
     expect(shouldReportSent(0, [unavailableRow, optedOutRow])).toBe(false);
+  });
+});
+
+describe("PAD-620: already_invited is its own bucket", () => {
+  it("never lands in unavailable, and is listed apart", () => {
+    const rows = [
+      { name: "Ana", cause: "unavailable" },
+      { name: "Bia", cause: "preference" },
+      { name: "Carla", cause: "already_invited" },
+      { name: "Duarte" },
+    ];
+    const split = splitBlockedByCause(rows);
+    expect(split.unavailable.map((r) => r.name)).toEqual(["Ana", "Duarte"]);
+    expect(split.optedOut.map((r) => r.name)).toEqual(["Bia"]);
+    expect(split.alreadyInvited.map((r) => r.name)).toEqual(["Carla"]);
   });
 });

@@ -71,7 +71,8 @@ class Message(db.Model, model.Model):
     is_deleted = Column(Boolean, default=False, nullable=False, server_default="false")
 
     # Notification / system messages
-    message_type = Column(String, default="text", nullable=False, server_default="text")
+    # PAD-591: the feed and the digest filter on the type; ix_messages_message_type.
+    message_type = Column(String, default="text", nullable=False, server_default="text", index=True)
     msg_metadata = Column(JSON, nullable=True)
 
     reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan", passive_deletes=True)

@@ -143,7 +143,7 @@ export interface BlockedStudent {
    * Which kind of block this is. Split on THIS, never on `reason` being empty —
    * a student can turn invitations off without giving a reason.
    */
-  cause?: "unavailable" | "preference";
+  cause?: "unavailable" | "preference" | "already_invited";
   /** PAD-112 only: the student's own free-text reason; absent when they gave none. */
   reason?: string;
 }
@@ -208,8 +208,9 @@ export async function respondToNotification(
   notificationEventId: number,
   action: "yes" | "no"
   // "expired" is PAD-68 (the class already started; nothing recorded) and
-  // "spot_filled_waiting_list_offered" is the "sorry, just filled" path that
-  // also sends a waiting_list_offer — both were always returned by the server;
+  // "spot_filled_waiting_list_offered" is the "sorry, just filled" path; since
+  // PAD-621 it sends no waiting_list_offer (the bubble offers the list) and the
+  // string is kept for compatibility — both were always returned by the server;
   // PAD-236 names them so the dashboard cards can react to them.
 ): Promise<{
   action:

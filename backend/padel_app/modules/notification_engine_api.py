@@ -16,6 +16,7 @@ from padel_app.services.notification_service import (
     get_config_dict,
     update_config,
     send_class_reminders,
+    already_invited_players,
     send_manual_notifications,
     trigger_invitations,
     process_invitation_batches,
@@ -312,6 +313,10 @@ def manual_notify():
     }
     for entry in preference_blocked_players(player_ids, kind="manual"):
         blocked_by_id[entry["playerId"]] = entry
+    # PAD-620 (notifications.manual rule 9): a student who already holds a live invitation for this
+    # class is not invited twice; the coach is told by name, like the two causes above.
+    for entry in already_invited_players(instance.id, player_ids):
+        blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
     events = send_manual_notifications(instance.id, player_ids, coach.id)
     return jsonify({"sent": len(events), "blocked": blocked})
@@ -1007,8 +1012,9 @@ def debug_offer_waiting_list():
     the caller presents a valid JWT.
 
     Sends a real ``waiting_list_offer`` message to a seeded student for a lesson
-    instance, through the very function the engine uses on the "sorry, that spot
-    was just filled" path (``_offer_waiting_list``). Reaching that path for real
+    instance, through ``_offer_waiting_list`` — the function the engine used on the
+    "sorry, that spot was just filled" path until PAD-621 (no engine path sends it
+    now; offers already in chats are still answered). Reaching that path for real
     takes two students racing for one vacancy; seeding the message this way keeps
     the spec about the *client wiring* PAD-124 adds, while still producing the
     production message shape rather than a hand-built row.

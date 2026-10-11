@@ -90,6 +90,33 @@ _BLOCKABLE_MESSAGE_TYPES = frozenset({
 # Config helpers
 # ---------------------------------------------------------------------------
 
+def notification_config_for(coach_id: int) -> NotificationConfig | None:
+    """The coach's ``NotificationConfig`` or ``None`` — read once per request (PAD-591, rule 21).
+
+    A class detail resolves the cascade, the cancellation deadline and the proactive-decline
+    window, each of which needs the coach's settings; they share this answer instead of each
+    querying. Memoised on ``flask.g`` only inside a request (R-007) — a scheduler job or CLI
+    holding one app context for many iterations must see fresh rows — and dropped by
+    :func:`get_or_create_config` / :func:`update_config`, so a request that writes the row reads
+    its own write. A missing row is memoised as ``None``.
+    """
+    from flask import g, has_request_context
+
+    if not has_request_context():
+        return NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    cache = g.__dict__.setdefault("_notification_configs", {})
+    if coach_id not in cache:
+        cache[coach_id] = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    return cache[coach_id]
+
+
+def _forget_config(coach_id: int) -> None:
+    from flask import g, has_request_context
+
+    if has_request_context():
+        g.__dict__.get("_notification_configs", {}).pop(coach_id, None)
+
+
 def get_or_create_config(coach_id: int) -> NotificationConfig:
     """The coach's configuration, creating the row (engine off) when there is none.
 
@@ -107,6 +134,7 @@ def get_or_create_config(coach_id: int) -> NotificationConfig:
     if config is not None:
         return config
     config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
+    _forget_config(coach_id)
     try:
         with db.session.begin_nested():
             db.session.add(config)
@@ -236,6 +264,7 @@ def _level_operations_outside(rules, known) -> list:
 
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
+    _forget_config(coach_id)
 
     timing_changed = False
 
@@ -408,7 +437,7 @@ def effective_eligibility_with_source(class_obj, coach_id: int, config: Notifica
         if series is not None:
             return series, "lesson"
     if config is None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        config = notification_config_for(coach_id)
     if config is None:
         return None, "coach"
     return config.get_eligibility_rules(), "coach"
@@ -474,7 +503,7 @@ def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: N
         if getattr(lesson, "type", None) == "private":
             return False, "type"
     if config is None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        config = notification_config_for(coach_id)
     if config is None:
         return False, "coach"
     return bool(config.open_spots_visible), "coach"
@@ -1643,6 +1672,9 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
         return None
     if attempts.pending_attempts(instance.id, player_id):
         return None
+    # PAD-622 (rule 23): an answer they gave stands even after a cleared mark; the pass would skip them.
+    if attempts.has_answered(instance.id, player_id):
+        return None
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -2172,39 +2204,81 @@ def _send_system_message(
     if not push:
         return msg
 
+    _push_message(msg, player_user_id, resolved_instance_id)
+
+    return msg
+
+
+def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
+    """The web push and the native (Expo) push of one chat message to its student — the one writer
+    of this payload (R-029), used by `_send_system_message` and by the pending nudge (PAD-620).
+
+    Native: PAD-240 — a MESSAGE notification (messaging.push-notifications rule 7); the tap opens the
+    conversation, where the Yes/No and the reply live (routing to class/[id] dead-ended: a push never
+    carries the route params that screen rebuilds its event from). The instance id rides along as
+    context only. PAD-147: the badge is the recipient's real unread total (rule 5)."""
     send_push_notification(
         user_id=player_user_id,
         title="New message",
-        body=text[:100],
-        url=f"/messages/{conv.id}?message={msg.id}",
+        body=(msg.text or "")[:100],
+        url=f"/messages/{msg.conversation_id}?message={msg.id}",
     )
-
-    # Native (Expo) push — additive, best-effort. PAD-240: this is a MESSAGE
-    # notification (messaging.push-notifications rule 7). Every system message
-    # is a Message row in the coach–student thread, and what the student acts
-    # on (the Yes/No answer, the reply) lives there, so the tap opens the
-    # conversation. It used to route to class/[id] with the lesson instance id,
-    # which the mobile class screen cannot open from a push — it rebuilds its
-    # event from route params (model/originalId/date) a push never carries —
-    # so every tap dead-ended on "this class could not be found". The instance
-    # id (``resolved_instance_id``, computed above for the PAD-107 backstop)
-    # still rides along as context; the client never routes on it alone.
-    push_data = {"type": "message", "conversationId": conv.id, "messageId": msg.id}
-    if resolved_instance_id is not None:
-        push_data["classInstanceId"] = resolved_instance_id
-    # PAD-147: this is an unread Message row like any direct message, so the
-    # push carries the recipient's real unread total as the icon badge (rule
-    # 5). msg.create() has already committed, so the count includes it.
+    push_data = {"type": "message", "conversationId": msg.conversation_id, "messageId": msg.id}
+    if instance_id is not None:
+        push_data["classInstanceId"] = instance_id
     from padel_app.services.messaging_service import get_unread_count
+    from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         player_user_id,
         title="New message",
-        body=text[:100],
+        body=(msg.text or "")[:100],
         data=push_data,
         badge=get_unread_count(player_user_id),
     )
 
-    return msg
+
+def push_existing_invitation(event: NotificationEvent) -> bool:
+    """PAD-620 (dashboard.blocks rule 7): push again the invitation message ``event`` already has —
+    no new event, no new message. The same backstops as `_send_system_message` apply (PAD-107 an
+    availability blocker over the class, PAD-112 all notifications blocked), and a missing or deleted
+    message is not pushed. True when pushed."""
+    from padel_app.models import Message
+    from padel_app.models.players import Player
+    from padel_app.services.student_availability_service import instance_window_is_blocked_for_user
+    from padel_app.services.student_notification_preferences import user_blocks_all_notifications
+
+    msg = Message.query.get(event.message_id) if event.message_id else None
+    if msg is None or msg.is_deleted:
+        return False
+    player = Player.query.get(event.player_id)
+    user_id = player.user_id if player is not None else None
+    if user_id is None:
+        return False
+    if instance_window_is_blocked_for_user(user_id, event.lesson_instance):
+        return False
+    if user_blocks_all_notifications(user_id):
+        return False
+    _push_message(msg, user_id, event.lesson_instance_id)
+    return True
+
+
+def already_invited_players(instance_id: int, player_ids) -> list:
+    """PAD-620 (notifications.manual rule 9): ``[{playerId, name, cause: "already_invited"}]`` for the
+    players who hold a live invitation for this occurrence — names in one query."""
+    from sqlalchemy.orm import joinedload
+
+    from padel_app.models.players import Player
+
+    ids = sorted(players_with_live_invitation(instance_id, player_ids))
+    if not ids:
+        return []
+    players = {p.id: p for p in Player.query.options(joinedload(Player.user)).filter(Player.id.in_(ids))}
+    return [
+        {"playerId": pid,
+         "name": (players[pid].user.name if pid in players and players[pid].user else ""),
+         "cause": "already_invited"}
+        for pid in ids
+    ]
 
 
 def _notify_coach_of_cancellation(
@@ -3150,7 +3224,8 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
-def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None):
+def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
+                         answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
 
     The one place that decides it. The pass sends to exactly these; PAD-478's "is this class
@@ -3217,6 +3292,14 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         )
 
         if sent_count >= reminder_count:
+            continue
+        # PAD-622 (rule 23; PAD-612 R5): an answer the student gave to one of these reminders stands
+        # even after a coach's mark is cleared (the clear resets `confirmed`, not the answer they gave).
+        # (`answered_pairs`: the same, read for many classes at once by the past-due listing.)
+        if sent_count > 0 and (
+            (instance.id, player_id) in answered_pairs if answered_pairs is not None
+            else attempts.has_answered(instance.id, player_id)
+        ):
             continue
         # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
         # It sends nothing and does not report `more_due`, so the twin chain ends here.
@@ -3982,9 +4065,7 @@ def proactive_decline_deadline(
 
         coach = primary_coach(instance)  # PAD-275 rule 4
         if coach is not None:
-            _config = NotificationConfig.query.filter_by(
-                coach_id=coach.id
-            ).first()
+            _config = notification_config_for(coach.id)
 
     timing = (
         _config.get_reminder_timing() if _config is not None
@@ -5487,8 +5568,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5512,8 +5592,7 @@ def respond_to_notification(
             # the other offers for the missing seat are retired at once, not at the next tick.
             reconcile_vacancies(instance)
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5754,6 +5833,21 @@ def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datet
 # Manual notifications
 # ---------------------------------------------------------------------------
 
+def players_with_live_invitation(instance_id: int, player_ids) -> set:
+    """PAD-620 (invitations rule 18): the players who already hold a live invitation (``sent`` or
+    ``queued``) for this occurrence, automatic or manual."""
+    ids = [int(p) for p in (player_ids or [])]
+    if not ids:
+        return set()
+    return {
+        pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
+            NotificationEvent.lesson_instance_id == instance_id,
+            NotificationEvent.player_id.in_(ids),
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        )
+    }
+
+
 def send_manual_notifications(
     instance_id: int, player_ids: list[int], coach_id: int
 ) -> list[NotificationEvent]:
@@ -5790,10 +5884,15 @@ def send_manual_notifications(
     blocked_ids = blocked_player_ids_for_window(
         player_ids, instance.start_datetime, instance.end_datetime
     )
+    # PAD-620 (invitations rule 18, PAD-612 R1): a student who already holds a live invitation for
+    # this occurrence gets no second one — no second event, message or push. The route names them.
+    already_invited = players_with_live_invitation(instance_id, player_ids)
 
     events = []
     for player_id in player_ids:
         if int(player_id) in blocked_ids:
+            continue
+        if int(player_id) in already_invited:
             continue
         if player_blocks_manual_invitations(player_id):
             continue
@@ -5881,7 +5980,12 @@ def _offer_waiting_list(
     templates: dict,
     locale: str | None = None,
 ) -> None:
-    """Send a waiting-list offer message to the player."""
+    """Send a waiting-list offer message to the player.
+
+    PAD-621 (owner, PAD-612 D4): no engine path calls this any more — a spot that fills retires every
+    live invitation as "spot_filled" (rule 15) and the bubble offers the list (rule 15a). Kept as the
+    test and E2E seeding path (`debug_offer_waiting_list` in notification_engine_api.py).
+    """
     from padel_app.models import Coach
     coach = Coach.query.get(coach_id)
     if not coach:
@@ -6046,6 +6150,10 @@ def respond_to_waiting_list(
             lesson_instance_id=lesson_instance_id,
             player_id=player.id,
         ).first()
+        # PAD-621 (PAD-612 R3): the confirmation is for the place, not for the tap. A "yes" that finds
+        # the student already on the list (a double tap, or they joined from the bubble) confirms nothing
+        # new and sends nothing; the upsert below stays idempotent (waiting-list rule 12).
+        already_on_list = existing is not None and existing.is_active
         if existing:
             if not existing.is_active:
                 # PAD-547 (rule 20): reactivated by the student's own yes, the row is theirs now.
@@ -6061,7 +6169,7 @@ def respond_to_waiting_list(
                 added_by="student",  # PAD-547 (rule 20)
             ).create()
 
-        if coach.user_id:
+        if coach.user_id and not already_on_list:
             _send_system_message(
                 coach_user_id=coach.user_id,
                 player_user_id=acting_user_id,

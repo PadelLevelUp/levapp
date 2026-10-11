@@ -42,7 +42,16 @@ Track player attendance for each class instance, including invitation, confirmat
    Edge, decided 2026-09-12: `validated = true` with no `status` recorded — a coach who validated the sheet without marking that student — falls back to the student's intent, because reporting `missed` would invent an absence the coach never stated.
    The raw columns (`invited`, `confirmed`, `status`, `justification`, `validated`) stay on the payload while the clients move over; they are removed when rule 7's `response` lands and this field derives from it instead.
 
+10. **(PAD-591) A roster is read in a fixed number of statements.** `GET
+    /lesson_instance/<id>/presences` loads each presence with its player and the player's user
+    eagerly; adding participants adds no statements.
+
 ### Acceptance Criteria
+
+#### The presences list does not grow with the roster (rule 10, PAD-591)
+- **Given** a class instance with 3 presences and another with 12
+- **When** the coach reads `GET /lesson_instance/<id>/presences` for each under a statement recorder
+- **Then** both issue the same number of statements
 
 #### One derived state, and only one (PAD-313, B-073)
 - **Given** a student on a class's list who has not answered

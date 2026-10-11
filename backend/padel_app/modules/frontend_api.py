@@ -1078,7 +1078,15 @@ def get_lesson_instances():
 def lesson_instance_presences(instance_id):
     instance = LessonInstance.query.get_or_404(instance_id)
     require_readable_class("lessoninstance", instance)  # PAD-257
-    presence_query = Presence.query.filter_by(lesson_instance_id=instance_id)
+    # PAD-591 (attendance.presence rule 10): the roster order and the serialized rows read each
+    # presence's player and the player's user — loaded in one pass each, not per row.
+    from sqlalchemy.orm import joinedload
+
+    presence_query = (
+        Presence.query
+        .options(joinedload(Presence.player).joinedload(Player.user))
+        .filter_by(lesson_instance_id=instance_id)
+    )
     # Role-based visibility (PAD-36): a student only sees their own presence.
     if current_coach() is None:
         player = current_player()
@@ -1147,7 +1155,19 @@ def class_instance():
     if not model:
         abort(400, "model is required")
 
-    current_class = event_types[model].query.get_or_404(id)
+    # PAD-591 (calendar.event-detail rule 21): the roster is loaded with its players and their
+    # users in one pass each, so a class of 12 costs the statements of a class of 3.
+    from sqlalchemy.orm import joinedload, selectinload
+
+    roster_options = {
+        "lesson": selectinload(Lesson.players_relations)
+        .selectinload(Association_PlayerLesson.player)
+        .joinedload(Player.user),
+        "lessoninstance": selectinload(LessonInstance.presences)
+        .selectinload(Presence.player)
+        .joinedload(Player.user),
+    }
+    current_class = event_types[model].query.options(roster_options[model]).filter_by(id=id).first_or_404()
 
     occurrence_date = None
     if model == "lesson":
@@ -1160,6 +1180,7 @@ def class_instance():
 
             instance = (
                 LessonInstance.query
+                .options(roster_options["lessoninstance"])
                 .filter_by(
                     lesson_id=current_class.id,
                     original_lesson_occurence_date=event_date,

@@ -1,4 +1,5 @@
 from padel_app.models import User, TokenBlocklist
+from flask import g
 from flask_jwt_extended import JWTManager
 
 from padel_app.utils.tokens import session_over
@@ -19,6 +20,16 @@ def register_jwt_handlers(jwt):
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
+        # auth.logout rule 5 (PAD-591): the blocklist is read once per request. The answer is
+        # kept on `g` for the sliding refresh in `after_request`, which would otherwise look the
+        # same jti up again.
+        revoked = _token_revoked(jwt_payload)
+        jti = jwt_payload.get("jti")
+        if jti is not None:
+            g.__dict__.setdefault("_token_revoked", {})[jti] = revoked
+        return revoked
+
+    def _token_revoked(jwt_payload):
         # admin.foundation rule 3 (PAD-531, B-381): a product token never carries
         # an audience. Flask-JWT-Extended verifies none unless one is configured,
         # so without this line a console token (`aud = levapp-admin`, signed with

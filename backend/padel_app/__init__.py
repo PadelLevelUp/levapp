@@ -80,7 +80,7 @@ def create_app(test_config=None):
         response.headers["Pragma"] = "no-cache"
 
         try:
-            from flask import request as _request
+            from flask import g as _g, request as _request
 
             from padel_app.models import TokenBlocklist
             from padel_app.utils.tokens import issue_access_token, session_over, session_started_at
@@ -90,6 +90,15 @@ def create_app(test_config=None):
             if _request.endpoint in ("auth_api.logout", "auth_api.delete_me"):
                 return response
             jwt_data = get_jwt()
+
+            def _token_not_blocklisted(jti):
+                # auth.logout rule 5 (PAD-591): reuse the answer the auth loader stored on `g`
+                # for this request; query only when it left none for this jti.
+                answer = _g.__dict__.get("_token_revoked", {}).get(jti)
+                if answer is not None:
+                    return not answer
+                return TokenBlocklist.query.filter_by(jti=jti).first() is None
+
             # admin.approvals-and-users rule 9: a view-as token is never refreshed.
             if jwt_data.get("view_as"):
                 return response
@@ -103,7 +112,7 @@ def create_app(test_config=None):
                     remaining < timedelta(days=15)
                     # Rule 6: a session past its cap is not extended.
                     and not session_over(jwt_data)
-                    and TokenBlocklist.query.filter_by(jti=jwt_data.get("jti")).first() is None
+                    and _token_not_blocklisted(jwt_data.get("jti"))
                 ):
                     # Rule 6: the refreshed token keeps the session's login moment.
                     new_token = issue_access_token(

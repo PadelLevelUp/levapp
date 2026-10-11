@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { CoachPlayer, StudentGroup } from "@/types";
 import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
-import { runManualInviteFlow } from "@levelup/config";
+import { runManualInviteFlow, splitBlockedByCause } from "@levelup/config";
 import type { EligibilityCheckEntry } from "@/types";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { toast } from "sonner";
@@ -224,8 +224,7 @@ export function ManualNotificationModal({
       // A student can be skipped for two unrelated reasons, and the coach needs
       // to be told a different thing for each, so `blocked` is split by cause
       // rather than shown as one undifferentiated list.
-      const unavailable = blocked.filter((b) => b.cause !== "preference");
-      const optedOut = blocked.filter((b) => b.cause === "preference");
+      const { unavailable, optedOut, alreadyInvited } = splitBlockedByCause(blocked);
 
       // PAD-107: students who marked themselves unavailable for this slot are
       // never notified — say so by name instead of silently under-reporting.
@@ -246,6 +245,15 @@ export function ManualNotificationModal({
             names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
           }),
           { description: optedOut.map((b) => b.reason).filter(Boolean).join(" · ") || undefined },
+        );
+      }
+      // PAD-620: a student who already holds an open invitation for this class is not
+      // invited twice; say so by name, as a note rather than a failure.
+      if (alreadyInvited.length > 0) {
+        toast.warning(
+          t("calendar.notify.alreadyInvited", {
+            names: alreadyInvited.map((b) => b.name).filter(Boolean).join(", "),
+          }),
         );
       }
       // PAD-107's ordering: don't crow "sent to 0 students" when everyone was

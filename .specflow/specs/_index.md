@@ -14,16 +14,16 @@ governing leaf spec and its dependencies before touching code.
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
 - `classes/` — Lessons & Instances (13 leaves; `classes.clone` added 2026-10-07, PAD-524; `classes.class-requests` added 2026-09-10, PAD-104; `classes.availability` added 2026-09-17, PAD-357)
-- `client/` — Client Data Runtime (1 leaf; `client.query-cache` added 2026-10-10, PAD-586/PAD-592: one stale window and retry policy for both apps, cache-first returns, event-driven freshness)
+- `client/` — Client Data Runtime (2 leaves; `client.query-cache` added 2026-10-10, PAD-586/PAD-592: one stale window and retry policy for both apps, cache-first returns, event-driven freshness; `client.route-loading` added 2026-10-10, PAD-585: web route code splitting with a first-download budget)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
-- `delivery/` — How changes reach production safely (1 leaf; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511)
+- `delivery/` — How changes reach production safely (3 leaves; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511; `delivery.staging-data-sync` added 2026-10-10, PAD-589: staging restored from the nightly dump once per dump; `delivery.zero-downtime-deploy` added 2026-10-10, PAD-588)
 - `eligibility/` — Who May Join a Class (4 leaves)
 - `evaluations/` — Player Evaluation System (13 leaves: 4 implemented, 9 draft; `evaluations.legacy-client-contract`, `.competencies`, `.records`, `.class-panel`, `.history`, `.evolution`, `.sharing`, `.student-view`, `.reminders` drafted 2026-09-21 from the "Sistema de Avaliações" canvas ingest, and the four shipped leaves corrected for drift the same day; sharing, student-view and reminders are owner-pending)
 - `import/` — Bulk Data Import (4 leaves)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
-- `mobile/` — Mobile Platform Runtime (5 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419; `mobile.install-suggestion` drafted 2026-10-09, PAD-573 — web-only nudge to the iOS app; `mobile.launch` drafted 2026-10-10, PAD-587 — cold start and the launch overlay)
+- `mobile/` — Mobile Platform Runtime (6 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419; `mobile.install-suggestion` drafted 2026-10-09, PAD-573 — web-only nudge to the iOS app; `mobile.launch` drafted 2026-10-10, PAD-587 — cold start and the launch overlay; `mobile.interaction-performance` drafted 2026-10-10, PAD-592 — iOS render hot spots)
 - `notifications/` — Notification Engine (14 leaves)
 - `players/` — Player Management (12 leaves, 1 deprecated)
 - `settings/` — User Preferences & Internationalization (8 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357; `settings.unsaved-edits` added 2026-09-22, PAD-394; `settings.explicit-save` added 2026-10-03, PAD-506, replacing `settings.save-on-change` of PAD-473)
@@ -76,6 +76,8 @@ The draft `evaluations` leaves (2026-09-21) reach beyond the domain box above at
 
 `mobile.android-runtime` depends on `calendar.mobile-views`, `messaging.push-notifications` and
 `training.tactical-board` (the screens whose Android behaviour it pins); nothing depends on it.
+`mobile.interaction-performance` depends on `messaging.conversations`, `messaging.sse-realtime`,
+`calendar.mobile-views` and `clubs.courts` (it constrains how their iOS screens render).
 
 `eligibility` is consumed by three domains — `notifications` (rounds are capped at the bar),
 `calendar` (a student sees open spots they qualify for) and `classes` (join requests). It stores its
@@ -110,7 +112,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | import | 1 | 4 | implemented |
 | dashboard | 1 | 2 | implemented |
 | settings | 2 | 4 | partial (settings.tutorials implemented; settings.language draft) |
-| client | 1 | 1 | implementing (client.query-cache, PAD-586 web / PAD-592 mobile) |
+| client | 2 | 2 | implementing (client.query-cache, PAD-586 web / PAD-592 mobile; client.route-loading, PAD-585 web) |
 
 
 ## Build Order

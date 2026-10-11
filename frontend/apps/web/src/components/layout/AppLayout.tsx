@@ -37,6 +37,7 @@ import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
 import { CompetencyManagerHost } from "@/components/evaluations/competency-manager/CompetencyManagerHost";
 import { guardedLeave } from "@/lib/leave-guard";
+import { schedulePagePrefetch } from "@/routes/lazyPages";
 
 
 interface AppLayoutProps {
@@ -186,6 +187,10 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
   // No mount-time refresh: the unread count is a shared query (LayoutProvider) that the stale
   // window governs; the SSE handler below invalidates it on a live message (client.query-cache rule 7).
+
+  // client.route-loading rule 3 (PAD-585): once a signed-in screen is up, fetch the other menu
+  // pages' chunks while the browser is idle, so the first visit to each shows no wait.
+  useEffect(() => schedulePagePrefetch(), []);
 
   useEffect(() => {
     if (!token) return;

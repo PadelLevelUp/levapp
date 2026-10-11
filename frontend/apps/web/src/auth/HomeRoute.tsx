@@ -1,8 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginLanding } from "@/auth/postLoginPath";
-import DashboardPage from "@/pages/DashboardPage";
-import LandingPage from "@/pages/LandingPage";
+import { DashboardPage, LandingPage } from "@/routes/lazyPages";
 
 /**
  * `/` serves two different pages: the public landing page to a visitor, the

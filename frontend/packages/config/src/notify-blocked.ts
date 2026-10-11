@@ -8,6 +8,8 @@
  *  - `unavailable` (PAD-107) — they marked themselves unavailable for that slot.
  *  - `preference`  (PAD-112) — they turned invitations off altogether, and
  *    `reason` may carry their own words.
+ *  - `already_invited` (PAD-620, manual notify only) — they already hold a live
+ *    invitation for that class, so no second one was sent.
  *
  * Split on `cause`, NEVER on `reason` being empty: a student can block
  * notifications without giving a reason, and treating them as "unavailable"
@@ -33,6 +35,8 @@ export interface BlockedByCause<T> {
   unavailable: T[];
   /** PAD-112: opted out of invitations entirely. */
   optedOut: T[];
+  /** PAD-620: already holding a live invitation for the class; not invited twice. */
+  alreadyInvited: T[];
 }
 
 /**
@@ -47,8 +51,9 @@ export function splitBlockedByCause<T extends BlockedLike>(
 ): BlockedByCause<T> {
   const rows = blocked ?? [];
   return {
-    unavailable: rows.filter((b) => b?.cause !== "preference"),
+    unavailable: rows.filter((b) => b?.cause !== "preference" && b?.cause !== "already_invited"),
     optedOut: rows.filter((b) => b?.cause === "preference"),
+    alreadyInvited: rows.filter((b) => b?.cause === "already_invited"),
   };
 }
 

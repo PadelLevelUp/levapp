@@ -117,23 +117,27 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
         </Text>
       ) : null}
       <View className="flex-row items-start justify-between gap-2">
-        {enrolledMark ? (
+        {/* PAD-580 QA: the ✓ and the title are ONE leading group — as siblings of the level
+            chip in a justify-between row, the title was pushed to the card's right edge. */}
+        <View testID="calendar-event-title-group" className="flex-shrink flex-row items-start gap-1.5">
+          {enrolledMark ? (
+            <Text
+              testID="calendar-enrolled-mark"
+              accessibilityLabel={t("calendar.eventCard.enrolled")}
+              className="text-[15px] font-sans-bold"
+              style={{ color: ink }}
+            >
+              ✓
+            </Text>
+          ) : null}
           <Text
-            testID="calendar-enrolled-mark"
-            accessibilityLabel={t("calendar.eventCard.enrolled")}
-            className="text-[15px] font-sans-bold"
+            numberOfLines={1}
+            className="flex-shrink text-[15px] font-sans-bold"
             style={{ color: ink }}
           >
-            ✓
+            {title}
           </Text>
-        ) : null}
-        <Text
-          numberOfLines={1}
-          className="flex-shrink text-[15px] font-sans-bold"
-          style={{ color: ink }}
-        >
-          {title}
-        </Text>
+        </View>
         {levelCode && !isBlock ? (
           <Text
             className="shrink-0 rounded px-1.5 text-xs font-sans-bold leading-5"
