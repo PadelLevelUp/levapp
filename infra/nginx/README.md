@@ -9,6 +9,7 @@ the VM, so nobody reviewed them and no check covered them.
 | `conf.d/levapp-log-redaction.conf` | `/etc/nginx/conf.d/levapp-log-redaction.conf` |
 | `sites-available/{levapp,levapp-staging,padellevelup}` | `/etc/nginx/sites-available/`, linked from `sites-enabled/` |
 | `sites-available/levapp-admin{,-staging}{,-http}` | same; the staff console hosts (PAD-531), see below |
+| `sites-available/levapp-api{,-staging}{,-http}` | same; the API's own hosts (PAD-614), installed like the console hosts below |
 
 **The deploy does not install these files.** A change here is applied by hand on the VM:
 copy the changed files over, run `sudo nginx -t`, then `sudo systemctl reload nginx`. After
@@ -128,3 +129,11 @@ curl -sI 'https://padellevelup.com/join/coach/abc?x=1' | grep -iE '^(HTTP|locati
 curl -s -o /dev/null -w '%{http_code}\n' https://padellevelup.com/api/app/public-web-origin   # 200 (after PAD-595 step 1 is on prod; else /api/notifications/vapid-public-key → 200)
 curl -s https://padellevelup.com/.well-known/apple-app-site-association | head -c 80; echo      # 200, JSON starting {"applinks"
 ```
+
+## The API hosts (PAD-614, delivery.api-host)
+
+`levapp-api` (api.levapp.app) and `levapp-api-staging` (api.staging.levapp.app) serve only `/api`
+(the SSE, activation and general locations, with the same log protections) to the two-port
+upstreams in `conf.d/levapp-api-upstream.conf`. They are installed exactly like the console hosts
+above, `-http` first, then the certificate by webroot, then the 443 file; the full owner runbook is
+on PAD-614.

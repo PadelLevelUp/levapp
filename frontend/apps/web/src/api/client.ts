@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/api/base";
 import { initApi, getApi, type TokenStorage } from "@levelup/api";
 
 import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
@@ -31,7 +32,7 @@ function redirectToAuth() {
 }
 
 initApi({
-  baseURL: "/api",
+  baseURL: API_BASE_URL,
   storage: webTokenStorage,
   onUnauthorized: redirectToAuth,
   // PAD-352 (eligibility.open-spot-visibility rule 12): the web renders open
