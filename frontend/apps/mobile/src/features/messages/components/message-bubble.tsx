@@ -5,6 +5,7 @@ import {
   lightTheme,
   type ClassRequestLive,
   type JoinRequestLive,
+  retiredInviteLabelKey,
 } from "@levelup/config";
 import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
 import { useInviteWaitingList } from "@levelup/hooks";
@@ -969,7 +970,7 @@ export function MessageBubble({
                 <View className="flex-row flex-wrap items-center gap-2">
                   <View className="rounded-full bg-warning/15 px-3 py-1.5">
                     <Text className="text-xs font-medium text-warning">
-                      {t("messages.spotFilled")}
+                      {t(retiredInviteLabelKey(message.metadata))}
                     </Text>
                   </View>
                   {/* PAD-577 (rule 15a): the waiting list, from the message that lost the spot. */}

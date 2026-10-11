@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { invitationClassStillAhead, invitationLostToAnother, offersWaitingListJoin } from "./invitation-waiting-list";
+import { invitationClassStillAhead, invitationLostToAnother, invitationWithdrawnForBalance, offersWaitingListJoin, retiredInviteLabelKey } from "./invitation-waiting-list";
 
 const NOW = Date.parse("2026-10-16T17:00:00Z"); // "wall clock" ms, as lisbonNowMs gives
 const lost = { responded: true, response: "spot_filled", lessonInstanceId: 7, startsAt: "2026-10-17T18:00:00" };
@@ -30,5 +30,21 @@ describe("PAD-577 a retired invitation offers the waiting list (invitations rule
     expect(offersWaitingListJoin(lost, { nowWallMs: NOW, onWaitingList: true })).toBe(false);
     expect(offersWaitingListJoin({ ...lost, lessonInstanceId: null }, { nowWallMs: NOW, onWaitingList: false })).toBe(false);
     expect(offersWaitingListJoin({ ...lost, startsAt: "2026-10-16T16:59:00" }, { nowWallMs: NOW, onWaitingList: false })).toBe(false);
+  });
+});
+
+describe("PAD-581 a balance withdrawal offers the waiting list too (invitations rule 2d)", () => {
+  const balanced = { ...lost, response: "side_balanced" };
+  it("offers it, and labels the badge as no longer needed on this side", () => {
+    expect(invitationLostToAnother(balanced)).toBe(true);
+    expect(invitationWithdrawnForBalance(balanced)).toBe(true);
+    expect(offersWaitingListJoin(balanced, { nowWallMs: NOW, onWaitingList: false })).toBe(true);
+    expect(retiredInviteLabelKey(balanced)).toBe("messages.noLongerNeededOnSide");
+  });
+  it("leaves every other retired invitation on 'Vaga preenchida'", () => {
+    for (const response of ["spot_filled", "expired", "withdrawn"]) {
+      expect(invitationWithdrawnForBalance({ ...lost, response })).toBe(false);
+      expect(retiredInviteLabelKey({ ...lost, response })).toBe("messages.spotFilled");
+    }
   });
 });
