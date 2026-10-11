@@ -119,6 +119,8 @@ export type UpdateMePayload = {
   abbreviation?: string;
   email?: string;
   phone?: string;
+  /** PAD-630: ISO 3166-1 alpha-2; the server upper-cases it and answers 400 for anything else. */
+  country?: string;
   /** PAD-112 — see MeResponse. Sending `false` clears the flag. */
   blockAutoInvitations?: boolean;
   blockManualInvitations?: boolean;

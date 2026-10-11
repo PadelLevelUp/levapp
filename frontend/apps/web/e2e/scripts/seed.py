@@ -1013,6 +1013,12 @@ with app.app_context(), unit_of_work():
         eval_yesterday_record, forehand_category.id, 5, evaluated_at=yesterday_start + timedelta(minutes=30)
     )
 
+    # PAD-630 (auth.login rule 13): every seeded account has a country, as a real one does, so the
+    # once-after-sign-in country prompt never covers the screens the specs and flows drive. A spec
+    # that needs the prompt clears one account's country itself.
+    for seeded in User.query.filter(User.country.is_(None)).all():
+        seeded.country = "PT"
+
     # ── Commit ────────────────────────────────────────────────────────────────
     db.session.commit()
     print("[seed] Done. Created:")
