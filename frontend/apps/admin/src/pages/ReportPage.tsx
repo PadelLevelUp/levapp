@@ -103,7 +103,7 @@ export function ReportPage() {
           {r.status === "closed" ? (
             <>
               <Field label={t("admin.reports.columns.outcome")} testId="report-outcome">
-                {r.outcome ? t(`admin.reports.outcome.${r.outcome}`) : "—"}
+                <span data-testid="report-outcome-value">{r.outcome ? t(`admin.reports.outcome.${r.outcome}`) : "—"}</span>
               </Field>
               <Field label={t("admin.reports.columns.closedBy")}>
                 {r.closedBy ?? "—"}

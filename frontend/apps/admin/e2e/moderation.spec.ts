@@ -11,7 +11,11 @@ test.describe("moderation", () => {
     const id = signedIn.reportIds[0];
     await page.goto("/reports");
     await expect(page.getByTestId(`report-row-${id}`)).toBeVisible();
+    // The open count rides on the navigation; on a phone it is in the drawer (admin.phone-console).
+    const menu = page.getByTestId("admin-menu-button");
+    if (await menu.isVisible()) await menu.click();
     await expect(page.getByTestId("admin-nav-reports-count")).toBeVisible();
+    if (await menu.isVisible()) await page.keyboard.press("Escape");
 
     await page.getByTestId(`report-link-${id}`).click();
     await expect(page).toHaveURL(new RegExp(`/reports/${id}$`));
@@ -25,7 +29,7 @@ test.describe("moderation", () => {
 
     // Closed: the actions are gone and the outcome is shown.
     await expect(page.getByTestId("report-dismiss")).toHaveCount(0);
-    await expect(page.getByTestId("report-outcome")).toHaveText(ui("admin.reports.outcome.dismissed"));
+    await expect(page.getByTestId("report-outcome-value")).toHaveText(ui("admin.reports.outcome.dismissed"));
 
     await page.goto("/reports");
     await expect(page.getByTestId(`report-row-${id}`)).toHaveCount(0);
@@ -40,7 +44,7 @@ test.describe("moderation", () => {
     await page.getByTestId("report-confirm").click();
 
     await expect(page.getByTestId("report-delete-message")).toHaveCount(0);
-    await expect(page.getByTestId("report-outcome")).toHaveText(ui("admin.reports.outcome.message_deleted"));
+    await expect(page.getByTestId("report-outcome-value")).toHaveText(ui("admin.reports.outcome.message_deleted"));
     // The reported message is now marked deleted in the context.
     await expect(page.locator('[data-testid^="report-context-"][data-reported="true"]')).toContainText(ui("admin.report.deletedMarker"));
 
