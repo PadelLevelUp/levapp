@@ -35,7 +35,8 @@
         "off_work": "Off work",
         "unavailable": "Unavailable"
       },
-      "openAria": "Open {{title}}, {{start}} to {{end}}"
+      "openAria": "Open {{title}}, {{start}} to {{end}}",
+      "enrolled": "Enrolled"
     },
     "mobile": {
       "classCount_one": "{{count}} class",
@@ -431,6 +432,7 @@
       "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
     },
     "legend": {
+      "enrolled": "Enrolled",
       "next": "Next class",
       "openSpots": "Spots to fill",
       "full": "Full / upcoming",

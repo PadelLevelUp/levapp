@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Linking, Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
-import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
+import { PRIVACY_POLICY_URL, TERMS_URL, legalUrl } from "@/lib/config";
 
 /**
  * Privacy Policy · Terms of Service, for the pre-auth screens (PAD-164).
@@ -19,7 +19,7 @@ import { PRIVACY_POLICY_URL, TERMS_URL } from "@/lib/config";
  * app: the system browser, with the app left running behind it.
  */
 export function LegalLinks({ testID = "legal-links" }: { testID?: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const privacy = t("auth.legal.privacyPolicy");
   const terms = t("auth.legal.terms");
@@ -33,7 +33,7 @@ export function LegalLinks({ testID = "legal-links" }: { testID?: string }) {
         testID={`${testID}-privacy`}
         accessibilityRole="link"
         accessibilityLabel={privacy}
-        onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+        onPress={() => void Linking.openURL(legalUrl(PRIVACY_POLICY_URL, i18n.language))}
         hitSlop={8}
       >
         <Text className="text-xs text-sidebar-foreground underline opacity-70">
@@ -49,7 +49,7 @@ export function LegalLinks({ testID = "legal-links" }: { testID?: string }) {
         testID={`${testID}-terms`}
         accessibilityRole="link"
         accessibilityLabel={terms}
-        onPress={() => void Linking.openURL(TERMS_URL)}
+        onPress={() => void Linking.openURL(legalUrl(TERMS_URL, i18n.language))}
         hitSlop={8}
       >
         <Text className="text-xs text-sidebar-foreground underline opacity-70">

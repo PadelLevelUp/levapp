@@ -1,3 +1,5 @@
+import { WEB_APP_URL } from "@/lib/config";
+import { webAppLink } from "@/lib/web-links";
 import { Ionicons } from "@expo/vector-icons";
 import { clubsApi, courtsApi, invitationsApi } from "@levelup/api";
 import type { Court } from "@levelup/types";
@@ -223,10 +225,10 @@ export function ClubSection() {
     setCreating(true);
     try {
       const created = await invitationsApi.createCoachInvitation(club.id);
-      // Mobile has no window.location — the API returns a relative
-      // inviteLink (e.g. "/invite/coach/<token>"); show it as-is, it's
-      // meant to be opened on the web app either way.
-      setInviteUrl(created.inviteLink);
+      // PAD-595: the API returns a relative inviteLink ("/invite/coach/<token>"); the coach is
+      // handed it on the configured public web origin (levapp.app), as every other share link on
+      // iOS is (lib/web-links), not as a bare path nobody can open.
+      setInviteUrl(webAppLink(WEB_APP_URL, created.inviteLink));
       setInviteDialogOpen(true);
       await refreshInvitations(club.id);
     } catch {

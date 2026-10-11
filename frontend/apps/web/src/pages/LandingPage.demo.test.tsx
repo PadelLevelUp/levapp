@@ -32,7 +32,7 @@ describe("landing page demo CTA", () => {
     expect(ctas.length).toBeGreaterThan(0);
     for (const cta of ctas) {
       expect(cta.tagName).toBe("A");
-      expect(cta.getAttribute("href")).toMatch(/^mailto:padellevelup2026@gmail\.com\?subject=/);
+      expect(cta.getAttribute("href")).toMatch(/^mailto:admin@levapp\.app\?subject=/);
     }
   });
 

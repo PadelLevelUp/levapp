@@ -12,6 +12,8 @@ export const QUIET_HOURS_DEFAULT: QuietWindow = { start: "22:00", end: "07:00" }
 
 /** The pickers' step: 30 minutes (web `<input type="time" step>` takes seconds). */
 export const QUIET_HOURS_STEP_SECONDS = 1800;
+/** PAD-559 PR-2: the same grid for the shared time field, which takes minutes. */
+export const QUIET_HOURS_STEP_MINUTES = 30 as const;
 
 /** Every half hour of the day, "00:00" … "23:30". */
 export const QUIET_HOURS_STEPS: string[] = Array.from({ length: 48 }, (_, i) =>

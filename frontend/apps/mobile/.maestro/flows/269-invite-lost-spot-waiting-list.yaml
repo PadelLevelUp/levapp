@@ -3,7 +3,7 @@
 # lista de espera". Seeded through the API (R-040): a class three days out with one open spot,
 # "E2E Student" (the signed-in student) and "Filler Player 01" invited by hand, the filler's yes
 # recorded by the coach so the class is full; the student's own late "yes" is then refused as
-# spot_filled (a manual invitation has no vacancy, so a fill never retires it). The coach's open
+# spot_filled, or, with PAD-609, the fill itself retired it as spot_filled. The coach's open
 # spots are made visible for the join (waiting-list rule 14) and restored on completion.
 # Asserted by id (PAD-320). Flow
 # number 269 is from 0910-SessionB's wave-14 block (unconfirmed).
@@ -35,11 +35,14 @@ onFlowComplete:
 # The coach records the filler's yes: the class is full.
 - evalScript: "${output.answered = http.post(output.api + '/api/app/notify/coach_respond', { headers: output.auth, body: JSON.stringify({ notificationEventId: output.fillerInvite.id, action: 'yes' }) }).ok}"
 - assertTrue: "${output.answered === true}"
-# The student answers yes too late: refused as spot_filled, "Vaga preenchida" on their bubble.
-- evalScript: "${output.studentInvite = output.detail.invitations.filter(function (i) { return i.playerId === String(output.student.playerId); })[0]}"
-- assertTrue: "${output.studentInvite != null}"
-- evalScript: "${output.studentTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
-- evalScript: "${output.late = json(http.post(output.api + '/api/app/notify/respond', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.studentTok }, body: JSON.stringify({ notificationEventId: output.studentInvite.id, action: 'yes' }) }).body).action}"
+# How the student's invitation ended decides the next step (rule 15a). With PAD-609 the fill
+# itself retired it as spot_filled; before it, the invitation is still live and the student's own
+# late yes is refused as spot_filled. Read from the server, so each world asserts its own outcome.
+- evalScript: "${output.after = json(http.post(output.api + '/api/app/class_instance?model=' + (output.made.model || 'Lesson') + '&id=' + output.made.originalId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body)}"
+- evalScript: "${output.studentInvite = output.after.invitations.filter(function (i) { return i.playerId === String(output.student.playerId); })[0]}"
+- assertTrue: "${output.studentInvite != null && (output.studentInvite.status === 'expired' || output.studentInvite.status === 'sent')}"
+- evalScript: "${output.studentTok = output.studentInvite.status === 'sent' ? json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken : null}"
+- evalScript: "${output.late = output.studentInvite.status === 'sent' ? json(http.post(output.api + '/api/app/notify/respond', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.studentTok }, body: JSON.stringify({ notificationEventId: output.studentInvite.id, action: 'yes' }) }).body).action : 'spot_filled (retired by the fill)'}"
 - assertTrue: "${String(output.late).indexOf('spot_filled') === 0}"
 
 - runFlow: ../subflows/login-student.yaml

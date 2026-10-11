@@ -56,6 +56,7 @@ export function AccountSection() {
       <Button
         variant="destructive"
         className="gap-2"
+        data-testid="settings-delete-account"
         onClick={() => setIsDeleteOpen(true)}
       >
         <Trash2 className="w-4 h-4" />
@@ -74,6 +75,7 @@ export function AccountSection() {
             <AlertDialogCancel disabled={isDeleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="delete-account-confirm"
               disabled={isDeleting}
               onClick={(e) => {
                 e.preventDefault();

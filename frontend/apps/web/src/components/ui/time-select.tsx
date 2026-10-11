@@ -11,9 +11,9 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STEP = 15;
-const FIRST = 6 * 60; // 06:00
-const LAST = 23 * 60 + 45; // 23:45
+const DEFAULT_STEP = 15;
+const DEFAULT_FIRST = 6 * 60; // 06:00
+const DEFAULT_LAST = 23 * 60 + 45; // 23:45
 const pad = (n: number) => String(n).padStart(2, "0");
 const toText = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 const toMinutes = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3, 5));
@@ -54,11 +54,11 @@ function duration(from: string, to: string): string | null {
   return h && m ? `${h} h ${m} min` : h ? `${h} h` : `${m} min`;
 }
 
-/** The next quarter hour at or after `now`, on the list's grid, clamped to the list. */
-function nextQuarterHour(now: Date): string {
+/** The next slot at or after `now`, on the list's grid, clamped to the list. */
+function nextSlot(now: Date, step: number, first: number, last: number): string {
   const m = now.getHours() * 60 + now.getMinutes();
-  const q = Math.ceil(m / STEP) * STEP;
-  return toText(Math.max(FIRST, Math.min(q, LAST)));
+  const q = Math.ceil(m / step) * step;
+  return toText(Math.max(first, Math.min(q, last)));
 }
 
 interface TimeSelectProps {
@@ -79,11 +79,25 @@ interface TimeSelectProps {
   "aria-invalid"?: boolean;
   /** classes.clone (PAD-524): shown while the field is still empty (a clone's start). */
   placeholder?: string;
+  /**
+   * PR-2 of PAD-559: the other web time fields share this component. `step` is the list's grid
+   * in minutes (15 by default; quiet hours sit on 30), `first` / `last` its bounds ("06:00" /
+   * "23:45" by default; settings fields span the day). Typing stays free of the grid.
+   */
+  step?: 15 | 30;
+  first?: string;
+  last?: string;
+  id?: string;
+  disabled?: boolean;
+  className?: string;
 }
 
 let nextId = 0;
 
-export function TimeSelect({ value, onChange, from, usualMinutes, onRefused, now, ...rest }: TimeSelectProps) {
+export function TimeSelect({ value, onChange, from, usualMinutes, onRefused, now, step: stepProp, first: firstProp, last: lastProp, className, ...rest }: TimeSelectProps) {
+  const STEP = stepProp ?? DEFAULT_STEP;
+  const FIRST = firstProp && isHhMm(firstProp) ? toMinutes(firstProp) : DEFAULT_FIRST;
+  const LAST = lastProp && isHhMm(lastProp) ? toMinutes(lastProp) : DEFAULT_LAST;
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState(value);
   // The keyboard's highlight: a list index, or null when nothing is highlighted.
@@ -167,7 +181,7 @@ export function TimeSelect({ value, onChange, from, usualMinutes, onRefused, now
       const target =
         list.querySelector<HTMLElement>("[data-selected=true]") ??
         (() => {
-          const near = nextQuarterHour((now ?? (() => new Date()))());
+          const near = nextSlot((now ?? (() => new Date()))(), STEP, FIRST, LAST);
           const m = toMinutes(near);
           const i = options.findIndex((o) => toMinutes(o) >= m);
           return list.querySelector<HTMLElement>(`#${optionId(i === -1 ? options.length - 1 : i)}`);
@@ -196,11 +210,27 @@ export function TimeSelect({ value, onChange, from, usualMinutes, onRefused, now
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={open && active !== null ? optionId(active) : undefined}
-            className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+            className={cn("h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50", className)}
             value={draft}
             onFocus={() => setOpen(true)}
             onClick={() => setOpen(true)} // a click on an already-focused field reopens the list
-            onChange={(e) => { setDraft(e.target.value); setActive(null); }}
+            onChange={(e) => {
+              const text = e.target.value;
+              setDraft(text);
+              setActive(null);
+              // A complete "HH:MM" or "H:MM" commits as it is typed — two minute digits make it
+              // unambiguous — the native input's behaviour, which a Save button watching for a
+              // change relies on. Shorthands ("930", "9h30", "07:0") still commit on Enter or on
+              // leaving the field. The field shows what was committed (the guard may have moved it).
+              if (/^\d{1,2}:\d{2}$/.test(text)) {
+                const parsed = parseTime(text);
+                if (parsed) {
+                  const next = guard(parsed);
+                  setDraft(next);
+                  onChange(next);
+                }
+              }
+            }}
             onBlur={commitText} // leaving the field commits, list open or not (#544 review)
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") { e.preventDefault(); move(1); return; }
