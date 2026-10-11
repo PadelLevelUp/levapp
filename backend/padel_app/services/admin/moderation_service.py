@@ -85,7 +85,7 @@ def report_detail(report_id):
     """Rule 3: two messages before and two after, in order, and the participants."""
     report = _report(report_id)
     message = report.message
-    base = Message.query.filter_by(conversation_id=message.conversation_id)
+    base = Message.query.filter_by(conversation_id=message.conversation_id).options(joinedload(Message.sender))
     before = (
         base.filter((Message.sent_at < message.sent_at) | ((Message.sent_at == message.sent_at) & (Message.id < message.id)))
         .order_by(Message.sent_at.desc(), Message.id.desc()).limit(2).all()
@@ -104,6 +104,8 @@ def report_detail(report_id):
         **_row(report),
         "context": [
             {"id": m.id, "text": m.text, "deleted": bool(m.is_deleted), "senderId": m.sender_id,
+             # Named here, not looked up among the participants: a sender who left still has a name.
+             "senderName": m.sender.name if m.sender else None,
              "sentAt": m.sent_at.isoformat() if m.sent_at else None, "reported": m.id == message.id}
             for m in context
         ],
@@ -114,6 +116,8 @@ def report_detail(report_id):
 def act(report_id, action, note=None):
     """Rule 4: dismiss / delete-message / disable-author. Closes the report; 409 when closed."""
     report = _report(report_id)
+    # Rule 4: every row this request writes — ok, denied or error — names the report.
+    g.audit.target("message_report", report.id)
     if report.status != "open":
         raise ModerationError(409, "REPORT_CLOSED")
     outcome = OUTCOMES[action]
@@ -121,10 +125,9 @@ def act(report_id, action, note=None):
     message = report.message
 
     if action == "delete-message":
-        if not message.is_deleted:
-            message.is_deleted = True
-            from padel_app.services.messaging_service import publish_message_deleted
+        from padel_app.services.messaging_service import publish_message_deleted, soft_delete_message
 
+        if soft_delete_message(message):
             g.audit.defer(lambda m=message: publish_message_deleted(m))
     elif action == "disable-author":
         from padel_app.services.admin import users_service

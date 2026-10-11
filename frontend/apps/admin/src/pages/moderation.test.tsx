@@ -78,9 +78,9 @@ const row = (over: Partial<ReportRow> = {}): ReportRow => ({
 const detail = (over: Partial<ReportDetail> = {}): ReportDetail => ({
   ...row(),
   context: [
-    { id: 38, text: "Olá", deleted: false, senderId: 11, sentAt: "2026-10-10T09:58:00Z", reported: false },
-    { id: 39, text: "Então?", deleted: true, senderId: 12, sentAt: "2026-10-10T09:59:00Z", reported: false },
-    { id: 40, text: "Paga-me já", deleted: false, senderId: 12, sentAt: "2026-10-10T10:00:00Z", reported: true },
+    { id: 38, text: "Olá", deleted: false, senderName: "Carla Coach", senderId: 11, sentAt: "2026-10-10T09:58:00Z", reported: false },
+    { id: 39, text: "Então?", deleted: true, senderName: "Carla Coach", senderId: 12, sentAt: "2026-10-10T09:59:00Z", reported: false },
+    { id: 40, text: "Paga-me já", deleted: false, senderName: "Carla Coach", senderId: 12, sentAt: "2026-10-10T10:00:00Z", reported: true },
   ],
   participants: [person(11, "Rita Aluna"), person(12, "Carlos Treinador")],
   ...over,
@@ -193,6 +193,17 @@ describe("the report detail", () => {
     fireEvent.click(screen.getByTestId("report-cancel"));
     expect(screen.queryByTestId("report-confirm")).toBeNull();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it("moves focus into the confirmation, and Escape cancels back to the action", async () => {
+    api();
+    renderAt("/reports/7", "operator");
+    const button = await screen.findByTestId("report-disable-author");
+    fireEvent.click(button);
+    await waitFor(() => expect(screen.getByTestId("report-note")).toHaveFocus());
+    fireEvent.keyDown(screen.getByTestId("report-confirm-form"), { key: "Escape" });
+    expect(screen.queryByTestId("report-confirm-form")).toBeNull();
+    expect(button).toHaveFocus();
   });
 
   it("deletes the message through its own endpoint", async () => {

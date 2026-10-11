@@ -212,7 +212,7 @@ export interface ReportRow {
 }
 
 export interface ReportDetail extends ReportRow {
-  context: { id: number; text: string; deleted: boolean; senderId: number | null; sentAt: string; reported: boolean }[];
+  context: { id: number; text: string; deleted: boolean; senderId: number | null; senderName: string | null; sentAt: string; reported: boolean }[];
   participants: ReportPerson[];
 }
 

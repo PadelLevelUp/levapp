@@ -565,12 +565,15 @@ def report_detail(report_id):
 
 
 def _act(report_id, action):
-    from padel_app.services.admin import moderation_service
+    from padel_app.services.admin import moderation_service, users_service
 
     try:
         row = moderation_service.act(report_id, action, (request.get_json(silent=True) or {}).get("note"))
     except moderation_service.ModerationError as exc:
         return _moderation_error(exc)
+    except users_service.UsersError as exc:
+        # A refusal from the disable it reuses (admin.approvals-and-users rule 6) is that refusal.
+        return _users_error(exc)
     return jsonify(row)
 
 

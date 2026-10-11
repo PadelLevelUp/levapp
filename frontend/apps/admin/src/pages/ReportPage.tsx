@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
@@ -38,6 +38,17 @@ export function ReportPage() {
   const key = ["admin", "report", reportId];
   const report = useQuery({ queryKey: key, queryFn: () => adminApi.report(reportId) });
   const [pending, setPending] = useState<(typeof ACTIONS)[number] | null>(null);
+  // The inline confirmation behaves as a dialog: focus moves into it on open, Escape cancels, and
+  // focus returns to the action that opened it.
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (pending) noteRef.current?.focus();
+  }, [pending]);
+  const cancel = () => {
+    setPending(null);
+    trigger.current?.focus();
+  };
   const [note, setNote] = useState("");
   const [feedback, setFeedback] = useState<"alreadyHandled" | "error" | null>(null);
 
@@ -82,7 +93,7 @@ export function ReportPage() {
   }
   const r = report.data;
   const when = (iso: string) => new Date(iso).toLocaleString(i18n.language);
-  const sender = (id: number | null) => r.participants.find((p) => p.id === id)?.name ?? "—";
+
   const noteBlocks = !!pending?.needsNote && !note.trim();
 
   return (
@@ -126,7 +137,7 @@ export function ReportPage() {
               className={clsx("rounded-md border p-3 text-sm", m.reported && "border-destructive bg-destructive/10")}
             >
               <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{sender(m.senderId)}</span>
+                <span>{m.senderName ?? "—"}</span>
                 <span>{when(m.sentAt)}</span>
                 {m.reported ? <Badge tone="destructive">{t("admin.report.reportedMarker")}</Badge> : null}
                 {m.deleted ? <Badge>{t("admin.report.deletedMarker")}</Badge> : null}
@@ -160,7 +171,8 @@ export function ReportPage() {
                   key={a.action}
                   variant={a.action === "dismiss" ? "secondary" : "destructive"}
                   disabled={act.isPending}
-                  onClick={() => {
+                  onClick={(e) => {
+                    trigger.current = e.currentTarget;
                     setPending(a);
                     setNote("");
                     setFeedback(null);
@@ -180,6 +192,9 @@ export function ReportPage() {
               aria-label={t(`admin.report.${pending.label}`)}
               className="mt-3 space-y-2 rounded-md bg-muted p-3"
               data-testid="report-confirm-form"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") cancel();
+              }}
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!noteBlocks) act.mutate(pending);
@@ -189,6 +204,7 @@ export function ReportPage() {
               <label className="block text-xs text-muted-foreground">
                 {pending.needsNote ? t("admin.report.noteRequired") : t("admin.report.noteOptional")}
                 <textarea
+                  ref={noteRef}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
@@ -200,7 +216,7 @@ export function ReportPage() {
                 <Button type="submit" variant="destructive" disabled={act.isPending || noteBlocks} data-testid="report-confirm">
                   {t("admin.report.confirmAction")}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => setPending(null)} data-testid="report-cancel">
+                <Button type="button" variant="ghost" onClick={cancel} data-testid="report-cancel">
                   {t("admin.common.cancel")}
                 </Button>
               </div>

@@ -518,9 +518,19 @@ def delete_message_service(message_id, user_id):
     require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
-    message.is_deleted = True
+    soft_delete_message(message)
     message.save()
     publish_message_deleted(message)
+
+
+def soft_delete_message(message):
+    """What a delete does to the row (messaging.messages rule 3): a soft delete, nothing removed.
+    Shared by the sender's delete and the console's (admin.moderation rule 4); the caller commits
+    and then publishes. Returns False when it was already deleted."""
+    if message.is_deleted:
+        return False
+    message.is_deleted = True
+    return True
 
 
 def publish_message_deleted(message):

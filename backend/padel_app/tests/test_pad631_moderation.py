@@ -191,3 +191,54 @@ def test_the_deletion_audit_is_listed_and_filtered(client, app, staff):
     assert (row["entity"], row["entityId"], row["action"], row["label"]) == ("club", 7, "delete", "Clube Norte")
     assert row["actor"]["name"] == "Zé Admin" and row["details"] == {"courts": 3}
     assert len(client.get("/admin/api/deletion-audits", headers=staff["support"]).get_json()["items"]) == 2
+
+
+# ── review round ─────────────────────────────────────────────────────────────
+
+def test_a_refused_action_still_audits_the_report(client, app, staff):
+    from padel_app.tests.admin_helpers import audit_rows as rows
+
+    t = _thread(app)
+    client.post(f"/admin/api/reports/{t['report']}/dismiss", json={}, headers=staff["operator"])
+    assert client.post(f"/admin/api/reports/{t['report']}/delete-message", json={}, headers=staff["operator"]).status_code == 409
+    [denied] = [r for r in rows(app, "report.delete_message")]
+    assert denied["outcome"] != "ok"
+    assert (denied["targetType"], denied["targetId"]) == ("message_report", str(t["report"]))
+
+
+def test_a_disable_refused_by_the_users_service_is_a_4xx_not_a_500(client, app, staff, monkeypatch):
+    from padel_app.services.admin import users_service
+
+    def refuse(user_id, reason):
+        raise users_service.ReasonRequired()
+
+    monkeypatch.setattr(users_service, "disable", refuse)
+    t = _thread(app)
+    res = client.post(f"/admin/api/reports/{t['report']}/disable-author", json={}, headers=staff["operator"])
+    assert 400 <= res.status_code < 500, res.get_json()
+    assert _report(app, t["report"])["status"] == "open"
+
+
+def test_an_already_deleted_message_closes_the_report_without_a_second_event(client, app, staff, published):
+    from padel_app.models import Message
+
+    t = _thread(app)
+    with app.app_context():
+        Message.query.get(t["messages"][3]).is_deleted = True
+        db.session.commit()
+    res = client.post(f"/admin/api/reports/{t['report']}/delete-message", json={}, headers=staff["operator"])
+    assert res.status_code == 200
+    assert _report(app, t["report"])["outcome"] == "message_deleted"
+    assert published == []
+
+
+def test_the_context_names_each_sender_even_one_who_left(client, app, staff):
+    from padel_app.models.conversation_participants import ConversationParticipant
+
+    t = _thread(app)
+    with app.app_context():
+        ConversationParticipant.query.filter_by(conversation_id=t["conv"], user_id=t["coach"]).delete()
+        db.session.commit()
+    ctx = client.get(f"/admin/api/reports/{t['report']}", headers=staff["support"]).get_json()["context"]
+    names = {m["senderName"] for m in ctx}
+    assert names == {"Carla Coach", "Sara Aluna"}
