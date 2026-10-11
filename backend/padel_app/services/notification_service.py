@@ -90,6 +90,33 @@ _BLOCKABLE_MESSAGE_TYPES = frozenset({
 # Config helpers
 # ---------------------------------------------------------------------------
 
+def notification_config_for(coach_id: int) -> NotificationConfig | None:
+    """The coach's ``NotificationConfig`` or ``None`` — read once per request (PAD-591, rule 21).
+
+    A class detail resolves the cascade, the cancellation deadline and the proactive-decline
+    window, each of which needs the coach's settings; they share this answer instead of each
+    querying. Memoised on ``flask.g`` only inside a request (R-007) — a scheduler job or CLI
+    holding one app context for many iterations must see fresh rows — and dropped by
+    :func:`get_or_create_config` / :func:`update_config`, so a request that writes the row reads
+    its own write. A missing row is memoised as ``None``.
+    """
+    from flask import g, has_request_context
+
+    if not has_request_context():
+        return NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    cache = g.__dict__.setdefault("_notification_configs", {})
+    if coach_id not in cache:
+        cache[coach_id] = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    return cache[coach_id]
+
+
+def _forget_config(coach_id: int) -> None:
+    from flask import g, has_request_context
+
+    if has_request_context():
+        g.__dict__.get("_notification_configs", {}).pop(coach_id, None)
+
+
 def get_or_create_config(coach_id: int) -> NotificationConfig:
     """The coach's configuration, creating the row (engine off) when there is none.
 
@@ -107,6 +134,7 @@ def get_or_create_config(coach_id: int) -> NotificationConfig:
     if config is not None:
         return config
     config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
+    _forget_config(coach_id)
     try:
         with db.session.begin_nested():
             db.session.add(config)
@@ -236,6 +264,7 @@ def _level_operations_outside(rules, known) -> list:
 
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
+    _forget_config(coach_id)
 
     timing_changed = False
 
@@ -408,7 +437,7 @@ def effective_eligibility_with_source(class_obj, coach_id: int, config: Notifica
         if series is not None:
             return series, "lesson"
     if config is None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        config = notification_config_for(coach_id)
     if config is None:
         return None, "coach"
     return config.get_eligibility_rules(), "coach"
@@ -474,7 +503,7 @@ def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: N
         if getattr(lesson, "type", None) == "private":
             return False, "type"
     if config is None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        config = notification_config_for(coach_id)
     if config is None:
         return False, "coach"
     return bool(config.open_spots_visible), "coach"
@@ -3982,9 +4011,7 @@ def proactive_decline_deadline(
 
         coach = primary_coach(instance)  # PAD-275 rule 4
         if coach is not None:
-            _config = NotificationConfig.query.filter_by(
-                coach_id=coach.id
-            ).first()
+            _config = notification_config_for(coach.id)
 
     timing = (
         _config.get_reminder_timing() if _config is not None

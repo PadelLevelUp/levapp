@@ -361,7 +361,19 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - PAD-570 interplay: a cleared student is `planned`; whether they may say "Vou" is rule 27's
       predicate, not this rule's business.
 
+27. **(PAD-591) The count endpoint counts.** `GET /class_instances/pending_validation/count`
+    computes `pendingCount` and `pendingTotal` as SQL `COUNT`s over the rule 18 predicate; it never
+    loads the window's rows to take their length. `pendingCount` still equals the listing's length
+    for the same bounds (rule 18).
+
 ### Acceptance Criteria
+
+#### The count does not load the rows (rule 27, PAD-591)
+- **Given** a coach with 2 pending classes in the shown week and 40 in the backlog
+- **When** the coach reads `/class_instances/pending_validation/count` under a statement recorder
+  and again after 10 more pending classes are added to the week
+- **Then** both requests issue the same number of statements, and `pendingCount` equals
+  `len(list_pending_validation(...))` for the same bounds
 
 #### The count endpoint is the listing's count
 - **Given** a coach with one ready and one needs-input class in a window

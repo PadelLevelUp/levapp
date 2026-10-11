@@ -271,10 +271,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         from datetime import timedelta
         from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.lesson_instance_training import LessonInstanceTraining
-        from padel_app.models.notification_config import (
-            NotificationConfig,
-            DEFAULT_CANCELLATION_DEADLINE_HOURS,
-        )
+        from padel_app.models.notification_config import DEFAULT_CANCELLATION_DEADLINE_HOURS
+        from padel_app.services.notification_service import notification_config_for
 
         notification_query = NotificationEvent.query.filter_by(
             lesson_instance_id=obj.id
@@ -304,7 +302,7 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         # coach has no config.
         deadline_hours = DEFAULT_CANCELLATION_DEADLINE_HOURS
         if coach_id is not None:
-            config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+            config = notification_config_for(coach_id)
             if config is not None:
                 deadline_hours = config.get_cancellation_deadline_hours()
         cancellation_deadline = None
@@ -331,9 +329,7 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
 
         proactive_config = None
         if coach_id is not None:
-            proactive_config = NotificationConfig.query.filter_by(
-                coach_id=coach_id
-            ).first()
+            proactive_config = notification_config_for(coach_id)
         from padel_app.utils.dates import utc_to_wall_naive as _utc_to_wall
 
         proactive_deadline_dt = proactive_decline_deadline(obj, proactive_config)
@@ -427,11 +423,9 @@ def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
     from datetime import datetime, timedelta
     from types import SimpleNamespace
 
-    from padel_app.models.notification_config import (
-        DEFAULT_CANCELLATION_DEADLINE_HOURS,
-        NotificationConfig,
-    )
+    from padel_app.models.notification_config import DEFAULT_CANCELLATION_DEADLINE_HOURS
     from padel_app.services.notification_service import (
+        notification_config_for,
         proactive_decline_deadline,
         proactive_decline_window_is_open,
         student_may_confirm,
@@ -446,10 +440,7 @@ def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
         status="scheduled",
         notifications_enabled=bool(lesson.notifications_enabled),
     )
-    config = (
-        NotificationConfig.query.filter_by(coach_id=coach_id).first()
-        if coach_id is not None else None
-    )
+    config = notification_config_for(coach_id) if coach_id is not None else None
     deadline_hours = (
         config.get_cancellation_deadline_hours() if config is not None
         else DEFAULT_CANCELLATION_DEADLINE_HOURS
