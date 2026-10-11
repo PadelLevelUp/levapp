@@ -70,7 +70,12 @@ Automatically send class reminders to enrolled players at a configured time befo
    removed (`drop_pending_followups`) before the base job is re-armed for the new time (PAD-478); the
    re-armed pass then sends whatever reminder is still owed, with the count and the spacing as
    always. Only an edit that moves the class does this: startup, the daily pass and a settings save
-   (which re-times follow-ups, `notifications.config` rule 10b) leave the chain alone.
+   (which re-times follow-ups, `notifications.config` rule 10b) leave the chain alone. The jobs are
+   found by the id prefixes read from the occurrence before the edit (both id forms; the date in a
+   lesson-occurrence id is the old one), and the drop is best-effort after the edit's commit, like
+   the re-arm: a scheduler failure is logged and the edit stands. Not covered yet: a "this and
+   future" edit that forks the series re-parents the occurrence before the edit runs, so a
+   lesson-form follow-up keyed on the OLD lesson is not found (follow-up noted on PAD-623).
 16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
     `init_scheduler` returns without starting APScheduler when the process is a migration
     (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than

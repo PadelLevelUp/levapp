@@ -50,11 +50,55 @@ def _move(instance_id, days):
 
 
 def test_moving_the_class_drops_the_pending_followup(armed, monkeypatch):
-    """OLD-RED: the follow-up stayed armed at 07-11 19:00 for a class now a week later."""
+    """OLD-RED (observed: red with the drop removed): the follow-up stayed armed at 07-11 19:00 for a
+    class now a week later. The base reminder is armed for the new time (the day before, 18:00
+    Lisbon = 07-18 17:00 UTC)."""
     retry_id = _first_pass_arms_a_followup(armed, monkeypatch)
     pin_clock(monkeypatch, datetime(2027, 7, 11, 18, 0))
     _move(armed["instance"], 7)
-    assert armed["sched"].get_job(retry_id) is None
+    sched = armed["sched"]
+    assert sched.get_job(retry_id) is None
+    base = sched.get_job(f"reminder_{armed['instance']}")
+    assert base is not None and base.trigger.run_date.replace(tzinfo=None) == datetime(2027, 7, 18, 17, 0)
+
+
+@pytest.mark.parametrize("occurrence_key", ["set", "null"], ids=["occurrence-key-set", "occurrence-key-null"])
+def test_a_lesson_occurrence_form_followup_is_dropped_too(armed, monkeypatch, occurrence_key):
+    """Review of PAD-623: the other id form, ``reminder_lesson_<L>_<date>_retry_<ts>``. With the
+    occurrence key set the instance still resolves after the move (PIN). With it NULL (legacy rows),
+    the id's date is the OLD start's, which the moved instance no longer has: only the prefix read
+    BEFORE the edit finds it (OLD-RED against a resolver-only drop)."""
+    from apscheduler.triggers.date import DateTrigger
+
+    from padel_app import scheduler
+    from padel_app.models import LessonInstance
+    from padel_app.sql_db import db
+
+    inst = db.session.get(LessonInstance, armed["instance"])
+    if occurrence_key == "null":
+        inst.original_lesson_occurence_date = None
+        db.session.commit()
+    occ = (inst.original_lesson_occurence_date or inst.start_datetime.date()).isoformat()
+    job_id = f"reminder_lesson_{inst.lesson_id}_{occ}_retry_123"
+    armed["sched"].add_job(
+        func=scheduler._run_send_reminders, args=[armed["instance"]],
+        trigger=DateTrigger(run_date=datetime(2027, 7, 11, 19, 0), timezone="UTC"), id=job_id,
+    )
+    pin_clock(monkeypatch, datetime(2027, 7, 11, 18, 0))
+    _move(armed["instance"], 7)
+    assert armed["sched"].get_job(job_id) is None
+
+
+def test_a_failing_drop_does_not_fail_the_edit_or_the_re_arm(armed, monkeypatch):
+    """Review of PAD-623: scheduler work after the commit is best-effort (PAD-10)."""
+    from padel_app import scheduler
+
+    _first_pass_arms_a_followup(armed, monkeypatch)
+    pin_clock(monkeypatch, datetime(2027, 7, 11, 18, 0))
+    monkeypatch.setattr(scheduler, "drop_pending_followups", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom")))
+    _move(armed["instance"], 7)  # does not raise
+    base = armed["sched"].get_job(f"reminder_{armed['instance']}")
+    assert base is not None and base.trigger.run_date.replace(tzinfo=None) == datetime(2027, 7, 18, 17, 0)
 
 
 def test_an_edit_that_keeps_the_time_keeps_the_followup(armed, monkeypatch):
