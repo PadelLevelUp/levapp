@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { ErrorState } from "@/components/error-state";
 import { Screen } from "@/components/screen";
+import { launchMark } from "@/lib/launch-timeline";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { useAuth } from "@/auth/AuthContext";
@@ -13,6 +14,8 @@ import { EmailPromptBanner } from "@/features/dashboard/email-prompt-banner";
 import { StudentDashboard } from "@/features/dashboard/StudentDashboard";
 
 export default function DashboardScreen() {
+  // PAD-587: the measurement's last milestone.
+  React.useEffect(() => launchMark("dashboard-mounted"), []);
   const { t } = useTranslation();
   const { user } = useAuth();
   // Same window the web dashboard uses: now → +30 days. Computed once so the

@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { TimeSelect } from "@/components/ui/time-select";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -310,20 +311,20 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t("availability.startTime")}</Label>
-                  <Input
-                    type="time"
+                  <TimeSelect
                     value={proposal.startTime}
                     data-testid="class-request-proposal-start"
+                    aria-label={t("availability.startTime")}
+                    first="00:00"
                     // Rule 20 (PAD-491): the end moves with the start, keeping the form's length.
-                    onChange={(e) => {
-                      const next = e.target.value;
+                    onChange={(next) => {
                       setProposal((p) => ({ ...p, ...proposalAfterStartChange(p, next, requestMinutes(r)) }));
                     }}
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t("availability.endTime")}</Label>
-                  <Input type="time" value={proposal.endTime} data-testid="class-request-proposal-end" onChange={(e) => setProposal((p) => ({ ...p, endTime: e.target.value }))} />
+                  <TimeSelect value={proposal.endTime} data-testid="class-request-proposal-end" aria-label={t("availability.endTime")} first="00:00" last="23:59" onChange={(endTime) => setProposal((p) => ({ ...p, endTime }))} />
                 </div>
                 <Button size="sm" disabled={busy || !proposal.date} onClick={() => act(r.id, () => proposeClassRequest(r.id, proposal), "classRequests.proposed")} data-testid="class-request-propose-send">
                   {t("classRequests.proposeSend")}

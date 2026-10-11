@@ -3326,13 +3326,18 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
             )
 
 
-def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> None:
+def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, response: str = "expired") -> None:
     """Flag the conversation message that delivered ``event`` as no longer live.
 
     PAD-68: reuses the ``responded`` flag the invite bubble already keys off, so
     the Yes/No buttons stop rendering on both web and mobile with no client
     change. ``response`` is set to ``"expired"`` — neither "yes" nor "no" — which
     both clients already fall through to a neutral non-actionable badge.
+
+    ``response`` (PAD-609): ``"spot_filled"`` when the invitation ends because the spot was filled —
+    by another student, by the coach's recorded yes, by any enrolment that closes the vacancy — so
+    the bubble reads "Vaga preenchida" and offers the waiting list (rule 15a). ``"expired"`` stays
+    for the class starting and for the coach's withdrawal.
 
     ``defer`` (PAD-499, ledger B-261): flush the edit instead of committing it, and publish nothing;
     the caller commits and then calls `_publish_retired`. `_close_vacancy` always defers, so the
@@ -3348,7 +3353,7 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> 
         return
     if msg.msg_metadata.get("responded"):
         return
-    msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "expired"}
+    msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": response}
     if defer:
         db.session.flush()
         return
@@ -3888,7 +3893,9 @@ def proactive_decline_window_is_open(
     return (now or utcnow_naive()) < deadline
 
 
-def student_may_confirm(presence, instance, config=None, *, now: datetime | None = None) -> bool:
+def student_may_confirm(
+    presence, instance, config=None, *, now: datetime | None = None, was_asked: bool | None = None
+) -> bool:
     """PAD-570 (attendance.confirm rule 27): may this student answer "Vou" right now?
 
     ONE predicate, served as ``pendingConfirmation`` on the class-detail payload and on
@@ -3923,7 +3930,11 @@ def student_may_confirm(presence, instance, config=None, *, now: datetime | None
     if presence is not None and instance_id is not None:
         from padel_app.services import reminder_attempt_service as attempts
 
-        if attempts.latest_attempt(instance_id, presence.player_id) is not None:
+        # PAD-583: a caller holding many candidates passes ``was_asked`` from ONE batched
+        # lookup (``attempts.asked_instance_ids``); alone, the row is looked up here.
+        if was_asked is None:
+            was_asked = attempts.latest_attempt(instance_id, presence.player_id) is not None
+        if was_asked:
             return True
     if not getattr(instance, "notifications_enabled", True):
         return False
@@ -4384,6 +4395,11 @@ def _send_invitation_batch(
                 "lessonInstanceId": instance.id,
                 "vacancyId": vacancy.id,
                 "responded": False,
+                # PAD-577 (rule 15a): the class's start on the club clock, so a retired invitation
+                # offers the waiting list only while the class is still ahead. Naive `isoformat()`
+                # (no zone, no "Z"), like `cancellationDeadline` and the reminder's `startsAt`: the
+                # client reads it digit by digit (`wallClockISOMs`) against the club's wall clock.
+                "startsAt": instance.start_datetime.isoformat() if instance.start_datetime else None,
                 **({"waitingList": True} if wave_round == 0 else {}),
             },
             conversation=conversation,
@@ -4809,7 +4825,8 @@ def _close_vacancy(
         event.status = "expired"
         # PAD-499 (B-261): flushed, never committed here — a commit would end the caller's rule-10
         # lock before the winner is enrolled. The caller commits and calls `_publish_retired`.
-        _retire_invite_message(event, defer=True)
+        # PAD-609 (rule 15a): the spot was filled, whoever filled it — "spot_filled", not "expired".
+        _retire_invite_message(event, defer=True, response="spot_filled")
         retired.append(event)
     db.session.flush()
     return retired
@@ -4904,7 +4921,32 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         retired.extend(_close_vacancy(locked, filled_by_player_id))
         closed.append(locked)
         to_close -= 1
-    if closed:
+    # PAD-609 (rule 15a): a manual invitation carries no vacancy, so no close above retires it. When
+    # an enrolment has just taken the class's last place (`filled_by_player_id`: the fill paths, not
+    # the tick or a class edit — a coach may invite by hand to a class that is already full, and that
+    # offer must survive the next tick), its live manual invitations end as "spot_filled" too, and the
+    # bubble offers the waiting list. The holders of a place are spared (the enrolled player's own is
+    # settled by its caller); one another answer holds is passed over (SKIP LOCKED, as above): that
+    # answer finds the class full and records spot_filled itself.
+    if open_spots == 0 and filled_by_player_id is not None:
+        manual = (
+            NotificationEvent.query.filter(
+                NotificationEvent.lesson_instance_id == instance.id,
+                NotificationEvent.vacancy_id.is_(None),
+                NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            )
+            .with_for_update(skip_locked=True)
+            .populate_existing()
+            .all()
+        )
+        holding = {p.player_id for p in instance.holding_presences}
+        for event in manual:
+            if event.player_id == filled_by_player_id or event.player_id in holding:
+                continue
+            event.status = "expired"
+            _retire_invite_message(event, defer=True, response="spot_filled")
+            retired.append(event)
+    if closed or retired:
         _publish_retired(retired)  # PAD-499: queued now, sent by this commit (or the enclosing one)
         commit_or_flush()
     return closed
@@ -5378,7 +5420,7 @@ def respond_to_notification(
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
-        event.save()
+        # PAD-596: no `save()` after it — `enrol()` committed the answer with the enrolment.
 
         if coach_user_id:
             _send_system_message(
@@ -5494,9 +5536,9 @@ def coach_respond_to_notification(
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
-        event.save()
-        if vacancy:
-            vacancy.save()
+        # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
+        # settlement and the enrolment together and releases the lock; the two `save()` calls
+        # that followed committed nothing and cost two round-trips.
 
         return {"action": "confirmed"}
 
@@ -5672,6 +5714,10 @@ def send_manual_notifications(
                 "notificationEventId": event.id,
                 "lessonInstanceId": instance_id,
                 "responded": False,
+                # PAD-577 (rule 15a): the start on the club clock, as the automatic invitation
+                # carries it — a manual invitation answered after the class filled offers the
+                # waiting list too, and only while the class is ahead.
+                "startsAt": instance.start_datetime.isoformat() if instance.start_datetime else None,
             },
             conversation=conversation,
             before_commit=lambda m, event=event: setattr(event, "message_id", m.id),

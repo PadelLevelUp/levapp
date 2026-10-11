@@ -1,3 +1,4 @@
+import { publicWebLink, usePublicWebOrigin } from "@/lib/publicWebLink";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { activationLinkPath } from "@/api/register";
@@ -65,9 +66,11 @@ export function PlayerHeader({
   // auth.activate rules 2-3 (PAD-254): the link carries the account's secret.
   // Without one (older backend, or an already-active player) the bare route
   // is still produced so the panel renders; it will report itself invalid.
+  // PAD-595: built on the environment's public origin (levapp.app), never the address browsed from.
+  const webOrigin = usePublicWebOrigin() ?? "";
   const inviteLink = player.activationToken
-    ? `${window.location.origin}${activationLinkPath(player.userId, player.activationToken)}`
-    : `${window.location.origin}/register/${player.userId || "player"}`;
+    ? publicWebLink(webOrigin, activationLinkPath(player.userId, player.activationToken))
+    : publicWebLink(webOrigin, `/register/${player.userId || "player"}`);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(inviteLink);

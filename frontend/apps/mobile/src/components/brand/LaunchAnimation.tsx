@@ -151,7 +151,14 @@ const BASE: Pt = [200, 286];
 const APEX: Pt = [239.5, 114];
 const FOOT_PIVOT: Pt = [123.5, 274];
 
-export function LaunchAnimation({ onDone }: { onDone: () => void }) {
+/**
+ * PAD-587: on `release` the clock jumps to the start of the final fade. This must stay equal to
+ * the fade-out segment at the end of the land scene (`frameAt`'s opacity ramp), so the jump lands
+ * exactly where the mark starts to go — not the same number as the layout's grace, by design.
+ */
+const FINAL_FADE_MS = 300;
+
+export function LaunchAnimation({ onDone, release = false }: { onDone: () => void; release?: boolean }) {
   const { width, height } = useWindowDimensions();
   // 620 of the study's 1080-wide stage, kept proportional so the mark occupies
   // the same share of every screen.
@@ -159,12 +166,22 @@ export function LaunchAnimation({ onDone }: { onDone: () => void }) {
   const glowSize = size * 1.5;
 
   const [c, setC] = React.useState(0);
+  // `Date.now()` here runs on every render; the first value is the one that sticks (useRef).
+  const t0Ref = React.useRef(Date.now());
+
+  // PAD-587: when the app is ready before the animation is, the clock jumps to the start of
+  // the final fade (unless it is already past it), so the overlay is gone within FINAL_FADE_MS.
+  React.useEffect(() => {
+    if (!release) return;
+    const elapsed = Date.now() - t0Ref.current;
+    const fadeStart = TOTAL_MS - FINAL_FADE_MS;
+    if (elapsed < fadeStart) t0Ref.current = Date.now() - fadeStart;
+  }, [release]);
 
   React.useEffect(() => {
     let raf = 0;
-    const t0 = Date.now();
     const tick = () => {
-      const p = Math.min(1, (Date.now() - t0) / TOTAL_MS);
+      const p = Math.min(1, (Date.now() - t0Ref.current) / TOTAL_MS);
       setC(p);
       if (p < 1) raf = requestAnimationFrame(tick);
       else onDone();
@@ -186,7 +203,7 @@ export function LaunchAnimation({ onDone }: { onDone: () => void }) {
   return (
     <View
       style={[StyleSheet.absoluteFill, styles.veil, { opacity: f.opacity }]}
-      pointerEvents={f.opacity < 0.02 ? "none" : "auto"}
+      pointerEvents={release || f.opacity < 0.02 ? "none" : "auto"}
       testID="launch-animation"
     >
       {/* The 150° background gradient the study specifies. */}

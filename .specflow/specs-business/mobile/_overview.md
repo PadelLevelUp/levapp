@@ -16,6 +16,9 @@ Outcomes about where the app runs and which build reaches whom, not what it does
 - `mobile.student-on-a-phone-finds-the-ios-app` — draft: a student on an iPhone is told once,
   dismissibly, that the iOS app exists, with a tap to the App Store (PAD-573).
 
+- `mobile.the-app-opens-fast` — draft: the first interactive frame comes with the app's own
+  readiness, not after a fixed animation (PAD-587).
+
 ## Why it's grouped this way
 
 Platform reach is a business outcome of its own — it decides who can be a customer — and it

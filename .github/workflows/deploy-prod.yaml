@@ -184,9 +184,15 @@ jobs:
           TAG="${{ inputs.rollback_to || github.sha }}"
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:$TAG
           docker stop padelapp || true && docker rm padelapp || true
+          # PAD-590: a ceiling, not a reservation. The prod API idles at ~175 MB (64 threads); 512m
+          # (+256m swap) leaves it room under load while a runaway can no longer push Postgres and
+          # the staging stack into swap on the 975 MB VM. Postgres and issue-bot are capped on the
+          # VM with `docker update` (they are not recreated by a deploy); see the PAD-590 ticket.
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
           docker run -d --name padelapp -p 127.0.0.1:5000:80 \
+            --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
+            --memory 512m --memory-swap 768m \
             --network levelup_net \
             --env-file /home/${{ secrets.GCE_USER }}/.env.prod \
             -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
@@ -350,8 +356,10 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:$TAG
             docker stop levelup_frontend || true && docker rm levelup_frontend || true
             docker run -d --name levelup_frontend \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --network levelup_net \
+              --memory 100m \
               -p 127.0.0.1:3000:80 \
               ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:$TAG
             # PAD-338: keep the last three, as the backend deploy does.
@@ -419,6 +427,7 @@ jobs:
             docker stop levelup_admin || true && docker rm levelup_admin || true
             # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
             docker run -d --name levelup_admin \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --memory 100m \
               -p 127.0.0.1:3200:80 \

@@ -35,7 +35,8 @@
         "off_work": "Folga",
         "unavailable": "Indisponível"
       },
-      "openAria": "Abrir {{title}}, {{start}} às {{end}}"
+      "openAria": "Abrir {{title}}, {{start}} às {{end}}",
+      "enrolled": "Inscrito"
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
@@ -431,6 +432,7 @@
       "blocked_other": "Não pode enviar notificações aos alunos {{names}} neste horário, pois marcaram-se como indisponíveis."
     },
     "legend": {
+      "enrolled": "Inscrito",
       "next": "Próxima aula",
       "openSpots": "Vagas por preencher",
       "full": "Cheia / a decorrer",
