@@ -106,18 +106,28 @@ test("PAD-577: the student who lost the spot joins that class's waiting list fro
   expect(loserMessage, "the loser's invitation message").toBeTruthy();
   const loserMessageId = loserMessage!.id;
 
-  // The loser answers late: their "Yes" on a full class is refused as spot_filled, and the bubble
-  // offers the waiting list (rule 15a).
+  // How the loser's invitation ended decides what they see (rule 15a). With PAD-609 the fill
+  // itself retires a manual invitation as "spot_filled" (invitations rule 15): the bubble already
+  // offers the list and has no Yes. Without it (this branch before #644 merges) the invitation
+  // stays live and the loser's own late yes is what the server refuses as spot_filled. The branch
+  // reads the server's state, not the clock, so each world asserts its own outcome strictly.
+  const loserNow = ((await detail()).invitations as Array<{ id: number; status: string }>).find((i) => i.id === loserInvite.id)!;
   await loginAsStudent2(page);
   await openMessages(page);
   await page.getByTestId(/^conversation-row-/).filter({ hasText: COACH_NAME }).first().click();
   const bubble = page.getByTestId(`message-item-${loserMessageId}`);
   await bubble.scrollIntoViewIfNeeded();
-  const lateYes = page.waitForResponse((r) => /\/notify\/respond$/.test(r.url()) && r.request().method() === "POST");
-  await bubble.getByTestId("invite-respond-yes").click();
-  const lateYesRes = await lateYes;
-  expect(lateYesRes.ok()).toBeTruthy();
-  expect((await lateYesRes.json()).action, "the late yes on a full class").toMatch(/^spot_filled/);
+  if (loserNow.status === "expired") {
+    await expect(bubble.getByTestId("invite-join-waiting-list")).toBeVisible({ timeout: 15_000 });
+    await expect(bubble.getByTestId("invite-respond-yes")).toHaveCount(0);
+  } else {
+    expect(loserNow.status, "a live invitation before PAD-609").toBe("sent");
+    const lateYes = page.waitForResponse((r) => /\/notify\/respond$/.test(r.url()) && r.request().method() === "POST");
+    await bubble.getByTestId("invite-respond-yes").click();
+    const lateYesRes = await lateYes;
+    expect(lateYesRes.ok()).toBeTruthy();
+    expect((await lateYesRes.json()).action, "the late yes on a full class").toMatch(/^spot_filled/);
+  }
   const join = bubble.getByTestId("invite-join-waiting-list");
   await expect(join).toBeVisible({ timeout: 15_000 });
   await join.click();
