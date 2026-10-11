@@ -93,7 +93,9 @@ def serialize_conversation(
         "id": conversation.id,
         "participantId": participant.id if participant else None,
         "participantName": participant.name if participant else None,
-        "participantAvatar": getattr(participant, "avatar_url", None),
+        # PAD-593: the participant's photo. It read `avatar_url`, which no model defines, so it
+        # was always null; the image rides the list's participant join (no lazy load per row).
+        "participantAvatar": participant.user_image_url if participant else None,
         "participantRole": participant.role if participant else None,
         # The client renders its own localized "Deleted user" label off this
         # flag. The server sends no display string: there is no server-side i18n
