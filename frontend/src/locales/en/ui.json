@@ -28,7 +28,8 @@
     "timePicker": {
       "placeholder": "Select a time",
       "fieldLabel": "Time",
-      "dialogTitle": "Select time"
+      "dialogTitle": "Select time",
+      "typeHint": "Or type the time (e.g. 18:30)"
     },
     "validation": {
       "useTimeFormat": "Use HH:MM",

@@ -62,6 +62,18 @@ describe("dayDotColors", () => {
     ]);
   });
 
+  it("an outlined treatment paints the outline colour, not its white surface (B-541)", () => {
+    const colors = dayDotColors(
+      [
+        event({ id: "o", color: "#1355DC", openSpot: true, participantCount: 12, maxPlayers: 16 }),
+      ],
+      SURFACES,
+      NOW
+    );
+    expect(colors[0]).toBe("#1355DC");
+    expect(colors).not.toContain(SURFACES.card);
+  });
+
   it("a class without a colour falls back to primary", () => {
     expect(dayDotColors([event({ color: undefined })], SURFACES, NOW)).toEqual([
       lightTheme.primary,

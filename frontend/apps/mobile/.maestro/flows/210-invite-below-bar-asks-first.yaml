@@ -46,12 +46,21 @@ onFlowComplete:
 - tapOn:
     id: "class-notify-search"
 - inputText: "Filler Player 01"
+# The simulator keyboard garbles text under load and hides the footer: check the typed text, then
+# dismiss it (Enter; hideKeyboard is unreliable on iOS) before the row and the send button.
+- assertVisible:
+    text: "Filler Player 01"
+- pressKey: Enter
 - extendedWaitUntil:
     visible:
       id: "notify-player-${output.pid}"
     timeout: 15000
 - tapOn:
     id: "notify-player-${output.pid}"
+- extendedWaitUntil:
+    visible:
+      id: "class-notify-send"
+    timeout: 10000
 - tapOn:
     id: "class-notify-send"
 
@@ -75,6 +84,10 @@ onFlowComplete:
 - assertTrue: "${output.invitations().length === 0}"
 
 # ── confirm sends ──
+- extendedWaitUntil:
+    visible:
+      id: "class-notify-send"
+    timeout: 10000
 - tapOn:
     id: "class-notify-send"
 - extendedWaitUntil:

@@ -129,7 +129,8 @@ import { removePlayer } from "@/api/players";
 import { getCoachPlayersPaginated } from "@levelup/api/src/resources/players";
 
 function renderAt(path: string) {
-  // A fresh client per test, so cases never share cache.
+  // The app's QueryClientProvider: PlayersPage reads the roster through shared hooks (PAD-586) and
+  // the public web origin (PAD-595) through it. A fresh client per test, so cases never share cache.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0 } } });
   return render(
     <QueryClientProvider client={client}>

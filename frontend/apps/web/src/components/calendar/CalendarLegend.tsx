@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
+import type * as React from "react";
 import { cn } from "@/lib/utils";
+import { useCalendarViewer } from "./viewer-context";
 
 /**
  * The grid encodes three variables at once — status, fill and level — so the
@@ -12,8 +14,34 @@ import { cn } from "@/lib/utils";
  */
 export function CalendarLegend({ className }: { className?: string } = {}) {
   const { t } = useTranslation();
-
-  const items = [
+  const viewer = useCalendarViewer();
+  // PAD-578 (calendar.view rule 13): a student's legend explains the two treatments rule 6
+  // distinguishes — their own class (✓) and an open spot (dashed outline) — ahead of the rest.
+  const studentItems =
+    viewer === "student"
+      ? [
+          {
+            key: "enrolled",
+            testId: "calendar-legend-enrolled",
+            label: t("calendar.legend.enrolled", { defaultValue: "Enrolled" }),
+            swatch: (
+              <span className="flex h-3 w-5 items-center justify-center rounded-sm bg-muted-foreground/70 text-[9px] font-bold leading-none text-white">
+                ✓
+              </span>
+            ),
+          },
+          {
+            key: "openSpots",
+            testId: "calendar-legend-open-spots",
+            label: t("calendar.legend.openSpots", { defaultValue: "Spots to fill" }),
+            swatch: (
+              <span className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-muted-foreground/70 bg-card" />
+            ),
+          },
+        ]
+      : [];
+  const items: { key: string; testId?: string; label: string; swatch: React.ReactNode }[] = [
+    ...studentItems,
     {
       key: "next",
       label: t("calendar.legend.next", { defaultValue: "Next class" }),
@@ -51,7 +79,7 @@ export function CalendarLegend({ className }: { className?: string } = {}) {
       data-testid="calendar-legend"
     >
       {items.map((item) => (
-        <span key={item.key} className="flex items-center gap-1.5">
+        <span key={item.key} className="flex items-center gap-1.5" data-testid={item.testId}>
           {item.swatch}
           {item.label}
         </span>

@@ -1,3 +1,4 @@
+import { publicWebLink, resolvePublicWebOrigin } from "@/lib/publicWebLink";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -34,6 +35,7 @@ import { useLayout } from "@/components/layout/LayoutContext";
 import { PlayerDetailPane } from "./PlayerDetailPage";
 
 export default function PlayersPage() {
+  const queryClient = useQueryClient();
   const PAGE_SIZE = 25;
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -65,7 +67,6 @@ export default function PlayersPage() {
     () => new URLSearchParams(window.location.search).get("addByQr") === "1"
   );
 
-  const queryClient = useQueryClient();
 
   // Debounce search input — reset page to 1 on new search
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -209,7 +210,8 @@ export default function PlayersPage() {
     email?: string;
   }) => {
     const created = await createIncompletePlayer({ coachId: user?.coachId, ...data });
-    setInviteUrl(`${window.location.origin}${created.inviteLink}`);
+    // PAD-595: the environment's public origin (levapp.app), never the address browsed from.
+    setInviteUrl(publicWebLink(await resolvePublicWebOrigin(queryClient), created.inviteLink));
     setInviteDialogOpen(true);
     // Refresh the list in the background without the full-page loading
     // skeleton, so the invite dialog stays mounted and visible.

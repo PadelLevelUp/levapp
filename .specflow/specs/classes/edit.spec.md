@@ -42,7 +42,8 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
      only by an edit that sent `name`.
 7b. **The editor's time field (PAD-508).** The web class editor's start and end are the field of
    `classes.create` rule 8b (type or pick, quarter-hour list, never empty, end list with lengths;
-   web only, for the reason given there). When the coach moves the start to or past the end, the end
+   web only, for the reason given there) and rule 8c (PAD-559: wheel, keyboard, touch, combobox
+   roles; the end refused in the field when typed at or before the start). When the coach moves the start to or past the end, the end
    moves with it and keeps the class's length (an hour when it had none), never past 23:59; an end
    still after the new start is left alone. An end typed at or before the start is refused before
    anything is sent, with the same message as the new-class sheet.
