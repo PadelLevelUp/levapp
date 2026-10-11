@@ -41,6 +41,19 @@ vi.mock("react-native-reanimated", async () => {
   };
 });
 vi.mock("@/features/notifications/replacement-approval-card", () => ({ ReplacementApprovalCard: () => null }));
+// PAD-577's waiting-list hook reads react-query, which this harness cannot mount (it renders
+// against the app's React copy); the bubble only reads its result, so a static one is enough.
+vi.mock("@levelup/hooks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@levelup/hooks")>()),
+  useInviteWaitingList: () => ({
+    lostToAnother: false,
+    onWaitingList: false,
+    offersJoin: false,
+    busy: false,
+    join: () => undefined,
+    leave: () => undefined,
+  }),
+}));
 
 import { MessageBubble } from "./message-bubble";
 
