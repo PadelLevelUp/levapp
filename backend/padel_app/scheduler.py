@@ -1306,6 +1306,34 @@ def _retry_job_instance(job_id: str):
     return None
 
 
+def drop_pending_followups(instance_id: int) -> int:
+    """PAD-623 (notifications.reminders rule 15a): remove the occurrence's armed follow-up reminder
+    jobs (``reminder_<id>_retry_<ts>`` and the lesson-occurrence form). Called only when an edit
+    moves the class: a follow-up is timed from the last reminder of the OLD schedule, and the
+    re-armed base pass at the new time sends whatever reminder is still owed (count and spacing
+    still apply). Startup, the daily pass and settings saves never call this, so a chain survives a
+    restart. Returns how many were removed."""
+    from apscheduler.jobstores.base import JobLookupError
+
+    if _scheduler is None:
+        return 0
+    removed = 0
+    for job in list(_scheduler.get_jobs()):
+        if "_retry_" not in job.id or not job.id.startswith("reminder_"):
+            continue
+        instance = _retry_job_instance(job.id)
+        if instance is None or instance.id != instance_id:
+            continue
+        try:
+            _scheduler.remove_job(job.id)
+            removed += 1
+        except JobLookupError:
+            continue  # it fired between the listing and this line
+    if removed and _app is not None:
+        _app.logger.info("class moved: dropped %d pending follow-up(s) of instance %s", removed, instance_id)
+    return removed
+
+
 def _retime_pending_followups(coach_id: int, config) -> None:
     """Move each pending follow-up of the coach's classes to where the SAVED spacing and
     count put it (PAD-478, B-250; ``notifications.config`` rule 10b).

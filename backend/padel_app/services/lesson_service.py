@@ -638,6 +638,7 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
         lesson_instance = LessonInstance.query.get_or_404(
             data.get("lesson_instance_id")
         )
+    _old_start = lesson_instance.start_datetime  # PAD-623: a move drops the pending follow-ups
 
     data = transform_to_datetime(lesson_instance, data)
     # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
@@ -698,7 +699,10 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
         unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
-    from padel_app.scheduler import _maybe_schedule_instance
+    from padel_app.scheduler import _maybe_schedule_instance, drop_pending_followups
+    if lesson_instance.start_datetime != _old_start:
+        # PAD-623 (reminders rule 15a): a follow-up armed on the old schedule would fire there.
+        drop_pending_followups(lesson_instance.id)
     _maybe_schedule_instance(lesson_instance)
 
     return lesson_instance

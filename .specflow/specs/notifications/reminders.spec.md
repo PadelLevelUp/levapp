@@ -64,6 +64,13 @@ Automatically send class reminders to enrolled players at a configured time befo
     never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
     armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
     October, and a class at 23:00 or later got its day-before reminder a day late.
+15a. **A class that moves drops its pending follow-ups (PAD-623; PAD-612 R6).** A follow-up reminder
+   job (`reminder_<id>_retry_<ts>`) is armed `hoursBetweenReminders` after a pass, on the class's
+   schedule at that moment. When an edit changes the occurrence's start, its pending follow-ups are
+   removed (`drop_pending_followups`) before the base job is re-armed for the new time (PAD-478); the
+   re-armed pass then sends whatever reminder is still owed, with the count and the spacing as
+   always. Only an edit that moves the class does this: startup, the daily pass and a settings save
+   (which re-times follow-ups, `notifications.config` rule 10b) leave the chain alone.
 16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
     `init_scheduler` returns without starting APScheduler when the process is a migration
     (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
@@ -157,6 +164,12 @@ Automatically send class reminders to enrolled players at a configured time befo
     owed students are marked is not listed.
 
 ### Acceptance Criteria
+
+#### Moving a class drops the follow-up armed on the old schedule (rule 15a, PAD-623)
+- **Given** a class with 2 reminders 2 hours apart; reminder 1 went out and the follow-up is armed for 2 hours later
+- **When** the coach moves the class a week later
+- **Then** that follow-up is no longer armed, and the base reminder is armed for the new time
+- **And** an edit that keeps the class's time (a new title) leaves the follow-up armed
 
 #### A student the coach marked present or absent is not reminded (rule 23)
 - **Given** a class 48 h out with three enrolled students, the coach having marked Ana present and
