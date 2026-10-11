@@ -7,10 +7,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
+// Only pt is loaded up front, as in the app (client.route-loading rule 6); en arrives through
+// loadLanguages, and until then getFixedT("en") answers in the pt fallback — the CI failure on #675.
+const loaded = new Set(["pt"]);
+const loadLanguages = vi.fn(async (lng: string) => {
+  loaded.add(lng);
+});
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => `ui:${key}`,
-    i18n: { language: "pt", getFixedT: (lng: string) => (key: string) => `${lng}:${key}` },
+    i18n: {
+      language: "pt",
+      hasResourceBundle: (lng: string) => loaded.has(lng),
+      loadLanguages,
+      getFixedT: (lng: string) => (key: string) => `${loaded.has(lng) ? lng : "pt"}:${key}`,
+    },
   }),
 }));
 
@@ -26,12 +37,18 @@ function renderAt(path: string) {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  loaded.clear();
+  loaded.add("pt");
+  loadLanguages.mockClear();
+});
 
 describe("DeleteAccountPage", () => {
-  it("shows the in-app steps, the email path, what is deleted and kept, and the policy link", () => {
+  it("shows the in-app steps, the email path, what is deleted and kept, and the policy link", async () => {
     renderAt("/delete-account?lang=en");
-    expect(screen.getByTestId("delete-account-in-app")).toHaveTextContent("en:legal.deleteAccount.inAppSteps");
+    expect(await screen.findByText("en:legal.deleteAccount.inAppSteps")).toBeInTheDocument();
+    expect(loadLanguages).toHaveBeenCalledWith("en");
     const mailto = screen.getByTestId("delete-account-mailto");
     expect(mailto).toHaveAttribute("href", "mailto:admin@levapp.app");
     expect(mailto).toHaveTextContent("admin@levapp.app");
@@ -40,13 +57,14 @@ describe("DeleteAccountPage", () => {
     expect(screen.getByTestId("delete-account-privacy-link")).toHaveAttribute("href", "/privacy?lang=en");
   });
 
-  it("follows the UI language, and ?lang= overrides it, for every string", () => {
+  it("follows the UI language, and ?lang= overrides it, for every string", async () => {
     renderAt("/delete-account");
     expect(screen.getByTestId("delete-account-page")).toHaveAttribute("lang", "pt");
     expect(screen.getByTestId("delete-account-lang-pt")).toHaveAttribute("aria-current", "page");
     cleanup();
 
     renderAt("/delete-account?lang=en");
+    await screen.findByText("en:legal.deleteAccount.title");
     const page = screen.getByTestId("delete-account-page");
     expect(page).toHaveAttribute("lang", "en");
     expect(page.textContent).not.toMatch(/(^|[^a-z])(pt|ui):/);

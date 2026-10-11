@@ -5,6 +5,7 @@
  * the UI language with a `?lang=` override and an EN | PT switch, like the legal pages. Web only by
  * design: inside the app the deletion is the Settings action itself.
  */
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CONTACT_EMAIL } from "@levelup/config";
@@ -19,7 +20,19 @@ export default function DeleteAccountPage() {
   const { t: uiT, i18n } = useTranslation();
   const { search, pathname } = useLocation();
   const lang = legalLanguageFrom(search, i18n.language);
-  // Every string in the chosen language, whatever the UI language is (rule 4).
+  // Every string in the chosen language, whatever the UI language is (rule 4). Only pt is bundled
+  // eagerly (client.route-loading rule 6): another language's strings load on demand, and until
+  // they arrive getFixedT would answer in the pt fallback — so load them and render again.
+  const [, setLoaded] = useState(0);
+  const ready = !i18n.hasResourceBundle || i18n.hasResourceBundle(lang, "translation");
+  useEffect(() => {
+    if (ready) return;
+    let live = true;
+    i18n.loadLanguages(lang).then(() => live && setLoaded((n) => n + 1));
+    return () => {
+      live = false;
+    };
+  }, [i18n, lang, ready]);
   const t = i18n.getFixedT ? i18n.getFixedT(lang) : uiT;
   const k = (key: string) => t(`legal.deleteAccount.${key}`);
 
