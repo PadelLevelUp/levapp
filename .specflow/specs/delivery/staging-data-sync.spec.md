@@ -1,0 +1,109 @@
+---
+id: delivery.staging-data-sync
+status: implementing
+depends_on: []
+implements: ../../specs-business/delivery/staging-stays-realistic-without-slowing-production.business.md
+governed_by: [R-028]
+---
+
+# delivery.staging-data-sync
+
+> Linear: PAD-589 (from the PAD-571 speed study, cause 5). Replaces PAD-200's "dump live prod on
+> every staging deploy". Drafted 2026-10-10 by Session E (wave 14), after the owner kept prod and
+> staging on one VM (PAD-613).
+
+### Intent
+Staging's database is restored from the latest nightly backup in GCS instead of a live `pg_dump`
+of production, and only when that backup has not been restored yet. A routine staging push whose
+backup is already loaded does nothing to the database and does not stop the staging app. A forced
+reload and a live copy stay available through `workflow_dispatch`.
+
+### Surfaces
+- `backend/scripts/sync-staging-db.sh` (runs on the VM).
+- `.github/workflows/deploy-staging.yaml` job `sync-db` and a new `workflow_dispatch` input
+  `sync_db` (`auto` / `reload` / `live`).
+- Tests: `backend/padel_app/tests/test_pad589_staging_sync.py` (stub `docker`, `gsutil`, `curl`
+  on PATH, the R-028 harness of `test_backup_script.py`).
+- Web, mobile, the API — no change.
+
+### Entities
+- **READS:** the nightly dump objects `$BACKUP_BUCKET/padel_app/padel_app-<stamp>.dump` (written
+  by `backup.sh`), and, in `live` mode only, the `padel_app` database.
+- **WRITES:** the `padel_app_staging` database; a state file `~/staging-sync.state` on the VM.
+
+### Rules
+
+1. **Source is the nightly dump.** In `auto` and `reload` modes the source is the newest object
+   under `$BACKUP_BUCKET/padel_app/` (`gsutil ls … | sort | tail -1`, the selection
+   `backup.sh restore-check` uses; the stamp sorts lexicographically), never the
+   `padel_app_staging/` prefix. `BACKUP_BUCKET` is read from `~/.backup.env` (written by
+   deploy-prod for the same user). The dump is streamed `gsutil cp <object> - | docker exec -i
+   postgres pg_restore …`; nothing is written to the VM's disk. An empty object (`gsutil stat`
+   Content-Length 0) is never restored.
+2. **The same dump is restored once.** The state file holds the object name of the last restore
+   that succeeded. In `auto` mode, when the newest dump equals it, the script logs
+   `SKIPPED: <object> already restored` and exits 0 **before** stopping the staging app or
+   touching the database. One nightly dump means at most one restore per day, tighter than the
+   ticket's "at most once per hour".
+3. **Success is measured, not assumed.** `pg_restore` exits 1 for ignored errors, so its status is
+   not the test. The state file is written only when the restored `users` table has at least one
+   row; otherwise the next push tries again.
+4. **`reload` restores the newest dump even if already restored.** For a staging database left
+   on a migration head the code no longer has (a rebased migration): with deduplication the daily
+   wipe that used to clear it is gone.
+5. **`live` is the PAD-200 path, by hand only.** `live` streams `pg_dump` of `padel_app` into the
+   target as before; it runs only from `workflow_dispatch`, never on push. It records no state, so
+   the next `auto` run still restores the next nightly dump.
+6. **Unchanged from PAD-200:** the target-database and same-as-source guards; the free-space
+   guard; the staging app stopped before and always restarted after (EXIT trap); the target
+   schema wiped before the restore; the scrub (push subscriptions, device tokens, every email
+   rewritten with the recovery and verification codes cleared); placeholder images in the staging
+   bucket only; every failure path exits 0 and the deploy job keeps `continue-on-error`.
+7. **A missing source skips.** No `BACKUP_BUCKET`, no `gsutil`, or no dump under the prefix: log
+   `SKIPPED: …` and exit 0 without stopping staging.
+8. **A stale backup is reported.** When the newest dump's stamp is more than 48 h old the script
+   logs `WARNING: newest backup is from <stamp>`, and still restores it if it has not been
+   restored (stale data beats no refresh; the backup alarm is `backup.sh`'s job).
+
+### Acceptance Criteria
+
+#### A push after the dump was restored leaves staging alone (rules 2, 7)
+- **Given** the state file names `padel_app-2026-10-10_0300.dump` and that is the newest dump
+- **When** the script runs in `auto` mode
+- **Then** it logs `SKIPPED`, exits 0, and calls neither `docker stop`, `pg_restore` nor `pg_dump`
+
+#### A new nightly dump is restored from GCS, not from prod (rules 1, 3)
+- **Given** the state file names `padel_app-2026-10-09_0300.dump` and the bucket also holds
+  `padel_app-2026-10-10_0300.dump` (and a newer `padel_app_staging/` dump)
+- **When** the script runs in `auto` mode and the restored database has 185 users
+- **Then** `pg_restore` receives the bytes of `padel_app-2026-10-10_0300.dump`, `pg_dump` is never
+  called, the scrub runs, staging is started again, and the state file names the restored object
+
+#### A restore that produced no users is retried next time (rule 3)
+- **Given** a new dump and a restore after which `users` counts 0
+- **When** the script runs
+- **Then** the state file is unchanged and the script exits 0
+
+#### Reload and live are explicit (rules 4, 5)
+- **Given** the newest dump is already restored
+- **When** the script runs in `reload` mode **Then** it restores that dump again
+- **When** it runs in `live` mode **Then** it streams `pg_dump padel_app` and leaves the state file
+  unchanged
+
+#### No source, no stop (rule 7)
+- **Given** no dump under the prefix, or no `BACKUP_BUCKET`
+- **When** the script runs **Then** it logs `SKIPPED`, exits 0, and never calls `docker stop`
+
+#### Live copy only by hand (rule 5)
+- **Given** `deploy-staging.yaml`
+- **When** the source guard reads job `sync-db`
+- **Then** the mode passed to the script is `${{ inputs.sync_db || 'auto' }}` and the
+  `workflow_dispatch` input `sync_db` offers exactly `auto`, `reload`, `live`
+
+### Notes
+- Freshness trade (stated on purpose): staging data is now up to about a day old instead of
+  minutes; `reload`/`live` cover the cases where that matters.
+- The restore still runs in the Postgres container prod shares, but once per nightly dump instead
+  of on every push, and it never reads prod's tables.
+- `test_pad498_recovery_code_and_email_change.py` pins the scrub's one-line email UPDATE; it
+  stays one line.
