@@ -149,14 +149,14 @@ def _delete_blocks(connection, block_ids) -> None:
 
 @event.listens_for(ClassRequest, "before_delete")
 def _release_hold_with_the_row(mapper, connection, target):
-    """Both generic editor routes end in ``instance.delete()``. Before, not after:
+    """Any ORM delete of the row (``instance.delete()``). Before, not after:
     the row still exists if ``hold_block_id`` has to be loaded (#345 review F8)."""
     _delete_blocks(connection, [target.hold_block_id])
 
 
 @event.listens_for(ClassRequest, "before_update")
 def _release_hold_when_closed_by_an_edit(mapper, connection, target):
-    """Rule 3 by any writer: the admin editor can PATCH ``status`` straight to a
+    """Rule 3 by any writer: an ORM update can set ``status`` straight to a
     closed value. The service paths have already released the hold by the time the
     status changes, so this is a no-op for them (#345 review F7).
 
