@@ -70,7 +70,8 @@ from someone they don't recognise; and, indirectly, coaches — who keep their e
   [[messaging.user-and-coach-message-in-real-time]].
 - Unread counts and push — [[messaging.user-manages-unread-and-notifications]].
 - Group conversations between students. Not in v1.
-- Operator tooling for reviewing reports beyond the generic editor. Not in v1.
+- Operator tooling for reviewing reports: the generic editor is gone (PAD-550); the staff console
+  review is the pending follow-up "Admin console: review message reports and deletion audits".
 
 ## Notes
 
