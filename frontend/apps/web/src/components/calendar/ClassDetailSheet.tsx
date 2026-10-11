@@ -49,7 +49,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -464,14 +464,30 @@ export function ClassDetailSheet({
   // whether the answered invite is the row currently shown for that student.
   const invitationsRef = useRef(localInvitations);
   invitationsRef.current = localInvitations;
+  // The open occurrence's id for the live handler (B-542): the fetched instance's own id,
+  // else the event's — a virtual occurrence is materialised by the reminder that asks.
+  const classInstanceRef = useRef(classInstance);
+  classInstanceRef.current = classInstance;
 
-  // Real-time invitation updates via SSE
+  // Real-time updates via SSE — the student's reminder (B-542) and the coach's rows.
   useEffect(() => {
-    if (!open || !canManage || !token) return;
+    if (!open || !token) return;
 
     // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
     return subscribeAppEvents(token, (data) => {
       try {
+        // B-542 (attendance.confirm rule 27): the coach's reminder for THIS occurrence just
+        // landed — "Vou" lives in the fresh payload, so re-read the instance instead of
+        // waiting for a re-open.
+        const openEvent = eventRef.current;
+        const openId =
+          classInstanceRef.current?.id ??
+          (openEvent?.model === "LessonInstance" ? Number(openEvent.originalId) : null);
+        if (reminderArrivedFor(data, openId)) {
+          if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
+          return;
+        }
+        if (!canManage) return;
 
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {

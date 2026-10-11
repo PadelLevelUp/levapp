@@ -18,6 +18,9 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock("@/lib/config", () => ({
   PRIVACY_POLICY_URL: "https://levapp.app/privacy",
   TERMS_URL: "https://levapp.app/terms",
+  // PAD-601: the real helper, so the test sees the ?lang= the app sends.
+  legalUrl: (base: string, language: string | undefined) =>
+    `${base}?lang=${(language ?? "").toLowerCase().startsWith("pt") ? "pt" : "en"}`,
 }));
 vi.mock("@/auth/pendingJoin", () => ({ consumePendingJoin: () => null }));
 vi.mock("@/auth/pendingClaim", () => ({ consumePendingClaim: () => null }));
@@ -74,9 +77,10 @@ describe("SignUpScreen — the Terms must be accepted (PAD-485, auth.register ru
     const n = await renderNative(createElement(SignUpScreen));
     await n.press("signup-terms-privacy");
     await n.press("signup-terms-terms");
+    // auth.legal-pages rule 3 (PAD-601): the hosted pages open in the account's language.
     expect(openURL.mock.calls.map((c) => String(c[0]))).toEqual([
-      expect.stringMatching(/\/privacy$/),
-      expect.stringMatching(/\/terms$/),
+      expect.stringMatching(/\/privacy\?lang=(en|pt)$/),
+      expect.stringMatching(/\/terms\?lang=(en|pt)$/),
     ]);
   });
 

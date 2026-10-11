@@ -25,7 +25,8 @@ an idea.
 
 1. The visitor opens the site and sees the coach story by default, with real screens of the product
    on a laptop, a phone and a watch.
-2. Three tabs at the top let them switch to the player story or to "Others"; the whole page follows
+2. A "Para treinadores ▾" dropdown in the header, right before Vantagens · Como funciona ·
+   Resultados, lets them switch to the player story or to "Others"; the whole page follows
    the choice — hero, benefits, how it works, results, and the closing call to action.
 3. A coach reads the three benefits (less admin, more revenue, more competitive classes), the
    three-step onboarding, and the results, then asks for a demo — in a short HubSpot form that
@@ -42,7 +43,8 @@ an idea.
   straight to their dashboard.
 - Web-only by design: the iOS app is for people who already have an account, and its marketing
   surface is the App Store listing.
-- A shareable link can open the page directly on an audience (`?audience=…`).
+- A shareable link can open the page directly on an audience (`?para=jogadores`; older
+  `?audience=…` links keep working), and choosing an audience puts it in the URL to share.
 - No backend of our own: every call to action is a link — email, login, support, or an anchor —
   except the demo request, which is HubSpot's form, embedded (PAD-469).
 - Privacy first: the site measures visits with HubSpot only after the visitor accepts cookies, and
