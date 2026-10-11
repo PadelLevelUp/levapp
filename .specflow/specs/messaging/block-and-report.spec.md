@@ -35,10 +35,9 @@ reporting it is one tap away.
    `create_message_service` reject with 403 when either party has blocked the other.
 3. Blocked users (either direction) are excluded from `GET /api/app/messageable-users`.
 4. `POST /api/app/messages/<id>/report` `{reason?}` creates a `MessageReport`; only a
-   participant of that message's conversation may report it (403 otherwise). **Review is a gap:**
-   the generic editor that was meant to show reports never ran in production and was deleted by
-   PAD-550; operators review reports in the staff console once PAD-631, "Admin
-   console: review message reports and deletion audits" (High, App Store guideline 1.2) ships.
+   participant of that message's conversation may report it (403 otherwise). Staff review and act
+   on reports in the console (`admin.moderation`, PAD-631); the generic editor that was meant to
+   show them never ran in production and was deleted by PAD-550.
 5. Thread UI on web and iOS offers **Block** / **Unblock** (conversation header menu) and
    **Report** (per-message action) with confirmation and a toast.
 6. A blocked conversation stays in the list; its composer is replaced by "You blocked {name}"

@@ -520,11 +520,17 @@ def delete_message_service(message_id, user_id):
         abort(403, "Not your message")
     message.is_deleted = True
     message.save()
+    publish_message_deleted(message)
+
+
+def publish_message_deleted(message):
+    """The `message_deleted` live event to the message's conversation (messaging.messages rule 3).
+    Shared with the console's delete (admin.moderation rule 4), which sends it after its commit."""
     publish(
         {
             "type": "message_deleted",
             "payload": {
-                "id": message_id,
+                "id": message.id,
                 "conversationId": message.conversation_id,
             },
         },
