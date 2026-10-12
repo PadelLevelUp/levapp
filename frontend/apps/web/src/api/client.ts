@@ -32,7 +32,7 @@ function redirectToAuth() {
 }
 
 /** The capabilities this shell declares (PAD-352). Exported for the one request that bypasses the
- * axios client: the streamed import (PAD-642, import.confirm rule 5). */
+ * axios client: the streamed import (PAD-642, import.confirm rule 9). */
 export const WEB_CAPABILITIES = [
   "open-spots",
   "evaluations",

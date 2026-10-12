@@ -3081,7 +3081,7 @@ def import_confirm():
     club = require_club()
     data = request.get_json() or {}
     if data.get("Players"):
-        require_adults_confirmation(data)  # import.confirm rule 5 (PAD-642)
+        require_adults_confirmation(data)  # import.confirm rule 9 (PAD-642)
 
     final = {}
     for ev in _run_import_confirm(data, coach, club):
@@ -3108,7 +3108,7 @@ def import_confirm_stream():
     club = require_club()
     data = request.get_json() or {}
     if data.get("Players"):
-        require_adults_confirmation(data)  # import.confirm rule 5, refused before the first event
+        require_adults_confirmation(data)  # import.confirm rule 9, refused before the first event
 
     def gen():
         # Initial keepalive comment flushes headers immediately.

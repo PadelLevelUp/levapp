@@ -14,7 +14,7 @@
 │   ├── static/            # JS, SCSS/CSS, images, svg
 │   ├── templates/         # Jinja templates (auth, users)
 │   ├── tests/             # pytest suite
-│   └── tools/             # helpers (auth_tools, email_tools, image_tools, input_tools)
+│   └── tools/             # helpers (email_tools, image_tools, input_tools)
 ├── poetry.lock
 ├── pyproject.toml
 ├── scripts/               # backup.sh, startup.sh

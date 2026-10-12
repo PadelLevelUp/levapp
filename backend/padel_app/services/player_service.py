@@ -470,7 +470,7 @@ def get_player_profile(coach, player_id):
 
 
 def require_adults_confirmation(data):
-    """PAD-642 (players.create rule 10, import.confirm rule 5; owner decision 2026-10-12, "forbid
+    """PAD-642 (players.create rule 10, import.confirm rule 9; owner decision 2026-10-12, "forbid
     under-18"): a client declaring `adult-roster-confirmation` sends the coach's `confirmsAdults: true`
     when creating or importing players; without it, 400 before anything is written. An older build is
     not asked."""

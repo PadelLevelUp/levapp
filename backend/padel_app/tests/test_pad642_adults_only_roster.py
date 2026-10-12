@@ -1,5 +1,5 @@
 """PAD-642 (owner decision 2026-10-12, "forbid under-18") — a coach confirms every student they add is
-18 or older: players.create rule 10 (`/add_player`, `/incomplete_player`), import.confirm rule 5
+18 or older: players.create rule 10 (`/add_player`, `/incomplete_player`), import.confirm rule 9
 (`/import/confirm`, `/import/confirm/stream`).
 
 A client declaring `adult-roster-confirmation` must send `confirmsAdults: true` (400
@@ -61,7 +61,7 @@ def test_a_current_store_build_creates_as_before(client, app, path):
     assert _players_named(app, "Legacy Leo") == 1
 
 
-# ── import (import.confirm rule 5) ───────────────────────────────────────────────
+# ── import (import.confirm rule 9) ───────────────────────────────────────────────
 
 PLAYERS = {"Players": [{"name": "Imported Ines"}, {"name": "Imported Igor"}]}
 

@@ -748,7 +748,7 @@ export function DataImportSection() {
   );
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
-  // PAD-642 (import.confirm rule 5): "every imported student is 18 or older", ticked before importing players.
+  // PAD-642 (import.confirm rule 9): "every imported student is 18 or older", ticked before importing players.
   const [confirmsAdults, setConfirmsAdults] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<Record<

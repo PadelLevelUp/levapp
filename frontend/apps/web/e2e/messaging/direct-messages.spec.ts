@@ -176,10 +176,13 @@ test("US-61: coach can delete a sent message", async ({ page }) => {
 
   // The deleted message renders as an italic placeholder bubble (asserted by
   // testid, not its copy, which is translated — the page renders pt in
-  // E2E) inside the conversation thread. (The original text may still
-  // appear in the conversation list sidebar as a "last message" preview,
-  // which is expected — we only need the bubble itself to be replaced.)
+  // E2E) inside the conversation thread.
   await expect(page.getByTestId("message-bubble-deleted").last()).toBeVisible({ timeout: 5000 });
+  // PAD-639 (B-547, conversations rule 12a): the list preview no longer shows the deleted
+  // text — it used to, until a reload. It now reads "Message deleted" (by attribute, not copy).
+  const preview = conversationRow(page, "E2E Student").getByTestId("conversation-last-message");
+  await expect(preview).toHaveAttribute("data-deleted", "true", { timeout: 5000 });
+  await expect(page.getByText(tempMessage)).toHaveCount(0);
 });
 
 // US-62: Unread badge updates when a new message arrives

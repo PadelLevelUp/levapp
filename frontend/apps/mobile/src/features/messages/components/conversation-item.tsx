@@ -94,7 +94,10 @@ export function ConversationItem({
               unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
             )}
           >
-            {lastMessage ?? t("messages.noMessagesYet")}
+            {/* messaging.conversations rule 12a (PAD-639): a deleted last message. */}
+            {conversation.lastMessageDeleted
+              ? t("messages.messageDeleted")
+              : (lastMessage ?? t("messages.noMessagesYet"))}
           </Text>
           {unreadCount > 0 ? (
             <Badge testID={`conversation-unread-${conversation.id}`}>

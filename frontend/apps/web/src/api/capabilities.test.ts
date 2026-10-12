@@ -41,7 +41,7 @@ describe("web shell capabilities", () => {
     expect(declared).toContain("terms-on-completion");
   });
 
-  // PAD-642 (players.create rule 10, import.confirm rule 5): create and import carry the coach's 18+ box.
+  // PAD-642 (players.create rule 10, import.confirm rule 9): create and import carry the coach's 18+ box.
   it("declares adult-roster-confirmation", () => {
     expect(declared).toContain("adult-roster-confirmation");
   });

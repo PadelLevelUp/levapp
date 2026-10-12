@@ -151,7 +151,7 @@ export interface ConfirmPayload {
 
 export type ConfirmResult = Record<string, ImportResult>;
 
-/** PAD-642 (import.confirm rule 5): the coach's "every imported student is 18 or older". */
+/** PAD-642 (import.confirm rule 9): the coach's "every imported student is 18 or older". */
 export interface ConfirmOptions {
   confirmsAdults?: boolean;
 }

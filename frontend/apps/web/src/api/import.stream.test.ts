@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/** PAD-642 (import.confirm rule 5): the streamed import's raw fetch bypasses the axios client, so it
+/** PAD-642 (import.confirm rule 9): the streamed import's raw fetch bypasses the axios client, so it
  * must declare the shell's capabilities itself and carry the coach's confirmation — otherwise the server
  * sees a legacy client and never asks. */
 vi.mock("@/api/client", () => ({

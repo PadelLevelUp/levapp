@@ -60,7 +60,7 @@ COUNTRY_ON_COMPLETION = "country-on-completion"
 # record (auth.legal-catch-up asks later). Not `terms-acceptance`: every current build declares that
 # on every request. Retire once no App Store build older than the first declaring one is in use.
 TERMS_ON_COMPLETION = "terms-on-completion"
-# PAD-642 (players.create rule 10, import.confirm rule 5): creating or importing players carries the
+# PAD-642 (players.create rule 10, import.confirm rule 9): creating or importing players carries the
 # coach's `confirmsAdults: true`. A client that declares this and does not send it is refused (400
 # ADULTS_CONFIRMATION_REQUIRED); one that does not creates as before. Retire like the others.
 ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"

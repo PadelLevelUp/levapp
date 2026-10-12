@@ -34,7 +34,6 @@ dependencies = [
 
     # --- Sessions / auth / assets / mail ---
     "Flask-Session==0.6.0",
-    "Flask-Login==0.6.3",
     "Flask-Assets==2.1.0",
     "Flask-Mail==0.9.1",
     "pyScss==1.4.0",
