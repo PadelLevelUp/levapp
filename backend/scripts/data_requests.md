@@ -18,28 +18,36 @@ Never send data to an address the account does not already have.
 - If the request comes **from the account's own email**, that is enough.
 - Otherwise, reply **to the account's email** ("we received a request for your LevApp data; reply
   to confirm"), and wait for the reply from that address.
-- An account with no email (a student added by a coach who never signed in): ask the coach to put
-  the person in touch, then verify by a reply from an email the person controls *and* one detail
-  only they and their coach know (the club and coach name). If in doubt, ask the owner.
+- An account with no email (a student added by a coach who never signed in): **the owner decides.**
+  Nothing is sent until the owner has confirmed who the person is and approved one address for the
+  answer, and that approval and address are written in the `DSR` thread first. Step 3's "send to the
+  account's email" then means that recorded address.
 - Find the user id in the staff console: Utilizadores, search by name or email, open the user. The id
   is in the page's address.
 
 ## 3. Access and portability: export the data
 
-On the VM (see the `vm-and-terraform-access` notes), inside the backend container:
+On the production VM, from the backend container (`padelapp`; during a deploy a `padelapp_next`
+may exist too, so use `padelapp`). The file is written to the VM's `/tmp`, copied to your own
+machine, and deleted from the VM straight away:
 
 ```bash
-docker exec -i <backend container> python scripts/export_user_data.py <user_id> > user-<id>.json
+docker exec -i padelapp python scripts/export_user_data.py <user_id> > /tmp/user-<id>.json
+# from your machine: copy it off the VM (gcloud compute scp), then on the VM:
+rm /tmp/user-<id>.json
 ```
 
 - The script is **read-only**: one read-only transaction, always rolled back. It prints JSON with the
   person's account, their player and coach records, and every row that points at them (classes,
   attendance, evaluations, notes about them, requests, reports they filed, devices), plus the
   messages they sent.
-- It never prints another person's messages, any password, code or token (`"[withheld]"`), or the
-  staff audit logs.
+- It never prints another person's messages, any password, code, token or push subscription
+  (`"[withheld]"`), who blocked them, or the staff audit logs. Messages they sent and later deleted
+  are included while the database still holds them.
 - Read the file before sending. Remove anything that names a third party beyond what the person
-  already sees in the app.
+  already sees in the app. **For a coach** this matters most: their export includes the records they
+  keep about students (classes, attendance, evaluations, notes). A coach's request covers their own
+  account and activity; ask the owner before sending students' details.
 - Exit code 2 with "no user <id>" means the id is wrong. Nothing is printed.
 
 Send the JSON **to the account's email**, as an attachment (zip it if large), with a short note that

@@ -275,6 +275,8 @@ describe("date of birth and country (PAD-640)", () => {
   });
 
   it("an under-18 date is refused on the field and nothing is sent", async () => {
+    const { AccessibilityInfo } = await import("react-native");
+    const announce = vi.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
     getMe.mockResolvedValue(STORED);
     const { n } = await mountProfile();
 
@@ -284,6 +286,8 @@ describe("date of birth and country (PAD-640)", () => {
 
     expect(n.byTestId("settings-profile-birthDate-error").props.children).toBe("auth.signup.birthDateUnderage");
     expect(updateMe).not.toHaveBeenCalled();
+    expect(announce).toHaveBeenCalledWith("auth.signup.birthDateUnderage");
+    announce.mockRestore();
   });
 
   it("the server's UNDERAGE lands on the field too", async () => {

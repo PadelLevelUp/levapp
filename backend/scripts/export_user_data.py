@@ -25,10 +25,19 @@ from decimal import Decimal
 
 from sqlalchemy import MetaData, create_engine, select, text
 
-#: Rule 4: printed as "[withheld]" whatever the table.
-_SECRET = re.compile(r"password|token|secret|_hash$|^generated_code$|^jti$|^endpoint$|^p256dh$|^auth$")
+#: Rule 4: printed as "[withheld]" whatever the table. `subscription_json` is a web-push subscription
+#: (endpoint URL and its p256dh/auth keys in one JSON blob).
+_SECRET = re.compile(r"password|token|secret|_hash$|^generated_code$|^jti$|^subscription_json$")
 #: Rule 4: staff records about the person, not the person's data.
 _STAFF_TABLES = {"admin_audit_log", "deletion_audit", "alembic_version"}
+#: Rule 3: foreign keys that name the person as the OBJECT of someone else's act or as the staff
+#: member who acted; following them would print another person's record (who blocked them, the
+#: coaches they approved, the merges they confirmed).
+_NOT_THEIRS = {
+    ("blocked_users", "blocked_id"),
+    ("coaches", "approved_by_user_id"),
+    ("player_merges", "confirmed_by_user_id"),
+}
 WITHHELD = "[withheld]"
 
 
@@ -80,7 +89,7 @@ def export(conn, user_id):
         if not ids:
             continue
         for table, col in _pointing_at(meta, target):
-            if table.name in _STAFF_TABLES:
+            if table.name in _STAFF_TABLES or (table.name, col.name) in _NOT_THEIRS:
                 continue
             bucket = tables.setdefault(table.name, {})
             for r in conn.execute(select(table).where(col.in_(ids))).all():
@@ -109,16 +118,23 @@ def _engine():
     return create_engine(ProdConfig.resolve_database_uri())
 
 
+def read_only(conn):
+    """Rule 2: begin a transaction the database itself refuses to write in (Postgres), as the first
+    statement; the caller rolls it back."""
+    trans = conn.begin()
+    if conn.dialect.name == "postgresql":
+        conn.execute(text("SET TRANSACTION READ ONLY"))
+    return trans
+
+
 def main(argv, out=sys.stdout, err=sys.stderr):
     if len(argv) != 1 or not argv[0].isdigit():
         err.write("usage: export_user_data.py <user_id>\n")
         return 64
     user_id = int(argv[0])
     with _engine().connect() as conn:
-        trans = conn.begin()
+        trans = read_only(conn)
         try:
-            if conn.dialect.name == "postgresql":
-                conn.execute(text("SET TRANSACTION READ ONLY"))
             doc = export(conn, user_id)
         finally:
             trans.rollback()

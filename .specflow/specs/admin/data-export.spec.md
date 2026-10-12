@@ -28,14 +28,18 @@ review D7).
    writes, flushes or commits.
 3. **What is included.** The `users` row; every row of every table holding a foreign key to that
    user, to their `players` row(s) or to their `coaches` row; found by reading the schema, so a new
-   table is included without editing the script. Rows from `messages` are those the person sent.
+   table is included without editing the script. Rows from `messages` are those the person sent,
+   including ones they deleted while the database still holds them. A foreign key that names the
+   person as the object of someone else's act, or as the staff member who acted
+   (`blocked_users.blocked_id`, `coaches.approved_by_user_id`, `player_merges.confirmed_by_user_id`),
+   is not followed.
 4. **What is never included.** Password hashes, verification and activation codes, tokens and
    secrets: any column whose name contains `password`, `token` or `secret`, ends in `_hash`, or is
-   `generated_code`, `jti`, `endpoint`, `p256dh` or `auth` (push-subscription keys), prints as
+   `generated_code`, `jti` or `subscription_json` (a web-push endpoint and its keys), prints as
    `"[withheld]"`. Another person's messages, and the `admin_audit_log`
    and `deletion_audit` staff records, are left out.
 5. **Formats.** Dates and times print as ISO 8601; decimals as strings; bytes as base64.
-6. **The runbook.** `backend/scripts/data_requests.md` (and its copy under `docs/handoffs/`): verify
+6. **The runbook.** `backend/scripts/data_requests.md`: verify
    the requester (answer from the account's own email, or a code sent to it), record the request and
    its date, run the export on the VM read-only, send the JSON to the account's email within 30 days
    (extendable once by 60 with a reason), and correct or erase on request (correction: Perfil,
@@ -59,6 +63,12 @@ review D7).
 - **Given** any user
 - **When** the export runs
 - **Then** the database is unchanged and no commit was issued
+- **And** on Postgres a write inside the export's transaction is refused (read-only)
+
+#### Someone else's act on them is not theirs (rule 3)
+- **Given** Rui blocked Sara, and Sara blocked Carla
+- **When** Sara is exported
+- **Then** `blocked_users` holds only Sara's block of Carla
 
 #### An unknown id (rule 1)
 - **Given** no user with id 999999

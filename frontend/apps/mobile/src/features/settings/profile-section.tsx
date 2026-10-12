@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, View } from "react-native";
+import { AccessibilityInfo, Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import {
   Card,
@@ -127,6 +127,8 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
   const refuseBirthDate = (key: string): never => {
     const text = t(`auth.signup.${key}`);
     setBirthDateError(text);
+    // A live region is Android-only; VoiceOver hears the refusal through an announcement.
+    AccessibilityInfo.announceForAccessibility(text);
     throw new BirthDateRefused(text);
   };
 

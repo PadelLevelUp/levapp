@@ -107,6 +107,62 @@ def test_an_unknown_id_exits_2_and_prints_nothing(script, app):
     assert "no user 999999" in err
 
 
+def test_a_push_subscription_prints_withheld(script, app):
+    from padel_app.models.push_subscriptions import PushSubscription
+
+    uid, _ = _people(app)
+    with app.app_context():
+        db.session.add(PushSubscription(
+            user_id=uid,
+            subscription_json='{"endpoint": "https://push.example/ENDPOINT-640", "keys": {"p256dh": "P256-640", "auth": "AUTH-640"}}',
+        ))
+        db.session.commit()
+    _, out, _ = _run(script, app, uid)
+    assert json.loads(out)["tables"]["push_subscriptions"][0]["subscription_json"] == "[withheld]"
+    for leaked in ("ENDPOINT-640", "P256-640", "AUTH-640"):
+        assert leaked not in out
+
+
+def test_who_blocked_them_is_not_exported(script, app):
+    """Their own blocks are theirs; someone else's block of them is not (rule 3)."""
+    from padel_app.models import User
+    from padel_app.models.blocked_user import BlockedUser
+
+    uid, _ = _people(app)
+    with app.app_context():
+        other = User(name="Rui Outro", username="rui640x", password="x", status="active")
+        db.session.add(other)
+        db.session.flush()
+        carla = User.query.filter_by(username="carla640x").one()
+        db.session.add_all([BlockedUser(blocker_id=other.id, blocked_id=uid),
+                            BlockedUser(blocker_id=uid, blocked_id=carla.id)])
+        db.session.commit()
+        other_id = other.id
+    _, out, _ = _run(script, app, uid)
+    rows = json.loads(out)["tables"]["blocked_users"]
+    assert [r["blocker_id"] for r in rows] == [uid]
+    assert all(r["blocker_id"] != other_id for r in rows)
+
+
+def test_the_postgres_transaction_refuses_writes(script, app):
+    """Rule 2 on the database itself: on Postgres the export's transaction is READ ONLY. (SQLite has
+    no such mode; the CI Postgres lane runs this.)"""
+    from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
+
+    with app.app_context():
+        engine = db.engine
+        if engine.dialect.name != "postgresql":
+            pytest.skip("READ ONLY transactions are a Postgres feature")
+        with engine.connect() as conn:
+            trans = script.read_only(conn)
+            try:
+                with pytest.raises(DBAPIError, match="read-only"):
+                    conn.execute(text("UPDATE users SET name = name"))
+            finally:
+                trans.rollback()
+
+
 def test_staff_records_are_not_exported(script, app):
     uid, _ = _people(app)
     _, out, _ = _run(script, app, uid)
