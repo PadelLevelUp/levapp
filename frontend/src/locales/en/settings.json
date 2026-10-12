@@ -243,7 +243,8 @@
       },
       "rowErrors": {
         "score_out_of_range": "Score {{value}} for “{{category}}” is outside 1–5. Scores are 1–5 stars: rescale the sheet and import it again."
-      }
+      },
+      "confirmsAdults": "I confirm every imported student is 18 or older."
     },
     "importHistory": {
       "loading": "Loading import history...",

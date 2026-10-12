@@ -27,6 +27,8 @@ test.describe("PAD-7: unique field validation", () => {
     await page.getByRole("button", { name: /add player/i }).click();
 
     await page.locator("#player-name").fill("Email Dup Test");
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
 
     const emailInput = page.locator("#player-email");
     await emailInput.fill("e2e-coach@test.com"); // taken email
@@ -60,6 +62,8 @@ test.describe("PAD-7: unique field validation", () => {
     await page
       .locator("#player-name")
       .fill(`Dup Username Invitee ${Date.now()}`);
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
     await page
       .getByRole("button", { name: /create.*invite|invite.*player/i })
       .click();
@@ -80,6 +84,8 @@ test.describe("PAD-7: unique field validation", () => {
     await invitePage.locator("#repeatPassword").fill("DupUser123!");
     // PAD-457: an adult birth date, so the refusal under test is the username's.
     await invitePage.locator("#birthDate").fill("1990-01-01");
+    // PAD-637: the Terms box (auth.register rule 19b).
+    await invitePage.getByTestId("playerInvite-terms").click();
     await invitePage.locator('button[type="submit"]').click();
 
     // Pre-auth pages render in the default locale (pt), so accept either language.

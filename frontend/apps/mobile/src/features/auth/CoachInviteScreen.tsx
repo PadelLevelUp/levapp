@@ -51,6 +51,7 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     // PAD-457: DD/MM/AAAA, typed with the number pad as on sign-up.
     birthDate: "",
     country: "PT",
+    terms: "",
   });
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>(
     {}
@@ -95,11 +96,14 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     setSubmitError(null);
 
     const codes = validateAccountForm(coachInviteSchema, values);
-    if (Object.keys(codes).length > 0) {
+    // PAD-637 (auth.register rule 19b): the Terms box is checked with the rest of the form.
+    const termsMissing = values.terms !== "true";
+    if (Object.keys(codes).length > 0 || termsMissing) {
       const translated: Record<string, string> = {};
       for (const [field, code] of Object.entries(codes)) {
         translated[field] = t(`auth.coachInvite.${code}`);
       }
+      if (termsMissing) translated.terms = t("auth.legal.termsRequiredToContinue");
       setErrors(translated);
       return;
     }
@@ -124,6 +128,11 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
       const birthKey = res?.data?.code ? ACTIVATION_BIRTH_CODES[res.data.code] : undefined;
       if (res?.status === 400 && res.data?.field === "birthDate" && birthKey) {
         setErrors({ birthDate: t(`auth.coachInvite.${birthKey}`) });
+        return;
+      }
+      // PAD-637: a Terms refusal belongs on the box.
+      if (res?.status === 400 && res?.data?.field === "terms") {
+        setErrors({ terms: t("auth.legal.termsRequiredToContinue") });
         return;
       }
       // PAD-604: a country refusal belongs on the field, in the form's words.
@@ -199,6 +208,8 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     },
     // PAD-604: right after the birth date; required, default PT.
     { id: "country", label: t("auth.coachInvite.country"), kind: "country" },
+    // PAD-637: the Terms box, last, as on sign-up.
+    { id: "terms", label: "", kind: "terms" },
   ];
 
   return (

@@ -13,8 +13,9 @@ import { describe, expect, it } from "vitest";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, "./client.ts"), "utf8");
 const declared = (() => {
-  const m = source.match(/capabilities:\s*\[([^\]]*)\]/);
-  if (!m) throw new Error("no capabilities: [...] declaration found in ./client.ts");
+  // The list lives in `WEB_CAPABILITIES` since PAD-642 (the streamed import sends it too).
+  const m = source.match(/WEB_CAPABILITIES = \[([^\]]*)\]/);
+  if (!m) throw new Error("no WEB_CAPABILITIES = [...] declaration found in ./client.ts");
   return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
 })();
 
@@ -33,5 +34,19 @@ describe("web shell capabilities", () => {
   // checkbox and sends `termsAccepted`, so the server may refuse a sign-up without it.
   it("declares terms-acceptance", () => {
     expect(declared).toContain("terms-acceptance");
+  });
+
+  // PAD-637 (auth.register rule 19b): the invite and activation forms carry the Terms box.
+  it("declares terms-on-completion", () => {
+    expect(declared).toContain("terms-on-completion");
+  });
+
+  // PAD-642 (players.create rule 10, import.confirm rule 9): create and import carry the coach's 18+ box.
+  it("declares adult-roster-confirmation", () => {
+    expect(declared).toContain("adult-roster-confirmation");
+  });
+
+  it("is what the client actually sends", () => {
+    expect(source).toContain("capabilities: WEB_CAPABILITIES");
   });
 });

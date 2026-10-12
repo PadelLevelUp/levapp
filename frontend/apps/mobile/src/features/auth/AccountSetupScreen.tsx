@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
@@ -46,8 +47,9 @@ export type AccountFormField = {
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
   /** PAD-457: e.g. "DD/MM/AAAA" for the activation form's birth date. */
   placeholder?: string;
-  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box. */
-  kind?: "country";
+  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box.
+   * PAD-637: "terms" is the Terms box (`values[id]` is "true" when ticked; auth.register rule 19b). */
+  kind?: "country" | "terms";
 };
 
 export function PreAuthShell({
@@ -224,7 +226,16 @@ export function AccountSetupForm({
 
         <CardContent className="gap-4">
           {fields.map((field) =>
-            field.kind === "country" ? (
+            field.kind === "terms" ? (
+              <TermsAcceptField
+                key={field.id}
+                testID={`${testID}-${field.id}`}
+                checked={values[field.id] === "true"}
+                onToggle={() => onChangeField(field.id, values[field.id] === "true" ? "" : "true")}
+                error={errors[field.id]}
+                disabled={submitting}
+              />
+            ) : field.kind === "country" ? (
               <CountryField
                 key={field.id}
                 testID={`${testID}-${field.id}`}

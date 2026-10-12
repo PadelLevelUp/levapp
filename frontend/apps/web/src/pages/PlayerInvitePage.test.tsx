@@ -22,7 +22,7 @@ vi.mock("react-i18next", () => ({
 
 import PlayerInvitePage from "./PlayerInvitePage";
 
-async function mount() {
+async function mount(terms = true) {
   render(
     <MemoryRouter initialEntries={["/invite/player/tok123"]}>
       <Routes>
@@ -38,6 +38,7 @@ async function mount() {
   set("password", "Secret123!");
   set("repeatPassword", "Secret123!");
   set("birthDate", "1990-01-01");
+  if (terms) fireEvent.click(screen.getByTestId("playerInvite-terms"));
 }
 
 const submit = () => fireEvent.click(screen.getByRole("button", { name: "auth.playerInvite.complete" }));
@@ -61,5 +62,29 @@ describe("PlayerInvitePage — the country (PAD-604, rule 10a)", () => {
     await mount();
     submit();
     expect(await screen.findByTestId("playerInvite-country-error")).toHaveTextContent("auth.playerInvite.countryRequired");
+  });
+});
+
+describe("PlayerInvitePage — the Terms (PAD-637, players.invite-completion rule 10b)", () => {
+  it("refuses an unticked box on the box and sends nothing", async () => {
+    await mount(false);
+    submit();
+    expect(await screen.findByTestId("playerInvite-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
+    expect(accept).not.toHaveBeenCalled();
+  });
+
+  it("sends termsAccepted with the accept", async () => {
+    accept.mockResolvedValue({ accessToken: "t" });
+    await mount();
+    submit();
+    await waitFor(() => expect(accept).toHaveBeenCalled());
+    expect(accept.mock.calls[0][1]).toMatchObject({ termsAccepted: true });
+  });
+
+  it("puts a server TERMS_REQUIRED on the box", async () => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "terms", code: "TERMS_REQUIRED" } } });
+    await mount();
+    submit();
+    expect(await screen.findByTestId("playerInvite-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
   });
 });

@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Pressable,
   ScrollView,
   type TextInput,
@@ -18,7 +17,7 @@ import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import {
   Card,
   CardContent,
@@ -29,7 +28,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
-import { PRIVACY_POLICY_URL, TERMS_URL, legalUrl } from "@/lib/config";
 import { describeApiError } from "@/lib/apiError";
 import { COUNTRIES, countryName } from "@levelup/config";
 import { CODE_KEYS, formatBirthInput, signUpSchema, toIso } from "@/features/auth/signup-form";
@@ -381,48 +379,18 @@ export default function SignUpScreen() {
             </View>
 
             {/* auth.register rule 19 (PAD-485): required, with both documents a tap away. */}
-            <View className="gap-1" onLayout={(e) => { termsOffset.current = e.nativeEvent.layout.y; }}>
-              <View className="flex-row items-start gap-2">
-                <Pressable
-                  testID="signup-terms"
-                  role="checkbox"
-                  accessibilityState={{ checked: termsAccepted, disabled: loading }}
-                  accessibilityLabel={`${t("auth.signup.termsAcceptPrefix")} ${t("auth.legal.privacyPolicy")} ${t("auth.signup.termsAcceptJoin")} ${t("auth.legal.terms")}`}
-                  disabled={loading}
-                  hitSlop={8}
-                  onPress={() => {
-                    setTermsAccepted((on) => !on);
-                    setErrors((e) => ({ ...e, terms: undefined }));
-                  }}
-                >
-                  {/* One owner of the toggle (#517 review): the box only shows the state; the Pressable
-                      around it takes the tap, so a tap can never toggle twice and cancel itself. */}
-                  <View pointerEvents="none">
-                    <Checkbox
-                      checked={termsAccepted}
-                      onCheckedChange={() => undefined}
-                      disabled={loading}
-                      className={errors.terms ? "border-destructive" : undefined}
-                    />
-                  </View>
-                </Pressable>
-                <View className="flex-1 flex-row flex-wrap items-center gap-x-1">
-                  <Text className="text-sm">{t("auth.signup.termsAcceptPrefix")}</Text>
-                  <Pressable accessibilityRole="link" testID="signup-terms-privacy" onPress={() => void Linking.openURL(legalUrl(PRIVACY_POLICY_URL, i18n.language))}>
-                    <Text className="text-sm text-primary underline">{t("auth.legal.privacyPolicy")}</Text>
-                  </Pressable>
-                  <Text className="text-sm">{t("auth.signup.termsAcceptJoin")}</Text>
-                  <Pressable accessibilityRole="link" testID="signup-terms-terms" onPress={() => void Linking.openURL(legalUrl(TERMS_URL, i18n.language))}>
-                    <Text className="text-sm text-primary underline">{t("auth.legal.terms")}</Text>
-                  </Pressable>
-                </View>
-              </View>
-              {errors.terms ? (
-                <Text className="text-sm text-destructive" testID="signup-error-terms" accessibilityLiveRegion="polite">
-                  {errors.terms}
-                </Text>
-              ) : null}
-            </View>
+            <TermsAcceptField
+              testID="signup-terms"
+              errorTestID="signup-error-terms"
+              checked={termsAccepted}
+              disabled={loading}
+              error={errors.terms}
+              onLayout={(e) => { termsOffset.current = e.nativeEvent.layout.y; }}
+              onToggle={() => {
+                setTermsAccepted((on) => !on);
+                setErrors((e) => ({ ...e, terms: undefined }));
+              }}
+            />
 
             {formError ? (
               <Text className="text-center text-sm text-destructive" testID="signup-error">
