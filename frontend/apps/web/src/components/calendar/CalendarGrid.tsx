@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { findNextEventId, groupOverlappingEvents, isClubToday } from "@levelup/config";
+import { desktopHourRange, eventBlockGeometry, findNextEventId, isClubToday, layoutDayColumn } from "@levelup/config";
+import { useTranslation } from 'react-i18next';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarEvent, CoachLevel } from '@/types';
@@ -24,6 +26,68 @@ interface CalendarGridProps {
 }
 
 const HOUR_HEIGHT = 60; // pixels per hour - must match h-[60px] on grid rows
+/** B-543 (calendar.view rule 20): beyond three classes at once a day column stops being readable. */
+export const DESKTOP_MAX_COLUMNS = 3;
+
+/**
+ * B-543: the classes of a cluster too busy to sit side by side, behind one "+N". Activating it
+ * lists them; choosing one opens it exactly as its card would.
+ */
+function OverflowMarker({
+  events,
+  style,
+  onEventClick,
+}: {
+  events: CalendarEvent[];
+  style: React.CSSProperties;
+  onEventClick: (event: CalendarEvent) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid="calendar-overflow"
+          data-count={events.length}
+          aria-label={t('calendar.overflow.aria', { count: events.length })}
+          style={style}
+          className="z-[1] flex items-start justify-center rounded-md border border-dashed border-muted-foreground/50 bg-muted/80 px-1 pt-1 text-xs font-bold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {t('calendar.overflow.label', { count: events.length })}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-1" data-testid="calendar-overflow-list">
+        <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          {t('calendar.overflow.title')}
+        </p>
+        {events.map((event) => (
+          <button
+            key={event.id}
+            type="button"
+            data-testid="calendar-overflow-item"
+            onClick={() => {
+              setOpen(false);
+              onEventClick(event);
+            }}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+          >
+            <span
+              aria-hidden
+              className="h-3 w-1 shrink-0 rounded-full"
+              style={{ backgroundColor: event.color ?? 'hsl(var(--primary))' }}
+            />
+            <span className="min-w-0 flex-1 truncate font-medium">{event.title}</span>
+            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+              {event.startTime}–{event.endTime}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 const SLOT_HEIGHT = HOUR_HEIGHT / 2; // one half-hour slot
 const SLOT_MINUTES = 30;
 
@@ -40,8 +104,8 @@ export function CalendarGrid({
   weekDays,
   events,
   levels = [],
-  startHour = 7,
-  endHour = 22,
+  startHour: startHourProp,
+  endHour: endHourProp,
   onEventClick,
   onSlotClick,
   onSlotRangeSelect,
@@ -63,6 +127,12 @@ export function CalendarGrid({
     [events, weekDays]
   );
 
+  // B-544 (calendar.view rule 21): 07:00–22:00 by default, widened to the whole hours of any
+  // class outside it — the grid never cuts a class. A caller may still pin the range.
+  const range = useMemo(() => desktopHourRange(events), [events]);
+  const startHour = startHourProp ?? range.startHour;
+  const endHour = endHourProp ?? range.endHour;
+
   const [draggingEvent, setDraggingEvent] = useState<CalendarEvent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ day: string; time: string } | null>(null);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
@@ -81,17 +151,16 @@ export function CalendarGrid({
    */
   const slotTime = useCallback((index: number) => {
     const total = startHour * 60 + index * SLOT_MINUTES;
+    // A range ending at the grid's 24:00 bottom is a class ending at midnight, stored as 00:00 (PAD-553).
+    if (total >= 24 * 60) return '00:00';
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }, [startHour]);
 
+  // B-544: the shared geometry — a class ending at midnight runs to 24:00, not above its start.
   const getEventStyle = (event: CalendarEvent) => {
-    const [startH, startM] = event.startTime.split(':').map(Number);
-    const [endH, endM] = event.endTime.split(':').map(Number);
-    const startMinutes = (startH - startHour) * 60 + startM;
-    const endMinutes = (endH - startHour) * 60 + endM;
-    const top = (startMinutes / 60) * HOUR_HEIGHT;
-    const height = Math.max(((endMinutes - startMinutes) / 60) * HOUR_HEIGHT - 2, 20);
-    return { top, height };
+    const g = eventBlockGeometry(event, { startHour, rowHeight: HOUR_HEIGHT, minHeight: 0 });
+    if (!g) return { top: 0, height: 20 };
+    return { top: g.top, height: Math.max(g.height - 2, 20) };
   };
 
   const getEventsForDay = (day: Date) =>
@@ -314,10 +383,19 @@ export function CalendarGrid({
               })()}
 
               {/* Events */}
-              {groupOverlappingEvents(dayEvents).flatMap(group =>
-                group.map((event, index) => {
+              {/* B-543 (calendar.view rule 20): lanes packed by the shared layout; past three
+                  at once, the rest sit behind one "+N" marker per cluster. */}
+              {(() => {
+                const { blocks, overflow } = layoutDayColumn(dayEvents, {
+                  startHour,
+                  rowHeight: HOUR_HEIGHT,
+                  maxColumns: DESKTOP_MAX_COLUMNS,
+                });
+                return [
+                  ...blocks.map(({ event, column, columns }) => {
                   const style = getEventStyle(event);
-                  const columnWidth = 100 / group.length;
+                  const columnWidth = 100 / columns;
+                  const index = column;
                   return (
                     <CalendarEventCard
                       key={event.id}
@@ -330,7 +408,7 @@ export function CalendarGrid({
                       }
                       // Too short OR too narrow: three overlapping classes leave ~1/3
                       // of a column, where a bar and a count are illegible.
-                      compact={parseFloat(String(style.height)) < 56 || group.length > 2}
+                      compact={parseFloat(String(style.height)) < 56 || columns > 2}
                       style={{
                         position: 'absolute',
                         top: style.top,
@@ -344,8 +422,23 @@ export function CalendarGrid({
                       onDragEnd={() => { setDraggingEvent(null); setDropTarget(null); }}
                     />
                   );
-                })
-              )}
+                  }),
+                  ...overflow.map((marker) => (
+                    <OverflowMarker
+                      key={`overflow-${marker.key}`}
+                      events={marker.events}
+                      style={{
+                        position: 'absolute',
+                        top: marker.top,
+                        height: Math.max(marker.height - 2, 20),
+                        left: `${(marker.column * 100) / marker.columns}%`,
+                        width: `${100 / marker.columns}%`,
+                      }}
+                      onEventClick={(event) => !draggingEvent && onEventClick?.(event)}
+                    />
+                  )),
+                ];
+              })()}
             </div>
           );
         })}

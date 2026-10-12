@@ -1,3 +1,4 @@
+# broken since PAD-550: the legacy CRUD API (/api/create|edit|delete) is gone
 """Dev-only demo seeder.
 
 PAD-92: this script used to POST anonymously to the `/api/app/*` entity-creation

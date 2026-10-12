@@ -201,8 +201,8 @@ def test_the_user_view_lists_its_audit_rows_and_role(app, client, op):
     assert body["adminRole"]["role"] == "support"
 
 
-def test_the_editor_is_unreachable_where_it_deploys():
-    """Rule 10c: no deployed template switches the generic editor on."""
+def test_the_editor_switch_is_never_set():
+    """Rule 10c: the editor is deleted (PAD-550); no deployed template sets its old switch."""
     for template in (".env.staging", ".env.prod"):
         lines = [l for l in (BACKEND / template).read_text().splitlines() if not l.startswith("#")]
         assert not any(l.startswith("EDITOR_ENABLED") for l in lines), template

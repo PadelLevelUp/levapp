@@ -20,9 +20,8 @@ class YourModel(db.Model, model.Model):
     __tablename__ = "your_models"
     __table_args__ = {"extend_existing": True}
 
-    # Required class attributes
-    page_title = "Your Models"   # shown in admin list view
-    model_name = "YourModel"     # used for URL routing and reflection
+    # Required class attribute
+    model_name = "YourModel"     # used for image object keys, reflection and __repr__
 
     # Primary key — always Integer
     id = Column(Integer, primary_key=True)
@@ -33,14 +32,6 @@ class YourModel(db.Model, model.Model):
     @property
     def name(self):          # __repr__ and __str__ call self.name
         return self.name     # rename this property if your display field differs
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Name"}
-        fields = [
-            {"field": "name", "label": "Name"},
-        ]
-        return searchable, fields
 
     @classmethod
     def get_create_form(cls):
@@ -66,11 +57,9 @@ class YourModel(db.Model, model.Model):
 | `db.Model, model.Model` | Gives you the DB table + all session helpers |
 | `__tablename__` | The actual PostgreSQL table name. Use snake_case plural. |
 | `__table_args__ = {"extend_existing": True}` | Prevents errors when the module is imported multiple times |
-| `page_title` | Label shown in the admin editor list page |
-| `model_name` | Used by `update_with_dict`, reflection, and admin URLs. Must match the class name exactly. |
+| `model_name` | Used by image object keys, reflection and `__repr__`. Must match the class name exactly. |
 | `id = Column(Integer, primary_key=True)` | Every model needs a surrogate PK |
-| `display_all_info()` | Required by the admin list view |
-| `get_create_form()` | Required by the admin create/edit view — must include **every editable field** |
+| `get_create_form()` | Required by the services' form layer (`get_edit_form()` delegates to it) — must include **every editable field** |
 
 ### Free from `model.Model`
 
@@ -119,9 +108,9 @@ tags      = Column(JSON, nullable=True, default=list)
 
 ---
 
-## 3. `get_create_form()` — the admin form
+## 3. `get_create_form()` — the form layer
 
-`get_create_form()` is called by the admin editor for both create and edit views (`get_edit_form()` delegates to it). **It must declare every field that a user should be able to set.** Fields omitted here will be invisible in the admin and ignored by `update_with_dict`.
+`get_create_form()` is called by the services that create and edit a row (`get_edit_form()` delegates to it). **It must declare every field that a user should be able to set.** Fields omitted here will be ignored by `update_with_dict`.
 
 ### Structure: Form → Blocks / Tabs → Fields
 
@@ -338,7 +327,6 @@ class Association_YourModelTag(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "YourModel ↔ Tag"
     model_name = "Association_YourModelTag"
 
     id           = Column(Integer, primary_key=True)
@@ -351,8 +339,6 @@ class Association_YourModelTag(db.Model, model.Model):
     your_model = relationship("YourModel", back_populates="tags_relations")
     tag        = relationship("Tag",       back_populates="your_models_relations")
 
-    @classmethod
-    def display_all_info(cls): ...
     @classmethod
     def get_create_form(cls): ...
 ```
@@ -395,18 +381,11 @@ This pattern is used by `NotificationConfig` and is the standard way to handle e
 
 ### `models/__init__.py`
 
-Add the import and a `MODELS` entry:
+Add the import (there is no registry to add the model to):
 
 ```python
 from .your_model import YourModel
-
-MODELS = {
-    ...
-    "yourmodel": YourModel,   # lowercase, no underscores
-}
 ```
-
-The `MODELS` key is used by the admin editor for URL routing. Convention: lowercase class name, no underscores.
 
 ---
 
@@ -462,17 +441,15 @@ def downgrade():
 - [ ] Class inherits `db.Model, model.Model`
 - [ ] `__tablename__` is snake_case plural
 - [ ] `__table_args__ = {"extend_existing": True}`
-- [ ] `page_title` and `model_name` set
+- [ ] `model_name` set
 - [ ] `id = Column(Integer, primary_key=True)`
 - [ ] All FKs have an `ondelete` policy (`CASCADE` or `SET NULL`)
 - [ ] All bidirectional relationships use `back_populates` (not `backref`)
-- [ ] `display_all_info()` implemented
 - [ ] `get_create_form()` implemented with a `Field` for **every editable column and relationship**
 - [ ] Correct `Field` type used for each column (see type reference in section 3)
 - [ ] `Select` fields have `options=[...]`
 - [ ] Relationship fields (`ManyToOne`, `ManyToMany`, `OneToMany`) have `related_model="ClassName"`
 - [ ] Image fields are in `"picture_block"`, not `"info_block"`
 - [ ] Import added to `models/__init__.py`
-- [ ] Entry added to `MODELS` dict in `__init__.py`
 - [ ] `flask db migrate` run and migration file reviewed
 - [ ] `flask db upgrade` applied

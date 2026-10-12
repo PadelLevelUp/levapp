@@ -1433,7 +1433,9 @@ export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";
 
 export type InviteSimulationPriority =
   | { id: "level"; ladderDistance: number | null; levelCode: string | null }
-  | { id: "justified_misses"; rate: number }
+  /** PAD-505: `owed` is the classes owed (justified absences minus make-ups taken), the value the
+   * engine sorts on. A server from before PAD-505 sends only `rate`. */
+  | { id: "justified_misses"; owed?: number; rate: number }
   | { id: "attendance"; rate: number }
   | { id: "playing_side"; match: "exact" | "both" | "other"; side: PlayerSide | null }
   | { id: "subscription_status"; active: boolean };

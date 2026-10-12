@@ -114,7 +114,7 @@ that what the tutorial shows and what the engine does can never disagree.
     client renders values in the order the engine sorted by), carrying the value the sort key
     actually used:
     `level: {ladderDistance}` (signed, negative = stronger than the spot),
-    `attendance: {rate}`, `justifiedMisses: {rate}`, `playingSide: {match}` with `match` one of
+    `attendance: {rate}`, `justifiedMisses: {owed, rate}` (`owed` = classes owed, `attendance.stats` rule 3, the value sorted on since PAD-505; `rate` stays for clients released before PAD-505, and a client shows `owed` whenever it is present), `playingSide: {match}` with `match` one of
     `"exact" | "both" | "other"`, `subscriptionStatus: {active}`. `sendStatus` is:
     - `first_batch` — within `restrictions.maxSimultaneous` (and within the remaining `maxTotal`
       budget) in the first non-empty round
@@ -235,6 +235,12 @@ that what the tutorial shows and what the engine does can never disagree.
 - **And** Hugo is otherwise the first candidate of round 1
 - **When** the simulation is run
 - **Then** Hugo's `sendStatus` is `"daily_quota"` and he keeps `rank` 1
+
+#### The make-up tiebreaker shows classes owed, as a count (rule 11, PAD-505)
+- **Given** Ana owes 2 classes (20 % justified misses) and Bruno 1 (50 %), with only the `justified_misses` tiebreaker on
+- **When** the coach simulates a vacancy
+- **Then** Ana is listed before Bruno, Ana's priority entry is `{id: "justified_misses", owed: 2, rate: 0.2}`, and the tutorial reads "2 aulas por repor", not "faltas justificadas 20%"
+- **And** an entry from a server before PAD-505, with only `rate`, still reads "faltas justificadas 33%"
 
 #### A student caller is refused
 - **Given** an authenticated student

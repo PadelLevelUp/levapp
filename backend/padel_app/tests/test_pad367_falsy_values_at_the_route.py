@@ -789,44 +789,6 @@ def test_add_coach_note_refuses_an_empty_text_itself(app, client):
     assert real.status_code == 200 and real.get_json()["text"] == "Fast feet"
 
 
-# ── PATCH /api/editor/<model>/<id> — JSON admin editor, NOT on the form layer ─
-
-def _root_headers(app):
-    from padel_app.models import User
-
-    with app.app_context():
-        user = User(name="root", username="root", password="x", status="active", is_superadmin=True)
-        db.session.add(user)
-        db.session.commit()
-        return _headers(app, user.id)
-
-
-def test_json_admin_editor_can_clear_a_text_and_write_a_zero(app, client):
-    """The second control: this route hands the JSON body to `update_with_dict`
-    without `Field.set_value`, so "" and 0 arrive as themselves. Only `None` is
-    skipped (by `update_with_dict`), so `null` still cannot clear."""
-    from padel_app.models import Association_CoachPlayer, EvaluationCategory
-
-    ids = _seed(app)
-    root = _root_headers(app)
-    with app.app_context():
-        category = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=10)
-        db.session.add(category)
-        db.session.commit()
-        category_id = category.id
-
-    notes = client.patch(f"/api/editor/association_coachplayer/{ids['rel_id']}", json={"values": {"notes": ""}}, headers=root)
-    zero = client.patch(f"/api/editor/evaluationcategory/{category_id}", json={"values": {"scale_min": 0}}, headers=root)
-    null = client.patch(f"/api/editor/association_coachplayer/{ids['rel_id']}", json={"values": {"side": None}}, headers=root)
-
-    assert (notes.status_code, zero.status_code, null.status_code) == (200, 200, 200), notes.get_data(as_text=True)
-    with app.app_context():
-        rel = db.session.get(Association_CoachPlayer, ids["rel_id"])
-        assert rel.notes == "", "cleared — to an empty string, not NULL"
-        assert rel.side == "right", "null is skipped by update_with_dict: still not a way to clear"
-        assert db.session.get(EvaluationCategory, category_id).scale_min == 0
-
-
 # ── POST / PUT /api/app/availability_blockers (a student's unavailability) ───
 
 def test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week(app, client):
@@ -1164,32 +1126,3 @@ def test_coach_levels_a_display_order_of_zero_means_unordered_by_design(app, cli
     with app.app_context():
         orders = sorted(l.display_order for l in CoachLevel.query.filter_by(coach_id=ids["coach_id"]).all())
         assert orders == list(range(1, len(orders) + 1)) and 0 not in orders
-
-
-# ── POST /api/edit/<model>/<id> — the legacy admin editor (HTML form body) ────
-
-def test_legacy_html_editor_a_zero_survives_as_a_string_and_an_empty_box_cannot_clear(app, client):
-    """The same form layer, fed by an HTML form: every value is a string, so "0" is
-    truthy and IS written — which is how a category can hold a minimum of 0 at all —
-    while an emptied box is still read as "not sent" (DEFECT PINNED, NOT FIXED, B-136).
-    The JSON branch of this same route skips the form, like PATCH /api/editor."""
-    from padel_app.models import Association_CoachPlayer, EvaluationCategory
-
-    ids = _seed(app)
-    root = _root_headers(app)
-    with app.app_context():
-        category = EvaluationCategory(coach_id=ids["coach_id"], name="Forehand", scale_min=1, scale_max=10)
-        db.session.add(category)
-        db.session.commit()
-        category_id = category.id
-
-    zero = client.post(f"/api/edit/evaluationcategory/{category_id}", headers=root,
-                       data={"name": "Forehand", "scale_min": "0", "scale_max": "10"})
-    emptied = client.post(f"/api/edit/association_coachplayer/{ids['rel_id']}", headers=root,
-                          data={"notes": "", "side": ""})
-
-    assert (zero.status_code, emptied.status_code) == (200, 200), zero.get_data(as_text=True) + emptied.get_data(as_text=True)
-    with app.app_context():
-        assert db.session.get(EvaluationCategory, category_id).scale_min == 0
-        rel = db.session.get(Association_CoachPlayer, ids["rel_id"])
-        assert (rel.notes, rel.side) == ("left-handed, bad knee", "right")

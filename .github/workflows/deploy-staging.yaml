@@ -215,6 +215,7 @@ jobs:
             -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
+            -e HUBSPOT_DEMO_FORM_ID="${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
@@ -286,6 +287,7 @@ jobs:
           # the mailto (unset) and keep test submissions out of the CRM.
           build-args: |
             VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}
+            VITE_API_BASE_URL=${{ vars.API_BASE_URL_STAGING }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:
