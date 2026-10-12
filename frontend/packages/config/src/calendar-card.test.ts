@@ -4,6 +4,7 @@ import {
   cardSurfaceNative,
   cardSurfaceWeb,
   resolveCardVariant,
+  relationChip,
   showsEnrolledMark,
 } from "./calendar-card";
 import {
@@ -136,6 +137,60 @@ describe("showsEnrolledMark (PAD-578, calendar.view rule 6 / mobile-views rule 1
   });
   it("never on a coach's calendar", () => {
     expect(showsEnrolledMark(e, "scheduled", "coach")).toBe(false);
+  });
+});
+
+describe("a student's relation (PAD-611, calendar.view rule 22 / mobile-views rule 5)", () => {
+  const hex = "#1355DC";
+  const rel = (studentRelation: CalendarEvent["studentRelation"], extra: Partial<CalendarEvent> = {}) =>
+    event({ studentRelation, participantCount: 3, ...extra });
+
+  it("not_coming, invited and waiting have their own variants; enrolled stays scheduled", () => {
+    expect(resolveCardVariant(rel("not_coming"), { now: NOW }).variant).toBe("not-coming");
+    expect(resolveCardVariant(rel("invited"), { now: NOW }).variant).toBe("invited");
+    expect(resolveCardVariant(rel("waiting"), { now: NOW }).variant).toBe("waiting");
+    expect(resolveCardVariant(rel("enrolled"), { now: NOW }).variant).toBe("scheduled");
+  });
+
+  it("past wins once the class is over; canceled still wins", () => {
+    expect(resolveCardVariant(rel("not_coming", { status: "completed" }), { now: NOW }).variant).toBe("past");
+    expect(resolveCardVariant(rel("invited", { status: "canceled" }), { now: NOW }).variant).toBe("canceled");
+  });
+
+  it("surfaces: not-coming is faded with muted text; invited is the dashed outline; waiting is dotted and muted", () => {
+    expect(cardSurfaceWeb(hex, "not-coming")).toEqual(cardSurfaceWeb(hex, "past"));
+    expect(cardSurfaceWeb(hex, "invited")).toEqual(cardSurfaceWeb(hex, "open-spot"));
+    expect(cardSurfaceWeb(hex, "waiting")).toEqual({
+      backgroundColor: "hsl(var(--card))",
+      border: "1.5px dotted hsl(var(--muted-foreground))",
+      color: "hsl(var(--muted-foreground))",
+    });
+    expect(cardSurfaceNative(hex, "not-coming", SURFACES)).toEqual(cardSurfaceNative(hex, "past", SURFACES));
+    expect(cardSurfaceNative(hex, "invited", SURFACES)).toEqual(cardSurfaceNative(hex, "open-spot", SURFACES));
+    expect(cardSurfaceNative(hex, "waiting", SURFACES)).toEqual({
+      backgroundColor: SURFACES.card,
+      borderWidth: 1.5,
+      borderStyle: "dotted",
+      borderColor: SURFACES.mutedForeground,
+      color: SURFACES.mutedForeground,
+    });
+  });
+
+  it("the ✓ only on what the student is going to or went to", () => {
+    expect(showsEnrolledMark(rel("enrolled"), "scheduled", "student")).toBe(true);
+    expect(showsEnrolledMark(rel("attended", { status: "completed" }), "past", "student")).toBe(true);
+    expect(showsEnrolledMark(rel("missed", { status: "completed" }), "past", "student")).toBe(false);
+    expect(showsEnrolledMark(rel("not_coming"), "not-coming", "student")).toBe(false);
+    expect(showsEnrolledMark(rel("invited"), "invited", "student")).toBe(false);
+    expect(showsEnrolledMark(rel("waiting"), "waiting", "student")).toBe(false);
+  });
+
+  it("each relation variant names its chip", () => {
+    expect(relationChip("open-spot")).toEqual({ key: "calendar.openSpot.chip", testId: "calendar-open-spot-chip" });
+    expect(relationChip("invited")).toEqual({ key: "calendar.relation.invited", testId: "calendar-relation-chip" });
+    expect(relationChip("waiting")).toEqual({ key: "calendar.relation.waiting", testId: "calendar-relation-chip" });
+    expect(relationChip("not-coming")).toEqual({ key: "calendar.relation.notComing", testId: "calendar-relation-chip" });
+    expect(relationChip("scheduled")).toBeNull();
   });
 });
 

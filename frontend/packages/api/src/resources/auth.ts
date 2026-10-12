@@ -238,3 +238,56 @@ export async function reapplyCoachApproval(payload: { username: string; password
   const res = await getApi().post("/auth/coach-approval/reapply", payload);
   return res.data;
 }
+
+// ── auth.social-sign-in (PAD-618) ───────────────────────────────────────────
+
+export type SocialLoginResponse = {
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player"; emailVerification?: EmailVerificationState };
+};
+
+/** Rule 2c: no account yet — complete sign-up with the ticket. Nothing is written until then. */
+export type SocialNeedsProfileResponse = {
+  needsProfile: true;
+  signupTicket: string;
+  name: string;
+  email: string;
+};
+
+export type SocialSignInResponse = SocialLoginResponse | SocialNeedsProfileResponse;
+
+export type SocialSignInPayload = {
+  provider: "google" | "apple";
+  idToken: string;
+  /** Apple only: the raw nonce whose SHA-256 the token carries. */
+  nonce?: string;
+};
+
+export type CompleteSocialSignUpPayload = {
+  signupTicket: string;
+  role: "coach" | "student";
+  /** YYYY-MM-DD. */
+  birthDate: string;
+  /** ISO 3166-1 alpha-2. */
+  country: string;
+  termsAccepted: true;
+};
+
+/**
+ * Rule 1: exchange a provider ID token for a session. Answers the login body, or
+ * `needsProfile`. 401 `INVALID_PROVIDER_TOKEN`, 503 `PROVIDER_NOT_CONFIGURED`, and the
+ * login refusals (403 COACH_REJECTED, 401 ACCOUNT_DISABLED) come back on `response.data`.
+ */
+export async function socialSignIn(payload: SocialSignInPayload): Promise<SocialSignInResponse> {
+  const res = await getApi().post("/auth/social", payload);
+  return res.data;
+}
+
+/**
+ * Rule 4: finish a new account. 200 answers with the login body; 400 `{error, field, code?}`
+ * (field role|birthDate|country|terms), 401 `INVALID_SIGNUP_TICKET`, 409 `ALREADY_COMPLETED` / email.
+ */
+export async function completeSocialSignUp(payload: CompleteSocialSignUpPayload): Promise<SocialLoginResponse> {
+  const res = await getApi().post("/auth/social/complete", payload);
+  return res.data;
+}

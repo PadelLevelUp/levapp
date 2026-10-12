@@ -91,6 +91,7 @@
       "loadError": "Não foi possível carregar as aulas.",
       "empty": "Não há aulas deste treinador em que possas entrar nos próximos 14 dias.",
       "spotsLeft_one": "{{count}} vaga",
+      "spotsLeft_zero": "{{count}} vagas",
       "spotsLeft_other": "{{count}} vagas",
       "full": "Cheia",
       "request": "Pedir para entrar",

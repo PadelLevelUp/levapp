@@ -225,25 +225,9 @@ def password_recovery_confirm():
     return jsonify(body), 200
 
 
-@bp.post("/login")
-@rate_limited("login")
-def login():
-    data = request.get_json() or {}
-
-    username = data.get("username")
-    password = data.get("password")
-    
-
-    if not username or not password:
-        return {"error": "Email and password required"}, 400
-
-    user = User.query.filter_by(username=username).first()
-
-    # auth.login rule 11 (PAD-269): a coach-created account with no password yet
-    # is a wrong password, not a 500 that tells a caller the username exists.
-    if not user or not user.password or not check_password_hash(user.password, password):
-        return {"error": "Invalid credentials"}, 401
-
+def _signed_in_answer(user):
+    """What a successful sign-in answers (auth.login rules 10–12), shared with
+    auth.social-sign-in rule 3: the same refusals and the same token for the same account."""
     # auth.coach-approval rule 11 (PAD-233): right credentials, rejected
     # coach — say why, issue nothing. Wrong credentials stay 401 above so the
     # status never leaks to a guesser.
@@ -273,7 +257,30 @@ def login():
             "role": user.role,
         }
     }
+
+
+@bp.post("/login")
+@rate_limited("login")
+def login():
+    data = request.get_json() or {}
+
+    username = data.get("username")
+    password = data.get("password")
     
+
+    if not username or not password:
+        return {"error": "Email and password required"}, 400
+
+    user = User.query.filter_by(username=username).first()
+
+    # auth.login rule 11 (PAD-269): a coach-created account with no password yet
+    # is a wrong password, not a 500 that tells a caller the username exists.
+    if not user or not user.password or not check_password_hash(user.password, password):
+        return {"error": "Invalid credentials"}, 401
+
+    return _signed_in_answer(user)
+
+
 @bp.post("/coach-approval/reapply")
 def coach_approval_reapply():
     """auth.coach-approval rule 12 (PAD-233): a rejected coach asks again."""
@@ -361,3 +368,38 @@ def update_me():
         return {"error": exc.message}, exc.status
 
     return jsonify(_serialize_me(user))
+
+@bp.post("/social")
+@rate_limited("login")
+def social_sign_in():
+    """auth.social-sign-in rules 1–3: sign in (or link) with a Google or Apple ID token."""
+    from padel_app.services.social_auth_service import SocialAuthError, resolve
+
+    data = request.get_json(silent=True) or {}
+    try:
+        kind, result = resolve(data.get("provider"), data.get("idToken"), data.get("nonce"))
+    except SocialAuthError as err:
+        return {"error": err.code}, err.status
+    if kind == "user":
+        return _signed_in_answer(result)
+    return {"needsProfile": True, "signupTicket": result["ticket"], "name": result["name"], "email": result["email"]}
+
+
+@bp.post("/social/complete")
+@rate_limited("register")
+def social_sign_up_complete():
+    """auth.social-sign-in rule 4: create the account for a verified provider identity."""
+    from padel_app.services.registration_service import RegistrationError, complete_social_signup
+    from padel_app.services.social_auth_service import SocialAuthError
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user = complete_social_signup(data.get("signupTicket"), data)
+    except SocialAuthError as err:
+        return {"error": err.code}, err.status
+    except RegistrationError as err:
+        body = {"error": err.message, "field": err.field}
+        if err.code:
+            body["code"] = err.code
+        return body, err.status
+    return _signed_in_answer(user)

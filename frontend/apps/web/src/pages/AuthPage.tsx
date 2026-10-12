@@ -19,7 +19,8 @@ import { useLaunchOverlay } from "@/components/brand/launch-overlay";
 import { postLoginLanding } from "@/auth/postLoginPath";
 import { getMe } from "@/api/auth";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
-import { reapplyCoachApproval } from "@/api/auth";
+import { reapplyCoachApproval, type SocialSignInResponse } from "@/api/auth";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 const AuthPage = () => {
   const { t } = useTranslation();
@@ -91,6 +92,26 @@ const AuthPage = () => {
       toast({ variant: "destructive", title: t("auth.login.failedTitle"), description: t("auth.login.reapplyFailed") });
     } finally {
       setReapplying(false);
+    }
+  };
+
+  /**
+   * auth.social-sign-in rules 3 and 7: a login answer goes through the same `enter` (and the
+   * same overlay) as a password login; `needsProfile` goes to the completion step.
+   */
+  const handleSocialResult = async (res: SocialSignInResponse) => {
+    if ("needsProfile" in res) {
+      navigate("/signup/complete", {
+        state: { signupTicket: res.signupTicket, name: res.name, email: res.email },
+      });
+      return;
+    }
+    begin();
+    try {
+      await enter(res.accessToken);
+    } catch (err) {
+      cancel();
+      throw err;
     }
   };
 
@@ -232,6 +253,8 @@ const AuthPage = () => {
               {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}
             </Button>
           </form>
+
+          <GoogleSignInButton onResult={handleSocialResult} text="signin_with" />
 
           {/* auth.login rule 6 / auth.password-recovery rule 7 — the recovery entry point. */}
           <p className="mt-3 text-center text-sm">

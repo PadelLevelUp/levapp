@@ -11,6 +11,7 @@ on the change that broke it, so releases are on time.
 - Staging keeps realistic data without slowing production.
 - A release never drops a request.
 - The API has its own address.
+- Production starts clean for real use.
 
 ## Why it's grouped this way
 

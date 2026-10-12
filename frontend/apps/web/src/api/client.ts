@@ -42,6 +42,7 @@ export const WEB_CAPABILITIES = [
   "country-on-completion",
   "terms-on-completion",
   "adult-roster-confirmation",
+  "student-relations",
 ] as const;
 
 initApi({

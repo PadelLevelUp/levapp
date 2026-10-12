@@ -15,7 +15,8 @@ them (PAD-471). Only the coach's own data leaves LevApp.
 
 ### Entities
 - **READS:** User (name, email, phone), Coach (`approval_status`)
-- **WRITES:** nothing in LevApp. In HubSpot: a contact, and the stage of the contact's open deals.
+- **WRITES:** nothing in LevApp. In HubSpot: a contact, the stage of the contact's open deals, and
+  (rule 9) the archiving of a deleted coach's contact.
 
 ### Rules
 1. **Triggers.** Four, all after the database commit that causes them:
@@ -65,6 +66,16 @@ them (PAD-471). Only the coach's own data leaves LevApp.
    feature on. Absent or empty, all four triggers are silent no-ops: no request, no log line.
 8. **Sign-up rules are unchanged.** Adults-only (PAD-445), the retired guardian flow (PAD-457) and
    activation are untouched: a refused registration creates no account and so triggers nothing.
+
+9. **A deleted coach's contact is archived (PAD-607).** When a coach deletes their account
+   (`auth.account-deletion` rule 11), after the deletion's commit and with the email captured
+   before the row was anonymised, the contact whose email equals it exactly is archived
+   (`DELETE /crm/v3/objects/contacts/{id}`; HubSpot keeps it in its recycle bin for 90 days,
+   then purges it — owner decision 2026-10-11). Matched by exact email only, never through the
+   phone lookup of rule 4: a phone-only lead belongs to sales, not to the account. No contact,
+   nothing archived. Rules 6 and 7 apply unchanged: a failure is a warning naming the step and the
+   status and never blocks the deletion; no token, no traffic. A *rejected* coach is still never
+   archived (rule 4) — only the person's own deletion archives.
 
 ### Acceptance Criteria
 
@@ -136,6 +147,16 @@ them (PAD-471). Only the coach's own data leaves LevApp.
 - **When** a coach registers, or the admin approves or rejects them, or they re-apply
 - **Then** each answers as it would without the feature (201 / 200), a warning is logged, and the
   account state is the same
+
+#### A deleted coach's contact is archived (PAD-607)
+- **Given** a token, a coach `ana@example.com` with a HubSpot contact, and a phone-only lead that
+  shares her phone
+- **When** Ana deletes her account
+- **Then** the contact with her email is archived, the phone-only lead is untouched, and the
+  deletion answers 200
+- **And** with HubSpot answering 500 the deletion still answers 200 and a warning names the step,
+  never her email
+- **And** a deleting student causes no request to HubSpot
 
 #### No token, no traffic
 - **Given** no `HUBSPOT_PRIVATE_APP_TOKEN`
