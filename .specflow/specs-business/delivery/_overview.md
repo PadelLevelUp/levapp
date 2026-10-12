@@ -13,6 +13,7 @@ on the change that broke it, so releases are on time.
 - The API has its own address.
 - Production starts clean for real use.
 - Diagnostics keep personal data off GitHub.
+- Connections are always encrypted.
 
 ## Why it's grouped this way
 
