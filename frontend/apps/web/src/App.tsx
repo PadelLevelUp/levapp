@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,37 +8,41 @@ import { I18nextProvider } from "react-i18next";
 import { ThemeProvider } from "next-themes";
 import i18n from "@/i18n";
 
-import DashboardPage from "./pages/DashboardPage";
-import CalendarPage from "./pages/CalendarPage";
-import PlayersPage from "./pages/PlayersPage";
-import AttendancePage from "./pages/AttendancePage";
-import StudentEvaluations from "./pages/StudentEvaluations";
-import AbsencesPage from "./pages/AbsencesPage";
-import PresencesPage from "./pages/PresencesPage";
-import RegisterPage from "./pages/RegisterPage";
-import ViewAsPage from "./pages/ViewAsPage";
+import {
+  AbsencesPage,
+  AttendancePage,
+  AuthPage,
+  AvailabilityPage,
+  CalendarPage,
+  ClassRequestsPage,
+  ClubOnboardingPage,
+  CoachInvitePage,
+  CoachPendingPage,
+  ConnectWithCoachPage,
+  DashboardPage,
+  ForgotPasswordPage,
+  JoinCoachPage,
+  LandingPage,
+  LegalPage,
+  MessagesPage,
+  NotFound,
+  PlayerInvitePage,
+  PlayersPage,
+  PresencesPage,
+  RegisterPage,
+  SettingsPage,
+  SignUpPage,
+  StudentEvaluations,
+  SupportPage,
+  DeleteAccountPage,
+  TrainingExercisesPage,
+  TrainingGroupsPage,
+  TrainingPage,
+  VerifyEmailPage,
+  ViewAsPage,
+} from "@/routes/lazyPages";
+import { RouteFallback } from "@/routes/RouteFallback";
 import { ViewAsBanner } from "@/components/view-as/ViewAsBanner";
-import CoachInvitePage from "./pages/CoachInvitePage";
-import PlayerInvitePage from "./pages/PlayerInvitePage";
-import AuthPage from "./pages/AuthPage";
-import SignUpPage from "./pages/SignUpPage";
-import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
-import CoachPendingPage from "./pages/CoachPendingPage";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
-import ClubOnboardingPage from "./pages/ClubOnboardingPage";
-import ConnectWithCoachPage from "./pages/ConnectWithCoachPage";
-import JoinCoachPage from "@/pages/JoinCoachPage";
-import LandingPage from "./pages/LandingPage";
-import LegalPage from "./pages/LegalPage";
-import SupportPage from "./pages/SupportPage";
-import SettingsPage from "./pages/SettingsPage";
-import AvailabilityPage from "./pages/AvailabilityPage";
-import ClassRequestsPage from "./pages/ClassRequestsPage";
-import MessagesPage from "./pages/MessagesPage";
-import NotFound from "./pages/NotFound";
-import TrainingPage from "./pages/TrainingPage";
-import TrainingExercisesPage from "./pages/TrainingExercisesPage";
-import TrainingGroupsPage from "./pages/TrainingGroupsPage";
 
 import { AuthProvider } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
@@ -66,6 +71,8 @@ const App = () => (
           <BrowserRouter>
             <LaunchOverlayProvider>
             <ViewAsBanner />
+            {/* client.route-loading rule 2 (PAD-585): every page is a lazy chunk. */}
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
               {/* auth.register — self-service signup (PAD-210). */}
@@ -82,6 +89,8 @@ const App = () => (
               <Route path="/privacy" element={<LegalPage document="privacy" />} />
               <Route path="/terms" element={<LegalPage document="terms" />} />
               <Route path="/support" element={<SupportPage />} />
+              {/* auth.delete-account-page (PAD-603): Google Play's web deletion URL. */}
+              <Route path="/delete-account" element={<DeleteAccountPage />} />
 
               {/* `/` is the public page when there is no session and the
                   dashboard when there is — see HomeRoute. */}
@@ -307,6 +316,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             </LaunchOverlayProvider>
           </BrowserRouter>
         </LayoutProvider>

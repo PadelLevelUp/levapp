@@ -88,12 +88,18 @@ def accept_player_invitation_service(token, data=None, now=None):
         abort(400, "username and password are required")
     # players.invite-completion rule 10 (PAD-457): adults only, the check sign-up and activation
     # share. Raises RegistrationError (400 on birthDate) before anything is written.
-    from padel_app.services.registration_service import UPDATE_APP_TO_ACTIVATE, validate_adult_birth_date
+    from padel_app.services.registration_service import (
+        UPDATE_APP_TO_ACTIVATE,
+        validate_adult_birth_date,
+        validate_completion_country,
+    )
     from padel_app.utils.dates import utcnow_naive
 
     birth_date = validate_adult_birth_date(
         data.get("birthDate"), utcnow_naive().date(), update_app_message=UPDATE_APP_TO_ACTIVATE
     )
+    # Rule 10a (PAD-604): the country, after the birth date, still before anything is written.
+    country = validate_completion_country(data)
 
     existing = User.query.filter_by(username=username).first()
     if existing is not None and existing.id != invitation.player.user_id:
@@ -108,6 +114,8 @@ def accept_player_invitation_service(token, data=None, now=None):
         user.phone = data["phone"]
     user.status = "active"
     user.birth_date = birth_date
+    if country is not None:
+        user.country = country
 
     invitation.status = "accepted"
     db.session.commit()

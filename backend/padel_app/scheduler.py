@@ -802,12 +802,21 @@ def init_scheduler(app, test_config=None) -> None:
     # global-setup releases it (POST /api/app/notify/debug/scheduler/release) once the
     # database is ready. Default off: production and a bare `flask run` are unchanged.
     held = scheduler_held_at_boot()
-    sched.start(paused=held)
+    # PAD-588 (delivery.zero-downtime-deploy rules 1-3): outside TEST_MODE the job store is shared
+    # Postgres, and a rolling deploy runs two containers for a few seconds. Each starts its
+    # scheduler paused; only the holder of the scheduler-leader advisory lock resumes it. The
+    # startup reschedule runs in the leadership thread, off gunicorn's boot path.
+    lead = use_scheduler_leadership(test_mode=test_mode, held=held)
+    sched.start(paused=held or lead)
     _scheduler = sched
     app.extensions["scheduler"] = sched
 
     # Graceful shutdown when the process exits
     atexit.register(lambda: sched.shutdown(wait=False))
+
+    if lead:
+        _start_scheduler_leadership(app, sched)
+        return
 
     if held:
         app.logger.info(
@@ -818,6 +827,35 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+
+
+def use_scheduler_leadership(*, test_mode: bool, held: bool) -> bool:
+    """PAD-588: whether this process competes for the scheduler-leader lock.
+
+    Off in TEST_MODE (in-memory job store, nothing shared) and under PAD-610's E2E hold, and when
+    SCHEDULER_LEADERSHIP is set to a false value (an escape hatch for a single-process host).
+    """
+    if test_mode or held:
+        return False
+    return os.environ.get("SCHEDULER_LEADERSHIP", "on").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _start_scheduler_leadership(app, sched) -> None:
+    from padel_app.scheduler_leadership import SchedulerLeadership, pg_lock_connector
+
+    def on_acquire() -> None:
+        _startup_reschedule(app)
+        sched.resume()
+
+    leadership = SchedulerLeadership(
+        pg_lock_connector(app.config["SQLALCHEMY_DATABASE_URI"]),
+        on_acquire=on_acquire,
+        on_lose=sched.pause,
+        logger=app.logger,
+    )
+    app.extensions["scheduler_leadership"] = leadership
+    atexit.register(leadership.stop)
+    leadership.start_thread()
 
 
 def scheduler_held_at_boot() -> bool:
@@ -1304,6 +1342,63 @@ def _retry_job_instance(job_id: str):
         except ValueError:
             return None
     return None
+
+
+def followup_prefixes(instance) -> tuple:
+    """PAD-623: the job-id prefixes of an occurrence's follow-up reminders, read from the instance
+    AS IT IS NOW — call it before an edit changes the date or the lesson. Both id forms: the
+    materialised ``reminder_<id>_retry_`` and the lesson-occurrence ``reminder_lesson_<L>_<date>_retry_``
+    (the date being the occurrence key, the original date or else the start's)."""
+    prefixes = [f"reminder_{instance.id}_retry_"]
+    occ = instance.original_lesson_occurence_date or (
+        instance.start_datetime.date() if instance.start_datetime else None
+    )
+    if instance.lesson_id and occ is not None:
+        prefixes.append(f"reminder_lesson_{instance.lesson_id}_{occ.isoformat()}_retry_")
+    return tuple(prefixes)
+
+
+def drop_pending_followups(instance_id: int, prefixes=()) -> int:
+    """PAD-623 (notifications.reminders rule 15a): remove the occurrence's armed follow-up reminder
+    jobs. Called only when an edit moves the class: a follow-up is timed from the last reminder of
+    the OLD schedule, and the re-armed base pass at the new time sends whatever reminder is still owed
+    (count and spacing still apply). Startup, the daily pass and settings saves never call this, so a
+    chain survives a restart. A job matches by the ``prefixes`` taken before the edit
+    (`followup_prefixes`) or, failing that, resolves to this instance (`_retry_job_instance`).
+    Returns how many were removed."""
+    from apscheduler.jobstores.base import JobLookupError
+
+    if _scheduler is None:
+        return 0
+    removed = 0
+    for job in list(_scheduler.get_jobs()):
+        if "_retry_" not in job.id or not job.id.startswith("reminder_"):
+            continue
+        if not job.id.startswith(tuple(prefixes)):
+            instance = _retry_job_instance(job.id)
+            if instance is None or instance.id != instance_id:
+                continue
+        try:
+            _scheduler.remove_job(job.id)
+            removed += 1
+        except JobLookupError:
+            continue  # it fired between the listing and this line
+    if removed and _app is not None:
+        _app.logger.info("class moved: dropped %d pending follow-up(s) of instance %s", removed, instance_id)
+    return removed
+
+
+def _maybe_drop_followups(instance, old_start, old_prefixes) -> None:
+    """PAD-623: best-effort after the edit's commit, like `_maybe_schedule_instance`: when the edit
+    moved the class, drop the follow-ups armed on the old schedule. A failure is logged, never raised,
+    so the edit and the re-arm that follows it stand."""
+    if instance.start_datetime == old_start:
+        return
+    try:
+        drop_pending_followups(instance.id, old_prefixes)
+    except Exception:  # noqa: BLE001 — scheduler work after a commit is best-effort (PAD-10)
+        if _app is not None:
+            _app.logger.exception("dropping follow-ups of instance %s failed", instance.id)
 
 
 def _retime_pending_followups(coach_id: int, config) -> None:

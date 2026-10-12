@@ -31,7 +31,6 @@ class ClubJoinRequest(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Club Join Requests"
     model_name = "ClubJoinRequest"
 
     id = Column(Integer, primary_key=True)
@@ -79,17 +78,6 @@ class ClubJoinRequest(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "status", "label": "Status"}
-        columns = [
-            {"field": "club", "label": "Club"},
-            {"field": "coach", "label": "Coach"},
-            {"field": "status", "label": "Status"},
-            {"field": "requested_at", "label": "Requested At"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

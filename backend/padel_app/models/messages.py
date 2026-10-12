@@ -31,7 +31,6 @@ class Message(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Message"
     model_name = "Message"
 
     id = Column(Integer, primary_key=True)
@@ -80,14 +79,6 @@ class Message(db.Model, model.Model):
     @property
     def attachment_url(self):
         return self.attachment.url() if self.attachment else None
-
-    def display_all_info(self):
-        searchable = {"field": "text", "label": "Message Text"}
-        fields = [
-            {"field": "sent_at", "label": "Sent At"},
-            {"field": "sender_id", "label": "Sender"},
-        ]
-        return searchable, fields
 
     @classmethod
     def get_create_form(cls):

@@ -35,6 +35,8 @@ export interface AcceptCoachInvitationPayload {
   email: string;
   /** PAD-457 (clubs.coach-invitation rule 8): `YYYY-MM-DD`, required; under 18 is refused. */
   birthDate?: string;
+  /** PAD-604: ISO 3166-1 alpha-2, required by clients that declare `country-on-completion`. */
+  country?: string;
 }
 
 export interface AcceptCoachInvitationResponse {

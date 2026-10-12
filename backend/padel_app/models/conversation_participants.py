@@ -30,7 +30,6 @@ class ConversationParticipant(db.Model, model.Model):
         Index("ix_conversation_participants_user_id", "user_id"),
         {"extend_existing": True},
     )
-    page_title = "Conversation Participants"
     model_name = "ConversationParticipant"
 
     id = Column(Integer, primary_key=True)

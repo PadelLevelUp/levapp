@@ -25,7 +25,6 @@ class StandingWaitingListEntry(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Standing Waiting List Entry"
     model_name = "StandingWaitingListEntry"
 
     id = Column(Integer, primary_key=True)

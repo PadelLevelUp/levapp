@@ -243,7 +243,8 @@
         "evaluations": "Desligado: o bloco da avaliação partilhada desaparece do painel do aluno.",
         "class-type-defaults": "Desligado: todas as apps recebem que a regra de vagas da aula vem do treinador, como as apps antigas. O valor mostrado é o mesmo.",
         "coach-invite-email": "Desligado: aceitar um convite de treinador deixa de exigir email, como nas apps antigas.",
-        "terms-acceptance": "Desligado: o registo deixa de exigir aceitar os Termos e nenhuma aceitação fica registada. Impacto legal: desliga só num incidente."
+        "terms-acceptance": "Desligado: o registo deixa de exigir aceitar os Termos e nenhuma aceitação fica registada. Impacto legal: desliga só num incidente.",
+        "country-on-completion": "Desligado: ativar uma conta e aceitar um convite deixam de exigir o país, como nas apps antigas."
       },
       "reasonShown": "Motivo: {{reason}}",
       "changed": "Última alteração {{at}} por {{by}}",

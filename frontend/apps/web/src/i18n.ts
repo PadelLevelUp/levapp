@@ -13,16 +13,17 @@ import { initReactI18next } from "react-i18next";
 
 type Dict = Record<string, unknown>;
 
-// Eagerly import every locale JSON so translations are bundled (no async loading).
-// The monorepo restructure (PR #47) moved this module to apps/web/src/ but left
-// the locale files at the repo-root src/locales/ tree, so the glob points there
-// (three levels up: apps/web/src -> apps/web -> apps -> repo root).
-const modules = import.meta.glob<{ default: Dict }>(
+// client.route-loading rule 6 (PAD-585): the fallback language (pt) is bundled eagerly, so the
+// first paint never waits; every other language is a lazy chunk the backend below loads when
+// `changeLanguage` asks for it. The monorepo restructure (PR #47) left the locale files at the
+// repo-root src/locales/ tree, so the globs point there (apps/web/src -> apps/web -> apps -> root).
+const modules = import.meta.glob<{ default: Dict }>("../../../src/locales/pt/*.json", {
+  eager: true,
+});
+const lazyModules = import.meta.glob<{ default: Dict }>([
   "../../../src/locales/*/*.json",
-  {
-    eager: true,
-  }
-);
+  "!../../../src/locales/pt/*.json",
+]);
 
 /** Deep-merge source into target (objects merge, everything else overwrites). */
 function deepMerge(target: Dict, source: Dict): Dict {
@@ -57,11 +58,40 @@ for (const [path, mod] of Object.entries(modules)) {
   deepMerge(resources[lng].translation, data);
 }
 
+/** Loads and merges every area file of one language (an empty object when there are none). */
+async function loadLanguage(lng: string): Promise<Dict> {
+  const merged: Dict = {};
+  const files = Object.entries(lazyModules).filter(([path]) => path.includes(`/locales/${lng}/`));
+  const mods = await Promise.all(files.map(([, load]) => load()));
+  for (const mod of mods) {
+    deepMerge(merged, ((mod as { default?: Dict }).default ?? (mod as Dict)) as Dict);
+  }
+  return merged;
+}
+
+// An i18next backend over the lazy glob: i18next calls `read` for a language that is not in
+// `resources`, and only switches language once the callback has delivered its strings.
+const lazyLocaleBackend = {
+  type: "backend" as const,
+  init() {},
+  read(lng: string, _ns: string, callback: (error: unknown, data: Dict | false) => void) {
+    loadLanguage(lng).then(
+      (data) => callback(null, data),
+      (error) => callback(error, false),
+    );
+  },
+};
+
 export const SUPPORTED_LANGUAGES = ["pt", "en"] as const;
 export type AppLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-i18n.use(initReactI18next).init({
+i18n.use(lazyLocaleBackend).use(initReactI18next).init({
   resources,
+  // pt is in `resources`; the backend fills in only the languages that are not.
+  partialBundledLanguages: true,
+  // Synchronous for the bundled language, so nothing suspends on the first render.
+  initAsync: false,
+  load: "languageOnly",
   lng: "pt",
   fallbackLng: "pt", // Fallback locale is Portuguese (PAD-39 locked decision)
   supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],

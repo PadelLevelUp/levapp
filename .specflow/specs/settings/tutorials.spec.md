@@ -68,7 +68,7 @@ about anyone who is missing. Web and iOS ship it together (R-024).
       and balance the class sides", "Same level", "Everyone eligible"; the side words are PAD-564's,
       `notifications.groups` rule 6). Each candidate row shows
       rank, name, level, side, the enabled priority values in the coach's configured order
-      ("level: same", "attendance 92%", "justified misses 5%", "side: exact match"), and a
+      ("level: same", "attendance 92%", "2 classes to make up" (PAD-505: a count, `attendance.stats` rule 3), "side: exact match"), and a
       send-status badge: **first batch**, **waiting**, or **over today's limit**. A round with no
       candidates says so explicitly rather than disappearing.
 5. Below the rounds, a **"Why isn't … invited?"** search backed by the existing

@@ -34,7 +34,6 @@ class Player(db.Model, model.Model):
     __tablename__ = "players"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Players"
     model_name = "Player"
 
     id = Column(Integer, primary_key=True)
@@ -118,14 +117,6 @@ class Player(db.Model, model.Model):
     @property
     def display_name(self):
         return self.name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Name"}
-        columns = [
-            {"field": "name", "label": "Name"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):
