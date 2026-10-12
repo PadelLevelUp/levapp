@@ -1,3 +1,4 @@
+# broken since PAD-550: the legacy CRUD API (/api/create|edit|delete) is gone
 """Dev-only conversation/message seeder.
 
 PAD-92: this script used to POST anonymously to `/api/delete/<model>/<id>`

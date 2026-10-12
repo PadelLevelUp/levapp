@@ -200,6 +200,10 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 7. **(PAD-144)** Rule 6 governs more than a count. The same window selects the targets of
    `notify_pending_confirmations`, which actually **sends** messages, so a misaligned boundary does
    not merely misreport a number — it nudges the wrong students about the wrong day's classes.
+   **The nudge re-pushes, it does not re-invite (PAD-620; PAD-612 R2).** Each pending student is sent
+   again the push of the invitation they already hold — its own text, opening its conversation — and
+   no new invitation or chat message, so the pending set and every bubble stay as they were. It used
+   to send a full new invitation through the manual path on every press, stacking live invitations.
 
 8. **(PAD-262, audit H9) One pipeline call per paint, scoped in SQL.** The coach home loads its
    classes ONCE — one calendar-pipeline call over the widest window any block needs (from a week

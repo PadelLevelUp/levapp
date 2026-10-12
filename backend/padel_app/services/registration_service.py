@@ -124,6 +124,13 @@ _UPDATE_APP = {
 }
 
 
+#: PAD-604: the account-completion forms' (activation, both invitations) "update the app" text.
+UPDATE_APP_COUNTRY_TO_COMPLETE = (
+    "Atualiza a app para concluíres a conta: o país passou a ser obrigatório. "
+    "/ Update the app to finish your account: country is now required."
+)
+
+
 #: auth.activate rule 13 (PAD-457): the activation form's own "update the app" text.
 UPDATE_APP_TO_ACTIVATE = (
     "Atualiza a app para ativares a conta: a data de nascimento passou a ser obrigatória. "
@@ -176,11 +183,30 @@ def validate_consent_fields(data, email, today=None):
     raw_country = data.get("country")
     if _absent(raw_country):
         raise RegistrationError(_UPDATE_APP["country"], 400, "country", code="COUNTRY_REQUIRED")
-    country = raw_country.strip().upper() if isinstance(raw_country, str) else ""
+    return birth, _two_letter_country(raw_country)
+
+
+def _two_letter_country(raw):
+    """auth.register rule 18's country check: two letters, upper-cased, or 400 INVALID_COUNTRY."""
+    country = raw.strip().upper() if isinstance(raw, str) else ""
     if not re.fullmatch(r"[A-Z]{2}", country):
         raise RegistrationError("country must be a two-letter code", 400, "country", code="INVALID_COUNTRY")
+    return country
 
-    return birth, country
+
+def validate_completion_country(data):
+    """PAD-604 (auth.activate 13a, players.invite-completion 10a, clubs.coach-invitation 8a): the
+    country on the three account-completion paths. A sent value is checked as sign-up checks it. An
+    absent one is refused only for a client declaring `country-on-completion`; an older build
+    completes without it. Returns the country, or None when a legacy build sent none."""
+    from padel_app.utils.client_capabilities import COUNTRY_ON_COMPLETION, client_declares
+
+    raw = (data or {}).get("country")
+    if not _absent(raw):
+        return _two_letter_country(raw)
+    if client_declares(COUNTRY_ON_COMPLETION):
+        raise RegistrationError(UPDATE_APP_COUNTRY_TO_COMPLETE, 400, "country", code="COUNTRY_REQUIRED")
+    return None
 
 
 def normalised_email(raw):

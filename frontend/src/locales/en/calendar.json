@@ -384,6 +384,7 @@
       "invitationSent_one": "Invitation sent to {{count}} student",
       "invitationSent_other": "Invitation sent to {{count}} students",
       "failedSendInvitations": "Failed to send invitations",
+      "alreadyInvited": "Already holding an open invitation for this class: {{names}}",
       "blockedByPreference": "Could not notify: {{names}} (notifications blocked)",
       "searchStudents": "Search students"
     },
@@ -551,6 +552,11 @@
         "coach": "Missed"
       },
       "reminderSent": "Reminder sent"
+    },
+    "overflow": {
+      "label": "+{{count}}",
+      "aria": "{{count}} more classes",
+      "title": "More classes at this time"
     }
   }
 }

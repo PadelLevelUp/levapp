@@ -16,7 +16,6 @@ class Association_CoachLessonInstance(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Coach ↔ Lesson Instance"
     model_name = "Association_CoachLessonInstance"
 
     id = Column(Integer, primary_key=True)
@@ -38,15 +37,6 @@ class Association_CoachLessonInstance(db.Model, model.Model):
     @property
     def name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "coach", "label": "Coach"}
-        columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "lesson_instance", "label": "Lesson Instance"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

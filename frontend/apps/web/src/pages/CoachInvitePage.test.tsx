@@ -104,3 +104,24 @@ describe("CoachInvitePage — the invited coach's email (PAD-477, rule 9)", () =
     expect(await screen.findByTestId("coachInvite-email-error")).toHaveTextContent("auth.coachInvite.emailTaken");
   });
 });
+
+describe("CoachInvitePage — the country (PAD-604, clubs.coach-invitation rule 8a)", () => {
+  it("shows the country field defaulted to Portugal and sends PT", async () => {
+    accept.mockResolvedValue({ accessToken: "t" });
+    refreshUser.mockResolvedValue({ emailVerification: "pending" });
+    await mount();
+    fill("rita@example.com");
+    expect(screen.getByTestId("coachInvite-country")).toHaveTextContent("Portugal");
+    submit();
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
+    expect(accept.mock.calls[0][1]).toMatchObject({ country: "PT" });
+  });
+
+  it.each(["COUNTRY_REQUIRED", "INVALID_COUNTRY"])("puts a server %s on the country field", async (code) => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "country", code } } });
+    await mount();
+    fill("rita@example.com");
+    submit();
+    expect(await screen.findByTestId("coachInvite-country-error")).toHaveTextContent("auth.coachInvite.countryRequired");
+  });
+});

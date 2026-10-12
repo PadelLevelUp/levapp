@@ -51,6 +51,8 @@ an idea.
   declining is as easy as accepting. The choice can be changed from the footer and is asked again
   after 12 months.
 - Copy is Portuguese by default with an English translation; product screenshots stay Portuguese.
+- Coaches and players can go straight to LevApp's App Store page from the top of their page, and
+  players again from the closing call to action. It opens in a new tab (PAD-619).
 
 ## Success Metrics
 

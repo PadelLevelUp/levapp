@@ -211,7 +211,6 @@ class NotificationConfig(db.Model, model.Model):
     __tablename__ = "notification_configs"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Notification Config"
     model_name = "NotificationConfig"
 
     id = Column(Integer, primary_key=True)
@@ -401,10 +400,12 @@ class NotificationConfig(db.Model, model.Model):
         self.cancellation_deadline_hours = _hours_or(
             data.get("cancellationDeadlineHours"), DEFAULT_CANCELLATION_DEADLINE_HOURS, minimum=0
         )
+
     def get_cancellation_deadline_hours(self):
         """Hours before class start after which a cancellation is flagged late
         (default 24). On the wire: ``restrictions.cancellationDeadlineHours``."""
         return _hours_or(self.cancellation_deadline_hours, DEFAULT_CANCELLATION_DEADLINE_HOURS, minimum=0)
+
     def get_notification_groups(self):
         return self.notification_groups if self.notification_groups is not None else DEFAULT_NOTIFICATION_GROUPS
 
@@ -435,13 +436,16 @@ class NotificationConfig(db.Model, model.Model):
             self._col(self.reminder_value, DEFAULT_REMINDER_TIMING["value"]),
             self.reminder_time,
         )
+
     def get_reminder_count(self):
         """Number of reminders to send each student (floor 1)."""
         return max(1, _int_or(self.reminder_count, DEFAULT_REMINDER_COUNT))
+
     def get_hours_between_reminders(self):
         """Hours to wait between consecutive reminders (must be > 0)."""
         hours = _hours_or(self.hours_between_reminders, DEFAULT_HOURS_BETWEEN_REMINDERS, minimum=0)
         return hours if hours > 0 else DEFAULT_HOURS_BETWEEN_REMINDERS
+
     def get_invitation_start_timing(self):
         """When invitations start, same shape as the reminder timing. One home
         only — the duplicate column and its precedence are gone (PAD-279)."""
@@ -504,6 +508,7 @@ class NotificationConfig(db.Model, model.Model):
         setattr(self, f"{prefix}_type", t)
         setattr(self, f"{prefix}_value", value)
         setattr(self, f"{prefix}_time", time_str)
+
     def get_invitation_groups(self):
         """The coach's ordered invitation groups. ``None`` (never configured)
         AND ``[]`` both mean the built-in three: before PAD-279 an empty list
@@ -515,6 +520,7 @@ class NotificationConfig(db.Model, model.Model):
         if not isinstance(groups, list) or not groups:
             return DEFAULT_INVITATION_GROUPS
         return groups
+
     def get_tiebreakers(self):
         return self.tiebreakers if self.tiebreakers is not None else DEFAULT_TIEBREAKERS
 

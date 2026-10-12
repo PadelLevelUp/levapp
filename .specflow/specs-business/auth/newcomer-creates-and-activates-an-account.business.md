@@ -46,6 +46,10 @@ a teammate or an invite flow) via the generic activation link.
 - The activation form never reveals a system-generated placeholder username to the person completing
   it — it shows a blank field for them to fill in themselves, so they never keep an internal-looking
   login by accident. If they'd already chosen a real username earlier, that one is shown back to them.
+- Completing an account, by activation or by accepting a player or coach invitation, asks for the
+  person's date of birth and country, as sign-up does (Privacy Policy §1; PAD-457, PAD-604). An app
+  version from before the country question still completes the account without it; those accounts are
+  asked later (PAD-630).
 
 ## Success Metrics
 

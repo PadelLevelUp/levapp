@@ -16,6 +16,7 @@ from padel_app.services.notification_service import (
     get_config_dict,
     update_config,
     send_class_reminders,
+    already_invited_players,
     send_manual_notifications,
     trigger_invitations,
     process_invitation_batches,
@@ -312,6 +313,10 @@ def manual_notify():
     }
     for entry in preference_blocked_players(player_ids, kind="manual"):
         blocked_by_id[entry["playerId"]] = entry
+    # PAD-620 (notifications.manual rule 9): a student who already holds a live invitation for this
+    # class is not invited twice; the coach is told by name, like the two causes above.
+    for entry in already_invited_players(instance.id, player_ids):
+        blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
     events = send_manual_notifications(instance.id, player_ids, coach.id)
     return jsonify({"sent": len(events), "blocked": blocked})
@@ -728,6 +733,57 @@ def _debug_endpoints_enabled():
     return str(flag).strip().lower() in ("1", "true", "yes", "on")
 
 
+# PAD-550: test-data cleanup for the E2E and Maestro suites, which used the retired generic
+# editor (/api/editor) to delete the rows a spec created. Same two gates as the routes below,
+# plus a fixed allow-list: these routes can never reach any other table.
+def _e2e_cleanup_models():
+    from padel_app.models import ClassJoinRequest, ClassRequest, Club, Message, WaitingListEntry
+
+    return {
+        "classjoinrequest": ClassJoinRequest,
+        "classrequest": ClassRequest,
+        "club": Club,
+        "message": Message,
+        "waitinglistentry": WaitingListEntry,
+    }
+
+
+@bp.get("/debug/rows/<model>")
+@jwt_required()
+def debug_list_row_ids(model: str):
+    """E2E test helper (PAD-550): every id of an allow-listed model, as `{"ids": [...]}` (the
+    snapshot a spec takes before creating rows it cannot address by id)."""
+    if not _debug_endpoints_enabled():
+        return jsonify({"error": "Not found"}), 404
+    model_cls = _e2e_cleanup_models().get(model.lower())
+    if model_cls is None:
+        return jsonify({"error": f"'{model}' is not an E2E cleanup model"}), 404
+    from padel_app.sql_db import db
+
+    ids = [row_id for (row_id,) in db.session.query(model_cls.id).order_by(model_cls.id).all()]
+    return jsonify({"ids": ids})
+
+
+@bp.delete("/debug/rows/<model>/<int:row_id>")
+@jwt_required()
+def debug_delete_row(model: str, row_id: int):
+    """E2E test helper (PAD-550): delete one row of an allow-listed model. 404 when it is gone,
+    so cleanups stay idempotent. The model's own delete hooks run (a class request's calendar
+    hold is released with the row, classes.class-requests rule 18)."""
+    if not _debug_endpoints_enabled():
+        return jsonify({"error": "Not found"}), 404
+    model_cls = _e2e_cleanup_models().get(model.lower())
+    if model_cls is None:
+        return jsonify({"error": f"'{model}' is not an E2E cleanup model"}), 404
+    from padel_app.sql_db import db
+
+    instance = db.session.get(model_cls, row_id)
+    if instance is None:
+        return jsonify({"error": "Not found"}), 404
+    instance.delete()
+    return jsonify({"success": True})
+
+
 # B-131: the exact title stamped on every class the reminder-test debug route
 # creates below, shared with its cleanup counterpart so the two routes can
 # never drift apart on what "a reminder test class" means.
@@ -1007,8 +1063,9 @@ def debug_offer_waiting_list():
     the caller presents a valid JWT.
 
     Sends a real ``waiting_list_offer`` message to a seeded student for a lesson
-    instance, through the very function the engine uses on the "sorry, that spot
-    was just filled" path (``_offer_waiting_list``). Reaching that path for real
+    instance, through ``_offer_waiting_list`` — the function the engine used on the
+    "sorry, that spot was just filled" path until PAD-621 (no engine path sends it
+    now; offers already in chats are still answered). Reaching that path for real
     takes two students racing for one vacancy; seeding the message this way keeps
     the spec about the *client wiring* PAD-124 adds, while still producing the
     production message shape rather than a hand-built row.

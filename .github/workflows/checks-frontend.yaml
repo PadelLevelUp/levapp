@@ -100,6 +100,14 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit -p apps/admin/tsconfig.app.json
 
+      # client.route-loading rule 8 (PAD-585): build the web app and hold its first download to
+      # the budget (entry + static imports <= 300 kB gzip, no JS chunk over 500 kB raw). Typecheck
+      # above does not build; this is the only CI step that runs `vite build` before a deploy.
+      - name: Build web and check the first-download budget
+        if: steps.filter.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npm run build --workspace apps/web && node apps/web/scripts/check-entry-budget.mjs
+
   unit:
     runs-on: ubuntu-latest
     steps:
