@@ -125,6 +125,19 @@ create one, or ask to join an existing one — happens right after approval (`cl
     form working without a draft. iOS: the native form stays mounted while the documents open in
     the in-app browser, so nothing is lost there and no draft is kept.
 
+19b. **The Terms, on every form that completes an account (PAD-637, PAD-602 D4).** The coach-invite
+    accept (`clubs.coach-invitation` rule 8b), the player-invite accept (`players.invite-completion` rule
+    10b) and activation (`auth.activate` rule 13b) carry the same required checkbox and links as rule 19,
+    and the same record. `registration_service.validate_completion_terms` is the one check: a request that
+    declares the capability `terms-on-completion` and does not send `termsAccepted: true` is 400
+    `{field: "terms", code: "TERMS_REQUIRED"}` with the bilingual text, and writes nothing.
+    `record_terms_acceptance(user, now)` is the one writer of the three columns (sign-up uses it too).
+    **Legacy path:** a request that does not declare `terms-on-completion` (App Store builds up to
+    1.3.x, whose completion forms predate the box) completes as before with the three columns NULL; the
+    next-login screen (`auth.legal-catch-up`) asks them. A new token is needed because every current
+    build already declares `terms-acceptance` on every request. Retire once no App Store build older than
+    the first declaring one is in use.
+
 ### Acceptance Criteria
 
 #### The Terms must be accepted to sign up (rule 19, PAD-485)
@@ -240,6 +253,13 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Then** no request is sent and the birth-date field shows "Data de nascimento inválida. Esta app só aceita maiores de 18 anos." (en: "Invalid date of birth. This app only accepts people aged 18 or over.")
 - **And** a server `UNDERAGE` answer (a client whose own check was bypassed) shows the same message on the same field
 - **And** no guardian-email field is ever shown
+
+#### The completion forms record the Terms with the same writer as sign-up (rule 19b, PAD-637)
+- **Given** a client declaring `terms-on-completion`
+- **When** it completes an account by coach invite, player invite or activation with `termsAccepted: true`
+- **Then** the user has `terms_accepted_at` (the request's UTC instant), `terms_version` = `TERMS_VERSION` and `privacy_version` = `PRIVACY_VERSION`
+- **And** without `termsAccepted: true` the answer is 400 `TERMS_REQUIRED` and nothing is written
+- **And** a client that does not declare the token completes as before, with the three columns NULL
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2

@@ -92,6 +92,8 @@ def accept_player_invitation_service(token, data=None, now=None):
         UPDATE_APP_TO_ACTIVATE,
         validate_adult_birth_date,
         validate_completion_country,
+        validate_completion_terms,
+        record_terms_acceptance,
     )
     from padel_app.utils.dates import utcnow_naive
 
@@ -100,6 +102,7 @@ def accept_player_invitation_service(token, data=None, now=None):
     )
     # Rule 10a (PAD-604): the country, after the birth date, still before anything is written.
     country = validate_completion_country(data)
+    terms_accepted = validate_completion_terms(data)  # players.invite-completion rule 10b (PAD-637)
 
     existing = User.query.filter_by(username=username).first()
     if existing is not None and existing.id != invitation.player.user_id:
@@ -116,6 +119,8 @@ def accept_player_invitation_service(token, data=None, now=None):
     user.birth_date = birth_date
     if country is not None:
         user.country = country
+    if terms_accepted:
+        record_terms_acceptance(user, utcnow_naive())
 
     invitation.status = "accepted"
     db.session.commit()

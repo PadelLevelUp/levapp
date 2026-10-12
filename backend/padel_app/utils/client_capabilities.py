@@ -48,6 +48,17 @@ TERMS_ACCEPTANCE = "terms-acceptance"
 # country stays null (PAD-630 asks later). Retire once no App Store build older than the first
 # declaring one is in use.
 COUNTRY_ON_COMPLETION = "country-on-completion"
+# PAD-637 (auth.register rule 19b; clubs.coach-invitation 8b, players.invite-completion 10b,
+# auth.activate 13b): the three account-completion forms carry the Terms checkbox and send
+# `termsAccepted`. A client that declares this and does not send `true` is refused (400
+# TERMS_REQUIRED); one that does not (App Store builds up to 1.3.x) completes as before with no
+# record (auth.legal-catch-up asks later). Not `terms-acceptance`: every current build declares that
+# on every request. Retire once no App Store build older than the first declaring one is in use.
+TERMS_ON_COMPLETION = "terms-on-completion"
+# PAD-642 (players.create rule 10, import.confirm rule 5): creating or importing players carries the
+# coach's `confirmsAdults: true`. A client that declares this and does not send it is refused (400
+# ADULTS_CONFIRMATION_REQUIRED); one that does not creates as before. Retire like the others.
+ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"
 
 
 # PAD-533 (admin.clubs-and-switches rule 6): every capability the server knows, with its kind.
@@ -61,6 +72,8 @@ CAPABILITIES = {
     COACH_INVITE_EMAIL: "compat",
     TERMS_ACCEPTANCE: "compat",
     COUNTRY_ON_COMPLETION: "compat",
+    TERMS_ON_COMPLETION: "compat",
+    ADULT_ROSTER_CONFIRMATION: "compat",
 }
 
 # Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.

@@ -41,6 +41,15 @@ A coach who belongs to a club can invite another coach to join that club via a s
    birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
    `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability. The existing-coach branch is unchanged.
 
+8b. **The Terms are accepted (PAD-637; `auth.register` rule 19b).** The new-user branch of the coach-invite accept shows the same required
+    "I have read and accept the Privacy Policy and the Terms of Service" checkbox as sign-up, each
+    document a link, and sends `termsAccepted: true`. A client that declares `terms-on-completion` and
+    does not send it is 400 `{field: "terms", code: "TERMS_REQUIRED"}`, checked after the country, and
+    nothing is written. On success the user records `terms_accepted_at`, `terms_version` and
+    `privacy_version`. **Legacy path:** a client that does not declare the token completes as before
+    with the three columns NULL (the next-login screen asks, `auth.legal-catch-up`). Web and iOS add the
+    box and declare the token. The existing-coach branch creates no account and is unchanged.
+
 9. **A coach who joins by invitation confirms their email (PAD-477, B-241; owner decision 2026-10-02).**
    - The new-user accept takes an `email`, validated as sign-up validates it (`auth.register`): a valid
      address, stored lowercased, unique ignoring case. A malformed one is `400 {"field": "email"}`; an
@@ -143,3 +152,10 @@ A coach who belongs to a club can invite another coach to join that club via a s
 - **Given** a pending coach invitation and no user `teencoach457`, today 2026-09-25 (UTC)
 - **When** it is accepted as a new user with `birthDate` `2009-01-01`
 - **Then** the response is 400 `UNDERAGE` and no user `teencoach457` exists; with `birthDate` `1990-05-05` the coach is created with that birth date
+
+#### The Terms are recorded on completion (rule 8b, PAD-637)
+- **Given** a client declaring `terms-on-completion`
+- **When** it completes with `termsAccepted: true`
+- **Then** the new account records `terms_accepted_at`, `terms_version` and `privacy_version`
+- **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
+- **And** a client that does not declare the token completes as before, with the columns NULL
