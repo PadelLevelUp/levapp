@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective date: October 10, 2026
+Effective date: October 13, 2026
 
 This Privacy Policy explains how Sucesso Fractal – Lda ("LevApp", "we", "us", or "our") collects, uses, shares, stores, and protects personal data when you use LevApp, including our mobile applications, websites, and related services (collectively, the "Service").
 
@@ -74,6 +74,8 @@ We use trusted third-party providers where necessary to operate LevApp, includin
 
 These providers may receive personal data only as reasonably necessary to provide their services to us.
 
+Push notifications are delivered through Expo and through Apple's and Google's notification services. A notification may include the sender's name and the beginning of a message. Once delivered, a notification is outside our control, and deleting your account does not recall notifications already sent.
+
 Some optional features, such as AI-assisted spreadsheet import, may send limited information to an external AI provider where necessary to perform the requested feature. Users should avoid including unnecessary or sensitive information in material submitted for import.
 
 We may also disclose personal data where required by law, necessary to respond to a valid request from a competent authority, necessary to protect users or the Service, or necessary to establish, exercise, or defend legal claims.
@@ -117,6 +119,8 @@ When information is no longer required, we delete or anonymize it.
 You can delete your LevApp account through:
 
 **Settings → Account → Delete account**
+
+or by email to [admin@levapp.app](mailto:admin@levapp.app), stating the email address or username of the account, if you no longer have the app.
 
 Deleting an account results in deletion or anonymization of personal data associated with it, except where limited retention is required or permitted by applicable law or necessary for security, fraud prevention, or legal claims.
 
