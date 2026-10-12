@@ -205,6 +205,12 @@ export function createSseHub(options: SseHubOptions): SseHub {
     cancelTimer();
     dropSource();
     attempt = 0;
+    // PAD-616: with no listener left nothing is live, so the next listener's connection is a fresh
+    // first open — not a re-open to resync. On web each page renders its own layout, so navigating
+    // can pass through zero listeners; resyncing there broke PAD-586's "back within the window
+    // makes no request" (subset red on #679).
+    cancelResync();
+    everOpened = false;
   };
 
   return {
@@ -224,10 +230,8 @@ export function createSseHub(options: SseHubOptions): SseHub {
     },
     close() {
       reset();
-      cancelResync();
       listeners.clear();
       // A closed hub forgets its stream: the next session's first open is not a resync.
-      everOpened = false;
       lastResyncAt = -Infinity;
     },
   };

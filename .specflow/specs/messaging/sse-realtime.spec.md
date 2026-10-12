@@ -97,7 +97,10 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     opens after its first open, the hub delivers a local `{ type: "resync" }` to every listener
     (`RESYNC_EVENT`, `@levelup/api`) — never on the first open, and at most once per
     `SSE_RESYNC_MIN_INTERVAL_MS` (5 s): re-opens inside that window fold into one trailing resync,
-    so a flapping connection cannot set off a refetch storm. `close()` forgets the stream. Both
+    so a flapping connection cannot set off a refetch storm. `close()` forgets the stream, and so
+    does the last listener leaving: the next listener's connection is a fresh first open, not a
+    re-open (web pages each render their own layout, so navigating can pass through zero listeners
+    — a resync there would refetch what `client.query-cache` rule 2 serves from cache). Both
     shells' app-level handlers (web `AppLayout`, iOS tabs layout) answer it first with the shared
     `answerResync` → `resyncLiveData` (`@levelup/hooks`): the unread count, the conversation list,
     the request lists and what refreshes with them (calendar, class sheets, dashboard), the

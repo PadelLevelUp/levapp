@@ -274,6 +274,24 @@ describe("createSseHub — resync after a re-open (PAD-616)", () => {
     expect(resyncs(seen)).toBe(2);
   });
 
+  it("the last listener leaving and a new one arriving is a fresh first open, not a resync", async () => {
+    // web: every page renders its own AppLayout, so navigating can leave the hub with no listener
+    // for a moment; the next page's connection is a new stream, not a dropped one (PAD-586's
+    // "back within the window makes no request" must hold).
+    let t = 0;
+    const { hub, sources, flush } = harness({ now: () => t });
+    const leave = hub.subscribe(() => undefined);
+    await flush();
+    sources[0].emit("open");
+    leave(); // the page unmounts: no listener left, the stream closes
+    const seen: { type: string }[] = [];
+    t = 60_000;
+    hub.subscribe((e) => seen.push(e)); // the next page
+    await flush();
+    sources[1].emit("open");
+    expect(resyncs(seen)).toBe(0);
+  });
+
   it("close() forgets the stream: the next session's first open is not a resync", async () => {
     let t = 0;
     const { hub, sources, flush } = harness({ now: () => t });
