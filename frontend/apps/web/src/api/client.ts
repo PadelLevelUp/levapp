@@ -5,9 +5,6 @@ import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
 
 // Web platform adapter: tokens live in localStorage. A "view as" token (PAD-532, rule 9) lives in
 // this tab's sessionStorage and wins while present; the normal session is then never touched.
-/** The API's base; the one place it is written (PAD-617 reads it for the public demo endpoint). */
-export const API_BASE_URL = "/api";
-
 export const webTokenStorage: TokenStorage = {
   async getToken() {
     return getViewAsToken() ?? localStorage.getItem("accessToken");
@@ -45,7 +42,7 @@ initApi({
   // removes the feature, nothing crashes.
   // PAD-429 (eligibility.open-spot-visibility rule 12): `class-type-defaults` lets the server
   // send the `type` open-spots source label instead of falling it back to `coach`.
-  capabilities: ["open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance", "country-on-completion"],
+  capabilities: ["open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance", "country-on-completion", "student-relations"],
 });
 
 export const api = getApi();

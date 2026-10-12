@@ -13,6 +13,7 @@
       "error": "Não foi possível carregar as faltas"
     },
     "total_one": "{{count}} falta",
+    "total_zero": "{{count}} faltas",
     "total_other": "{{count}} faltas",
     "history": {
       "title": "Aulas em falta",

@@ -676,7 +676,8 @@ def test_reapply_syncs_only_after_its_commit(client, app, monkeypatch, commits):
 # --- Rule 1: nothing else syncs ----------------------------------------------
 
 def test_only_signup_and_decisions_reach_the_sync():
-    """By construction: only the registration and approval services import it."""
+    """By construction: only the registration and approval services import it, plus the
+    account deletion, which only archives (rule 9, PAD-607)."""
     import pathlib
 
     root = pathlib.Path(__file__).resolve().parents[1]
@@ -685,7 +686,11 @@ def test_only_signup_and_decisions_reach_the_sync():
         for p in root.rglob("*.py")
         if "tests" not in p.parts and p.name != "hubspot_sync.py" and "hubspot_sync" in p.read_text()
     )
-    assert importers == ["services/coach_approval_service.py", "services/registration_service.py"]
+    assert importers == [
+        "services/account_service.py",
+        "services/coach_approval_service.py",
+        "services/registration_service.py",
+    ]
 
 
 def test_an_invited_coach_does_not_sync(client, app, hubspot):

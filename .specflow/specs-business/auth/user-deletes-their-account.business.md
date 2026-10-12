@@ -30,6 +30,8 @@ the coaches whose records must survive a student leaving.
 2. On confirming, every session on every device ends and the person is signed out.
 3. The account can no longer be used: no sign-in (app or legacy web), no password, no username that
    could be claimed or re-activated.
+   Its personal details — contact fields, birth date, country and profile photo (the stored file
+   included) — are erased.
 4. Pushes stop at once — the phone and browser registrations are removed.
 5. A student is taken out of every class that has not started yet; the coach sees the free seat on
    their dashboard and decides whether to fill it. Waiting-list credits stop being spent and the
@@ -48,6 +50,9 @@ the coaches whose records must survive a student leaving.
 - Freeing a deleted student's seats is silent: no automatic invitations go out because of it; the
   coach decides.
 - The confirmation copy on every platform states exactly what is deleted and what is kept.
+- Deletion reaches the services LevApp uses, not only its own database: a coach's sales-CRM contact
+  is archived and the stored photo is deleted (PAD-605, PAD-607). A failure there never blocks the
+  deletion itself.
 
 ## Success Metrics
 

@@ -248,6 +248,12 @@ class Config:
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
     # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
     AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
+    # auth.social-sign-in rule 1 (PAD-618): the ID-token audiences each provider accepts. Unset →
+    # that provider answers 503 and the clients show no button (ships dark).
+    GOOGLE_CLIENT_IDS = [
+        v.strip() for v in (os.getenv("GOOGLE_WEB_CLIENT_ID", ""), os.getenv("GOOGLE_IOS_CLIENT_ID", "")) if v.strip()
+    ]
+    APPLE_CLIENT_IDS = [v.strip() for v in os.getenv("APPLE_CLIENT_IDS", "").split(",") if v.strip()]
     # auth.landing-page rule 10 (PAD-617): the site's demo request, per IP.
     AUTH_RATE_LIMIT_DEMO = os.getenv("AUTH_RATE_LIMIT_DEMO", "5/3600")
     # PAD-617: the HubSpot form the demo request is forwarded to (the GitHub repo variable

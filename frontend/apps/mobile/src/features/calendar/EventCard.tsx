@@ -4,6 +4,7 @@ import {
   lightTheme,
   nativeCalendarSurfaces,
   resolveCardVariant,
+  relationChip,
   showsEnrolledMark,
   withAlpha,
 } from "@levelup/config";
@@ -49,9 +50,10 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
 
   // PAD-130 / B-541: an open spot is an offer — the shared `open-spot` variant
   // (dashed outline, readable ink), so the ink and the week grid agree with it.
-  const isOpenSpot = variant === "open-spot";
   // PAD-578 (rule 19): a student's own class is ticked — never by colour alone.
   const enrolledMark = showsEnrolledMark(event, variant, useCalendarViewer());
+  // PAD-611 (mobile-views rule 5): the relation chip from the shared helper.
+  const chip = relationChip(variant);
   const stateStyle: ViewStyle = isBlock
     ? {}
     : {
@@ -107,13 +109,13 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
       )}
       style={stateStyle}
     >
-      {isOpenSpot ? (
+      {chip ? (
         <Text
-          testID="calendar-open-spot-chip"
+          testID={chip.testId}
           className="mb-1 self-start rounded-full border px-1.5 text-[10px] font-sans-bold uppercase"
           style={{ color: ink, borderColor: ink }}
         >
-          {t("calendar.openSpot.chip")}
+          {t(chip.key)}
         </Text>
       ) : null}
       <View className="flex-row items-start justify-between gap-2">
