@@ -8,6 +8,7 @@ healthy, all from a separate staff console instead of the database.
 
 ## What it covers
 
+- Personal data is kept only as long as it is needed.
 - Staff operate the platform without touching the database: approvals, users, clubs, switches,
   engine health, and later the plan each coach is on.
 - Staff act under the company's own Google identity, every change they make is attributable, and

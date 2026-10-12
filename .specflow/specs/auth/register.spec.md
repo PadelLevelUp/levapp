@@ -103,7 +103,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
     declares the capability `terms-acceptance` (web, iOS 29+) sends `termsAccepted: true`; for such a
     client anything else answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and writes nothing. The
     User then records `terms_accepted_at` (the request's instant, UTC), `terms_version` and
-    `privacy_version` — the two pages' effective dates (Terms `2026-10-13` since PAD-642, Privacy `2026-10-13` since PAD-603; `TERMS_VERSION`
+    `privacy_version` — the two pages' effective dates (Terms `2026-10-13` since PAD-642, Privacy `2026-10-13` since PAD-603 and PAD-634; `TERMS_VERSION`
     and `PRIVACY_VERSION` in `registration_service.py`, each tied by a test to the version the legal
     page shows and to its text's "Effective date" line (`auth.legal-pages` rule 4) — change them together). **Any client that does not declare the capability**
     registers exactly as before, with the three columns NULL: today that is App Store 1.2.0 (27) and
