@@ -25,8 +25,8 @@ Students and coaches, whose old data does not linger; the owner, who can state r
 ## Business Rules
 
 - Each kind of data has its own switch and period; all start off.
-- A student a coach added who never created an account is removed only after a long quiet period, and
-  only if no other coach has them.
+- A student a coach added who never created an account is kept until the coach removes them (owner
+  decision); the switch exists, set to keep.
 - A deleted message keeps its place in the conversation but loses its text.
 - Audit records of deletions and staff actions are kept long enough to answer a dispute.
 
@@ -40,4 +40,8 @@ Students and coaches, whose old data does not linger; the owner, who can state r
 
 ## Notes
 
-- OPEN: the seven periods (owner, asked 2026-10-12).
+- Owner, 2026-10-12: never-activated students are kept until the coach removes them (keep). Code
+  hashes after 1 day and nginx at 14 days were not objected to but stay off until confirmed.
+- OPEN: invitations, notification history and audit records ("why delete?" — no choice yet); the
+  deleted-message text period. Every switch also offers "keep". The Privacy Policy §10 text waits for
+  the final answers.

@@ -93,9 +93,31 @@ def test_everything_is_off_until_a_setting_turns_it_on(app):
 
     report = _sweep(app)
 
-    assert report["stale_placeholders"] == {"enabled": False, "days": 365, "due": 1, "removed": 0}
+    # Owner, 2026-10-12: never-activated students are kept until the coach removes them.
+    assert report["stale_placeholders"] == {"enabled": False, "keep": True, "days": None, "due": None, "removed": 0}
     from padel_app.models.players import Player
     assert _exists(app, Player, player_id)
+
+
+def test_keep_means_no_period_and_nothing_removed(app):
+    from padel_app.models import User
+
+    with app.app_context():
+        u = User(name="K", username="keep638", password="x", status="active",
+                 email_verification_code_hash="h", email_verification_expires_at=_days_ago(30))
+        db.session.add(u)
+        db.session.commit()
+        uid = u.id
+    from padel_app.models.app_setting import AppSetting
+    with app.app_context():
+        db.session.add(AppSetting(key="data_retention", value={"code_hashes": {"keep": True, "enabled": True, "days": 1}}))
+        db.session.commit()
+
+    report = _sweep(app)
+
+    assert report["code_hashes"] == {"enabled": False, "keep": True, "days": None, "due": None, "removed": 0}
+    with app.app_context():
+        assert db.session.get(User, uid).email_verification_code_hash == "h"
 
 
 def test_a_stale_placeholder_is_deleted_through_the_roster_removal(app):
@@ -412,7 +434,11 @@ def test_the_dry_count_is_what_an_enabled_sweep_removes(app):
         audit.created_at = _days_ago(2000)
         db.session.commit()
 
+    from padel_app.services.retention_service import ITEMS
+
+    _enable(app, stale_placeholders=0)  # an explicit (invalid-days) entry: OFF, counted, not "keep"
     off = _sweep(app)
+    assert set(off) == set(ITEMS)
     assert all(off[name]["removed"] == 0 and off[name]["due"] >= 1 for name in off), off
     _enable(app, **{name: off[name]["days"] for name in off})
     on = _sweep(app)

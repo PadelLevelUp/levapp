@@ -1,9 +1,10 @@
 """admin.data-retention (PAD-638, PAD-602 D5): remove personal data the app no longer needs, one switch
 and one period per kind, all OFF until the owner decides.
 
-The settings live in the `data_retention` app setting: ``{<item>: {"enabled": bool, "days": int}}``.
-A missing row or item, a non-boolean ``enabled`` or a non-positive ``days`` means OFF with the
-recommended period (rule 1). The daily job (`scheduler._run_retention_sweep`) calls `run_retention`,
+The settings live in the `data_retention` app setting: ``{<item>: {"enabled": bool, "days": int}}``
+or ``{<item>: {"keep": true}}``. A missing row or item, a non-boolean ``enabled`` or a non-positive
+``days`` means OFF with the recommended period; ``keep`` means no period at all — not even counted
+(rule 1). An item the owner answered "keep" (`KEEP_BY_DEFAULT`) is keep until a setting says otherwise. The daily job (`scheduler._run_retention_sweep`) calls `run_retention`,
 which counts every item and removes only for the enabled ones (rule 2).
 """
 from __future__ import annotations
@@ -187,6 +188,8 @@ def _audit_logs(now: datetime, days: int, apply: bool) -> int:
 
 
 #: name → (recommended days, sweep). The recommendations are the ones put to the owner (2026-10-12).
+#: KEEP_BY_DEFAULT: items the owner answered "keep, never delete" — they stay "keep" until a setting
+#: says otherwise (owner, 2026-10-12: never-activated students are kept until the coach removes them).
 ITEMS: dict[str, tuple[int, Callable[[datetime, int, bool], int]]] = {
     "stale_placeholders": (365, _stale_placeholders),
     "deleted_message_text": (30, _deleted_message_text),
@@ -195,6 +198,7 @@ ITEMS: dict[str, tuple[int, Callable[[datetime, int, bool], int]]] = {
     "code_hashes": (1, _code_hashes),
     "audit_logs": (1095, _audit_logs),
 }
+KEEP_BY_DEFAULT = frozenset({"stale_placeholders"})
 
 
 def retention_settings() -> dict[str, dict]:
@@ -206,7 +210,12 @@ def retention_settings() -> dict[str, dict]:
     stored = row.value if row is not None and isinstance(row.value, dict) else {}
     settings = {}
     for name, (default_days, _sweep) in ITEMS.items():
-        item = stored.get(name) if isinstance(stored.get(name), dict) else {}
+        item = stored.get(name) if isinstance(stored.get(name), dict) else None
+        if item is None and name in KEEP_BY_DEFAULT or (item or {}).get("keep") is True:
+            # "Keep": no period at all — nothing is due and nothing is removed (rule 1).
+            settings[name] = {"enabled": False, "keep": True, "days": None}
+            continue
+        item = item or {}
         days = item.get("days")
         valid_days = isinstance(days, int) and not isinstance(days, bool) and days > 0
         enabled = item.get("enabled") is True and valid_days
@@ -226,6 +235,11 @@ def run_retention(now: datetime | None = None) -> dict[str, dict]:
     for name, cfg in retention_settings().items():
         sweep = ITEMS[name][1]
         entry = {"enabled": cfg["enabled"], "days": cfg["days"]}
+        if cfg.get("keep"):
+            entry.update(keep=True, due=None, removed=0)
+            report[name] = entry
+            current_app.logger.info("retention %s keep (no period)", name)
+            continue
         try:
             entry["due"] = sweep(now, cfg["days"], False)
             entry["removed"] = sweep(now, cfg["days"], True) if cfg["enabled"] and entry["due"] else 0

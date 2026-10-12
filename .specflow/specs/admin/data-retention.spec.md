@@ -24,7 +24,10 @@ of data, so the Privacy Policy (§10) can state real periods.
 ### Rules
 1. **Settings, OFF by default.** `app_settings` row `data_retention` holds
    `{<item>: {"enabled": bool, "days": int}}`. A missing row, a missing item or a non-positive
-   `days` means OFF with the recommended default period. No env flag; changed with one UPDATE.
+   `days` means OFF with the recommended default period. `{"keep": true}` means **keep**: no period
+   at all — the item is neither counted nor swept. An item the owner answered "keep" is keep by
+   default: `stale_placeholders` (owner, 2026-10-12: never-activated students are kept until the
+   coach removes them). No env flag; changed with one UPDATE.
 2. **One daily job.** `retention_sweep` runs once a day at 03:17 on the scheduler leader (a fixed
    id, R-010; one of `admin.engine-health`'s singletons). A fixed hour, because an interval re-armed
    on every boot would slip a day with each deploy. For every item it
@@ -58,7 +61,13 @@ of data, so the Privacy Policy (§10) can state real periods.
 #### Everything is OFF until a setting turns it on (rules 1, 2)
 - **Given** no `data_retention` row and one of each kind of due data
 - **When** the sweep runs
-- **Then** nothing is removed and each item reports its due count
+- **Then** nothing is removed, each item reports its due count, and `stale_placeholders` reports
+  keep
+- **And** switching every item on removes exactly the counted rows
+
+#### Keep means no period (rule 1)
+- **Given** an item set `{"keep": true}` (even beside `enabled: true`)
+- **Then** it reports keep, counts nothing and removes nothing
 
 #### A stale placeholder is deleted through the roster removal (rule 3)
 - **Given** `stale_placeholders` enabled at 365 days, a placeholder created 400 days ago on one coach
