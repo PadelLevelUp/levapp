@@ -71,6 +71,15 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
     birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
     `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability.
 
+10b. **The Terms are accepted (PAD-637; `auth.register` rule 19b).** Completing the player invitation shows the same required
+    "I have read and accept the Privacy Policy and the Terms of Service" checkbox as sign-up, each
+    document a link, and sends `termsAccepted: true`. A client that declares `terms-on-completion` and
+    does not send it is 400 `{field: "terms", code: "TERMS_REQUIRED"}`, checked after the country, and
+    nothing is written. On success the user records `terms_accepted_at`, `terms_version` and
+    `privacy_version`. **Legacy path:** a client that does not declare the token completes as before
+    with the three columns NULL (the next-login screen asks, `auth.legal-catch-up`). Web and iOS add the
+    box and declare the token.
+
 ### Acceptance Criteria
 
 #### Coach creates an incomplete player and gets an invite link
@@ -124,3 +133,10 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 - **Given** the same invitation
 - **When** it is accepted with `birthDate` `2008-09-25` (18 today)
 - **Then** the account is `active` and its `birth_date` is 2008-09-25; without a `birthDate` it is 400 `BIRTH_DATE_REQUIRED`
+
+#### The Terms are recorded on completion (rule 10b, PAD-637)
+- **Given** a client declaring `terms-on-completion`
+- **When** it completes with `termsAccepted: true`
+- **Then** the new account records `terms_accepted_at`, `terms_version` and `privacy_version`
+- **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
+- **And** a client that does not declare the token completes as before, with the columns NULL

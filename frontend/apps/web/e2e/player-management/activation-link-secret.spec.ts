@@ -18,6 +18,8 @@ async function createInactivePlayer(page: Page, name: string): Promise<string> {
   const nameInput = page.locator("#player-name");
   await expect(nameInput).toBeVisible({ timeout: 5000 });
   await nameInput.fill(name);
+  // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+  await page.getByTestId("add-player-confirms-adults").click();
   await page.getByRole("button", { name: /create player/i }).click();
 
   await page.getByPlaceholder(/search/i).first().fill(name);

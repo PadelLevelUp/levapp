@@ -2,6 +2,7 @@
 id: auth.newcomer-creates-and-activates-an-account
 status: implemented
 implemented_by:
+  - ../../specs/auth/legal-catch-up.spec.md
   - ../../specs/auth/activate.spec.md
   - ../../specs/auth/mobile-universal-links.spec.md
   - ../../specs/auth/mobile-account-creation.spec.md
@@ -35,6 +36,12 @@ a teammate or an invite flow) via the generic activation link.
    [[auth.coach-signs-in-and-stays-connected]]).
 
 ## Business Rules
+
+- Every way of completing an account — signing up, accepting a coach or player invitation, or
+  activating an account a coach created — asks the person to accept the Privacy Policy and the Terms,
+  and records when and which versions (PAD-637).
+- Someone whose account predates that record, or who never gave a date of birth, is asked once per
+  login for what is missing, on one screen they may skip; the 18+ rule applies to the date (PAD-637).
 
 - An account created on someone's behalf always starts inactive — nobody can sign in with it until it's
   been activated. (A self-registered account is the exception: it is active from the start, see

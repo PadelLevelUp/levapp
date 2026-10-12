@@ -21,6 +21,9 @@ test.describe("PAD-17: Duplicate player name warning in creation", () => {
     // "E2E Student" is a seeded player; type it in a different case.
     await nameInput.fill("e2e student");
 
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
+
     // A non-blocking duplicate warning should appear under the Name field.
     const warning = page.getByText(/already have a player.*this name|possible duplicate|duplicate name/i);
     await expect(warning).toBeVisible({ timeout: 3000 });
@@ -36,6 +39,8 @@ test.describe("PAD-17: Duplicate player name warning in creation", () => {
 
     const nameInput = page.locator("#player-name");
     await nameInput.fill("Totally Unique Newcomer");
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
 
     const warning = page.getByText(/already have a player.*this name|possible duplicate|duplicate name/i);
     await expect(warning).not.toBeVisible({ timeout: 2000 });

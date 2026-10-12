@@ -27,10 +27,10 @@ ROLES = ("coach", "student")
 # PAD-485 (auth.register rule 19): the Terms version a sign-up accepts — the effective date the Terms
 # page states (`frontend/apps/web/src/content/legal/index.ts` and the "Effective date:" line of
 # `en/terms.md`, tied by test_pad485_terms_acceptance.py). Change them together when the Terms change.
-TERMS_VERSION = "2026-10-10"
+TERMS_VERSION = "2026-10-13"
 # The Privacy Policy's version, the same way (`index.ts` and `en/privacy.md`). Not merged with
 # config.LEGAL_TERMS_VERSION (the retired guardian-consent record) on purpose; see auth.register rule 19.
-PRIVACY_VERSION = "2026-10-10"
+PRIVACY_VERSION = "2026-10-13"
 
 
 def validate_terms(data):
@@ -41,12 +41,38 @@ def validate_terms(data):
 
     if not client_declares(TERMS_ACCEPTANCE):
         return False
+    require_terms_accepted(data)
+    return True
+
+
+def require_terms_accepted(data):
+    """400 on `field: "terms"` unless the body says `termsAccepted: true` (auth.register rules 19, 19b;
+    auth.legal-catch-up rule 3)."""
     if (data or {}).get("termsAccepted") is not True:
         raise RegistrationError(
             "É preciso aceitar os Termos e a Política de Privacidade. / You must accept the Terms and the Privacy Policy.",
             400, "terms", code="TERMS_REQUIRED",
         )
+
+
+def validate_completion_terms(data):
+    """auth.register rule 19b (PAD-637): the coach-invite accept, the player-invite accept and
+    activation. A client declaring `terms-on-completion` must send `termsAccepted: true`; an older build
+    completes as before. Returns whether an acceptance is to be recorded."""
+    from padel_app.utils.client_capabilities import TERMS_ON_COMPLETION, client_declares
+
+    if not client_declares(TERMS_ON_COMPLETION):
+        return False
+    require_terms_accepted(data)
     return True
+
+
+def record_terms_acceptance(user, now):
+    """The one writer of the Terms record (auth.register rules 19, 19b; auth.legal-catch-up rule 3):
+    the request's UTC instant and the two documents' versions."""
+    user.terms_accepted_at = now
+    user.terms_version = TERMS_VERSION
+    user.privacy_version = PRIVACY_VERSION
 
 
 class RegistrationError(Exception):
@@ -279,10 +305,9 @@ def _create_account(*, role, name, username, email, password_hash, birth_date, c
             status="active",
             birth_date=birth_date,
             country=country,
-            terms_accepted_at=now if terms_accepted else None,
-            terms_version=TERMS_VERSION if terms_accepted else None,
-            privacy_version=PRIVACY_VERSION if terms_accepted else None,
         )
+        if terms_accepted:
+            record_terms_acceptance(user, now)
         if identity is not None:
             user.email_verification_required = False
             user.email_verified_at = now
@@ -330,6 +355,33 @@ def _create_account(*, role, name, username, email, password_hash, birth_date, c
 
         sync_coach_signup(user, coach)
 
+    return user
+
+
+def legal_pending(user):
+    """auth.legal-catch-up rule 1 (PAD-637): what an account still owes — the Terms record and/or a
+    birth date. `/api/auth/me` returns it as `legalPending`."""
+    return {"terms": user.terms_accepted_at is None, "birthDate": user.birth_date is None}
+
+
+def accept_legal_catch_up(user, data, now):
+    """auth.legal-catch-up rule 3: record what was pending, each pending part required, the birth date
+    judged by the sign-up check (rule 18). A part that is not pending is ignored, so a record or a stored
+    date is never overwritten. Any refusal raises before anything is written."""
+    pending = legal_pending(user)
+    birth_date = None
+    if pending["terms"]:
+        require_terms_accepted(data)
+    if pending["birthDate"]:
+        # The screen always shows the field, so an absent date is just "required" — not "update the app".
+        birth_date = validate_adult_birth_date(
+            (data or {}).get("birthDate"), now.date(),
+            update_app_message="Indica a tua data de nascimento. / Enter your date of birth.",
+        )
+    if pending["terms"]:
+        record_terms_acceptance(user, now)
+    if birth_date is not None:
+        user.birth_date = birth_date
     return user
 
 

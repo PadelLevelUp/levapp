@@ -21,6 +21,8 @@ export interface CreateIncompletePlayerPayload {
   side?: string;
   notes?: string;
   email?: string;
+  /** PAD-642 (players.create rule 10): the coach confirms the student is 18 or older. */
+  confirmsAdults?: boolean;
 }
 
 export interface AcceptPlayerInvitationPayload {
@@ -32,6 +34,9 @@ export interface AcceptPlayerInvitationPayload {
   birthDate?: string;
   /** PAD-604: ISO 3166-1 alpha-2, required by clients that declare `country-on-completion`. */
   country?: string;
+  /** PAD-637 (auth.register rule 19b): the Terms checkbox. Required by clients that declare
+   * `terms-on-completion`. */
+  termsAccepted?: boolean;
 }
 
 export interface AcceptPlayerInvitationResponse {

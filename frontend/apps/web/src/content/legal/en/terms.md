@@ -1,6 +1,6 @@
 # Terms of Service
 
-Effective date: October 10, 2026
+Effective date: October 13, 2026
 
 These Terms of Service ("Terms") govern your access to and use of LevApp, including our mobile applications, websites, and related services (collectively, the "Service").
 
@@ -29,6 +29,8 @@ LevApp provides software for managing coaching activities. LevApp is not a coach
 Coaches remain responsible for their coaching activities and for the accuracy and appropriateness of the information they enter. Players remain responsible for their participation and decisions relating to coaching activities.
 
 If you provide or manage information relating to another person through LevApp, you confirm that you are authorized to do so and that your use of that information complies with applicable law.
+
+Coaches may add, create, or import a player only if that person is at least 18 years old. Each time you add, create, or import players, you confirm that every one of them is at least 18 years old. You must not use the Service to manage information about anyone under 18.
 
 You are responsible for the information and content you provide.
 

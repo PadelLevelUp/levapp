@@ -100,6 +100,15 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     error. `infra/nginx/check-log-redaction.sh` proves the rest in Docker, and CI runs it (`auth.login`
     rule 4a is the same guarantee for the SSE token).
 
+13b. **The Terms are accepted (PAD-637; `auth.register` rule 19b).** Activation of a coach-created player shows the same required
+    "I have read and accept the Privacy Policy and the Terms of Service" checkbox as sign-up, each
+    document a link, and sends `termsAccepted: true`. A client that declares `terms-on-completion` and
+    does not send it is 400 `{field: "terms", code: "TERMS_REQUIRED"}`, checked after the country, and
+    nothing is written. On success the user records `terms_accepted_at`, `terms_version` and
+    `privacy_version`. **Legacy path:** a client that does not declare the token completes as before
+    with the three columns NULL (the next-login screen asks, `auth.legal-catch-up`). Web and iOS add the
+    box and declare the token.
+
 ### Acceptance Criteria
 
 #### Activate user
@@ -153,6 +162,13 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Then** the canary is in no access.log line, and in no error.log line except the forged-Referer control's
 - **And** each secret-bearing request is still logged, as `…?[redacted]`, the control is logged with `?page=2` and the Referer `…/register/7?[redacted]`
 - **And** `/register/7` answers with `Referrer-Policy: no-referrer`
+
+#### The Terms are recorded on completion (rule 13b, PAD-637)
+- **Given** a client declaring `terms-on-completion`
+- **When** it completes with `termsAccepted: true`
+- **Then** the new account records `terms_accepted_at`, `terms_version` and `privacy_version`
+- **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
+- **And** a client that does not declare the token completes as before, with the columns NULL
 
 ### Notes
 - Why a derived token rather than a column: the fix had to ship without a migration in the

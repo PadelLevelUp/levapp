@@ -125,6 +125,8 @@ def activate_user_service(user_id, data, *, token):
         UPDATE_APP_TO_ACTIVATE,
         validate_adult_birth_date,
         validate_completion_country,
+        validate_completion_terms,
+        record_terms_acceptance,
     )
     from padel_app.utils.dates import utcnow_naive
 
@@ -133,6 +135,7 @@ def activate_user_service(user_id, data, *, token):
     )
     # Rule 13a (PAD-604): the country, after the birth date, still before anything is written.
     country = validate_completion_country(data)
+    terms_accepted = validate_completion_terms(data)  # auth.activate rule 13b (PAD-637)
     if "username" in sent:
         taken = User.query.filter_by(username=sent["username"]).first()
         if taken is not None and taken.id != user.id:
@@ -147,6 +150,8 @@ def activate_user_service(user_id, data, *, token):
         values["country"] = country
 
     user.update_with_dict(values, write_none=True)
+    if terms_accepted:
+        record_terms_acceptance(user, utcnow_naive())
     user.save()
     return user
 
