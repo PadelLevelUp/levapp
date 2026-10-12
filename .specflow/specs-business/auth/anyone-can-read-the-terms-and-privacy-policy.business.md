@@ -32,7 +32,8 @@ translation exists.
   only when the operator publishes a new version, and the version and effective date on the
   page always match the text (PAD-601: v2026-10-10, effective 10 October 2026, published from
   the owner's final documents; Privacy v2026-10-13, PAD-603: push providers in §5 and deletion by
-  email in §10; new sign-ups record the current versions, nobody is asked again).
+  email in §10, and in the same version, PAD-634: the providers named in §5, the US transfers in §9,
+  availability and calendar data in §1, published without a notice; new sign-ups record the current versions, nobody is asked again).
 - English is the prevailing language; a Portuguese version is a courtesy translation.
 - The pages are public, need no account, and are served by the web app so the store listings
   and the apps can link to them.

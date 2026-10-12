@@ -9,6 +9,7 @@ hold a role, and every write is audited. Epic PAD-530, owner decisions 2026-10-0
 
 ## What it covers
 
+- `admin.data-retention` — implementing (PAD-638: a daily sweep, one switch and period per kind of personal data, all OFF until the owner decides)
 - `admin.foundation` — draft (PAD-531: Google SSO restricted to `levapp.app`, the `levapp-admin`
   token audience, `admin_roles` owner/operator/support replacing `is_superadmin` for new code,
   `admin_audit_log` with a route-coverage guard, deploy topology, no admin code in the product apps)
