@@ -50,6 +50,8 @@ data at once.
   entries) so nothing references something that doesn't exist yet.
 - Every record created by an import is tracked against that specific import, so it can be
   completely undone later, cleanly, without touching anything created outside of it.
+- The spreadsheet content the AI reads goes only to a model provider that neither trains on it nor
+  keeps it; if none is available the analysis fails rather than use one that does (PAD-636).
 - A reverted import is marked as reverted, not deleted from history — the coach can still see that
   it happened.
 

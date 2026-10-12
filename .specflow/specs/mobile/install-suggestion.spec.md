@@ -40,6 +40,12 @@ a surface that only exists off the phone app).
 4. **Never a hold.** The card sits above the page content inside the app shell, pushes the page
    down, and is the first thing after the header; it never overlays, never traps focus, never
    delays rendering. It is absent while `/api/auth/me` has not answered.
+4a. **A slim strip on a phone (PAD-628).** Below `sm` (640 px), so on every iPhone, the card is
+   one strip: the title clamped to two lines, the body line left out, the button labelled "Abrir" /
+   "Open" (the full "Ir para a App Store" from `sm` up), and the 44 px close control always on
+   screen. The button's accessible name contains its visible label ("Abrir App Store"). Pinned at
+   320 and 375 px: at most 72 px tall, never widening the page (no sideways scroll), and placed
+   before the page's first heading.
 5. **Smart App Banner.** `index.html` carries `<meta name="apple-itunes-app"
    content="app-id=6794271800">`, so Safari on iOS shows Apple's banner on every page (the
    zero-code path; it opens the app directly when installed). The custom card covers the other
@@ -71,6 +77,13 @@ a surface that only exists off the phone app).
   student on `Mozilla/5.0 (Linux; Android 14; Pixel 8) … Mobile Safari/537.36`
 - **When** any app page renders
 - **Then** `install-app-banner` is absent
+
+#### The card stays a slim strip on a 320 px and a 375 px iPhone (rule 4a, PAD-628)
+- **Given** a signed-in student on an iPhone browser 320 px wide, and again 375 px wide
+- **When** the settings page and the calendar open with the card showing
+- **Then** the card is at most 72 px tall and its bottom is at or above the top of `main`'s first
+  `h1` (settings) and of `main` (calendar)
+- **And** the page does not scroll sideways, and the close control is on screen and dismisses it
 
 #### Safari gets the Smart App Banner
 - **Given** the served `index.html`

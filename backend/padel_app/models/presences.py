@@ -14,7 +14,6 @@ ENROLMENT_SOURCES = ("roster", "coach", "fill", "walk_in", "import", "unknown")
 class Presence(db.Model, model.Model):
     __tablename__ = "presences"
 
-    page_title = "Presences"
     model_name = "Presence"
 
     id = Column(Integer, primary_key=True)

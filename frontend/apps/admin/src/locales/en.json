@@ -244,7 +244,8 @@
         "evaluations": "Off: the shared-evaluation block disappears from the student dashboard.",
         "class-type-defaults": "Off: every app is told a class's open-spot setting comes from the coach, as old apps are. The value shown is the same.",
         "coach-invite-email": "Off: accepting a coach invitation no longer requires an email, as in old apps.",
-        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident."
+        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident.",
+        "country-on-completion": "Off: activating an account and accepting an invitation no longer require a country, as in old apps."
       },
       "reasonShown": "Reason: {{reason}}",
       "changed": "Last changed {{at}} by {{by}}",

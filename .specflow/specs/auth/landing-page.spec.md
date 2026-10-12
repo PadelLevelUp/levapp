@@ -63,16 +63,33 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 8. The header always shows "Entrar"; the demo button and section links collapse into a menu button
    below the `md` breakpoint. The footer links to `/support`, `/privacy`, `/terms`.
 9. The page must never render the app shell (no sidebar, no app navigation).
-10. **Demo dialog.** HubSpot hosts fall into two sets, listed once in code
+10. **Demo dialog (PAD-469; PAD-617).** HubSpot hosts fall into two sets, listed once in code
     (`frontend/apps/web/src/lib/hubspotConfig.ts`, which the tests import): the *tracking* hosts
-    (the tracking script and everything it loads) and the *forms* hosts (the forms embed and its
-    API). The demo dialog shows one line above the form saying it is provided by HubSpot, with a
-    link to the Privacy Policy. The first time it opens it loads the HubSpot forms embed from the
-    forms hosts (region `eu1`, portal `149443437`, the configured form ID) and renders the form
-    inside the dialog; it does not wait for the cookie choice (the visitor asked for this
-    service), and opening it does not load the tracking script. The source fields
-    (`levapp_tipo_origem` = Inbound, `levapp_canal_origem` = Site) are hidden fields of the
-    HubSpot form itself. If the embed fails to load, the dialog offers the `mailto:` instead.
+    (the tracking script and everything it loads) and the *forms* hosts. Every "Pedir
+    demonstração" opens a dialog with LevApp's own form, with one line above it saying the request
+    is stored in HubSpot and a link to the Privacy Policy. Fields (coaches): name and surname,
+    email, phone, club or academy, city, number of students (approx.), hours of classes per week
+    (all required), an optional message, and a required consent checkbox. The browser posts it to
+    `POST /api/public/demo-request` and **never reaches a HubSpot host** from the dialog, so it
+    neither waits for the cookie choice nor loads the tracking script; the visitor's `hubspotutk`
+    cookie goes along only when the browser already has one (rule 12).
+    The server validates the fields the same way (400 `{field, code}` otherwise), then forwards
+    them to HubSpot's public Forms API v3 (`api.hsforms.com/.../submit/149443437/<form GUID>`, no
+    token), splitting the name into `firstname`/`lastname`, with the hidden fields
+    `levapp_funcao` = treinador, `levapp_pedido_site` (`demonstracao`, or `mes_gratis` for the
+    free-month button when the site has one), `levapp_canal_origem` = site,
+    `levapp_tipo_origem` = inbound, the visitor's IP, page (an http(s) URL; title ≤ 100 chars) and
+    `hutk` (only a 32-hex value), and the RGPD consent (`legalConsentOptions`). Limits: text fields
+    ≤ 200 chars, phone 9–40, counts 1–100 000, message ≤ 2000, body ≤ 16 KB (else 413); the web form
+    holds the same limits, announces its errors (`role="alert"`) and moves focus to the first one.
+    **Spam:** a hidden, inert honeypot field and a minimum of 3 s to fill are answered as success and
+    dropped *before* any validation, so a bot learns nothing about the form (they deter naive bots
+    only; the fill time is the client's word); the route is limited per IP
+    (`AUTH_RATE_LIMIT_DEMO`, 5 per hour); HubSpot filters the rest. The form GUID is deployment config (GitHub repo variables
+    `HUBSPOT_DEMO_FORM_ID` / `_STAGING`, passed to the web build and to the API container). Without
+    it the buttons stay a `mailto:`; with it, a 503, a 502 (HubSpot refused or unreachable, logged
+    with the status only, never the visitor's data) or a network failure shows the `mailto:` in
+    the dialog. On success the dialog thanks the visitor by first name.
 11. **Cookie banner.** With no valid stored choice, the landing page shows a banner with
     "Aceitar" and "Recusar" — the same button style, size and weight, one click each. A choice
     older than 12 months counts as no choice, so the banner asks again (coordinator decision,
@@ -95,6 +112,14 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     page's demo and ideas links and its footer, `/support`, the static `public/support.html` the App
     Store listing points at, and the landing copy that names it — shows `admin@levapp.app`, read from
     `CONTACT_EMAIL` in `@levelup/config`. No other address is typed in the site's sources.
+15. **App Store buttons (PAD-619).** "Descarrega na App Store" opens LevApp's App Store page,
+    `APP_STORE_URL` from `@levelup/config` (the link the install suggestion uses, PAD-573), in a new
+    tab (`target="_blank"`, `rel="noopener noreferrer"`). Its accessible name is the visible text plus
+    a screen-reader-only "(abre num separador novo)", so it contains the visible label (WCAG 2.5.3). It
+    sits under the hero's ✓ points for coaches and players, and in the players' closing call to
+    action; the "others" audience has none. A drawn button, not Apple's badge artwork. The Google
+    Play button waits for the Play listing (PAD-355). The redesigned site of the prototype is a
+    separate piece of work; when it lands, its App Store buttons use this component.
 
 ### Acceptance Criteria
 
@@ -199,19 +224,38 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Given** a stored `accepted` choice dated 2025-10-15 instead
 - **Then** no banner shows and the tracking script loads
 
-#### The demo dialog embeds HubSpot's form without the tracker
+#### The demo dialog sends LevApp's own form, and the browser never reaches HubSpot (PAD-617)
 - **Given** a build with a demo form ID and no stored cookie choice
-- **When** the visitor presses "Pedir demonstração"
-- **Then** the dialog shows the HubSpot notice linking `/privacy`, the form renders, the embed was
-  created with region `eu1`, portal `149443437` and the configured ID, every HubSpot request went to
-  a forms host, and the tracking script was not requested
-- **When** they close and reopen the dialog
-- **Then** the form renders again and the embed script was loaded only once
+- **When** the visitor presses "Pedir demonstração", fills the form and sends it
+- **Then** the dialog shows the HubSpot notice linking `/privacy`, the request goes to
+  `POST /api/public/demo-request` with the fields, `pedido: "demonstracao"` and an empty honeypot,
+  no request reaches any HubSpot host, the tracking script was not requested, and the dialog
+  thanks them by first name
+- **When** the API answers 503 or 502
+- **Then** the dialog offers the `mailto:` to the support address
+
+#### The server relays a valid request and refuses the rest (PAD-617)
+- **Given** a configured form GUID
+- **When** "Rita Pereira Lopes", rita@academia.pt, +351 912 345 678, Academia Norte, Porto, 30
+  students, 20 hours, consent, filled in 12 s, is posted from 203.0.113.9
+- **Then** HubSpot's form receives firstname Rita, lastname Pereira Lopes, the other fields, the
+  four hidden fields, the IP and the consent, and the visitor gets 200
+- **And** a missing field or no consent is 400 on that field and nothing is sent; a filled honeypot
+  or a 1 s fill is 200 and nothing is sent; the sixth post from one IP within the hour is 429;
+  with no form GUID it is 503; a HubSpot error is 502 and the log names only the status
 
 #### Without a form ID the demo stays an email
 - **Given** a build with no demo form ID
 - **When** the landing page renders
 - **Then** "Pedir demonstração" is a `mailto:` link to the support address
+
+#### The App Store buttons open LevApp's page in a new tab (rule 15, PAD-619)
+- **Given** the landing page for coaches, for players and for others
+- **When** it renders
+- **Then** coaches show one App Store link under the hero's points, players show one there and one
+  in the closing call to action, others show none
+- **And** every one points at `https://apps.apple.com/app/id6794271800` with `target="_blank"` and
+  `rel` containing `noopener`
 
 #### The site shows the owner's contact address everywhere (PAD-599, B-562)
 - **Given** the landing page, `/support`, `public/support.html` and the landing copy in both languages

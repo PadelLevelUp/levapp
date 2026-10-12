@@ -47,6 +47,13 @@ TERMS_ACCEPTANCE = "terms-acceptance"
 # Retire once no App Store build older than the first declaring one is in use.
 STUDENT_RELATIONS = "student-relations"
 
+# PAD-604 (auth.activate 13a, players.invite-completion 10a, clubs.coach-invitation 8a): the three
+# account-completion forms send a `country`. A client that declares this and sends none is refused
+# (400 COUNTRY_REQUIRED); one that does not (iOS up to 1.3.0 (32)) completes without one and the
+# country stays null (PAD-630 asks later). Retire once no App Store build older than the first
+# declaring one is in use.
+COUNTRY_ON_COMPLETION = "country-on-completion"
+
 
 # PAD-533 (admin.clubs-and-switches rule 6): every capability the server knows, with its kind.
 # "feature": switching it off hides a feature from every client. "compat": switching it off sends
@@ -59,6 +66,7 @@ CAPABILITIES = {
     CLASS_TYPE_DEFAULTS: "compat",
     COACH_INVITE_EMAIL: "compat",
     TERMS_ACCEPTANCE: "compat",
+    COUNTRY_ON_COMPLETION: "compat",
 }
 
 # Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.

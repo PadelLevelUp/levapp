@@ -234,9 +234,10 @@ def _spot(vacancy, level_source: str, side_counts: dict | None) -> dict:
     }
 
 
-def _priority_values(cp, vacancy, config, coach_id: int, ladder: dict) -> list[dict]:
+def _priority_values(cp, vacancy, config, coach_id: int, ladder: dict, owed: dict) -> list[dict]:
     """One entry per ENABLED priority criterion, in the coach's configured
-    order, carrying the value `_build_sort_key` actually sorted on."""
+    order, carrying the value `_build_sort_key` actually sorted on. ``owed`` is
+    ``makeups_owed_for`` over the simulation's candidates, built once like ``ladder``."""
     from padel_app.services.notification_service import (
         _attendance_stats,
         _side_preference_rank,
@@ -259,7 +260,10 @@ def _priority_values(cp, vacancy, config, coach_id: int, ladder: dict) -> list[d
             values.append({"id": "level", "ladderDistance": distance,
                            "levelCode": cp.level.code if cp.level else None})
         elif cid == "justified_misses":
-            values.append({"id": "justified_misses", "rate": round(just_rate, 4)})
+            # PAD-505: `owed` is what the engine sorts on and what clients show. `rate` stays
+            # for builds released before PAD-505, which render it as a percentage.
+            values.append({"id": "justified_misses", "owed": owed.get(int(cp.player_id), 0),
+                           "rate": round(just_rate, 4)})
         elif cid == "attendance":
             values.append({"id": "attendance", "rate": round(att_rate, 4)})
         elif cid == "playing_side":
@@ -295,9 +299,10 @@ def _batch_size(config, instance, first_round_size: int) -> int:
 
 def _serialize_rounds(rounds, vacancy, instance, coach_id: int, config, now: datetime) -> list[dict]:
     from padel_app.services.level_ladder import ladder_index_map
-    from padel_app.services.notification_service import _check_per_student_daily_limit
+    from padel_app.services.notification_service import _check_per_student_daily_limit, makeups_owed_for
 
     ladder = ladder_index_map(coach_id)
+    owed = makeups_owed_for([cp.player_id for _n, _k, _r, cps in rounds for cp in cps], coach_id)
     restrictions = config.get_restrictions()
     first_non_empty = next((number for number, _k, _r, cps in rounds if cps), None)
     batch = 0
@@ -326,7 +331,7 @@ def _serialize_rounds(rounds, vacancy, instance, coach_id: int, config, now: dat
                 "levelId": str(cp.level_id) if cp.level_id else None,
                 "side": cp.side,
                 "rank": rank,
-                "priority": _priority_values(cp, vacancy, config, coach_id, ladder),
+                "priority": _priority_values(cp, vacancy, config, coach_id, ladder, owed),
                 "sendStatus": send_status,
             })
         payload.append({

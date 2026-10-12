@@ -6,6 +6,26 @@
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "backToSignIn": "Back to sign in",
-    "portugueseInPreparation": "Versão portuguesa em preparação — prevalece a versão inglesa. (Portuguese version in preparation — the English version prevails.)"
+    "portugueseInPreparation": "Versão portuguesa em preparação — prevalece a versão inglesa. (Portuguese version in preparation — the English version prevails.)",
+    "deleteAccount": {
+      "title": "Delete your LevApp account",
+      "intro": "You can delete your LevApp account at any time. Deletion is permanent and cannot be undone.",
+      "inAppHeading": "In the app",
+      "inAppSteps": "Open Settings → Account → Delete account and confirm. The account is deleted at once and you are signed out on every device.",
+      "emailHeading": "Without the app",
+      "emailBefore": "Send an email to",
+      "emailAfter": "from the address on your account, or tell us the account's username. We confirm by email and delete the account within 30 days.",
+      "deletedHeading": "What is deleted",
+      "deletedIdentity": "Your name, email, phone, username and password.",
+      "deletedDetails": "Your date of birth, country and profile photo.",
+      "deletedSessions": "Your sign-in on every device and your registrations for notifications.",
+      "deletedClasses": "Your place in every upcoming class and waiting list.",
+      "deletedCrm": "For coaches, your contact in our customer records.",
+      "keptHeading": "What is kept",
+      "keptCoachRecords": "Your coach's record of the classes you already took — attendance, evaluations and notes — and the messages you sent, shown as \"Deleted user\".",
+      "keptBackups": "Copies in backups, for a limited period, until they are overwritten.",
+      "keptLegal": "What the law requires us to keep, or what we need for security or to establish or defend legal claims.",
+      "moreBefore": "More detail is in section 10 of our"
+    }
   }
 }

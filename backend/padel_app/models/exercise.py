@@ -19,7 +19,6 @@ class Exercise(db.Model, model.Model):
     __tablename__ = "exercises"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Exercises"
     model_name = "Exercise"
 
     id = Column(Integer, primary_key=True)
@@ -71,16 +70,6 @@ class Exercise(db.Model, model.Model):
         return self.name
 
     @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Name"}
-        columns = [
-            {"field": "name", "label": "Name"},
-            {"field": "type", "label": "Type"},
-            {"field": "difficulty", "label": "Difficulty"},
-        ]
-        return searchable, columns
-
-    @classmethod
     def get_create_form(cls):
         def get_field(name, label, type, **kwargs):
             return Field(
@@ -116,7 +105,6 @@ class ExerciseGroup(db.Model, model.Model):
     __tablename__ = "exercise_groups"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Exercise Groups"
     model_name = "ExerciseGroup"
 
     id = Column(Integer, primary_key=True)
@@ -150,15 +138,6 @@ class ExerciseGroup(db.Model, model.Model):
 
     def __str__(self):
         return self.name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Name"}
-        columns = [
-            {"field": "name", "label": "Name"},
-            {"field": "description", "label": "Description"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

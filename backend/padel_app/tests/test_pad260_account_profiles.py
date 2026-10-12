@@ -1,6 +1,6 @@
 """PAD-260 / B-049 — auth.account-profiles: an account has at most one player
 profile and one coach profile, a profile never outlives its account, and the
-generic editor does not hard-delete users.
+no route hard-deletes a user row (the generic editor is gone, PAD-550).
 
 SQLite does not enforce foreign keys here, so ON DELETE CASCADE itself is
 proven in the scratch-Postgres dry run; these tests pin the schema that
@@ -87,33 +87,18 @@ def test_the_user_relationships_leave_deletes_to_the_database(app):
 
 # ── rule 3 ───────────────────────────────────────────────────────────────────
 
-def test_the_generic_editor_will_not_delete_a_user(app, client):
+def test_no_route_deletes_a_user_row(app, client):
+    """account-profiles criterion "No route deletes a user row" (PAD-550): the generic
+    delete routes are gone, so both old paths answer 404 and the row survives."""
     from padel_app.models import User
 
     headers = _auth(app, _user(app, "root", is_superadmin=True))
     victim = _user(app, "victim")
 
-    res = client.delete(f"/api/editor/user/{victim}", headers=headers)
-    assert res.status_code == 409, res.get_data(as_text=True)
-    assert "account deletion" in res.get_data(as_text=True).lower()
-    res = client.post(f"/api/delete/user/{victim}", headers=headers)
-    assert res.status_code == 409, res.get_data(as_text=True)
+    assert client.delete(f"/api/editor/user/{victim}", headers=headers).status_code == 404
+    assert client.post(f"/api/delete/user/{victim}", headers=headers).status_code == 404
     with app.app_context():
         assert db.session.get(User, victim) is not None
-
-
-def test_the_editor_still_deletes_other_rows(app, client):
-    from padel_app.models import Club
-
-    headers = _auth(app, _user(app, "root", is_superadmin=True))
-    with app.app_context():
-        club = Club(name="Gone Club", description="d", location="l")
-        db.session.add(club)
-        db.session.commit()
-        club_id = club.id
-    assert client.delete(f"/api/editor/club/{club_id}", headers=headers).status_code == 200
-    with app.app_context():
-        assert db.session.get(Club, club_id) is None
 
 
 def test_removing_a_never_activated_player_still_deletes_the_placeholder_account(app):

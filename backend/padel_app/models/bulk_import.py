@@ -10,7 +10,6 @@ class BulkImport(db.Model, model.Model):
     __tablename__ = "bulk_imports"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Bulk Imports"
     model_name = "BulkImport"
 
     id = Column(Integer, primary_key=True)

@@ -120,12 +120,18 @@ def activate_user_service(user_id, data, *, token):
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     # auth.activate rule 13 (PAD-457): adults only, judged as sign-up judges it. Raises
     # RegistrationError (400 on birthDate) before anything is written.
-    from padel_app.services.registration_service import UPDATE_APP_TO_ACTIVATE, validate_adult_birth_date
+    from padel_app.services.registration_service import (
+        UPDATE_APP_TO_ACTIVATE,
+        validate_adult_birth_date,
+        validate_completion_country,
+    )
     from padel_app.utils.dates import utcnow_naive
 
     birth_date = validate_adult_birth_date(
         (data or {}).get("birthDate"), utcnow_naive().date(), update_app_message=UPDATE_APP_TO_ACTIVATE
     )
+    # Rule 13a (PAD-604): the country, after the birth date, still before anything is written.
+    country = validate_completion_country(data)
     if "username" in sent:
         taken = User.query.filter_by(username=sent["username"]).first()
         if taken is not None and taken.id != user.id:
@@ -136,6 +142,8 @@ def activate_user_service(user_id, data, *, token):
     values = _strip_privilege_fields(form.set_values(fake_request))
     values["status"] = "active"
     values["birth_date"] = birth_date
+    if country is not None:
+        values["country"] = country
 
     user.update_with_dict(values, write_none=True)
     user.save()

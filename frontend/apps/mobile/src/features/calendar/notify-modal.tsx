@@ -190,7 +190,7 @@ export function NotifyModal({
       // two causes are told apart (`splitBlockedByCause`) because "they are
       // busy then" and "they turned invitations off" are different problems
       // with different fixes.
-      const { unavailable, optedOut } = splitBlockedByCause(blocked);
+      const { unavailable, optedOut, alreadyInvited } = splitBlockedByCause(blocked);
 
       // PAD-107: name whoever marked themselves unavailable for this slot.
       if (unavailable.length > 0) {
@@ -212,6 +212,10 @@ export function NotifyModal({
           }),
           blockedReasons(optedOut) || undefined
         );
+      }
+      // PAD-620: already holding an open invitation for this class — not invited twice.
+      if (alreadyInvited.length > 0) {
+        toast.warning(t("calendar.notify.alreadyInvited", { names: blockedNames(alreadyInvited) }));
       }
       // PAD-107's ordering: no "invitations sent to 0" when everyone was
       // skipped — the toasts above already told the whole story.

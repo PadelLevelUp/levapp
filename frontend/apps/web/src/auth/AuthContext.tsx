@@ -9,10 +9,17 @@ import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
 
 // PAD-40: apply the user's persisted language globally so it drives the whole UI,
 // not just the Settings screen. Called on both silent session restore and login.
-function applyUserLanguage(user: MeResponse | null) {
+// client.route-loading rule 6 (PAD-585): a language other than pt is a lazy chunk, so the
+// restore and the login wait for it; a signed-in English user never sees Portuguese first.
+// A failed load keeps the current language rather than blocking the session.
+async function applyUserLanguage(user: MeResponse | null): Promise<void> {
   const lang = user?.language ?? "pt";
   if (i18n.language !== lang) {
-    void i18n.changeLanguage(lang);
+    try {
+      await i18n.changeLanguage(lang);
+    } catch {
+      // keep the current language
+    }
   }
 }
 
@@ -51,9 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
 
     getMe()
-      .then((userData) => {
+      .then(async (userData) => {
+        await applyUserLanguage(userData);
         setUser(userData);
-        applyUserLanguage(userData);
         // Refresh push subscription on every silent restore (never while viewing as: PAD-532)
         if (!USE_MOCK_DATA && !isViewingAs()) {
           void requestAndSubscribe(token);
@@ -78,8 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const userData = await getMe();
+      await applyUserLanguage(userData);
       setUser(userData);
-      applyUserLanguage(userData);
       // Subscribe to push after successful login
       if (!USE_MOCK_DATA) {
         void requestAndSubscribe(newToken);
@@ -93,8 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = async (): Promise<MeResponse | null> => {
     try {
       const userData = await getMe();
+      await applyUserLanguage(userData);
       setUser(userData);
-      applyUserLanguage(userData);
       return userData;
     } catch {
       return null;

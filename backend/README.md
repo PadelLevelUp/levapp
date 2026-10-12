@@ -10,9 +10,9 @@
 │   ├── __init__.py
 │   ├── auth.py, cli.py, config.py, context.py, mail.py, model.py, sql_db.py
 │   ├── models/            # SQLAlchemy models (users, players, coaches, lessons, etc.)
-│   ├── modules/           # Flask blueprints (api.py, auth.py, editor.py, main.py, startup.py)
+│   ├── modules/           # Flask blueprints (auth.py, main.py, frontend_api.py, startup.py, ...)
 │   ├── static/            # JS, SCSS/CSS, images, svg
-│   ├── templates/         # Jinja templates (auth, editor, users, macros)
+│   ├── templates/         # Jinja templates (auth, users)
 │   ├── tests/             # pytest suite
 │   └── tools/             # helpers (auth_tools, email_tools, image_tools, input_tools)
 ├── poetry.lock
@@ -61,50 +61,12 @@
 
 | GET | `/logout` | `auth.py` |
 
-| GET | `/` | `editor.py` |
-
-| GET | `/display/<model>` | `editor.py` |
-
-| GET | `/display/<model>/<id>` | `editor.py` |
-
-| GET | `/create/<model>` | `editor.py` |
-
 | GET | `/` | `main.py` |
 
 
 ## Development
 - Use a `.env` file for local config.
 - Consider adding `Flask-Migrate`/Alembic for DB migrations.
-
-## API Examples
-
-### Create User
-Example request:
-
-```bash
-curl -X POST http://127.0.0.1:5000/api/create/user \
-  -H "Content-Type: application/json" \
-  -d '{
-    "values": {
-      "user_image_id": null,
-      "name": "Alice Smith",
-      "username": "asmith",
-      "email": "alice@example.com",
-      "password": "pbkdf2:sha256:600000$demo$1234567890abcdef",
-      "is_admin": true,
-      "generated_code": 12939
-    }
-  }'
-```
-
-Example response:
-
-```json
-{"id": 8, "success": true}
-```
-
-> Note: `password` expects a pre-hashed string (e.g., Werkzeug `generate_password_hash`). Do **not** send plaintext passwords.
-
 
 ## Database & Migrations
 
