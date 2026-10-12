@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective date: October 14, 2026
+Effective date: October 13, 2026
 
 This Privacy Policy explains how Sucesso Fractal – Lda ("LevApp", "we", "us", or "our") collects, uses, shares, stores, and protects personal data when you use LevApp, including our mobile applications, websites, and related services (collectively, the "Service").
 

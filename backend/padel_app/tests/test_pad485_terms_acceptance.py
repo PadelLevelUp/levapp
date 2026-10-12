@@ -44,7 +44,7 @@ def test_an_accepted_sign_up_records_when_and_which_terms(app, client, role):
     res = client.post("/api/auth/register", json=_body(role=role, termsAccepted=True), headers=DECLARING)
 
     assert res.status_code == 201, res.get_json()
-    assert _user(app, "ana") == (NOW, "2026-10-13", "2026-10-14")
+    assert _user(app, "ana") == (NOW, "2026-10-13", "2026-10-13")
 
 
 @pytest.mark.parametrize("terms", ["absent", False, None, "true", 1])

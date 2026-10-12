@@ -43,7 +43,7 @@ stakeholder-facing legal layer, which was written without the import's data flow
 
 ### Resolution
 
-Resolved by PAD-634 (Privacy Policy v2026-10-14, text approved by the owner in the PR):
+Resolved by PAD-634 (Privacy Policy v2026-10-13, text approved by the owner in the PR):
 - §5 names OpenRouter and the model provider it routes to (Inception, `inception/mercury-2`) and
   what the import sends them; the request already asks OpenRouter for providers that do not
   collect data (`provider: {data_collection: "deny"}`, PAD-636, `helpers/llm.py`).
