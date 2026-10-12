@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck } from "lucide-react";
-import { isUnderSignupAge, legalCatchUpParts, legalCatchUpSession } from "@levelup/config";
+import {
+  LEGAL_CATCH_UP_BIRTH_DATE_KEYS,
+  legalCatchUpBody,
+  legalCatchUpErrors,
+  legalCatchUpParts,
+  legalCatchUpSession,
+} from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,13 +17,6 @@ import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
 import { acceptLegal } from "@/api/auth";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginLanding } from "@/auth/postLoginPath";
-
-/** auth.register rule 18's codes, in this screen's words. */
-const BIRTH_DATE_KEYS: Record<string, string> = {
-  BIRTH_DATE_REQUIRED: "birthDateRequired",
-  INVALID_BIRTH_DATE: "birthDateRequired",
-  UNDERAGE: "underage",
-};
 
 /**
  * PAD-637 (auth.legal-catch-up): an account completed before the Terms were recorded on every path, or
@@ -45,27 +44,24 @@ export default function LegalCatchUpPage() {
   };
 
   const save = async () => {
-    const next: typeof errors = {};
-    if (parts.terms && !termsAccepted) next.terms = t("auth.legal.termsRequiredToContinue");
-    if (parts.birthDate) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) next.birthDate = t("auth.legalCatchUp.birthDateRequired");
-      else if (isUnderSignupAge(birthDate)) next.birthDate = t("auth.legalCatchUp.underage");
-    }
-    setErrors(next);
-    if (next.terms || next.birthDate) return;
+    const codes = legalCatchUpErrors(parts, { termsAccepted, birthDateIso: birthDate || null });
+    setErrors({
+      terms: codes.terms ? t("auth.legal.termsRequiredToContinue") : undefined,
+      birthDate: codes.birthDate ? t(`auth.legalCatchUp.${codes.birthDate}`) : undefined,
+    });
+    if (codes.terms || codes.birthDate) return;
 
     setSaving(true);
     try {
-      await acceptLegal({
-        ...(parts.terms ? { termsAccepted: true } : {}),
-        ...(parts.birthDate ? { birthDate } : {}),
-      });
-      moveOn((await refreshUser()) ?? user);
+      // Route on the `me` the save answers (nothing pending any more), not on a refresh that may fail.
+      const me = await acceptLegal(legalCatchUpBody(parts, { birthDateIso: birthDate }));
+      void refreshUser();
+      moveOn(me);
     } catch (error: unknown) {
       const data = (error as { response?: { status?: number; data?: { field?: string; code?: string } } })?.response?.data;
       if (data?.field === "terms") setErrors({ terms: t("auth.legal.termsRequiredToContinue") });
       else if (data?.field === "birthDate") {
-        setErrors({ birthDate: t(`auth.legalCatchUp.${BIRTH_DATE_KEYS[data.code ?? ""] ?? "birthDateRequired"}`) });
+        setErrors({ birthDate: t(`auth.legalCatchUp.${LEGAL_CATCH_UP_BIRTH_DATE_KEYS[data.code ?? ""] ?? "birthDateRequired"}`) });
       } else setErrors({ form: t("auth.legalCatchUp.saveFailed") });
     } finally {
       setSaving(false);

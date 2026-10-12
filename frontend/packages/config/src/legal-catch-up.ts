@@ -1,3 +1,5 @@
+import { isUnderSignupAge } from "./countries";
+
 /**
  * PAD-637 (auth.legal-catch-up): the one screen an older account sees after login when it has no
  * Terms record and/or no birth date. Shared by web (`/legal-catch-up`) and iOS (`legal-catch-up`).
@@ -36,3 +38,36 @@ export const legalCatchUpSession = {
     skippedFor = null;
   },
 };
+
+/** auth.register rule 18's refusal codes, as the catch-up screen's message keys (`auth.legalCatchUp.*`). */
+export const LEGAL_CATCH_UP_BIRTH_DATE_KEYS: Record<string, "birthDateRequired" | "underage"> = {
+  BIRTH_DATE_REQUIRED: "birthDateRequired",
+  INVALID_BIRTH_DATE: "birthDateRequired",
+  UNDERAGE: "underage",
+};
+
+export type LegalCatchUpErrorCode = "termsRequired" | "birthDateRequired" | "underage";
+
+/** Rules 3 and 5: each pending part is required; under 18 is refused before anything is sent.
+ * `birthDateIso` is `YYYY-MM-DD`, or null when what was typed is not a real date. */
+export function legalCatchUpErrors(
+  pending: LegalPending,
+  input: { termsAccepted: boolean; birthDateIso: string | null }
+): Partial<Record<"terms" | "birthDate", LegalCatchUpErrorCode>> {
+  const errors: Partial<Record<"terms" | "birthDate", LegalCatchUpErrorCode>> = {};
+  if (pending.terms && !input.termsAccepted) errors.terms = "termsRequired";
+  if (pending.birthDate) {
+    const iso = input.birthDateIso;
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) errors.birthDate = "birthDateRequired";
+    else if (isUnderSignupAge(iso)) errors.birthDate = "underage";
+  }
+  return errors;
+}
+
+/** Rule 3: the body sends only what is pending. */
+export function legalCatchUpBody(pending: LegalPending, input: { birthDateIso: string | null }) {
+  return {
+    ...(pending.terms ? { termsAccepted: true } : {}),
+    ...(pending.birthDate ? { birthDate: input.birthDateIso ?? "" } : {}),
+  };
+}

@@ -244,8 +244,9 @@ export function coachInviteAcceptPayload(values: Record<string, string>) {
     password: values.password,
     birthDate: toIso(values.birthDate) ?? "",
     country: values.country,
-    // PAD-637 (clubs.coach-invitation rule 8b): the Terms box.
-    termsAccepted: values.terms === "true",
+    // PAD-637 (clubs.coach-invitation rule 8b): the screen sends only once the box is ticked, as the
+    // player-invite and activation screens do.
+    termsAccepted: true,
   };
 }
 

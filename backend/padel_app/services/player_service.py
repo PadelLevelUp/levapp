@@ -469,7 +469,6 @@ def get_player_profile(coach, player_id):
     }
 
 
-@transactional
 def require_adults_confirmation(data):
     """PAD-642 (players.create rule 10, import.confirm rule 5; owner decision 2026-10-12, "forbid
     under-18"): a client declaring `adult-roster-confirmation` sends the coach's `confirmsAdults: true`
@@ -487,6 +486,7 @@ def require_adults_confirmation(data):
         }), 400))
 
 
+@transactional
 def add_player_service(data):
     """Builds the full player creation payload and delegates to create_player_helper.
 

@@ -441,7 +441,6 @@
       "selectPlayerHint": "Os detalhes aparecem aqui, ao lado da lista.",
       "levelChip": "Nível {{code}}"
     },
-    "confirmsAdults": "Confirmo que este aluno tem 18 anos ou mais.",
-    "confirmsAdultsRequired": "Confirma que o aluno tem 18 anos ou mais."
+    "confirmsAdults": "Confirmo que este aluno tem 18 anos ou mais."
   }
 }

@@ -1,5 +1,5 @@
 import { authApi } from "@levelup/api";
-import { legalCatchUpParts, legalCatchUpSession } from "@levelup/config";
+import { LEGAL_CATCH_UP_BIRTH_DATE_KEYS, legalCatchUpParts, legalCatchUpSession } from "@levelup/config";
 import { Redirect, router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -15,13 +15,6 @@ import { PreAuthShell } from "@/features/auth/AccountSetupScreen";
 import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import { legalCatchUpBody, legalCatchUpErrors } from "@/features/auth/legal-catch-up";
 import { formatBirthInput } from "@/features/auth/signup-form";
-
-/** auth.register rule 18's codes, in this screen's words. */
-const BIRTH_DATE_KEYS: Record<string, string> = {
-  BIRTH_DATE_REQUIRED: "birthDateRequired",
-  INVALID_BIRTH_DATE: "birthDateRequired",
-  UNDERAGE: "underage",
-};
 
 /**
  * PAD-637 (auth.legal-catch-up): an older account is asked once per session for the Terms and/or a birth
@@ -59,13 +52,15 @@ export default function LegalCatchUpScreen() {
     setErrors({});
     setSaving(true);
     try {
-      await authApi.acceptLegal(legalCatchUpBody(parts, { termsAccepted, birthDate }));
-      moveOn((await refreshUser()) ?? user);
+      // Route on the `me` the save answers (nothing pending any more), not on a refresh that may fail.
+      const me = await authApi.acceptLegal(legalCatchUpBody(parts, { termsAccepted, birthDate }));
+      void refreshUser();
+      moveOn(me);
     } catch (error) {
       const data = (error as { response?: { data?: { field?: string; code?: string } } })?.response?.data;
       if (data?.field === "terms") setErrors({ terms: t("auth.legal.termsRequiredToContinue") });
       else if (data?.field === "birthDate") {
-        setErrors({ birthDate: t(`auth.legalCatchUp.${BIRTH_DATE_KEYS[data.code ?? ""] ?? "birthDateRequired"}`) });
+        setErrors({ birthDate: t(`auth.legalCatchUp.${LEGAL_CATCH_UP_BIRTH_DATE_KEYS[data.code ?? ""] ?? "birthDateRequired"}`) });
       } else setErrors({ form: t("auth.legalCatchUp.saveFailed") });
     } finally {
       setSaving(false);

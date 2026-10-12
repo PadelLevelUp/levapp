@@ -441,7 +441,6 @@
       "selectPlayerHint": "Their details open here, next to the list.",
       "levelChip": "Level {{code}}"
     },
-    "confirmsAdults": "I confirm this student is 18 or older.",
-    "confirmsAdultsRequired": "Confirm the student is 18 or older."
+    "confirmsAdults": "I confirm this student is 18 or older."
   }
 }
