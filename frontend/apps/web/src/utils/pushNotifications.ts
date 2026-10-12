@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/api/base";
 // Audit findings (Phase 1):
 // - Messaging updates currently arrive via SSE while the app is open.
 // - Auth token is stored in localStorage and sent as Bearer on API requests.
@@ -5,7 +6,7 @@
 const SW_PATH = "/sw.js";
 
 export async function fetchVapidPublicKey(): Promise<string> {
-  const response = await fetch("/api/notifications/vapid-public-key");
+  const response = await fetch(`${API_BASE_URL}/notifications/vapid-public-key`);
   if (!response.ok) {
     throw new Error("Failed to load VAPID public key");
   }
@@ -46,7 +47,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
     applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
   });
 
-  const response = await fetch("/api/notifications/save-subscription", {
+  const response = await fetch(`${API_BASE_URL}/notifications/save-subscription`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -99,7 +100,7 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
     await subscription.unsubscribe();
   }
 
-  const response = await fetch("/api/notifications/unsubscribe", {
+  const response = await fetch(`${API_BASE_URL}/notifications/unsubscribe`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

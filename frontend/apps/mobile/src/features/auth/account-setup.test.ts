@@ -125,6 +125,8 @@ const validPlayer = {
   repeatPassword: "Nina123!",
   // PAD-457: both invitations create a login, so they ask for an adult birth date too.
   birthDate: "01/01/1990",
+  // PAD-604: the country is required, default PT.
+  country: "PT",
 };
 
 // PAD-477: the coach invite form asks for an email (clubs.coach-invitation rule 9).
@@ -139,6 +141,8 @@ const validRegister = {
   repeatPassword: "Nina123!",
   // PAD-457 (auth.activate rule 13): activation asks for the birth date, typed DD/MM/AAAA.
   birthDate: "01/01/1990",
+  // PAD-604: the country is required, default PT.
+  country: "PT",
 };
 
 describe("validateAccountForm — player invite", () => {
@@ -197,6 +201,7 @@ describe("validateAccountForm — coach invite", () => {
         password: "x",
         repeatPassword: "y",
         birthDate: "01/01/1990",
+        country: "PT",
       })
     ).toEqual({
       name: "nameMin",
@@ -475,6 +480,7 @@ describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9
     password: "Secret123!",
     repeatPassword: "Secret123!",
     birthDate: "01/01/1990",
+    country: "PT",
   };
 
   it("the form requires a valid email", () => {
@@ -490,6 +496,7 @@ describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9
       email: "Rita@Example.com",
       password: "Secret123!",
       birthDate: "1990-01-01",
+      country: "PT",
     });
   });
 
@@ -508,5 +515,13 @@ describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9
     );
     expect(coachInviteLanding(me("verified"))).toBe("/(tabs)/dashboard");
     expect(coachInviteLanding(null)).toBe("/(tabs)/dashboard");
+  });
+});
+
+describe("the country is required on all three forms (PAD-604)", () => {
+  it("refuses an empty country on the field", () => {
+    expect(validateAccountForm(playerInviteSchema, { ...validPlayer, country: "" })).toEqual({ country: "countryRequired" });
+    expect(validateAccountForm(coachInviteSchema, { ...validCoach, country: "" })).toEqual({ country: "countryRequired" });
+    expect(validateAccountForm(registerSchema, { ...validRegister, country: "" })).toEqual({ country: "countryRequired" });
   });
 });

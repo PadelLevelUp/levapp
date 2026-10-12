@@ -1,6 +1,4 @@
-from flask import url_for
 from sqlalchemy import Column, ForeignKey, Integer, String
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from padel_app import model
@@ -11,7 +9,6 @@ from padel_app.tools.input_tools import Block, Field, Form
 class Backend_App(db.Model, model.Model):
     __tablename__ = "backend_app"
     __table_args__ = {"extend_existing": True}
-    page_title = "Backend Apps"
     model_name = "Backend_App"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -21,76 +18,6 @@ class Backend_App(db.Model, model.Model):
 
     image_id = Column(Integer, ForeignKey("images.id", ondelete="SET NULL"))
     image = relationship("Image", foreign_keys=[image_id])
-
-    FIELD_DESCRIPTIONS = {
-        "id": "Primary key (auto-generated).",
-        "name": "Human-friendly app name. Must be unique.",
-        "app_model_name": "Model key used by the editor and API routes (choose from available models). Must be unique.",
-        "color": "Optional HEX color for UI accents (e.g., #1173d4).",
-        "image_id": "Optional image reference used as the app icon.",
-    }
-
-    @staticmethod
-    def create_example():
-        """
-        Return a minimal, valid example for POST /api/create/backend_app
-        Only include user-supplied fields; omit auto-set fields.
-        """
-        return {
-            "values": {
-                "app_model_name": "match",
-                "name": "Matches",
-                "color": "#1173d4",
-                "image_id": 123,
-            }
-        }
-
-    @staticmethod
-    def edit_example():
-        """
-        Return a minimal, valid example for POST /api/edit/backend_app/<id>
-        Provide a plausible id and the fields typically edited.
-        """
-        return {
-            "id": 1,
-            "values": {
-                "name": "Matches (updated)",
-                "image_id": 124,
-            },
-            "methods": [],
-        }
-
-    @hybrid_property
-    def style(self):
-        return f"style=background-color:{self.color}"
-
-    @hybrid_property
-    def url(self):
-        try:
-            return url_for("editor.display_all", model=self.app_model_name)
-        except Exception:
-            return "/editor/display"
-
-    @property
-    def image_object_key(self):
-        return (
-            self.image.object_key
-            if self.image
-            else "images/Backend_App/default_app_image.png"
-        )
-
-    @property
-    def image_url(self):
-        return self.image.url() if self.image else None
-
-    def display_all_info(self):
-        searchable_column = {"field": "name", "label": "Nome"}
-        table_columns = [
-            {"field": "id", "label": "Numero"},
-            searchable_column,
-            {"field": "app_image", "label": "App Image"},
-        ]
-        return searchable_column, table_columns
 
     def get_create_form(self):
         def get_field(
@@ -127,7 +54,11 @@ class Backend_App(db.Model, model.Model):
                 label="Name of Model",
                 type="Select",
                 required=True,
-                options=self.get_model_names(),
+                options=[
+                    obj.model_name
+                    for obj in db.Model.__subclasses__()
+                    if hasattr(obj, "model_name")
+                ],
             ),
             get_field(name="name", label="Nome", type="Text", required=True),
             get_field(name="color", label="Cor", type="Color"),

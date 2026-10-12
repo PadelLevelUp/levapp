@@ -57,73 +57,7 @@ from .digital_consent_age import DigitalConsentAge
 from .app_setting import AppSetting
 from .guardian_consent import GuardianConsent
 # admin.foundation (PAD-531): console roles and the append-only audit log. Imported
-# so create_all and Alembic see them; deliberately NOT in MODELS — the generic
-# editor is retired (PAD-532) and staff tables never go through it.
+# so create_all and Alembic see them.
 from .admin_role import AdminRole
 from .delivery_incident import DeliveryIncident
 from .admin_audit_log import AdminAuditLog
-
-MODELS = {
-    # NOTE: TokenBlocklist is deliberately excluded — it's internal JWT
-    # revocation plumbing (plain db.Model, no editor Model mixin), never
-    # meant to be exposed via the generic admin editor. Registering it here
-    # caused a 500 on GET /api/editor/tokenblocklist/schema because it has
-    # no get_create_form().
-    "backend_app": Backend_App,
-    "club": Club,
-    "court": Court,
-    "coachlevel": CoachLevel,
-    "coach": Coach,
-    "lessoninstance": LessonInstance,
-    "lesson": Lesson,
-    "message": Message,
-    "messagereaction": MessageReaction,
-    "messagereport": MessageReport,
-    "blockeduser": BlockedUser,
-    "pushsubscription": PushSubscription,
-    "devicetoken": DeviceToken,
-    "playerlevelhistory": PlayerLevelHistory,
-    "player": Player,
-    "user": User,
-    "presence": Presence,
-    "reminderattempt": ReminderAttempt,
-    "deletionaudit": DeletionAudit,
-    "calendarblock": CalendarBlock,
-    "conversation": Conversation,
-    "coachplayernote": CoachPlayerNote,
-    "coachinvitation": CoachInvitation,
-    "clubjoinrequest": ClubJoinRequest,
-    "playerinvitation": PlayerInvitation,
-    "coachjointoken": CoachJoinToken,
-    "playerclaimrequest": PlayerClaimRequest,
-    "playermerge": PlayerMerge,
-    "evaluationcategory": EvaluationCategory,
-    "evaluationentry": EvaluationEntry,
-    "evaluationrecord": EvaluationRecord,
-    "coachseason": CoachSeason,
-    "exercise": Exercise,
-    "exercisegroup": ExerciseGroup,
-    "conversationparticipant": ConversationParticipant,
-    "association_coachclub": Association_CoachClub,
-    "association_coachlesson": Association_CoachLesson,
-    "association_coachlessoninstance": Association_CoachLessonInstance,
-    "association_coachplayer": Association_CoachPlayer,
-    "association_playerclub": Association_PlayerClub,
-    "association_playerlesson": Association_PlayerLesson,
-    "association_coachexercise": Association_CoachExercise,
-    "association_coachexercisegroup": Association_CoachExerciseGroup,
-    # NOTE: LessonInstanceTraining is deliberately excluded (PAD-280, B-052), for
-    # the same reason as TokenBlocklist: it is a plain association table (no
-    # editor Model mixin, a composite key and no `id`), so the editor's schema
-    # and list routes both 500'd on it. Keys are the lowercased class name —
-    # the legacy editor and api.py look models up by `model_name.lower()`.
-    "notificationconfig": NotificationConfig,
-    "notificationevent": NotificationEvent,
-    "replacementapprovalprompt": ReplacementApprovalPrompt,
-    "vacancy": Vacancy,
-    "waitinglistentry": WaitingListEntry,
-    "standingwaitinglistentry": StandingWaitingListEntry,
-    "bulkimport": BulkImport,
-    "classrequest": ClassRequest,
-    "classjoinrequest": ClassJoinRequest,
-}

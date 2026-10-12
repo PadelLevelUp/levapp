@@ -17,6 +17,9 @@ they have behaviour worth specifying.
 - `delivery.zero-downtime-deploy` — implementing (PAD-588: one scheduler leader by advisory lock,
   reschedule off the boot path; start-before-stop rollout behind a two-port nginx upstream)
 
+- `delivery.api-host` — implementing (PAD-614: the API on `api.levapp.app` with the same paths;
+  listed web origins get CORS; the web build's API base is a repository variable, `/api` by default)
+
 ## Why it's grouped this way
 
 These leaves describe the delivery pipeline, not the product. They sit in their own domain so a

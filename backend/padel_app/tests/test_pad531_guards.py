@@ -18,9 +18,6 @@ FRONTEND = BACKEND.parent / "frontend"
 IS_SUPERADMIN_READERS = {
     "models/users.py",
     "modules/api_auth.py",
-    "modules/editor_api.py",
-    "modules/api.py",
-    "modules/editor.py",
     "modules/frontend_api.py",
     "services/request_alert_service.py",
     "services/user_service.py",

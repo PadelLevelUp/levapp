@@ -41,6 +41,8 @@ export async function activateAccount(payload: {
     password: string;
     /** PAD-457 (auth.activate rule 13): `YYYY-MM-DD`, required; under 18 is refused. */
     birthDate?: string;
+    /** PAD-604: ISO 3166-1 alpha-2, required by clients that declare `country-on-completion`. */
+    country?: string;
   };
 }): Promise<{ success: boolean }> {
   const res = await getApi().post(

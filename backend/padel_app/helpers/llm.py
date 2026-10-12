@@ -86,7 +86,12 @@ def call_llm(
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "extra_body": {"reasoning": {"enabled": _REASONING}},
+        "extra_body": {
+            "reasoning": {"enabled": _REASONING},
+            # import.analyze rule 6a (PAD-636): only to a provider that neither trains on nor
+            # retains prompts; with none available the request fails instead of falling back.
+            "provider": {"data_collection": "deny"},
+        },
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}

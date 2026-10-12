@@ -77,16 +77,6 @@ class Field:
             "Password": self.set_password_value,
         }
 
-    def get_field_dict(self):
-        return {
-            "type": self.type,
-            "label": self.label,
-            "name": self.name,
-            "options": self.options if self.options else None,
-            "required": self.required if self.required else False,
-            "related_model": self.related_model if self.related_model else None,
-        }
-
     def set_picture_value(self, request):
         fs_list = request.files.getlist(self.name)
         fs = fs_list[0] if fs_list else None
@@ -228,12 +218,6 @@ class Block:
         self.fields = fields
         self.name = name
 
-    def get_block_dict(self):
-        return {
-            "name": self.name,
-            "fields": self.fields,
-        }
-
 
 class Tab:
     def __init__(self, title, fields, orientation="vertical"):
@@ -246,13 +230,6 @@ class Tab:
         self.title = title
         self.fields = fields
         self.orientation = orientation
-
-    def get_tab_dict(self):
-        return {
-            "title": self.title,
-            "fields": self.fields,
-            "orientation": self.orientation,
-        }
 
 
 class Form:
@@ -279,12 +256,6 @@ class Form:
         self.tabs.append(tab)
         for field in tab.fields:
             self.fields.append(field)
-
-    def get_form_dict(self):
-        return {
-            "main": self.blocks,
-            "tabs": self.tabs,
-        }
 
     def set_values(self, request):
         if getattr(request, "mode", "legacy") == "present":

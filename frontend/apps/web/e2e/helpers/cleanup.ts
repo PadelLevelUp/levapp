@@ -13,7 +13,7 @@
  *   deletes the lesson; `ClassRequest.lesson_id` is `SET NULL`, so the request
  *   stays `accepted` forever and every later "exactly one accepted row" count
  *   is off by one. No class-requests route closes an accepted request, so the
- *   superadmin editor's DELETE (the seeded coach is superadmin) is the only way.
+ *   E2E-only cleanup route (E2E_DEBUG_ENDPOINTS) is the only way.
  * - **Removing a materialised one-off class takes two passes.** A class the
  *   student cancelled has a `LessonInstance`; `remove_class` on it deletes the
  *   instance and leaves the non-recurring `Lesson`, which re-projects itself on
@@ -83,7 +83,7 @@ export async function deleteClassRequests(
   ids: Array<string | number>
 ): Promise<void> {
   for (const id of ids.filter((i) => String(i) !== "")) {
-    const res = await request.delete(`${API_ROOT}/editor/classrequest/${id}`, { headers: coachAuth });
+    const res = await request.delete(`${API_ROOT}/app/notify/debug/rows/classrequest/${id}`, { headers: coachAuth });
     expect.soft([200, 404], `delete class request ${id}: ${res.status()}`).toContain(res.status());
   }
 }
@@ -91,7 +91,7 @@ export async function deleteClassRequests(
 
 /**
  * Withdraw class requests as the student who sent them, so their calendar hold
- * is released. Since PAD-360 an editor delete releases the hold too
+ * is released. Since PAD-360 an ORM delete of the request releases the hold too
  * (classes.class-requests rule 18), so this is no longer what keeps the
  * coach's calendar clean; it is kept because it is harmless and exercises the
  * product path. A request already closed answers 4xx, which is fine here.
@@ -107,35 +107,35 @@ export async function withdrawClassRequests(
   }
 }
 
-/** Every id of an editor model — a snapshot taken before a spec creates rows it cannot address by id. */
-export async function editorIds(request: APIRequestContext, coachAuth: Auth, model: string): Promise<Set<number>> {
-  const ids = new Set<number>();
-  for (let page = 1; ; page++) {
-    const res = await request.get(`${API_ROOT}/editor/${model}?page=${page}`, { headers: coachAuth });
-    expect(res.ok(), `editor list ${model}: ${res.status()}`).toBeTruthy();
-    const body = (await res.json()) as { items: Array<{ id: number }>; pages: number };
-    body.items.forEach((row) => ids.add(row.id));
-    if (page >= body.pages) return ids;
-  }
+/**
+ * Every id of a cleanup model — a snapshot taken before a spec creates rows it cannot address by
+ * id. PAD-550: the E2E-only cleanup route (E2E_DEBUG_ENDPOINTS) replaced the retired /api/editor;
+ * it serves a fixed allow-list (classrequest, classjoinrequest, club, message, waitinglistentry).
+ */
+export async function cleanupRowIds(request: APIRequestContext, coachAuth: Auth, model: string): Promise<Set<number>> {
+  const res = await request.get(`${API_ROOT}/app/notify/debug/rows/${model}`, { headers: coachAuth });
+  expect(res.ok(), `cleanup list ${model}: ${res.status()}`).toBeTruthy();
+  const body = (await res.json()) as { ids: number[] };
+  return new Set(body.ids);
 }
 
 /** Delete the rows of `model` that did not exist in the `before` snapshot. */
-export async function deleteNewEditorRows(
+export async function deleteNewCleanupRows(
   request: APIRequestContext,
   coachAuth: Auth,
   model: string,
   before: Set<number>
 ): Promise<void> {
-  for (const id of await editorIds(request, coachAuth, model)) {
+  for (const id of await cleanupRowIds(request, coachAuth, model)) {
     if (before.has(id)) continue;
-    const res = await request.delete(`${API_ROOT}/editor/${model}/${id}`, { headers: coachAuth });
+    const res = await request.delete(`${API_ROOT}/app/notify/debug/rows/${model}/${id}`, { headers: coachAuth });
     expect.soft(res.ok(), `delete ${model} ${id}: ${res.status()}`).toBeTruthy();
   }
 }
 
 /**
  * PAD-358: delete join requests (`classes.join-requests`) — a different table from
- * `deleteClassRequests`' class requests, with its own editor model. Same rules: the
+ * `deleteClassRequests`' class requests, with its own cleanup model. Same rules: the
  * seeded (superadmin) coach, ids the spec itself created.
  */
 export async function deleteClassJoinRequests(
@@ -144,7 +144,7 @@ export async function deleteClassJoinRequests(
   ids: Array<string | number>
 ): Promise<void> {
   for (const id of ids.filter((i) => String(i) !== "")) {
-    const res = await request.delete(`${API_ROOT}/editor/classjoinrequest/${id}`, { headers: coachAuth });
+    const res = await request.delete(`${API_ROOT}/app/notify/debug/rows/classjoinrequest/${id}`, { headers: coachAuth });
     expect.soft([200, 404], `delete class join request ${id}: ${res.status()}`).toContain(res.status());
   }
 }
