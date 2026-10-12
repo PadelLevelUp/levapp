@@ -8,6 +8,10 @@ governed_by: []
 
 # settings.admin-editor
 
+> **Deprecated (PAD-550, 2026-10-11): the code is deleted.** The three blueprints, `EDITOR_ENABLED`,
+> the `MODELS` registry, the editor templates and helpers are gone; rule 3's redaction list now lives
+> in `admin.approvals-and-users` rule 5. Kept as the record of what was removed.
+>
 > **Retired (owner decision 2026-10-07, PAD-532).** The `/editor` page, its API and the legacy Jinja
 > editor are removed from the product together with Settings → Admin. Routine operations move to
 > the staff console (`admin.*`, PAD-530); there is no replacement data browser. The rules below stay

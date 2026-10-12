@@ -19,7 +19,6 @@ class EvaluationCategory(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Evaluation Categories"
     model_name = "EvaluationCategory"
 
     id = Column(Integer, primary_key=True)
@@ -73,17 +72,6 @@ class EvaluationCategory(db.Model, model.Model):
 
     def __str__(self):
         return f"{self.coach.name} - {self.name}"
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Category"}
-        columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "name", "label": "Category"},
-            {"field": "scale_min", "label": "Scale Min"},
-            {"field": "scale_max", "label": "Scale Max"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

@@ -1,15 +1,11 @@
 import { getApi } from "../client";
 
 export type MeResponse = {
-  /**
-   * PAD-198 (retired, PAD-457): "granted" once a guardian consented; null
-   * otherwise. Nothing reads it (the App Store builds never did); /me still
-   * emits it until the guardian columns are dropped in a later, checked
-   * migration. No new "granted" value is produced anymore.
-   */
-  guardianConsent?: "granted" | null;
   birthDate?: string | null;
   country?: string | null;
+  /** PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for. Absent from a server
+   * that predates it, which a client treats as nothing pending. */
+  legalPending?: { terms: boolean; birthDate: boolean };
   id: number;
   username: string;
   name: string;
@@ -119,6 +115,10 @@ export type UpdateMePayload = {
   abbreviation?: string;
   email?: string;
   phone?: string;
+  /** PAD-630: ISO 3166-1 alpha-2; the server upper-cases it and answers 400 for anything else. */
+  country?: string;
+  /** PAD-640 (settings.profile rule 10): YYYY-MM-DD; under 18 is 400 UNDERAGE, never cleared. */
+  birthDate?: string;
   /** PAD-112 — see MeResponse. Sending `false` clears the flag. */
   blockAutoInvitations?: boolean;
   blockManualInvitations?: boolean;
@@ -130,6 +130,13 @@ export type UpdateMePayload = {
 
 export async function getMe(): Promise<MeResponse> {
   const res = await getApi().get("/auth/me");
+  return res.data;
+}
+
+/** PAD-637 (auth.legal-catch-up rule 3): accept the Terms and/or give the birth date that is pending.
+ * Each pending part is required; answers the new `me`. */
+export async function acceptLegal(payload: { termsAccepted?: boolean; birthDate?: string }): Promise<MeResponse> {
+  const res = await getApi().post("/auth/me/legal", payload);
   return res.data;
 }
 
@@ -226,5 +233,58 @@ export async function reapplyCoachApproval(payload: { username: string; password
   user: { id: number; name: string; role: "coach" | "player" };
 }> {
   const res = await getApi().post("/auth/coach-approval/reapply", payload);
+  return res.data;
+}
+
+// ── auth.social-sign-in (PAD-618) ───────────────────────────────────────────
+
+export type SocialLoginResponse = {
+  accessToken: string;
+  user: { id: number; name: string; role: "coach" | "player"; emailVerification?: EmailVerificationState };
+};
+
+/** Rule 2c: no account yet — complete sign-up with the ticket. Nothing is written until then. */
+export type SocialNeedsProfileResponse = {
+  needsProfile: true;
+  signupTicket: string;
+  name: string;
+  email: string;
+};
+
+export type SocialSignInResponse = SocialLoginResponse | SocialNeedsProfileResponse;
+
+export type SocialSignInPayload = {
+  provider: "google" | "apple";
+  idToken: string;
+  /** Apple only: the raw nonce whose SHA-256 the token carries. */
+  nonce?: string;
+};
+
+export type CompleteSocialSignUpPayload = {
+  signupTicket: string;
+  role: "coach" | "student";
+  /** YYYY-MM-DD. */
+  birthDate: string;
+  /** ISO 3166-1 alpha-2. */
+  country: string;
+  termsAccepted: true;
+};
+
+/**
+ * Rule 1: exchange a provider ID token for a session. Answers the login body, or
+ * `needsProfile`. 401 `INVALID_PROVIDER_TOKEN`, 503 `PROVIDER_NOT_CONFIGURED`, and the
+ * login refusals (403 COACH_REJECTED, 401 ACCOUNT_DISABLED) come back on `response.data`.
+ */
+export async function socialSignIn(payload: SocialSignInPayload): Promise<SocialSignInResponse> {
+  const res = await getApi().post("/auth/social", payload);
+  return res.data;
+}
+
+/**
+ * Rule 4: finish a new account. 200 answers with the login body; 400 `{error, field, code?}`
+ * (field role|birthDate|country|terms), 401 `INVALID_SIGNUP_TICKET`, 409 `ALREADY_COMPLETED` / email.
+ */
+export async function completeSocialSignUp(payload: CompleteSocialSignUpPayload): Promise<SocialLoginResponse> {
+  const res = await getApi().post("/auth/social/complete", payload);
   return res.data;
 }

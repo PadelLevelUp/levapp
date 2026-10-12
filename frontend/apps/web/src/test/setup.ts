@@ -28,3 +28,17 @@ const jsdomMatches = Element.prototype.matches;
 Element.prototype.matches = function matches(this: Element, selector: string): boolean {
   return TOP_LAYER_PSEUDO_CLASSES.has(selector) ? false : jsdomMatches.call(this, selector);
 };
+
+/**
+ * PAD-637: Radix's checkbox measures itself, and jsdom has no ResizeObserver. Sign-up's test stubbed it
+ * locally; the Terms box is now on four more forms, so every test gets an inert one (a test that needs
+ * its own may still replace it).
+ */
+if (typeof window.ResizeObserver === "undefined") {
+  class InertResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (window as unknown as { ResizeObserver: typeof InertResizeObserver }).ResizeObserver = InertResizeObserver;
+}

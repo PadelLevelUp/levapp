@@ -11,6 +11,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_tok
 
 from padel_app.utils.dates import club_now_naive
 from padel_app.models import *
+from padel_app.models import User
 from padel_app.realtime import STOP, stream_count, try_subscribe, unsubscribe
 from padel_app.serializers.calendar_event import serialize_calendar_event
 from padel_app.serializers.lesson import (
@@ -43,6 +44,8 @@ from padel_app.helpers.calendar_helpers import (
     load_lessons_for_player,
     load_lesson_instances_for_player,
     load_open_spot_events_for_player,
+    annotate_own_relations,
+    load_relation_events_for_player,
     build_lesson_events,
     load_calendar_blocks_for_user,
     build_block_events,
@@ -58,6 +61,7 @@ from padel_app.services.lesson_service import (
     remove_class_service,
 )
 from padel_app.services.player_service import (
+    require_adults_confirmation,
     get_players_list,
     get_player_profile,
     add_player_service,
@@ -680,17 +684,30 @@ def calendar():
         # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
         # that declares it understands them. App Store 1.0/1.1.0 would draw an
         # open spot as the student's own booking.
-        from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+        from padel_app.utils.client_capabilities import OPEN_SPOTS, STUDENT_RELATIONS, client_declares
 
         open_spots = (
             load_open_spot_events_for_player(player.id, range_start, range_end)
             if client_declares(OPEN_SPOTS)
             else []
         )
+        # PAD-611 (calendar.view rule 22): invited and waiting occurrences, only for a client that
+        # declares it understands them — App Store 1.3.0 would draw them as bookings. They take
+        # precedence over an open spot for the same occurrence.
+        relation_events = (
+            load_relation_events_for_player(player.id, range_start, range_end)
+            if client_declares(STUDENT_RELATIONS)
+            else []
+        )
+        if relation_events:
+            taken = {e["id"] for e in relation_events}
+            open_spots = [e for e in open_spots if e["id"] not in taken] + relation_events
     else:
         abort(403, "User has no coach or player profile")
 
     lesson_events = build_lesson_events(lessons, instances_by_key, range_start, range_end)
+    if player is not None and coach is None:
+        annotate_own_relations(lesson_events, player.id)  # PAD-611: harmless to an old client
     blocks = load_calendar_blocks_for_user(user.id, range_start, range_end)
     block_events = build_block_events(blocks, range_start, range_end)
 
@@ -2293,6 +2310,7 @@ def create_incomplete_player():
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
     require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
+    require_adults_confirmation(data)  # players.create rule 10 (PAD-642)
     data["coachId"] = coach.id
     invitation = create_incomplete_player_service(data)
     return jsonify({
@@ -2724,7 +2742,8 @@ def check_field_available():
     if not value:
         return jsonify({"available": True})
 
-    ModelClass = MODELS[model_key]
+    # Both check tables above only name "user".
+    ModelClass = {"user": User}[model_key]
     column = getattr(ModelClass, field)
 
     if is_unique:
@@ -2774,6 +2793,7 @@ def add_player():
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
     require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
+    require_adults_confirmation(data)  # players.create rule 10 (PAD-642)
     data["coachId"] = coach.id
     coach_player_info = add_player_service(data)
     return jsonify(coach_player_info)
@@ -3060,6 +3080,8 @@ def import_confirm():
     coach = require_coach()
     club = require_club()
     data = request.get_json() or {}
+    if data.get("Players"):
+        require_adults_confirmation(data)  # import.confirm rule 9 (PAD-642)
 
     final = {}
     for ev in _run_import_confirm(data, coach, club):
@@ -3085,6 +3107,8 @@ def import_confirm_stream():
     coach = require_coach()
     club = require_club()
     data = request.get_json() or {}
+    if data.get("Players"):
+        require_adults_confirmation(data)  # import.confirm rule 9, refused before the first event
 
     def gen():
         # Initial keepalive comment flushes headers immediately.

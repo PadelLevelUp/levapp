@@ -11,7 +11,6 @@ class CoachPlayerNote(db.Model, model.Model):
     __tablename__ = "coach_player_notes"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Coach Player Notes"
     model_name = "CoachPlayerNote"
 
     id = Column(Integer, primary_key=True)
@@ -38,16 +37,6 @@ class CoachPlayerNote(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "text", "label": "Note"}
-        columns = [
-            {"field": "coach_player", "label": "Coach ↔ Player"},
-            {"field": "type", "label": "Type"},
-            {"field": "text", "label": "Note"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme, validationTier } from "@levelup/config";
-import { isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
+import { answerResync, isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
+import { CountryPrompt } from "@/features/auth/country-prompt";
 import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
 import { useAppBadgeSync } from "@/hooks/useAppBadgeSync";
@@ -73,6 +74,10 @@ export default function TabsLayout() {
   useAppEvents(
     React.useCallback(
       (evt) => {
+        // messaging.sse-realtime rule 18 (PAD-616): the stream re-opened after a drop (a network
+        // blip, a return from the background, a deploy) — anything published meanwhile never
+        // arrived, so every live query is invalidated. The hub throttles resyncs.
+        if (answerResync(evt, queryClient)) return;
         if (evt.type.startsWith("message_")) {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.unreadCount,
@@ -148,6 +153,7 @@ export default function TabsLayout() {
   const isCoach = user?.roles?.includes("coach") ?? false;
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: lightTheme.sidebarBackground },
@@ -286,5 +292,8 @@ export default function TabsLayout() {
       {/* No Settings tab: the screen lives at `app/settings.tsx`, outside this
           group, and is pushed from the header avatar above (PAD-193). */}
     </Tabs>
+    {/* PAD-630 (auth.login rule 13): an account with no country is asked once, over any tab. */}
+    <CountryPrompt />
+    </>
   );
 }

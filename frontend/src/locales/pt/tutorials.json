@@ -153,6 +153,9 @@
       "levelAbove": "{{n}} acima",
       "levelUnknown": "nível desconhecido",
       "justifiedMisses": "faltas justificadas {{pct}}%",
+      "makeupsOwed_zero": "nenhuma aula por repor",
+      "makeupsOwed_one": "{{count}} aula por repor",
+      "makeupsOwed_other": "{{count}} aulas por repor",
       "attendance": "assiduidade {{pct}}%",
       "playingSide": {
         "exact": "lado certo",

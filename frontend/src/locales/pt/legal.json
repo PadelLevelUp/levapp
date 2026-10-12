@@ -6,6 +6,26 @@
     "terms": "Termos de Serviço",
     "privacy": "Política de Privacidade",
     "backToSignIn": "Voltar ao início de sessão",
-    "portugueseInPreparation": "Versão portuguesa em preparação — prevalece a versão inglesa."
+    "portugueseInPreparation": "Versão portuguesa em preparação — prevalece a versão inglesa.",
+    "deleteAccount": {
+      "title": "Eliminar a tua conta LevApp",
+      "intro": "Podes eliminar a tua conta LevApp a qualquer momento. A eliminação é permanente e não pode ser anulada.",
+      "inAppHeading": "Na app",
+      "inAppSteps": "Abre Definições → Conta → Eliminar conta e confirma. A conta é eliminada de imediato e terminas sessão em todos os dispositivos.",
+      "emailHeading": "Sem a app",
+      "emailBefore": "Envia um email para",
+      "emailAfter": "a partir do endereço da tua conta, ou indica-nos o nome de utilizador da conta. Confirmamos por email e eliminamos a conta no prazo de 30 dias.",
+      "deletedHeading": "O que é eliminado",
+      "deletedIdentity": "O teu nome, email, telefone, nome de utilizador e palavra-passe.",
+      "deletedDetails": "A tua data de nascimento, país e foto de perfil.",
+      "deletedSessions": "A tua sessão em todos os dispositivos e os teus registos para notificações.",
+      "deletedClasses": "O teu lugar em todas as aulas futuras e listas de espera.",
+      "deletedCrm": "No caso de treinadores, o teu contacto nos nossos registos de clientes.",
+      "keptHeading": "O que fica",
+      "keptCoachRecords": "O registo do teu treinador das aulas que já fizeste — presenças, avaliações e notas — e as mensagens que enviaste, com o nome \"Deleted user\".",
+      "keptBackups": "Cópias em backups, durante um período limitado, até serem substituídas.",
+      "keptLegal": "O que a lei nos obriga a guardar, ou o que precisamos por segurança ou para declarar, exercer ou defender direitos em processos legais.",
+      "moreBefore": "Mais detalhes na secção 10 da nossa"
+    }
   }
 }

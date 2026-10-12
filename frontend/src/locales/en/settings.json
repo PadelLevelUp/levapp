@@ -45,6 +45,9 @@
       "loggedOutDescription": "Logout hook is ready to connect."
     },
     "profile": {
+      "birthDate": "Date of birth",
+      "country": "Country",
+      "countryPlaceholder": "Choose the country",
       "emailVerified": "Verified",
       "emailUnverified": "Not verified",
       "verifyEmail": "Verify",
@@ -185,6 +188,7 @@
       "autoIncludedNote": "Coach Levels and Evaluation Categories are automatically included when needed.",
       "analyzeTable_one": "Analyze {{count}} table",
       "analyzeTable_other": "Analyze {{count}} tables",
+      "analyzeTable_zero": "Analyze {{count}} tables",
       "recordsFound": "{{records}} records found across {{tables}} tables",
       "processing": "Processing...",
       "analyzingTitle": "AI is analyzing your data",
@@ -199,6 +203,7 @@
       "importing": "Importing...",
       "possibleDuplicate_one": "{{count}} possible duplicate",
       "possibleDuplicate_other": "{{count}} possible duplicates",
+      "possibleDuplicate_zero": "{{count}} possible duplicates",
       "possibleDuplicate": "Possible duplicate",
       "duplicateTooltip": "A player with this name already exists on your roster. You can still import this row.",
       "done": "Done",
@@ -241,7 +246,8 @@
       },
       "rowErrors": {
         "score_out_of_range": "Score {{value}} for “{{category}}” is outside 1–5. Scores are 1–5 stars: rescale the sheet and import it again."
-      }
+      },
+      "confirmsAdults": "I confirm every imported student is 18 or older."
     },
     "importHistory": {
       "loading": "Loading import history...",
@@ -541,6 +547,7 @@
       "expired": "Expired",
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
+      "classCount_zero": "{{count}} classes",
       "remove": "Remove",
       "renew": "Renew"
     },
@@ -659,6 +666,7 @@
       "impact": {
         "title_one": "{{count}} enrolled student no longer meets this bar",
         "title_other": "{{count}} enrolled students no longer meet this bar",
+        "title_zero": "{{count}} enrolled students no longer meet this bar",
         "body": "They stay enrolled — eligibility governs joining, never staying. Remove anyone through the class itself if you wish.",
         "none": "Every enrolled student still meets the bar.",
         "line": "{{name}} · {{class}} · {{when}}"

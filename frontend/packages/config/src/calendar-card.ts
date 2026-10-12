@@ -33,7 +33,17 @@ import {
 } from "./calendar-status";
 import { lightTheme } from "./tokens";
 
-export type CardVariant = "scheduled" | "next" | "past" | "canceled" | "block" | "open-spot";
+export type CardVariant =
+  | "scheduled"
+  | "next"
+  | "past"
+  | "canceled"
+  | "block"
+  | "open-spot"
+  // PAD-611 (calendar.view rule 22): what an upcoming class is to the student viewing it.
+  | "not-coming"
+  | "invited"
+  | "waiting";
 
 const VARIANT_BY_STATE: Record<EventVisualState, CardVariant> = {
   future: "scheduled",
@@ -56,12 +66,23 @@ export function resolveCardVariant(
   const state = resolveEventState(event, options);
   // B-541: an open spot is an offer, never the student's next class; a canceled, past or
   // block event keeps its own treatment.
-  const variant: CardVariant =
-    event.openSpot && (state === "future" || state === "next")
-      ? "open-spot"
-      : VARIANT_BY_STATE[state];
+  const upcoming = state === "future" || state === "next";
+  const relation = event.studentRelation;
+  // PAD-611: the student's own relation, for an upcoming class only — past and canceled keep
+  // their treatment. An offer or an invitation is never the student's next class.
+  const variant: CardVariant = !upcoming
+    ? VARIANT_BY_STATE[state]
+    : relation === "not_coming"
+      ? "not-coming"
+      : relation === "invited"
+        ? "invited"
+        : relation === "waiting"
+          ? "waiting"
+          : event.openSpot || relation === "open_spot"
+            ? "open-spot"
+            : VARIANT_BY_STATE[state];
   const seatsShort =
-    (variant === "scheduled" || variant === "next" || variant === "open-spot") &&
+    (variant === "scheduled" || variant === "next" || variant === "open-spot" || variant === "invited") &&
     hasOpenSpots(event);
   return { variant, seatsShort };
 }
@@ -85,6 +106,15 @@ export function cardSurfaceWeb(
       };
     case "block":
       return {};
+    case "waiting":
+      return {
+        backgroundColor: "hsl(var(--card))",
+        border: "1.5px dotted hsl(var(--muted-foreground))",
+        color: "hsl(var(--muted-foreground))",
+      };
+    case "not-coming":
+      return cardSurfaceWeb(hex, "past");
+    case "invited":
     case "open-spot":
       return {
         backgroundColor: "hsl(var(--card))",
@@ -135,7 +165,7 @@ export interface NativeCardSurface {
   color?: string;
   borderWidth?: number;
   borderColor?: string;
-  borderStyle?: "dashed";
+  borderStyle?: "dashed" | "dotted";
 }
 
 export function cardSurfaceNative(
@@ -151,6 +181,17 @@ export function cardSurfaceNative(
       };
     case "block":
       return {};
+    case "waiting":
+      return {
+        backgroundColor: surfaces.card,
+        borderWidth: 1.5,
+        borderStyle: "dotted",
+        borderColor: surfaces.mutedForeground,
+        color: surfaces.mutedForeground,
+      };
+    case "not-coming":
+      return cardSurfaceNative(hex, "past", surfaces);
+    case "invited":
     case "open-spot":
       return {
         backgroundColor: surfaces.card,
@@ -206,6 +247,30 @@ export function showsEnrolledMark(
   viewer: CalendarViewer
 ): boolean {
   if (viewer !== "student" || event.type !== "class") return false;
-  // An open spot carries its chip, a canceled class its red, a block is not a class.
-  return variant !== "open-spot" && variant !== "canceled" && variant !== "block";
+  // An open spot, an invitation, a waiting place and a "Não vou" carry their chip; a canceled
+  // class its red; a block is not a class. PAD-611: a missed class is the coach's record of an
+  // absence — no ✓.
+  if (["open-spot", "invited", "waiting", "not-coming", "canceled", "block"].includes(variant)) return false;
+  const relation = event.studentRelation;
+  return relation !== "missed" && relation !== "not_coming" && relation !== "invited" && relation !== "waiting" && relation !== "open_spot";
+}
+
+
+/**
+ * PAD-611 (calendar.mobile-views rule 5): the chip a card carries for the student's relation —
+ * one helper so both shells name it alike. The open spot keeps its PAD-130 test id.
+ */
+export function relationChip(variant: CardVariant): { key: string; testId: string } | null {
+  switch (variant) {
+    case "open-spot":
+      return { key: "calendar.openSpot.chip", testId: "calendar-open-spot-chip" };
+    case "invited":
+      return { key: "calendar.relation.invited", testId: "calendar-relation-chip" };
+    case "waiting":
+      return { key: "calendar.relation.waiting", testId: "calendar-relation-chip" };
+    case "not-coming":
+      return { key: "calendar.relation.notComing", testId: "calendar-relation-chip" };
+    default:
+      return null;
+  }
 }

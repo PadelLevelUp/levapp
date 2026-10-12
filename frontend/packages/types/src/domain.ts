@@ -710,7 +710,22 @@ export interface CalendarEvent {
    */
   openSpot?: boolean;
   coachName?: string | null;
+  /**
+   * PAD-611 (calendar.view rule 22): what this class is to the student viewing it. Absent on a
+   * coach's calendar and from a server older than PAD-611.
+   */
+  studentRelation?: StudentRelation;
 }
+
+/** PAD-611 (calendar.view rule 22). */
+export type StudentRelation =
+  | "enrolled"
+  | "not_coming"
+  | "attended"
+  | "missed"
+  | "invited"
+  | "waiting"
+  | "open_spot";
 
 /**
  * PAD-358 (classes.academy-class-booking rule 9): a class in the "Marcar Aula"
@@ -846,6 +861,11 @@ export interface Conversation {
   isKnownContact?: boolean;
 
   lastMessage: string | null;
+  /**
+   * messaging.conversations rule 12a (PAD-639, B-547): the last message was deleted, so
+   * `lastMessage` is "" and the row shows "Message deleted". Absent from older servers.
+   */
+  lastMessageDeleted?: boolean;
   lastMessageAt: string | null;
 
   unreadCount: number;
@@ -1433,7 +1453,9 @@ export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";
 
 export type InviteSimulationPriority =
   | { id: "level"; ladderDistance: number | null; levelCode: string | null }
-  | { id: "justified_misses"; rate: number }
+  /** PAD-505: `owed` is the classes owed (justified absences minus make-ups taken), the value the
+   * engine sorts on. A server from before PAD-505 sends only `rate`. */
+  | { id: "justified_misses"; owed?: number; rate: number }
   | { id: "attendance"; rate: number }
   | { id: "playing_side"; match: "exact" | "both" | "other"; side: PlayerSide | null }
   | { id: "subscription_status"; active: boolean };

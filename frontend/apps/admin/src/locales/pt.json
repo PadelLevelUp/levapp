@@ -11,7 +11,10 @@
         "settings": "Definições",
         "clubs": "Clubes",
         "switches": "Interruptores",
-        "engineHealth": "Saúde do motor"
+        "engineHealth": "Saúde do motor",
+        "reports": "Denúncias",
+        "deletionAudits": "Eliminações",
+        "work": "Trabalho"
       },
       "signOut": "Terminar sessão",
       "role": {
@@ -240,10 +243,12 @@
       },
       "effect": {
         "open-spots": "Desligado: nenhum aluno vê vagas abertas no calendário.",
+        "student-relations": "Desligado: nenhum aluno vê no calendário as aulas para que foi convidado ou em cuja lista de espera está.",
         "evaluations": "Desligado: o bloco da avaliação partilhada desaparece do painel do aluno.",
         "class-type-defaults": "Desligado: todas as apps recebem que a regra de vagas da aula vem do treinador, como as apps antigas. O valor mostrado é o mesmo.",
         "coach-invite-email": "Desligado: aceitar um convite de treinador deixa de exigir email, como nas apps antigas.",
-        "terms-acceptance": "Desligado: o registo deixa de exigir aceitar os Termos e nenhuma aceitação fica registada. Impacto legal: desliga só num incidente."
+        "terms-acceptance": "Desligado: o registo deixa de exigir aceitar os Termos e nenhuma aceitação fica registada. Impacto legal: desliga só num incidente.",
+        "country-on-completion": "Desligado: ativar uma conta e aceitar um convite deixam de exigir o país, como nas apps antigas."
       },
       "reasonShown": "Motivo: {{reason}}",
       "changed": "Última alteração {{at}} por {{by}}",
@@ -322,6 +327,149 @@
       "minutes": "{{n}} min",
       "hours": "{{n}} h",
       "days": "{{n}} d"
+    },
+    "reports": {
+      "title": "Denúncias",
+      "lead": "Mensagens denunciadas por alunos e treinadores. Leia cada uma em contexto e tome uma decisão.",
+      "tabs": {
+        "open": "Abertas",
+        "closed": "Fechadas"
+      },
+      "empty": "Sem denúncias aqui.",
+      "deleted": "apagada",
+      "noReason": "Sem motivo indicado",
+      "unknownAuthor": "Autor desconhecido",
+      "columns": {
+        "created": "Denunciada",
+        "reason": "Motivo",
+        "message": "Mensagem",
+        "author": "Autor",
+        "reporter": "Denunciante",
+        "outcome": "Resultado",
+        "closedBy": "Fechada por"
+      },
+      "outcome": {
+        "dismissed": "Arquivada",
+        "message_deleted": "Mensagem apagada",
+        "author_disabled": "Autor desativado"
+      },
+      "status": {
+        "open": "Aberta",
+        "closed": "Fechada"
+      },
+      "open": "Abrir denúncia",
+      "prev": "Anterior",
+      "next": "Seguinte",
+      "page": "Página {{page}}"
+    },
+    "report": {
+      "back": "Voltar às denúncias",
+      "notFound": "Essa denúncia não existe.",
+      "title": "Denúncia #{{id}}",
+      "facts": "A denúncia",
+      "context": "A mensagem em contexto",
+      "reportedMarker": "Mensagem denunciada",
+      "deletedMarker": "Apagada",
+      "contextEmpty": "Sem mensagens para mostrar.",
+      "participants": "Participantes da conversa",
+      "sender": "Remetente",
+      "actions": "Ações",
+      "closedNotice": "Esta denúncia está fechada.",
+      "dismiss": "Arquivar",
+      "deleteMessage": "Apagar mensagem",
+      "disableAuthor": "Desativar autor",
+      "confirm": {
+        "dismiss": "Arquivar esta denúncia? A mensagem fica como está.",
+        "delete-message": "Apagar a mensagem denunciada? Ninguém na conversa a voltará a ver.",
+        "disable-author": "Desativar o autor da mensagem? Fica sem sessão em todo o lado e deixa de poder entrar."
+      },
+      "note": "Nota",
+      "noteRequired": "Diga porquê (obrigatório)",
+      "noteOptional": "Nota (opcional)",
+      "confirmAction": "Confirmar",
+      "alreadyHandled": "Esta denúncia já foi tratada. Foi atualizada.",
+      "error": "A ação falhou. Tente de novo."
+    },
+    "deletionAudits": {
+      "title": "Eliminações",
+      "lead": "O registo das eliminações destrutivas. Só de leitura.",
+      "filters": {
+        "entity": "Entidade",
+        "placeholder": "ex.: club",
+        "apply": "Filtrar",
+        "clear": "Limpar"
+      },
+      "columns": {
+        "when": "Quando",
+        "who": "Quem",
+        "entity": "Entidade",
+        "action": "Ação",
+        "label": "Etiqueta",
+        "counts": "Contagens"
+      },
+      "system": "sistema",
+      "empty": "Sem eliminações registadas.",
+      "prev": "Anterior",
+      "next": "Seguinte",
+      "page": "Página {{page}}"
+    },
+    "work": {
+      "title": "Trabalho",
+      "lead": "Tickets por fazer e feitos, alterações publicadas e deploys. Só leitura; dados do Linear e do GitHub.",
+      "refresh": "Atualizar",
+      "fetchedAt": "Atualizado às {{when}}",
+      "notConfigured": "Não configurado: falta {{setting}}.",
+      "unavailable": "Não foi possível obter os dados.",
+      "lastOk": "Último sucesso: {{when}}.",
+      "open": {
+        "title": "Tickets por fazer",
+        "empty": "Nenhum ticket por fazer.",
+        "noSummary": "Sem descrição.",
+        "unassigned": "Sem responsável"
+      },
+      "done": {
+        "title": "Feitos nos últimos 30 dias",
+        "empty": "Nenhum ticket feito nos últimos 30 dias."
+      },
+      "merged": {
+        "title": "Alterações publicadas (30 dias)",
+        "empty": "Nenhuma alteração publicada nos últimos 30 dias.",
+        "production": "Em produção",
+        "staging": "Em staging"
+      },
+      "openPrs": {
+        "title": "Pull requests abertos",
+        "empty": "Nenhum pull request aberto.",
+        "draft": "Rascunho",
+        "checks": {
+          "success": "Verificações OK",
+          "failure": "Verificações falharam",
+          "pending": "A verificar",
+          "unknown": "Verificações desconhecidas"
+        }
+      },
+      "deploys": {
+        "title": "Deploys",
+        "staging": "Staging",
+        "production": "Produção",
+        "empty": "Sem deploys recentes.",
+        "success": "Sucesso",
+        "failure": "Falhou",
+        "running": "A correr",
+        "cancelled": "Cancelado",
+        "skipped": "Ignorado"
+      },
+      "priority": {
+        "0": "Sem prioridade",
+        "1": "Urgente",
+        "2": "Alta",
+        "3": "Média",
+        "4": "Baixa"
+      },
+      "linear": "Linear",
+      "github": "GitHub",
+      "newTab": "abre num separador novo",
+      "truncated": "Lista incompleta: há mais do que o limite desta página."
     }
   }
 }

@@ -43,11 +43,10 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
    token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
 10. **No guardian branch any more (PAD-457; was PAD-198's guardian consent).** LevApp accepts adults
-    only and the guardian flow is removed, so login has no pending-consent answer. As a safety net
-    for any row left from before (the `guardian_consent_status` column is kept, see
-    `auth.parental-consent`), a user whose status there is `pending` or `revoked` is refused exactly
-    like a `disabled` one: 401 `ACCOUNT_DISABLED`, and the JWT loader refuses their tokens (rule 12,
-    B-053). Numbered 10 to stay clear of rules 6–9 added by PAD-139,
+    only and the guardian flow is removed, so login has no pending-consent answer. PAD-644 dropped
+    the `users.guardian_consent_status` column and with it the safety net that refused a `pending`
+    or `revoked` status at login and in the JWT loader; prod had the column NULL for every user (2026-10-12).
+    Only rule 12 (`disabled`) refuses an account now. Numbered 10 to stay clear of rules 6–9 added by PAD-139,
     PAD-228, PAD-186 and PAD-233 in parallel branches.
 11. **An account with no password yet** (created by a coach, not activated) answers the ordinary
     401 `Invalid credentials`, never a 500 — the 500 told a caller which usernames exist (PAD-269,
@@ -57,12 +56,29 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     Any other user with `status = disabled`, of either role, gets 401
     `{"error": "ACCOUNT_DISABLED"}` and no token. That covers a deleted account (App Store
     5.1.1(v)) and a minor whose guardian withdrew consent. Wrong credentials stay the ordinary 401
-    `Invalid credentials` and are checked first, so the status never leaks to a guesser. The legacy
-    server-rendered `/auth/login` refuses every disabled account with HTTP 401 and never opens a
-    Flask-Login session; rejected coaches are included, since it has no re-application flow. Before
+    `Invalid credentials` and are checked first, so the status never leaks to a guesser. Before
     this, the JSON route issued a token to a disabled account (the blocklist loader refused it on
     the next request) and the legacy route opened a session. Numbered 12 to stay clear of rules 10
     and 11 in open PRs.
+13. **No route accepts an empty password (PAD-645).** `POST /api/auth/login` is the only password
+    sign-in, and it answers 400 `Email and password required` to an empty password before any
+    account is looked up, whatever hash the account stores. The server-rendered `/auth/` blueprint
+    (index, register, login, logout) is deleted: its login checked `check_password_hash` with no
+    empty-password guard and no rate limit, so an account whose stored hash was hash("") opened a
+    Flask-Login session with "". Flask-Login is removed with it (nothing else read its session),
+    and no blueprint registers under `/auth/`.
+
+13. **The country, asked once after sign-in (PAD-630; Privacy Policy §1).** Accounts created before
+    the country was asked, and accounts completed by an App Store build that predates PAD-604, have
+    `country` null. When `GET /api/auth/me` answers `country: null`, web and iOS show a short,
+    dismissible dialog over the signed-in app — "Em que país vives?" with the `COUNTRIES` list of
+    `@levelup/config`, PT preselected — on any page except while a hold keeps the user (the email
+    code, a pending or rejected coach, club onboarding: whenever the route guards' own landing is
+    not the dashboard). "Guardar" sends `PATCH /api/auth/me {country}`, checked as sign-up checks it
+    (two letters, upper-cased; anything else, empty included, is 400 and nothing changes); "Agora
+    não" — and closing it any other way (Esc, a click outside, the close button, Android back) —
+    hides it on that device for 30 days. It is never shown once a country is stored. App Store
+    builds that predate it simply never show it; the server needs no capability.
 
 ### Acceptance Criteria
 
@@ -107,10 +123,12 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **When** she POSTs `/api/auth/login` with the right password
 - **Then** the response is still 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
 
-#### The legacy login refuses a disabled account (B-053)
-- **Given** the deleted student `ana`
-- **When** the legacy form POSTs `/auth/login` with her right password
-- **Then** the response is 401 and no Flask-Login session is opened
+#### No route accepts an empty password (PAD-645)
+- **Given** an active student `ana645` whose stored password hash is hash("")
+- **When** anyone POSTs `/api/auth/login` with `{"username": "ana645", "password": ""}`
+- **Then** the response is 400 and carries no token
+- **And** POST `/auth/`, `/auth/login`, `/auth/register` and `/auth/logout` all answer 404, and no
+  URL rule starts with `/auth/`
 
 #### A token in the query string is refused outside the SSE endpoint (PAD-269)
 - **Given** a valid access token for `coach1`
@@ -133,6 +151,14 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **Given** a user with status `inactive`
 - **When** they attempt to login
 - **Then** the response status is 401
+
+#### An account without a country is asked once (rule 13, PAD-630)
+- **Given** a signed-in student whose `country` is null
+- **When** they sign in on the web or on iOS and no hold keeps them
+- **Then** the country prompt shows with PT selected; "Guardar" stores `PT` and the prompt never
+  shows again; "Agora não" hides it on that device for 30 days
+- **And** `PATCH /api/auth/me {country: "br"}` stores `BR`; `"Brazil"` is 400 and changes nothing
+- **And** a user whose country is set never sees the prompt
 
 ### Notes
 - Rate limiting: rule 7 (PAD-228, closes B-001).

@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import {
   Select,
@@ -26,6 +27,8 @@ export interface AddPlayerInput {
   levelId?: string;
   side?: PlayerSide;
   notes?: string;
+  /** PAD-642 (players.create rule 10): the coach confirmed the student is 18 or older. */
+  confirmsAdults?: boolean;
 }
 
 interface AddPlayerSheetProps {
@@ -38,6 +41,7 @@ interface AddPlayerSheetProps {
     side?: string;
     notes?: string;
     email?: string;
+    confirmsAdults?: boolean;
   }) => Promise<void>;
   levels: CoachLevel[];
   // PAD-17: the requesting coach's id, used to scope the duplicate player-name
@@ -64,6 +68,8 @@ export function AddPlayerSheet({
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
+  // PAD-642 (players.create rule 10; owner: "forbid under-18"): ticked before either save.
+  const [confirmsAdults, setConfirmsAdults] = useState(false);
 
   const emailCheck = useFieldAvailability("user", "email", email);
   // PAD-17: name is not unique — this is a WARN, not a hard error. It surfaces a
@@ -96,11 +102,12 @@ export function AddPlayerSheet({
     setLevelId("");
     setSide("");
     setNotes("");
+    setConfirmsAdults(false);
     onClose();
   };
 
   const handleSave = async () => {
-    if (!name.trim() || hasFieldError) return;
+    if (!name.trim() || hasFieldError || !confirmsAdults) return;
 
     setSaving(true);
     try {
@@ -112,6 +119,7 @@ export function AddPlayerSheet({
         levelId: levelId || undefined,
         side: side || undefined,
         notes: notes.trim() || undefined,
+        confirmsAdults: true,
       });
       handleClose();
     } finally {
@@ -120,7 +128,7 @@ export function AddPlayerSheet({
   };
 
   const handleInvite = async () => {
-    if (!name.trim() || !onInvite) return;
+    if (!name.trim() || !onInvite || !confirmsAdults) return;
 
     setInviting(true);
     try {
@@ -130,6 +138,7 @@ export function AddPlayerSheet({
         levelId: levelId || undefined,
         side: side || undefined,
         notes: notes.trim() || undefined,
+        confirmsAdults: true,
       });
       handleClose();
     } finally {
@@ -259,6 +268,18 @@ export function AddPlayerSheet({
           </div>
         </div>
 
+        <div className="mt-6 flex items-start gap-2">
+          <Checkbox
+            id="add-player-confirms-adults"
+            data-testid="add-player-confirms-adults"
+            checked={confirmsAdults}
+            onCheckedChange={(next) => setConfirmsAdults(next === true)}
+          />
+          <label htmlFor="add-player-confirms-adults" className="text-sm leading-snug">
+            {t("players.confirmsAdults")}
+          </label>
+        </div>
+
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={handleClose} disabled={saving || inviting}>
             {t("common.cancel")}
@@ -267,13 +288,13 @@ export function AddPlayerSheet({
             <Button
               variant="secondary"
               onClick={handleInvite}
-              disabled={!name.trim() || saving || inviting}
+              disabled={!name.trim() || !confirmsAdults || saving || inviting}
             >
               {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t("players.createAndInvite")}
             </Button>
           )}
-          <Button onClick={handleSave} disabled={!name.trim() || hasFieldError || saving || inviting}>
+          <Button onClick={handleSave} disabled={!name.trim() || hasFieldError || !confirmsAdults || saving || inviting}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t("players.createPlayer")}
           </Button>

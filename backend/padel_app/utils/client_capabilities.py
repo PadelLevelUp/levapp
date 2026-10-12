@@ -41,6 +41,29 @@ COACH_INVITE_EMAIL = "coach-invite-email"
 # TERMS_REQUIRED); one that does not (iOS 1.2.0 (27) and 1.2.1 (28)) registers as before, with no
 # acceptance recorded. Retire once no App Store build older than the first declaring one is in use.
 TERMS_ACCEPTANCE = "terms-acceptance"
+# PAD-611 (calendar.view rule 22): a student's calendar also carries the classes they are invited
+# to and the ones they wait for, each flagged by `studentRelation`. App Store 1.3.0 and older would
+# draw them as the student's own bookings, so they reach only a client that declares this.
+# Retire once no App Store build older than the first declaring one is in use.
+STUDENT_RELATIONS = "student-relations"
+
+# PAD-604 (auth.activate 13a, players.invite-completion 10a, clubs.coach-invitation 8a): the three
+# account-completion forms send a `country`. A client that declares this and sends none is refused
+# (400 COUNTRY_REQUIRED); one that does not (iOS up to 1.3.0 (32)) completes without one and the
+# country stays null (PAD-630 asks later). Retire once no App Store build older than the first
+# declaring one is in use.
+COUNTRY_ON_COMPLETION = "country-on-completion"
+# PAD-637 (auth.register rule 19b; clubs.coach-invitation 8b, players.invite-completion 10b,
+# auth.activate 13b): the three account-completion forms carry the Terms checkbox and send
+# `termsAccepted`. A client that declares this and does not send `true` is refused (400
+# TERMS_REQUIRED); one that does not (App Store builds up to 1.3.x) completes as before with no
+# record (auth.legal-catch-up asks later). Not `terms-acceptance`: every current build declares that
+# on every request. Retire once no App Store build older than the first declaring one is in use.
+TERMS_ON_COMPLETION = "terms-on-completion"
+# PAD-642 (players.create rule 10, import.confirm rule 9): creating or importing players carries the
+# coach's `confirmsAdults: true`. A client that declares this and does not send it is refused (400
+# ADULTS_CONFIRMATION_REQUIRED); one that does not creates as before. Retire like the others.
+ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"
 
 
 # PAD-533 (admin.clubs-and-switches rule 6): every capability the server knows, with its kind.
@@ -49,10 +72,14 @@ TERMS_ACCEPTANCE = "terms-acceptance"
 # A capability constant above that is missing here fails test_every_capability_is_registered.
 CAPABILITIES = {
     OPEN_SPOTS: "feature",
+    STUDENT_RELATIONS: "feature",
     EVALUATIONS: "feature",
     CLASS_TYPE_DEFAULTS: "compat",
     COACH_INVITE_EMAIL: "compat",
     TERMS_ACCEPTANCE: "compat",
+    COUNTRY_ON_COMPLETION: "compat",
+    TERMS_ON_COMPLETION: "compat",
+    ADULT_ROSTER_CONFIRMATION: "compat",
 }
 
 # Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.

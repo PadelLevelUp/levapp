@@ -16,6 +16,8 @@ from padel_app.services.user_service import (
 )
 from padel_app.services.registration_service import (
     RegistrationError,
+    accept_legal_catch_up,
+    legal_pending,
     register_user_service,
 )
 from padel_app.services.club_service import latest_pending_club_join_request
@@ -99,13 +101,10 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
-        # PAD-198 (retired, PAD-457): no client reads this key — the App Store
-        # builds never did, and the current web and iOS code does not. It is
-        # additive and harmless, and goes with the guardian columns in the later,
-        # checked migration; no new "granted" value is produced anymore.
-        "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
+        # PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for.
+        "legalPending": legal_pending(user),
     }
 
 @bp.post("/register")
@@ -221,6 +220,33 @@ def password_recovery_confirm():
     return jsonify(body), 200
 
 
+def _signed_in_answer(user):
+    """What a successful sign-in answers (auth.login rules 10–12), shared with
+    auth.social-sign-in rule 3: the same refusals and the same token for the same account."""
+    # auth.coach-approval rule 11 (PAD-233): right credentials, rejected
+    # coach — say why, issue nothing. Wrong credentials stay 401 above so the
+    # status never leaks to a guesser.
+    rejected = rejected_coach_of(user)
+    if rejected is not None:
+        return {"error": "COACH_REJECTED", "reason": rejected.rejection_reason}, 403
+
+    # auth.login rule 12 (B-053): any other disabled account — deleted, or
+    # deactivated — is refused with a clear code and no token.
+    if user.status == "disabled":
+        return {"error": "ACCOUNT_DISABLED"}, 401
+
+    access_token = issue_access_token(user.id)
+
+    return {
+        "accessToken": access_token,
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "role": user.role,
+        }
+    }
+
+
 @bp.post("/login")
 @rate_limited("login")
 def login():
@@ -240,36 +266,9 @@ def login():
     if not user or not user.password or not check_password_hash(user.password, password):
         return {"error": "Invalid credentials"}, 401
 
-    # auth.coach-approval rule 11 (PAD-233): right credentials, rejected
-    # coach — say why, issue nothing. Wrong credentials stay 401 above so the
-    # status never leaks to a guesser.
-    rejected = rejected_coach_of(user)
-    if rejected is not None:
-        return {"error": "COACH_REJECTED", "reason": rejected.rejection_reason}, 403
+    return _signed_in_answer(user)
 
-    # auth.login rule 12 (B-053): any other disabled account — deleted, or
-    # deactivated — is refused with a clear code and no token.
-    if user.status == "disabled":
-        return {"error": "ACCOUNT_DISABLED"}, 401
 
-    # auth.login rule 10 (PAD-457): guardian_consent_status is a dead-code
-    # safety net now that signup requires 18+ (no new "pending"/"revoked" rows
-    # are ever created), but any left over from before still answer exactly
-    # like a disabled account rather than leaking the old guardian-consent code.
-    if user.guardian_consent_status in ("pending", "revoked"):
-        return {"error": "ACCOUNT_DISABLED"}, 401
-
-    access_token = issue_access_token(user.id)
-
-    return {
-        "accessToken": access_token,
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "role": user.role,
-        }
-    }
-    
 @bp.post("/coach-approval/reapply")
 def coach_approval_reapply():
     """auth.coach-approval rule 12 (PAD-233): a rejected coach asks again."""
@@ -315,6 +314,24 @@ def me():
     return jsonify(_serialize_me(user))
 
 
+@bp.post("/me/legal")
+@jwt_required()
+def accept_legal():
+    """auth.legal-catch-up rule 3 (PAD-637): an older account accepts the Terms and/or gives its birth
+    date. Answers the new `me`; any refusal is the sign-up shape and writes nothing."""
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    try:
+        accept_legal_catch_up(user, request.get_json() or {}, utcnow_naive())
+    except RegistrationError as exc:
+        db.session.rollback()
+        payload = {"error": exc.message, "field": exc.field}
+        if getattr(exc, "code", None):
+            payload["code"] = exc.code
+        return jsonify(payload), exc.status
+    db.session.commit()
+    return jsonify(_serialize_me(user))
+
+
 @bp.delete("/me")
 @jwt_required()
 def delete_me():
@@ -336,6 +353,45 @@ def update_me():
         user = update_own_profile_service(user_id, payload)
     except ProfileValidationError as exc:
         db.session.rollback()
-        return {"error": exc.message}, exc.status
+        body = {"error": exc.message}
+        # PAD-640: a coded refusal (UNDERAGE, INVALID_BIRTH_DATE) names its code and field.
+        if exc.code:
+            body.update(code=exc.code, field=exc.field)
+        return body, exc.status
 
     return jsonify(_serialize_me(user))
+
+@bp.post("/social")
+@rate_limited("login")
+def social_sign_in():
+    """auth.social-sign-in rules 1–3: sign in (or link) with a Google or Apple ID token."""
+    from padel_app.services.social_auth_service import SocialAuthError, resolve
+
+    data = request.get_json(silent=True) or {}
+    try:
+        kind, result = resolve(data.get("provider"), data.get("idToken"), data.get("nonce"))
+    except SocialAuthError as err:
+        return {"error": err.code}, err.status
+    if kind == "user":
+        return _signed_in_answer(result)
+    return {"needsProfile": True, "signupTicket": result["ticket"], "name": result["name"], "email": result["email"]}
+
+
+@bp.post("/social/complete")
+@rate_limited("register")
+def social_sign_up_complete():
+    """auth.social-sign-in rule 4: create the account for a verified provider identity."""
+    from padel_app.services.registration_service import RegistrationError, complete_social_signup
+    from padel_app.services.social_auth_service import SocialAuthError
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user = complete_social_signup(data.get("signupTicket"), data)
+    except SocialAuthError as err:
+        return {"error": err.code}, err.status
+    except RegistrationError as err:
+        body = {"error": err.message, "field": err.field}
+        if err.code:
+            body["code"] = err.code
+        return body, err.status
+    return _signed_in_answer(user)

@@ -88,7 +88,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
     29 February birth turns 18 on 1 March in a non-leap year. Under 18 answers 400
     `{field: "birthDate", code: "UNDERAGE", error: "Data de nascimento inválida. Esta app só aceita
     maiores de 18 anos. / Invalid date of birth. This app only accepts people aged 18 or over."}`
-    and writes nothing: no User, no Player/Coach, no GuardianConsent, no mail. The check runs right
+    and writes nothing: no User, no Player/Coach, no mail. The check runs right
     after the birth date is validated, whatever the country, and before the guardian fields are read.
     The error text is bilingual because an older app build shows the server's text verbatim; web and
     iOS map `UNDERAGE` to their own localized copy (`auth.signup.errors.underage`) and also refuse
@@ -103,14 +103,13 @@ create one, or ask to join an existing one — happens right after approval (`cl
     declares the capability `terms-acceptance` (web, iOS 29+) sends `termsAccepted: true`; for such a
     client anything else answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and writes nothing. The
     User then records `terms_accepted_at` (the request's instant, UTC), `terms_version` and
-    `privacy_version` — the two pages' effective dates (`2026-10-10` for both since PAD-601; `TERMS_VERSION`
+    `privacy_version` — the two pages' effective dates (Terms `2026-10-13` since PAD-642, Privacy `2026-10-13` since PAD-603 and PAD-634; `TERMS_VERSION`
     and `PRIVACY_VERSION` in `registration_service.py`, each tied by a test to the version the legal
     page shows and to its text's "Effective date" line (`auth.legal-pages` rule 4) — change them together). **Any client that does not declare the capability**
     registers exactly as before, with the three columns NULL: today that is App Store 1.2.0 (27) and
     1.2.1 (28). **Removal:** drop that path, and the token's gate, once no App Store build older than
-    the first declaring one is in use (a compat-audit question at each promotion). A separate
-    `config.LEGAL_TERMS_VERSION` belongs to the retired guardian-consent record; the three are not
-    merged here. **Out of scope:** accounts that exist already (NULL, never
+    the first declaring one is in use (a compat-audit question at each promotion). The retired
+    guardian-consent record's `config.LEGAL_TERMS_VERSION` was removed by PAD-644. **Out of scope:** accounts that exist already (NULL, never
     asked); the activation of a coach-created player (`auth.activate`); the coach club-invitation accept
     (`clubs.coach-invitation`). Each can take the same field later.
 
@@ -125,6 +124,19 @@ create one, or ask to join an existing one — happens right after approval (`cl
     form working without a draft. iOS: the native form stays mounted while the documents open in
     the in-app browser, so nothing is lost there and no draft is kept.
 
+19b. **The Terms, on every form that completes an account (PAD-637, PAD-602 D4).** The coach-invite
+    accept (`clubs.coach-invitation` rule 8b), the player-invite accept (`players.invite-completion` rule
+    10b) and activation (`auth.activate` rule 13b) carry the same required checkbox and links as rule 19,
+    and the same record. `registration_service.validate_completion_terms` is the one check: a request that
+    declares the capability `terms-on-completion` and does not send `termsAccepted: true` is 400
+    `{field: "terms", code: "TERMS_REQUIRED"}` with the bilingual text, and writes nothing.
+    `record_terms_acceptance(user, now)` is the one writer of the three columns (sign-up uses it too).
+    **Legacy path:** a request that does not declare `terms-on-completion` (App Store builds up to
+    1.3.x, whose completion forms predate the box) completes as before with the three columns NULL; the
+    next-login screen (`auth.legal-catch-up`) asks them. A new token is needed because every current
+    build already declares `terms-acceptance` on every request. Retire once no App Store build older than
+    the first declaring one is in use.
+
 ### Acceptance Criteria
 
 #### The Terms must be accepted to sign up (rule 19, PAD-485)
@@ -132,8 +144,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **When** the newcomer taps Create account
 - **Then** "Para criar conta tens de aceitar…" shows under the box and no request is sent
 - **And** with the box ticked the request carries `termsAccepted: true`, and the new User has
-  `terms_accepted_at` = the request's instant, `terms_version` = `2026-10-10` and `privacy_version` =
-  `2026-10-10`
+  `terms_accepted_at` = the request's instant, `terms_version` = `2026-10-13` and `privacy_version` =
+  `2026-10-13`
 
 #### A declaring client that does not accept is refused (rule 19)
 - **Given** a request declaring `terms-acceptance` with `termsAccepted` absent, `false` or not a boolean
@@ -217,12 +229,12 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Given** today is 2026-09-25 (UTC) and no user `teen`
 - **When** POST `/api/auth/register` with a valid student body for `teen` and `birthDate` `2008-09-26`, `country` `PT`
 - **Then** the response is 400 with `field: "birthDate"`, `code: "UNDERAGE"` and the rule-18 message
-- **And** no User `teen`, no Player, no GuardianConsent row exists and no mail was sent
+- **And** no User `teen` and no Player exists and no mail was sent
 
 #### Someone who turns 18 today signs up (PAD-445)
 - **Given** today is 2026-09-25 (UTC)
 - **When** POST `/api/auth/register` with a valid student body and `birthDate` `2008-09-25`, `country` `PT`
-- **Then** the response is 201 with an `accessToken` and the User exists with `guardian_consent_status` NULL
+- **Then** the response is 201 with an `accessToken` and the User exists
 
 #### A 29 February birth is 18 on 1 March (PAD-445)
 - **Given** a `birthDate` of `2008-02-29`
@@ -240,6 +252,13 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Then** no request is sent and the birth-date field shows "Data de nascimento inválida. Esta app só aceita maiores de 18 anos." (en: "Invalid date of birth. This app only accepts people aged 18 or over.")
 - **And** a server `UNDERAGE` answer (a client whose own check was bypassed) shows the same message on the same field
 - **And** no guardian-email field is ever shown
+
+#### The completion forms record the Terms with the same writer as sign-up (rule 19b, PAD-637)
+- **Given** a client declaring `terms-on-completion`
+- **When** it completes an account by coach invite, player invite or activation with `termsAccepted: true`
+- **Then** the user has `terms_accepted_at` (the request's UTC instant), `terms_version` = `TERMS_VERSION` and `privacy_version` = `PRIVACY_VERSION`
+- **And** without `termsAccepted: true` the answer is 400 `TERMS_REQUIRED` and nothing is written
+- **And** a client that does not declare the token completes as before, with the three columns NULL
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2

@@ -20,16 +20,11 @@ test("US-36: search filters player list", async ({ page }) => {
   // Clear and type something that matches nothing
   await searchInput.clear();
   await searchInput.fill("zzz-no-match-zzz");
-  // Wait for debounced search to apply
-  await page.waitForTimeout(500);
-  const noResults = await page
-    .locator("text=/no players|no results|empty/i")
-    .first()
-    .isVisible({ timeout: 3000 })
-    .catch(() => false);
-  // Either the list is empty or a "no results" message appears
-  const playerCount = await page.getByText("E2E Student", { exact: true }).count();
-  expect(noResults || playerCount === 0).toBe(true);
+  // B-524: the list keeps the previous rows on screen while the next search loads
+  // (keepPreviousData, PAD-586), so a fixed wait read stale rows. Retry until the search has
+  // answered: the summary says 0 players and the student's row is gone.
+  await expect(page.getByTestId("players-pagination")).toHaveAttribute("data-total", "0", { timeout: 10_000 });
+  await expect(page.getByText("E2E Student", { exact: true })).toHaveCount(0);
 });
 
 // US-37: Coach can edit player details

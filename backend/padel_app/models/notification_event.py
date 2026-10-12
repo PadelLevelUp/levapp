@@ -16,7 +16,6 @@ class NotificationEvent(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Notification Event"
     model_name = "NotificationEvent"
 
     id = Column(Integer, primary_key=True)

@@ -72,6 +72,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
      `calendar.eventCard.canceled` label as subtitle. Red means canceled and nothing else.
    - `block` (any `CalendarBlock` type): card surface with a 1.5px dashed `border`, title in
      foreground, the block type as subtitle. In the time grid a block is a `muted` surface.
+   - **(PAD-611, `calendar.view` rule 22) a student's own relation** — the same shared variant
+     model: `not-coming` (they said "Não vou"): the coach colour faded as `past`, muted text, a
+     "Não vou" chip and no ✓; `invited` (a live invitation): card surface with a 1.5px **dashed**
+     outline in the coach colour and readable ink, as an open spot, with a "Convite" chip;
+     `waiting` (on the waiting list): card surface with a 1.5px **dotted** muted outline, muted text
+     and a "Lista de espera" chip — the lowest emphasis. Tapping any of them opens the class.
+     `attended` keeps the faded `past` treatment with the ✓; `missed` the same without it.
    - `open-spot` (B-541, PAD-579; the event carries `openSpot`, `eligibility.open-spot-visibility`
      rule 11): card surface with a 1.5px **dashed** outline in the coach colour, title and time
      in the coach colour via `readableInk`, the "Open spot" chip on the card. It is resolved by
@@ -109,7 +116,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     foreground number. The dot row shows up to three 5px dots, one per event in `startTime`
     order, coloured by rule 5's surface (coach colour, `muted` for a block, `destructive`
     for a canceled class, and the **outline** colour — the coach colour — for an outlined
-    treatment, `next` or `open-spot`, whose surface is the white card); a day with more than
+    treatment, `next`, `open-spot`, `invited` or `waiting`, whose surface is the white card, and
+    faded for `not-coming`); a day with more than
     three events still shows three. Tapping a
     column selects that day. The strip never renders title chips or a `+N` indicator —
     this supersedes `calendar.view` rule 14's strip on iOS and web's 4-chip strip.
@@ -121,12 +129,20 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     rule 10's states, over 26px gutters that align with the hour labels.
 13. **Time grid.** Hour labels on both gutters. The visible range runs from one hour before
     the earliest `startTime` in the visible week to one hour after the latest `endTime`,
-    rounded to whole hours and clamped to 07:00–23:00; a week with no events shows
-    08:00–20:00. Rows are equal height and the grid scrolls vertically when taller than the
+    rounded to whole hours and clamped to 07:00–23:00 — **(B-544, PAD-626) except that the grid
+    never cuts a class:** a class outside that window widens it to the class's whole hours, and a
+    class ending at midnight ends at 24:00 (PAD-553), both for the range and for its block's
+    height; a week with no events shows 08:00–20:00. Rows are equal height and the grid scrolls vertically when taller than the
     space above the sheet. Each event is an absolutely positioned block: top and height from
     its start and end minutes (minimum height 18px), 6px radius, surface per rule 5 (an
     open spot's dashed outline included), title clamped to two lines. Overlapping events in one column share the width side by side
-    (reuse `calendar-overlap.ts`). The selected day's column is tinted `secondary`.
+    (reuse `calendar-overlap.ts`). **(B-543, PAD-625) A busy day stays readable:** the shared
+    `layoutDayColumn` (`@levelup/config`) packs a cluster of overlapping events into lanes — each
+    event takes the first lane free at its start, so a cluster gets as many columns as events run
+    *at once*, not one per event (22 classes an hour apart in a chain need two columns). When a
+    cluster needs more than **two** lanes on a phone, the first lane renders and the second holds
+    one "+N" marker spanning the hidden events' time; tapping it selects the day, whose sheet lists
+    every class. The selected day's column is tinted `secondary`.
 14. **Tapping** a column's empty area selects that day. Tapping an event block opens its
     detail exactly as tapping its card does today (class → class detail; block → event
     detail).
@@ -244,6 +260,21 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   spot's carry `calendar-open-spot-chip` without the ✓
 - **And** a coach viewing their own calendar sees no `calendar-enrolled-mark` anywhere
 
+#### A dense day keeps its classes readable (rule 13, B-543)
+- **Given** a coach with 22 classes on Wednesday, 60 min each, one every 40 min from 07:00
+- **When** the Semana grid renders that day on a phone
+- **Then** the day uses two columns (at most two classes run at once), each block wide enough
+  for its title
+- **And** given three classes at 18:00, the day shows one block and a "+2" marker, and tapping
+  the marker selects Wednesday with all three in the sheet
+
+#### Each relation has its own treatment on the phone (rule 5, PAD-611)
+- **Given** a student with an enrolled class, a "Não vou" class, an invited class and a waiting
+  class this week, on a client declaring `student-relations`
+- **When** the phone calendar renders their cards and grid blocks
+- **Then** the enrolled card is solid with the ✓; the "Não vou" card is faded with its chip and no
+  ✓; the invited card is dashed with "Convite"; the waiting card is dotted with "Lista de espera"
+
 #### Canceled is red and only red is canceled
 - **Given** a canceled occurrence on the selected day
 - **When** the coach views `Dia`
@@ -287,6 +318,12 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Given** a week with no events
 - **When** `Semana` renders
 - **Then** hour labels run 08 to 20
+
+#### The grid never cuts a class (rule 13, B-544)
+- **Given** a week with a class 05:30–06:30 and a class 22:30–00:00
+- **When** `Semana` renders
+- **Then** hour labels run 05 to 24, the early class is whole, and the late class's block is
+  90 minutes tall, ending at the grid's bottom
 
 #### Bottom sheet resizes within bounds
 - **Given** `Semana` with the sheet at its default position

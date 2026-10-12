@@ -209,3 +209,37 @@ test("B-050: a verified coach who changes their email reaches the verify screen"
   await expect(page.getByTestId("verify-email")).toBeVisible();
   await completeEmailVerification(page);
 });
+
+// PAD-640 (settings.profile rules 10–11): the date of birth is corrected here, with the 18+ re-check.
+// The seeded coach may have no date; the adult date saved below stays (a date is never erased), which
+// matches every real account and only spares a later legal catch-up for this coach.
+test("PAD-640: an under-18 date is refused on the field; an adult date persists after a reload", async ({
+  page,
+}) => {
+  await openProfile(page);
+  const birth = page.getByTestId("settings-profile-birthDate");
+
+  const now = new Date();
+  const seventeen = `${now.getFullYear() - 17}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  let patched = false;
+  page.on("request", (req) => {
+    if (req.url().includes("/api/auth/me") && req.method() === "PATCH") patched = true;
+  });
+  await birth.fill(seventeen);
+  await save(page);
+  await expect(page.getByTestId("settings-profile-birthDate-error")).toBeVisible({ timeout: 5000 });
+  await expect(birth).toHaveAttribute("aria-invalid", "true");
+  expect(patched).toBe(false);
+
+  await birth.fill("1990-05-01");
+  await expect(page.getByTestId("settings-profile-birthDate-error")).toHaveCount(0);
+  const patch = page.waitForResponse(
+    (res) => res.url().includes("/api/auth/me") && res.request().method() === "PATCH"
+  );
+  await save(page);
+  expect((await patch).status()).toBe(200);
+
+  await page.reload();
+  await openProfile(page);
+  await expect(page.getByTestId("settings-profile-birthDate")).toHaveValue("1990-05-01");
+});

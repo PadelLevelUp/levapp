@@ -16,13 +16,15 @@ export interface NavItem {
   label: string;
   end?: boolean;
   count?: number;
+  /** Overrides the badge's test id (the approvals badge keeps its phone-console rule 2 behaviour). */
+  countTestId?: string;
 }
 
-/** The nine links. The phone drawer passes `onNavigate` (close) and a `min-h-11` class. */
+/** The navigation links. The phone drawer passes `onNavigate` (close) and a `min-h-11` class. */
 export function NavItems({ items, onNavigate, itemClassName }: { items: NavItem[]; onNavigate?: () => void; itemClassName?: string }) {
   return (
     <>
-      {items.map(({ to, icon: Icon, label, end, count }) => (
+      {items.map(({ to, icon: Icon, label, end, count, countTestId }) => (
         <NavLink
           key={to}
           to={to}
@@ -36,7 +38,7 @@ export function NavItems({ items, onNavigate, itemClassName }: { items: NavItem[
           <span className="flex-1">{label}</span>
           {count ? (
             // The phone top bar carries the one `admin-nav-approvals-count`; the drawer's pill has no id.
-            <span className="rounded-full bg-sidebar-accent px-2 text-xs" data-testid={onNavigate ? undefined : "admin-nav-approvals-count"}>
+            <span className="rounded-full bg-sidebar-accent px-2 text-xs" data-testid={countTestId ?? (onNavigate ? undefined : "admin-nav-approvals-count")}>
               {count}
             </span>
           ) : null}

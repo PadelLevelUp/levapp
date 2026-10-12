@@ -106,7 +106,12 @@ def serialize_conversation(
             participant.username == "levelup-assistant" if participant else False
         ),
 
-        "lastMessage": last_message.text if last_message else None,
+        # messaging.conversations rule 12a (PAD-639, B-547): a deleted last message shows no
+        # text. "" rather than None keeps older App Store builds from reading "No messages yet".
+        "lastMessage": (
+            ("" if last_message.is_deleted else last_message.text) if last_message else None
+        ),
+        "lastMessageDeleted": bool(last_message and last_message.is_deleted),
         "lastMessageAt": (
             to_utc_iso(last_message.sent_at)
             if last_message

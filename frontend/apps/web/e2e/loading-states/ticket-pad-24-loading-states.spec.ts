@@ -111,6 +111,13 @@ test.describe("PAD-24: Loading states for backend calls", () => {
       });
     });
 
+    // Armed before the clicks that can fire remove_class (the delete button or
+    // either dialog), so the answer cannot land before the wait listens (B-527).
+    const removeAnswered = page.waitForResponse(
+      (r) => /\/api\/app\/remove_class/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    );
+
     // Click delete
     const deleteBtn = page
       .getByRole("button", { name: ui("calendar.detail.deleteClass") })
@@ -140,10 +147,7 @@ test.describe("PAD-24: Loading states for backend calls", () => {
     expect(loadingVisible).toBe(true);
 
     // Wait for the route handler to fulfill so the test ends cleanly.
-    await page.waitForResponse(
-      (r) => /\/api\/app\/remove_class/.test(r.url()) && r.status() === 200,
-      { timeout: 5000 }
-    );
+    await removeAnswered;
 
     expect(deleteApiCalled).toBe(true);
   });

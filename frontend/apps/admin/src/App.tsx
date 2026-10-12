@@ -8,8 +8,12 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ApprovalsPage } from "@/pages/ApprovalsPage";
 import { AuditPage } from "@/pages/AuditPage";
 import { EngineHealthPage } from "@/pages/EngineHealthPage";
+import { WorkPage } from "@/pages/WorkPage";
 import { ClubPage } from "@/pages/ClubPage";
 import { ClubsPage } from "@/pages/ClubsPage";
+import { DeletionAuditsPage } from "@/pages/DeletionAuditsPage";
+import { ReportPage } from "@/pages/ReportPage";
+import { ReportsPage } from "@/pages/ReportsPage";
 import { SwitchesPage } from "@/pages/SwitchesPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotConfiguredPage } from "@/pages/NotConfiguredPage";
@@ -38,10 +42,15 @@ function Gate() {
           <Route path="roles" element={<RolesPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="engine-health" element={<EngineHealthPage />} />
+          <Route path="work" element={<WorkPage />} />
           {/* PAD-533: clubs and switches */}
           <Route path="clubs" element={<ClubsPage />} />
           <Route path="clubs/:clubId" element={<ClubPage />} />
           <Route path="switches" element={<SwitchesPage />} />
+          {/* PAD-631: moderation */}
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="reports/:reportId" element={<ReportPage />} />
+          <Route path="deletion-audits" element={<DeletionAuditsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

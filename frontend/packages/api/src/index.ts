@@ -6,9 +6,11 @@ export {
   sseRetryDelay,
   SSE_RETRY_BASE_MS,
   SSE_RETRY_MAX_MS,
+  RESYNC_EVENT,
+  SSE_RESYNC_MIN_INTERVAL_MS,
 } from "./sse";
 export type { AppEvent, SseHub, SseHubOptions, SseSourceLike } from "./sse";
-export { mergeEditedMessage } from "./message-edits";
+export { eraseDeletedMessage, mergeEditedMessage } from "./message-edits";
 
 // Resource modules, namespaced to avoid name collisions between resources.
 export * as academyClassesApi from "./resources/academyClasses";

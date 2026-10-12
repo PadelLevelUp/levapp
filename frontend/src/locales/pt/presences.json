@@ -39,6 +39,7 @@
     },
     "validate": {
       "trigger_one": "{{count}} aula por validar",
+      "trigger_zero": "{{count}} aulas por validar",
       "trigger_other": "{{count}} aulas por validar",
       "triggerHint": "Reveja e confirme as presenças.",
       "title": "Aulas por validar",
@@ -62,8 +63,10 @@
       "validatedThisWeek": "Validadas esta semana",
       "readyBanner": "Todos responderam — pronta a confirmar.",
       "awaiting_one": "{{count}} jogador por decidir",
+      "awaiting_zero": "{{count}} jogadores por decidir",
       "awaiting_other": "{{count}} jogadores por decidir",
       "skipped_one": "{{count}} aula ignorada — tem jogadores sem resposta e precisa de ser revista individualmente.",
+      "skipped_zero": "{{count}} aulas ignoradas — têm jogadores sem resposta e precisam de ser revistas uma a uma.",
       "skipped_other": "{{count}} aulas ignoradas — têm jogadores sem resposta e precisam de ser revistas uma a uma.",
       "empty": "Não há nada para validar esta semana. Bom trabalho.",
       "group": {
@@ -73,12 +76,15 @@
       "triggerEmpty": "Nada por validar",
       "needsDecision": "Precisa de decisão",
       "presentCount_one": "{{count}} presente",
+      "presentCount_zero": "{{count}} presentes",
       "presentCount_other": "{{count}} presentes",
       "presentCountNone": "0 presentes",
       "triggerWeek_one": "{{count}} nesta semana",
+      "triggerWeek_zero": "{{count}} nesta semana",
       "triggerWeek_other": "{{count}} nesta semana",
       "triggerWeekEmpty": "Nada nesta semana",
       "triggerWeekShown_one": "{{count}} na semana mostrada",
+      "triggerWeekShown_zero": "{{count}} na semana mostrada",
       "triggerWeekShown_other": "{{count}} na semana mostrada",
       "triggerWeekShownEmpty": "Nada na semana mostrada",
       "noPlayerMatches": "Nenhum jogador corresponde à pesquisa."
@@ -126,6 +132,7 @@
     },
     "toast": {
       "validated_one": "Aula validada",
+      "validated_zero": "{{count}} aulas validadas",
       "validated_other": "{{count}} aulas validadas"
     },
     "error": {

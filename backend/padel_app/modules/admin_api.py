@@ -354,6 +354,15 @@ def view_as_user(user_id):
 # ── engine health (PAD-534, admin.engine-health): read-only, support ─────────────────────────
 
 
+@bp.get("/work")
+@require_role("operator")
+def work_dashboard():
+    """admin.work-dashboard (PAD-555): tickets, pull requests and deploys; read-only."""
+    from padel_app.services.admin import work_service
+
+    return jsonify(work_service.work(current_app.config, refresh=request.args.get("refresh") == "1"))
+
+
 @bp.get("/engine-health")
 @require_role("support")
 def engine_health():
@@ -529,3 +538,78 @@ def admin_set_capability(capability):
     if problem:
         return error(problem, 400)
     return jsonify(body)
+
+
+# ── admin.moderation (PAD-631): message reports and the deletion audit ──────────
+
+def _moderation_error(exc):
+    return jsonify({"error": exc.code, "code": exc.code}), exc.status
+
+
+@bp.get("/reports")
+@require_role("support")
+def list_reports():
+    from padel_app.services.admin import moderation_service
+
+    return jsonify(moderation_service.list_reports(request.args.get("status"), request.args.get("page")))
+
+
+@bp.get("/reports/summary")
+@require_role("support")
+def reports_summary():
+    from padel_app.services.admin import moderation_service
+
+    return jsonify(moderation_service.summary())
+
+
+@bp.get("/reports/<int:report_id>")
+@require_role("support")
+def report_detail(report_id):
+    from padel_app.services.admin import moderation_service
+
+    try:
+        return jsonify(moderation_service.report_detail(report_id))
+    except moderation_service.ModerationError as exc:
+        return _moderation_error(exc)
+
+
+def _act(report_id, action):
+    from padel_app.services.admin import moderation_service, users_service
+
+    try:
+        row = moderation_service.act(report_id, action, (request.get_json(silent=True) or {}).get("note"))
+    except moderation_service.ModerationError as exc:
+        return _moderation_error(exc)
+    except users_service.UsersError as exc:
+        # A refusal from the disable it reuses (admin.approvals-and-users rule 6) is that refusal.
+        return _users_error(exc)
+    return jsonify(row)
+
+
+@bp.post("/reports/<int:report_id>/dismiss")
+@audited("report.dismiss")
+@require_role("operator")
+def dismiss_report(report_id):
+    return _act(report_id, "dismiss")
+
+
+@bp.post("/reports/<int:report_id>/delete-message")
+@audited("report.delete_message")
+@require_role("operator")
+def report_delete_message(report_id):
+    return _act(report_id, "delete-message")
+
+
+@bp.post("/reports/<int:report_id>/disable-author")
+@audited("report.disable_author")
+@require_role("operator")
+def report_disable_author(report_id):
+    return _act(report_id, "disable-author")
+
+
+@bp.get("/deletion-audits")
+@require_role("support")
+def deletion_audits():
+    from padel_app.services.admin import moderation_service
+
+    return jsonify(moderation_service.list_deletion_audits(request.args.get("entity"), request.args.get("page")))

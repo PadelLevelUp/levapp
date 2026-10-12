@@ -153,6 +153,9 @@
       "levelAbove": "{{n}} above",
       "levelUnknown": "level unknown",
       "justifiedMisses": "justified misses {{pct}}%",
+      "makeupsOwed_zero": "no classes to make up",
+      "makeupsOwed_one": "{{count}} class to make up",
+      "makeupsOwed_other": "{{count}} classes to make up",
       "attendance": "attendance {{pct}}%",
       "playingSide": {
         "exact": "exact side",

@@ -5,10 +5,11 @@ the VM, so nobody reviewed them and no check covered them.
 
 | Here | On the VM |
 |---|---|
-| `nginx.conf` | `/etc/nginx/nginx.conf` (Debian's stock file, unchanged; kept so the check runs the real http block) |
+| `nginx.conf` | `/etc/nginx/nginx.conf` (Debian's stock file, except `ssl_protocols TLSv1.2 TLSv1.3` since PAD-643; kept so the check runs the real http block) |
 | `conf.d/levapp-log-redaction.conf` | `/etc/nginx/conf.d/levapp-log-redaction.conf` |
 | `sites-available/{levapp,levapp-staging,padellevelup}` | `/etc/nginx/sites-available/`, linked from `sites-enabled/` |
 | `sites-available/levapp-admin{,-staging}{,-http}` | same; the staff console hosts (PAD-531), see below |
+| `sites-available/levapp-api{,-staging}{,-http}` | same; the API's own hosts (PAD-614), installed like the console hosts below |
 
 **The deploy does not install these files.** A change here is applied by hand on the VM:
 copy the changed files over, run `sudo nginx -t`, then `sudo systemctl reload nginx`. After
@@ -128,3 +129,24 @@ curl -sI 'https://padellevelup.com/join/coach/abc?x=1' | grep -iE '^(HTTP|locati
 curl -s -o /dev/null -w '%{http_code}\n' https://padellevelup.com/api/app/public-web-origin   # 200 (after PAD-595 step 1 is on prod; else /api/notifications/vapid-public-key → 200)
 curl -s https://padellevelup.com/.well-known/apple-app-site-association | head -c 80; echo      # 200, JSON starting {"applinks"
 ```
+
+## The API hosts (PAD-614, delivery.api-host)
+
+`levapp-api` (api.levapp.app) and `levapp-api-staging` (api.staging.levapp.app) serve only `/api`
+(the SSE, activation and general locations, with the same log protections) to the two-port
+upstreams in `conf.d/levapp-api-upstream.conf`. They are installed exactly like the console hosts
+above, `-http` first, then the certificate by webroot, then the 443 file; the full owner runbook is
+on PAD-614.
+
+## TLS hardening (PAD-643, delivery.transport-security)
+
+`nginx.conf` allows TLS 1.2 and 1.3 only, at http level: nginx agrees the protocol for a socket
+before it picks a server by name. Every HTTPS server also includes certbot's
+`/etc/letsencrypt/options-ssl-nginx.conf`, whose own `ssl_protocols` wins at server level; it must
+say `TLSv1.2 TLSv1.3` too (current certbot ships that; an old copy may still list TLSv1/1.1, and a
+certbot upgrade may rewrite the file). Every HTTPS server of `levapp`, `levapp-staging`,
+`padellevelup`, `levapp-api` and `levapp-api-staging` sends `Strict-Transport-Security:
+max-age=31536000`, and so does `/register/`, because a location with its own `add_header` loses the
+server's. The console hosts are unchanged; its container sends HSTS itself.
+`backend/padel_app/tests/test_pad643_tls_hardening.py` checks the files. The owner's steps are in
+the PAD-643 pull request.

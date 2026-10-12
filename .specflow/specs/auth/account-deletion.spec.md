@@ -1,7 +1,7 @@
 ---
 id: auth.account-deletion
 status: implemented
-depends_on: [auth.login, auth.logout, auth.push-subscription, classes.instance-enrollment, classes.class-requests, notifications.invitations, notifications.waiting-list]
+depends_on: [auth.login, auth.logout, auth.push-subscription, auth.coach-crm-sync, classes.instance-enrollment, classes.class-requests, notifications.invitations, notifications.waiting-list]
 implements: ../../specs-business/auth/user-deletes-their-account.business.md
 governed_by: []
 ---
@@ -23,8 +23,17 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    `username` → a fresh `deleted-<16 hex>` (never the `pending-` placeholder prefix, so the record can
    never be claimed — `players.claim`); `password` → the hash of a random secret nobody holds (never
    null, so `auth.activate` cannot re-open it). The row is kept so authorship and history still resolve.
+   The personal details the registration and settings collect go too (PAD-605): `birth_date`,
+   `country`, the password-reset code fields and `notif_block_reason` → null. The acceptance record
+   (`terms_accepted_at`, `terms_version`, `privacy_version`) is kept as evidence of what was agreed.
+2a. **The photo is deleted, not just unlinked (PAD-605).** The profile photo's `images` row is
+   deleted in the same transaction, and after the commit its object is deleted from the uploads
+   bucket — best-effort: a storage failure is logged (the error class, never the key) and never
+   undoes the deletion; with no bucket configured there is nothing to delete. An image still
+   referenced by anything else (another user, a club logo or a message attachment) keeps its row
+   and object.
 3. **Every session ends.** Any JWT of a disabled user is rejected (the blocklist loader in
-   `padel_app/auth.py`), and the legacy session `/login` refuses a disabled account.
+   `padel_app/auth.py`). A JWT is the only session: the legacy session login is deleted (PAD-645).
 4. **Pushes stop.** Every `device_tokens` and `push_subscriptions` row of the user is deleted.
 5. **Their own social state goes.** `blocked_users` rows where they are the blocker or the blocked, and
    their `calendar_blocks`, are deleted.
@@ -72,13 +81,36 @@ session login still let a disabled user in (audit M10). This leaf states the ful
     an answer that can never come (PAD-360, `classes.class-requests` rule 18). Their holds go
     with the rest of the coach's calendar blocks (rule 5).
 
+11. **External services (PAD-607).** What the account left outside LevApp's database goes too:
+    - **CRM:** a deleting coach's HubSpot contact is archived (`auth.coach-crm-sync` rule 9),
+      after the commit and best-effort — a HubSpot failure never undoes or blocks the deletion.
+    - **File storage:** the photo's object in the uploads bucket (rule 2a).
+    - **Push:** the device tokens and web-push subscriptions are deleted (rule 4). Notifications
+      already delivered through Expo, Apple and Google cannot be recalled; the privacy policy says
+      so (§5).
+
 ### Acceptance Criteria
 
 #### The account cannot be used again
 - **Given** a student who deletes their account
 - **Then** their username starts with `deleted-`, their password matches nothing they knew, and their
   contact fields are empty
-- **And** their existing JWTs are rejected and the legacy session login refuses them
+- **And** their existing JWTs are rejected and `POST /api/auth/login` with their old password is 401
+
+#### Personal details and the photo are erased (PAD-605)
+- **Given** a student with a birth date, a country, a pending password-reset code, a block reason
+  and a profile photo stored in the bucket
+- **When** they delete their account
+- **Then** those fields are null, the photo's `images` row is gone and its bucket object was deleted
+- **And** if the bucket refuses the delete, the account is still deleted and the failure is logged
+- **Given** instead a photo that is also a club's logo
+- **Then** the account is deleted and the image row and its object both stay
+
+#### A deleting coach leaves the CRM (PAD-607)
+- **Given** a coach with a HubSpot contact
+- **When** they delete their account
+- **Then** the contact is archived after the deletion is committed, and a HubSpot failure still
+  leaves the account deleted
 
 #### Pushes stop
 - **Given** a user with a device token and a web-push subscription

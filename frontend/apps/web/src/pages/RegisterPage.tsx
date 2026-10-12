@@ -14,7 +14,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { registerUser, activateAccount } from "@/api/register";
-import { isUnderSignupAge } from "@levelup/config";
+import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
+
+const COUNTRY_CODE_KEYS: Record<string, string> = {
+  COUNTRY_REQUIRED: "countryRequired",
+  INVALID_COUNTRY: "countryRequired",
+};
 
 type RegistrationStatus = "loading" | "ok" | "already-registered" | "invalid";
 
@@ -24,6 +31,8 @@ const BIRTH_CODE_KEYS: Record<string, string> = {
   INVALID_BIRTH_DATE: "birthDateInvalid",
   UNDERAGE: "birthDateUnderage",
 };
+
+/** PAD-604: the server's country codes, in this form's own words (as sign-up). */
 
 const registerSchema = z
   .object({
@@ -39,6 +48,8 @@ const registerSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "birthDateRequired")
       .refine((d) => !Number.isNaN(Date.parse(d)) && new Date(`${d}T00:00:00`) <= new Date(), "birthDateInvalid")
       .refine((d) => !isUnderSignupAge(d), "birthDateUnderage"),
+    // PAD-604: required, ISO alpha-2 (default PT), as sign-up.
+    country: z.string().length(2, "countryRequired"),
   })
   .refine((data) => data.password === data.repeatPassword, {
     message: "passwordsMismatch",
@@ -54,11 +65,13 @@ const RegisterPage = () => {
   const token = (searchParams.get("t") ?? "").trim();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // PAD-637 (auth.register rule 19b): the Terms box, required.
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [status, setStatus] = useState<RegistrationStatus>("loading");
 
   const [form, setForm] = useState({
@@ -69,6 +82,7 @@ const RegisterPage = () => {
     password: "",
     repeatPassword: "",
     birthDate: "",
+    country: "PT",
   });
 
   useEffect(() => {
@@ -127,7 +141,10 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !token || !validateForm()) return;
+    const formOk = validateForm();
+    // PAD-637: the Terms box is checked with the rest of the form.
+    if (!termsAccepted) setErrors((prev) => ({ ...prev, terms: t("auth.legal.termsRequiredToContinue") }));
+    if (!userId || !token || !formOk || !termsAccepted) return;
 
     setSubmitting(true);
 
@@ -142,6 +159,8 @@ const RegisterPage = () => {
           phone: form.phone,
           password: form.password,
           birthDate: form.birthDate,
+          country: form.country,
+          termsAccepted: true,
         },
       });
 
@@ -157,6 +176,16 @@ const RegisterPage = () => {
       const key = res?.data?.code ? BIRTH_CODE_KEYS[res.data.code] : undefined;
       if (res?.status === 400 && res.data?.field === "birthDate" && key) {
         setErrors((prev) => ({ ...prev, birthDate: t(`auth.register.${key}`) }));
+        return;
+      }
+      // PAD-637: a Terms refusal belongs on the box.
+      if (res?.status === 400 && res?.data?.field === "terms") {
+        setErrors((prev) => ({ ...prev, terms: t("auth.legal.termsRequiredToContinue") }));
+        return;
+      }
+      // PAD-604: a country refusal belongs on the field, as sign-up.
+      if (res?.status === 400 && res.data?.field === "country" && COUNTRY_CODE_KEYS[res.data.code ?? ""]) {
+        setErrors((prev) => ({ ...prev, country: t("auth.register.countryRequired") }));
         return;
       }
       toast({
@@ -261,6 +290,43 @@ const RegisterPage = () => {
                 )}
               </div>
             ))}
+
+            <div className="space-y-2">
+              <Label htmlFor="register-country">{t("auth.register.country")}</Label>
+              <Select
+                value={form.country}
+                onValueChange={(v) => {
+                  setForm((prev) => ({ ...prev, country: v }));
+                  setErrors((prev) => ({ ...prev, country: undefined }));
+                }}
+              >
+                <SelectTrigger id="register-country" data-testid="register-country">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {countryName(c.code, i18n.language)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.country && (
+                <p className="text-sm text-destructive" data-testid="register-country-error">
+                  {errors.country}
+                </p>
+              )}
+            </div>
+
+            <TermsAcceptField
+              id="register-terms"
+              checked={termsAccepted}
+              onCheckedChange={(next) => {
+                setTermsAccepted(next);
+                setErrors(({ terms: _cleared, ...rest }) => rest);
+              }}
+              error={errors.terms}
+            />
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? t("auth.register.activating") : t("auth.register.activate")}

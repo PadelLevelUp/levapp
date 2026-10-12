@@ -4,7 +4,12 @@ Deleting an account removes the person from the future and keeps the coach's
 records (decision ``2026-09-10-account-deletion-keeps-coach-records``):
 
 - the account itself: status ``disabled``, name "Deleted user", contact fields,
-  photo, abbreviation and email-verification state cleared; the username
+  abbreviation, birth date, country, block reason and the email-verification and
+  password-reset state cleared;
+- the photo: its ``images`` row deleted with the rest and, after the commit, its
+  object in the uploads bucket (PAD-605), unless something else still uses it;
+- the CRM: a deleting coach's HubSpot contact is archived after the commit
+  (PAD-607, ``hubspot_sync.archive_deleted_coach``); the username
   becomes an unguessable ``deleted-…`` (never the ``pending-`` placeholder
   prefix, so the record can never be claimed) and the password the hash of a
   secret nobody holds (never NULL, so activation cannot re-open it);
@@ -23,6 +28,7 @@ records (decision ``2026-09-10-account-deletion-keeps-coach-records``):
 The row itself is kept so message authorship and history still resolve.
 Everything happens in one transaction.
 """
+import logging
 import secrets
 
 from werkzeug.security import generate_password_hash
@@ -30,6 +36,9 @@ from werkzeug.security import generate_password_hash
 from padel_app.models import User
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
+
+
+logger = logging.getLogger(__name__)
 
 DELETED_NAME = "Deleted user"
 DELETED_USERNAME_PREFIX = "deleted-"
@@ -96,6 +105,25 @@ def _close_open_class_requests(user, now):
         close_open_requests_silently(status="declined", by="coach", coach_id=user.coach.id, now_utc=now)
 
 
+def _delete_stored_object(object_key):
+    """Rule 2a: delete the photo's object from the uploads bucket, best-effort
+    (`image_cleanup.delete_stored_object`)."""
+    from padel_app.services.image_cleanup import delete_stored_object
+
+    delete_stored_object(object_key, what="account deletion: photo", log=logger)
+
+
+def _photo_to_delete(user):
+    """Rule 2a: the user's photo, unless another user, a club logo or a message
+    attachment still points at the same image."""
+    from padel_app.services.image_cleanup import image_in_use
+
+    photo = user.user_image
+    if photo is None:
+        return None
+    return None if image_in_use(photo.id, except_user_id=user.id) else photo
+
+
 def delete_account_service(user_id, *, now=None):
     from padel_app.models.blocked_user import BlockedUser
     from padel_app.models.calendar_blocks import CalendarBlock
@@ -104,6 +132,10 @@ def delete_account_service(user_id, *, now=None):
 
     now = now or utcnow_naive()
     user = User.query.get_or_404(user_id)
+
+    photo = _photo_to_delete(user)
+    # Rule 11 (PAD-607): the CRM contact is found by the email the row is about to lose.
+    crm_email = user.email if user.coach is not None else None
 
     # Rule 2: the account itself is gone.
     user.status = "disabled"
@@ -116,11 +148,22 @@ def delete_account_service(user_id, *, now=None):
     user.email_verification_code_hash = None
     user.email_verification_expires_at = None
     user.email_verification_sent_at = None
+    user.password_reset_code_hash = None
+    user.password_reset_expires_at = None
+    user.password_reset_sent_at = None
+    user.birth_date = None
+    user.country = None
+    user.notif_block_reason = None
     user.username = _deleted_username()
     user.password = generate_password_hash(secrets.token_urlsafe(32))
 
     # Rule 4: pushes stop. Rule 5: their own social state goes.
     DeviceToken.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+    # auth.social-sign-in (PAD-618): the Google / Apple links go too, so the same provider
+    # account can never sign back into the deleted one.
+    from padel_app.models import UserIdentity
+
+    UserIdentity.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     PushSubscription.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     BlockedUser.query.filter(
         (BlockedUser.blocker_id == user.id) | (BlockedUser.blocked_id == user.id)
@@ -136,5 +179,18 @@ def delete_account_service(user_id, *, now=None):
     if user.player is not None:
         _remove_student_from_future(user.player, now)
 
+    # Rule 2a: the photo goes with the account — the row now, the stored object
+    # once the deletion is committed, so a bucket failure can never undo it.
+    photo_key = None
+    if photo is not None:
+        photo_key = photo.object_key
+        db.session.delete(photo)
+
     db.session.commit()
+    if photo_key:
+        _delete_stored_object(photo_key)
+    if crm_email:
+        from padel_app.services import hubspot_sync
+
+        hubspot_sync.archive_deleted_coach(crm_email)
     return user

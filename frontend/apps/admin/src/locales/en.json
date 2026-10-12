@@ -11,7 +11,10 @@
         "settings": "Settings",
         "clubs": "Clubs",
         "switches": "Switches",
-        "engineHealth": "Engine health"
+        "engineHealth": "Engine health",
+        "reports": "Reports",
+        "deletionAudits": "Deletions",
+        "work": "Work"
       },
       "signOut": "Sign out",
       "role": {
@@ -240,10 +243,12 @@
       },
       "effect": {
         "open-spots": "Off: no student sees open spots in their calendar.",
+        "student-relations": "Off: no student sees the classes they are invited to or waiting for in their calendar.",
         "evaluations": "Off: the shared-evaluation block disappears from the student dashboard.",
         "class-type-defaults": "Off: every app is told a class's open-spot setting comes from the coach, as old apps are. The value shown is the same.",
         "coach-invite-email": "Off: accepting a coach invitation no longer requires an email, as in old apps.",
-        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident."
+        "terms-acceptance": "Off: sign-up no longer requires accepting the Terms, and no acceptance is recorded. Legal impact: switch off only for an incident.",
+        "country-on-completion": "Off: activating an account and accepting an invitation no longer require a country, as in old apps."
       },
       "reasonShown": "Reason: {{reason}}",
       "changed": "Last changed {{at}} by {{by}}",
@@ -322,6 +327,149 @@
       "minutes": "{{n}} min",
       "hours": "{{n}} h",
       "days": "{{n}} d"
+    },
+    "reports": {
+      "title": "Reports",
+      "lead": "Messages that students and coaches reported. Read each one in context and act on it.",
+      "tabs": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "empty": "No reports here.",
+      "deleted": "deleted",
+      "noReason": "No reason given",
+      "unknownAuthor": "Unknown author",
+      "columns": {
+        "created": "Reported",
+        "reason": "Reason",
+        "message": "Message",
+        "author": "Author",
+        "reporter": "Reporter",
+        "outcome": "Outcome",
+        "closedBy": "Closed by"
+      },
+      "outcome": {
+        "dismissed": "Dismissed",
+        "message_deleted": "Message deleted",
+        "author_disabled": "Author disabled"
+      },
+      "status": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "open": "Open report",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
+    },
+    "report": {
+      "back": "Back to reports",
+      "notFound": "That report does not exist.",
+      "title": "Report #{{id}}",
+      "facts": "The report",
+      "context": "The message in context",
+      "reportedMarker": "Reported message",
+      "deletedMarker": "Deleted",
+      "contextEmpty": "No messages to show.",
+      "participants": "Conversation participants",
+      "sender": "Sender",
+      "actions": "Actions",
+      "closedNotice": "This report is closed.",
+      "dismiss": "Dismiss",
+      "deleteMessage": "Delete message",
+      "disableAuthor": "Disable author",
+      "confirm": {
+        "dismiss": "Dismiss this report? The message stays as it is.",
+        "delete-message": "Delete the reported message? Everyone in the conversation will no longer see it.",
+        "disable-author": "Disable the author of the message? They are signed out everywhere and cannot sign in."
+      },
+      "note": "Note",
+      "noteRequired": "Say why (required)",
+      "noteOptional": "Note (optional)",
+      "confirmAction": "Confirm",
+      "alreadyHandled": "This report was already handled. It has been refreshed.",
+      "error": "The action failed. Try again."
+    },
+    "deletionAudits": {
+      "title": "Deletions",
+      "lead": "The record of destructive deletes. Read only.",
+      "filters": {
+        "entity": "Entity",
+        "placeholder": "e.g. club",
+        "apply": "Filter",
+        "clear": "Clear"
+      },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "entity": "Entity",
+        "action": "Action",
+        "label": "Label",
+        "counts": "Counts"
+      },
+      "system": "system",
+      "empty": "No deletions recorded.",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
+    },
+    "work": {
+      "title": "Work",
+      "lead": "Tickets to do and done, shipped changes and deploys. Read-only; data from Linear and GitHub.",
+      "refresh": "Refresh",
+      "fetchedAt": "Updated at {{when}}",
+      "notConfigured": "Not configured: {{setting}} is missing.",
+      "unavailable": "Could not get the data.",
+      "lastOk": "Last success: {{when}}.",
+      "open": {
+        "title": "Tickets to do",
+        "empty": "No tickets to do.",
+        "noSummary": "No description.",
+        "unassigned": "Unassigned"
+      },
+      "done": {
+        "title": "Done in the last 30 days",
+        "empty": "No tickets done in the last 30 days."
+      },
+      "merged": {
+        "title": "Shipped changes (30 days)",
+        "empty": "No changes shipped in the last 30 days.",
+        "production": "In production",
+        "staging": "On staging"
+      },
+      "openPrs": {
+        "title": "Open pull requests",
+        "empty": "No open pull requests.",
+        "draft": "Draft",
+        "checks": {
+          "success": "Checks passed",
+          "failure": "Checks failed",
+          "pending": "Checks running",
+          "unknown": "Checks unknown"
+        }
+      },
+      "deploys": {
+        "title": "Deploys",
+        "staging": "Staging",
+        "production": "Production",
+        "empty": "No recent deploys.",
+        "success": "Success",
+        "failure": "Failed",
+        "running": "Running",
+        "cancelled": "Cancelled",
+        "skipped": "Skipped"
+      },
+      "priority": {
+        "0": "No priority",
+        "1": "Urgent",
+        "2": "High",
+        "3": "Medium",
+        "4": "Low"
+      },
+      "linear": "Linear",
+      "github": "GitHub",
+      "newTab": "opens in a new tab",
+      "truncated": "Incomplete list: there are more than this page's limit."
     }
   }
 }

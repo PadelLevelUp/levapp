@@ -58,6 +58,8 @@ async function createClaimablePlayer(page: Page) {
   await openPlayers(page);
   await page.getByRole("button", { name: /add player/i }).first().click();
   await page.getByLabel(/^name$/i).fill(placeholderName);
+  // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+  await page.getByTestId("add-player-confirms-adults").click();
   await page.getByRole("button", { name: /create.*invite|invite.*player/i }).click();
   const dialog = page.getByRole("dialog", { name: /invite/i });
   await expect(dialog).toBeVisible({ timeout: 10_000 });
