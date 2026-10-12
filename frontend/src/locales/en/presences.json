@@ -40,6 +40,7 @@
     "validate": {
       "trigger_one": "{{count}} class to validate",
       "trigger_other": "{{count}} classes to validate",
+      "trigger_zero": "{{count}} classes to validate",
       "triggerHint": "Review and confirm attendance.",
       "title": "Classes to validate",
       "description": "Browse by week. Classes where everyone answered can be confirmed in bulk.",
@@ -63,8 +64,10 @@
       "readyBanner": "Everyone answered — ready to confirm.",
       "awaiting_one": "{{count}} player still to decide",
       "awaiting_other": "{{count}} players still to decide",
+      "awaiting_zero": "{{count}} players still to decide",
       "skipped_one": "{{count}} class skipped — it has players with no answer and must be reviewed on its own.",
       "skipped_other": "{{count}} classes skipped — they have players with no answer and must be reviewed one by one.",
+      "skipped_zero": "{{count}} classes skipped — they have players with no answer and must be reviewed one by one.",
       "empty": "Nothing left to validate this week. Nice work.",
       "group": {
         "needsInput": "Needs your input ({{count}})",
@@ -74,12 +77,15 @@
       "needsDecision": "Needs a decision",
       "presentCount_one": "{{count}} present",
       "presentCount_other": "{{count}} present",
+      "presentCount_zero": "{{count}} present",
       "presentCountNone": "0 present",
       "triggerWeek_one": "{{count}} this week",
       "triggerWeek_other": "{{count}} this week",
+      "triggerWeek_zero": "{{count}} this week",
       "triggerWeekEmpty": "Nothing this week",
       "triggerWeekShown_one": "{{count}} in the week shown",
       "triggerWeekShown_other": "{{count}} in the week shown",
+      "triggerWeekShown_zero": "{{count}} in the week shown",
       "triggerWeekShownEmpty": "Nothing in the week shown",
       "noPlayerMatches": "No player matches the search."
     },
@@ -126,7 +132,8 @@
     },
     "toast": {
       "validated_one": "Class validated",
-      "validated_other": "{{count}} classes validated"
+      "validated_other": "{{count}} classes validated",
+      "validated_zero": "{{count}} classes validated"
     },
     "error": {
       "statsTitle": "Couldn't load presence statistics",

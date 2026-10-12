@@ -184,6 +184,7 @@
       "selectAll": "Selecionar tudo",
       "autoIncludedNote": "Os Níveis do Treinador e as Categorias de Avaliação são incluídos automaticamente quando necessário.",
       "analyzeTable_one": "Analisar {{count}} tabela",
+      "analyzeTable_zero": "Analisar {{count}} tabelas",
       "analyzeTable_other": "Analisar {{count}} tabelas",
       "recordsFound": "{{records}} registos encontrados em {{tables}} tabelas",
       "processing": "A processar...",
@@ -198,6 +199,7 @@
       "importingProgress": "A importar... {{progress}}%",
       "importing": "A importar...",
       "possibleDuplicate_one": "{{count}} possível duplicado",
+      "possibleDuplicate_zero": "{{count}} possíveis duplicados",
       "possibleDuplicate_other": "{{count}} possíveis duplicados",
       "possibleDuplicate": "Possível duplicado",
       "duplicateTooltip": "Já existe um jogador com este nome na tua lista. Podes importar esta linha na mesma.",
@@ -540,6 +542,7 @@
       "expires": "Expira a {{date}}",
       "expired": "Expirado",
       "classCount_one": "{{count}} aula",
+      "classCount_zero": "{{count}} aulas",
       "classCount_other": "{{count}} aulas",
       "remove": "Remover",
       "renew": "Renovar"
@@ -658,6 +661,7 @@
       },
       "impact": {
         "title_one": "{{count}} aluno inscrito deixa de cumprir esta fasquia",
+        "title_zero": "{{count}} alunos inscritos deixam de cumprir esta fasquia",
         "title_other": "{{count}} alunos inscritos deixam de cumprir esta fasquia",
         "body": "Continuam inscritos — a elegibilidade decide quem entra, nunca quem fica. Se quiseres, remove-os na própria aula.",
         "none": "Todos os alunos inscritos continuam a cumprir a fasquia.",

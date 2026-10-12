@@ -25,6 +25,7 @@
       "declinedReason": "{{name}} não vai. Convites para a vaga libertada",
       "openSpotReason": "Vaga por preencher. Convites sugeridos",
       "openSpotGroup_one": "{{count}} vaga · prioridade {{side}}",
+      "openSpotGroup_zero": "{{count}} vagas · prioridade {{side}}",
       "openSpotGroup_other": "{{count}} vagas · prioridade {{side}}",
       "sideLeft": "esquerda",
       "sideRight": "direita",

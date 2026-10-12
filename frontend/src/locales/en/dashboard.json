@@ -19,6 +19,7 @@
       "eyebrow": "YOUR RECORD",
       "ofLessons_one": "of {{count}} lesson",
       "ofLessons_other": "of {{count}} lessons",
+      "ofLessons_zero": "of {{count}} lessons",
       "next30Days": "next 30 days",
       "toConfirm": "to confirm"
     },
@@ -37,6 +38,7 @@
     "messagesOverviewAria": "Messages overview",
     "conversationsToReplyCount_one": "{{count}} conversation to reply",
     "conversationsToReplyCount_other": "{{count}} conversations to reply",
+    "conversationsToReplyCount_zero": "{{count}} conversations to reply",
     "greeting": {
       "morning": "Good morning, {{name}}",
       "afternoon": "Good afternoon, {{name}}",
@@ -44,6 +46,7 @@
     },
     "thingsNeedYou_one": "{{count}} thing needs you",
     "thingsNeedYou_other": "{{count}} things need you",
+    "thingsNeedYou_zero": "{{count}} things need you",
     "today": "Today",
     "newClass": "New class",
     "hero": {
@@ -60,9 +63,11 @@
       "emptySeats": {
         "title_one": "{{class}} has {{count}} empty seat",
         "title_other": "{{class}} has {{count}} empty seats",
+        "title_zero": "{{class}} has {{count}} empty seats",
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
         "invite_one": "Invite {{count}} player",
-        "invite_other": "Invite {{count}} players"
+        "invite_other": "Invite {{count}} players",
+        "invite_zero": "Invite {{count}} players"
       },
       "reply": {
         "title": "{{name}} replied",
@@ -71,10 +76,12 @@
       "validation": {
         "title_one": "You have {{count}} class to validate",
         "title_other": "You have {{count}} classes to validate",
+        "title_zero": "You have {{count}} classes to validate",
         "thisWeek": "This week",
         "lastWeek": "Last week",
         "weeksAgo_one": "{{count}} week ago",
         "weeksAgo_other": "{{count}} weeks ago",
+        "weeksAgo_zero": "{{count}} weeks ago",
         "review": "Review"
       },
       "invite": {
@@ -96,15 +103,18 @@
     "schedule": {
       "eyebrow_one": "NEXT 7 DAYS · {{count}} CLASS",
       "eyebrow_other": "NEXT 7 DAYS · {{count}} CLASSES",
+      "eyebrow_zero": "NEXT 7 DAYS · {{count}} CLASSES",
       "calendar": "Calendar",
       "none": "No classes in the next 7 days.",
       "full": "Full",
       "empty": "Empty",
       "seats_one": "{{count}} seat",
       "seats_other": "{{count}} seats",
+      "seats_zero": "{{count}} seats",
       "invite": "Invite",
       "eyebrowUpcoming_one": "UPCOMING · {{count}} CLASS",
       "eyebrowUpcoming_other": "UPCOMING · {{count}} CLASSES",
+      "eyebrowUpcoming_zero": "UPCOMING · {{count}} CLASSES",
       "noneUpcoming": "No classes in the next 30 days.",
       "toConfirm": "Confirm?"
     },

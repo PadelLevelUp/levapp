@@ -146,6 +146,7 @@
     "folder": {
       "exerciseCount_one": "{{count}} exercício",
       "exerciseCount_other": "{{count}} exercícios",
+      "exerciseCount_zero": "{{count}} exercícios",
       "emptyGroup": "Ainda não há exercícios neste grupo.",
       "collapseGroupAria": "Fechar grupo {{name}}",
       "expandGroupAria": "Abrir grupo {{name}}",
