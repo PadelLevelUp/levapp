@@ -90,6 +90,12 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     `metadata` into the cached message, and never `isRead` or `status`, which the viewer-less
     payload does not know. Both shells merged only `content` and forced `edited: true` before
     this rule, so no bubble changed live until a refetch.
+19. **A sent message shows once, whichever answer lands first (PAD-647).** The sender's own
+    `message_created` echo can arrive before the POST that created it answers. The echo is
+    appended under the saved id; when the POST then answers, a saved id already in the thread
+    drops the optimistic row instead of replacing it. Both shells settle the send through one
+    shared helper, `reconcileSentMessage` in `@levelup/hooks`. Before this rule only iOS checked;
+    web replaced the optimistic row with the saved message and showed it twice.
 
 19. **(PAD-616, B-546; rule number unconfirmed) A re-open resyncs what is live.** An event the
     server published while a client's stream was down (a network blip, an app back from the
@@ -186,6 +192,12 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** a `message_edited` arrives whose payload carries `metadata.responded: true`, `metadata.answeredBy: "coach"` and `edited: false`
 - **Then** the cached message's `metadata` is replaced by the payload's, its `content` and `edited` follow the payload, and its `isRead` and `status` are untouched
 - **And** the bubble re-renders without a reload
+
+#### The echo that beats the POST leaves one bubble (rule 19, PAD-647)
+- **Given** a coach on web with a conversation open, whose send POST is held until the `message_created` echo has rendered
+- **When** the POST answers with the same saved message
+- **Then** the thread shows the message exactly once
+- **And** when the POST answers first, the optimistic row becomes the saved message with status `sent` and the echo only marks it `delivered`
 
 #### Under load the API stays responsive
 - **Given** gunicorn with the production flags (1 worker, 64 threads) and 70 clients opening streams

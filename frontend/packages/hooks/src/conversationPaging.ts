@@ -158,6 +158,32 @@ export function applyIncomingMessage(
 }
 
 /**
+ * Settle the sender's optimistic `tempId` row once the POST returns `saved`.
+ *
+ * The live echo of the same message can land before the POST answers; it is
+ * appended by `applyIncomingMessage` under the saved id. Replacing the temp with
+ * `saved` then would show the message twice (PAD-647), so when the saved id is
+ * already present the temp row is dropped instead.
+ */
+export function reconcileSentMessage(
+  current: Conversation,
+  tempId: string,
+  saved: Message
+): Conversation {
+  const alreadyDelivered = current.messages.some(
+    (m) => String(m.id) === String(saved.id)
+  );
+  return {
+    ...current,
+    messages: alreadyDelivered
+      ? current.messages.filter((m) => m.id !== tempId)
+      : current.messages.map((m) =>
+          m.id === tempId ? { ...saved, status: "sent" as const } : m
+        ),
+  };
+}
+
+/**
  * The conversation list as the user sees it: page 1 (the cached query) followed by the later pages
  * appended on "load more" (client.query-cache rule 6). A row on several pages keeps page 1's
  * version, the fresher read, so a page-1 refetch never duplicates a row an extra page already

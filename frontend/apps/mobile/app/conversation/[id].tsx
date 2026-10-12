@@ -12,6 +12,7 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
   mergeNewestPage,
+  reconcileSentMessage,
   queryKeys,
   refreshAfterRequestChange,
   shouldShowJumpToBottom,
@@ -515,24 +516,10 @@ export default function ConversationScreen() {
         replyToId,
       });
       setRepliedLocally(true);
-      updateConversationCache(queryClient, conversationId, (c) => {
-        // SSE may already have delivered the saved message — drop the temp.
-        const alreadyDelivered = c.messages.some(
-          (m) => String(m.id) === String(saved.id)
-        );
-        if (alreadyDelivered) {
-          return {
-            ...c,
-            messages: c.messages.filter((m) => m.id !== tempId),
-          };
-        }
-        return {
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === tempId ? { ...saved, status: "sent" as const } : m
-          ),
-        };
-      });
+      // SSE may already have delivered the saved message — shared with web.
+      updateConversationCache(queryClient, conversationId, (c) =>
+        reconcileSentMessage(c, tempId, saved)
+      );
       invalidateMessagesLists(queryClient);
     } catch {
       updateMessageInCache(queryClient, conversationId, tempId, (m) => ({
