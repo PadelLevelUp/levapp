@@ -2,6 +2,8 @@ server {
     server_name levapp.app www.levapp.app;
     # B-182: the SSE token (?token=) is redacted in this log; see conf.d/levapp-log-redaction.conf.
     access_log /var/log/nginx/access.log redacted;
+    # PAD-643 (delivery.transport-security): browsers keep to HTTPS for a year.
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     # SSE endpoint — must come before /api/ block
     location /api/app/events {
@@ -39,6 +41,8 @@ server {
         # that copy so the response carries one.
         proxy_hide_header Referrer-Policy;
         add_header Referrer-Policy "no-referrer" always;
+        # A location's own add_header drops the server's, so HSTS is repeated here.
+        add_header Strict-Transport-Security "max-age=31536000" always;
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

@@ -16,6 +16,8 @@ from padel_app.services.user_service import (
 )
 from padel_app.services.registration_service import (
     RegistrationError,
+    accept_legal_catch_up,
+    legal_pending,
     register_user_service,
 )
 from padel_app.services.club_service import latest_pending_club_join_request
@@ -99,13 +101,10 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
-        # PAD-198 (retired, PAD-457): no client reads this key — the App Store
-        # builds never did, and the current web and iOS code does not. It is
-        # additive and harmless, and goes with the guardian columns in the later,
-        # checked migration; no new "granted" value is produced anymore.
-        "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
+        # PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for.
+        "legalPending": legal_pending(user),
     }
 
 @bp.post("/register")
@@ -236,13 +235,6 @@ def _signed_in_answer(user):
     if user.status == "disabled":
         return {"error": "ACCOUNT_DISABLED"}, 401
 
-    # auth.login rule 10 (PAD-457): guardian_consent_status is a dead-code
-    # safety net now that signup requires 18+ (no new "pending"/"revoked" rows
-    # are ever created), but any left over from before still answer exactly
-    # like a disabled account rather than leaking the old guardian-consent code.
-    if user.guardian_consent_status in ("pending", "revoked"):
-        return {"error": "ACCOUNT_DISABLED"}, 401
-
     access_token = issue_access_token(user.id)
 
     return {
@@ -322,6 +314,24 @@ def me():
     return jsonify(_serialize_me(user))
 
 
+@bp.post("/me/legal")
+@jwt_required()
+def accept_legal():
+    """auth.legal-catch-up rule 3 (PAD-637): an older account accepts the Terms and/or gives its birth
+    date. Answers the new `me`; any refusal is the sign-up shape and writes nothing."""
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    try:
+        accept_legal_catch_up(user, request.get_json() or {}, utcnow_naive())
+    except RegistrationError as exc:
+        db.session.rollback()
+        payload = {"error": exc.message, "field": exc.field}
+        if getattr(exc, "code", None):
+            payload["code"] = exc.code
+        return jsonify(payload), exc.status
+    db.session.commit()
+    return jsonify(_serialize_me(user))
+
+
 @bp.delete("/me")
 @jwt_required()
 def delete_me():
@@ -343,7 +353,11 @@ def update_me():
         user = update_own_profile_service(user_id, payload)
     except ProfileValidationError as exc:
         db.session.rollback()
-        return {"error": exc.message}, exc.status
+        body = {"error": exc.message}
+        # PAD-640: a coded refusal (UNDERAGE, INVALID_BIRTH_DATE) names its code and field.
+        if exc.code:
+            body.update(code=exc.code, field=exc.field)
+        return body, exc.status
 
     return jsonify(_serialize_me(user))
 

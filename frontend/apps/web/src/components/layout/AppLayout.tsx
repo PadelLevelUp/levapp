@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
+import { CountryPrompt } from "@/components/layout/CountryPrompt";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -522,6 +523,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       </div>
       {/* PAD-373: "Gerir competências" opens over any page via ?competencies=open (coach only). */}
       <CompetencyManagerHost />
+      {/* PAD-630 (auth.login rule 13): an account with no country is asked once, over any page. */}
+      <CountryPrompt />
     </div>
   );
 }

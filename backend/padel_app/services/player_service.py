@@ -469,6 +469,23 @@ def get_player_profile(coach, player_id):
     }
 
 
+def require_adults_confirmation(data):
+    """PAD-642 (players.create rule 10, import.confirm rule 9; owner decision 2026-10-12, "forbid
+    under-18"): a client declaring `adult-roster-confirmation` sends the coach's `confirmsAdults: true`
+    when creating or importing players; without it, 400 before anything is written. An older build is
+    not asked."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.utils.client_capabilities import ADULT_ROSTER_CONFIRMATION, client_declares
+
+    if client_declares(ADULT_ROSTER_CONFIRMATION) and (data or {}).get("confirmsAdults") is not True:
+        abort(make_response(jsonify({
+            "error": "Confirma que os alunos têm 18 anos ou mais. / Confirm the students are 18 or older.",
+            "field": "confirmsAdults",
+            "code": "ADULTS_CONFIRMATION_REQUIRED",
+        }), 400))
+
+
 @transactional
 def add_player_service(data):
     """Builds the full player creation payload and delegates to create_player_helper.

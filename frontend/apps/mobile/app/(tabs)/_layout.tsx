@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
+import { CountryPrompt } from "@/features/auth/country-prompt";
 import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
 import { useAppBadgeSync } from "@/hooks/useAppBadgeSync";
@@ -152,6 +153,7 @@ export default function TabsLayout() {
   const isCoach = user?.roles?.includes("coach") ?? false;
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: lightTheme.sidebarBackground },
@@ -290,5 +292,8 @@ export default function TabsLayout() {
       {/* No Settings tab: the screen lives at `app/settings.tsx`, outside this
           group, and is pushed from the header avatar above (PAD-193). */}
     </Tabs>
+    {/* PAD-630 (auth.login rule 13): an account with no country is asked once, over any tab. */}
+    <CountryPrompt />
+    </>
   );
 }

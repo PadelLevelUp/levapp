@@ -12,14 +12,15 @@ class AppSetting(db.Model):
     the setting; with no row the process falls back to its env flag, so an
     environment that never touched a setting behaves as before.
 
-    Shaped like ``DigitalConsentAge``: no editor mixin, read on the request
-    that needs it, changed with one UPDATE and no deploy. ``value`` is JSON so
+    Shaped like the retired ``DigitalConsentAge`` (PAD-198, dropped by
+    PAD-644): no editor mixin, read on the request that needs it, changed with
+    one UPDATE and no deploy. ``value`` is JSON so
     a later setting can be a number or a list without a new column.
     """
 
     __tablename__ = "app_settings"
     # Every model in this package carries extend_existing (models/MODELS.md
-    # skeleton; DigitalConsentAge too): the test app factory imports the models
+    # skeleton): the test app factory imports the models
     # package more than once per process, and a second class definition on the
     # same MetaData would otherwise raise. Not a sign of a duplicate table.
     __table_args__ = {"extend_existing": True}

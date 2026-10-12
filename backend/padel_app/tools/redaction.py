@@ -17,7 +17,6 @@ REDACTED_COLUMNS = {
     "coach_invitations": frozenset({"token_hash"}),
     "player_invitations": frozenset({"token_hash"}),
     "coach_join_tokens": frozenset({"token_hash"}),
-    "guardian_consents": frozenset({"consent_token_hash", "revoke_token_hash"}),  # PAD-198
 }
 
 

@@ -3,10 +3,9 @@ from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
-from flask_login import UserMixin
 
 
-class User(db.Model, model.Model, UserMixin):
+class User(db.Model, model.Model):
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 
@@ -88,14 +87,13 @@ class User(db.Model, model.Model, UserMixin):
     password_reset_attempts = Column(
         Integer, nullable=False, server_default="0", default=0,
     )
-    # ── auth.parental-consent (PAD-198) ──────────────────────────────────────
+    # ── auth.register rule 16 (PAD-198; adults-only check, rule 18) ──────────
     #
     # Asked at self-sign-up only; coach-created players and every account that
-    # existed before PAD-198 keep NULLs and are never gated.
-    # `guardian_consent_status`: NULL (not required) | pending | granted | revoked.
+    # existed before PAD-198 keep NULLs. The guardian-consent status column went
+    # with the retired guardian flow (PAD-644).
     birth_date = Column(Date, nullable=True)
     country = Column(String(2), nullable=True)
-    guardian_consent_status = Column(String(16), nullable=True)
     # ── auth.register rule 19 (PAD-485) ───────────────────────────────────────
     #
     # What a self-registration accepted: when, and which versions of the two documents the box names

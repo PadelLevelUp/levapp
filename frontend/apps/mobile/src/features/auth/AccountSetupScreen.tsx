@@ -7,8 +7,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
-import { COUNTRIES, countryName } from "@levelup/config";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CountryField } from "@/features/auth/CountryField";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
@@ -46,8 +46,9 @@ export type AccountFormField = {
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
   /** PAD-457: e.g. "DD/MM/AAAA" for the activation form's birth date. */
   placeholder?: string;
-  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box. */
-  kind?: "country";
+  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box.
+   * PAD-637: "terms" is the Terms box (`values[id]` is "true" when ticked; auth.register rule 19b). */
+  kind?: "country" | "terms";
 };
 
 export function PreAuthShell({
@@ -137,54 +138,6 @@ export function AccountSetupNotice({
   );
 }
 
-/**
- * PAD-604: the country picker on the completion forms, as sign-up's (`app/signup.tsx`): required,
- * default PT, the `COUNTRIES` list in the reader's language. Error id `<form>-country-error`, as
- * every field of the form.
- */
-function CountryField({
-  testID,
-  label,
-  value,
-  error,
-  disabled,
-  onChange,
-}: {
-  testID: string;
-  label: string;
-  value: string;
-  error?: string;
-  disabled: boolean;
-  onChange: (code: string) => void;
-}) {
-  const { i18n } = useTranslation();
-  return (
-    <View className="gap-1.5">
-      <Label testID={`${testID}-label`}>{label}</Label>
-      <Select
-        value={{ value, label: value ? countryName(value, i18n.language) : "" }}
-        onValueChange={(opt) => {
-          if (opt?.value) onChange(opt.value);
-        }}
-      >
-        <SelectTrigger testID={testID} disabled={disabled}>
-          <SelectValue placeholder={label} />
-        </SelectTrigger>
-        <SelectContent>
-          {COUNTRIES.map((c) => (
-            <SelectItem key={c.code} value={c.code} label={countryName(c.code, i18n.language)} />
-          ))}
-        </SelectContent>
-      </Select>
-      {error ? (
-        <Text className="text-sm text-destructive" testID={`${testID}-error`} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 export function AccountSetupForm({
   title,
   description,
@@ -224,7 +177,16 @@ export function AccountSetupForm({
 
         <CardContent className="gap-4">
           {fields.map((field) =>
-            field.kind === "country" ? (
+            field.kind === "terms" ? (
+              <TermsAcceptField
+                key={field.id}
+                testID={`${testID}-${field.id}`}
+                checked={values[field.id] === "true"}
+                onToggle={() => onChangeField(field.id, values[field.id] === "true" ? "" : "true")}
+                error={errors[field.id]}
+                disabled={submitting}
+              />
+            ) : field.kind === "country" ? (
               <CountryField
                 key={field.id}
                 testID={`${testID}-${field.id}`}

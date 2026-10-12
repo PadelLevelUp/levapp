@@ -24,7 +24,16 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
   published, `pt/<id>.md`.
 - **Drafts** (`content/legal/drafts/<version>/<lang>/<id>.md`, when one is staged): texts kept
   for review, never imported by the app. None is staged: v2026-10-10 (18+, Sucesso Fractal – Lda
-  as controller, delete path, admin@levapp.app) is published from the owner's final .docx.
+  as controller, delete path, admin@levapp.app) is published from the owner's final .docx; Privacy
+  v2026-10-13 (PAD-603, owner-requested) adds the push-notification providers to §5 and the
+  deletion request by email to §10, and, in the same version (PAD-634, owner decision 2026-10-12:
+  version change only, no notice, nobody asked again; both ship in promotion 11), names the providers in §5 (Google Cloud, Gmail,
+  Expo for push and app updates, HubSpot with its legal basis, OpenRouter and Inception for the AI
+  import), states the US transfers and their mechanism in §9, and adds availability and calendar
+  data to §1. The legal text is web-only by nature: the iOS app opens these pages in the browser
+  (`legal-url`), so no iOS change ships with it. Terms v2026-10-13 (PAD-642, owner decision 2026-10-12) adds
+  to §2: a coach adds, creates or imports only people aged 18 or over and confirms it each time
+  (`players.create` rule 10).
 
 ### Rules
 1. **One source, rendered.** `/terms` and `/privacy` render `LegalPage`, which renders the

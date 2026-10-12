@@ -404,7 +404,8 @@ export default function PlayersPage() {
       )}
 
       <div className="flex items-center justify-between pt-2">
-        <p className="text-sm text-muted-foreground">
+        {/* B-524: the total as data, so a spec can wait for a search's result without matching copy. */}
+        <p className="text-sm text-muted-foreground" data-testid="players-pagination" data-total={totalItems}>
           {t("players.pagination", { current: currentPage, total: totalPages, players: totalItems })}
         </p>
         <div className="flex items-center gap-2">

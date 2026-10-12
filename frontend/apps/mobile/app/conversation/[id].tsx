@@ -1,5 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { RESYNC_EVENT, classJoinRequestsApi, classRequestsApi, messagesApi, notificationEngineApi } from "@levelup/api";
+import {
+  RESYNC_EVENT,
+  classJoinRequestsApi,
+  classRequestsApi,
+  eraseDeletedMessage,
+  messagesApi,
+  notificationEngineApi,
+} from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
@@ -449,10 +456,9 @@ export default function ConversationScreen() {
           ) {
             return;
           }
-          updateMessageInCache(queryClient, conversationId, payload.id, (m) => ({
-            ...m,
-            isDeleted: true,
-          }));
+          // messaging.messages rule 3 (PAD-639): nothing the message said stays cached; the
+          // tabs layout refetches the list (PAD-592 rule 2).
+          updateMessageInCache(queryClient, conversationId, payload.id, (m) => eraseDeletedMessage(m));
           return;
         }
 
@@ -1209,10 +1215,8 @@ export default function ConversationScreen() {
     setConfirmingDelete(null);
     try {
       await messagesApi.deleteMessage(String(messageId));
-      updateMessageInCache(queryClient, conversationId, messageId, (m) => ({
-        ...m,
-        isDeleted: true,
-      }));
+      // messaging.messages rule 3 (PAD-639): nothing the message said stays cached.
+      updateMessageInCache(queryClient, conversationId, messageId, (m) => eraseDeletedMessage(m));
       invalidateMessagesLists(queryClient);
     } catch {
       // SSE delivers authoritative state on failure races.

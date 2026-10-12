@@ -1,4 +1,5 @@
 import type { MeResponse } from "@/api/auth";
+import { legalCatchUpSession, needsLegalCatchUp } from "@levelup/config";
 
 /**
  * auth.register rule 11 — where a signed-in user belongs.
@@ -23,6 +24,10 @@ import type { MeResponse } from "@/api/auth";
 export function postLoginLanding(user: MeResponse | null | undefined): string {
   const held = postLoginPath(user);
   if (held !== "/dashboard") return held;
+  // PAD-637 (auth.legal-catch-up rules 2, 4, 6): an older account with no Terms record or no birth date
+  // lands once per session on the catch-up, after every hold above. A landing, not a gate: the route
+  // guard (`postLoginPath`) never sends anyone there.
+  if (needsLegalCatchUp(user, legalCatchUpSession.isSkipped(user?.id))) return "/legal-catch-up";
   const isCoach = user?.roles?.includes("coach") ?? false;
   if (!isCoach && Array.isArray(user?.coaches) && user.coaches.length === 0) return "/connect";
   return "/dashboard";

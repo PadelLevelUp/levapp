@@ -129,6 +129,8 @@ const ME = {
   language: "en",
   emailVerification: "verified",
   requestAlerts: true,
+  birthDate: "1990-05-01",
+  country: "PT",
 };
 
 beforeAll(() => {
@@ -708,3 +710,66 @@ describe("SettingsPage — #509 review", () => {
   });
 });
 
+
+describe("SettingsPage — date of birth and country in Perfil (PAD-640, settings.profile rules 10–11)", () => {
+  const birth = () => screen.getByTestId("settings-profile-birthDate") as HTMLInputElement;
+  const seventeen = () => {
+    const t = new Date();
+    return `${t.getFullYear() - 17}-${String(t.getMonth() + 1).padStart(2, "0")}-01`;
+  };
+
+  it("shows the stored date and country, and saves both when changed", async () => {
+    goto("/settings?tab=profile");
+    renderSettings();
+    await waitFor(() => expect(birth().value).toBe("1990-05-01"));
+    expect(screen.getByLabelText("settings.profile.country")).toHaveAttribute("data-value", "PT");
+
+    fireEvent.change(birth(), { target: { value: "1991-06-02" } });
+    fireEvent.click(screen.getByTestId("select-option-ES"));
+    fireEvent.click(headerSave());
+
+    await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ birthDate: "1991-06-02", country: "ES" }));
+  });
+
+  it("an under-18 date is refused on the field and nothing is sent", async () => {
+    goto("/settings?tab=profile");
+    renderSettings();
+    await waitFor(() => expect(birth().value).toBe("1990-05-01"));
+
+    fireEvent.change(birth(), { target: { value: seventeen() } });
+    fireEvent.click(headerSave());
+
+    expect(await screen.findByTestId("settings-profile-birthDate-error")).toHaveTextContent(
+      "auth.signup.birthDateUnderage",
+    );
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+
+  it("the server's UNDERAGE lands on the field too", async () => {
+    updateMe.mockRejectedValueOnce({ response: { status: 400, data: { code: "UNDERAGE", field: "birthDate" } } });
+    goto("/settings?tab=profile");
+    renderSettings();
+    await waitFor(() => expect(birth().value).toBe("1990-05-01"));
+
+    fireEvent.change(birth(), { target: { value: "2000-01-01" } });
+    fireEvent.click(headerSave());
+
+    expect(await screen.findByTestId("settings-profile-birthDate-error")).toHaveTextContent(
+      "auth.signup.birthDateUnderage",
+    );
+  });
+
+  it("a cleared date is refused on the field (it can be changed, never erased)", async () => {
+    goto("/settings?tab=profile");
+    renderSettings();
+    await waitFor(() => expect(birth().value).toBe("1990-05-01"));
+
+    fireEvent.change(birth(), { target: { value: "" } });
+    fireEvent.click(headerSave());
+
+    expect(await screen.findByTestId("settings-profile-birthDate-error")).toHaveTextContent(
+      "auth.signup.birthDateRequired",
+    );
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+});

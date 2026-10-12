@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@levelup/types";
 
-import { mergeEditedMessage } from "./message-edits";
+import { eraseDeletedMessage, mergeEditedMessage } from "./message-edits";
 
 // messaging.sse-realtime rule 18 (PAD-563): a live edit carries the whole message; the open
 // conversation takes its content, edited flag and metadata, and keeps what the viewer-less
@@ -43,5 +43,46 @@ describe("mergeEditedMessage", () => {
   it("keeps the cached metadata when the payload carries none", () => {
     const merged = mergeEditedMessage(cached, { ...cached, metadata: undefined });
     expect(merged.metadata).toEqual(cached.metadata);
+  });
+});
+
+// messaging.messages rule 3 (PAD-639, B-547): a deleted message keeps nothing it said in a cache.
+describe("eraseDeletedMessage", () => {
+  const live: Message = {
+    id: "50",
+    senderId: 1,
+    conversationId: "7",
+    content: "call me on 912 345 678",
+    timestamp: "2026-10-12T10:00:00+00:00",
+    isRead: true,
+    status: "read",
+    replyTo: "49",
+    edited: true,
+    isDeleted: false,
+    isAutomatic: true,
+    classDeleted: true,
+    reactions: [{ emoji: "👍", userId: 5 }],
+    messageType: "notification_invite",
+    metadata: { notificationEventId: 11, responded: false },
+  };
+
+  it("drops the text, metadata, reactions and reply link and marks it deleted", () => {
+    const erased = eraseDeletedMessage(live);
+    expect(erased.isDeleted).toBe(true);
+    expect(erased.content).toBe("");
+    expect(erased.metadata).toBeUndefined();
+    expect(erased.reactions).toEqual([]);
+    expect(erased.replyTo).toBeNull();
+    expect(erased.edited).toBe(false);
+    expect(erased.isAutomatic).toBe(false);
+    expect(erased.classDeleted).toBe(false);
+    expect(JSON.stringify(erased)).not.toContain("912 345 678");
+  });
+
+  it("keeps where the placeholder sits: id, sender, conversation, time and read state", () => {
+    const erased = eraseDeletedMessage(live);
+    expect(erased).toMatchObject({
+      id: "50", senderId: 1, conversationId: "7", timestamp: live.timestamp, isRead: true, status: "read",
+    });
   });
 });

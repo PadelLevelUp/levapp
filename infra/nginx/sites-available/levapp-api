@@ -4,6 +4,8 @@ server {
     server_name api.levapp.app;
     # B-182: the SSE token (?token=) is redacted in this log; see conf.d/levapp-log-redaction.conf.
     access_log /var/log/nginx/access.log redacted;
+    # PAD-643 (delivery.transport-security): browsers keep to HTTPS for a year.
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     # SSE endpoint — must come before /api/ block
     location /api/app/events {

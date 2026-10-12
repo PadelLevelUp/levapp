@@ -261,7 +261,7 @@ def test_every_model_builds_a_fresh_form_on_each_call(app):
             if not issubclass(cls, db.Model) or "get_create_form" not in vars(cls):
                 continue
             if not isinstance(vars(cls)["get_create_form"], classmethod):
-                cls = cls()  # an instance method (Backend_App): the form is per instance, built on each call
+                cls = cls()  # an instance method: the form is per instance, built on each call
             first, second = cls.get_create_form(), cls.get_create_form()
             assert first is not second, f"{cls.__name__}.get_create_form is memoised"
             assert all(a is not b for a, b in zip(first.fields, second.fields)), f"{cls.__name__} shares Field objects"

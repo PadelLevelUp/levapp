@@ -25,7 +25,7 @@ function yearsAgo(years: number, days = 0) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-async function mountFilled(birthDate: string) {
+async function mountFilled(birthDate: string, terms = true) {
   render(
     <MemoryRouter initialEntries={["/register/5?t=secret"]}>
       <Routes>
@@ -43,6 +43,7 @@ async function mountFilled(birthDate: string) {
   set("password", "Segura123");
   set("repeatPassword", "Segura123");
   set("birthDate", birthDate);
+  if (terms) fireEvent.click(screen.getByTestId("register-terms"));
 }
 
 beforeEach(() => {
@@ -90,5 +91,31 @@ describe("RegisterPage — the country (PAD-604, auth.activate rule 13a)", () =>
     await mountFilled(yearsAgo(30));
     fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
     expect(await screen.findByTestId("register-country-error")).toHaveTextContent("auth.register.countryRequired");
+  });
+});
+
+describe("RegisterPage — the Terms (PAD-637, auth.activate rule 13b)", () => {
+  const activate = () => fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
+
+  it("refuses an unticked box on the box and sends nothing", async () => {
+    await mountFilled(yearsAgo(30), false);
+    activate();
+    expect(await screen.findByTestId("register-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
+    expect(activateAccount).not.toHaveBeenCalled();
+  });
+
+  it("sends termsAccepted with the activation", async () => {
+    activateAccount.mockResolvedValue({ success: true });
+    await mountFilled(yearsAgo(30));
+    activate();
+    await waitFor(() => expect(activateAccount).toHaveBeenCalled());
+    expect(activateAccount.mock.calls[0][0].content).toMatchObject({ termsAccepted: true });
+  });
+
+  it("puts a server TERMS_REQUIRED on the box", async () => {
+    activateAccount.mockRejectedValue({ response: { status: 400, data: { field: "terms", code: "TERMS_REQUIRED" } } });
+    await mountFilled(yearsAgo(30));
+    activate();
+    expect(await screen.findByTestId("register-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
   });
 });

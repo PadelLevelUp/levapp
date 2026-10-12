@@ -611,6 +611,8 @@ def _seed_users() -> SeedResult:
                 password=generate_password_hash(DEFAULT_PASSWORD),
                 status=row["status"],
                 is_admin=False,
+                # PAD-630: a demo account has a country, so the country prompt never covers it.
+                country="PT",
             )
             db.session.add(user)
             result.inserted += 1
