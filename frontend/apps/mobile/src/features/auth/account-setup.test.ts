@@ -497,7 +497,12 @@ describe("coach invite: the invited coach's email (clubs.coach-invitation rule 9
       password: "Secret123!",
       birthDate: "1990-01-01",
       country: "PT",
+      termsAccepted: false, // PAD-637: `filled` has no ticked box
     });
+  });
+
+  it("sends termsAccepted when the box is ticked (PAD-637, rule 8b)", () => {
+    expect(coachInviteAcceptPayload({ ...filled, terms: "true" })).toMatchObject({ termsAccepted: true });
   });
 
   it("maps the server's email refusals onto the field", () => {

@@ -38,6 +38,12 @@ vi.mock("expo-status-bar", () => ({ StatusBar: () => null }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("@/components/brand/LevAppMark", () => ({ LevAppMark: () => null }));
 vi.mock("@/features/auth/LegalLinks", () => ({ LegalLinks: () => null }));
+// PAD-637: the Terms box opens the legal pages through config, which reads Expo's __DEV__.
+vi.mock("@/lib/config", () => ({
+  PRIVACY_POLICY_URL: "https://levapp.app/privacy",
+  TERMS_URL: "https://levapp.app/terms",
+  legalUrl: (base: string) => base,
+}));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }) }));
 // The picker's options render as pressables `country-opt-<code>` wired to the Select's
 // onValueChange, so a test can choose a country the way the real Select reports it.
@@ -81,6 +87,7 @@ describe("PlayerInviteScreen — the country (PAD-604)", () => {
     const n = await renderNative(createElement(PlayerInviteScreen, { token: "tok" }));
     await n.flush();
     await fill(n, "player-invite", { username: "ana_player", ...pw });
+    await n.press("player-invite-terms"); // PAD-637
     return n;
   }
   it("shows the country field and sends PT", async () => {
@@ -113,6 +120,7 @@ describe("CoachInviteScreen — the country (PAD-604)", () => {
     const n = await renderNative(createElement(CoachInviteScreen, { token: "tok" }));
     await n.flush();
     await fill(n, "coach-invite", { name: "Rita Coach", username: "rita_coach", email: "rita@example.com", ...pw });
+    await n.press("coach-invite-terms"); // PAD-637
     return n;
   }
   it("shows the country field and sends PT", async () => {
@@ -145,6 +153,7 @@ describe("RegisterScreen — the country (PAD-604)", () => {
     const n = await renderNative(createElement(RegisterScreen, { userId: "5", token: "secret" }));
     await n.flush();
     await fill(n, "register", pw);
+    await n.press("register-terms"); // PAD-637
     return n;
   }
   it("shows the country field and sends PT", async () => {
@@ -170,4 +179,64 @@ describe("RegisterScreen — the country (PAD-604)", () => {
     await n.flush();
     expect(api.activate.mock.calls[0][0].content.country).toBe("ES");
   });
+});
+
+describe("the Terms box on the three completion screens (PAD-637, auth.register rule 19b)", () => {
+  const TERMS_REQUIRED = { response: { status: 400, data: { field: "terms", code: "TERMS_REQUIRED" } } };
+  const cases = [
+    {
+      name: "player invite",
+      prefix: "player-invite",
+      render: () => createElement(PlayerInviteScreen, { token: "tok" }),
+      fields: { username: "ana_player", ...pw },
+      call: () => api.acceptPlayer,
+      body: (c: unknown[]) => c[1],
+    },
+    {
+      name: "coach invite",
+      prefix: "coach-invite",
+      render: () => createElement(CoachInviteScreen, { token: "tok" }),
+      fields: { name: "Rita Coach", username: "rita_coach", email: "rita@example.com", ...pw },
+      call: () => api.acceptCoach,
+      body: (c: unknown[]) => c[1],
+    },
+    {
+      name: "activation",
+      prefix: "register",
+      render: () => createElement(RegisterScreen, { userId: "5", token: "secret" }),
+      fields: pw,
+      call: () => api.activate,
+      body: (c: unknown[]) => (c[0] as { content: unknown }).content,
+    },
+  ];
+  for (const k of cases) {
+    async function mount(tick: boolean) {
+      const n = await renderNative(k.render());
+      await n.flush();
+      await fill(n, k.prefix, k.fields);
+      if (tick) await n.press(`${k.prefix}-terms`);
+      return n;
+    }
+    it(`${k.name}: an unticked box shows the error and sends nothing`, async () => {
+      const n = await mount(false);
+      await n.press(`${k.prefix}-submit`);
+      await n.flush();
+      expect(n.queryByTestId(`${k.prefix}-terms-error`)).not.toBeNull();
+      expect(k.call()).not.toHaveBeenCalled();
+    });
+    it(`${k.name}: a ticked box sends termsAccepted`, async () => {
+      k.call().mockResolvedValue({ accessToken: "t", success: true });
+      const n = await mount(true);
+      await n.press(`${k.prefix}-submit`);
+      await n.flush();
+      expect(k.body(k.call().mock.calls[0])).toMatchObject({ termsAccepted: true });
+    });
+    it(`${k.name}: a server TERMS_REQUIRED lands on the box`, async () => {
+      k.call().mockRejectedValue(TERMS_REQUIRED);
+      const n = await mount(true);
+      await n.press(`${k.prefix}-submit`);
+      await n.flush();
+      expect(n.queryByTestId(`${k.prefix}-terms-error`)).not.toBeNull();
+    });
+  }
 });

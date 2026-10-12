@@ -45,6 +45,7 @@ export default function NewPlayerScreen() {
         levelId: values.levelId,
         side: values.side,
         notes: values.notes || undefined,
+        confirmsAdults: true, // PAD-642: the form's save is disabled until the coach ticks it
       });
       router.back();
     } catch {
@@ -73,6 +74,7 @@ export default function NewPlayerScreen() {
         levelId: values.levelId,
         side: values.side,
         notes: values.notes || undefined,
+        confirmsAdults: true, // PAD-642
       });
       // The API returns a RELATIVE link ("/invite/player/<token>"); mobile has
       // no window.location to resolve it against, so we prefix the configured
@@ -125,6 +127,7 @@ export default function NewPlayerScreen() {
           inviting={createIncompletePlayer.isPending}
           onSubmit={handleSubmit}
           onInvite={handleInvite}
+          requireAdultConfirmation
           onCancel={() => router.back()}
         />
         {error ? (
