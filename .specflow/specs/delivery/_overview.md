@@ -17,6 +17,8 @@ they have behaviour worth specifying.
 - `delivery.zero-downtime-deploy` — implementing (PAD-588: one scheduler leader by advisory lock,
   reschedule off the boot path; start-before-stop rollout behind a two-port nginx upstream)
 
+- `delivery.transport-security` — implementing (PAD-643: TLS 1.2+ and HSTS in the tracked nginx
+  files, applied by the owner)
 - `delivery.api-host` — implementing (PAD-614: the API on `api.levapp.app` with the same paths;
   listed web origins get CORS; the web build's API base is a repository variable, `/api` by default)
 
