@@ -23,6 +23,15 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    `username` → a fresh `deleted-<16 hex>` (never the `pending-` placeholder prefix, so the record can
    never be claimed — `players.claim`); `password` → the hash of a random secret nobody holds (never
    null, so `auth.activate` cannot re-open it). The row is kept so authorship and history still resolve.
+   The personal details the registration and settings collect go too (PAD-605): `birth_date`,
+   `country`, the password-reset code fields and `notif_block_reason` → null. The acceptance record
+   (`terms_accepted_at`, `terms_version`, `privacy_version`) is kept as evidence of what was agreed.
+2a. **The photo is deleted, not just unlinked (PAD-605).** The profile photo's `images` row is
+   deleted in the same transaction, and after the commit its object is deleted from the uploads
+   bucket — best-effort: a storage failure is logged (the error class, never the key) and never
+   undoes the deletion; with no bucket configured there is nothing to delete. An image still
+   referenced by anything else (another user, a club logo, a message attachment, a back-office app)
+   keeps its row and object.
 3. **Every session ends.** Any JWT of a disabled user is rejected (the blocklist loader in
    `padel_app/auth.py`), and the legacy session `/login` refuses a disabled account.
 4. **Pushes stop.** Every `device_tokens` and `push_subscriptions` row of the user is deleted.
@@ -79,6 +88,15 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 - **Then** their username starts with `deleted-`, their password matches nothing they knew, and their
   contact fields are empty
 - **And** their existing JWTs are rejected and the legacy session login refuses them
+
+#### Personal details and the photo are erased (PAD-605)
+- **Given** a student with a birth date, a country, a pending password-reset code, a block reason
+  and a profile photo stored in the bucket
+- **When** they delete their account
+- **Then** those fields are null, the photo's `images` row is gone and its bucket object was deleted
+- **And** if the bucket refuses the delete, the account is still deleted and the failure is logged
+- **Given** instead a photo that is also a club's logo
+- **Then** the account is deleted and the image row and its object both stay
 
 #### Pushes stop
 - **Given** a user with a device token and a web-push subscription
