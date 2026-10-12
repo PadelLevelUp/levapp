@@ -7,7 +7,9 @@ records (decision ``2026-09-10-account-deletion-keeps-coach-records``):
   abbreviation, birth date, country, block reason and the email-verification and
   password-reset state cleared;
 - the photo: its ``images`` row deleted with the rest and, after the commit, its
-  object in the uploads bucket (PAD-605), unless something else still uses it; the username
+  object in the uploads bucket (PAD-605), unless something else still uses it;
+- the CRM: a deleting coach's HubSpot contact is archived after the commit
+  (PAD-607, ``hubspot_sync.archive_deleted_coach``); the username
   becomes an unguessable ``deleted-…`` (never the ``pending-`` placeholder
   prefix, so the record can never be claimed) and the password the hash of a
   secret nobody holds (never NULL, so activation cannot re-open it);
@@ -145,6 +147,8 @@ def delete_account_service(user_id, *, now=None):
     user = User.query.get_or_404(user_id)
 
     photo = _photo_to_delete(user)
+    # Rule 11 (PAD-607): the CRM contact is found by the email the row is about to lose.
+    crm_email = user.email if user.coach is not None else None
 
     # Rule 2: the account itself is gone.
     user.status = "disabled"
@@ -193,4 +197,8 @@ def delete_account_service(user_id, *, now=None):
     db.session.commit()
     if photo_key:
         _delete_stored_object(photo_key)
+    if crm_email:
+        from padel_app.services import hubspot_sync
+
+        hubspot_sync.archive_deleted_coach(crm_email)
     return user
