@@ -645,6 +645,20 @@ def _run_prune_delivery_incidents() -> None:
             app.logger.error("prune_delivery_incidents failed: %s", exc)
 
 
+def _run_retention_sweep() -> None:
+    """admin.data-retention (PAD-638) rule 2: the daily sweep. Every item OFF until its switch is on;
+    the sweep then only counts."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services.retention_service import run_retention
+            run_retention()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("retention_sweep failed: %s", exc)
+
+
 def _run_extend_schedule_window() -> None:
     """Extend the rolling 60-day reminder horizon for all coaches.
 
@@ -789,6 +803,16 @@ def init_scheduler(app, test_config=None) -> None:
         func=_run_prune_delivery_incidents,
         trigger=IntervalTrigger(days=1),
         id="prune_delivery_incidents",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+
+    # admin.data-retention (PAD-638): one daily sweep, every item OFF until the owner decides.
+    sched.add_job(
+        func=_run_retention_sweep,
+        trigger=IntervalTrigger(days=1),
+        id="retention_sweep",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
