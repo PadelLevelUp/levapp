@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { findNextEventId, isClubToday, layoutDayColumn } from "@levelup/config";
+import { desktopHourRange, eventBlockGeometry, findNextEventId, isClubToday, layoutDayColumn } from "@levelup/config";
 import { useTranslation } from 'react-i18next';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -104,8 +104,8 @@ export function CalendarGrid({
   weekDays,
   events,
   levels = [],
-  startHour = 7,
-  endHour = 22,
+  startHour: startHourProp,
+  endHour: endHourProp,
   onEventClick,
   onSlotClick,
   onSlotRangeSelect,
@@ -127,6 +127,12 @@ export function CalendarGrid({
     [events, weekDays]
   );
 
+  // B-544 (calendar.view rule 21): 07:00–22:00 by default, widened to the whole hours of any
+  // class outside it — the grid never cuts a class. A caller may still pin the range.
+  const range = useMemo(() => desktopHourRange(events), [events]);
+  const startHour = startHourProp ?? range.startHour;
+  const endHour = endHourProp ?? range.endHour;
+
   const [draggingEvent, setDraggingEvent] = useState<CalendarEvent | null>(null);
   const [dropTarget, setDropTarget] = useState<{ day: string; time: string } | null>(null);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
@@ -145,17 +151,16 @@ export function CalendarGrid({
    */
   const slotTime = useCallback((index: number) => {
     const total = startHour * 60 + index * SLOT_MINUTES;
+    // A range ending at the grid's 24:00 bottom is a class ending at midnight, stored as 00:00 (PAD-553).
+    if (total >= 24 * 60) return '00:00';
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }, [startHour]);
 
+  // B-544: the shared geometry — a class ending at midnight runs to 24:00, not above its start.
   const getEventStyle = (event: CalendarEvent) => {
-    const [startH, startM] = event.startTime.split(':').map(Number);
-    const [endH, endM] = event.endTime.split(':').map(Number);
-    const startMinutes = (startH - startHour) * 60 + startM;
-    const endMinutes = (endH - startHour) * 60 + endM;
-    const top = (startMinutes / 60) * HOUR_HEIGHT;
-    const height = Math.max(((endMinutes - startMinutes) / 60) * HOUR_HEIGHT - 2, 20);
-    return { top, height };
+    const g = eventBlockGeometry(event, { startHour, rowHeight: HOUR_HEIGHT, minHeight: 0 });
+    if (!g) return { top: 0, height: 20 };
+    return { top: g.top, height: Math.max(g.height - 2, 20) };
   };
 
   const getEventsForDay = (day: Date) =>

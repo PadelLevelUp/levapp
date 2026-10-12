@@ -34,6 +34,13 @@ function toMinutes(time: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+/** An end at or before the start (a class ending at midnight, PAD-553) ends at 24:00. */
+function endOf(startTime: string, endTime: string): number {
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  return end <= start ? 24 * 60 : end;
+}
+
 function hasTimes(event: GridEventLike): event is GridEventLike & {
   startTime: string;
   endTime: string;
@@ -55,13 +62,14 @@ export function resolveHourRange(
   for (const event of events) {
     if (!hasTimes(event)) continue;
     earliest = Math.min(earliest, toMinutes(event.startTime));
-    latest = Math.max(latest, toMinutes(event.endTime));
+    latest = Math.max(latest, endOf(event.startTime, event.endTime));
   }
   if (!Number.isFinite(earliest) || !Number.isFinite(latest)) {
     return { startHour: defaultStart, endHour: defaultEnd };
   }
-  const startHour = Math.max(min, Math.floor(earliest / 60) - 1);
-  const endHour = Math.min(max, Math.ceil(latest / 60) + 1);
+  // B-544: the window is a default, never a cut — a class outside it widens it to its whole hours.
+  const startHour = Math.min(Math.max(min, Math.floor(earliest / 60) - 1), Math.floor(earliest / 60));
+  const endHour = Math.max(Math.min(max, Math.ceil(latest / 60) + 1), Math.ceil(latest / 60));
   return { startHour, endHour: Math.max(endHour, startHour + 1) };
 }
 
@@ -85,7 +93,7 @@ export function eventBlockGeometry(
 ): BlockGeometry | null {
   if (!hasTimes(event)) return null;
   const start = toMinutes(event.startTime) - startHour * 60;
-  const end = toMinutes(event.endTime) - startHour * 60;
+  const end = endOf(event.startTime, event.endTime) - startHour * 60;
   const top = (start / 60) * rowHeight;
   const height = Math.max(minHeight, ((end - start) / 60) * rowHeight);
   return { top, height };
@@ -149,9 +157,7 @@ export interface DayColumnLayout<T> {
 
 /** An end at or before the start (a class ending at midnight, PAD-553) ends at 24:00. */
 function endMinutes(event: GridEventLike & { startTime: string; endTime: string }): number {
-  const start = toMinutes(event.startTime);
-  const end = toMinutes(event.endTime);
-  return end <= start ? 24 * 60 : end;
+  return endOf(event.startTime, event.endTime);
 }
 
 /**
@@ -304,4 +310,22 @@ export function clampSheetTop(top: number, { min, max }: { min: number; max: num
  */
 export function isSheetRaised(top: number, bounds: SheetBounds): boolean {
   return top < bounds.initial;
+}
+
+/**
+ * B-544 (calendar.view rule 21): the desktop week shows 07:00–22:00 and widens to the whole hours
+ * of any class outside it (a midnight end counts as 24:00). No padding: the desktop grid has room.
+ */
+export function desktopHourRange(
+  events: GridEventLike[],
+  { defaultStart = 7, defaultEnd = 22 }: { defaultStart?: number; defaultEnd?: number } = {}
+): HourRange {
+  let startHour = defaultStart;
+  let endHour = defaultEnd;
+  for (const event of events) {
+    if (!hasTimes(event)) continue;
+    startHour = Math.min(startHour, Math.floor(toMinutes(event.startTime) / 60));
+    endHour = Math.max(endHour, Math.ceil(endOf(event.startTime, event.endTime) / 60));
+  }
+  return { startHour, endHour };
 }

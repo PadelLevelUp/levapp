@@ -8,6 +8,7 @@ import {
   clampSheetTop,
   eventBlockGeometry,
   groupOverlappingEvents,
+  desktopHourRange,
   layoutDayColumn,
   layoutDayEvents,
   resolveHourRange,
@@ -40,9 +41,20 @@ describe("resolveHourRange", () => {
     expect(resolveHourRange([ev("a", "10:30", "11:15")])).toEqual({ startHour: 9, endHour: 13 });
   });
 
-  it("clamps to 07:00–23:00", () => {
+  it("clamps to 07:00–23:00 while every class fits inside", () => {
     expect(resolveHourRange([ev("a", "07:00", "22:30")])).toEqual({ startHour: 7, endHour: 23 });
-    expect(resolveHourRange([ev("a", "06:00", "23:00")])).toEqual({ startHour: 7, endHour: 23 });
+  });
+
+  it("never cuts a class: one outside 07:00–23:00 widens the grid to its whole hours (B-544)", () => {
+    expect(resolveHourRange([ev("a", "06:00", "23:00")])).toEqual({ startHour: 6, endHour: 23 });
+    expect(resolveHourRange([ev("a", "05:30", "06:30")])).toEqual({ startHour: 5, endHour: 8 });
+  });
+
+  it("a class ending at midnight ends at 24:00, not 00:00 (B-544, PAD-553)", () => {
+    expect(resolveHourRange([ev("a", "09:00", "10:00"), ev("late", "22:30", "00:00")])).toEqual({
+      startHour: 8,
+      endHour: 24,
+    });
   });
 
   it("an empty week shows 08:00–20:00", () => {
@@ -62,6 +74,13 @@ describe("eventBlockGeometry", () => {
     expect(eventBlockGeometry(ev("a", "10:00", "11:30"), { startHour: 8, rowHeight: 40 })).toEqual({
       top: 80,
       height: 60,
+    });
+  });
+
+  it("a class ending at midnight runs to the bottom of 23:00, not above its start (B-544)", () => {
+    expect(eventBlockGeometry(ev("late", "22:30", "00:00"), { startHour: 7, rowHeight: 60 })).toEqual({
+      top: 930,
+      height: 90,
     });
   });
 
@@ -176,6 +195,20 @@ describe("layoutDayColumn — the cap and its '+N' marker (B-543)", () => {
       ["late", 0, 2],
       ["later", 1, 2],
     ]);
+  });
+});
+
+describe("desktopHourRange — the desktop week (B-544, calendar.view rule 21)", () => {
+  it("07:00–22:00 while every class fits", () => {
+    expect(desktopHourRange([ev("a", "09:00", "10:00"), ev("b", "20:00", "21:30")])).toEqual({ startHour: 7, endHour: 22 });
+    expect(desktopHourRange([])).toEqual({ startHour: 7, endHour: 22 });
+  });
+
+  it("widens to the whole hours of a class outside it, midnight included", () => {
+    expect(desktopHourRange([ev("early", "05:30", "06:30"), ev("late", "22:30", "00:00")])).toEqual({
+      startHour: 5,
+      endHour: 24,
+    });
   });
 });
 
