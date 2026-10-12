@@ -13,7 +13,7 @@ vi.mock("@/api/register", () => ({
   activateAccount: (...a: unknown[]) => activateAccount(...a),
 }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }) }));
 
 import RegisterPage from "./RegisterPage";
 
@@ -72,5 +72,23 @@ describe("RegisterPage — adults only at activation (PAD-457)", () => {
     await mountFilled(yearsAgo(30));
     fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
     expect(await screen.findByTestId("register-birthDate-error")).toHaveTextContent("auth.register.birthDateUnderage");
+  });
+});
+
+describe("RegisterPage — the country (PAD-604, auth.activate rule 13a)", () => {
+  it("shows the country field defaulted to Portugal and sends PT", async () => {
+    activateAccount.mockResolvedValue({ success: true });
+    await mountFilled(yearsAgo(30));
+    expect(screen.getByTestId("register-country")).toHaveTextContent("Portugal");
+    fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
+    await waitFor(() => expect(activateAccount).toHaveBeenCalledTimes(1));
+    expect(activateAccount.mock.calls[0][0].content.country).toBe("PT");
+  });
+
+  it.each(["COUNTRY_REQUIRED", "INVALID_COUNTRY"])("puts a server %s on the country field", async (code) => {
+    activateAccount.mockRejectedValue({ response: { status: 400, data: { field: "country", code } } });
+    await mountFilled(yearsAgo(30));
+    fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
+    expect(await screen.findByTestId("register-country-error")).toHaveTextContent("auth.register.countryRequired");
   });
 });

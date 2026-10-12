@@ -9,7 +9,6 @@ class CalendarBlock(db.Model, model.Model):
     __tablename__ = "calendar_blocks"
     __table_args__ = (Index("ix_calendar_blocks_user_id", "user_id"),)  # PAD-263
     
-    page_title = "CalendarBlocks"
     model_name = "CalendarBlock"
 
     id = Column(Integer, primary_key=True)

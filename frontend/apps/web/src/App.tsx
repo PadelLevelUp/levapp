@@ -32,8 +32,10 @@ import {
   RegisterPage,
   SettingsPage,
   SignUpPage,
+  SocialSignUpCompletePage,
   StudentEvaluations,
   SupportPage,
+  DeleteAccountPage,
   TrainingExercisesPage,
   TrainingGroupsPage,
   TrainingPage,
@@ -76,6 +78,8 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               {/* auth.register — self-service signup (PAD-210). */}
               <Route path="/signup" element={<SignUpPage />} />
+              {/* auth.social-sign-in rule 7 (PAD-618): the completion step after a Google account with no LevApp account. */}
+              <Route path="/signup/complete" element={<SocialSignUpCompletePage />} />
               {/* auth.password-recovery — public, reached from "Forgot your password?" (PAD-139). */}
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
@@ -88,6 +92,8 @@ const App = () => (
               <Route path="/privacy" element={<LegalPage document="privacy" />} />
               <Route path="/terms" element={<LegalPage document="terms" />} />
               <Route path="/support" element={<SupportPage />} />
+              {/* auth.delete-account-page (PAD-603): Google Play's web deletion URL. */}
+              <Route path="/delete-account" element={<DeleteAccountPage />} />
 
               {/* `/` is the public page when there is no session and the
                   dashboard when there is — see HomeRoute. */}

@@ -22,6 +22,7 @@ import {
   statusFromError,
   submitOutcomeForError,
   ACTIVATION_BIRTH_CODES,
+  ACTIVATION_COUNTRY_CODES,
   validateAccountForm,
 } from "@/features/auth/account-setup";
 
@@ -60,6 +61,7 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
     repeatPassword: "",
     // PAD-457: DD/MM/AAAA, typed with the number pad as on sign-up.
     birthDate: "",
+    country: "PT",
   });
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>(
     {}
@@ -118,7 +120,7 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
     try {
       const { accessToken } = await playerInvitationsApi.acceptPlayerInvitation(
         token,
-        { username: values.username, password: values.password, birthDate: toIso(values.birthDate) ?? "" }
+        { username: values.username, password: values.password, birthDate: toIso(values.birthDate) ?? "", country: values.country }
       );
       toast.success(
         t("auth.playerInvite.welcomeTitle"),
@@ -132,6 +134,11 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
       const birthKey = res?.data?.code ? ACTIVATION_BIRTH_CODES[res.data.code] : undefined;
       if (res?.status === 400 && res.data?.field === "birthDate" && birthKey) {
         setErrors({ birthDate: t(`auth.playerInvite.${birthKey}`) });
+        return;
+      }
+      // PAD-604: a country refusal belongs on the field, in the form's words.
+      if (res?.status === 400 && res?.data?.field === "country" && ACTIVATION_COUNTRY_CODES[res?.data?.code ?? ""]) {
+        setErrors({ country: t("auth.playerInvite.countryRequired") });
         return;
       }
       const outcome = submitOutcomeForError(error);
@@ -282,6 +289,8 @@ export function PlayerInviteScreen({ token }: { token: string | null }) {
       keyboardType: "number-pad",
       placeholder: "DD/MM/AAAA",
     },
+    // PAD-604: right after the birth date; required, default PT.
+    { id: "country", label: t("auth.playerInvite.country"), kind: "country" },
   ];
 
   return (

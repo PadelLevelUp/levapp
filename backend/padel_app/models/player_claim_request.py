@@ -26,7 +26,6 @@ class PlayerClaimRequest(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Player Claim Requests"
     model_name = "PlayerClaimRequest"
 
     id = Column(Integer, primary_key=True)
@@ -69,16 +68,6 @@ class PlayerClaimRequest(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "status", "label": "Status"}
-        columns = [
-            {"field": "player", "label": "Placeholder player"},
-            {"field": "target_user", "label": "Target user"},
-            {"field": "status", "label": "Status"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

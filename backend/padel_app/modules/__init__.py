@@ -1,8 +1,5 @@
 from . import (
-    api,
     auth,
-    editor,
-    editor_api,
     main,
     frontend_api,
     api_auth,
@@ -10,6 +7,7 @@ from . import (
     notification_engine_api,
     evaluations_api,
     admin_api,
+    public_api,
     startup,
 )
 
@@ -18,13 +16,8 @@ from . import (
 def register_blueprints(app):
     app.register_blueprint(main.bp)
     app.register_blueprint(auth.bp)
-    # settings.admin-editor rule 1 (PAD-267): the three generic-editor surfaces
-    # exist only where EDITOR_ENABLED is on; everywhere else every /editor,
-    # /api/editor and legacy /api/<crud> path is a 404.
-    if app.config.get("EDITOR_ENABLED"):
-        app.register_blueprint(api.bp)
-        app.register_blueprint(editor.bp)
-        app.register_blueprint(editor_api.bp)
+    # settings.admin-editor was deleted by PAD-550: no /editor, /api/editor or
+    # legacy /api/<crud> blueprint exists, and there is no switch to turn one on.
     app.register_blueprint(frontend_api.bp)
     app.register_blueprint(api_auth.bp)
     app.register_blueprint(notifications_api.bp)
@@ -33,19 +26,19 @@ def register_blueprints(app):
     # admin.foundation rule 11 (PAD-531): registered everywhere; its before_request
     # answers 404 on any host outside ADMIN_HOSTS.
     app.register_blueprint(admin_api.bp)
+    # auth.landing-page rule 10 (PAD-617): the site's demo request relay.
+    app.register_blueprint(public_api.bp)
     return True
 
 
 __all__ = [
-    "api",
     "auth",
-    "editor",
-    "editor_api",
     "main",
     "frontend_api",
     "api_auth",
     "notifications_api",
     "notification_engine_api",
     "admin_api",
+    "public_api",
     "startup",
 ]

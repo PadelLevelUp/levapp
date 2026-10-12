@@ -34,7 +34,6 @@ class Vacancy(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Vacancy"
     model_name = "Vacancy"
 
     id = Column(Integer, primary_key=True)

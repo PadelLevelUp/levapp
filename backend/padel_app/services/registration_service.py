@@ -124,6 +124,13 @@ _UPDATE_APP = {
 }
 
 
+#: PAD-604: the account-completion forms' (activation, both invitations) "update the app" text.
+UPDATE_APP_COUNTRY_TO_COMPLETE = (
+    "Atualiza a app para concluíres a conta: o país passou a ser obrigatório. "
+    "/ Update the app to finish your account: country is now required."
+)
+
+
 #: auth.activate rule 13 (PAD-457): the activation form's own "update the app" text.
 UPDATE_APP_TO_ACTIVATE = (
     "Atualiza a app para ativares a conta: a data de nascimento passou a ser obrigatória. "
@@ -176,11 +183,30 @@ def validate_consent_fields(data, email, today=None):
     raw_country = data.get("country")
     if _absent(raw_country):
         raise RegistrationError(_UPDATE_APP["country"], 400, "country", code="COUNTRY_REQUIRED")
-    country = raw_country.strip().upper() if isinstance(raw_country, str) else ""
+    return birth, _two_letter_country(raw_country)
+
+
+def _two_letter_country(raw):
+    """auth.register rule 18's country check: two letters, upper-cased, or 400 INVALID_COUNTRY."""
+    country = raw.strip().upper() if isinstance(raw, str) else ""
     if not re.fullmatch(r"[A-Z]{2}", country):
         raise RegistrationError("country must be a two-letter code", 400, "country", code="INVALID_COUNTRY")
+    return country
 
-    return birth, country
+
+def validate_completion_country(data):
+    """PAD-604 (auth.activate 13a, players.invite-completion 10a, clubs.coach-invitation 8a): the
+    country on the three account-completion paths. A sent value is checked as sign-up checks it. An
+    absent one is refused only for a client declaring `country-on-completion`; an older build
+    completes without it. Returns the country, or None when a legacy build sent none."""
+    from padel_app.utils.client_capabilities import COUNTRY_ON_COMPLETION, client_declares
+
+    raw = (data or {}).get("country")
+    if not _absent(raw):
+        return _two_letter_country(raw)
+    if client_declares(COUNTRY_ON_COMPLETION):
+        raise RegistrationError(UPDATE_APP_COUNTRY_TO_COMPLETE, 400, "country", code="COUNTRY_REQUIRED")
+    return None
 
 
 def normalised_email(raw):
@@ -219,7 +245,19 @@ def register_user_service(data, now=None):
     birth_date, country = validate_consent_fields(data, email, today=now.date())
     terms_accepted = validate_terms(data)
     _assert_unique(username, email)
+    return _create_account(
+        role=role, name=name, username=username, email=email,
+        password_hash=generate_password_hash(password), birth_date=birth_date, country=country,
+        terms_accepted=terms_accepted, now=now,
+    )
 
+
+def _create_account(*, role, name, username, email, password_hash, birth_date, country, terms_accepted,
+                    now, identity=None):
+    """Sign-up's one account-creation path (auth.register rules 12–19), shared with a social
+    sign-up (auth.social-sign-in rule 4). `identity` ({provider, subject}) also writes the
+    UserIdentity in the same transaction and counts the email as verified (the provider did it),
+    so no code is sent."""
     # auth.coach-approval rule 9 (PAD-238/PAD-279): the app_settings row wins,
     # the env flag is the fallback.
     from padel_app.services.app_settings_service import coach_approval_required
@@ -237,7 +275,7 @@ def register_user_service(data, now=None):
             name=name,
             username=username,
             email=email,
-            password=generate_password_hash(password),
+            password=password_hash,
             status="active",
             birth_date=birth_date,
             country=country,
@@ -245,8 +283,18 @@ def register_user_service(data, now=None):
             terms_version=TERMS_VERSION if terms_accepted else None,
             privacy_version=PRIVACY_VERSION if terms_accepted else None,
         )
+        if identity is not None:
+            user.email_verification_required = False
+            user.email_verified_at = now
         db.session.add(user)
         db.session.flush()
+
+        if identity is not None:
+            from padel_app.models import UserIdentity
+
+            db.session.add(UserIdentity(
+                user_id=user.id, provider=identity["provider"], subject=identity["subject"], email=email,
+            ))
 
         coach = None
         if role == "student":
@@ -262,12 +310,13 @@ def register_user_service(data, now=None):
 
             create_default_levels_for_coach(coach)
 
-    # auth.register rule 14 / auth.email-verification rule 6: the first code
-    # goes out inside the signup request, best-effort. Runs before the admin
-    # mail so the admin's "email verified: no" line is accurate either way.
-    from padel_app.services.email_verification_service import begin_verification
+    if identity is None:
+        # auth.register rule 14 / auth.email-verification rule 6: the first code
+        # goes out inside the signup request, best-effort. Runs before the admin
+        # mail so the admin's "email verified: no" line is accurate either way.
+        from padel_app.services.email_verification_service import begin_verification
 
-    begin_verification(user)
+        begin_verification(user)
 
     if coach is not None and coach.approval_status == "pending":
         from padel_app.services.coach_approval_service import notify_admin_of_pending_coach
@@ -282,3 +331,63 @@ def register_user_service(data, now=None):
         sync_coach_signup(user, coach)
 
     return user
+
+
+def _username_for(name):
+    """A free username from the first name plus four digits (auth.social-sign-in rule 4). Never
+    from the email: usernames are searchable in messaging, and the address's local part is not
+    something the person chose to publish."""
+    import secrets
+    import unicodedata
+
+    first = (name or "").split()[0] if (name or "").split() else ""
+    ascii_first = unicodedata.normalize("NFKD", first).encode("ascii", "ignore").decode()
+    base = re.sub(r"[^a-z0-9]", "", ascii_first.lower())[:20] or "user"
+    if base.startswith(PLACEHOLDER_USERNAME_PREFIX):
+        base = "u" + base
+    for _ in range(50):
+        candidate = f"{base}{secrets.randbelow(9000) + 1000}"
+        if User.query.filter(db.func.lower(User.username) == candidate).first() is None:
+            return candidate
+    return f"{base}{secrets.token_hex(4)}"
+
+
+def complete_social_signup(ticket, data, now=None):
+    """auth.social-sign-in rule 4: the account for a verified provider identity, through sign-up's
+    own checks (role, adults only, country, the Terms, coach approval). Raises
+    SocialAuthError (401 ticket, 409 already completed) or RegistrationError."""
+    from padel_app.models import UserIdentity
+    from padel_app.services.social_auth_service import SocialAuthError, read_signup_ticket
+
+    identity = read_signup_ticket(ticket)
+    now = now or utcnow_naive()
+    data = data or {}
+    role = _clean(data.get("role")).lower()
+    if role not in ROLES:
+        raise RegistrationError("role must be 'coach' or 'student'", 400, "role")
+    email = identity["email"]
+    birth_date, country = validate_consent_fields(data, email, today=now.date())
+    # Only new clients sign up with a provider, so the Terms are always required (no legacy path).
+    if data.get("termsAccepted") is not True:
+        raise RegistrationError(
+            "É preciso aceitar os Termos e a Política de Privacidade. / You must accept the Terms and the Privacy Policy.",
+            400, "terms", code="TERMS_REQUIRED",
+        )
+    terms_accepted = True
+    if UserIdentity.query.filter_by(provider=identity["provider"], subject=identity["subject"]).first():
+        raise SocialAuthError(409, "ALREADY_COMPLETED")
+    assert_email_free(email)
+    name = identity["name"] or email.split("@", 1)[0]
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        return _create_account(
+            role=role, name=name, username=_username_for(name), email=email, password_hash=None,
+            birth_date=birth_date, country=country, terms_accepted=terms_accepted, now=now,
+            identity={"provider": identity["provider"], "subject": identity["subject"]},
+        )
+    except IntegrityError:
+        # A concurrent completion of the same ticket (or the same email) won between our checks
+        # and the insert; the unit of work rolled back. The account exists: sign in instead.
+        db.session.rollback()
+        raise SocialAuthError(409, "ALREADY_COMPLETED") from None

@@ -10,7 +10,6 @@ class User(db.Model, model.Model, UserMixin):
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "User"
     model_name = "User"
 
     id = Column(Integer, primary_key=True)
@@ -169,17 +168,6 @@ class User(db.Model, model.Model, UserMixin):
         if stored:
             return stored
         return "".join(part[0] for part in (self.name or "").split()[:2]).upper()
-
-    def display_all_info(self):
-        searchable = {"field": "username", "label": "Username"}
-        fields = [
-            {"field": "name", "label": "Name"},
-            {"field": "email", "label": "Email"},
-            {"field": "is_admin", "label": "Admin"},
-            {"field": "is_superadmin", "label": "Super Admin"},
-            {"field": "generated_code", "label": "Generated Code"},
-        ]
-        return searchable, fields
 
     @classmethod
     def get_create_form(cls):

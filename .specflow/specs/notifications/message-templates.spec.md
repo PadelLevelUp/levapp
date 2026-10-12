@@ -29,7 +29,7 @@ Customize the text of notification messages sent to players.
 14. `{court}` renders the name of the class's court (`lessons.court`, clubs.courts rule 6; for an occurrence, its own court first, clubs.courts rule 9, PAD-513) and is empty when the class has no court. An empty `{court}` leaves no broken text: the placeholder renders empty and the connector directly before it goes with it — rule 7's genitives plus the locative prepositions `em`, `no`, `na`, `in`, `on`, `at` — then an empty pair of brackets, `()` or `[]`, is removed and rule 7's space/punctuation collapse runs; a message the empty placeholder left starting on punctuation ("No {court}, às {time}.") loses it and its first letter is capitalised ("Às 19:00."). A template the coach opened on punctuation ("- Lembrete: …") keeps it as written. So "aula às {time} no {court}." reads "aula às 19:00." and "aula ({court})" reads "aula". Any other word before it is left as the coach wrote it. None of the built-in defaults use `{type}`, `{date}` or `{court}`; they are opt-in for the coach
 15. **No message for an invitation or spot outcome the student already sees (PAD-501; owner: "no message when an invitation expires or the spot is filled").** The `spot_filled` text is not sent:
     - to the other candidates when someone else takes the spot: their invitation shows "Vaga preenchida" (`notifications.invitations` rule 15);
-    - to a student whose "yes" arrived after the spot went: the answer reports `spot_filled` / `spot_filled_waiting_list_offered`, both shells show it, and the bubble records it; the waiting-list offer is still sent;
+    - to a student whose "yes" arrived after the spot went: the answer reports `spot_filled` / `spot_filled_waiting_list_offered`, both shells show it, and the bubble records it and offers the waiting list; no offer message is sent (PAD-621);
     - to a student whose come-back is refused because the class is full (`attendance.confirm` rule 26): the screen that sent it shows the refusal.
     It is still sent when a pending join request is closed because the class filled (`classes.join-requests` rule 10): the request card's "superseded" is a passive signal and the requester gets nothing else. The web settings editor describes the template that way. iOS has no template settings.
 16. `{side}` (PAD-446; numbering unconfirmed) is filled only in `waiting_list_invite`: when the
@@ -164,7 +164,7 @@ Customize the text of notification messages sent to players.
 - **Given** a coach whose `spot_filled` text is "Desculpa já não tenho vaga! Se abrir outra aviso-te", and a class with one open spot offered to students A and B
 - **When** A takes the spot, B then answers "yes", and a third student's come-back to the now-full class is refused
 - **Then** no chat message with that text is created for B or the third student
-- **And** B's invitation shows "Vaga preenchida", B's "yes" is answered `spot_filled_waiting_list_offered` with the waiting-list offer sent, and the come-back is answered `spot_filled`
+- **And** B's invitation shows "Vaga preenchida", B's "yes" is answered `spot_filled_waiting_list_offered` and no waiting-list offer message is sent (PAD-621), and the come-back is answered `spot_filled`
 
 #### A join request closed by a full class still gets the message (rule 15)
 - **Given** the same coach and a pending join request from student C for that class
