@@ -33,8 +33,7 @@ class MyModel(db.Model, model.Model):
     __tablename__ = "my_models"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "My Model"       # Admin editor page title
-    model_name = "MyModel"        # Used by editor routing and serializers
+    model_name = "MyModel"        # Used by image object keys and __repr__
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
@@ -52,10 +51,6 @@ class MyModel(db.Model, model.Model):
         return self.name
 
     @classmethod
-    def display_all_info(cls):
-        return ("name", ["id", "name", "description", "created_at"])
-
-    @classmethod
     def get_create_form(cls):
         return Form([
             Block("info_block", [
@@ -69,7 +64,6 @@ class MyModel(db.Model, model.Model):
 
 - `__tablename__` — snake_case plural (e.g., `"evaluation_categories"`)
 - `__table_args__ = {"extend_existing": True}` — always present
-- `page_title` — human-readable, for admin editor
 - `model_name` — PascalCase class name as string
 - `id` column — always Integer primary key
 - `name` property — required by base `Model.__repr__`
@@ -175,17 +169,13 @@ exercises = relationship("Exercise", secondary=exercise_group_exercises, back_po
 groups = relationship("ExerciseGroup", secondary=exercise_group_exercises, back_populates="exercises")
 ```
 
-## Registering the Model
+## Importing the Model
 
-After creating the model file, add it to `padel_app/models/__init__.py`:
+After creating the model file, import it in `padel_app/models/__init__.py` (there is no
+`MODELS` registry since PAD-550):
 
 ```python
 from padel_app.models.my_model import MyModel
-
-MODELS = {
-    # ... existing entries ...
-    "mymodel": MyModel,
-}
 ```
 
 ## Real Examples

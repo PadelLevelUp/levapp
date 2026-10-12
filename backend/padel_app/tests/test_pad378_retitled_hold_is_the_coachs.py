@@ -18,8 +18,9 @@ from padel_app.tests.test_pad360_request_hold_release import (  # noqa: F401
     _blocks_of_coach,
     _hold_of,
     _jwt_secret,
-    _root,
     _state,
+    _delete_row,
+    _update_request,
 )
 
 
@@ -61,25 +62,28 @@ def _accept(app, client, ids, rid):
     _decide(app, ids, rid, "accept")
 
 
-def _editor_delete(app, client, ids, rid):
-    assert client.delete(f"/api/editor/classrequest/{rid}", headers=_root(app)).status_code == 200
+def _orm_delete(app, client, ids, rid):
+    from padel_app.models import ClassRequest
+
+    _delete_row(app, ClassRequest, rid)
 
 
-def _editor_close(app, client, ids, rid):
-    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"status": "declined"}}, headers=_root(app))
-    assert res.status_code == 200, res.get_data(as_text=True)
+def _orm_close(app, client, ids, rid):
+    _update_request(app, rid, status="declined")
 
 
 def _delete_player(app, client, ids, rid):
-    assert client.delete(f"/api/editor/player/{ids['player_id']}", headers=_root(app)).status_code == 200
+    from padel_app.models.players import Player
+
+    _delete_row(app, Player, ids["player_id"])
 
 
 PATHS = {
     "withdraw": _withdraw,
     "decline": _decline,
     "accept": _accept,
-    "editor-delete": _editor_delete,
-    "editor-close": _editor_close,
+    "orm-delete": _orm_delete,
+    "orm-close": _orm_close,
     "player-cascade": _delete_player,
 }
 

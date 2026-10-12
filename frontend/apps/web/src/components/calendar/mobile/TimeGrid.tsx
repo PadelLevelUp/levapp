@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { cardSurfaceWeb, GRID_ROW_HEIGHT, layoutDayEvents, resolveCardVariant, showsEnrolledMark, type HourRange } from "@levelup/config";
+import { cardSurfaceWeb, GRID_ROW_HEIGHT, layoutDayColumn, resolveCardVariant, showsEnrolledMark, type HourRange } from "@levelup/config";
 import { useCalendarViewer } from "../viewer-context";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,9 @@ export const ROW_HEIGHT = GRID_ROW_HEIGHT;
  * same picture). Overlapping events share their column side by side. Tapping
  * a column's empty area selects that day; tapping a block opens its detail.
  */
+/** B-543 (calendar.mobile-views rule 13): a phone day column fits two classes side by side. */
+export const PHONE_MAX_COLUMNS = 2;
+
 export function TimeGrid({
   weekDays,
   selectedDay,
@@ -85,7 +88,12 @@ export function TimeGrid({
           {weekDays.map((day) => {
             const key = format(day, "yyyy-MM-dd");
             const selected = isSameDay(day, selectedDay);
-            const laid = layoutDayEvents(eventsByDay[key] ?? [], { startHour, rowHeight });
+            // B-543 (rule 13): lanes packed; past two at once, one "+N" marker per cluster.
+            const { blocks: laid, overflow } = layoutDayColumn(eventsByDay[key] ?? [], {
+              startHour,
+              rowHeight,
+              maxColumns: PHONE_MAX_COLUMNS,
+            });
             return (
               <div
                 key={key}
@@ -163,6 +171,28 @@ export function TimeGrid({
                     </button>
                   );
                 })}
+                {overflow.map((marker) => (
+                  <button
+                    key={`overflow-${marker.key}`}
+                    type="button"
+                    data-testid="calendar-overflow"
+                    data-count={marker.events.length}
+                    aria-label={t("calendar.overflow.aria", { count: marker.events.length })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDay(day);
+                    }}
+                    style={{
+                      top: marker.top,
+                      height: marker.height,
+                      left: `calc(${(marker.column * 100) / marker.columns}% + 1px)`,
+                      width: `calc(${100 / marker.columns}% - 2px)`,
+                    }}
+                    className="absolute flex items-start justify-center overflow-hidden rounded-md border border-dashed border-muted-foreground/50 bg-muted px-0.5 pt-0.5 text-[9px] font-bold text-foreground"
+                  >
+                    {t("calendar.overflow.label", { count: marker.events.length })}
+                  </button>
+                ))}
               </div>
             );
           })}

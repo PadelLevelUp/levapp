@@ -11,7 +11,6 @@ class CoachInvitation(HashedTokenMixin, db.Model, model.Model):
     __tablename__ = "coach_invitations"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Coach Invitations"
     model_name = "CoachInvitation"
 
     id = Column(Integer, primary_key=True)
@@ -56,17 +55,6 @@ class CoachInvitation(HashedTokenMixin, db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "token_hash", "label": "Token hash"}
-        columns = [
-            {"field": "club", "label": "Club"},
-            {"field": "email", "label": "Email"},
-            {"field": "status", "label": "Status"},
-            {"field": "expires_at", "label": "Expires At"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

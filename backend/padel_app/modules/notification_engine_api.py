@@ -733,6 +733,57 @@ def _debug_endpoints_enabled():
     return str(flag).strip().lower() in ("1", "true", "yes", "on")
 
 
+# PAD-550: test-data cleanup for the E2E and Maestro suites, which used the retired generic
+# editor (/api/editor) to delete the rows a spec created. Same two gates as the routes below,
+# plus a fixed allow-list: these routes can never reach any other table.
+def _e2e_cleanup_models():
+    from padel_app.models import ClassJoinRequest, ClassRequest, Club, Message, WaitingListEntry
+
+    return {
+        "classjoinrequest": ClassJoinRequest,
+        "classrequest": ClassRequest,
+        "club": Club,
+        "message": Message,
+        "waitinglistentry": WaitingListEntry,
+    }
+
+
+@bp.get("/debug/rows/<model>")
+@jwt_required()
+def debug_list_row_ids(model: str):
+    """E2E test helper (PAD-550): every id of an allow-listed model, as `{"ids": [...]}` (the
+    snapshot a spec takes before creating rows it cannot address by id)."""
+    if not _debug_endpoints_enabled():
+        return jsonify({"error": "Not found"}), 404
+    model_cls = _e2e_cleanup_models().get(model.lower())
+    if model_cls is None:
+        return jsonify({"error": f"'{model}' is not an E2E cleanup model"}), 404
+    from padel_app.sql_db import db
+
+    ids = [row_id for (row_id,) in db.session.query(model_cls.id).order_by(model_cls.id).all()]
+    return jsonify({"ids": ids})
+
+
+@bp.delete("/debug/rows/<model>/<int:row_id>")
+@jwt_required()
+def debug_delete_row(model: str, row_id: int):
+    """E2E test helper (PAD-550): delete one row of an allow-listed model. 404 when it is gone,
+    so cleanups stay idempotent. The model's own delete hooks run (a class request's calendar
+    hold is released with the row, classes.class-requests rule 18)."""
+    if not _debug_endpoints_enabled():
+        return jsonify({"error": "Not found"}), 404
+    model_cls = _e2e_cleanup_models().get(model.lower())
+    if model_cls is None:
+        return jsonify({"error": f"'{model}' is not an E2E cleanup model"}), 404
+    from padel_app.sql_db import db
+
+    instance = db.session.get(model_cls, row_id)
+    if instance is None:
+        return jsonify({"error": "Not found"}), 404
+    instance.delete()
+    return jsonify({"success": True})
+
+
 # B-131: the exact title stamped on every class the reminder-test debug route
 # creates below, shared with its cleanup counterpart so the two routes can
 # never drift apart on what "a reminder test class" means.

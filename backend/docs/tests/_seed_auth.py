@@ -1,3 +1,4 @@
+# broken since PAD-550: the legacy CRUD API (/api/create|edit|delete) is gone
 """Shared admin authentication for the dev-only seed scripts (PAD-92).
 
 PAD-88 put the generic model-CRUD blueprint (`/api/create|edit|delete/<model>`)

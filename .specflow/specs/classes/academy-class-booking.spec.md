@@ -129,6 +129,11 @@ point that composes them (PAD-358).
 - **Then** both classes are listed, the first `open` with `spotsLeft` 4 and the second `full`
 - **And** no LessonInstance row was created by the read
 
+#### Every occurrence of a weekly series in the window is listed (rule 1, PAD-503)
+- **Given** a weekly academy class the student may join, one day out (and, separately, a series that began three weeks ago)
+- **When** the student loads the list
+- **Then** both occurrences inside the fourteen days are listed, each with its own `id` — whether the first is materialised or not
+
 #### Ineligible, hidden, enrolled and out-of-window classes are not listed
 - **Given** the same coach, a class two levels above the student, a class whose open spots are
   turned off, a class the student is enrolled in, and a class fifteen days out

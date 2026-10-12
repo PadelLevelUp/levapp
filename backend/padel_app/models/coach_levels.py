@@ -14,7 +14,6 @@ class CoachLevel(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Coach Levels"
     model_name = "CoachLevel"
 
     id = Column(Integer, primary_key=True)
@@ -54,15 +53,6 @@ class CoachLevel(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "label", "label": "Level"}
-        columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "label", "label": "Level"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

@@ -3,6 +3,8 @@
 frontend/apps/web/src/pages/LegalPage.tsx  landing/landing-page.spec.ts
 frontend/apps/web/src/pages/LegalPage.tsx  landing/hubspot-consent.spec.ts
 frontend/apps/web/src/pages/LegalPage.tsx  legal/legal-pages.spec.ts
+frontend/apps/web/src/pages/DeleteAccountPage.tsx  legal/delete-account.spec.ts
+frontend/src/locales/*/legal.json  legal/delete-account.spec.ts
 frontend/apps/web/src/content/legal/**  landing/landing-page.spec.ts
 frontend/apps/web/src/content/legal/**  landing/hubspot-consent.spec.ts
 frontend/apps/web/src/content/legal/**  legal/legal-pages.spec.ts
