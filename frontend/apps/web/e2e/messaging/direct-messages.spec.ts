@@ -29,12 +29,16 @@ test("US-57: coach can open new conversation flow", async ({ page }) => {
 
 // US-58: Coach can send a message in an existing conversation
 test("US-58: coach can type and send a message", async ({ page }) => {
-  await conversationRow(page, "E2E Student").click();
-  // Wait for the conversation to load before typing.
-  await page.waitForResponse(
-    (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
-    { timeout: 10_000 }
-  );
+  // Wait for the conversation to load before typing. Arm the wait with the
+  // click: the detail response can land before a wait registered afterwards
+  // would see it (B-526, the race US-59 already guards against).
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/conversation\/\d+/.test(r.url()) && r.status() === 200,
+      { timeout: 10_000 }
+    ),
+    conversationRow(page, "E2E Student").click(),
+  ]);
 
   const msgInput = page.getByPlaceholder(/type a message/i);
   await expect(msgInput).toBeVisible({ timeout: 5000 });
@@ -234,13 +238,15 @@ test("US-62: unread badge updates when a message is received", async ({ page, br
 test("US-63: opening a conversation clears the unread count", async ({ page }) => {
   // Seed creates an unread student message. Coach opens conversation → read.
   // First navigate away so we're on a page where the badge would be visible.
-  await page.goto("/dashboard");
-
   // Wait for the unread count API to settle so the initial badge state renders.
-  await page.waitForResponse(
-    (r) => /\/api\/app\/messages\/unread_count/.test(r.url()) && r.status() === 200,
-    { timeout: 5_000 }
-  ).catch(() => null);
+  // Armed with the navigation, so a fast answer is not missed (B-526).
+  await Promise.all([
+    page.waitForResponse(
+      (r) => /\/api\/app\/messages\/unread_count/.test(r.url()) && r.status() === 200,
+      { timeout: 5_000 }
+    ).catch(() => null),
+    page.goto("/dashboard"),
+  ]);
 
   // Open messages and click the seeded conversation.
   await openMessages(page);
