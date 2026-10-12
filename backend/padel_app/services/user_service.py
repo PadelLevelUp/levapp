@@ -6,6 +6,7 @@ from padel_app.models import User
 from padel_app.sql_db import db
 from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.utils.dates import utcnow_naive
 
 
 #: PAD-93 — privilege flags that must never be settable from an app-facing
@@ -194,6 +195,8 @@ OWN_PROFILE_FIELDS = (
     "requestAlerts",
     # PAD-630 (auth.login rule 13): the country, asked once of accounts that have none.
     "country",
+    # PAD-640 (settings.profile rule 10): the date of birth, corrected in Perfil.
+    "birthDate",
 )
 
 #: PAD-112: payload key → `users` column, for the three block toggles.
@@ -221,10 +224,27 @@ class ProfileValidationError(Exception):
     409 for a conflict with another user's data).
     """
 
-    def __init__(self, message, status=400):
+    def __init__(self, message, status=400, *, code=None, field=None):
         super().__init__(message)
         self.message = message
         self.status = status
+        #: PAD-640: a machine code and the field it belongs on, for the clients to localise.
+        self.code = code
+        self.field = field
+
+
+def _own_birth_date(raw):
+    """settings.profile rule 10 (PAD-640): sign-up's one birth-date check (auth.register rule 18). A
+    stored date can be changed, never cleared, so an absent value is a malformed one here."""
+    from padel_app.services.registration_service import RegistrationError, validate_adult_birth_date
+
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        raise ProfileValidationError("birthDate must be a real date (YYYY-MM-DD)",
+                                     code="INVALID_BIRTH_DATE", field="birthDate")
+    try:
+        return validate_adult_birth_date(raw, utcnow_naive().date(), update_app_message="")
+    except RegistrationError as err:
+        raise ProfileValidationError(err.message, code=err.code, field="birthDate") from None
 
 
 def update_own_profile_service(user_id, data):
@@ -239,6 +259,12 @@ def update_own_profile_service(user_id, data):
     """
     user = User.query.get_or_404(user_id)
     email_changed = False
+
+    # settings.profile rule 10 (PAD-640): judged before anything is written, so an under-18 date
+    # refuses the whole PATCH.
+    birth_date = _own_birth_date(data.get("birthDate")) if "birthDate" in data else None
+    if birth_date is not None:
+        user.birth_date = birth_date
 
     if "name" in data:
         name = (data.get("name") or "").strip()

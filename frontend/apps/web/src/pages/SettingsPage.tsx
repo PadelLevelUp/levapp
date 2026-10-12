@@ -36,8 +36,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
 import {
   failedPartText,
+  TabSaveError,
   SettingsSaveContext,
   SettingsUnsavedContext,
   type RegisterSaver,
@@ -162,9 +164,30 @@ type ProfileForm = {
   abbreviation: string;
   email: string;
   phone: string;
+  /** PAD-640 (settings.profile rules 10–11): YYYY-MM-DD and a two-letter code, "" when unset. */
+  birthDate: string;
+  country: string;
 };
 
-const EMPTY_PROFILE: ProfileForm = { name: "", abbreviation: "", email: "", phone: "" };
+const EMPTY_PROFILE: ProfileForm = { name: "", abbreviation: "", email: "", phone: "", birthDate: "", country: "" };
+
+/** settings.profile rule 10: the server's birth-date refusals, in sign-up's words. */
+const BIRTH_DATE_ERROR_KEYS: Record<string, string> = {
+  BIRTH_DATE_REQUIRED: "birthDateRequired",
+  INVALID_BIRTH_DATE: "birthDateInvalid",
+  UNDERAGE: "birthDateUnderage",
+};
+
+function profileFromMe(me: MeResponse): ProfileForm {
+  return {
+    name: me.name ?? "",
+    abbreviation: me.abbreviation ?? "",
+    email: me.email ?? "",
+    phone: me.phone ?? "",
+    birthDate: me.birthDate ?? "",
+    country: me.country ?? "",
+  };
+}
 
 function SettingsNav({
   active,
@@ -289,6 +312,8 @@ export default function SettingsPage() {
   // PAD-482 (#509 review): the "needed to recover" line waits for the read, or it flashes for a coach who
   // has an email.
   const [profileLoaded, setProfileLoaded] = useState(false);
+  // PAD-640: the birth date's refusal, shown under the field until it is edited again.
+  const [birthDateError, setBirthDateError] = useState<string | null>(null);
   // B-184: the same guard for the language. Once the user has chosen one, the mount-time
   // profile read (which can land later) must not put the stored language back.
   const languageDirty = useRef(false);
@@ -420,12 +445,7 @@ export default function SettingsPage() {
           setLanguage(lang);
           i18n.changeLanguage(lang);
         }
-        const loaded: ProfileForm = {
-          name: me.name ?? "",
-          abbreviation: me.abbreviation ?? "",
-          email: me.email ?? "",
-          phone: me.phone ?? "",
-        };
+        const loaded = profileFromMe(me);
         setSavedProfile(loaded);
         setEmailState(me.emailVerification);
         setRequestAlerts(me.requestAlerts !== false);
@@ -468,7 +488,15 @@ export default function SettingsPage() {
 
   const setProfileField = (field: keyof ProfileForm, value: string) => {
     profileTouched.current.add(field);
+    if (field === "birthDate") setBirthDateError(null);
     setProfile((p) => ({ ...p, [field]: value }));
+  };
+
+  /** settings.profile rule 10: a refused date is shown under the field and named in the Save's toast. */
+  const refuseBirthDate = (key: string): never => {
+    const text = t(`auth.signup.${key}`);
+    setBirthDateError(text);
+    throw new TabSaveError(text);
   };
 
   // Perfil's part of the tab's Save. PAD-81: send only the fields that actually changed.
@@ -479,18 +507,28 @@ export default function SettingsPage() {
       payload.abbreviation = profile.abbreviation;
     if (profile.email !== savedProfile.email) payload.email = profile.email;
     if (profile.phone !== savedProfile.phone) payload.phone = profile.phone;
+    // PAD-640 (rules 10–11): the same 18+ check as sign-up, before anything is sent.
+    if (profile.birthDate !== savedProfile.birthDate) {
+      if (!profile.birthDate) refuseBirthDate("birthDateRequired");
+      if (isUnderSignupAge(profile.birthDate)) refuseBirthDate("birthDateUnderage");
+      payload.birthDate = profile.birthDate;
+    }
+    if (profile.country && profile.country !== savedProfile.country) payload.country = profile.country;
     if (Object.keys(payload).length === 0) return;
     // PAD-81: the success toast fires only once the API confirms the write.
-    const updated: MeResponse = await updateMe(payload);
+    let updated: MeResponse;
+    try {
+      updated = await updateMe(payload);
+    } catch (error) {
+      const data = (error as { response?: { data?: { code?: string; field?: string } } }).response?.data;
+      const key = data?.field === "birthDate" && data.code ? BIRTH_DATE_ERROR_KEYS[data.code] : undefined;
+      if (key) refuseBirthDate(key);
+      throw error;
+    }
 
     // Re-hydrate from the server response so the form shows exactly what was
     // stored (trimmed name, uppercased abbreviation, derived abbreviation…).
-    const confirmed: ProfileForm = {
-      name: updated.name ?? "",
-      abbreviation: updated.abbreviation ?? "",
-      email: updated.email ?? "",
-      phone: updated.phone ?? "",
-    };
+    const confirmed = profileFromMe(updated);
     setProfile(confirmed);
     setSavedProfile(confirmed);
     setEmailState(updated.emailVerification);
@@ -543,6 +581,7 @@ export default function SettingsPage() {
   // sections below the page drop theirs by unmounting.
   const discardPageDrafts = () => {
     setProfile(savedProfile);
+    setBirthDateError(null);
     profileTouched.current.clear();
     if (storedPrefs) {
       setLanguage(storedPrefs.language);
@@ -744,6 +783,50 @@ export default function SettingsPage() {
                       value={profile.phone}
                       onChange={(e) => setProfileField("phone", e.target.value)}
                     />
+                  </div>
+
+                  {/* PAD-640 (settings.profile rules 10–11): correct one's own date of birth and country. */}
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-birthDate">{t("settings.profile.birthDate")}</Label>
+                    <Input
+                      id="profile-birthDate"
+                      data-testid="settings-profile-birthDate"
+                      type="date"
+                      value={profile.birthDate}
+                      aria-invalid={birthDateError ? true : undefined}
+                      aria-describedby={birthDateError ? "profile-birthDate-error" : undefined}
+                      onChange={(e) => setProfileField("birthDate", e.target.value)}
+                    />
+                    {birthDateError && (
+                      <p
+                        id="profile-birthDate-error"
+                        role="alert"
+                        data-testid="settings-profile-birthDate-error"
+                        className="text-sm text-destructive"
+                      >
+                        {birthDateError}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="max-w-xs space-y-2">
+                    <Label htmlFor="profile-country">{t("settings.profile.country")}</Label>
+                    <Select value={profile.country} onValueChange={(v) => setProfileField("country", v)}>
+                      <SelectTrigger
+                        id="profile-country"
+                        data-testid="settings-profile-country"
+                        aria-label={t("settings.profile.country")}
+                      >
+                        <SelectValue placeholder={t("settings.profile.countryPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map((c) => (
+                          <SelectItem key={c.code} value={c.code}>
+                            {countryName(c.code, i18n.language)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>

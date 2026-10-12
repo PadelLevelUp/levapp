@@ -28,6 +28,12 @@ export function toIso(display: string): string | null {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+/** YYYY-MM-DD → DD/MM/AAAA, the field's own format (PAD-640: Perfil shows the stored date); "" otherwise. */
+export function toDisplay(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
 /** auth.register rule 18: the server's codes, in the form's own words. */
 export const CODE_KEYS: Record<string, string> = {
   BIRTH_DATE_REQUIRED: "birthDateRequired",

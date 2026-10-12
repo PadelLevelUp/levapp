@@ -53,9 +53,7 @@ from .bulk_import import BulkImport
 from .needs_you_snooze import NeedsYouSnooze
 from .class_request import ClassRequest
 from .class_join_request import ClassJoinRequest
-from .digital_consent_age import DigitalConsentAge
 from .app_setting import AppSetting
-from .guardian_consent import GuardianConsent
 # admin.foundation (PAD-531): console roles and the append-only audit log. Imported
 # so create_all and Alembic see them.
 from .admin_role import AdminRole

@@ -1,13 +1,6 @@
 import { getApi } from "../client";
 
 export type MeResponse = {
-  /**
-   * PAD-198 (retired, PAD-457): "granted" once a guardian consented; null
-   * otherwise. Nothing reads it (the App Store builds never did); /me still
-   * emits it until the guardian columns are dropped in a later, checked
-   * migration. No new "granted" value is produced anymore.
-   */
-  guardianConsent?: "granted" | null;
   birthDate?: string | null;
   country?: string | null;
   /** PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for. Absent from a server
@@ -124,6 +117,8 @@ export type UpdateMePayload = {
   phone?: string;
   /** PAD-630: ISO 3166-1 alpha-2; the server upper-cases it and answers 400 for anything else. */
   country?: string;
+  /** PAD-640 (settings.profile rule 10): YYYY-MM-DD; under 18 is 400 UNDERAGE, never cleared. */
+  birthDate?: string;
   /** PAD-112 — see MeResponse. Sending `false` clears the flag. */
   blockAutoInvitations?: boolean;
   blockManualInvitations?: boolean;

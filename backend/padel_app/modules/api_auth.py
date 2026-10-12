@@ -101,11 +101,6 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
-        # PAD-198 (retired, PAD-457): no client reads this key — the App Store
-        # builds never did, and the current web and iOS code does not. It is
-        # additive and harmless, and goes with the guardian columns in the later,
-        # checked migration; no new "granted" value is produced anymore.
-        "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
         # PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for.
@@ -240,13 +235,6 @@ def _signed_in_answer(user):
     if user.status == "disabled":
         return {"error": "ACCOUNT_DISABLED"}, 401
 
-    # auth.login rule 10 (PAD-457): guardian_consent_status is a dead-code
-    # safety net now that signup requires 18+ (no new "pending"/"revoked" rows
-    # are ever created), but any left over from before still answer exactly
-    # like a disabled account rather than leaking the old guardian-consent code.
-    if user.guardian_consent_status in ("pending", "revoked"):
-        return {"error": "ACCOUNT_DISABLED"}, 401
-
     access_token = issue_access_token(user.id)
 
     return {
@@ -365,7 +353,11 @@ def update_me():
         user = update_own_profile_service(user_id, payload)
     except ProfileValidationError as exc:
         db.session.rollback()
-        return {"error": exc.message}, exc.status
+        body = {"error": exc.message}
+        # PAD-640: a coded refusal (UNDERAGE, INVALID_BIRTH_DATE) names its code and field.
+        if exc.code:
+            body.update(code=exc.code, field=exc.field)
+        return body, exc.status
 
     return jsonify(_serialize_me(user))
 
