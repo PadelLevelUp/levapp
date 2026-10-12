@@ -20,6 +20,7 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
+  mergeNewestPage,
   reconcileSentMessage,
   hasConversation,
   mergeConversationPages,
@@ -30,7 +31,7 @@ import {
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
-import { eraseDeletedMessage, mergeEditedMessage } from "@levelup/api";
+import { RESYNC_EVENT, eraseDeletedMessage, mergeEditedMessage } from "@levelup/api";
 import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
@@ -87,6 +88,10 @@ export default function MessagesPage() {
 
   const queryClient = useQueryClient();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  // PAD-616: the resync handler reads the loaded thread to know what it missed; a state updater
+  // may run later, at render, so the decision cannot be taken inside one.
+  const loadedConversationRef = useRef<Conversation | null>(null);
+  loadedConversationRef.current = selectedConversation;
   // PAD-415 (messaging.conversation-detail rule 9a): the open response's
   // firstUnreadMessageId, frozen for this visit — the follow-up
   // markConversationRead call clears it server-side, so a later refetch of
@@ -189,6 +194,36 @@ export default function MessagesPage() {
 
     // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
     return subscribeAppEvents(token, async (data) => {
+
+      // ---------------------------------------------------------------
+      // resync — messaging.sse-realtime rule 19 (PAD-616): the stream re-opened after a drop.
+      // The open thread re-reads its newest page and folds it in (`mergeNewestPage`): missed
+      // messages appended, changed ones replaced, older pages kept; then read as an arrival.
+      // (AppLayout's handler already invalidated the list and the unread count.)
+      // ---------------------------------------------------------------
+      if (data.type === RESYNC_EVENT) {
+        const openId = selectedConversationIdRef.current;
+        if (!openId) return;
+        try {
+          const newest = await getConversation(openId, { limit: CONVERSATION_FIRST_PAGE_SIZE });
+          const loaded = loadedConversationRef.current;
+          if (!loaded || normalizeConversationId(loaded.id) !== openId) return;
+          const { added } = mergeNewestPage(loaded, newest);
+          setSelectedConversation((prev) =>
+            prev && normalizeConversationId(prev.id) === openId
+              ? mergeNewestPage(prev, newest).conversation
+              : prev
+          );
+          if (added.some((m) => Number(m.senderId) !== Number(user.id))) {
+            await markConversationRead(openId);
+            void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+            void refreshUnreadCount();
+          }
+        } catch {
+          // The next resync, or reopening the thread, catches up.
+        }
+        return;
+      }
 
       // ---------------------------------------------------------------
       // message_created — promote own optimistic message to 'delivered'

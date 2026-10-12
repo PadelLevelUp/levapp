@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme, validationTier } from "@levelup/config";
-import { isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
+import { answerResync, isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
@@ -74,6 +74,10 @@ export default function TabsLayout() {
   useAppEvents(
     React.useCallback(
       (evt) => {
+        // messaging.sse-realtime rule 18 (PAD-616): the stream re-opened after a drop (a network
+        // blip, a return from the background, a deploy) — anything published meanwhile never
+        // arrived, so every live query is invalidated. The hub throttles resyncs.
+        if (answerResync(evt, queryClient)) return;
         if (evt.type.startsWith("message_")) {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.unreadCount,

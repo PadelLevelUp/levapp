@@ -97,6 +97,27 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     shared helper, `reconcileSentMessage` in `@levelup/hooks`. Before this rule only iOS checked;
     web replaced the optimistic row with the saved message and showed it twice.
 
+19. **(PAD-616, B-546; rule number unconfirmed) A re-open resyncs what is live.** An event the
+    server published while a client's stream was down (a network blip, an app back from the
+    background, a deploy overlapping two API containers) never arrives. So when the hub's stream
+    opens after its first open, the hub delivers a local `{ type: "resync" }` to every listener
+    (`RESYNC_EVENT`, `@levelup/api`) — never on the first open, and at most once per
+    `SSE_RESYNC_MIN_INTERVAL_MS` (5 s): re-opens inside that window fold into one trailing resync,
+    so a flapping connection cannot set off a refetch storm. `close()` forgets the stream, and so
+    does the last listener leaving: the next listener's connection is a fresh first open, not a
+    re-open (web pages each render their own layout, so navigating can pass through zero listeners
+    — a resync there would refetch what `client.query-cache` rule 2 serves from cache). Both
+    shells' app-level handlers (web `AppLayout`, iOS tabs layout) answer it first with the shared
+    `answerResync` → `resyncLiveData` (`@levelup/hooks`): the unread count, the conversation list,
+    the request lists and what refreshes with them (calendar, class sheets, dashboard), the
+    pending-validation badge and the academy classes are invalidated — React Query refetches the
+    ones on screen and marks the rest stale (`client.query-cache` rule 4). **The open thread**
+    (web `MessagesPage`, iOS conversation screen) re-reads its newest page and folds it in with
+    the shared `mergeNewestPage` — missed messages appended, changed ones (edited, deleted,
+    reacted) replaced, older pages and pending sends kept; never an invalidation of the thread's
+    entry, which would drop the loaded older pages — and, when someone else's message was missed,
+    marks the thread read and flags "new below" as an arrival would.
+
 ### Acceptance Criteria
 
 #### An event reaches only its named recipients
@@ -183,6 +204,27 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** they are all connected
 - **Then** 40 streams are accepted, the other 30 get `503` at once, and an ordinary request still answers within 2 s
 - **And** this is measured with `backend/scripts/sse_load_test.py`; the baseline and the result are recorded in the 2026-08-25 single-VM decision
+
+#### A re-open resyncs, the first open does not (rule 19, PAD-616)
+- **Given** a client whose stream opened, then dropped
+- **When** the hub's retry opens it again
+- **Then** every listener receives one `resync`; the first open delivered none
+
+#### A flapping stream does not storm (rule 19)
+- **Given** a stream that re-opens at 10 s, 11 s and 12 s
+- **When** the hub handles the three opens
+- **Then** listeners receive one `resync` at 10 s and one trailing `resync` at 15 s, no more
+
+#### The open thread shows a message missed while the stream was down (rule 19)
+- **Given** a coach with their conversation with E2E Student open, whose stream drops
+- **When** E2E Student sends a message while the stream is down, and the stream re-opens
+- **Then** the message appears in the open thread without navigation, the older messages stay,
+  and the thread is marked read
+
+#### The screen catches up after a drop (rule 19)
+- **Given** a coach on the dashboard with 0 unread messages, whose stream drops
+- **When** a student sends them a message while the stream is down, and the stream re-opens
+- **Then** the unread badge shows 1 without navigation or a reload
 
 ### Notes
 - In-memory only — does not persist across server restarts

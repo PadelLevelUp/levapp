@@ -10,6 +10,7 @@ import {
   mergeConversationPages,
   isAtBottom,
   isNearTop,
+  mergeNewestPage,
   mergeOlderPage,
   shouldLoadOlder,
   shouldShowJumpToBottom,
@@ -327,6 +328,44 @@ describe("hasConversation", () => {
     const list = [{ id: 7 } as unknown as Conversation];
     expect(hasConversation(list, "7", norm)).toBe(true);
     expect(hasConversation(list, 8, norm)).toBe(false);
+  });
+});
+
+
+// PAD-616 (messaging.sse-realtime rule 19): after a resync the open thread re-reads its newest page
+// and folds it into what is loaded — older pages stay, messages missed while the stream was down
+// are appended, and a message the server changed meanwhile (edited, deleted, reacted) is replaced.
+describe("mergeNewestPage — the open thread after a resync (PAD-616)", () => {
+  it("appends the missed messages and keeps the older pages", () => {
+    const loaded = conversation([message(1), message(2), message(3)]);
+    const newest = { messages: [message(2), message(3), message(4), message(5)], hasMore: true };
+    const { conversation: merged, added } = mergeNewestPage(loaded, newest);
+    expect(merged.messages.map((m) => m.id)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(added.map((m) => m.id)).toEqual(["4", "5"]);
+    expect(merged.hasMore).toBe(loaded.hasMore);
+    expect(merged.oldestMessageId).toBe(loaded.oldestMessageId);
+  });
+
+  it("replaces a message the server changed while the stream was down", () => {
+    const loaded = conversation([message(1), message(2, "before")]);
+    const edited = { ...message(2, "after"), edited: true };
+    const { conversation: merged, added } = mergeNewestPage(loaded, { messages: [message(1), edited] });
+    expect(merged.messages[1]).toMatchObject({ id: "2", content: "after", edited: true });
+    expect(added).toEqual([]);
+  });
+
+  it("keeps an optimistic send that has not been echoed yet, after the missed messages", () => {
+    const pending = { ...message("temp-1", "sending"), status: "sending" as const };
+    const loaded = conversation([message(1), pending]);
+    const { conversation: merged } = mergeNewestPage(loaded, { messages: [message(1), message(2)] });
+    expect(merged.messages.map((m) => m.id)).toEqual(["1", "2", "temp-1"]);
+  });
+
+  it("nothing missed: the thread is unchanged", () => {
+    const loaded = conversation([message(1), message(2)]);
+    const { conversation: merged, added } = mergeNewestPage(loaded, { messages: [message(1), message(2)] });
+    expect(merged.messages.map((m) => m.id)).toEqual(["1", "2"]);
+    expect(added).toEqual([]);
   });
 });
 
