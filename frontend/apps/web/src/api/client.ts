@@ -4,6 +4,9 @@ import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
 
 // Web platform adapter: tokens live in localStorage. A "view as" token (PAD-532, rule 9) lives in
 // this tab's sessionStorage and wins while present; the normal session is then never touched.
+/** The API's base; the one place it is written (PAD-617 reads it for the public demo endpoint). */
+export const API_BASE_URL = "/api";
+
 export const webTokenStorage: TokenStorage = {
   async getToken() {
     return getViewAsToken() ?? localStorage.getItem("accessToken");
@@ -31,7 +34,7 @@ function redirectToAuth() {
 }
 
 initApi({
-  baseURL: "/api",
+  baseURL: API_BASE_URL,
   storage: webTokenStorage,
   onUnauthorized: redirectToAuth,
   // PAD-352 (eligibility.open-spot-visibility rule 12): the web renders open

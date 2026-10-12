@@ -10,6 +10,7 @@ from . import (
     notification_engine_api,
     evaluations_api,
     admin_api,
+    public_api,
     startup,
 )
 
@@ -33,6 +34,8 @@ def register_blueprints(app):
     # admin.foundation rule 11 (PAD-531): registered everywhere; its before_request
     # answers 404 on any host outside ADMIN_HOSTS.
     app.register_blueprint(admin_api.bp)
+    # auth.landing-page rule 10 (PAD-617): the site's demo request relay.
+    app.register_blueprint(public_api.bp)
     return True
 
 
@@ -47,5 +50,6 @@ __all__ = [
     "notifications_api",
     "notification_engine_api",
     "admin_api",
+    "public_api",
     "startup",
 ]
