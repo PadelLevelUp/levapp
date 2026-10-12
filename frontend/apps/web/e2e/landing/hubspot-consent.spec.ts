@@ -17,7 +17,8 @@ import { loginAsCoach } from "../helpers/auth";
  * posts to LevApp's own API, which relays to HubSpot.
  *
  * The guard that matters is the first test: before the visitor presses
- * Aceitar, nothing leaves the page's own origin except the web fonts. It
+ * Aceitar, nothing leaves the page's own origin, the web fonts included
+ * (self-hosted since PAD-635). It
  * watches every request, not a list of HubSpot hosts, so a HubSpot host nobody
  * listed still turns it red. Resource hints (preconnect, dns-prefetch) never
  * show up as requests; `landing-guards.test.ts` covers those statically.
@@ -32,12 +33,10 @@ const TRACKING_STUB = `
   })();
 `;
 
-/** The only third-party hosts the landing page may reach without consent. */
-const ALLOWED_FOREIGN_HOSTS = new Set(["fonts.googleapis.com", "fonts.gstatic.com"]);
-
 /**
- * Record every request to an origin other than the page's own and the font
- * hosts — whatever the host. Read it with `foreign()` once the page is loaded.
+ * Record every request to an origin other than the page's own, whatever the
+ * host. Read it with `foreign()` once the page is loaded. No third-party host
+ * is allowed without consent; the fonts are self-hosted (PAD-635).
  */
 function watchForeign(page: Page) {
   const urls: string[] = [];
@@ -48,7 +47,7 @@ function watchForeign(page: Page) {
     const own = new URL(page.url()).origin;
     return urls.filter((u) => {
       const url = new URL(u);
-      return url.origin !== own && !ALLOWED_FOREIGN_HOSTS.has(url.hostname);
+      return url.origin !== own;
     });
   };
 }

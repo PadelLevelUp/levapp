@@ -297,24 +297,6 @@ def seed_users(app):
         return [user1, user2]
 
 
-class AuthActions:
-    def __init__(self, client):
-        self._client = client
-
-    def login(self, username="test", password="secret"):
-        return self._client.post(
-            "/auth/login", data={"username": username, "password": password}
-        )
-
-    def logout(self):
-        return self._client.get("/auth/logout")
-
-
-@pytest.fixture
-def auth(client):
-    return AuthActions(client)
-
-
 @pytest.fixture
 def live_scheduler(app):
     """The scheduler module wired to a REAL APScheduler on a memory store, started PAUSED.

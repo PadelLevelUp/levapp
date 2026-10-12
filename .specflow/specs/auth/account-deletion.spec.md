@@ -30,10 +30,10 @@ session login still let a disabled user in (audit M10). This leaf states the ful
    deleted in the same transaction, and after the commit its object is deleted from the uploads
    bucket — best-effort: a storage failure is logged (the error class, never the key) and never
    undoes the deletion; with no bucket configured there is nothing to delete. An image still
-   referenced by anything else (another user, a club logo, a message attachment, a back-office app)
-   keeps its row and object.
+   referenced by anything else (another user, a club logo or a message attachment) keeps its row
+   and object.
 3. **Every session ends.** Any JWT of a disabled user is rejected (the blocklist loader in
-   `padel_app/auth.py`), and the legacy session `/login` refuses a disabled account.
+   `padel_app/auth.py`). A JWT is the only session: the legacy session login is deleted (PAD-645).
 4. **Pushes stop.** Every `device_tokens` and `push_subscriptions` row of the user is deleted.
 5. **Their own social state goes.** `blocked_users` rows where they are the blocker or the blocked, and
    their `calendar_blocks`, are deleted.
@@ -95,7 +95,7 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 - **Given** a student who deletes their account
 - **Then** their username starts with `deleted-`, their password matches nothing they knew, and their
   contact fields are empty
-- **And** their existing JWTs are rejected and the legacy session login refuses them
+- **And** their existing JWTs are rejected and `POST /api/auth/login` with their old password is 401
 
 #### Personal details and the photo are erased (PAD-605)
 - **Given** a student with a birth date, a country, a pending password-reset code, a block reason

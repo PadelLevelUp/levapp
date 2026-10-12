@@ -21,6 +21,9 @@ they have behaviour worth specifying.
   files, applied by the owner)
 - `delivery.api-host` — implementing (PAD-614: the API on `api.levapp.app` with the same paths;
   listed web origins get CORS; the web build's API base is a repository variable, `/api` by default)
+- `delivery.repair-diagnostics` — implementing (PAD-641: the manual repair workflow keeps the app
+  log tail on the VM and prints counts, exception class names and `query_id`, never log lines or
+  query text)
 
 ## Why it's grouped this way
 

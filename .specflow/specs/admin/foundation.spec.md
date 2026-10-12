@@ -130,7 +130,9 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     certificates are cached for the max-age Google sends. The console image sends a
     Content-Security-Policy that allows Google Identity Services (`accounts.google.com/gsi/`) for
     script, frame and connect and sets `frame-ancestors 'none'`, plus `Referrer-Policy:
-    no-referrer`, `X-Content-Type-Options: nosniff` and HSTS, on every location.
+    no-referrer`, `X-Content-Type-Options: nosniff` and HSTS, on every location. The fonts are
+    self-hosted (`@fontsource`, PAD-635): `font-src 'self'`, and no page names or requests
+    Google's font hosts (`e2e/self-hosted-fonts.spec.ts`).
 13. **Configuration.** `ADMIN_GOOGLE_CLIENT_ID` (public; the browser needs it too) and
     `ADMIN_HOSTS` are set per environment in the tracked env templates; no new deploy secret
     exists for the console. The Google OAuth client is "LevApp Staff Console web" (Web

@@ -5,7 +5,6 @@ from tempfile import mkdtemp
 from flask import Flask
 from flask_cors import CORS
 from flask_assets import Bundle, Environment
-from flask_login import LoginManager
 from flask_session import Session
 from flask_jwt_extended import JWTManager, get_jwt, get_jwt_identity, create_access_token
 from .auth import register_jwt_handlers
@@ -157,13 +156,6 @@ def create_app(test_config=None):
         output="styles/styles_backend.css",
     )
     assets.register("scss_backend", scss_bundle_backend)
-
-    # Login manager
-    login_manager = LoginManager(app)
-    from .auth import setup_login_manager
-
-    setup_login_manager(login_manager)
-    app.login_manager = login_manager
 
     sql_db.init_db(app)
     cli.register_cli(app)

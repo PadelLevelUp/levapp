@@ -101,6 +101,11 @@ Manage conversations between users (1:1 or group chats).
     soft-deleted (R-016) is not unread: the per-conversation counts use the same predicate as
     the app-wide badge (`get_unread_count`), so the badge total and the sum of the listed
     counts agree
+12a. **A deleted last message shows no text (PAD-639).** When the message `last_message_id`
+    points at is deleted, the row serializes `lastMessage: ""` and `lastMessageDeleted: true`
+    (false otherwise), and web and iOS render the localized "Message deleted" in the preview.
+    `""` rather than null keeps an older App Store build from showing "No messages yet" — it
+    shows an empty line. The preview used to print the deleted message's text.
 13. A user appears **at most once** in a conversation. `(conversation_id, user_id)` is unique
     on `conversation_participants` and enforced by the database, not only by the code that
     builds the participant list — a second insert for the same pair is rejected
@@ -304,3 +309,9 @@ Manage conversations between users (1:1 or group chats).
 - **When** she opens Messages on web and on iOS
 - **Then** the first two rows show a bold name and preview with pills "3" and "9+", and the read row is regular weight with no pill
 
+
+#### A deleted last message shows "Message deleted" in the list (rule 12a, PAD-639)
+- **Given** a conversation whose newest message, "my address is Rua X 12", its sender deleted
+- **When** the other participant GETs `/api/app/conversations`
+- **Then** that row has `lastMessage` `""` and `lastMessageDeleted: true`, and no field holds "Rua X 12"
+- **And** web and iOS show "Message deleted" in that row's preview; a row whose last message is live has `lastMessageDeleted: false` and shows its text
