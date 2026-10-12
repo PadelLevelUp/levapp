@@ -88,7 +88,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
     29 February birth turns 18 on 1 March in a non-leap year. Under 18 answers 400
     `{field: "birthDate", code: "UNDERAGE", error: "Data de nascimento inválida. Esta app só aceita
     maiores de 18 anos. / Invalid date of birth. This app only accepts people aged 18 or over."}`
-    and writes nothing: no User, no Player/Coach, no GuardianConsent, no mail. The check runs right
+    and writes nothing: no User, no Player/Coach, no mail. The check runs right
     after the birth date is validated, whatever the country, and before the guardian fields are read.
     The error text is bilingual because an older app build shows the server's text verbatim; web and
     iOS map `UNDERAGE` to their own localized copy (`auth.signup.errors.underage`) and also refuse
@@ -108,9 +108,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
     page shows and to its text's "Effective date" line (`auth.legal-pages` rule 4) — change them together). **Any client that does not declare the capability**
     registers exactly as before, with the three columns NULL: today that is App Store 1.2.0 (27) and
     1.2.1 (28). **Removal:** drop that path, and the token's gate, once no App Store build older than
-    the first declaring one is in use (a compat-audit question at each promotion). A separate
-    `config.LEGAL_TERMS_VERSION` belongs to the retired guardian-consent record; the three are not
-    merged here. **Out of scope:** accounts that exist already (NULL, never
+    the first declaring one is in use (a compat-audit question at each promotion). The retired
+    guardian-consent record's `config.LEGAL_TERMS_VERSION` was removed by PAD-644. **Out of scope:** accounts that exist already (NULL, never
     asked); the activation of a coach-created player (`auth.activate`); the coach club-invitation accept
     (`clubs.coach-invitation`). Each can take the same field later.
 
@@ -230,12 +229,12 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Given** today is 2026-09-25 (UTC) and no user `teen`
 - **When** POST `/api/auth/register` with a valid student body for `teen` and `birthDate` `2008-09-26`, `country` `PT`
 - **Then** the response is 400 with `field: "birthDate"`, `code: "UNDERAGE"` and the rule-18 message
-- **And** no User `teen`, no Player, no GuardianConsent row exists and no mail was sent
+- **And** no User `teen` and no Player exists and no mail was sent
 
 #### Someone who turns 18 today signs up (PAD-445)
 - **Given** today is 2026-09-25 (UTC)
 - **When** POST `/api/auth/register` with a valid student body and `birthDate` `2008-09-25`, `country` `PT`
-- **Then** the response is 201 with an `accessToken` and the User exists with `guardian_consent_status` NULL
+- **Then** the response is 201 with an `accessToken` and the User exists
 
 #### A 29 February birth is 18 on 1 March (PAD-445)
 - **Given** a `birthDate` of `2008-02-29`

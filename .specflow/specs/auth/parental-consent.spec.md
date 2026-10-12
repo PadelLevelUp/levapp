@@ -17,11 +17,12 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
 > **DEPRECATED (PAD-457, owner 2026-09-25): LevApp accepts adults only and no minors exist.** The
 > guardian flow below is REMOVED from the code: the consent and withdrawal pages, the resend, the
 > mails, the sign-up guardian field and login's pending-consent answer. `auth.register` rule 18
-> refuses under-18s at sign-up; `auth.activate` rule 13 does the same at activation. The data is
-> kept: `guardian_consents`, `digital_consent_ages` and the `users.guardian_consent_status` column
-> stay because their prod rows could not be checked (no gcloud access on 2026-09-25); a `pending` or
-> `revoked` status is refused at login as disabled (`auth.login` rule 10). Dropping them is a later,
-> checked migration. Kept as the record of what existed.
+> refuses under-18s at sign-up; `auth.activate` rule 13 does the same at activation. **PAD-644
+> dropped the data** (migration `734b8e37b4e2`; prod on 2026-10-12: no guardian_consents rows, the status NULL for every user): the `guardian_consents` and
+> `digital_consent_ages` tables, the `users.guardian_consent_status` column, `/api/auth/me`'s
+> `guardianConsent` key, `config.LEGAL_TERMS_VERSION`, and the login and JWT-loader gates that
+> refused a `pending` or `revoked` status. `users.birth_date` and `users.country` stay for
+> `auth.register` rule 18. Kept as the record of what existed.
 
 ### Entities
 - **WRITES:** User — new nullable columns `birth_date` (date), `country` (string(2), ISO 3166-1
