@@ -68,6 +68,7 @@ export function RegisterScreen({
     // PAD-457 (auth.activate rule 13): DD/MM/AAAA, typed with the number pad as on sign-up.
     birthDate: "",
     country: "PT",
+    terms: "",
   });
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>(
     {}
@@ -122,11 +123,14 @@ export function RegisterScreen({
     if (!userId || !token) return;
 
     const codes = validateAccountForm(registerSchema, values);
-    if (Object.keys(codes).length > 0) {
+    // PAD-637 (auth.register rule 19b): the Terms box is checked with the rest of the form.
+    const termsMissing = values.terms !== "true";
+    if (Object.keys(codes).length > 0 || termsMissing) {
       const translated: Record<string, string> = {};
       for (const [field, code] of Object.entries(codes)) {
         translated[field] = t(`auth.register.${code}`);
       }
+      if (termsMissing) translated.terms = t("auth.legal.termsRequiredToContinue");
       setErrors(translated);
       return;
     }
@@ -145,6 +149,7 @@ export function RegisterScreen({
           password: values.password,
           birthDate: toIso(values.birthDate) ?? "",
           country: values.country,
+          termsAccepted: true, // PAD-637 (auth.activate rule 13b)
         },
       });
       toast.success(
@@ -158,6 +163,11 @@ export function RegisterScreen({
       const key = data?.data?.code ? ACTIVATION_BIRTH_CODES[data.data.code] : undefined;
       if (data?.status === 400 && data.data?.field === "birthDate" && key) {
         setErrors({ birthDate: t(`auth.register.${key}`) });
+        return;
+      }
+      // PAD-637: a Terms refusal belongs on the box.
+      if (data?.status === 400 && data?.data?.field === "terms") {
+        setErrors({ terms: t("auth.legal.termsRequiredToContinue") });
         return;
       }
       // PAD-604: a country refusal belongs on the field, in the form's words.
@@ -242,6 +252,8 @@ export function RegisterScreen({
     },
     // PAD-604: right after the birth date; required, default PT.
     { id: "country", label: t("auth.register.country"), kind: "country" },
+    // PAD-637: the Terms box, last, as on sign-up.
+    { id: "terms", label: "", kind: "terms" },
   ];
 
   return (

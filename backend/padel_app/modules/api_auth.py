@@ -16,6 +16,8 @@ from padel_app.services.user_service import (
 )
 from padel_app.services.registration_service import (
     RegistrationError,
+    accept_legal_catch_up,
+    legal_pending,
     register_user_service,
 )
 from padel_app.services.club_service import latest_pending_club_join_request
@@ -101,6 +103,8 @@ def _serialize_me(user):
         "requestAlerts": user.notif_request_alerts is not False,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
+        # PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for.
+        "legalPending": legal_pending(user),
     }
 
 @bp.post("/register")
@@ -307,6 +311,24 @@ def me():
     user_id = int(get_jwt_identity())
     user = User.query.get_or_404(user_id)
 
+    return jsonify(_serialize_me(user))
+
+
+@bp.post("/me/legal")
+@jwt_required()
+def accept_legal():
+    """auth.legal-catch-up rule 3 (PAD-637): an older account accepts the Terms and/or gives its birth
+    date. Answers the new `me`; any refusal is the sign-up shape and writes nothing."""
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    try:
+        accept_legal_catch_up(user, request.get_json() or {}, utcnow_naive())
+    except RegistrationError as exc:
+        db.session.rollback()
+        payload = {"error": exc.message, "field": exc.field}
+        if getattr(exc, "code", None):
+            payload["code"] = exc.code
+        return jsonify(payload), exc.status
+    db.session.commit()
     return jsonify(_serialize_me(user))
 
 

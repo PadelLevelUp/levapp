@@ -40,6 +40,8 @@ async function createPlaceholder(page: Page, name: string) {
   await openPlayers(page);
   await page.getByRole("button", { name: ui("players.addPlayer") }).first().click();
   await page.getByLabel(ui("players.name")).fill(name);
+  // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+  await page.getByTestId("add-player-confirms-adults").click();
   await page.getByRole("button", { name: ui("players.createAndInvite") }).click();
   const dialog = page.getByRole("dialog", { name: ui("players.inviteDialogTitle") });
   await expect(dialog).toBeVisible({ timeout: 10_000 });

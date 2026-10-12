@@ -45,6 +45,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
 
     const name = `PAD105 Nameless ${UNIQUE}`;
     await page.locator("#player-name").fill(name);
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
 
     // A name is all it takes — no waiting on a username availability check.
     const createBtn = page.getByRole("button", { name: /create player/i });
@@ -63,6 +65,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
 
     await openAddPlayerSheet(page);
     await page.locator("#player-name").fill(name);
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
     await page.getByRole("button", { name: /create player/i }).click();
 
     await page.getByPlaceholder(/search/i).first().fill(name);
@@ -102,6 +106,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
 
     await openAddPlayerSheet(page);
     await page.locator("#player-name").fill(name);
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
     await page.getByRole("button", { name: /create player/i }).click();
 
     await page.getByPlaceholder(/search/i).first().fill(name);
@@ -139,6 +145,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     await registerPage.locator("#repeatPassword").fill("Pad105Chosen!");
     // PAD-457 (auth.activate rule 13): activation asks for an adult birth date.
     await registerPage.locator("#birthDate").fill("1990-01-01");
+    // PAD-637: the Terms box (auth.register rule 19b).
+    await registerPage.getByTestId("register-terms").click();
     await registerPage.locator('button[type="submit"]').click();
 
     // Activation lands them on the login page; the username they chose works.
@@ -161,6 +169,8 @@ test.describe("PAD-105: coach add-player form has no username field", () => {
     // the student's. Create an invited player and open their link as a guest.
     await openAddPlayerSheet(page);
     await page.locator("#player-name").fill(`PAD105 Invitee ${UNIQUE}`);
+    // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+    await page.getByTestId("add-player-confirms-adults").click();
     await page
       .getByRole("button", { name: /create.*invite|invite.*player/i })
       .click();

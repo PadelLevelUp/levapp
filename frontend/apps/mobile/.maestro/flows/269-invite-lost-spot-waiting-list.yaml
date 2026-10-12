@@ -70,5 +70,7 @@ onFlowComplete:
 - assertNotVisible:
     id: "invite-join-waiting-list"
 # ── the coach's class holds them as the student's own request (waiting-list rule 14) ──
-- evalScript: "${output.rows = json(http.post(output.api + '/api/app/class_instance?model=LessonInstance&id=' + output.detail.originalId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body).waitingList || []}"
+# Read through the class the flow made (Lesson + date resolves its instance): the class_instance
+# payload carries no originalId, so the earlier LessonInstance query sent id=undefined (a 500).
+- evalScript: "${output.rows = json(http.post(output.api + '/api/app/class_instance?model=' + (output.made.model || 'Lesson') + '&id=' + output.made.originalId + '&date=' + output.day, { headers: output.auth, body: '{}' }).body).waitingList || []}"
 - assertTrue: "${output.rows.length === 1 && output.rows[0].playerId === output.student.playerId && output.rows[0].origin === 'student'}"

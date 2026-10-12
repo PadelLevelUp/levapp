@@ -61,6 +61,7 @@ from padel_app.services.lesson_service import (
     remove_class_service,
 )
 from padel_app.services.player_service import (
+    require_adults_confirmation,
     get_players_list,
     get_player_profile,
     add_player_service,
@@ -2309,6 +2310,7 @@ def create_incomplete_player():
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
     require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
+    require_adults_confirmation(data)  # players.create rule 10 (PAD-642)
     data["coachId"] = coach.id
     invitation = create_incomplete_player_service(data)
     return jsonify({
@@ -2791,6 +2793,7 @@ def add_player():
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
     require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
+    require_adults_confirmation(data)  # players.create rule 10 (PAD-642)
     data["coachId"] = coach.id
     coach_player_info = add_player_service(data)
     return jsonify(coach_player_info)
@@ -3077,6 +3080,8 @@ def import_confirm():
     coach = require_coach()
     club = require_club()
     data = request.get_json() or {}
+    if data.get("Players"):
+        require_adults_confirmation(data)  # import.confirm rule 9 (PAD-642)
 
     final = {}
     for ev in _run_import_confirm(data, coach, club):
@@ -3102,6 +3107,8 @@ def import_confirm_stream():
     coach = require_coach()
     club = require_club()
     data = request.get_json() or {}
+    if data.get("Players"):
+        require_adults_confirmation(data)  # import.confirm rule 9, refused before the first event
 
     def gen():
         # Initial keepalive comment flushes headers immediately.

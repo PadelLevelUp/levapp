@@ -72,3 +72,4 @@ export * from "./waiting-list-origin";
 export * from "./install-suggestion";
 export * from "./country-prompt";
 export * from "./contact";
+export * from "./legal-catch-up";

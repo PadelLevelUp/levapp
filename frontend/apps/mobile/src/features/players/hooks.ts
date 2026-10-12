@@ -62,6 +62,8 @@ export interface AddPlayerPayload {
   levelId?: string;
   side?: string;
   notes?: string;
+  /** PAD-642 (players.create rule 10): the coach confirmed the student is 18 or older. */
+  confirmsAdults?: boolean;
 }
 
 export function useAddPlayer() {

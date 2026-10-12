@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
 
 /** PAD-457: the server's birth-date codes, in this form's own words. */
 const BIRTH_CODE_KEYS: Record<string, string> = {
@@ -74,6 +75,8 @@ const PlayerInvitePage = () => {
   const [playerName, setPlayerName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  // PAD-637 (auth.register rule 19b): the Terms box, required.
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -122,7 +125,10 @@ const PlayerInvitePage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !validateForm()) return;
+    const formOk = validateForm();
+    // PAD-637: the Terms box is checked with the rest of the form.
+    if (!termsAccepted) setErrors((prev) => ({ ...prev, terms: t("auth.legal.termsRequiredToContinue") }));
+    if (!token || !formOk || !termsAccepted) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -133,6 +139,7 @@ const PlayerInvitePage = () => {
         password: form.password,
         birthDate: form.birthDate,
         country: form.country,
+        termsAccepted: true,
       });
 
       toast({
@@ -148,6 +155,11 @@ const PlayerInvitePage = () => {
       const birthKey = BIRTH_CODE_KEYS[error?.response?.data?.code ?? ""];
       if (code === 400 && error?.response?.data?.field === "birthDate" && birthKey) {
         setErrors((prev) => ({ ...prev, birthDate: t(`auth.playerInvite.${birthKey}`) }));
+        return;
+      }
+      // PAD-637: a Terms refusal belongs on the box.
+      if (code === 400 && error?.response?.data?.field === "terms") {
+        setErrors((prev) => ({ ...prev, terms: t("auth.legal.termsRequiredToContinue") }));
         return;
       }
       // PAD-604: a country refusal belongs on the field, as sign-up.
@@ -374,6 +386,16 @@ const PlayerInvitePage = () => {
                 </p>
               )}
             </div>
+
+            <TermsAcceptField
+              id="playerInvite-terms"
+              checked={termsAccepted}
+              onCheckedChange={(next) => {
+                setTermsAccepted(next);
+                setErrors(({ terms: _cleared, ...rest }) => rest);
+              }}
+              error={errors.terms}
+            />
 
             {submitError && (
               <p className="text-sm text-destructive">{submitError}</p>
