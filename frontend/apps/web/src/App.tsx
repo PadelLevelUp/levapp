@@ -32,6 +32,7 @@ import {
   RegisterPage,
   SettingsPage,
   SignUpPage,
+  SocialSignUpCompletePage,
   StudentEvaluations,
   SupportPage,
   DeleteAccountPage,
@@ -77,6 +78,8 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               {/* auth.register — self-service signup (PAD-210). */}
               <Route path="/signup" element={<SignUpPage />} />
+              {/* auth.social-sign-in rule 7 (PAD-618): the completion step after a Google account with no LevApp account. */}
+              <Route path="/signup/complete" element={<SocialSignUpCompletePage />} />
               {/* auth.password-recovery — public, reached from "Forgot your password?" (PAD-139). */}
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register/:userId" element={<RegisterPage />} />
