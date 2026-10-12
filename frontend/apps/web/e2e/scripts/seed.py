@@ -1021,6 +1021,16 @@ with app.app_context(), unit_of_work():
         seeded.country = "PT"
 
     # ── Commit ────────────────────────────────────────────────────────────────
+    # PAD-637 (auth.legal-catch-up): a seeded account has accepted the Terms and has a birth date, as
+    # every account completed today does — otherwise every login would land on the catch-up screen.
+    # A spec that needs the catch-up clears these on its own user.
+    from datetime import date as _date
+    from padel_app.services.registration_service import record_terms_acceptance
+    for _u in User.query.filter(User.status == "active").all():
+        if _u.terms_accepted_at is None:
+            record_terms_acceptance(_u, _utcnow_naive())
+        if _u.birth_date is None:
+            _u.birth_date = _date(1990, 1, 1)
     db.session.commit()
     print("[seed] Done. Created:")
     print(f"  Coach: {coach_user.username} / E2eCoach123!")

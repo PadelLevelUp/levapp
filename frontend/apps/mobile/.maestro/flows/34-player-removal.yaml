@@ -121,6 +121,14 @@ appId: com.padellevelup.app
 - swipe:
     start: "50%, 45%"
     end: "50%, 20%"
+# PAD-642: the coach confirms the student is 18+ (players.create rule 10) before either save.
+- scrollUntilVisible:
+    element:
+      id: "player-confirms-adults"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-confirms-adults"
 - scrollUntilVisible:
     element:
       id: "player-save"

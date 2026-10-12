@@ -1,3 +1,4 @@
+import { legalCatchUpSession } from "@levelup/config";
 import { authApi } from "@levelup/api";
 import { router } from "expo-router";
 import React, {
@@ -178,6 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // PAD-637 (auth.legal-catch-up rule 4): the next sign-in shows the catch-up again.
+    legalCatchUpSession.reset();
     // Clear the home-screen badge: the tabs layout (which keeps it in sync
     // with the unread count) is about to unmount, so nothing else would
     // reset it and the signed-out app would keep a stale count (PAD-147).

@@ -7,6 +7,7 @@ The auth domain.
 ## What it covers
 
 - `auth.login` — implemented
+- `auth.legal-catch-up` — implementing (PAD-637: one skippable screen after login asks an older account for the Terms and/or a birth date)
 - `auth.logout` — implemented
 - `auth.register` — implemented (rewritten 2026-09-06 as self-service signup for both roles; the old `POST /api/auth/register` never existed, B-023; built in PAD-210)
 - `auth.activate` — implemented

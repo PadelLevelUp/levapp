@@ -41,6 +41,7 @@ data at once.
 
 ## Business Rules
 
+- A coach confirms every imported student is 18 or over before the import runs (PAD-642, owner decision 2026-10-12).
 - The AI's job is to propose a structure and a mapping; nothing is created in the system until the
   coach explicitly confirms.
 - The coach can select or deselect individual rows before confirming — the import is never

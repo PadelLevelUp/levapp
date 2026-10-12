@@ -18,7 +18,7 @@ from padel_app.utils.dates import to_utc_iso, utcnow_naive
 JOB_FAMILIES = (
     "reminder_lesson_", "invite_start_lesson_", "invite_start_", "pastdue_", "ask_", "reminder_",
 )
-SINGLETONS = ("process_batches", "extend_schedule_window", "prune_delivery_incidents")
+SINGLETONS = ("process_batches", "extend_schedule_window", "prune_delivery_incidents", "retention_sweep")
 OVERDUE_AFTER = timedelta(minutes=5)
 PEER_TIMEOUT_SECONDS = 2
 

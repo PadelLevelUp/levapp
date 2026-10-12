@@ -90,6 +90,8 @@ test.describe("clubs.coach-invitation", () => {
     }
     // PAD-457 (clubs.coach-invitation rule 8): a new coach account asks for an adult birth date.
     await invitePage.locator("#birthDate").fill("1990-01-01");
+    // PAD-637: the Terms box (auth.register rule 19b).
+    await invitePage.getByTestId("coachInvite-terms").click();
 
     await invitePage
       .getByRole("button", {

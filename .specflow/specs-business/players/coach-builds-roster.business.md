@@ -69,6 +69,7 @@ the invite-link half of the journey.
 
 ## Business Rules
 
+- A coach may only add people aged 18 or over; they confirm it when adding a student (PAD-642, owner decision 2026-10-12).
 - Every link and QR code a coach hands out shows the LevApp address (levapp.app), whichever address
   the coach opened the app from; links and QR codes already shared on the old padellevelup.com
   address keep working (PAD-595).

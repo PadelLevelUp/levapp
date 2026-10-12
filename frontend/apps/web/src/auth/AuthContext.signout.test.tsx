@@ -5,7 +5,7 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { emailPromptSession } from "@levelup/config";
+import { emailPromptSession, legalCatchUpSession } from "@levelup/config";
 
 vi.mock("@/api/auth", () => ({ getMe: vi.fn(() => new Promise(() => undefined)) }));
 vi.mock("@/api/client", () => ({ api: { post: vi.fn(async () => undefined) } }));
@@ -30,3 +30,17 @@ describe("logout and the email prompt's dismissal", () => {
   });
 });
 
+// PAD-637 (auth.legal-catch-up rule 4): "Agora não" on the catch-up lasts the session; signing out ends it.
+describe("logout and the catch-up's skip", () => {
+  it("the next sign-in shows the catch-up again", () => {
+    legalCatchUpSession.skip(7);
+    let logout!: () => void;
+    function Probe() {
+      logout = useAuth().logout;
+      return null;
+    }
+    render(<AuthProvider><Probe /></AuthProvider>);
+    act(() => logout());
+    expect(legalCatchUpSession.isSkipped(7)).toBe(false);
+  });
+});
