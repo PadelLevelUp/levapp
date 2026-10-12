@@ -8,6 +8,7 @@ import {
   clampSheetTop,
   eventBlockGeometry,
   groupOverlappingEvents,
+  layoutDayColumn,
   layoutDayEvents,
   resolveHourRange,
   sheetTopBounds,
@@ -95,6 +96,85 @@ describe("layoutDayEvents", () => {
       ["a", 0, 2, 280, 40],
       ["b", 1, 2, 300, 40],
       ["c", 0, 1, 360, 40],
+    ]);
+  });
+});
+
+describe("layoutDayEvents — a dense day (PAD-625, B-543)", () => {
+  // 22 classes, 60 min each, one every 40 min: each overlaps only its neighbours, so at
+  // most TWO run at any moment — the day needs two columns, not twenty-two.
+  const chain = Array.from({ length: 22 }, (_, i) => {
+    const start = 7 * 60 + 40 * i;
+    const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    return ev(`d${i}`, hhmm(start), hhmm(start + 60));
+  });
+
+  it("packs a chain of overlaps into as many columns as run at once", () => {
+    const laid = layoutDayEvents(chain, { startHour: 7, rowHeight: 60 });
+    expect(laid).toHaveLength(22);
+    expect(Math.max(...laid.map((l) => l.columns))).toBe(2);
+    expect(laid.map((l) => l.column)).toEqual(chain.map((_, i) => i % 2));
+  });
+
+  it("a lane freed by an ended class is reused", () => {
+    const laid = layoutDayEvents(
+      [ev("a", "09:00", "11:00"), ev("b", "09:30", "10:00"), ev("c", "10:00", "10:30")],
+      { startHour: 7, rowHeight: 60 }
+    );
+    expect(laid.map((l) => [l.event.id, l.column, l.columns])).toEqual([
+      ["a", 0, 2],
+      ["b", 1, 2],
+      ["c", 1, 2],
+    ]);
+  });
+});
+
+describe("layoutDayColumn — the cap and its '+N' marker (B-543)", () => {
+  const four = [
+    ev("a", "18:00", "19:00"),
+    ev("b", "18:00", "19:00"),
+    ev("c", "18:00", "19:00"),
+    ev("d", "18:30", "19:30"),
+  ];
+
+  it("over the cap: the first lanes render and the last column holds one marker with the rest", () => {
+    const { blocks, overflow } = layoutDayColumn(four, { startHour: 7, rowHeight: 60, maxColumns: 3 });
+    expect(blocks.map((b) => [b.event.id, b.column, b.columns])).toEqual([
+      ["a", 0, 3],
+      ["b", 1, 3],
+    ]);
+    expect(overflow).toHaveLength(1);
+    expect(overflow[0].events.map((e) => e.id)).toEqual(["c", "d"]);
+    expect([overflow[0].column, overflow[0].columns]).toEqual([2, 3]);
+    // spans 18:00–19:30 on a 60 px/h grid from 07:00
+    expect([overflow[0].top, overflow[0].height]).toEqual([660, 90]);
+  });
+
+  it("at or under the cap nothing is hidden", () => {
+    const { blocks, overflow } = layoutDayColumn(four.slice(0, 3), { startHour: 7, rowHeight: 60, maxColumns: 3 });
+    expect(blocks).toHaveLength(3);
+    expect(overflow).toEqual([]);
+  });
+
+  it("the 22-class chain needs no marker even at a cap of two", () => {
+    const chain = Array.from({ length: 22 }, (_, i) => {
+      const start = 7 * 60 + 40 * i;
+      const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      return ev(`d${i}`, hhmm(start), hhmm(start + 60));
+    });
+    const { blocks, overflow } = layoutDayColumn(chain, { startHour: 7, rowHeight: 60, maxColumns: 2 });
+    expect(blocks).toHaveLength(22);
+    expect(overflow).toEqual([]);
+  });
+
+  it("a class ending at midnight overlaps the 23:00 class beside it (PAD-553)", () => {
+    const { blocks } = layoutDayColumn(
+      [ev("late", "22:30", "00:00"), ev("later", "23:00", "23:30")],
+      { startHour: 7, rowHeight: 60 }
+    );
+    expect(blocks.map((b) => [b.event.id, b.column, b.columns])).toEqual([
+      ["late", 0, 2],
+      ["later", 1, 2],
     ]);
   });
 });

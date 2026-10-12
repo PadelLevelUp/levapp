@@ -126,7 +126,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     space above the sheet. Each event is an absolutely positioned block: top and height from
     its start and end minutes (minimum height 18px), 6px radius, surface per rule 5 (an
     open spot's dashed outline included), title clamped to two lines. Overlapping events in one column share the width side by side
-    (reuse `calendar-overlap.ts`). The selected day's column is tinted `secondary`.
+    (reuse `calendar-overlap.ts`). **(B-543, PAD-625) A busy day stays readable:** the shared
+    `layoutDayColumn` (`@levelup/config`) packs a cluster of overlapping events into lanes — each
+    event takes the first lane free at its start, so a cluster gets as many columns as events run
+    *at once*, not one per event (22 classes an hour apart in a chain need two columns). When a
+    cluster needs more than **two** lanes on a phone, the first lane renders and the second holds
+    one "+N" marker spanning the hidden events' time; tapping it selects the day, whose sheet lists
+    every class. The selected day's column is tinted `secondary`.
 14. **Tapping** a column's empty area selects that day. Tapping an event block opens its
     detail exactly as tapping its card does today (class → class detail; block → event
     detail).
@@ -243,6 +249,14 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Then** the enrolled class's card and grid block carry `calendar-enrolled-mark` and the open
   spot's carry `calendar-open-spot-chip` without the ✓
 - **And** a coach viewing their own calendar sees no `calendar-enrolled-mark` anywhere
+
+#### A dense day keeps its classes readable (rule 13, B-543)
+- **Given** a coach with 22 classes on Wednesday, 60 min each, one every 40 min from 07:00
+- **When** the Semana grid renders that day on a phone
+- **Then** the day uses two columns (at most two classes run at once), each block wide enough
+  for its title
+- **And** given three classes at 18:00, the day shows one block and a "+2" marker, and tapping
+  the marker selects Wednesday with all three in the sheet
 
 #### Canceled is red and only red is canceled
 - **Given** a canceled occurrence on the selected day

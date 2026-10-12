@@ -125,29 +125,120 @@ export function groupOverlappingEvents<T extends GridEventLike>(events: T[]): T[
 
 export interface LaidOutEvent<T> extends BlockGeometry {
   event: T;
-  /** Column index within its overlap group. */
+  /** Column index within its overlap cluster. */
   column: number;
-  /** Number of side-by-side columns in that group. */
+  /** Number of side-by-side columns in that cluster. */
   columns: number;
 }
 
-/** One day column's blocks: geometry plus side-by-side placement for overlaps. */
+/** A cluster's hidden events, behind one "+N" marker (B-543). */
+export interface OverflowMarker<T> extends BlockGeometry {
+  /** The column the marker takes — always the cluster's last. */
+  column: number;
+  columns: number;
+  /** The hidden events, in start order. */
+  events: T[];
+  /** Stable key for rendering: the cluster's first hidden event id. */
+  key: string;
+}
+
+export interface DayColumnLayout<T> {
+  blocks: LaidOutEvent<T>[];
+  overflow: OverflowMarker<T>[];
+}
+
+/** An end at or before the start (a class ending at midnight, PAD-553) ends at 24:00. */
+function endMinutes(event: GridEventLike & { startTime: string; endTime: string }): number {
+  const start = toMinutes(event.startTime);
+  const end = toMinutes(event.endTime);
+  return end <= start ? 24 * 60 : end;
+}
+
+/**
+ * B-543 (calendar.mobile-views rule 13, calendar.view rule 20): one day column. Events are
+ * sorted by start and packed into lanes — each takes the first lane free at its start, so a
+ * cluster of overlapping events gets as many columns as run AT ONCE (a chain of 22 classes an
+ * hour long, 40 minutes apart, needs two). With `maxColumns`, a cluster needing more lanes shows
+ * lanes `0 … maxColumns-2` and gives the last column to one "+N" marker holding the rest.
+ */
+export function layoutDayColumn<T extends GridEventLike>(
+  events: T[],
+  options: BlockGeometryOptions & { maxColumns?: number }
+): DayColumnLayout<T> {
+  const maxColumns = Math.max(1, options.maxColumns ?? Infinity);
+  type Timed = T & { startTime: string; endTime: string };
+  const timed = events.filter((e): e is Timed => hasTimes(e)).sort((a, b) => {
+    const d = toMinutes(a.startTime) - toMinutes(b.startTime);
+    return d !== 0 ? d : endMinutes(b) - endMinutes(a);
+  });
+
+  // Clusters: consecutive events while each starts before the cluster's latest end.
+  const clusters: (typeof timed)[] = [];
+  let clusterEnd = -Infinity;
+  for (const event of timed) {
+    if (toMinutes(event.startTime) >= clusterEnd) {
+      clusters.push([event]);
+      clusterEnd = endMinutes(event);
+    } else {
+      clusters[clusters.length - 1].push(event);
+      clusterEnd = Math.max(clusterEnd, endMinutes(event));
+    }
+  }
+
+  const blocks: LaidOutEvent<T>[] = [];
+  const overflow: OverflowMarker<T>[] = [];
+  for (const cluster of clusters) {
+    const laneEnds: number[] = [];
+    const lanes = cluster.map((event) => {
+      const start = toMinutes(event.startTime);
+      let lane = laneEnds.findIndex((end) => end <= start);
+      if (lane === -1) lane = laneEnds.length;
+      laneEnds[lane] = endMinutes(event);
+      return lane;
+    });
+    const needed = laneEnds.length;
+    const capped = needed > maxColumns;
+    const columns = capped ? maxColumns : needed;
+    const hidden: typeof cluster = [];
+    cluster.forEach((event, i) => {
+      const lane = lanes[i];
+      if (capped && lane >= maxColumns - 1) {
+        hidden.push(event);
+        return;
+      }
+      const geometry = eventBlockGeometry(event, options);
+      if (geometry) blocks.push({ event: event as T, column: lane, columns, ...geometry });
+    });
+    if (hidden.length) {
+      const first = Math.min(...hidden.map((e) => toMinutes(e.startTime)));
+      const last = Math.max(...hidden.map((e) => endMinutes(e)));
+      const span = eventBlockGeometry(
+        { id: "overflow", date: hidden[0].date, startTime: minutesToTime(first), endTime: minutesToTime(last) },
+        options
+      )!;
+      overflow.push({
+        column: columns - 1,
+        columns,
+        events: hidden as T[],
+        key: String(hidden[0].id),
+        ...span,
+      });
+    }
+  }
+  return { blocks, overflow };
+}
+
+function minutesToTime(m: number): string {
+  const clamped = Math.min(m, 24 * 60 - 1);
+  return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
+}
+
+/** One day column's blocks, uncapped: geometry plus packed side-by-side placement (B-543). */
 export function layoutDayEvents<T extends GridEventLike>(
   events: T[],
   options: BlockGeometryOptions
 ): LaidOutEvent<T>[] {
-  const sorted = [...events].sort((a, b) =>
-    (a.startTime ?? "").localeCompare(b.startTime ?? "")
-  );
-  const laid: LaidOutEvent<T>[] = [];
-  for (const group of groupOverlappingEvents(sorted)) {
-    group.forEach((event, column) => {
-      const geometry = eventBlockGeometry(event, options);
-      if (!geometry) return;
-      laid.push({ event, column, columns: group.length, ...geometry });
-    });
-  }
-  return laid;
+  return layoutDayColumn(events, options).blocks;
 }
 
 /** One hour row of the time grid, in px / pt, on both shells (rule 13). */

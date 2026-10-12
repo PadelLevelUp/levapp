@@ -1,4 +1,4 @@
-import { cardSurfaceNative, GRID_ROW_HEIGHT, layoutDayEvents, lightTheme, nativeCalendarSurfaces, resolveCardVariant, showsEnrolledMark, type HourRange } from "@levelup/config";
+import { cardSurfaceNative, GRID_ROW_HEIGHT, layoutDayColumn, lightTheme, nativeCalendarSurfaces, resolveCardVariant, showsEnrolledMark, type HourRange } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { format, isSameDay } from "date-fns";
 import * as React from "react";
@@ -11,6 +11,9 @@ import { GUTTER_PT } from "./WeekHeaderRow";
 import { useCalendarViewer } from "./viewer-context";
 
 /** Points per hour on the phone grid. */
+/** B-543 (calendar.mobile-views rule 13): a phone day column fits two classes side by side. */
+export const PHONE_MAX_COLUMNS = 2;
+
 export const ROW_HEIGHT = GRID_ROW_HEIGHT;
 
 const SURFACES = nativeCalendarSurfaces("light");
@@ -90,7 +93,12 @@ function TimeGridImpl({
           {weekDays.map((day) => {
             const key = format(day, "yyyy-MM-dd");
             const selected = isSameDay(day, selectedDay);
-            const laid = layoutDayEvents(eventsByDay[key] ?? [], { startHour, rowHeight });
+            // B-543 (rule 13): lanes packed; past two at once, one "+N" marker per cluster.
+            const { blocks: laid, overflow } = layoutDayColumn(eventsByDay[key] ?? [], {
+              startHour,
+              rowHeight,
+              maxColumns: PHONE_MAX_COLUMNS,
+            });
             return (
               <Pressable
                 key={key}
@@ -159,6 +167,33 @@ function TimeGridImpl({
                     </Pressable>
                   );
                 })}
+                {overflow.map((marker) => (
+                  <Pressable
+                    key={`overflow-${marker.key}`}
+                    testID="calendar-overflow"
+                    role="button"
+                    accessibilityLabel={t("calendar.overflow.aria", { count: marker.events.length })}
+                    onPress={() => onSelectDay(day)}
+                    style={{
+                      position: "absolute",
+                      top: marker.top,
+                      height: marker.height,
+                      left: `${(marker.column * 100) / marker.columns}%`,
+                      width: `${100 / marker.columns}%`,
+                      marginLeft: 1,
+                      marginRight: 1,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      borderColor: SURFACES.mutedForeground,
+                      backgroundColor: lightTheme.muted,
+                    }}
+                    className="items-center overflow-hidden rounded-md pt-0.5"
+                  >
+                    <Text className="text-[9px] font-sans-bold" style={{ color: SURFACES.foreground }}>
+                      {t("calendar.overflow.label", { count: marker.events.length })}
+                    </Text>
+                  </Pressable>
+                ))}
               </Pressable>
             );
           })}
