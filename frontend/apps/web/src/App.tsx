@@ -39,6 +39,7 @@ import {
   TrainingGroupsPage,
   TrainingPage,
   VerifyEmailPage,
+  LegalCatchUpPage,
   ViewAsPage,
 } from "@/routes/lazyPages";
 import { RouteFallback } from "@/routes/RouteFallback";
@@ -104,6 +105,15 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <VerifyEmailPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* PAD-637 (auth.legal-catch-up): the once-per-session Terms / birth-date screen. */}
+              <Route
+                path="/legal-catch-up"
+                element={
+                  <ProtectedRoute>
+                    <LegalCatchUpPage />
                   </ProtectedRoute>
                 }
               />

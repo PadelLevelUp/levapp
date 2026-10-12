@@ -71,3 +71,4 @@ export * from "./walk-in-options";
 export * from "./waiting-list-origin";
 export * from "./install-suggestion";
 export * from "./contact";
+export * from "./legal-catch-up";

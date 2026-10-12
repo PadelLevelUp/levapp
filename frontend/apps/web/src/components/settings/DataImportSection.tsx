@@ -748,6 +748,8 @@ export function DataImportSection() {
   );
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
+  // PAD-642 (import.confirm rule 5): "every imported student is 18 or older", ticked before importing players.
+  const [confirmsAdults, setConfirmsAdults] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<Record<
     string,
@@ -898,6 +900,7 @@ export function DataImportSection() {
 
   const handleReset = () => {
     setPhase("idle");
+    setConfirmsAdults(false);
     setFileName("");
     setPendingFile(null);
     setThinking([]);
@@ -1013,7 +1016,8 @@ export function DataImportSection() {
               setImportProgress(Math.round((event.done / event.total) * 100));
             }
           }
-        }
+        },
+        { confirmsAdults: importsPlayers && confirmsAdults }
       );
 
       setImportResults(results as Record<string, TableImportResult>);
@@ -1050,6 +1054,8 @@ export function DataImportSection() {
     0
   );
   const totalRows = tables.reduce((sum, t) => sum + t.rows.length, 0);
+  // PAD-642: the adults confirmation applies only when selected rows create players.
+  const importsPlayers = tables.some((t) => t.name === "Players" && t.rows.some((r) => r.selected));
   const isProcessing =
     phase === "uploading" ||
     phase === "processing" ||
@@ -1231,6 +1237,20 @@ export function DataImportSection() {
                 ))}
               </div>
 
+              {importsPlayers && (
+                <div className="flex items-start gap-2 pt-2">
+                  <Checkbox
+                    id="import-confirms-adults"
+                    data-testid="import-confirms-adults"
+                    checked={confirmsAdults}
+                    onCheckedChange={(next) => setConfirmsAdults(next === true)}
+                  />
+                  <label htmlFor="import-confirms-adults" className="text-sm leading-snug">
+                    {t("settings.import.confirmsAdults")}
+                  </label>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4" />
@@ -1248,7 +1268,7 @@ export function DataImportSection() {
                   </Button>
                   <Button
                     className="gap-2"
-                    disabled={totalSelected === 0 || importing}
+                    disabled={totalSelected === 0 || importing || (importsPlayers && !confirmsAdults)}
                     onClick={handleConfirmImport}
                   >
                     {importing ? (

@@ -53,6 +53,9 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
   return authApi.register(payload);
 }
 
+/** PAD-637 (auth.legal-catch-up rule 3). */
+export const acceptLegal = authApi.acceptLegal;
+
 export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
   return authApi.updateMe(payload);
 }

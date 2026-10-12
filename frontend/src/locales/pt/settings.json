@@ -241,7 +241,9 @@
       },
       "rowErrors": {
         "score_out_of_range": "A nota {{value}} em “{{category}}” está fora de 1–5. As notas são de 1 a 5 estrelas: converta a folha e importe-a novamente."
-      }
+      },
+      "confirmsAdults": "Confirmo que todos os alunos importados têm 18 anos ou mais.",
+      "confirmsAdultsRequired": "Confirma que todos os alunos têm 18 anos ou mais para importar."
     },
     "importHistory": {
       "loading": "A carregar o histórico de importações...",

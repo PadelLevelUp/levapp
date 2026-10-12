@@ -38,8 +38,9 @@ for what is missing, without being locked out.
    writes nothing. Success records the Terms with `record_terms_acceptance` and the date on
    `users.birth_date`, and answers the new `me` (with `legalPending` all false).
 4. **Skippable (owner).** "Agora não" / "Not now" leaves the screen without saving. The skip lasts the
-   session: the screen comes back at the next login while anything is still pending (web keeps the
-   skip in `sessionStorage`; iOS in memory until the app restarts or the user logs out).
+   session: the screen comes back at the next login while anything is still pending. The skip is held
+   in memory per user (`legalCatchUpSession` in `@levelup/config`, as the email prompt's dismissal,
+   `auth.email-verification` rule 14): a reload, a relaunch or a sign-out starts a new session.
 5. **Under 18.** An `UNDERAGE` refusal shows "Esta app só aceita maiores de 18 anos." under the field
    and saves nothing; skipping stays possible (owner: skippable; default sent 2026-10-12).
 6. **Not a gate.** No route refuses a user with `legalPending`; only the post-login routing opens the

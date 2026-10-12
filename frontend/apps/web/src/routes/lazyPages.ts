@@ -39,6 +39,7 @@ const loaders = {
   TrainingGroupsPage: () => import("@/pages/TrainingGroupsPage"),
   TrainingPage: () => import("@/pages/TrainingPage"),
   VerifyEmailPage: () => import("@/pages/VerifyEmailPage"),
+  LegalCatchUpPage: () => import("@/pages/LegalCatchUpPage"),
   ViewAsPage: () => import("@/pages/ViewAsPage"),
 } as const;
 
@@ -87,6 +88,7 @@ export const TrainingExercisesPage = lazyWithReload(loaders.TrainingExercisesPag
 export const TrainingGroupsPage = lazyWithReload(loaders.TrainingGroupsPage);
 export const TrainingPage = lazyWithReload(loaders.TrainingPage);
 export const VerifyEmailPage = lazyWithReload(loaders.VerifyEmailPage);
+export const LegalCatchUpPage = lazyWithReload(loaders.LegalCatchUpPage);
 export const ViewAsPage = lazyWithReload(loaders.ViewAsPage);
 
 const prefetched = new Set<PageName>();

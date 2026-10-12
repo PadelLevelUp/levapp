@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -332,35 +332,15 @@ const SignUpPage = () => {
             </div>
 
             {/* auth.register rule 19 (PAD-485): required, with both documents a click away. */}
-            <div className="space-y-1">
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="signup-terms"
-                  data-testid="signup-terms"
-                  checked={termsAccepted}
-                  aria-invalid={errors.terms ? true : undefined}
-                  onCheckedChange={(next) => {
-                    setTermsAccepted(next === true);
-                    setErrors((e) => ({ ...e, terms: undefined }));
-                  }}
-                />
-                <label htmlFor="signup-terms" className="text-sm leading-snug">
-                  {t("auth.signup.termsAcceptPrefix")}{" "}
-                  <Link to="/privacy" target="_blank" className="underline hover:text-foreground">
-                    {t("auth.legal.privacyPolicy")}
-                  </Link>{" "}
-                  {t("auth.signup.termsAcceptJoin")}{" "}
-                  <Link to="/terms" target="_blank" className="underline hover:text-foreground">
-                    {t("auth.legal.terms")}
-                  </Link>
-                </label>
-              </div>
-              {errors.terms && (
-                <p className="text-sm text-destructive" data-testid="signup-terms-error">
-                  {errors.terms}
-                </p>
-              )}
-            </div>
+            <TermsAcceptField
+              id="signup-terms"
+              checked={termsAccepted}
+              onCheckedChange={(next) => {
+                setTermsAccepted(next);
+                setErrors((e) => ({ ...e, terms: undefined }));
+              }}
+              error={errors.terms}
+            />
 
             <Button type="submit" className="w-full" disabled={submitting} data-testid="signup-submit">
               {submitting ? t("auth.signup.creating") : t("auth.signup.create")}

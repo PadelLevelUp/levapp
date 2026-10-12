@@ -34,6 +34,19 @@ function redirectToAuth() {
   }
 }
 
+/** The capabilities this shell declares (PAD-352). Exported for the one request that bypasses the
+ * axios client: the streamed import (PAD-642, import.confirm rule 5). */
+export const WEB_CAPABILITIES = [
+  "open-spots",
+  "evaluations",
+  "class-type-defaults",
+  "coach-invite-email",
+  "terms-acceptance",
+  "country-on-completion",
+  "terms-on-completion",
+  "adult-roster-confirmation",
+] as const;
+
 initApi({
   baseURL: API_BASE_URL,
   storage: webTokenStorage,
@@ -45,7 +58,7 @@ initApi({
   // removes the feature, nothing crashes.
   // PAD-429 (eligibility.open-spot-visibility rule 12): `class-type-defaults` lets the server
   // send the `type` open-spots source label instead of falling it back to `coach`.
-  capabilities: ["open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance", "country-on-completion"],
+  capabilities: WEB_CAPABILITIES,
 });
 
 export const api = getApi();

@@ -188,3 +188,16 @@ def test_under_18_is_refused_and_nothing_is_written(client, app):
 
 def test_the_catch_up_needs_a_session(client):
     assert client.post("/api/auth/me/legal", json={"termsAccepted": True}).status_code == 401
+
+
+def test_both_shells_declare_the_new_capabilities_as_the_server_spells_them():
+    """A typo in a shell would put a capable build on the legacy path (no Terms, no 18+ box)."""
+    from pathlib import Path
+
+    from padel_app.utils.client_capabilities import ADULT_ROSTER_CONFIRMATION, TERMS_ON_COMPLETION
+
+    frontend = Path(__file__).resolve().parents[3] / "frontend"
+    for shell in ("apps/web/src/api/client.ts", "apps/mobile/src/lib/api.ts"):
+        source = (frontend / shell).read_text()
+        for token in (TERMS_ON_COMPLETION, ADULT_ROSTER_CONFIRMATION):
+            assert f'"{token}"' in source, f"{shell} does not declare {token}"

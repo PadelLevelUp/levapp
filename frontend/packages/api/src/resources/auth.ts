@@ -10,6 +10,9 @@ export type MeResponse = {
   guardianConsent?: "granted" | null;
   birthDate?: string | null;
   country?: string | null;
+  /** PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for. Absent from a server
+   * that predates it, which a client treats as nothing pending. */
+  legalPending?: { terms: boolean; birthDate: boolean };
   id: number;
   username: string;
   name: string;
@@ -130,6 +133,13 @@ export type UpdateMePayload = {
 
 export async function getMe(): Promise<MeResponse> {
   const res = await getApi().get("/auth/me");
+  return res.data;
+}
+
+/** PAD-637 (auth.legal-catch-up rule 3): accept the Terms and/or give the birth date that is pending.
+ * Each pending part is required; answers the new `me`. */
+export async function acceptLegal(payload: { termsAccepted?: boolean; birthDate?: string }): Promise<MeResponse> {
+  const res = await getApi().post("/auth/me/legal", payload);
   return res.data;
 }
 

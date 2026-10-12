@@ -1,4 +1,5 @@
-import { api } from "@/api/client";
+import { api, WEB_CAPABILITIES } from "@/api/client";
+import { CAPABILITIES_HEADER } from "@levelup/api/src/client";
 
 /* ---------- types ---------- */
 
@@ -150,10 +151,16 @@ export interface ConfirmPayload {
 
 export type ConfirmResult = Record<string, ImportResult>;
 
+/** PAD-642 (import.confirm rule 5): the coach's "every imported student is 18 or older". */
+export interface ConfirmOptions {
+  confirmsAdults?: boolean;
+}
+
 export async function confirmImport(
-  tables: ImportTable[]
+  tables: ImportTable[],
+  options: ConfirmOptions = {}
 ): Promise<ConfirmResult> {
-  const payload: ConfirmPayload = {};
+  const payload: Record<string, unknown> = options.confirmsAdults ? { confirmsAdults: true } : {};
   for (const table of tables) {
     const selected = table.rows.filter((r) => r.selected);
     if (selected.length === 0) continue;
@@ -184,9 +191,10 @@ export type ConfirmSSEEvent =
  */
 export async function confirmImportStream(
   tables: ImportTable[],
-  onEvent?: (event: ConfirmSSEEvent) => void
+  onEvent?: (event: ConfirmSSEEvent) => void,
+  options: ConfirmOptions = {}
 ): Promise<ConfirmResult> {
-  const payload: ConfirmPayload = {};
+  const payload: Record<string, unknown> = options.confirmsAdults ? { confirmsAdults: true } : {};
   for (const table of tables) {
     const selected = table.rows.filter((r) => r.selected);
     if (selected.length === 0) continue;
@@ -200,6 +208,8 @@ export async function confirmImportStream(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      // PAD-642: this fetch bypasses the axios client, so it declares the shell's capabilities itself.
+      [CAPABILITIES_HEADER]: WEB_CAPABILITIES.join(", "),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(payload),
