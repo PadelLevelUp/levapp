@@ -12,6 +12,7 @@ on the change that broke it, so releases are on time.
 - A release never drops a request.
 - The API has its own address.
 - Production starts clean for real use.
+- Diagnostics keep personal data off GitHub.
 
 ## Why it's grouped this way
 

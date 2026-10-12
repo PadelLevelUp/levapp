@@ -41,6 +41,11 @@ COACH_INVITE_EMAIL = "coach-invite-email"
 # TERMS_REQUIRED); one that does not (iOS 1.2.0 (27) and 1.2.1 (28)) registers as before, with no
 # acceptance recorded. Retire once no App Store build older than the first declaring one is in use.
 TERMS_ACCEPTANCE = "terms-acceptance"
+# PAD-611 (calendar.view rule 22): a student's calendar also carries the classes they are invited
+# to and the ones they wait for, each flagged by `studentRelation`. App Store 1.3.0 and older would
+# draw them as the student's own bookings, so they reach only a client that declares this.
+# Retire once no App Store build older than the first declaring one is in use.
+STUDENT_RELATIONS = "student-relations"
 
 # PAD-604 (auth.activate 13a, players.invite-completion 10a, clubs.coach-invitation 8a): the three
 # account-completion forms send a `country`. A client that declares this and sends none is refused
@@ -56,6 +61,7 @@ COUNTRY_ON_COMPLETION = "country-on-completion"
 # A capability constant above that is missing here fails test_every_capability_is_registered.
 CAPABILITIES = {
     OPEN_SPOTS: "feature",
+    STUDENT_RELATIONS: "feature",
     EVALUATIONS: "feature",
     CLASS_TYPE_DEFAULTS: "compat",
     COACH_INVITE_EMAIL: "compat",

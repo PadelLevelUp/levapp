@@ -149,6 +149,8 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p
+                      data-testid="conversation-last-message"
+                      data-deleted={conversation.lastMessageDeleted ? "true" : "false"}
                       className={cn(
                         "text-sm leading-snug overflow-hidden break-words [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
                         conversation.unreadCount > 0
@@ -156,7 +158,10 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                           : "text-muted-foreground"
                       )}
                     >
-                      {conversation.lastMessage}
+                      {/* messaging.conversations rule 12a (PAD-639): a deleted last message. */}
+                      {conversation.lastMessageDeleted
+                        ? t("messages.messageDeleted")
+                        : conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (
                       <span

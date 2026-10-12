@@ -38,6 +38,29 @@ export function CalendarLegend({ className }: { className?: string } = {}) {
               <span className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-muted-foreground/70 bg-card" />
             ),
           },
+          // PAD-611 (calendar.view rule 22): the student's other relations.
+          {
+            key: "invited",
+            testId: "calendar-legend-invited",
+            label: t("calendar.legend.invited", { defaultValue: "Invited" }),
+            swatch: (
+              <span className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-primary bg-card" />
+            ),
+          },
+          {
+            key: "waiting",
+            testId: "calendar-legend-waiting",
+            label: t("calendar.legend.waiting", { defaultValue: "Waiting list" }),
+            swatch: (
+              <span className="h-3 w-5 rounded-sm border-[1.5px] border-dotted border-muted-foreground bg-card" />
+            ),
+          },
+          {
+            key: "notComing",
+            testId: "calendar-legend-not-coming",
+            label: t("calendar.legend.notComing", { defaultValue: "Not going" }),
+            swatch: <span className="h-3 w-5 rounded-sm bg-muted-foreground/20" />,
+          },
         ]
       : [];
   const items: { key: string; testId?: string; label: string; swatch: React.ReactNode }[] = [

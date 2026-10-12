@@ -13,9 +13,9 @@ from datetime import datetime, date
 
 from padel_app.services.level_service import set_roster_level
 from padel_app.utils.dates import utcnow_naive
-import re
 
 from psycopg2.errors import UniqueViolation
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from padel_app.services.level_ladder import (
@@ -38,6 +38,7 @@ from padel_app.models import (
     PlayerLevelHistory,
 )
 from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.tools.username_tools import unique_placeholder_username
 from padel_app.tools.calendar_tools import build_datetime, build_end_datetime
 from padel_app.services.player_service import create_player_helper
 from padel_app.services.lesson_service import (
@@ -64,35 +65,13 @@ def _ok(imported, errors, created_ids=None):
     return result
 
 
-def _sanitize_email_part(value):
-    text = str(value or "").strip().lower()
-    cleaned = re.sub(r"[^a-z0-9]+", "", text)
-    return cleaned or "player"
+def _row_email(row):
+    """The row's email, trimmed and lower-cased, or None (import.confirm rule 5, PAD-633).
 
-
-def _build_fake_email(name, row_idx):
-    tokens = [t for t in re.split(r"\s+", str(name or "").strip()) if t]
-    first = _sanitize_email_part(tokens[0]) if tokens else "player"
-    second = _sanitize_email_part(tokens[1]) if len(tokens) > 1 else f"player{row_idx + 1}"
-    return f"{first}_{second}@email.com"
-
-
-def _resolve_player_email(row, row_idx):
+    A row without an email is a player without an email: the import never invents an
+    address (it used to write ``first_second@email.com``, a real public mail domain)."""
     email = str(row.get("email") or "").strip().lower()
-    if email:
-        return email
-
-    base_email = _build_fake_email(row.get("name"), row_idx)
-    if not User.query.filter_by(email=base_email).first():
-        return base_email
-
-    local, domain = base_email.split("@", 1)
-    suffix = 2
-    while True:
-        candidate = f"{local}_{suffix}@{domain}"
-        if not User.query.filter_by(email=candidate).first():
-            return candidate
-        suffix += 1
+    return email or None
 
 
 def _coerce_import_datetime(value):
@@ -232,12 +211,12 @@ def bulk_create_players(rows, coach, club, stream=False):
     """
     Find-or-create players.
 
-    Uniqueness key: user email.
+    Identity (import.confirm rule 7, PAD-633): a row WITH an email is matched on it,
+    case-insensitively; a row WITHOUT one always creates a new player whose email is
+    NULL, as the add-player form does. A new User always gets a ``pending-…``
+    placeholder username (rule 6, PAD-105): the student chooses one at activation.
 
-    Missing emails are auto-generated as:
-        firstname_secondname@email.com
-
-    - If no user with that email exists → create User + Player +
+    - If no user with that email exists (or the row has none) → create User + Player +
       Association_CoachPlayer via create_player_helper.
     - If a user with that email exists but has no Player record → create
       Player + Association_CoachPlayer.
@@ -283,12 +262,14 @@ def _bulk_create_players_stream(rows, coach, club):
         if i % _PROGRESS_EVERY == 0:
             yield {"_progress": True, "done": i, "total": total}
         try:
-            email = _resolve_player_email(row, i)
+            email = _row_email(row)
 
             level_code = row.get("level_code")
             level = levels_by_code.get(level_code) if level_code else None
 
-            existing_user = User.query.filter_by(email=email).first()
+            existing_user = (
+                User.query.filter(func.lower(User.email) == email).first() if email else None
+            )
 
             if existing_user:
                 # Resolve or create the Player record for this user.
@@ -325,9 +306,8 @@ def _bulk_create_players_stream(rows, coach, club):
                     created_ids["player_level_history"].append(plh.id)
 
             else:
-                # Full creation: User + Player + Association_CoachPlayer.
-                # Derive a username from the email prefix when not supplied.
-                username = email.split("@")[0]
+                # Full creation: User + Player + Association_CoachPlayer, as the
+                # add-player form creates them (PAD-105: placeholder username).
                 payload = {
                     "coach": coach.id,
                     "level": level.id if level else None,
@@ -337,12 +317,11 @@ def _bulk_create_players_stream(rows, coach, club):
                         "name": row.get("name"),
                         "email": email,
                         "phone": row.get("phone"),
-                        "username": username,
+                        "username": unique_placeholder_username(),
                     },
                 }
-                create_player_helper(payload)
-                # Look up the newly created records
-                new_user = User.query.filter_by(email=email).first()
+                info = create_player_helper(payload)
+                new_user = db.session.get(User, info["userId"])
                 if new_user:
                     created_ids["users"].append(new_user.id)
                     if new_user.player:

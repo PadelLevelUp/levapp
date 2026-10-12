@@ -448,7 +448,10 @@
       "full": "Cheia / a decorrer",
       "done": "Concluída",
       "event": "Evento / não é aula",
-      "fill": "Confirmados / à espera / livres"
+      "fill": "Confirmados / à espera / livres",
+      "invited": "Convite",
+      "waiting": "Lista de espera",
+      "notComing": "Não vou"
     },
     "eligibilityConfirm": {
       "title": "Adicionar alunos que não cumprem a fasquia?",
@@ -567,6 +570,11 @@
       "label": "+{{count}}",
       "aria": "Mais {{count}} aulas",
       "title": "Mais aulas a esta hora"
+    },
+    "relation": {
+      "invited": "Convite",
+      "waiting": "Lista de espera",
+      "notComing": "Não vou"
     }
   }
 }

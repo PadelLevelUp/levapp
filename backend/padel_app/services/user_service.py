@@ -187,6 +187,8 @@ OWN_PROFILE_FIELDS = (
     "notificationBlockReason",
     # PAD-232: opt-out for request alerts (notifications.request-alerts rule 6).
     "requestAlerts",
+    # PAD-630 (auth.login rule 13): the country, asked once of accounts that have none.
+    "country",
 )
 
 #: PAD-112: payload key → `users` column, for the three block toggles.
@@ -281,6 +283,16 @@ def update_own_profile_service(user_id, data):
     for key, column in NOTIFICATION_BLOCK_FIELDS.items():
         if key in data:
             setattr(user, column, _coerce_bool(data.get(key), key))
+
+    if "country" in data:
+        # PAD-630 (auth.login rule 13): sign-up's own check (two letters, upper-cased); a missing or
+        # empty value is refused like any other, so a stored country can never be cleared here.
+        from padel_app.services.registration_service import RegistrationError, _two_letter_country
+
+        try:
+            user.country = _two_letter_country(data.get("country"))
+        except RegistrationError:
+            raise ProfileValidationError("INVALID_COUNTRY: country must be a two-letter code") from None
 
     # PAD-232: same membership-checked boolean handling as the block toggles.
     if "requestAlerts" in data:
