@@ -57,12 +57,17 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     Any other user with `status = disabled`, of either role, gets 401
     `{"error": "ACCOUNT_DISABLED"}` and no token. That covers a deleted account (App Store
     5.1.1(v)) and a minor whose guardian withdrew consent. Wrong credentials stay the ordinary 401
-    `Invalid credentials` and are checked first, so the status never leaks to a guesser. The legacy
-    server-rendered `/auth/login` refuses every disabled account with HTTP 401 and never opens a
-    Flask-Login session; rejected coaches are included, since it has no re-application flow. Before
+    `Invalid credentials` and are checked first, so the status never leaks to a guesser. Before
     this, the JSON route issued a token to a disabled account (the blocklist loader refused it on
     the next request) and the legacy route opened a session. Numbered 12 to stay clear of rules 10
     and 11 in open PRs.
+13. **No route accepts an empty password (PAD-645).** `POST /api/auth/login` is the only password
+    sign-in, and it answers 400 `Email and password required` to an empty password before any
+    account is looked up, whatever hash the account stores. The server-rendered `/auth/` blueprint
+    (index, register, login, logout) is deleted: its login checked `check_password_hash` with no
+    empty-password guard and no rate limit, so an account whose stored hash was hash("") opened a
+    Flask-Login session with "". Flask-Login is removed with it (nothing else read its session),
+    and no blueprint registers under `/auth/`.
 
 ### Acceptance Criteria
 
@@ -107,10 +112,12 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **When** she POSTs `/api/auth/login` with the right password
 - **Then** the response is still 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
 
-#### The legacy login refuses a disabled account (B-053)
-- **Given** the deleted student `ana`
-- **When** the legacy form POSTs `/auth/login` with her right password
-- **Then** the response is 401 and no Flask-Login session is opened
+#### No route accepts an empty password (PAD-645)
+- **Given** an active student `ana645` whose stored password hash is hash("")
+- **When** anyone POSTs `/api/auth/login` with `{"username": "ana645", "password": ""}`
+- **Then** the response is 400 and carries no token
+- **And** POST `/auth/`, `/auth/login`, `/auth/register` and `/auth/logout` all answer 404, and no
+  URL rule starts with `/auth/`
 
 #### A token in the query string is refused outside the SSE endpoint (PAD-269)
 - **Given** a valid access token for `coach1`

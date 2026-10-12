@@ -119,10 +119,9 @@ def _delete_stored_object(object_key):
 
 
 def _photo_to_delete(user):
-    """Rule 2a: the user's photo, unless another user, a club logo, a message
-    attachment or a back-office app still points at the same image."""
+    """Rule 2a: the user's photo, unless another user, a club logo or a message
+    attachment still points at the same image."""
     from padel_app.models import Club
-    from padel_app.models.backend_apps import Backend_App
     from padel_app.models.messages import Message
 
     photo = user.user_image
@@ -132,7 +131,6 @@ def _photo_to_delete(user):
         User.query.filter(User.user_image_id == photo.id, User.id != user.id).first()
         or Club.query.filter_by(logo_id=photo.id).first()
         or Message.query.filter_by(attachment_id=photo.id).first()
-        or Backend_App.query.filter_by(image_id=photo.id).first()
     )
     return None if in_use else photo
 
