@@ -1,5 +1,4 @@
 from . import (
-    auth,
     main,
     frontend_api,
     api_auth,
@@ -15,7 +14,8 @@ from . import (
 # Register Blueprints
 def register_blueprints(app):
     app.register_blueprint(main.bp)
-    app.register_blueprint(auth.bp)
+    # auth.login rule 13 (PAD-645): the server-rendered /auth/ blueprint is deleted; sign-in is
+    # /api/auth only.
     # settings.admin-editor was deleted by PAD-550: no /editor, /api/editor or
     # legacy /api/<crud> blueprint exists, and there is no switch to turn one on.
     app.register_blueprint(frontend_api.bp)
@@ -32,7 +32,6 @@ def register_blueprints(app):
 
 
 __all__ = [
-    "auth",
     "main",
     "frontend_api",
     "api_auth",
