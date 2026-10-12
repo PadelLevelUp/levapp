@@ -35,5 +35,6 @@ describe("ConversationList — a deleted last message (PAD-639)", () => {
   it("shows 'Message deleted' when the last message was deleted", () => {
     renderList(conversation({ lastMessage: "", lastMessageDeleted: true }));
     expect(screen.getByText("messages.messageDeleted")).toBeInTheDocument();
+    expect(screen.getByTestId("conversation-last-message").getAttribute("data-deleted")).toBe("true");
   });
 });
