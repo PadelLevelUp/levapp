@@ -18,6 +18,7 @@ import {
   coachInviteSchema,
   submitOutcomeForError,
   ACTIVATION_BIRTH_CODES,
+  ACTIVATION_COUNTRY_CODES,
   validateAccountForm,
 } from "@/features/auth/account-setup";
 
@@ -49,6 +50,7 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
     repeatPassword: "",
     // PAD-457: DD/MM/AAAA, typed with the number pad as on sign-up.
     birthDate: "",
+    country: "PT",
   });
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>(
     {}
@@ -124,6 +126,11 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
         setErrors({ birthDate: t(`auth.coachInvite.${birthKey}`) });
         return;
       }
+      // PAD-604: a country refusal belongs on the field, in the form's words.
+      if (res?.status === 400 && res?.data?.field === "country" && ACTIVATION_COUNTRY_CODES[res?.data?.code ?? ""]) {
+        setErrors({ country: t("auth.coachInvite.countryRequired") });
+        return;
+      }
       const emailKey = coachInviteEmailError(error);
       if (emailKey) {
         setErrors({ email: t(`auth.coachInvite.${emailKey}`) });
@@ -190,6 +197,8 @@ export function CoachInviteScreen({ token }: { token: string | null }) {
       keyboardType: "number-pad",
       placeholder: "DD/MM/AAAA",
     },
+    // PAD-604: right after the birth date; required, default PT.
+    { id: "country", label: t("auth.coachInvite.country"), kind: "country" },
   ];
 
   return (
