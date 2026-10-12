@@ -156,7 +156,10 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                           : "text-muted-foreground"
                       )}
                     >
-                      {conversation.lastMessage}
+                      {/* messaging.conversations rule 12a (PAD-639): a deleted last message. */}
+                      {conversation.lastMessageDeleted
+                        ? t("messages.messageDeleted")
+                        : conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (
                       <span

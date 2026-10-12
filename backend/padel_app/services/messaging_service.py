@@ -266,7 +266,11 @@ def report_message_service(reporter_id, message_id, reason=None):
     # remembered to make it.
     require_participant(message.conversation_id, reporter_id)
 
-    report = MessageReport(reporter_id=reporter_id, message_id=message_id, reason=reason)
+    # block-and-report rule 4a (PAD-639): the report keeps what was reported — a later edit or
+    # deletion erases the message, never this copy.
+    report = MessageReport(
+        reporter_id=reporter_id, message_id=message_id, reason=reason, message_text=message.text,
+    )
     report.create()
     return report
 
@@ -512,14 +516,49 @@ def edit_message_service(message_id, new_text, user_id):
     return message
 
 
+def erase_message(message):
+    """messaging.messages rule 3 (PAD-639): delete a message by erasing what it said.
+
+    The row stays (R-016) — sender, conversation, sent_at, message_type and reply_to_id keep
+    the placeholder, the thread order and the reply chain — but its text, metadata, attachment
+    and reactions go. The attachment's image row goes too unless something else still points at
+    it, and its bucket object once the caller commits. A report keeps its own copy of the text
+    (block-and-report rule 4a). Every delete path calls this — the sender's, and the staff
+    console's moderation delete (PAD-631). Does not commit; returns the object key the caller
+    deletes from the bucket after its commit, or None.
+    """
+    from padel_app.model import Image
+    from padel_app.services.image_cleanup import image_in_use
+
+    object_key = None
+    image_id = message.attachment_id
+    message.is_deleted = True
+    message.text = ""
+    message.msg_metadata = None
+    message.attachment_id = None
+    message.edited = False
+    MessageReaction.query.filter_by(message_id=message.id).delete(synchronize_session=False)
+    db.session.flush()
+    if image_id is not None and not image_in_use(image_id, except_message_id=message.id):
+        image = db.session.get(Image, image_id)
+        if image is not None:
+            object_key = image.object_key
+            db.session.delete(image)
+    return object_key
+
+
 def delete_message_service(message_id, user_id):
-    """Soft-delete a message. Only the sender may delete."""
+    """Delete a message (rule 3: erased, the row kept). Only the sender may delete."""
+    from padel_app.services.image_cleanup import delete_stored_object
+
     message = Message.query.get_or_404(message_id)
     require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
-    message.is_deleted = True
-    message.save()
+    object_key = erase_message(message)
+    db.session.commit()
+    if object_key:
+        delete_stored_object(object_key, what="message deletion: attachment")
     publish(
         {
             "type": "message_deleted",
