@@ -25,7 +25,7 @@ const WORK: WorkAnswer = {
     open: [{ number: 30, title: "feat(PAD-30): c", url: "https://gh/30", base: "staging", draft: true, checks: "failure", tickets: ["PAD-30"] }],
     deploys: {
       staging: [{ status: "completed", conclusion: "success", sha: "abcdef1", createdAt: "2026-10-11T00:00:00Z", url: "https://gh/run" }],
-      production: [],
+      production: [{ status: "completed", conclusion: "cancelled", sha: "c4nc3l1", createdAt: null, url: null }],
     },
   },
 };
@@ -69,7 +69,9 @@ describe("Work page (PAD-555)", () => {
     expect(screen.getByTestId("admin-work-open-30")).toHaveTextContent(/Checks failed|Verificações falharam/);
     expect(screen.getByTestId("admin-work-open-30")).toHaveTextContent(/Draft|Rascunho/);
     expect(screen.getByTestId("admin-work-deploys-staging")).toHaveTextContent("abcdef1");
-    expect(screen.getByTestId("admin-work-deploys-production")).toHaveTextContent(/No recent deploys|Sem deploys recentes/);
+    // A run cancelled by a later push is not a failure.
+    expect(screen.getByTestId("admin-work-deploys-production")).toHaveTextContent(/Cancelled|Cancelado/);
+    expect(screen.getByTestId("admin-work-deploys-production")).not.toHaveTextContent(/Failed|Falhou/);
   });
 
   it("a source not configured or unavailable says so, and the other still shows", async () => {
@@ -92,6 +94,18 @@ describe("Work page (PAD-555)", () => {
     expect(refreshes()).toBe(0);
     fireEvent.click(screen.getByTestId("admin-work-refresh"));
     await waitFor(() => expect(refreshes()).toBe(1));
+  });
+
+  it("a failed refresh says so", async () => {
+    signIn("operator");
+    window.history.pushState({}, "", "/work");
+    const spy = mockFetch();
+    render(<App />);
+    await screen.findByTestId("admin-work-deploys-staging");
+    await waitFor(() => expect(screen.getByTestId("admin-work-refresh")).toBeEnabled());
+    spy.mockImplementation(async () => new Response("{}", { status: 500 }));
+    fireEvent.click(screen.getByTestId("admin-work-refresh"));
+    expect(await screen.findByTestId("admin-work-refresh-error")).toBeInTheDocument();
   });
 
   it("support has no Trabalho entry; an operator does", async () => {

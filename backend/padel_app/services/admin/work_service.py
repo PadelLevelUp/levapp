@@ -19,7 +19,12 @@ GITHUB_API = "https://api.github.com"
 TEAM_KEY = "PAD"
 WINDOW_DAYS = 30
 CACHE_SECONDS = 300
+#: An answer with a source down is kept only briefly, so a passing timeout is not shown for 5 minutes.
+DEGRADED_CACHE_SECONDS = 30
 REFRESH_EVERY_SECONDS = 60
+#: Page caps; reaching one marks the section `truncated` instead of dropping rows silently.
+LINEAR_PAGES = 3
+GITHUB_PAGES = 5
 TIMEOUT_SECONDS = 10
 SUMMARY_MAX = 200
 
@@ -68,18 +73,42 @@ def summary(description):
 
 # ── Linear ──────────────────────────────────────────────────────────────────────────────────
 
-_LINEAR_QUERY = """
-query Work($since: DateTimeOrDuration!) {
-  open: issues(first: 150, filter: {team: {key: {eq: "%(team)s"}},
+_LINEAR_OPEN = """
+query Open($after: String) {
+  open: issues(first: 100, after: $after, filter: {team: {key: {eq: "%(team)s"}},
                state: {type: {in: ["backlog", "unstarted", "started"]}}}) {
     nodes { identifier title description priority url createdAt
             state { name type } assignee { name } }
-  }
-  done: issues(first: 150, filter: {team: {key: {eq: "%(team)s"}}, completedAt: {gte: $since}}) {
-    nodes { identifier title url completedAt state { name } }
+    pageInfo { hasNextPage endCursor }
   }
 }
 """ % {"team": TEAM_KEY}
+
+_LINEAR_DONE = """
+query Done($since: DateTimeOrDuration!, $after: String) {
+  done: issues(first: 100, after: $after, filter: {team: {key: {eq: "%(team)s"}}, completedAt: {gte: $since}}) {
+    nodes { identifier title url completedAt state { name } }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+""" % {"team": TEAM_KEY}
+
+
+def _linear_nodes(key, query, field, variables):
+    """Every node of one Linear connection, up to LINEAR_PAGES pages; (nodes, truncated)."""
+    nodes, after = [], None
+    for _ in range(LINEAR_PAGES):
+        answer = _request("POST", LINEAR_URL, headers={"Authorization": key, "Content-Type": "application/json"},
+                          json={"query": query, "variables": {**variables, "after": after}})
+        if answer.get("errors") or not answer.get("data"):
+            raise RuntimeError("linear answered errors")
+        page = answer["data"][field]
+        nodes.extend(page["nodes"])
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            return nodes, False
+        after = info.get("endCursor")
+    return nodes, True
 
 #: In progress first, then to do, then backlog; within each, Linear's priority 1 (urgent) … 4 (low),
 #: and 0 (no priority) last.
@@ -91,8 +120,8 @@ def _linear(config, now):
     if not key:
         return {"status": "not_configured", "missing": "LINEAR_API_KEY"}
     since = (now - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    data = _request("POST", LINEAR_URL, headers={"Authorization": key, "Content-Type": "application/json"},
-                    json={"query": _LINEAR_QUERY, "variables": {"since": since}})["data"]
+    open_nodes, open_truncated = _linear_nodes(key, _LINEAR_OPEN, "open", {})
+    done_nodes, done_truncated = _linear_nodes(key, _LINEAR_DONE, "done", {"since": since})
     open_ = [
         {
             "id": n["identifier"],
@@ -105,16 +134,17 @@ def _linear(config, now):
             "createdAt": n.get("createdAt"),
             "url": n.get("url"),
         }
-        for n in data["open"]["nodes"]
+        for n in open_nodes
     ]
     open_.sort(key=lambda t: (_STATE_ORDER.get(t["stateType"], 3), t["priority"] or 5, t["createdAt"] or ""))
     done = [
         {"id": n["identifier"], "title": n["title"], "completedAt": n.get("completedAt"), "url": n.get("url")}
-        for n in data["done"]["nodes"]
+        for n in done_nodes
         if (n.get("completedAt") or "") >= since
     ]
     done.sort(key=lambda t: t["completedAt"] or "", reverse=True)
-    return {"status": "ok", "open": open_, "done": done}
+    return {"status": "ok", "open": open_, "done": done,
+            "truncated": {"open": open_truncated, "done": done_truncated}}
 
 
 # ── GitHub ──────────────────────────────────────────────────────────────────────────────────
@@ -137,7 +167,7 @@ _CHECKS = {"SUCCESS": "success", "FAILURE": "failure", "ERROR": "failure", "PEND
 _CHECKS_QUERY = """
 query Checks($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
-    pullRequests(states: OPEN, first: 50) {
+    pullRequests(states: OPEN, first: 100) {
       nodes { number commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }
     }
   }
@@ -159,31 +189,49 @@ def _github(config, now):
     def get(path):
         return _request("GET", f"{base}{path}", headers=headers)
 
-    # Rule 3: a PR into staging is live once its merge commit is among main's commits.
-    in_main = {c["sha"] for c in get(f"/commits?sha=main&since={since_iso}&per_page=100")}
-    merged = []
+    # Rule 3: a PR into staging is live unless its merge commit is still among the commits staging has
+    # and main does not (promotions are merge commits, so the SHAs survive the staging → main merge).
+    ahead = get("/compare/main...staging?per_page=250")
+    only_on_staging = {c["sha"] for c in ahead.get("commits", [])}
+    merged, merged_truncated = [], False
     for target in ("staging", "main"):
-        for pr in get(f"/pulls?state=closed&base={target}&sort=updated&direction=desc&per_page=100"):
-            if not pr.get("merged_at") or pr["merged_at"] < since_iso:
-                continue
-            where = "production" if target == "main" or pr.get("merge_commit_sha") in in_main else "staging"
-            merged.append({
-                "number": pr["number"], "title": pr["title"], "url": pr["html_url"], "base": target,
-                "mergedAt": pr["merged_at"], "where": where,
-                "tickets": _tickets(pr["head"]["ref"], pr["title"]),
-            })
+        for page in range(1, GITHUB_PAGES + 1):
+            rows = get(f"/pulls?state=closed&base={target}&sort=updated&direction=desc&per_page=100&page={page}")
+            for pr in rows:
+                if not pr.get("merged_at") or pr["merged_at"] < since_iso:
+                    continue
+                if target == "main" and pr["head"]["ref"] == "staging":
+                    continue  # the promotion is the release of the PRs it carries, not a change of its own
+                staging_only = target == "staging" and pr.get("merge_commit_sha") in only_on_staging
+                merged.append({
+                    "number": pr["number"], "title": pr["title"], "url": pr["html_url"], "base": target,
+                    "mergedAt": pr["merged_at"], "where": "staging" if staging_only else "production",
+                    "tickets": _tickets(pr["head"]["ref"], pr["title"]),
+                })
+            # Sorted by last update: a page that ends before the window is the last one needed.
+            last = rows[-1].get("updated_at") if rows else None
+            if len(rows) < 100 or (last and last < since_iso):
+                break
+        else:
+            merged_truncated = True
     merged.sort(key=lambda p: p["mergedAt"], reverse=True)
 
     # Rule 5: check states need the token (GitHub's GraphQL API refuses anonymous calls).
     checks = {}
     if token:
-        owner, name = repo.split("/", 1)
-        answer = _request("POST", f"{GITHUB_API}/graphql", headers=headers,
-                          json={"query": _CHECKS_QUERY, "variables": {"owner": owner, "name": name}})
-        for node in answer["data"]["repository"]["pullRequests"]["nodes"]:
-            commits = node["commits"]["nodes"]
-            rollup = (commits[0]["commit"].get("statusCheckRollup") or {}) if commits else {}
-            checks[node["number"]] = _CHECKS.get(rollup.get("state"))
+        # The check states are extra: a GraphQL error (HTTP 200 with `errors`) or a revoked token
+        # leaves them unknown, never the rest of GitHub.
+        try:
+            owner, name = repo.split("/", 1)
+            answer = _request("POST", f"{GITHUB_API}/graphql", headers=headers,
+                              json={"query": _CHECKS_QUERY, "variables": {"owner": owner, "name": name}})
+            for node in answer["data"]["repository"]["pullRequests"]["nodes"]:
+                commits = node["commits"]["nodes"]
+                rollup = (commits[0]["commit"].get("statusCheckRollup") or {}) if commits else {}
+                checks[node["number"]] = _CHECKS.get(rollup.get("state"))
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning("work dashboard: check states unavailable: %s", type(exc).__name__)
+            checks = {}
     open_ = [
         {
             "number": pr["number"], "title": pr["title"], "url": pr["html_url"], "base": pr["base"]["ref"],
@@ -192,6 +240,7 @@ def _github(config, now):
         }
         for pr in get("/pulls?state=open&per_page=100")
     ]
+    open_truncated = len(open_) >= 100
 
     deploys = {}
     for label, workflow in (("staging", "deploy-staging.yaml"), ("production", "deploy-prod.yaml")):
@@ -201,7 +250,8 @@ def _github(config, now):
              "createdAt": r.get("created_at"), "url": r.get("html_url")}
             for r in runs[:5]
         ]
-    return {"status": "ok", "merged": merged, "open": open_, "deploys": deploys}
+    return {"status": "ok", "merged": merged, "open": open_, "deploys": deploys,
+            "truncated": {"merged": merged_truncated, "open": open_truncated}}
 
 
 # ── the answer ──────────────────────────────────────────────────────────────────────────────
@@ -218,18 +268,24 @@ def _source(name, fn, config, now):
     return answer
 
 
-def work(config, *, refresh=False, clock=time.monotonic):
-    """Rule 1: `{fetchedAt, linear, github}`, from the cache while it is fresh (rule 7)."""
+def work(config, *, refresh=False):
+    """Rule 1: `{fetchedAt, linear, github}`, from the cache while it is fresh (rule 7).
+
+    The cache is per process, which is the whole backend under R-027 (one gunicorn worker). The lock
+    is held across the outside calls, so concurrent openers wait for one fetch rather than each
+    making their own; at a handful of staff users that wait is the cheaper trade.
+    """
     with _lock:
-        tick = clock()
+        tick = time.monotonic()
         cached = _cache.get("answer")
-        fresh = cached is not None and tick - cached[0] < CACHE_SECONDS
-        last_refresh = _cache.get("refreshedAt")
-        may_refresh = last_refresh is None or tick - last_refresh >= REFRESH_EVERY_SECONDS
+        degraded = cached is not None and any(cached[1][k]["status"] == "unavailable" for k in ("linear", "github"))
+        lifetime = DEGRADED_CACHE_SECONDS if degraded else CACHE_SECONDS
+        fresh = cached is not None and tick - cached[0] < lifetime
+        last_fetch = _cache.get("fetchedAtTick")
+        may_refresh = last_fetch is None or tick - last_fetch >= REFRESH_EVERY_SECONDS
         if fresh and not (refresh and may_refresh):
             return cached[1]
-        if fresh:
-            _cache["refreshedAt"] = tick
+        _cache["fetchedAtTick"] = tick
         now = datetime.now(timezone.utc)
         answer = {
             "fetchedAt": now.strftime("%Y-%m-%dT%H:%M:%SZ"),

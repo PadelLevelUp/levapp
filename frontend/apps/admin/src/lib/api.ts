@@ -135,8 +135,11 @@ export interface WorkOpenPr {
 export interface WorkDeploy { status: string | null; conclusion: string | null; sha: string; createdAt: string | null; url: string | null }
 export interface WorkAnswer {
   fetchedAt: string;
-  linear: WorkSource<{ open: WorkTicket[]; done: WorkDoneTicket[] }>;
-  github: WorkSource<{ merged: WorkMergedPr[]; open: WorkOpenPr[]; deploys: { staging: WorkDeploy[]; production: WorkDeploy[] } }>;
+  linear: WorkSource<{ open: WorkTicket[]; done: WorkDoneTicket[]; truncated?: { open: boolean; done: boolean } }>;
+  github: WorkSource<{
+    merged: WorkMergedPr[]; open: WorkOpenPr[]; deploys: { staging: WorkDeploy[]; production: WorkDeploy[] };
+    truncated?: { merged: boolean; open: boolean };
+  }>;
 }
 
 export const adminApi = {

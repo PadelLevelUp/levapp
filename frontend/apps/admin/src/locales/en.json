@@ -368,7 +368,9 @@
         "empty": "No recent deploys.",
         "success": "Success",
         "failure": "Failed",
-        "running": "Running"
+        "running": "Running",
+        "cancelled": "Cancelled",
+        "skipped": "Skipped"
       },
       "priority": {
         "0": "No priority",
@@ -378,7 +380,9 @@
         "4": "Low"
       },
       "linear": "Linear",
-      "github": "GitHub"
+      "github": "GitHub",
+      "newTab": "opens in a new tab",
+      "truncated": "Incomplete list: there are more than this page's limit."
     }
   }
 }

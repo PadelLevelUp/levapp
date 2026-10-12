@@ -26,16 +26,22 @@ through the backend; their tokens never reach the browser.
    `{status: "ok" | "not_configured" | "unavailable", ...}` on its own, so one source failing or
    unset never hides the other.
 2. **Tickets (Linear).** With `LINEAR_API_KEY` set: `open` (state type backlog, unstarted or
-   started) grouped by state, sorted by priority (urgent first, none last), each with id, title,
+   started) ordered by state (in progress, to do, backlog), then priority (urgent first, none last), each with id, title,
    state, priority, assignee, `createdAt`, url and a `summary`; and `done` (completed in the last
-   30 days), newest first. The summary is the description as plain text (Markdown, links and
+   30 days), newest first; up to 3 pages of 100 each, and a section past that says it is
+   `truncated`. The summary is the description as plain text (Markdown, links and
    Linear's mention tags removed), cut at a word to at most 200 characters with "…"; empty when the
    ticket has no description. No AI.
 3. **Pull requests (GitHub).** `merged`: PRs into `staging` or `main` merged in the last 30 days,
    newest first, each with number, title, url, base, `mergedAt`, the PAD ids in its branch and
-   title, and `where`: `production` when its merge commit is among `main`'s commits of that period,
-   else `staging` (a PR into `main` is `production`). `open`: open PRs, each with number, title,
-   url, base, draft, and `checks` (`success`, `failure`, `pending` or `null` when unknown).
+   title, and `where`: `staging` when its merge commit is among the commits staging has and `main`
+   does not (`compare/main...staging`), else `production`. This holds because promotions are merge
+   commits; a squash or rebase promotion would leave every PR `staging`. A staging → main promotion
+   is not listed (it is the release of the PRs it carries); another PR into `main` is `production`.
+   Closed PRs are read up to 5 pages of 100, newest update first, stopping once a page ends before
+   the window; past the cap the section is `truncated`. `open`: open PRs, each with number, title,
+   url, base, draft, and `checks` (`success`, `failure`, `pending` or `null` when unknown; a failing
+   checks query leaves them `null` and the rest of GitHub `ok`).
 4. **Deploys (GitHub).** The last 5 runs of `deploy-staging.yaml` and of `deploy-prod.yaml`:
    status/conclusion, short sha, `createdAt`, url.
 5. **Settings, tokens and limits.** `LINEAR_API_KEY` (a secret) is required for tickets.
@@ -45,13 +51,15 @@ through the backend; their tokens never reach the browser.
    repository is public: without it the GitHub part uses the unauthenticated API (60 calls an hour,
    about 7 per refresh) and `checks` are `null`. No token is ever sent to the client or logged.
 6. **Who sees it.** `operator` and `owner` (support gets 403). Nav entry "Trabalho".
-7. **Freshness.** Fetched when the page opens and cached in the server process for 5 minutes;
-   "Atualizar" asks for `?refresh=1`, honoured at most once a minute. Every outside call has a
-   10-second timeout.
+7. **Freshness.** Fetched when the page opens and cached in the server process (one worker, R-027)
+   for 5 minutes, or 30 seconds when a source is `unavailable`; "Atualizar" asks for `?refresh=1`,
+   honoured at most once a minute counted from the last fetch of any kind. Every outside call has a
+   10-second timeout. A failed refresh says so on the page.
 8. **The page.** Five sections, in this order: open tickets, done tickets, merged PRs, open PRs,
    deploys. A source that is `not_configured` says which setting is missing; `unavailable` says it
-   could not be reached and when the last good answer was, if any. Usable at 375 px
-   (`admin.phone-console`).
+   could not be reached and when the last good answer was, if any; a `truncated` section says it is
+   incomplete. Links open Linear or GitHub in a new tab and say so to a screen reader. A cancelled
+   or skipped deploy is shown as such, not as a failure. Usable at 375 px (`admin.phone-console`).
 
 ### Acceptance Criteria
 
@@ -84,9 +92,14 @@ through the backend; their tokens never reach the browser.
 - **Then** the answer is 403
 
 #### Cached (rule 7)
-- **Given** an answer fetched 1 minute ago
+- **Given** an answer fetched 30 seconds ago
 - **When** the page is opened again
-- **Then** no outside call is made; `?refresh=1` makes them, but not twice within a minute
+- **Then** no outside call is made; `?refresh=1` a minute after the last fetch makes them, but a
+  second one within the minute does not, and neither does one right after a cold load
+
+#### More than a page (rules 2–3)
+- **Given** a first page of 100 recently updated, unmerged PRs and a merged one on page 2
+- **Then** the merged PR is listed
 
 ### Notes
 - Deferred (proposed v2): TestFlight builds (an App Store Connect key on the server), the bug

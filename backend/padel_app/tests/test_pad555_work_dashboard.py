@@ -45,18 +45,27 @@ def _pr(number, base, merge_sha, merged_days, branch="feature/pad-10"):
 
 def _github(url):
     if "/pulls?state=closed" in url and "base=staging" in url:
-        return [_pr(10, "staging", "sha10", 1, "feature/pad-10"), _pr(11, "staging", "sha11", 1, "feature/pad-11"),
-                _pr(12, "staging", None, None), _pr(13, "staging", "sha13", 45)]
+        if "page=1&" in url or url.endswith("page=1"):
+            # A full first page of recently touched, unmerged PRs pushes a merged one to page 2.
+            return [_pr(100 + i, "staging", None, None) for i in range(100)]
+        if "page=2" in url:
+            return [_pr(10, "staging", "sha10", 1, "feature/pad-10"), _pr(11, "staging", "sha11", 1, "feature/pad-11"),
+                    _pr(12, "staging", None, None), _pr(13, "staging", "sha13", 45)]
+        return []
     if "/pulls?state=closed" in url and "base=main" in url:
-        return [_pr(20, "main", "sha20", 2, "staging")]
-    if "/commits?" in url:
-        return [{"sha": "sha10"}, {"sha": "sha20"}, {"sha": "other"}]
+        return [_pr(20, "main", "sha20", 2, "feature/pad-20"), _pr(21, "main", "sha21", 2, "staging")] if "page=1" in url else []
+    if "/compare/main...staging" in url:
+        # Commits on staging that main does not have yet: #11's merge commit.
+        return {"commits": [{"sha": "sha11"}]}
     if "/pulls?state=open" in url:
         return [{**_pr(30, "staging", None, None, "feature/pad-30"), "draft": True}]
     if "/actions/workflows/" in url:
         return {"workflow_runs": [{"status": "completed", "conclusion": "success", "head_sha": "abcdef1234567",
                                    "created_at": _iso(1), "html_url": "https://gh/run"}]}
     raise AssertionError(f"unexpected GitHub call {url}")
+
+
+GRAPHQL_ERRORS = []
 
 
 @pytest.fixture
@@ -71,6 +80,8 @@ def calls(monkeypatch):
         if "linear.app" in url:
             return LINEAR
         if url.startswith("https://api.github.com/graphql"):
+            if GRAPHQL_ERRORS:
+                return {"errors": [{"message": "Bad credentials"}], "data": None}
             return {"data": {"repository": {"pullRequests": {"nodes": [
                 {"number": 30, "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "FAILURE"}}}]}}]}}}}
         return _github(url)
@@ -111,6 +122,7 @@ def test_where_a_merged_pr_is(client, operator, calls):
     assert merged[11]["where"] == "staging"
     assert merged[20]["where"] == "production"
     assert 12 not in merged and 13 not in merged  # not merged / older than 30 days
+    assert 21 not in merged  # a staging → main promotion is the release, not a change of its own
     assert merged[11]["tickets"] == ["PAD-11"]
 
 
@@ -167,12 +179,35 @@ def test_support_cannot_see_it(client, app, calls):
     assert calls == []
 
 
-def test_cached_and_refresh_at_most_once_a_minute(client, operator, calls):
+def test_a_checks_query_error_leaves_github_ok(client, operator, calls):
+    GRAPHQL_ERRORS.append(True)
+    try:
+        github = _work(client, operator)["github"]
+    finally:
+        GRAPHQL_ERRORS.clear()
+    assert github["status"] == "ok"
+    assert github["open"][0]["checks"] is None
+
+
+def test_a_refresh_right_after_a_cold_load_is_not_a_second_fetch(client, operator, calls):
+    _work(client, operator)
+    first = len(calls)
+    _work(client, operator, "?refresh=1")
+    assert len(calls) == first
+
+
+def test_cached_and_refresh_at_most_once_a_minute(client, operator, calls, monkeypatch):
+    from padel_app.services.admin import work_service
+
+    clock = [1000.0]
+    monkeypatch.setattr(work_service.time, "monotonic", lambda: clock[0])
     _work(client, operator)
     first = len(calls)
     assert first > 0
+    clock[0] += 30
     _work(client, operator)
     assert len(calls) == first
+    clock[0] += 31
     _work(client, operator, "?refresh=1")
     second = len(calls)
     assert second > first
