@@ -1,7 +1,7 @@
 """PAD-631: message_reports gains its review state (status, outcome, closed_at, closed_by)
 
 Revision ID: 0a78cdd2eb33
-Revises: 661763c8e361
+Revises: 6aef46eb1421
 Create Date: 2026-10-11 20:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '0a78cdd2eb33'
-down_revision = '661763c8e361'
+down_revision = '6aef46eb1421'
 branch_labels = None
 depends_on = None
 
