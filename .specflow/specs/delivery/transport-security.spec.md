@@ -11,8 +11,7 @@ governed_by: [R-036]
 > Linear: PAD-643 (privacy review PAD-602, D10).
 
 ### Intent
-The VM's nginx terminates TLS for every product host (all DNS-only records at 2026-10-12, so no
-Cloudflare edge sits in front). It allowed TLS 1.0 and 1.1 (Debian's stock `ssl_protocols`) and
+The VM's nginx terminates TLS for every product host. It allowed TLS 1.0 and 1.1 (Debian's stock `ssl_protocols`) and
 sent no HSTS. This makes the tracked files under `infra/nginx/` say TLS 1.2+ and HSTS, and gives
 the owner the steps to apply them (the deploy does not install nginx files).
 
@@ -23,7 +22,10 @@ the owner the steps to apply them (the deploy does not install nginx files).
 1. **Protocols.** `infra/nginx/nginx.conf` (the VM's `/etc/nginx/nginx.conf`) sets
    `ssl_protocols TLSv1.2 TLSv1.3;` at http level. It must be there, not only in a server block:
    nginx agrees the protocol for a listening socket before it picks a server by name, so a
-   server-level value for a non-default host is not reliably applied.
+   server-level value for a non-default host is not reliably applied. Each HTTPS server also
+   includes certbot's `/etc/letsencrypt/options-ssl-nginx.conf`, which sets `ssl_protocols` at
+   server level and wins over the http-level line; it is not tracked here, so applying checks it
+   first and it must say `TLSv1.2 TLSv1.3` too (current certbot ships exactly that).
 2. **HSTS.** Every HTTPS server of the product and API hosts (`levapp`, `levapp-staging`,
    `padellevelup`, `levapp-api`, `levapp-api-staging`) sends
    `Strict-Transport-Security: max-age=31536000` (`always`, so error answers carry it too).

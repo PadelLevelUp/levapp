@@ -141,7 +141,10 @@ on PAD-614.
 ## TLS hardening (PAD-643, delivery.transport-security)
 
 `nginx.conf` allows TLS 1.2 and 1.3 only, at http level: nginx agrees the protocol for a socket
-before it picks a server by name. Every HTTPS server of `levapp`, `levapp-staging`,
+before it picks a server by name. Every HTTPS server also includes certbot's
+`/etc/letsencrypt/options-ssl-nginx.conf`, whose own `ssl_protocols` wins at server level; it must
+say `TLSv1.2 TLSv1.3` too (current certbot ships that; an old copy may still list TLSv1/1.1, and a
+certbot upgrade may rewrite the file). Every HTTPS server of `levapp`, `levapp-staging`,
 `padellevelup`, `levapp-api` and `levapp-api-staging` sends `Strict-Transport-Security:
 max-age=31536000`, and so does `/register/`, because a location with its own `add_header` loses the
 server's. The console hosts are unchanged; its container sends HSTS itself.
