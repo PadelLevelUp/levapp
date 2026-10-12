@@ -269,7 +269,7 @@ def report_message_service(reporter_id, message_id, reason=None):
     report = MessageReport(reporter_id=reporter_id, message_id=message_id, reason=reason)
     report.create()
     # admin.moderation rule 8 (PAD-631): tell the admin, after the report is stored.
-    from padel_app.services.admin.moderation_service import notify_admin_of_report
+    from padel_app.services.report_alert_service import notify_admin_of_report
 
     notify_admin_of_report(report)
     return report

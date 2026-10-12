@@ -55,10 +55,11 @@ of destructive deletes (`deletion_audit`). Until now both tables were written an
    (the audit list with the entity filter). Usable at 375 px (`admin.phone-console`).
 8. **A new report emails the admin, once per burst** (owner's choice, 2026-10-12). After a report is
    stored, `ADMIN_NOTIFY_EMAIL` (when set) gets "[LevApp] New message report" with the number of
-   open reports and the console link `ADMIN_CONSOLE_URL/reports` — never the message, the reason or
-   a name. No email when another report was filed in the 15 minutes before this one, so a spam wave
-   is one email (the table decides, so it holds across workers). Mail is best effort: a failure is
-   logged by exception class only and never fails the report.
+   open reports and the console link `ADMIN_CONSOLE_URL/reports` (no link when that is unset) —
+   never the message, the reason or a name. No email when another report was filed in the 15
+   minutes before this one, so a spam wave is one email (the table decides, so it holds across
+   workers; two reports at the same instant go to the lower id, so one email). Mail is best effort,
+   not exactly-once: a failure is logged by exception class only and never fails the report.
 
 ### Acceptance Criteria
 

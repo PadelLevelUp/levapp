@@ -285,7 +285,7 @@ def test_a_new_report_emails_the_admin_with_a_console_link_and_no_message_text(a
     subject, recipients, body = mail[0]
     assert recipients == ["admin@levapp.app"]
     assert "https://admin.levapp.app/reports" in body
-    assert "2" in body  # the open count: the thread's own report plus this one
+    assert "Open reports: 2." in body  # the thread's own report plus this one
     for private in ("msg 2", "insultos", "Sara", "Carla", "sara631", "carla631"):
         assert private not in subject + body
 
@@ -330,3 +330,30 @@ def test_a_failing_mailer_never_fails_the_report(app, monkeypatch):
     rid = _report_now(app, t)
     with app.app_context():
         assert db.session.get(MessageReport, rid) is not None
+
+
+def test_without_a_console_url_the_email_names_the_console_without_a_bare_path(app, mail):
+    app.config["ADMIN_CONSOLE_URL"] = ""
+    t = _quiet_thread(app)
+    _report_now(app, t)
+    assert len(mail) == 1
+    body = mail[0][2]
+    assert "/reports" not in body
+    assert "staff console" in body
+
+
+def test_two_reports_at_the_same_instant_still_email_once(app, mail):
+    """A tie on created_at: the lower id is the first of the burst, so exactly one of the two mails."""
+    from padel_app.models import MessageReport
+    from padel_app.services.report_alert_service import notify_admin_of_report
+
+    t = _quiet_thread(app)
+    with app.app_context():
+        same = datetime(2026, 10, 12, 9, 0, 0)
+        a = MessageReport(reporter_id=t["student"], message_id=t["messages"][1], created_at=same)
+        b = MessageReport(reporter_id=t["student"], message_id=t["messages"][2], created_at=same)
+        db.session.add_all([a, b])
+        db.session.commit()
+        notify_admin_of_report(b)
+        notify_admin_of_report(a)
+    assert len(mail) == 1
