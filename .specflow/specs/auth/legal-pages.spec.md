@@ -24,9 +24,11 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
   published, `pt/<id>.md`.
 - **Drafts** (`content/legal/drafts/<version>/<lang>/<id>.md`, when one is staged): texts kept
   for review, never imported by the app. None is staged: v2026-10-10 (18+, Sucesso Fractal – Lda
-  as controller, delete path, admin@levapp.app) is published from the owner's final .docx. Terms v2026-10-13 (PAD-642, owner decision
-  2026-10-12) adds to §2: a coach adds, creates or imports only people aged 18 or over and
-  confirms it each time (`players.create` rule 10); Privacy stays on its own version.
+  as controller, delete path, admin@levapp.app) is published from the owner's final .docx; Privacy
+  v2026-10-13 (PAD-603, owner-requested) adds the push-notification providers to §5 and the
+  deletion request by email to §10. Terms v2026-10-13 (PAD-642, owner decision 2026-10-12) adds
+  to §2: a coach adds, creates or imports only people aged 18 or over and confirms it each time
+  (`players.create` rule 10).
 
 ### Rules
 1. **One source, rendered.** `/terms` and `/privacy` render `LegalPage`, which renders the
