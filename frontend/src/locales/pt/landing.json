@@ -281,6 +281,11 @@
     },
     "loader": {
       "label": "A entrar…"
+    },
+    "appStore": {
+      "eyebrow": "Descarrega na",
+      "name": "App Store",
+      "newTab": " (abre num separador novo)"
     }
   }
 }

@@ -281,6 +281,11 @@
     },
     "loader": {
       "label": "Signing in…"
+    },
+    "appStore": {
+      "eyebrow": "Download on the",
+      "name": "App Store",
+      "newTab": " (opens in a new tab)"
     }
   }
 }
