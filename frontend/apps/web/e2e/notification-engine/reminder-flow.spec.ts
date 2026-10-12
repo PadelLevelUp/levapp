@@ -279,12 +279,16 @@ test("US-REM-04: student declines invitation and event is marked expired", async
     // older invites — those messages no longer render Yes/No buttons.
     const noBtn = studentPage.getByRole("button", { name: /^no$/i }).last();
     await expect(noBtn).toBeVisible({ timeout: 5000 });
-    await noBtn.click();
-    // Wait for the response API call to settle before asserting no error.
-    await studentPage.waitForResponse(
-      (r) => /\/api\/app\/notify\/respond(\?|$)/.test(r.url()),
-      { timeout: 5_000 }
-    ).catch(() => null);
+    // Wait for the response API call to settle before asserting no error. Armed
+    // with the click, and a miss fails: a swallowed miss let the check below run
+    // before the answer existed (B-527).
+    await Promise.all([
+      studentPage.waitForResponse(
+        (r) => /\/api\/app\/notify\/respond(\?|$)/.test(r.url()),
+        { timeout: 5_000 }
+      ),
+      noBtn.click(),
+    ]);
 
     const errorShown = await studentPage.getByText(/error|failed/i).isVisible().catch(() => false);
     expect(errorShown).toBe(false);
