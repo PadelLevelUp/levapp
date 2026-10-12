@@ -45,6 +45,9 @@
       "loggedOutDescription": "A função de terminar sessão está pronta a ligar."
     },
     "profile": {
+      "birthDate": "Data de nascimento",
+      "country": "País",
+      "countryPlaceholder": "Escolhe o país",
       "emailVerified": "Verificado",
       "emailUnverified": "Por confirmar",
       "verifyEmail": "Confirmar",

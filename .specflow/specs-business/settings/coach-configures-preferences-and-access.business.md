@@ -65,6 +65,8 @@ managing only their own personal profile and preferences.
   decision 2026-10-03). Commands such as approving a join request or adding a court act at once.
 - A blank name is never accepted; an email must be valid and not already used by someone else; those
   values are trimmed before checking.
+- Everyone can correct their own date of birth and country in Profile; a date that makes them
+  younger than 18 is refused with the same message as sign-up, and neither can be erased (PAD-640).
 - An abbreviation (a short badge shown next to the user's name) defaults to the first letters of the
   first two words of their name when not explicitly set, and can be overridden with up to 4 characters.
 - The LevApp administrator's data browser exists only where it is deliberately switched on (staging
