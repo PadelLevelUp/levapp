@@ -46,13 +46,19 @@ of destructive deletes (`deletion_audit`). Until now both tables were written an
      note>" — signed out everywhere, refused at sign-in. The body may carry `{note}`.
 5. **Attention.** `GET /admin/api/reports/summary` (`support`) answers `{open: n}`; the console's
    navigation shows the number next to "Denúncias" when it is not zero, so a new report is seen on
-   the next load. Emailing `ADMIN_NOTIFY_EMAIL` on each report is the owner's choice and is off.
+   the next load; rule 8 also emails the admin.
 6. **Deletion audit.** `GET /admin/api/deletion-audits?entity=&page=` (`support`), read-only, 25 per
    page, newest first: who (actor id and name, or "system"), what (entity, entity id, action,
    label), when, and the counts in `details`. `entity` filters exactly.
 7. **The console pages.** "Denúncias" (list with Abertas / Fechadas, detail with the context and the
    three actions, each with a confirmation and, for disable, a required reason) and "Eliminações"
    (the audit list with the entity filter). Usable at 375 px (`admin.phone-console`).
+8. **A new report emails the admin, once per burst** (owner's choice, 2026-10-12). After a report is
+   stored, `ADMIN_NOTIFY_EMAIL` (when set) gets "[LevApp] New message report" with the number of
+   open reports and the console link `ADMIN_CONSOLE_URL/reports` — never the message, the reason or
+   a name. No email when another report was filed in the 15 minutes before this one, so a spam wave
+   is one email (the table decides, so it holds across workers). Mail is best effort: a failure is
+   logged by exception class only and never fails the report.
 
 ### Acceptance Criteria
 
@@ -82,8 +88,18 @@ of destructive deletes (`deletion_audit`). Until now both tables were written an
 - **When** support lists deletion audits filtered by entity `club`
 - **Then** the row shows who, what, when and the counts
 
+#### A spam wave is one email with no message text (rule 8)
+- **Given** `ADMIN_NOTIFY_EMAIL` is admin@levapp.app and no report was filed in the last 15 minutes
+- **When** a student reports four messages within a minute, the first with reason "insultos graves"
+- **Then** admin@levapp.app gets one email with the open count and `<console>/reports`, containing
+  neither the message text, "insultos", nor either person's name
+- **And** a report filed 16 minutes after the last one emails again
+- **And** with `ADMIN_NOTIFY_EMAIL` unset, or the mailer failing, the report is stored and no error
+  reaches the reporter
+
 ### Notes
 - Out of scope: automated moderation, telling the reporter what happened.
-- Owner's choice, off: emailing `ADMIN_NOTIFY_EMAIL` on each new report.
+- Rule 8's quiet window is per burst: a steady trickle (one report every ten minutes) sends only the
+  first email; the navigation count (rule 5) shows the rest.
 - PAD-550 removes the generic editor (where `messaging.block-and-report` rule 4 used to point); the
   tables stay.

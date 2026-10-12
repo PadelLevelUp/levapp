@@ -64,6 +64,8 @@ need to look. Indirectly every coach and student, who get faster approvals and f
    browser, with the same actions as at a desk. There is no separate phone app for staff.
 - A message a student or coach reports reaches staff, who see it in context and dismiss it, delete
   the message or disable its author; every decision is recorded (App Store Guideline 1.2; PAD-631).
+  The admin is emailed when reports arrive (one email per burst, with no message text, only a link
+  to the console).
 
 ## Success Metrics
 

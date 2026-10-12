@@ -242,3 +242,91 @@ def test_the_context_names_each_sender_even_one_who_left(client, app, staff):
     ctx = client.get(f"/admin/api/reports/{t['report']}", headers=staff["support"]).get_json()["context"]
     names = {m["senderName"] for m in ctx}
     assert names == {"Carla Coach", "Sara Aluna"}
+
+
+# --- admin.moderation rule 8: a new report emails ADMIN_NOTIFY_EMAIL, once per burst ---------------
+
+
+@pytest.fixture
+def mail(app, monkeypatch):
+    from padel_app.tools import email_tools
+
+    sent = []
+    monkeypatch.setattr(email_tools, "send_email",
+                        lambda subject, recipients, body=None, html=None: sent.append((subject, recipients, body)))
+    app.config["ADMIN_NOTIFY_EMAIL"] = "admin@levapp.app"
+    app.config["ADMIN_CONSOLE_URL"] = "https://admin.levapp.app"
+    return sent
+
+
+def _quiet_thread(app):
+    """A thread whose own report is an hour old, outside the quiet window."""
+    from padel_app.models import MessageReport
+
+    t = _thread(app)
+    with app.app_context():
+        r = db.session.get(MessageReport, t["report"])
+        r.created_at = r.created_at - timedelta(hours=1)
+        db.session.commit()
+    return t
+
+
+def _report_now(app, t, index=2, reason="insultos graves"):
+    from padel_app.services.messaging_service import report_message_service
+
+    with app.app_context():
+        return report_message_service(t["student"], t["messages"][index], reason).id
+
+
+def test_a_new_report_emails_the_admin_with_a_console_link_and_no_message_text(app, mail):
+    t = _quiet_thread(app)
+    _report_now(app, t)
+    assert len(mail) == 1
+    subject, recipients, body = mail[0]
+    assert recipients == ["admin@levapp.app"]
+    assert "https://admin.levapp.app/reports" in body
+    assert "2" in body  # the open count: the thread's own report plus this one
+    for private in ("msg 2", "insultos", "Sara", "Carla", "sara631", "carla631"):
+        assert private not in subject + body
+
+
+def test_a_burst_of_reports_sends_one_email(app, mail):
+    t = _quiet_thread(app)
+    for i in (1, 2, 4, 5):
+        _report_now(app, t, index=i)
+    assert len(mail) == 1
+
+
+def test_a_report_after_the_quiet_window_emails_again(app, mail):
+    from padel_app.models import MessageReport
+
+    t = _quiet_thread(app)
+    first = _report_now(app, t, index=1)
+    with app.app_context():
+        r = db.session.get(MessageReport, first)
+        r.created_at = r.created_at - timedelta(minutes=16)
+        db.session.commit()
+    _report_now(app, t, index=2)
+    assert len(mail) == 2
+
+
+def test_no_email_without_admin_notify_email(app, mail):
+    app.config["ADMIN_NOTIFY_EMAIL"] = None
+    t = _quiet_thread(app)
+    _report_now(app, t)
+    assert mail == []
+
+
+def test_a_failing_mailer_never_fails_the_report(app, monkeypatch):
+    from padel_app.models import MessageReport
+    from padel_app.tools import email_tools
+
+    def boom(*a, **k):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr(email_tools, "send_email", boom)
+    app.config["ADMIN_NOTIFY_EMAIL"] = "admin@levapp.app"
+    t = _quiet_thread(app)
+    rid = _report_now(app, t)
+    with app.app_context():
+        assert db.session.get(MessageReport, rid) is not None

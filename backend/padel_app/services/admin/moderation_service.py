@@ -4,7 +4,9 @@ Reads are plain queries (one per page, never one per row). The three actions run
 audited request (admin.foundation rule 8): they set the audit target to the report, close it with
 its outcome, and defer anything outside the database (the live event) until after the commit.
 """
-from flask import g
+from datetime import timedelta
+
+from flask import current_app, g
 from sqlalchemy.orm import joinedload
 
 from padel_app.models import Message, MessageReport, User
@@ -176,3 +178,39 @@ def list_deletion_audits(entity, page):
         "hasMore": len(rows) > PAGE_SIZE,
         "page": page,
     }
+
+
+# admin.moderation rule 8: a new report emails ADMIN_NOTIFY_EMAIL — once per burst, so a spam wave
+# is one email, and never the message, the reason or a name (the console holds those).
+REPORT_EMAIL_QUIET = timedelta(minutes=15)
+
+
+def notify_admin_of_report(report):
+    """Best effort: never raises, so a mail outage can never fail the person reporting."""
+    try:
+        to = current_app.config.get("ADMIN_NOTIFY_EMAIL")
+        if not to:
+            return
+        # The burst rule reads the table, so it holds across workers: no other report in the
+        # quiet window before this one.
+        earlier = (
+            MessageReport.query.filter(MessageReport.id != report.id)
+            .filter(MessageReport.created_at >= report.created_at - REPORT_EMAIL_QUIET)
+            .filter(MessageReport.created_at <= report.created_at)
+            .count()
+        )
+        if earlier:
+            return
+        open_count = MessageReport.query.filter(MessageReport.status == "open").count()
+        base = (current_app.config.get("ADMIN_CONSOLE_URL") or "").rstrip("/")
+        body = (
+            f"A message was reported on LevApp. Open reports: {open_count}.\n\n"
+            f"Review them in the console: {base}/reports\n\n"
+            "Further reports in the next 15 minutes will not send another email."
+        )
+        from padel_app.tools.email_tools import send_email
+
+        send_email("[LevApp] New message report", [to], body=body)
+    except Exception as exc:  # noqa: BLE001 — never fail the report on mail
+        # B-254: the exception class only; an SMTP refusal names the recipient.
+        current_app.logger.warning("report mail failed: %s", type(exc).__name__)
