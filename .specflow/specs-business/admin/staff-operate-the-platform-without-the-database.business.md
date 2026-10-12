@@ -7,6 +7,7 @@ implemented_by:
   - ../../specs/admin/engine-health.spec.md
   - ../../specs/admin/commercial-groundwork.spec.md
   - ../../specs/admin/phone-console.spec.md
+  - ../../specs/admin/data-export.spec.md
 ---
 
 # Staff operate the platform without the database
@@ -61,6 +62,9 @@ need to look. Indirectly every coach and student, who get faster approvals and f
    decision that depends on the finance questionnaire.
 8. The console works on a phone: every screen can be used at phone width from the phone's
    browser, with the same actions as at a desk. There is no separate phone app for staff.
+9. Someone who asks for a copy of their data gets it within 30 days, after LevApp has confirmed it
+   is them: staff run a read-only export of that one person's data, which never includes another
+   person's messages or any password or token (PAD-640).
 
 ## Success Metrics
 

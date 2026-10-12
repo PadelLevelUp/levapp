@@ -15,6 +15,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { isUnderSignupAge } from "@levelup/config";
+import { CountryField } from "@/features/auth/CountryField";
+import { CODE_KEYS, formatBirthInput, toDisplay, toIso } from "@/features/auth/signup-form";
 import { useSectionSave } from "@/features/settings/unsaved-registry";
 import { writeAuthMe } from "@/features/settings/write-auth-me";
 
@@ -23,6 +26,9 @@ type ProfileForm = {
   abbreviation: string;
   email: string;
   phone: string;
+  /** PAD-640 (settings.profile rules 10–11): DD/MM/AAAA as typed, and a two-letter code; "" when unset. */
+  birthDate?: string;
+  country?: string;
 };
 
 const EMPTY_PROFILE: ProfileForm = {
@@ -30,7 +36,23 @@ const EMPTY_PROFILE: ProfileForm = {
   abbreviation: "",
   email: "",
   phone: "",
+  birthDate: "",
+  country: "",
 };
+
+function profileFromMe(me: authApi.MeResponse): ProfileForm {
+  return {
+    name: me.name ?? "",
+    abbreviation: me.abbreviation ?? "",
+    email: me.email ?? "",
+    phone: me.phone ?? "",
+    birthDate: toDisplay(me.birthDate),
+    country: me.country ?? "",
+  };
+}
+
+/** settings.profile rule 10: a refused birth date, already in the form's words. */
+class BirthDateRefused extends Error {}
 
 /**
  * settings.unsaved-edits rule 2 — "differs by value from the last loaded or saved
@@ -43,7 +65,9 @@ export function isProfileUnsaved(form: ProfileForm, saved: ProfileForm): boolean
     form.name !== saved.name ||
     form.abbreviation !== saved.abbreviation ||
     form.email !== saved.email ||
-    form.phone !== saved.phone
+    form.phone !== saved.phone ||
+    (form.birthDate ?? "") !== (saved.birthDate ?? "") ||
+    (form.country ?? "") !== (saved.country ?? "")
   );
 }
 
@@ -81,24 +105,29 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
 
   React.useEffect(() => {
     if (!me) return;
-    const loaded: ProfileForm = {
-      name: me.name ?? "",
-      abbreviation: me.abbreviation ?? "",
-      email: me.email ?? "",
-      phone: me.phone ?? "",
-    };
+    const loaded = profileFromMe(me);
     setSaved(loaded);
     setForm((current) => {
       const next = { ...loaded };
       // #509 review: a field touched but left empty before the read lands takes the loaded value.
-      for (const field of touchedRef.current) if (current[field].trim()) next[field] = current[field];
+      for (const field of touchedRef.current) if ((current[field] ?? "").trim()) next[field] = current[field] ?? "";
       return next;
     });
   }, [me]);
 
+  const [birthDateError, setBirthDateError] = React.useState<string | null>(null);
+
   const setField = (field: keyof ProfileForm, value: string) => {
     touchedRef.current.add(field);
-    setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === "birthDate") setBirthDateError(null);
+    setForm((prev) => ({ ...prev, [field]: field === "birthDate" ? formatBirthInput(value) : value }));
+  };
+
+  /** settings.profile rule 10: show the refusal under the field; the screen's Save keeps it unsaved. */
+  const refuseBirthDate = (key: string): never => {
+    const text = t(`auth.signup.${key}`);
+    setBirthDateError(text);
+    throw new BirthDateRefused(text);
   };
 
   // settings.explicit-save rule 3: this section's part of the screen's one Save; throws on failure.
@@ -109,18 +138,30 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
       payload.abbreviation = form.abbreviation;
     if (form.email !== saved.email) payload.email = form.email;
     if (form.phone !== saved.phone) payload.phone = form.phone;
+    // PAD-640 (rules 10–11): sign-up's own format and 18+ check, before anything is sent.
+    if ((form.birthDate ?? "") !== (saved.birthDate ?? "")) {
+      if (!form.birthDate) refuseBirthDate("birthDateRequired");
+      const iso = toIso(form.birthDate ?? "");
+      if (!iso) refuseBirthDate("birthDateInvalid");
+      if (isUnderSignupAge(iso as string)) refuseBirthDate("birthDateUnderage");
+      payload.birthDate = iso as string;
+    }
+    if (form.country && form.country !== saved.country) payload.country = form.country;
 
     if (Object.keys(payload).length === 0) return;
-    const updated = await authApi.updateMe(payload);
+    let updated: authApi.MeResponse;
+    try {
+      updated = await authApi.updateMe(payload);
+    } catch (error) {
+      const data = (error as { response?: { data?: { code?: string; field?: string } } }).response?.data;
+      const key = data?.field === "birthDate" && data.code ? CODE_KEYS[data.code] : undefined;
+      if (key) refuseBirthDate(key);
+      throw error;
+    }
     await writeAuthMe(queryClient, updated);
     // Re-hydrate from the response so the form shows exactly what was
     // stored (trimmed name, uppercased abbreviation, …).
-    const confirmed: ProfileForm = {
-      name: updated.name ?? "",
-      abbreviation: updated.abbreviation ?? "",
-      email: updated.email ?? "",
-      phone: updated.phone ?? "",
-    };
+    const confirmed = profileFromMe(updated);
     setForm(confirmed);
     setSaved(confirmed);
     touchedRef.current.clear();
@@ -246,6 +287,39 @@ export function ProfileSection({ focusEmail = false }: { focusEmail?: boolean })
             onChangeText={(v) => setField("phone", v)}
           />
         </View>
+
+        {/* PAD-640 (settings.profile rules 10–11): correct one's own date of birth and country. */}
+        <View className="gap-1.5">
+          <Label>
+            {t("settings.profile.birthDate")}
+          </Label>
+          <Input
+            testID="settings-profile-birthDate"
+            accessibilityLabel={t("settings.profile.birthDate")}
+            keyboardType="number-pad"
+            placeholder="DD/MM/AAAA"
+            maxLength={10}
+            value={form.birthDate ?? ""}
+            onChangeText={(v) => setField("birthDate", v)}
+          />
+          {birthDateError ? (
+            <Text
+              className="text-sm text-destructive"
+              testID="settings-profile-birthDate-error"
+              accessibilityLiveRegion="polite"
+            >
+              {birthDateError}
+            </Text>
+          ) : null}
+        </View>
+
+        <CountryField
+          testID="settings-profile-country"
+          label={t("settings.profile.country")}
+          value={form.country ?? ""}
+          disabled={false}
+          onChange={(code) => setField("country", code)}
+        />
 
       </CardContent>
     </Card>

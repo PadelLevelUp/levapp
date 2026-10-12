@@ -343,7 +343,11 @@ def update_me():
         user = update_own_profile_service(user_id, payload)
     except ProfileValidationError as exc:
         db.session.rollback()
-        return {"error": exc.message}, exc.status
+        body = {"error": exc.message}
+        # PAD-640: a coded refusal (UNDERAGE, INVALID_BIRTH_DATE) names its code and field.
+        if exc.code:
+            body.update(code=exc.code, field=exc.field)
+        return body, exc.status
 
     return jsonify(_serialize_me(user))
 

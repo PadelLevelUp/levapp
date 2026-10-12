@@ -65,12 +65,28 @@ vi.mock("@tanstack/react-query", async () => {
 
 let currentT = (key: string) => key;
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: currentT }),
+  useTranslation: () => ({ t: currentT, i18n: { language: "pt" } }),
 }));
 
 vi.mock("@/components/ui/input", async () => {
   const { TextInput } = await import("react-native");
   return { Input: (p: Record<string, unknown>) => createElement(TextInput, p) };
+});
+
+// PAD-640: the country picker's options render as pressables `country-opt-<code>` wired to the Select's
+// onValueChange, as country-on-completion.test.tsx does.
+const selectHandler = vi.hoisted(() => ({ current: undefined as undefined | ((o: { value: string; label: string }) => void) }));
+vi.mock("@/components/ui/select", async () => {
+  const { View, Pressable } = await import("react-native");
+  const Select = (p: { children?: unknown; onValueChange?: (o: { value: string; label: string }) => void; value?: { value: string } }) => {
+    selectHandler.current = p.onValueChange;
+    return createElement(View, { testID: "country-select-value", accessibilityValue: { text: p.value?.value } }, p.children as never);
+  };
+  const Pass = (p: { children?: unknown }) => createElement(View, null, p.children as never);
+  const Trigger = (p: { testID?: string; children?: unknown }) => createElement(View, { testID: p.testID }, p.children as never);
+  const Item = (p: { value: string; label: string }) =>
+    createElement(Pressable, { testID: `country-opt-${p.value}`, onPress: () => selectHandler.current?.({ value: p.value, label: p.label }) });
+  return { Select, SelectContent: Pass, SelectItem: Item, SelectTrigger: Trigger, SelectValue: () => null };
 });
 
 import { isProfileUnsaved, ProfileSection } from "./profile-section";
@@ -234,3 +250,67 @@ describe("#509 review", () => {
   });
 });
 
+
+
+// PAD-640 (settings.profile rules 10–11): the date of birth (DD/MM/AAAA, as sign-up) and the country.
+describe("date of birth and country (PAD-640)", () => {
+  const STORED = { ...ME, birthDate: "1990-05-01", country: "PT" };
+  const seventeen = () => {
+    const t = new Date();
+    return `01${String(t.getMonth() + 1).padStart(2, "0")}${t.getFullYear() - 17}`;
+  };
+
+  it("shows the stored date as DD/MM/AAAA and saves the changed date and country", async () => {
+    getMe.mockResolvedValue(STORED);
+    updateMe.mockResolvedValue({ ...STORED, birthDate: "1991-06-02", country: "ES" });
+    const { n } = await mountProfile();
+    expect(n.byTestId("settings-profile-birthDate").props.value).toBe("01/05/1990");
+
+    await n.changeText("settings-profile-birthDate", "02061991");
+    await n.press("country-opt-ES");
+    await n.press("settings-profile-save");
+    await n.flush();
+
+    expect(updateMe).toHaveBeenCalledWith({ birthDate: "1991-06-02", country: "ES" });
+  });
+
+  it("an under-18 date is refused on the field and nothing is sent", async () => {
+    getMe.mockResolvedValue(STORED);
+    const { n } = await mountProfile();
+
+    await n.changeText("settings-profile-birthDate", seventeen());
+    await n.press("settings-profile-save");
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-birthDate-error").props.children).toBe("auth.signup.birthDateUnderage");
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+
+  it("the server's UNDERAGE lands on the field too", async () => {
+    getMe.mockResolvedValue(STORED);
+    updateMe.mockRejectedValue({ response: { status: 400, data: { code: "UNDERAGE", field: "birthDate" } } });
+    const { n } = await mountProfile();
+
+    await n.changeText("settings-profile-birthDate", "01012000");
+    await n.press("settings-profile-save");
+    await n.flush();
+
+    expect(n.byTestId("settings-profile-birthDate-error").props.children).toBe("auth.signup.birthDateUnderage");
+  });
+
+  it("an incomplete or cleared date is refused on the field, never sent", async () => {
+    getMe.mockResolvedValue(STORED);
+    const { n } = await mountProfile();
+
+    await n.changeText("settings-profile-birthDate", "0206");
+    await n.press("settings-profile-save");
+    await n.flush();
+    expect(n.byTestId("settings-profile-birthDate-error").props.children).toBe("auth.signup.birthDateInvalid");
+
+    await n.changeText("settings-profile-birthDate", "");
+    await n.press("settings-profile-save");
+    await n.flush();
+    expect(n.byTestId("settings-profile-birthDate-error").props.children).toBe("auth.signup.birthDateRequired");
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+});

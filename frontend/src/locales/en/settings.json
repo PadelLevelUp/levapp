@@ -45,6 +45,9 @@
       "loggedOutDescription": "Logout hook is ready to connect."
     },
     "profile": {
+      "birthDate": "Date of birth",
+      "country": "Country",
+      "countryPlaceholder": "Choose the country",
       "emailVerified": "Verified",
       "emailUnverified": "Not verified",
       "verifyEmail": "Verify",
