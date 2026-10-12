@@ -42,6 +42,8 @@ code ships inside the app, so there is nothing to download when it opens.
 4. A visitor downloads the language they see; the other language arrives only when chosen.
 5. The web app's build fails if the first download grows past its budget, so the gain cannot
    erode silently.
+6. The web app and the staff console serve their own typefaces: opening any page tells no third
+   party about the visit, before the visitor has answered the cookie banner or after (PAD-635).
 
 ## Success Metrics
 

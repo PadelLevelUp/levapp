@@ -26,7 +26,7 @@ budget holds the gain.
   `src/components/layout/AppLayout.tsx` (starts the background prefetch), `src/i18n.ts`
   (Portuguese bundled, English loaded on demand), `src/auth/AuthContext.tsx` (waits for the
   user's language before the session counts as restored), `vite.config.ts` (`manualChunks`,
-  `manifest`), `index.html` (font stylesheet no longer blocks the first paint),
+  `manifest`), `index.html` (no font host since PAD-635), `src/main.tsx` (imports the self-hosted faces),
   `scripts/check-entry-budget.mjs` (new).
 - **CI** `.github/workflows/checks-frontend.yaml`: builds the web app and runs the budget check.
 - **Mobile, backend** — no change.
@@ -65,9 +65,13 @@ budget holds the gain.
    `import.meta.glob`; `i18n.changeLanguage(lng)` resolves after that language's strings are in
    place, so no screen renders keys. `AuthContext` awaits the user's language before ending the
    session-restore `loading` state, so a signed-in English user never sees Portuguese first.
-7. **The font stylesheet does not block the first paint.** `index.html` loads the Google Fonts
-   stylesheet with `rel="preload" as="style"` swapped to `stylesheet` on load, with a `<noscript>`
-   fallback; preconnects and `display=swap` stay.
+7. **The fonts are self-hosted and do not block the first paint (PAD-635).** Poppins (600, 700)
+   and Plus Jakarta Sans (400–700) come from `@fontsource/poppins` and
+   `@fontsource/plus-jakarta-sans`, imported in `src/main.tsx` and bundled as the app's own
+   assets; every face is `font-display: swap`, so the fallback face paints first. No page
+   requests, preconnects to or names `fonts.googleapis.com` or `fonts.gstatic.com`: a font
+   request would send the visitor's address to Google before any consent (PAD-602 privacy
+   review). The same holds for the staff console (`admin.foundation` rule 12a).
 8. **A budget holds the gain.** `vite build` writes a manifest; `scripts/check-entry-budget.mjs`
    sums the gzip size of the entry chunk and its static imports (JS and CSS) and fails above
    **300 kB**, and fails if any single JS chunk exceeds 500 kB raw. CI runs build + check on every
@@ -109,6 +113,15 @@ budget holds the gain.
 - **When** the session restores
 - **Then** `loading` stays true until the language has arrived; **and Given** the chunk fails to
   load, **Then** the session still restores in the current language
+
+#### No page asks Google for a font (rule 7, PAD-635)
+- **Given** a visitor who has not answered the cookie banner, and then a signed-in coach
+- **When** they open `/`, `/auth`, `/dashboard` and `/calendar`
+- **Then** no request goes to `fonts.googleapis.com` or `fonts.gstatic.com`, every font file
+  comes from the page's own origin, each of the six faces loads by name, and the body still
+  renders in Plus Jakarta Sans (`e2e/client/pad635-self-hosted-fonts.spec.ts`); the landing
+  page's zero-foreign-request guard (`e2e/landing/hubspot-consent.spec.ts`) allows no host at
+  all, and `index.html` names no Google font host (`landing-guards.test.ts`)
 
 #### Navigation still works everywhere (rules 1–3)
 - **Given** the web E2E suite
