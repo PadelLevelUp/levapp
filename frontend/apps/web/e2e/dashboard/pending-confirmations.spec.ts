@@ -76,7 +76,7 @@ const PENDING = ["Filler Player 06", "Filler Player 07"];
 const ANSWERED = ["Filler Player 08", "Filler Player 09"];
 
 /** Each student's current invitation id on the seeded pending class. The class payload lists one
- * invitation per student, the latest (dedupe_invitation_events), so a nudge shows as a new id. */
+ * invitation per student, the latest (dedupe_invitation_events); a new invitation would show as a new id. */
 async function invitationsOnThePendingClass(request: APIRequestContext, token: string): Promise<Record<string, number>> {
   const events = await request.get(`${API_ROOT}/app/calendar?from=2026-01-01T00:00:00&to=2027-12-31T23:59:59`, { headers: bearer(token) });
   expect(events.ok()).toBeTruthy();
@@ -110,7 +110,9 @@ test("PAD-78: manual notify reaches only the still-pending students", async ({
   // is only a floor; the seeded class's own invitations are the assertion.
   expect(body.sent).toBeGreaterThanOrEqual(PENDING.length);
   const after = await invitationsOnThePendingClass(request, token);
-  for (const name of PENDING) expect(after[name], `${name} is nudged: a newer invitation`).toBeGreaterThan(before[name]);
+  // PAD-620: the nudge re-pushes the invitation each pending student already holds — no new
+  // invitation, so their invitation is the same one; `sent` counts the students pushed.
+  for (const name of PENDING) expect(after[name], `${name} keeps the invitation they hold`).toBe(before[name]);
   for (const name of ANSWERED) expect(after[name], `${name} answered and is not nudged`).toBe(before[name]);
 });
 

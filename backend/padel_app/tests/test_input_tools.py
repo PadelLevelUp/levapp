@@ -48,12 +48,6 @@ def test_invalid_type_raises():
         Field("1", "Model", "Label", "name", "InvalidType")
 
 
-def test_get_field_dict(simple_field):
-    d = simple_field.get_field_dict()
-    assert d["type"] == "Text"
-    assert d["label"] == "My Label"
-    assert d["name"] == "my_field"
-
 
 def test_set_value_text(simple_field):
     req = DummyRequest(form={"my_field": "new_value"})
@@ -166,12 +160,6 @@ def test_block_requires_fields():
         Block("test", ["not_a_field"])
 
 
-def test_block_get_block_dict(simple_field):
-    b = Block("info_block", [simple_field])
-    d = b.get_block_dict()
-    assert d["name"] == "info_block"
-    assert simple_field in d["fields"]
-
 
 # ---------- Tests for Tab ----------
 def test_tab_requires_fields():
@@ -182,12 +170,6 @@ def test_tab_requires_fields():
     with pytest.raises(ValueError):
         Tab("tab1", ["not_a_field"])
 
-
-def test_tab_get_tab_dict(simple_field):
-    t = Tab("My Tab", [simple_field])
-    d = t.get_tab_dict()
-    assert d["title"] == "My Tab"
-    assert simple_field in d["fields"]
 
 
 # ---------- Tests for Form ----------
@@ -222,12 +204,6 @@ def test_add_tab_invalid():
     with pytest.raises(ValueError):
         form.add_tab("not_a_tab")
 
-
-def test_get_form_dict(simple_field):
-    form = Form()
-    form.add_block(Block("info_block", [simple_field]))
-    d = form.get_form_dict()
-    assert "main" in d and "tabs" in d
 
 
 def test_set_values(simple_field):

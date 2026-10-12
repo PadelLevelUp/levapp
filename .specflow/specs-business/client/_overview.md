@@ -10,6 +10,9 @@ just saw comes back at once, and how fresh what they see is.
 - `client.user-returns-to-a-screen-at-once` — a screen seen a moment ago shows again instantly
   and quietly refreshes; anything that changes on the server reaches the screen as it happens.
 
+- `client.web-opens-quickly-on-a-first-visit` — a first visit to the web app downloads what
+  the page in front of you needs, not the whole app; the rest arrives in the background.
+
 ## Why it's grouped this way
 
 It is one promise about every screen rather than a feature of any one of them, so it lives in

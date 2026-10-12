@@ -138,6 +138,7 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
 
     instance_ids = [i.id for i in instances]
     sent_counts = attempts.count_attempts_bulk(instance_ids)
+    answered_pairs = attempts.answered_pairs_bulk(instance_ids)  # PAD-622, beside the counts
     if instance_ids:
         player_ids = {
             row.player_id
@@ -170,6 +171,7 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
         # The same list the pass itself sends to, judged at the moment it would run.
         due, _blocked = _reminder_recipients(
             instance, config, coach.user_id, when, scheduled=True, sent_counts=sent_counts,
+            answered_pairs=answered_pairs,
         )
         if not due:
             continue

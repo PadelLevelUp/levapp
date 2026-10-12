@@ -64,6 +64,18 @@ Automatically send class reminders to enrolled players at a configured time befo
     never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
     armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
     October, and a class at 23:00 or later got its day-before reminder a day late.
+15a. **A class that moves drops its pending follow-ups (PAD-623; PAD-612 R6).** A follow-up reminder
+   job (`reminder_<id>_retry_<ts>`) is armed `hoursBetweenReminders` after a pass, on the class's
+   schedule at that moment. When an edit changes the occurrence's start, its pending follow-ups are
+   removed (`drop_pending_followups`) before the base job is re-armed for the new time (PAD-478); the
+   re-armed pass then sends whatever reminder is still owed, with the count and the spacing as
+   always. Only an edit that moves the class does this: startup, the daily pass and a settings save
+   (which re-times follow-ups, `notifications.config` rule 10b) leave the chain alone. The jobs are
+   found by the id prefixes read from the occurrence before the edit (both id forms; the date in a
+   lesson-occurrence id is the old one), and the drop is best-effort after the edit's commit, like
+   the re-arm: a scheduler failure is logged and the edit stands. Not covered yet: a "this and
+   future" edit that forks the series re-parents the occurrence before the edit runs, so a
+   lesson-form follow-up keyed on the OLD lesson is not found (follow-up noted on PAD-623).
 16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
     `init_scheduler` returns without starting APScheduler when the process is a migration
     (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
@@ -155,8 +167,28 @@ Automatically send class reminders to enrolled players at a configured time befo
     stops reminders (`confirmed`, rule 3); a "no" sets `status` too, which changes nothing. The
     past-due listing (`notifications.config` rule 10f) reads the same list, so a class whose only
     owed students are marked is not listed.
+    **An answer survives a cleared mark (PAD-622; PAD-612 R5).** A student who answered one of the
+    occurrence's reminders is not asked again by a later pass, even after the coach marks them and
+    clears the mark (PAD-567's clear resets `confirmed`, not the answer they gave): the pass skips a
+    student with an answered (`yes`/`no`), counted `ReminderAttempt`, on every pass including the
+    coach's manual send, and the late ask (rule 18) is not armed for them. A student who was asked
+    and never answered is asked again as before; voided attempts (a returning student, rule 19) do
+    not count, and neither does a `not_enrolled` outcome (a stale reminder tapped while off the
+    date): a student the coach re-adds is asked.
 
 ### Acceptance Criteria
+
+#### Moving a class drops the follow-up armed on the old schedule (rule 15a, PAD-623)
+- **Given** a class with 2 reminders 2 hours apart; reminder 1 went out and the follow-up is armed for 2 hours later
+- **When** the coach moves the class a week later
+- **Then** that follow-up is no longer armed, and the base reminder is armed for the new time
+- **And** an edit that keeps the class's time (a new title) leaves the follow-up armed
+
+#### A cleared mark does not bring the question back to a student who answered (rule 23, PAD-622)
+- **Given** a class with 2 reminders; Ana answered reminder 1; the coach marked her present and then cleared the mark
+- **When** the next scheduled pass runs after the spacing
+- **Then** Ana gets no second reminder
+- **And** Bruno, who got reminder 1, never answered, and whose mark was cleared the same way, does get reminder 2
 
 #### A student the coach marked present or absent is not reminded (rule 23)
 - **Given** a class 48 h out with three enrolled students, the coach having marked Ana present and

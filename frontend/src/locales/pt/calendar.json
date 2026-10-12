@@ -391,6 +391,7 @@
       "invitationSent_zero": "Convite enviado a {{count}} alunos",
       "invitationSent_other": "Convite enviado a {{count}} alunos",
       "failedSendInvitations": "Falha ao enviar os convites",
+      "alreadyInvited": "Já têm um convite em aberto para esta aula: {{names}}",
       "blockedByPreference": "Não foi possível notificar: {{names}} (bloqueou notificações)",
       "searchStudents": "Pesquisar alunos"
     },
@@ -561,6 +562,11 @@
         "coach": "Faltou"
       },
       "reminderSent": "Lembrete enviado"
+    },
+    "overflow": {
+      "label": "+{{count}}",
+      "aria": "Mais {{count}} aulas",
+      "title": "Mais aulas a esta hora"
     }
   }
 }

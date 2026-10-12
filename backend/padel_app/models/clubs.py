@@ -10,7 +10,6 @@ class Club(db.Model, model.Model):
     __tablename__ = "clubs"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Clubs"
     model_name = "Club"
 
     id = Column(Integer, primary_key=True)
@@ -65,16 +64,6 @@ class Club(db.Model, model.Model):
     @property
     def display_name(self):
         return self.name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Name"}
-        columns = [
-            {"field": "name", "label": "Name"},
-            {"field": "location", "label": "Location"},
-            {"field": "logo", "label": "Logo"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

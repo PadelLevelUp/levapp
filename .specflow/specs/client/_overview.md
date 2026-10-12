@@ -13,6 +13,10 @@ what a user sees while that happens. One contract for both apps.
   from cache at once and refreshes in the background; freshness is event-driven over SSE, never
   polled; range and page changes keep the previous data on screen)
 
+- `client.route-loading` — implementing (PAD-585, web only: every page a lazy chunk, menu pages
+  prefetched on idle, a missing chunk reloads once, English loaded on demand, a 300 kB gzip
+  budget on the first download checked in CI)
+
 ## Why it's grouped this way
 
 Every feature leaf describes what a screen shows. How the data behind it is cached and refreshed

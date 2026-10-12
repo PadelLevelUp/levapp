@@ -20,7 +20,6 @@ class EvaluationEntry(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Evaluation Entries"
     model_name = "EvaluationEntry"
 
     id = Column(Integer, primary_key=True)
@@ -75,17 +74,6 @@ class EvaluationEntry(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "category", "label": "Category"}
-        columns = [
-            {"field": "coach_player", "label": "Coach ↔ Player"},
-            {"field": "category", "label": "Category"},
-            {"field": "score", "label": "Score"},
-            {"field": "evaluated_at", "label": "Evaluated At"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

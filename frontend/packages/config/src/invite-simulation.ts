@@ -211,6 +211,10 @@ export function describePriority(p: InviteSimulationPriority): I18nText {
       };
     }
     case "justified_misses":
+      // PAD-505: the count of classes owed. Only a server from before it sends a bare rate.
+      if (typeof p.owed === "number") {
+        return { key: `${NS}.priority.makeupsOwed`, params: { count: p.owed } };
+      }
       return { key: `${NS}.priority.justifiedMisses`, params: { pct: Math.round(p.rate * 100) } };
     case "attendance":
       return { key: `${NS}.priority.attendance`, params: { pct: Math.round(p.rate * 100) } };

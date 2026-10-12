@@ -30,7 +30,6 @@ class ClassJoinRequest(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Class Join Requests"
     model_name = "ClassJoinRequest"
 
     id = Column(Integer, primary_key=True)
@@ -87,14 +86,3 @@ class ClassJoinRequest(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "status", "label": "Status"}
-        columns = [
-            {"field": "lesson_instance", "label": "Class"},
-            {"field": "player", "label": "Player"},
-            {"field": "status", "label": "Status"},
-            {"field": "created_at", "label": "Requested At"},
-        ]
-        return searchable, columns

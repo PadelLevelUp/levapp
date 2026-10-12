@@ -58,6 +58,10 @@ Coaches finalizing attendance for classes that have already happened.
   taken by somebody else in the meantime, the coach is warned the class will be over its capacity
   and may go ahead (PAD-567, owner decision 2026-10-09). A validated class can have a mark taken
   back too; it then waits for a decision again. The player is not messaged about it.
+- Each justified absence earns the player one class to make up. A class is made up each time
+  the player accepts one of the coach's invitations to a free spot — even if they then miss
+  that class (owner decision 2026-10-11). Joining through their own request does not count. The invitation engine's "has a class to make up" group and its make-up ranking use that
+  number, and the coach sees it as a count ("2 aulas por repor"), never a percentage (PAD-505).
 - A coach only ever sees their own classes and players here — never another coach's roster.
 - Classes waiting to be validated are hard to miss: the coach sees how many — every class still
   waiting, however many weeks ago it ran, in the same number — on the dashboard and on the
