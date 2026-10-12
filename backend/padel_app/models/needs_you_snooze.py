@@ -1,8 +1,7 @@
 """A coach's "later" on one item of the dashboard's needs-you queue.
 
 Plain ``db.Model`` on purpose (like ``TokenBlocklist``): this is dashboard
-plumbing, not something the generic admin editor should ever expose, so it is
-deliberately absent from ``models.MODELS``.
+plumbing.
 """
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 

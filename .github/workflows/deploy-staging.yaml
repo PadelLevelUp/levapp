@@ -218,6 +218,7 @@ jobs:
             -e GOOGLE_WEB_CLIENT_ID="${{ vars.GOOGLE_WEB_CLIENT_ID_STAGING }}" \
             -e GOOGLE_IOS_CLIENT_ID="${{ vars.GOOGLE_IOS_CLIENT_ID }}" \
             -e APPLE_CLIENT_IDS="${{ vars.APPLE_CLIENT_IDS }}" \
+            -e HUBSPOT_DEMO_FORM_ID="${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
@@ -290,6 +291,7 @@ jobs:
           build-args: |
             VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}
             VITE_GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID_STAGING }}
+            VITE_API_BASE_URL=${{ vars.API_BASE_URL_STAGING }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:

@@ -186,6 +186,24 @@ describe("rounds, badges and priorities", () => {
       "tutorials.priority.playingSide.exact",
     );
   });
+
+  it("PAD-505: shows the classes owed as a count, not a rate", () => {
+    expect(describePriority({ id: "justified_misses", owed: 2, rate: 0.2 })).toEqual({
+      key: "tutorials.priority.makeupsOwed",
+      params: { count: 2 },
+    });
+    expect(describePriority({ id: "justified_misses", owed: 0, rate: 0 })).toEqual({
+      key: "tutorials.priority.makeupsOwed",
+      params: { count: 0 },
+    });
+  });
+
+  it("PAD-505: a server from before PAD-505 sends only the rate, which keeps its old words", () => {
+    expect(describePriority({ id: "justified_misses", rate: 0.333 })).toEqual({
+      key: "tutorials.priority.justifiedMisses",
+      params: { pct: 33 },
+    });
+  });
 });
 
 describe("describeVerdict + resolveText", () => {

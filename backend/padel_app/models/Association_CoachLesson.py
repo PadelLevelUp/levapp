@@ -14,7 +14,6 @@ class Association_CoachLesson(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Coach ↔ Lesson"
     model_name = "Association_CoachLesson"
 
     id = Column(Integer, primary_key=True)
@@ -33,15 +32,6 @@ class Association_CoachLesson(db.Model, model.Model):
     @property
     def name(self):
         return f"{self.coach.name} - {self.lesson.name}"
-
-    @classmethod
-    def display_all_info(cls):
-        searchable_column = {"field": "coach", "label": "Coach"}
-        table_columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "lesson", "label": "Lesson"},
-        ]
-        return searchable_column, table_columns
 
     @classmethod
     def get_create_form(cls):

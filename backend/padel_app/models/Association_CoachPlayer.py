@@ -14,7 +14,6 @@ class Association_CoachPlayer(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Coach ↔ Player"
     model_name = "Association_CoachPlayer"
 
     id = Column(Integer, primary_key=True)
@@ -65,15 +64,6 @@ class Association_CoachPlayer(db.Model, model.Model):
             if entry.category_id not in seen:
                 seen[entry.category_id] = entry
         return list(seen.values())
-
-    @classmethod
-    def display_all_info(cls):
-        searchable_column = {"field": "coach", "label": "Coach"}
-        table_columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "player", "label": "Player"},
-        ]
-        return searchable_column, table_columns
 
     @classmethod
     def get_create_form(cls):

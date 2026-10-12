@@ -12,7 +12,7 @@
  * headless Chromium is not an installed PWA.
  *
  * R-040: the one message this spec sends is deleted in `finally` through the
- * superadmin editor, by the id the send returned.
+ * E2E-only cleanup route, by the id the send returned.
  */
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import {
@@ -126,7 +126,7 @@ test("PAD-416: opening an unread conversation clears its row, the nav badge and 
     ).toBe(true);
   } finally {
     if (messageId !== undefined) {
-      const del = await request.delete(`${API_ROOT}/editor/message/${messageId}`, { headers: coach });
+      const del = await request.delete(`${API_ROOT}/app/notify/debug/rows/message/${messageId}`, { headers: coach });
       expect.soft(del.ok(), `delete message ${messageId}: ${del.status()}`).toBeTruthy();
     }
   }

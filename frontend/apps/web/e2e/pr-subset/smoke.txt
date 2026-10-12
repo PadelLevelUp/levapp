@@ -5,3 +5,4 @@ dashboard/student-dashboard-home.spec.ts
 layout/mobile-bottom-nav.spec.ts
 players/master-detail.spec.ts
 settings/profile-persistence.spec.ts
+messaging/seed-conversation-ids.spec.ts

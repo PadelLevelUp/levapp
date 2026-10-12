@@ -6,6 +6,9 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
+import { COUNTRIES, countryName } from "@levelup/config";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +46,8 @@ export type AccountFormField = {
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
   /** PAD-457: e.g. "DD/MM/AAAA" for the activation form's birth date. */
   placeholder?: string;
+  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box. */
+  kind?: "country";
 };
 
 export function PreAuthShell({
@@ -132,6 +137,54 @@ export function AccountSetupNotice({
   );
 }
 
+/**
+ * PAD-604: the country picker on the completion forms, as sign-up's (`app/signup.tsx`): required,
+ * default PT, the `COUNTRIES` list in the reader's language. Error id `<form>-country-error`, as
+ * every field of the form.
+ */
+function CountryField({
+  testID,
+  label,
+  value,
+  error,
+  disabled,
+  onChange,
+}: {
+  testID: string;
+  label: string;
+  value: string;
+  error?: string;
+  disabled: boolean;
+  onChange: (code: string) => void;
+}) {
+  const { i18n } = useTranslation();
+  return (
+    <View className="gap-1.5">
+      <Label testID={`${testID}-label`}>{label}</Label>
+      <Select
+        value={{ value, label: value ? countryName(value, i18n.language) : "" }}
+        onValueChange={(opt) => {
+          if (opt?.value) onChange(opt.value);
+        }}
+      >
+        <SelectTrigger testID={testID} disabled={disabled}>
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent>
+          {COUNTRIES.map((c) => (
+            <SelectItem key={c.code} value={c.code} label={countryName(c.code, i18n.language)} />
+          ))}
+        </SelectContent>
+      </Select>
+      {error ? (
+        <Text className="text-sm text-destructive" testID={`${testID}-error`} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function AccountSetupForm({
   title,
   description,
@@ -170,32 +223,44 @@ export function AccountSetupForm({
         </CardHeader>
 
         <CardContent className="gap-4">
-          {fields.map((field) => (
-            <View key={field.id} className="gap-1.5">
-              <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
-              <Input
+          {fields.map((field) =>
+            field.kind === "country" ? (
+              <CountryField
+                key={field.id}
                 testID={`${testID}-${field.id}`}
-                accessibilityLabel={field.label}
+                label={field.label}
                 value={values[field.id] ?? ""}
-                onChangeText={(next) => onChangeField(field.id, next)}
-                secureTextEntry={field.secure}
-                keyboardType={field.keyboardType ?? "default"}
-                placeholder={field.placeholder}
-                autoComplete={field.autoComplete}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting}
+                error={errors[field.id]}
+                disabled={submitting}
+                onChange={(code) => onChangeField(field.id, code)}
               />
-              {errors[field.id] ? (
-                <Text
-                  className="text-sm text-destructive"
-                  testID={`${testID}-${field.id}-error`}
-                >
-                  {errors[field.id]}
-                </Text>
-              ) : null}
-            </View>
-          ))}
+            ) : (
+              <View key={field.id} className="gap-1.5">
+                <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
+                <Input
+                  testID={`${testID}-${field.id}`}
+                  accessibilityLabel={field.label}
+                  value={values[field.id] ?? ""}
+                  onChangeText={(next) => onChangeField(field.id, next)}
+                  secureTextEntry={field.secure}
+                  keyboardType={field.keyboardType ?? "default"}
+                  placeholder={field.placeholder}
+                  autoComplete={field.autoComplete}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                />
+                {errors[field.id] ? (
+                  <Text
+                    className="text-sm text-destructive"
+                    testID={`${testID}-${field.id}-error`}
+                  >
+                    {errors[field.id]}
+                  </Text>
+                ) : null}
+              </View>
+            )
+          )}
 
           {submitError ? (
             <Text

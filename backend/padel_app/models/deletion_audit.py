@@ -10,8 +10,9 @@ class DeletionAudit(db.Model, model.Model):
 
     Written by the service BEFORE it deletes, in the same transaction, so the
     record and the delete commit or fail together. `details` holds what the
-    delete took with it (counts), measured just before it ran. Superadmins read
-    it in the generic editor.
+    delete took with it (counts), measured just before it ran. Nothing reads it
+    since the generic editor was deleted (PAD-550); the staff console review is
+    PAD-631, "Admin console: review message reports and deletion audits".
     """
 
     __tablename__ = "deletion_audit"
@@ -22,7 +23,6 @@ class DeletionAudit(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Deletion Audit"
     model_name = "DeletionAudit"
 
     id = Column(Integer, primary_key=True)
@@ -43,18 +43,6 @@ class DeletionAudit(db.Model, model.Model):
     @property
     def display_name(self):
         return self.name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "label", "label": "Label"}
-        columns = [
-            {"field": "entity", "label": "Entity"},
-            {"field": "entity_id", "label": "Id"},
-            {"field": "action", "label": "Action"},
-            {"field": "label", "label": "Label"},
-            {"field": "created_at", "label": "When"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

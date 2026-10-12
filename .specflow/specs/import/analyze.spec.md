@@ -26,6 +26,12 @@ Upload an Excel file and have an AI analyze its contents, mapping columns to the
    personal data of the coach's students (names, and any contact details present in sample values).
    Listed in the privacy-policy checklist of decision `2026-09-10-account-deletion-keeps-coach-records`
    so the legal copy can be checked against it.
+6a. **Only to a provider that keeps nothing (PAD-636).** Every model request carries OpenRouter's
+   provider preference `{"data_collection": "deny"}`, so OpenRouter routes it only to an endpoint
+   whose declared policy is neither to train on prompts nor to retain them. If no endpoint qualifies,
+   the request fails rather than falling back to one that keeps data. The default provider of
+   `inception/mercury-2`, Inception, qualifies (OpenRouter lists it as `training: false`,
+   `retainsPrompts: false`, read 2026-10-11).
 7. **The stream reads nothing from the database (PAD-293, B-070).** Level values found in the
    spreadsheet are mapped onto the coach's *existing* levels (`levels.coach-levels`), and that
    ladder — like anything else the analysis needs from the database — is read by the view inside
@@ -51,3 +57,9 @@ Upload an Excel file and have an AI analyze its contents, mapping columns to the
 - **Given** a coach with no levels yet
 - **When** the same file is analysed
 - **Then** the `tables` event has no "Coach Levels" table, the players keep their raw level value, and no `error` event is streamed
+
+#### Every model request asks for a provider that keeps nothing (rule 6a, PAD-636)
+- **Given** the import analysis calls the model
+- **When** the request is sent to OpenRouter
+- **Then** its body carries `provider: {"data_collection": "deny"}`
+- **And** the reasoning setting is still sent alongside it

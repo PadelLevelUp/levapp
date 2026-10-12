@@ -552,6 +552,11 @@
         "coach": "Missed"
       },
       "reminderSent": "Reminder sent"
+    },
+    "overflow": {
+      "label": "+{{count}}",
+      "aria": "{{count}} more classes",
+      "title": "More classes at this time"
     }
   }
 }
