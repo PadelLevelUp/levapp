@@ -16,7 +16,6 @@ class ReminderAttempt(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Reminder attempts"
     model_name = "ReminderAttempt"
 
     id = Column(Integer, primary_key=True)

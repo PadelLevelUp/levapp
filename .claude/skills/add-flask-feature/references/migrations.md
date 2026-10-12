@@ -29,7 +29,7 @@ flask db current
 ## Workflow
 
 1. Create or modify the model file in `padel_app/models/`
-2. Register it in `padel_app/models/__init__.py` (import + MODELS dict)
+2. Register it in `padel_app/models/__init__.py` (import)
 3. Run `flask db migrate -m "description"` — generates a migration file
 4. **Review the generated migration** — auto-detect sometimes misses things or generates
    unnecessary changes. Check column types, nullable, defaults, and FK constraints.

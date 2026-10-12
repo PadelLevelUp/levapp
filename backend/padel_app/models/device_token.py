@@ -23,7 +23,6 @@ class DeviceToken(db.Model, model.Model):
         Index("ix_device_tokens_token", "token"),
         {"extend_existing": True},
     )
-    page_title = "Device Tokens"
     model_name = "DeviceToken"
 
     id = Column(Integer, primary_key=True)

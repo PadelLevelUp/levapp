@@ -16,7 +16,6 @@ class PlayerMerge(db.Model, model.Model):
     __tablename__ = "player_merges"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Player Merges"
     model_name = "PlayerMerge"
 
     id = Column(Integer, primary_key=True)
@@ -51,14 +50,3 @@ class PlayerMerge(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "placeholder_player_id", "label": "Placeholder"}
-        columns = [
-            {"field": "placeholder_player_id", "label": "Placeholder"},
-            {"field": "target_player", "label": "Target"},
-            {"field": "trigger", "label": "Trigger"},
-            {"field": "created_at", "label": "When"},
-        ]
-        return searchable, columns

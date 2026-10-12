@@ -34,12 +34,9 @@ def create_app(test_config=None):
     env = os.getenv("FLASK_ENV", "development")
     if test_config:
         app.config.from_mapping(test_config)
-        # Tests exercise the editor unless a test config turns it off.
-        app.config.setdefault("EDITOR_ENABLED", True)
     else:
         from .config import (
             assert_safe_migration_target,
-            editor_enabled_from_env,
             get_config_class,
             is_migration_invocation,
         )
@@ -50,12 +47,6 @@ def create_app(test_config=None):
         # — the URI must follow the class's host override (PAD-95).
         config_cls.refresh_database_settings()
         app.config.from_object(config_cls)
-        # settings.admin-editor rule 1 (PAD-267): on in development, off in
-        # production unless the deploy sets EDITOR_ENABLED (staging does).
-        app.config["EDITOR_ENABLED"] = editor_enabled_from_env(
-            default=config_cls.EDITOR_ENABLED_DEFAULT
-        )
-
         # Never log the URI itself — it carries the password.
         app.logger.info(
             "Config %s (FLASK_ENV=%s) using database %s@%s:%s/%s",

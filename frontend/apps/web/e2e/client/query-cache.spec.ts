@@ -248,7 +248,7 @@ test("PAD-586: a live message refetches the conversations list once and never pr
     expect(probes).toEqual([]);
   } finally {
     if (messageId !== undefined) {
-      const del = await request.delete(`${API_ROOT}/editor/message/${messageId}`, { headers: coach });
+      const del = await request.delete(`${API_ROOT}/app/notify/debug/rows/message/${messageId}`, { headers: coach });
       expect.soft(del.ok(), `delete message ${messageId}: ${del.status()}`).toBeTruthy();
     }
   }

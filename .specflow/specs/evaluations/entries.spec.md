@@ -13,7 +13,7 @@ governed_by: []
 Coaches record evaluation scores for players over time, tracking progress across categories.
 
 ### Entities
-- **EvaluationEntry** (`evaluation_entries`): coach_player_id (FK → coach_in_player), category_id, score (float), comment (500 chars — the column exists, nothing in the app API or the import writes it; only the legacy admin editor can), evaluated_at (naive UTC, stamped `utcnow` on save; the import is the only path that writes a past date)
+- **EvaluationEntry** (`evaluation_entries`): coach_player_id (FK → coach_in_player), category_id, score (float), comment (500 chars — the column exists, nothing in the app API or the import writes it; the legacy admin editor that could was deleted by PAD-550), evaluated_at (naive UTC, stamped `utcnow` on save; the import is the only path that writes a past date)
 
 ### Rules
 1. Entries are scoped to a coach-player relationship + category
