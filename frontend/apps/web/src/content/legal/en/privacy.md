@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective date: October 13, 2026
+Effective date: October 14, 2026
 
 This Privacy Policy explains how Sucesso Fractal – Lda ("LevApp", "we", "us", or "our") collects, uses, shares, stores, and protects personal data when you use LevApp, including our mobile applications, websites, and related services (collectively, the "Service").
 
@@ -13,6 +13,7 @@ Depending on how you use LevApp, we may collect or process:
 - Account information, such as your name, username, email address, phone number, password in hashed form, profile photo, account type, and account status.
 - Date of birth and country, including to verify account eligibility and support age-related features such as birthdays, player categories, and tournament categories.
 - Coaching information, such as lessons, schedules, attendance, rankings, evaluations, coaching notes, waiting lists, and related activity.
+- Availability and calendar information, such as a coach's working hours and the times a coach or player marks as unavailable, including any title or description given to them (for example, "holidays").
 - Messages and User Content, including messages, comments, images, attachments, and other content submitted through the Service.
 - Information about other people provided by users who are authorized to manage that information in connection with coaching activities.
 - Reports and safety information when users block another user, report content or behaviour, or contact us about abuse or security.
@@ -62,21 +63,14 @@ If you believe LevApp contains personal data relating to you, or to a person you
 
 ## 5. Service providers and sharing
 
-We use trusted third-party providers where necessary to operate LevApp, including providers of:
+We use the following third-party providers to operate LevApp. They receive personal data only as reasonably necessary to provide their services to us.
 
-- cloud hosting, databases, file storage, and backups;
-- email and communications;
-- push notifications;
-- customer and relationship management;
-- website analytics, where any required consent has been provided;
-- optional AI-assisted functionality;
-- security and other technical infrastructure.
-
-These providers may receive personal data only as reasonably necessary to provide their services to us.
-
-Push notifications are delivered through Expo and through Apple's and Google's notification services. A notification may include the sender's name and the beginning of a message. Once delivered, a notification is outside our control, and deleting your account does not recall notifications already sent.
-
-Some optional features, such as AI-assisted spreadsheet import, may send limited information to an external AI provider where necessary to perform the requested feature. Users should avoid including unnecessary or sensitive information in material submitted for import.
+- **Google Cloud** hosts the application, its database, uploaded files, and backups, in the European Economic Area (Belgium).
+- **Google Workspace (Gmail)** sends the emails the Service sends, such as verification and password-reset codes, invitations, and account notices. These emails contain your name and email address and the content of the message.
+- **Expo** delivers push notifications to the mobile apps, together with Apple's and Google's notification services. A notification may include the sender's name and the beginning of a message. Once delivered, a notification is outside our control, and deleting your account does not recall notifications already sent.
+- **Expo** also delivers updates to the mobile apps. Each time the app starts, it checks for an update, which sends Expo your device's IP address, its platform, and the app version.
+- **HubSpot** is our customer-relationship system. For coaches, we keep there the name, email address, phone number, account status, and the state of our commercial relationship, on the basis of our legitimate interest in managing our relationship with the coaches who use LevApp. HubSpot also receives what you type in the forms on our website and, if you accept analytics cookies, website analytics.
+- **OpenRouter**, and the AI model provider it routes to (currently **Inception**), perform the optional AI-assisted spreadsheet import. When a coach uses it, they receive the spreadsheet's column headings and a sample of its contents, which may include players' names, email addresses, phone numbers, and levels, and the names of the coach's groups. We configure OpenRouter to use only model providers that do not store the data or use it for training. Users should avoid including unnecessary or sensitive information in material submitted for import.
 
 We may also disclose personal data where required by law, necessary to respond to a valid request from a competent authority, necessary to protect users or the Service, or necessary to establish, exercise, or defend legal claims.
 
@@ -106,9 +100,9 @@ Users are instructed not to intentionally submit medical diagnoses, medication i
 
 Our main application infrastructure is hosted in the European Economic Area.
 
-Some service providers may process personal data outside the EEA.
+Some of the providers named in section 5 process personal data in the United States: Expo, OpenRouter and the AI model provider it routes to, Google (Gmail and its notification service), Apple (its notification service), and HubSpot.
 
-Where required by applicable data-protection law, we use an appropriate legal mechanism for such transfers, such as an adequacy decision, Standard Contractual Clauses, or another lawful safeguard.
+For these transfers we rely on the European Commission's adequacy decision for the EU–U.S. Data Privacy Framework, where the provider is certified under it, and otherwise on the Standard Contractual Clauses approved by the European Commission or another safeguard permitted by applicable data-protection law.
 
 ## 10. Retention and account deletion
 

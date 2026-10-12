@@ -30,7 +30,7 @@ ROLES = ("coach", "student")
 TERMS_VERSION = "2026-10-13"
 # The Privacy Policy's version, the same way (`index.ts` and `en/privacy.md`). Not merged with
 # config.LEGAL_TERMS_VERSION (the retired guardian-consent record) on purpose; see auth.register rule 19.
-PRIVACY_VERSION = "2026-10-13"
+PRIVACY_VERSION = "2026-10-14"
 
 
 def validate_terms(data):
