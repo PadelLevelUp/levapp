@@ -70,4 +70,5 @@ export * from "./class-level-match";
 export * from "./walk-in-options";
 export * from "./waiting-list-origin";
 export * from "./install-suggestion";
+export * from "./country-prompt";
 export * from "./contact";

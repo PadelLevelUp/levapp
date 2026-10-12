@@ -69,13 +69,3 @@ def register_jwt_handlers(jwt):
 
         return False
 
-
-def setup_login_manager(login_manager):
-    @login_manager.user_loader
-    def load_user(user_id):
-        # PAD-268 (auth.account-deletion rule 3): an open legacy session of a
-        # disabled (deleted) account ends; the loader never hands it back.
-        user = User.query.get(int(user_id))
-        if user is None or user.status == "disabled":
-            return None
-        return user

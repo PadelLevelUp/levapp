@@ -12,6 +12,8 @@
         "clubs": "Clubs",
         "switches": "Switches",
         "engineHealth": "Engine health",
+        "reports": "Reports",
+        "deletionAudits": "Deletions",
         "work": "Work"
       },
       "signOut": "Sign out",
@@ -325,6 +327,91 @@
       "minutes": "{{n}} min",
       "hours": "{{n}} h",
       "days": "{{n}} d"
+    },
+    "reports": {
+      "title": "Reports",
+      "lead": "Messages that students and coaches reported. Read each one in context and act on it.",
+      "tabs": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "empty": "No reports here.",
+      "deleted": "deleted",
+      "noReason": "No reason given",
+      "unknownAuthor": "Unknown author",
+      "columns": {
+        "created": "Reported",
+        "reason": "Reason",
+        "message": "Message",
+        "author": "Author",
+        "reporter": "Reporter",
+        "outcome": "Outcome",
+        "closedBy": "Closed by"
+      },
+      "outcome": {
+        "dismissed": "Dismissed",
+        "message_deleted": "Message deleted",
+        "author_disabled": "Author disabled"
+      },
+      "status": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "open": "Open report",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
+    },
+    "report": {
+      "back": "Back to reports",
+      "notFound": "That report does not exist.",
+      "title": "Report #{{id}}",
+      "facts": "The report",
+      "context": "The message in context",
+      "reportedMarker": "Reported message",
+      "deletedMarker": "Deleted",
+      "contextEmpty": "No messages to show.",
+      "participants": "Conversation participants",
+      "sender": "Sender",
+      "actions": "Actions",
+      "closedNotice": "This report is closed.",
+      "dismiss": "Dismiss",
+      "deleteMessage": "Delete message",
+      "disableAuthor": "Disable author",
+      "confirm": {
+        "dismiss": "Dismiss this report? The message stays as it is.",
+        "delete-message": "Delete the reported message? Everyone in the conversation will no longer see it.",
+        "disable-author": "Disable the author of the message? They are signed out everywhere and cannot sign in."
+      },
+      "note": "Note",
+      "noteRequired": "Say why (required)",
+      "noteOptional": "Note (optional)",
+      "confirmAction": "Confirm",
+      "alreadyHandled": "This report was already handled. It has been refreshed.",
+      "error": "The action failed. Try again."
+    },
+    "deletionAudits": {
+      "title": "Deletions",
+      "lead": "The record of destructive deletes. Read only.",
+      "filters": {
+        "entity": "Entity",
+        "placeholder": "e.g. club",
+        "apply": "Filter",
+        "clear": "Clear"
+      },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "entity": "Entity",
+        "action": "Action",
+        "label": "Label",
+        "counts": "Counts"
+      },
+      "system": "system",
+      "empty": "No deletions recorded.",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
     },
     "work": {
       "title": "Work",

@@ -385,7 +385,10 @@ export function MessageBubble({
               <span className="font-semibold block">
                 {Number(replyToMessage.senderId) === Number(userId) ? t('messages.you') : participantName}
               </span>
-              <span className="line-clamp-1">{replyToMessage.content}</span>
+              {/* messaging.messages rule 3 (PAD-639): a deleted original is never quoted. */}
+              <span className="line-clamp-1">
+                {replyToMessage.isDeleted ? t('messages.messageDeleted') : replyToMessage.content}
+              </span>
             </button>
           )}
 

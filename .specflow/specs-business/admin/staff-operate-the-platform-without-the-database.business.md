@@ -7,6 +7,7 @@ implemented_by:
   - ../../specs/admin/engine-health.spec.md
   - ../../specs/admin/commercial-groundwork.spec.md
   - ../../specs/admin/phone-console.spec.md
+  - ../../specs/admin/moderation.spec.md
   - ../../specs/admin/work-dashboard.spec.md
 ---
 
@@ -66,6 +67,10 @@ need to look. Indirectly every coach and student, who get faster approvals and f
    tickets done and the changes shipped, and whether each change is on staging or live; nothing
    on it can change a ticket or a pull request, and the keys to Linear and GitHub stay on the
    server (PAD-555).
+- A message a student or coach reports reaches staff, who see it in context and dismiss it, delete
+  the message or disable its author; every decision is recorded (App Store Guideline 1.2; PAD-631).
+  The admin is emailed when reports arrive (one email per burst, with no message text, only a link
+  to the console).
 
 ## Success Metrics
 

@@ -38,7 +38,8 @@ inside (covered by other domains).
 ## Business Rules
 
 - A username/password pair is required to sign in; wrong credentials or an account that hasn't been
-  activated yet are both refused.
+  activated yet are both refused. An empty password never signs anyone in, by any route: the app's
+  sign-in is the only way in with a password.
 - A session lasts up to 30 days of token life, but is silently renewed well before it would expire, so
   in practice an active user is never logged out by the passage of time alone.
 - Signing out immediately kills that specific session — the same token can't be replayed afterward.

@@ -10,7 +10,7 @@ whose `iat` is older than the role's `granted_at`.
 
 Run after reset-test-db.sh, with the backend's Python and the E2E database env set:
     python admin_session.py --db <name> --email staff.e2e@levapp.app --role operator
-The last stdout line is `{"token", "expiresAt", "role", "email", "roleId", "pendingCoachIds", "userIds"}`.
+The last stdout line is `{"token", "expiresAt", "role", "email", "roleId", "pendingCoachIds", "userIds", "reportIds"}`.
 """
 import argparse
 import json
@@ -36,6 +36,10 @@ from padel_app import create_app  # noqa: E402
 from padel_app.models.admin_audit_log import AdminAuditLog  # noqa: E402
 from padel_app.models.admin_role import AdminRole  # noqa: E402
 from padel_app.models.coaches import Coach  # noqa: E402
+from padel_app.models.conversation_participants import ConversationParticipant  # noqa: E402
+from padel_app.models.conversations import Conversation  # noqa: E402
+from padel_app.models.message_report import MessageReport  # noqa: E402
+from padel_app.models.messages import Message  # noqa: E402
 from padel_app.models.users import User  # noqa: E402
 from padel_app.services.admin import auth_service  # noqa: E402
 from padel_app.sql_db import db  # noqa: E402
@@ -44,6 +48,17 @@ from padel_app.utils.dates import utcnow_naive  # noqa: E402
 PENDING_COACHES = [
     ("Rui Pires", "e2e-pending-rui", "e2e-pending-rui@test.com"),
     ("Ines Matos", "e2e-pending-ines", "e2e-pending-ines@test.com"),
+]
+# admin.moderation (PAD-631): a student reports two messages of a coach, in one conversation.
+STUDENT = ("E2E Reporter Student", "e2e-mod-student", "e2e-mod-student@test.com")
+COACH = ("E2E Reported Coach", "e2e-mod-coach", "e2e-mod-coach@test.com")
+# (sender: "student" | "coach", text, reported with this reason or None)
+MODERATION_MESSAGES = [
+    ("student", "Boa tarde treinador", None),
+    ("coach", "Paga-me ja E2E um", "abuso um"),
+    ("student", "Nao percebi", None),
+    ("coach", "Paga-me ja E2E dois", "abuso dois"),
+    ("student", "Ok", None),
 ]
 AUDIT_ACTIONS = ["auth.sign_in", "coach.approve", "switch.put"]
 
@@ -102,6 +117,50 @@ with app.app_context():
                 request_id=f"e2e-phone-{i}",
             )
         )
+
+    def ensure_user(name, username, user_email):
+        user = User.query.filter_by(username=username).first()
+        if user is None:
+            user = User(
+                name=name,
+                username=username,
+                email=user_email,
+                password=generate_password_hash("E2eModeration123!"),
+                status="active",
+                language="en",
+            )
+            db.session.add(user)
+            db.session.flush()
+        return user
+
+    student = ensure_user(*STUDENT)
+    coach_user = ensure_user(*COACH)
+    participant_key = f"e2e-moderation-{student.id}-{coach_user.id}"
+    report_ids = []
+    conversation = Conversation.query.filter_by(participant_key=participant_key).first()
+    if conversation is None:
+        conversation = Conversation(participant_key=participant_key, is_group=False)
+        db.session.add(conversation)
+        db.session.flush()
+        for member in (student, coach_user):
+            db.session.add(ConversationParticipant(conversation_id=conversation.id, user_id=member.id))
+        for i, (who, text, reason) in enumerate(MODERATION_MESSAGES):
+            message = Message(
+                text=text,
+                sender_id=(student if who == "student" else coach_user).id,
+                conversation_id=conversation.id,
+                sent_at=now - timedelta(minutes=30 - i),
+            )
+            db.session.add(message)
+            db.session.flush()
+            if reason:
+                report = MessageReport(reporter_id=student.id, message_id=message.id, reason=reason)
+                db.session.add(report)
+                db.session.flush()
+    report_ids = [
+        r.id
+        for r in MessageReport.query.filter_by(reporter_id=student.id).order_by(MessageReport.id).all()
+    ]
     db.session.commit()
 
     token, expires_at = auth_service.mint_admin_token(role)
@@ -115,6 +174,7 @@ with app.app_context():
                 "roleId": role.id,
                 "pendingCoachIds": pending_ids,
                 "userIds": user_ids,
+                "reportIds": report_ids,
             }
         )
     )

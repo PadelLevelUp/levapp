@@ -861,6 +861,11 @@ export interface Conversation {
   isKnownContact?: boolean;
 
   lastMessage: string | null;
+  /**
+   * messaging.conversations rule 12a (PAD-639, B-547): the last message was deleted, so
+   * `lastMessage` is "" and the row shows "Message deleted". Absent from older servers.
+   */
+  lastMessageDeleted?: boolean;
   lastMessageAt: string | null;
 
   unreadCount: number;

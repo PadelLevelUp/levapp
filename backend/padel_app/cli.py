@@ -28,7 +28,7 @@ def register_cli(app):
         help="Admin password (used only when seeding admin user).",
     )
     def seed(tables, all_mock_data, admin_user, admin_email, admin_password):
-        from padel_app.models import Backend_App, User
+        from padel_app.models import User
         from padel_app.seed import (
             ALL_SEED_TABLES,
             available_table_names,
@@ -97,11 +97,6 @@ def register_cli(app):
                     is_admin=True,
                 )
                 admin.create()
-
-            apps_app = Backend_App.query.filter_by(name="Aplicações").first()
-            if not apps_app:
-                apps_app = Backend_App(name="Aplicações", app_model_name="Backend_App")
-                apps_app.create()
 
             click.echo("Seeding done.")
 
