@@ -268,6 +268,10 @@ def report_message_service(reporter_id, message_id, reason=None):
 
     report = MessageReport(reporter_id=reporter_id, message_id=message_id, reason=reason)
     report.create()
+    # admin.moderation rule 8 (PAD-631): tell the admin, after the report is stored.
+    from padel_app.services.report_alert_service import notify_admin_of_report
+
+    notify_admin_of_report(report)
     return report
 
 
@@ -518,13 +522,29 @@ def delete_message_service(message_id, user_id):
     require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
-    message.is_deleted = True
+    soft_delete_message(message)
     message.save()
+    publish_message_deleted(message)
+
+
+def soft_delete_message(message):
+    """What a delete does to the row (messaging.messages rule 3): a soft delete, nothing removed.
+    Shared by the sender's delete and the console's (admin.moderation rule 4); the caller commits
+    and then publishes. Returns False when it was already deleted."""
+    if message.is_deleted:
+        return False
+    message.is_deleted = True
+    return True
+
+
+def publish_message_deleted(message):
+    """The `message_deleted` live event to the message's conversation (messaging.messages rule 3).
+    Shared with the console's delete (admin.moderation rule 4), which sends it after its commit."""
     publish(
         {
             "type": "message_deleted",
             "payload": {
-                "id": message_id,
+                "id": message.id,
                 "conversationId": message.conversation_id,
             },
         },
