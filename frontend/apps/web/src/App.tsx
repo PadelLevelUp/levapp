@@ -34,6 +34,7 @@ import {
   SignUpPage,
   StudentEvaluations,
   SupportPage,
+  DeleteAccountPage,
   TrainingExercisesPage,
   TrainingGroupsPage,
   TrainingPage,
@@ -88,6 +89,8 @@ const App = () => (
               <Route path="/privacy" element={<LegalPage document="privacy" />} />
               <Route path="/terms" element={<LegalPage document="terms" />} />
               <Route path="/support" element={<SupportPage />} />
+              {/* auth.delete-account-page (PAD-603): Google Play's web deletion URL. */}
+              <Route path="/delete-account" element={<DeleteAccountPage />} />
 
               {/* `/` is the public page when there is no session and the
                   dashboard when there is — see HomeRoute. */}

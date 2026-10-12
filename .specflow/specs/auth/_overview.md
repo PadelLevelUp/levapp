@@ -27,3 +27,4 @@ The auth domain.
 
 One domain of the LevelUp product, migrated 2026-09-03 from the legacy `specs/auth/spec.md` (one file per domain) into one leaf per behaviour. Leaves sit directly under the domain — no capability folders yet.
 - `legal-pages` — the public Terms of Service and Privacy Policy at /terms and /privacy, rendered from markdown with a version header and an EN | PT switch (PAD-601).
+- `delete-account-page` — the public /delete-account page Google Play requires: how to delete in the app or by email without it, and what deletion removes and keeps (PAD-603, web only by design).
