@@ -410,3 +410,20 @@ def get_config_class(env=None, environ=None):
         assert_production_secrets(environ)
         return ProdConfig
     return DevConfig
+
+
+#: PAD-614 (delivery.api-host rule 3): origins every environment allows (local dev, the VM's
+#: legacy address). Each environment adds its public web origins with CORS_ALLOWED_ORIGINS.
+DEFAULT_CORS_ORIGINS = ("http://localhost:8080", "http://34.78.247.45")
+
+
+def cors_allowed_origins(environ=None):
+    """The defaults plus the comma-separated CORS_ALLOWED_ORIGINS (blank entries and a trailing
+    slash ignored, order kept, no duplicates). No wildcard: only listed origins may call /api."""
+    env = os.environ if environ is None else environ
+    extra = [o.strip().rstrip("/") for o in str(env.get("CORS_ALLOWED_ORIGINS", "")).split(",")]
+    origins = []
+    for origin in (*DEFAULT_CORS_ORIGINS, *extra):
+        if origin and origin != "*" and origin not in origins:
+            origins.append(origin)
+    return origins

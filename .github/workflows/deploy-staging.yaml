@@ -287,6 +287,7 @@ jobs:
           # the mailto (unset) and keep test submissions out of the CRM.
           build-args: |
             VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}
+            VITE_API_BASE_URL=${{ vars.API_BASE_URL_STAGING }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:

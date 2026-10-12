@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/api/base";
 import { initApi, getApi, type TokenStorage } from "@levelup/api";
 
 import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";

@@ -15,13 +15,15 @@ from . import cli, mail, modules, sql_db
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
+    from .config import cors_allowed_origins
+
     CORS(
         app,
-        resources={r"/api/*": {"origins": [
-            "http://localhost:8080",
-            "http://34.78.247.45",
-        ]}},
+        # PAD-614 (delivery.api-host rule 3): the web apps may call the API on its own host
+        # (api.levapp.app). The allowed origins are the defaults plus CORS_ALLOWED_ORIGINS.
+        resources={r"/api/*": {"origins": cors_allowed_origins()}},
         supports_credentials=False,
+        max_age=600,
         # PAD-352: the shells declare what they understand; a cross-origin
         # client (local dev) must be allowed to send it.
         allow_headers=["Content-Type", "Authorization", "X-LevApp-Capabilities"],
