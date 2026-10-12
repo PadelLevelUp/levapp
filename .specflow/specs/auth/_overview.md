@@ -14,7 +14,7 @@ The auth domain.
 - `auth.coach-crm-sync` — implemented (a self-registered coach becomes a HubSpot contact; status follows the admin's decisions; coach data only; PAD-471)
 - `auth.email-verification` — draft (6-digit code mailed at self-signup and on a self-service email change; clients hold the person on the code screen; PAD-234)
 - `auth.password-recovery` — draft (email-based password and username recovery: one mail with the username and a single-use 6-digit code; replaces the dead legacy `/auth/forgot_password`; PAD-139)
-- `auth.parental-consent` — **retired (PAD-457)**: the guardian-consent flow for minors, removed from the code when LevApp became adults-only (`auth.register` rule 18, `auth.activate` rule 13). Kept as the record; its tables stay until a checked migration.
+- `auth.parental-consent` — **retired (PAD-457)**: the guardian-consent flow for minors, removed from the code when LevApp became adults-only (`auth.register` rule 18, `auth.activate` rule 13). Kept as the record; PAD-644 dropped its tables and the status column.
 - `auth.token-refresh` — implemented
 - `auth.social-sign-in` — draft (PAD-618: sign up and sign in with Google on web and iOS, and with Apple on iOS; one verified-token endpoint, linking by verified email, sign-up's own checks for new accounts; ships dark until the client ids exist)
 - `auth.push-subscription` — implemented

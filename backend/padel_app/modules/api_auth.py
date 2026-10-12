@@ -99,11 +99,6 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
-        # PAD-198 (retired, PAD-457): no client reads this key — the App Store
-        # builds never did, and the current web and iOS code does not. It is
-        # additive and harmless, and goes with the guardian columns in the later,
-        # checked migration; no new "granted" value is produced anymore.
-        "guardianConsent": "granted" if user.guardian_consent_status == "granted" else None,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
     }
@@ -234,13 +229,6 @@ def _signed_in_answer(user):
     # auth.login rule 12 (B-053): any other disabled account — deleted, or
     # deactivated — is refused with a clear code and no token.
     if user.status == "disabled":
-        return {"error": "ACCOUNT_DISABLED"}, 401
-
-    # auth.login rule 10 (PAD-457): guardian_consent_status is a dead-code
-    # safety net now that signup requires 18+ (no new "pending"/"revoked" rows
-    # are ever created), but any left over from before still answer exactly
-    # like a disabled account rather than leaking the old guardian-consent code.
-    if user.guardian_consent_status in ("pending", "revoked"):
         return {"error": "ACCOUNT_DISABLED"}, 401
 
     access_token = issue_access_token(user.id)

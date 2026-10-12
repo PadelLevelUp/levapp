@@ -28,8 +28,7 @@ ROLES = ("coach", "student")
 # page states (`frontend/apps/web/src/content/legal/index.ts` and the "Effective date:" line of
 # `en/terms.md`, tied by test_pad485_terms_acceptance.py). Change them together when the Terms change.
 TERMS_VERSION = "2026-10-10"
-# The Privacy Policy's version, the same way (`index.ts` and `en/privacy.md`). Not merged with
-# config.LEGAL_TERMS_VERSION (the retired guardian-consent record) on purpose; see auth.register rule 19.
+# The Privacy Policy's version, the same way (`index.ts` and `en/privacy.md`); see auth.register rule 19.
 PRIVACY_VERSION = "2026-10-13"
 
 

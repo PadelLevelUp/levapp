@@ -243,7 +243,6 @@ class Config:
     AUTH_RATE_LIMIT_LOGIN = os.getenv("AUTH_RATE_LIMIT_LOGIN", "20/60")
     AUTH_RATE_LIMIT_REGISTER = os.getenv("AUTH_RATE_LIMIT_REGISTER", "5/600")
     AUTH_RATE_LIMIT_RECOVERY = os.getenv("AUTH_RATE_LIMIT_RECOVERY", "5/600")
-    LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # auth.email-verification rule 13 (PAD-269): send and confirm share one bucket.
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
     # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.

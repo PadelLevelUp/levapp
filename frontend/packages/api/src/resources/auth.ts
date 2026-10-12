@@ -1,13 +1,6 @@
 import { getApi } from "../client";
 
 export type MeResponse = {
-  /**
-   * PAD-198 (retired, PAD-457): "granted" once a guardian consented; null
-   * otherwise. Nothing reads it (the App Store builds never did); /me still
-   * emits it until the guardian columns are dropped in a later, checked
-   * migration. No new "granted" value is produced anymore.
-   */
-  guardianConsent?: "granted" | null;
   birthDate?: string | null;
   country?: string | null;
   id: number;
