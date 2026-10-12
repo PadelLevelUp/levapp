@@ -7,7 +7,7 @@ server {
     location /api/app/events {
         # B-182: an upstream error writes the request line, token included, at level error.
         error_log /var/log/nginx/error.log crit;
-        proxy_pass http://127.0.0.1:5100;
+        proxy_pass http://levapp_api_staging;
         proxy_http_version 1.1;
         proxy_buffering off;
         proxy_cache off;
@@ -23,7 +23,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:5100;
+        proxy_pass http://levapp_api_staging;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -50,7 +50,7 @@ server {
     location /api/app/register/ {
         # B-183: the account lookup carries the activation secret as ?token=; same.
         error_log /var/log/nginx/error.log crit;
-        proxy_pass http://127.0.0.1:5100;
+        proxy_pass http://levapp_api_staging;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -67,7 +67,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    listen 443 ssl; # managed by Certbot
+    listen 443 ssl http2; # managed by Certbot
     ssl_certificate /etc/letsencrypt/live/staging.levapp.app/fullchain.pem; # managed by Certbot
     ssl_certificate_key /etc/letsencrypt/live/staging.levapp.app/privkey.pem; # managed by Certbot
     include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot

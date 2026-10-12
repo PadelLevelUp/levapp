@@ -15,6 +15,12 @@ Outcomes about where the app runs and which build reaches whom, not what it does
   on every screen, light over the navy headers and dark over the light screens (PAD-419).
 - `mobile.student-on-a-phone-finds-the-ios-app` — draft: a student on an iPhone is told once,
   dismissibly, that the iOS app exists, with a tap to the App Store (PAD-573).
+- `mobile.the-app-feels-smooth` — draft: typing, dragging the week sheet, coming back from
+  Control Centre and opening a class redraw only what changed; measured on the simulator
+  (PAD-592).
+
+- `mobile.the-app-opens-fast` — draft: the first interactive frame comes with the app's own
+  readiness, not after a fixed animation (PAD-587).
 
 ## Why it's grouped this way
 

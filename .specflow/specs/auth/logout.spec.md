@@ -27,7 +27,17 @@ Invalidate the current JWT token so it cannot be reused.
    compatible:** App Store 1.0/1.1.0 post no body and see no change; a missing, empty or non-string
    `pushToken` is ignored. The mobile app still sends the separate unregister first, as a fallback.
 
+5. **(PAD-591) The blocklist is read once per request.** Authenticating a request looks the token's
+   `jti` up in `token_blocklist` once; a later step of the same request (the sliding refresh in
+   `after_request`, the view-as gate) reuses that answer instead of querying again.
+
 ### Acceptance Criteria
+
+#### One blocklist lookup per request (rule 5, PAD-591)
+- **Given** a valid token issued 20 days ago (inside the sliding-refresh window)
+- **When** it calls `GET /auth/me` under a statement recorder
+- **Then** `token_blocklist` is queried exactly once and the response still carries the refreshed
+  token
 
 #### Successful logout
 - **Given** an authenticated user with a valid JWT

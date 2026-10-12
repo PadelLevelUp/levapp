@@ -7,7 +7,7 @@ server {
     location /api/app/events {
         # B-182: an upstream error writes the request line, token included, at level error.
         error_log /var/log/nginx/error.log crit;
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://levapp_api;
         proxy_http_version 1.1;
         proxy_buffering off;
         proxy_cache off;
@@ -23,7 +23,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://levapp_api;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -31,26 +31,32 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # PAD-595 step 2: every page of the old domain is a 301 to the same path and query on levapp.app
+    # (`$request_uri` keeps both), so QR codes and links already printed or shared keep working.
+    # `/api/` and `/.well-known/` below are NOT redirected: store builds of the app call the API on
+    # this host, and iOS/Android read the app-site association from it.
     location /register/ {
-        # B-183: the activation page carries its secret as ?t=; an upstream error would log it.
-        error_log /var/log/nginx/error.log crit;
-        # B-183: no Referer from this page, so its own requests never repeat the secret in one (an
-        # upstream error prints the Referer to error.log too). The web image sets it as well; hide
-        # that copy so the response carries one.
-        proxy_hide_header Referrer-Policy;
+        # B-183: the activation page carries its secret as ?t=. The redirect keeps it (the new page
+        # needs it); no upstream is contacted, so no error line can print it, and the access log is
+        # the redacted one. No Referer from this response either.
         add_header Referrer-Policy "no-referrer" always;
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        return 301 https://levapp.app$request_uri;
     }
 
     location /api/app/register/ {
         # B-183: the account lookup carries the activation secret as ?token=; same.
         error_log /var/log/nginx/error.log crit;
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://levapp_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # PAD-595 step 2: the app-site association files (AASA, assetlinks) stay served here, unchanged.
+    location /.well-known/ {
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -59,15 +65,10 @@ server {
     }
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        return 301 https://levapp.app$request_uri;
     }
 
-    listen 443 ssl;
+    listen 443 ssl http2;
     ssl_certificate /etc/letsencrypt/live/padellevelup.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/padellevelup.com/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;

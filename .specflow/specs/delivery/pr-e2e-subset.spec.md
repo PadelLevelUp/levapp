@@ -47,6 +47,11 @@ into the PR check.
 7. **Stack.** A Postgres 15 service, the backend venv, the database migrated and seeded BEFORE
    Playwright starts (its web servers start before `globalSetup`), `E2E_DB_NAME`,
    `E2E_BACKEND_PORT` and `E2E_WEB_PORT` all set.
+   7a. **Seed pinned against the engine (B-442).** The E2E backend runs the scheduler, so a
+   seeded future class with free places is swept by the never-filled-places scan (invitations
+   rule 1c) within two minutes. A seeded class whose invitation set a spec counts (the "E2E
+   Pending Confirm Class", tomorrow) carries automatic invitations off on its instance; its
+   pending set is then exactly what the seed wrote, however long the run before that spec.
 8. **Time.** The subset run has `--retries=0` in this job only and keeps the shared per-test
    timeout (a lower `--timeout` also bounds hooks and failed a 200-message `beforeAll`, phase 0).
    The subset step is capped at 20 minutes; a run cut by the cap says "cap hit", not "tests
@@ -56,6 +61,11 @@ into the PR check.
    is red when the subset run is red.
 
 ### Acceptance Criteria
+
+#### The seeded tomorrow class keeps its pending set under the scheduler (rule 7a)
+- **Given** the seeded database and the E2E backend running its scheduler for ten minutes
+- **When** `POST /api/app/dashboard/pending-confirmations/notify` is called as the E2E coach
+- **Then** the reply says `sent: 2` — the two pending fillers of "E2E Pending Confirm Class", and no student the never-filled-places scan invited
 
 #### The check runs on PRs into staging only, and is cancelled by a newer push (rule 1)
 - **Given** `e2e-subset.yaml`

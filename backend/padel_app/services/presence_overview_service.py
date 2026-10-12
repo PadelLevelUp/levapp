@@ -474,16 +474,21 @@ def count_pending_validation(
 ) -> int:
     """How many classes in the window still have an unvalidated presence.
 
-    ``attendance.validation`` rule 18: this is ``len(pending)`` of
-    :func:`list_pending_validation` for the same bounds — deliberately not a
-    leaner second query. The coach dashboard's ``validation`` queue item and
-    the Presences tab's trigger both read this, so the two surfaces show one
-    number by construction (B-045).
+    ``attendance.validation`` rules 18 and 27 (PAD-591): a SQL ``COUNT`` over the same
+    predicate :func:`list_pending_validation` filters by — ended, not canceled, in the window,
+    with at least one presence that is not validated — so it equals ``len(pending)`` of the
+    listing for the same bounds without loading a single row. The coach dashboard's
+    ``validation`` queue item and the Presences tab's trigger both read this, so the two
+    surfaces show one number by construction (B-045).
     """
-    return len(
-        list_pending_validation(
-            coach_id=coach_id, range_start=range_start, range_end=range_end, now=now
-        )["pending"]
+    start, end = _normalize_range(range_start, range_end)
+    cutoff = _as_club_wall(now or datetime.now(timezone.utc))
+    return int(
+        _ended_instances_query(coach_id, cutoff, start=start, end=end)
+        .filter(_has_unvalidated_presence())
+        .with_entities(func.count(func.distinct(LessonInstance.id)))
+        .scalar()
+        or 0
     )
 
 

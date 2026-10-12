@@ -37,6 +37,7 @@ import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
 import { CompetencyManagerHost } from "@/components/evaluations/competency-manager/CompetencyManagerHost";
 import { guardedLeave } from "@/lib/leave-guard";
+import { schedulePagePrefetch } from "@/routes/lazyPages";
 
 
 interface AppLayoutProps {
@@ -184,11 +185,12 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
 
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    void refreshUnreadCount().catch((e) => {
-      console.warn("refreshUnreadCount failed", e);
-    });
-  }, [refreshUnreadCount]);
+  // No mount-time refresh: the unread count is a shared query (LayoutProvider) that the stale
+  // window governs; the SSE handler below invalidates it on a live message (client.query-cache rule 7).
+
+  // client.route-loading rule 3 (PAD-585): once a signed-in screen is up, fetch the other menu
+  // pages' chunks while the browser is idle, so the first visit to each shows no wait.
+  useEffect(() => schedulePagePrefetch(), []);
 
   useEffect(() => {
     if (!token) return;
@@ -278,6 +280,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
               <Link
                 key={item.path}
                 to={item.path}
+                data-testid={`nav-link-${item.path.slice(1)}`}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative",
                   // Selected is a FILLED SHAPE, not a colour swap: the raised
@@ -360,6 +363,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
             <Link
               key={item.path}
               to={item.path}
+              data-testid={`nav-link-${item.path.slice(1)}`}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors min-w-[60px] relative",
                 isActive

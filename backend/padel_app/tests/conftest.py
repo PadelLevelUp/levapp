@@ -247,6 +247,16 @@ def _test_app(postgres_uri, extra_config=None, nodeid="?"):
         os.unlink(db_path)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_signed_url_cache():
+    """PAD-593: the signed-URL cache is process-wide; no test may see another's signings."""
+    from padel_app import model
+
+    model._reset_signed_url_cache()
+    yield
+    model._reset_signed_url_cache()
+
+
 @pytest.fixture
 def app(postgres_test_database_uri, request):
     with _test_app(postgres_test_database_uri, nodeid=request.node.nodeid) as app:

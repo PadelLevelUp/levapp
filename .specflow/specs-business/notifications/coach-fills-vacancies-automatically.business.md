@@ -44,6 +44,11 @@ the waiting list.
    further action needed.
 7. A student who missed out because a spot was filled by someone else can answer that same message
    with Yes to join the waiting list for that class themselves, in case another spot opens later.
+8. An invitation does not run out because the student has not answered yet: while the spot is open
+   they can still say yes. It reads "Vaga preenchida" only once the spot is taken — by another
+   student or by the coach on someone's behalf — and from there the student can join that class's
+   waiting list, even if the coach does not show open spots to students (PAD-609, owner
+   2026-10-10).
 
 ## Business Rules
 
@@ -52,6 +57,10 @@ the waiting list.
 - When a class has spots that were never filled, the app aims to balance left- and right-side
   players: each open spot looks for the side the class is short of first, and falls back to any
   side, so no spot stays empty for lack of the "right" side.
+- The sides re-balance as the class fills (PAD-581): every "yes" re-counts the open spots, and a
+  spot that now needs the other side withdraws the invitations it sent to the side no longer
+  needed. Those students see "Já não é preciso deste lado" and can join the class's waiting list,
+  where they are asked first only for a spot of their own side. A withdrawal is not a "no".
 - The same holds when students cancel (PAD-541): a freed spot first asks the side the class is now
   short of, not automatically the side of whoever left. When the sides are even, it keeps the
   leaver's side. Two left-side students leaving a 6-left / 3-right class are replaced by one right
@@ -75,6 +84,9 @@ the waiting list.
   already paid for (PAD-507).
 - A student is never offered, through the waiting list, a class they just left or a class they're
   already enrolled in.
+- A student whose invitation shows "Vaga preenchida" because someone else was faster can join that
+  class's waiting list from the message itself, and is asked first if a spot opens again
+  (PAD-577).
 - The coach can see a class's waiting list from the class itself, with where each student came from
   (the standing list, their own request, or the coach) and for how long they are on it (this class
   only, the whole series, or until a date), add students to it — for that class only, for the whole

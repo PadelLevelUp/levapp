@@ -90,6 +90,33 @@ _BLOCKABLE_MESSAGE_TYPES = frozenset({
 # Config helpers
 # ---------------------------------------------------------------------------
 
+def notification_config_for(coach_id: int) -> NotificationConfig | None:
+    """The coach's ``NotificationConfig`` or ``None`` — read once per request (PAD-591, rule 21).
+
+    A class detail resolves the cascade, the cancellation deadline and the proactive-decline
+    window, each of which needs the coach's settings; they share this answer instead of each
+    querying. Memoised on ``flask.g`` only inside a request (R-007) — a scheduler job or CLI
+    holding one app context for many iterations must see fresh rows — and dropped by
+    :func:`get_or_create_config` / :func:`update_config`, so a request that writes the row reads
+    its own write. A missing row is memoised as ``None``.
+    """
+    from flask import g, has_request_context
+
+    if not has_request_context():
+        return NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    cache = g.__dict__.setdefault("_notification_configs", {})
+    if coach_id not in cache:
+        cache[coach_id] = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    return cache[coach_id]
+
+
+def _forget_config(coach_id: int) -> None:
+    from flask import g, has_request_context
+
+    if has_request_context():
+        g.__dict__.get("_notification_configs", {}).pop(coach_id, None)
+
+
 def get_or_create_config(coach_id: int) -> NotificationConfig:
     """The coach's configuration, creating the row (engine off) when there is none.
 
@@ -107,6 +134,7 @@ def get_or_create_config(coach_id: int) -> NotificationConfig:
     if config is not None:
         return config
     config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=False)
+    _forget_config(coach_id)
     try:
         with db.session.begin_nested():
             db.session.add(config)
@@ -236,6 +264,7 @@ def _level_operations_outside(rules, known) -> list:
 
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
+    _forget_config(coach_id)
 
     timing_changed = False
 
@@ -408,7 +437,7 @@ def effective_eligibility_with_source(class_obj, coach_id: int, config: Notifica
         if series is not None:
             return series, "lesson"
     if config is None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        config = notification_config_for(coach_id)
     if config is None:
         return None, "coach"
     return config.get_eligibility_rules(), "coach"
@@ -474,7 +503,7 @@ def effective_open_spots_visible_with_source(class_obj, coach_id: int, config: N
         if getattr(lesson, "type", None) == "private":
             return False, "type"
     if config is None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        config = notification_config_for(coach_id)
     if config is None:
         return False, "coach"
     return bool(config.open_spots_visible), "coach"
@@ -1377,11 +1406,18 @@ def evaluate_candidates(
             NotificationEvent.answer == "no",
             NotificationEvent.withdrawn_by_coach_at.isnot(None),  # PAD-548 (rule 19): a withdrawal is a "no"
             NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            NotificationEvent.retired_reason == SIDE_BALANCED,  # PAD-581 (rule 2d)
             *own_clauses,
         ),
     ).all():
         if e.answer == "no" or e.withdrawn_by_coach_at is not None:
             declined_ids.add(e.player_id)
+        elif e.retired_reason == SIDE_BALANCED:
+            # PAD-581 (rule 2d): withdrawn for balance is not a "no" — a widened round may ask them
+            # again — but round 1 of this class does not (one round-1 invitation per student and class).
+            # Deliberately the "already_invited" stage: to the coach, they were asked in round 1.
+            if tuple(wave) == ("group", 1):
+                active_invite_ids.add(e.player_id)
         elif own_vacancy_id is not None and e.vacancy_id == own_vacancy_id:
             active_invite_ids.add(e.player_id)
         elif e.status in LIVE_INVITATION_STATES:
@@ -1635,6 +1671,9 @@ def next_ask_time(instance, player_id, *, config=None, now=None):
     if presence is None or presence.confirmed or presence.status is not None:
         return None
     if attempts.pending_attempts(instance.id, player_id):
+        return None
+    # PAD-622 (rule 23): an answer they gave stands even after a cleared mark; the pass would skip them.
+    if attempts.has_answered(instance.id, player_id):
         return None
 
     from padel_app.services.lesson_service import primary_coach
@@ -2165,39 +2204,81 @@ def _send_system_message(
     if not push:
         return msg
 
+    _push_message(msg, player_user_id, resolved_instance_id)
+
+    return msg
+
+
+def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
+    """The web push and the native (Expo) push of one chat message to its student — the one writer
+    of this payload (R-029), used by `_send_system_message` and by the pending nudge (PAD-620).
+
+    Native: PAD-240 — a MESSAGE notification (messaging.push-notifications rule 7); the tap opens the
+    conversation, where the Yes/No and the reply live (routing to class/[id] dead-ended: a push never
+    carries the route params that screen rebuilds its event from). The instance id rides along as
+    context only. PAD-147: the badge is the recipient's real unread total (rule 5)."""
     send_push_notification(
         user_id=player_user_id,
         title="New message",
-        body=text[:100],
-        url=f"/messages/{conv.id}?message={msg.id}",
+        body=(msg.text or "")[:100],
+        url=f"/messages/{msg.conversation_id}?message={msg.id}",
     )
-
-    # Native (Expo) push — additive, best-effort. PAD-240: this is a MESSAGE
-    # notification (messaging.push-notifications rule 7). Every system message
-    # is a Message row in the coach–student thread, and what the student acts
-    # on (the Yes/No answer, the reply) lives there, so the tap opens the
-    # conversation. It used to route to class/[id] with the lesson instance id,
-    # which the mobile class screen cannot open from a push — it rebuilds its
-    # event from route params (model/originalId/date) a push never carries —
-    # so every tap dead-ended on "this class could not be found". The instance
-    # id (``resolved_instance_id``, computed above for the PAD-107 backstop)
-    # still rides along as context; the client never routes on it alone.
-    push_data = {"type": "message", "conversationId": conv.id, "messageId": msg.id}
-    if resolved_instance_id is not None:
-        push_data["classInstanceId"] = resolved_instance_id
-    # PAD-147: this is an unread Message row like any direct message, so the
-    # push carries the recipient's real unread total as the icon badge (rule
-    # 5). msg.create() has already committed, so the count includes it.
+    push_data = {"type": "message", "conversationId": msg.conversation_id, "messageId": msg.id}
+    if instance_id is not None:
+        push_data["classInstanceId"] = instance_id
     from padel_app.services.messaging_service import get_unread_count
+    from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         player_user_id,
         title="New message",
-        body=text[:100],
+        body=(msg.text or "")[:100],
         data=push_data,
         badge=get_unread_count(player_user_id),
     )
 
-    return msg
+
+def push_existing_invitation(event: NotificationEvent) -> bool:
+    """PAD-620 (dashboard.blocks rule 7): push again the invitation message ``event`` already has —
+    no new event, no new message. The same backstops as `_send_system_message` apply (PAD-107 an
+    availability blocker over the class, PAD-112 all notifications blocked), and a missing or deleted
+    message is not pushed. True when pushed."""
+    from padel_app.models import Message
+    from padel_app.models.players import Player
+    from padel_app.services.student_availability_service import instance_window_is_blocked_for_user
+    from padel_app.services.student_notification_preferences import user_blocks_all_notifications
+
+    msg = Message.query.get(event.message_id) if event.message_id else None
+    if msg is None or msg.is_deleted:
+        return False
+    player = Player.query.get(event.player_id)
+    user_id = player.user_id if player is not None else None
+    if user_id is None:
+        return False
+    if instance_window_is_blocked_for_user(user_id, event.lesson_instance):
+        return False
+    if user_blocks_all_notifications(user_id):
+        return False
+    _push_message(msg, user_id, event.lesson_instance_id)
+    return True
+
+
+def already_invited_players(instance_id: int, player_ids) -> list:
+    """PAD-620 (notifications.manual rule 9): ``[{playerId, name, cause: "already_invited"}]`` for the
+    players who hold a live invitation for this occurrence — names in one query."""
+    from sqlalchemy.orm import joinedload
+
+    from padel_app.models.players import Player
+
+    ids = sorted(players_with_live_invitation(instance_id, player_ids))
+    if not ids:
+        return []
+    players = {p.id: p for p in Player.query.options(joinedload(Player.user)).filter(Player.id.in_(ids))}
+    return [
+        {"playerId": pid,
+         "name": (players[pid].user.name if pid in players and players[pid].user else ""),
+         "cause": "already_invited"}
+        for pid in ids
+    ]
 
 
 def _notify_coach_of_cancellation(
@@ -2870,6 +2951,118 @@ def _side_counts(
     return counts
 
 
+def _rebalanced_side(vacancy: Vacancy, instance: LessonInstance, coach_id: int, *, extra_going: str | None = None):
+    """PAD-581 (invitations rule 2d): the side ``vacancy`` asks for now — rule 2b's count for a
+    never-filled spot, rule 2c's for a freed one (players going plus the other open spots, freed
+    ones only for a freed spot), the spot itself left out, ``extra_going`` (an accepter not yet
+    enrolled) counted as going. Fewer wins; a tie keeps the spot's side. The spot's own side when
+    the coach's roster plays no side."""
+    freed = vacancy.original_player_id is not None
+    counts = _side_counts(instance, coach_id, freed_only=freed)
+    if counts is None:
+        return vacancy.side
+    if vacancy.status == "open" and vacancy.side in counts:
+        counts[vacancy.side] -= 1  # the spot itself
+    if extra_going in counts:
+        counts[extra_going] += 1
+    if counts["left"] < counts["right"]:
+        return "left"
+    if counts["right"] < counts["left"]:
+        return "right"
+    return vacancy.side
+
+
+def _withdraw_for_balance(vacancy: Vacancy, coach_id: int, left_side: str) -> list:
+    """PAD-581 (rule 2d): retire ``vacancy``'s live round-1 invitations to students who play exactly
+    ``left_side`` — the side the spot no longer asks for. The caller holds ``vacancy``'s lock, and every
+    writer of a vacancy's invitations (accept, decline, withdrawal, batch) takes that lock first, so
+    the rows need no lock of their own — and none may be skipped, or a wrong-side invitation would
+    outlive the flip. Flushes only (rule 10's one commit); the caller publishes the edits after its
+    commit (`_publish_retired`). Not a "no": ``answer`` stays NULL and ``withdrawn_by_coach_at`` unset."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    events = (
+        NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.round_number == 1,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        )
+        .populate_existing()
+        .all()
+    )
+    if not events:
+        return []
+    sides = dict(
+        db.session.query(Association_CoachPlayer.player_id, Association_CoachPlayer.side)
+        .filter(Association_CoachPlayer.coach_id == coach_id,
+                Association_CoachPlayer.player_id.in_([e.player_id for e in events]))
+    )
+    retired = []
+    for event in events:
+        if sides.get(event.player_id) != left_side:
+            continue  # a "both" or side-less student, or the other side's, stays invited
+        event.status = "expired"
+        event.retired_reason = SIDE_BALANCED
+        _retire_invite_message(event, defer=True, response=SIDE_BALANCED)
+        retired.append(event)
+    db.session.flush()
+    return retired
+
+
+def balance_withdrawn_player_ids(instance_id: int, player_ids=None) -> set:
+    """PAD-581 (rule 2d): the students whose invitation to this occurrence was withdrawn for balance."""
+    query = NotificationEvent.query.filter(
+        NotificationEvent.lesson_instance_id == instance_id,
+        NotificationEvent.retired_reason == SIDE_BALANCED,
+    )
+    if player_ids is not None:
+        query = query.filter(NotificationEvent.player_id.in_(list(player_ids)))
+    return {e.player_id for e in query.all()}
+
+
+def _rebalance_and_publish(instance: LessonInstance, coach_id: int, accepter_id: int) -> None:
+    """PAD-581 (rule 2d): the accept paths' one call — re-count the other spots with this yes as going
+    and queue the withdrawn bubbles' edits for the accept's one commit. Kept apart from the fill's
+    `retired` list, whose bubbles read "spot_filled"."""
+    _publish_retired(_rebalance_after_yes(instance, coach_id, accepter_id))
+
+
+def _recount_spot(vacancy: Vacancy, instance: LessonInstance, coach_id: int, *, extra_going: str | None = None) -> list:
+    """PAD-581 (rule 2d): store the re-counted side on ``vacancy``; when it flips between left and
+    right, withdraw its live round-1 invitations of the side it left. Returns the withdrawn events."""
+    new_side = _rebalanced_side(vacancy, instance, coach_id, extra_going=extra_going)
+    old_side = vacancy.side
+    if new_side == old_side:
+        return []
+    vacancy.side = new_side
+    db.session.flush()
+    if old_side in ("left", "right") and new_side in ("left", "right"):
+        return _withdraw_for_balance(vacancy, coach_id, old_side)
+    return []
+
+
+def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: int) -> list:
+    """PAD-581 (rule 2d): after a "yes" (under rule 10's locks, before its one commit), re-count the
+    class's OTHER open spots with the accepter counted as going, one after another so each sees the
+    ones before it. A spot another answer holds is passed over (SKIP LOCKED); its own next batch
+    re-counts it. Returns the invitations withdrawn for balance, for the caller to publish."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+
+    cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=accepter_id).first()
+    accepter_side = cp.side if cp is not None else None
+    others = (
+        Vacancy.query.filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open")
+        .order_by(Vacancy.id.asc())
+        .with_for_update(skip_locked=True)
+        .populate_existing()
+        .all()
+    )
+    retired = []
+    for vacancy in others:
+        retired.extend(_recount_spot(vacancy, instance, coach_id, extra_going=accepter_side))
+    return retired
+
+
 def freed_spot_side_counts(
     instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None
 ) -> dict | None:
@@ -3031,7 +3224,8 @@ def _sent_within_spacing(instance_id, player_id, hours, now) -> bool:
     return now - last.sent_at < timedelta(hours=hours) - tolerance
 
 
-def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None):
+def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: bool, sent_counts=None,
+                         answered_pairs=None):
     """Who a reminder pass run NOW would send to: ``([(presence, sent_count), ...], blocked)``.
 
     The one place that decides it. The pass sends to exactly these; PAD-478's "is this class
@@ -3098,6 +3292,14 @@ def _reminder_recipients(instance, config, coach_user_id, now, *, scheduled: boo
         )
 
         if sent_count >= reminder_count:
+            continue
+        # PAD-622 (rule 23; PAD-612 R5): an answer the student gave to one of these reminders stands
+        # even after a coach's mark is cleared (the clear resets `confirmed`, not the answer they gave).
+        # (`answered_pairs`: the same, read for many classes at once by the past-due listing.)
+        if sent_count > 0 and (
+            (instance.id, player_id) in answered_pairs if answered_pairs is not None
+            else attempts.has_answered(instance.id, player_id)
+        ):
             continue
         # PAD-407: a scheduled pass inside the spacing window is a duplicate chain's twin.
         # It sends nothing and does not report `more_due`, so the twin chain ends here.
@@ -3326,13 +3528,18 @@ def _expire_stale_reminders(instance: LessonInstance, player_user_id: int) -> No
             )
 
 
-def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> None:
+def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, response: str = "expired") -> None:
     """Flag the conversation message that delivered ``event`` as no longer live.
 
     PAD-68: reuses the ``responded`` flag the invite bubble already keys off, so
     the Yes/No buttons stop rendering on both web and mobile with no client
     change. ``response`` is set to ``"expired"`` — neither "yes" nor "no" — which
     both clients already fall through to a neutral non-actionable badge.
+
+    ``response`` (PAD-609): ``"spot_filled"`` when the invitation ends because the spot was filled —
+    by another student, by the coach's recorded yes, by any enrolment that closes the vacancy — so
+    the bubble reads "Vaga preenchida" and offers the waiting list (rule 15a). ``"expired"`` stays
+    for the class starting and for the coach's withdrawal.
 
     ``defer`` (PAD-499, ledger B-261): flush the edit instead of committing it, and publish nothing;
     the caller commits and then calls `_publish_retired`. `_close_vacancy` always defers, so the
@@ -3348,7 +3555,7 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False) -> 
         return
     if msg.msg_metadata.get("responded"):
         return
-    msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": "expired"}
+    msg.msg_metadata = {**msg.msg_metadata, "responded": True, "response": response}
     if defer:
         db.session.flush()
         return
@@ -3858,9 +4065,7 @@ def proactive_decline_deadline(
 
         coach = primary_coach(instance)  # PAD-275 rule 4
         if coach is not None:
-            _config = NotificationConfig.query.filter_by(
-                coach_id=coach.id
-            ).first()
+            _config = notification_config_for(coach.id)
 
     timing = (
         _config.get_reminder_timing() if _config is not None
@@ -3888,7 +4093,9 @@ def proactive_decline_window_is_open(
     return (now or utcnow_naive()) < deadline
 
 
-def student_may_confirm(presence, instance, config=None, *, now: datetime | None = None) -> bool:
+def student_may_confirm(
+    presence, instance, config=None, *, now: datetime | None = None, was_asked: bool | None = None
+) -> bool:
     """PAD-570 (attendance.confirm rule 27): may this student answer "Vou" right now?
 
     ONE predicate, served as ``pendingConfirmation`` on the class-detail payload and on
@@ -3923,7 +4130,11 @@ def student_may_confirm(presence, instance, config=None, *, now: datetime | None
     if presence is not None and instance_id is not None:
         from padel_app.services import reminder_attempt_service as attempts
 
-        if attempts.latest_attempt(instance_id, presence.player_id) is not None:
+        # PAD-583: a caller holding many candidates passes ``was_asked`` from ONE batched
+        # lookup (``attempts.asked_instance_ids``); alone, the row is looked up here.
+        if was_asked is None:
+            was_asked = attempts.latest_attempt(instance_id, presence.player_id) is not None
+        if was_asked:
             return True
     if not getattr(instance, "notifications_enabled", True):
         return False
@@ -4384,6 +4595,11 @@ def _send_invitation_batch(
                 "lessonInstanceId": instance.id,
                 "vacancyId": vacancy.id,
                 "responded": False,
+                # PAD-577 (rule 15a): the class's start on the club clock, so a retired invitation
+                # offers the waiting list only while the class is still ahead. Naive `isoformat()`
+                # (no zone, no "Z"), like `cancellationDeadline` and the reminder's `startsAt`: the
+                # client reads it digit by digit (`wallClockISOMs`) against the club's wall clock.
+                "startsAt": instance.start_datetime.isoformat() if instance.start_datetime else None,
                 **({"waitingList": True} if wave_round == 0 else {}),
             },
             conversation=conversation,
@@ -4518,6 +4734,8 @@ def _send_batch_locked(
     if locked.status != "open":
         db.session.commit()  # release the lock; nothing was written
         return []
+    # PAD-581 (rule 2d): the spot asks for the side it re-counts to, before its candidates are read.
+    _publish_retired(_recount_spot(locked, instance, coach_id))  # sent by the batch's commit
     sent = _send_invitation_batch(
         locked, instance, config, coach_id, max_sim_override=max_sim_override, now=now
     )
@@ -4771,6 +4989,9 @@ def trigger_invitations(
 #: has to retire. Named once because every closer used to hard-code ``"sent"`` and
 #: forget ``"queued"`` (PAD-317), and a fifth state should have one place to land.
 LIVE_INVITATION_STATES = ("sent", "queued")
+#: PAD-581 (invitations rule 2d): NotificationEvent.retired_reason, and the bubble's response, of an
+#: invitation withdrawn because its spot re-counted to the other side.
+SIDE_BALANCED = "side_balanced"
 
 
 def _close_vacancy(
@@ -4809,7 +5030,8 @@ def _close_vacancy(
         event.status = "expired"
         # PAD-499 (B-261): flushed, never committed here — a commit would end the caller's rule-10
         # lock before the winner is enrolled. The caller commits and calls `_publish_retired`.
-        _retire_invite_message(event, defer=True)
+        # PAD-609 (rule 15a): the spot was filled, whoever filled it — "spot_filled", not "expired".
+        _retire_invite_message(event, defer=True, response="spot_filled")
         retired.append(event)
     db.session.flush()
     return retired
@@ -4904,7 +5126,32 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
         retired.extend(_close_vacancy(locked, filled_by_player_id))
         closed.append(locked)
         to_close -= 1
-    if closed:
+    # PAD-609 (rule 15a): a manual invitation carries no vacancy, so no close above retires it. When
+    # an enrolment has just taken the class's last place (`filled_by_player_id`: the fill paths, not
+    # the tick or a class edit — a coach may invite by hand to a class that is already full, and that
+    # offer must survive the next tick), its live manual invitations end as "spot_filled" too, and the
+    # bubble offers the waiting list. The holders of a place are spared (the enrolled player's own is
+    # settled by its caller); one another answer holds is passed over (SKIP LOCKED, as above): that
+    # answer finds the class full and records spot_filled itself.
+    if open_spots == 0 and filled_by_player_id is not None:
+        manual = (
+            NotificationEvent.query.filter(
+                NotificationEvent.lesson_instance_id == instance.id,
+                NotificationEvent.vacancy_id.is_(None),
+                NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            )
+            .with_for_update(skip_locked=True)
+            .populate_existing()
+            .all()
+        )
+        holding = {p.player_id for p in instance.holding_presences}
+        for event in manual:
+            if event.player_id == filled_by_player_id or event.player_id in holding:
+                continue
+            event.status = "expired"
+            _retire_invite_message(event, defer=True, response="spot_filled")
+            retired.append(event)
+    if closed or retired:
         _publish_retired(retired)  # PAD-499: queued now, sent by this commit (or the enclosing one)
         commit_or_flush()
     return closed
@@ -5321,8 +5568,7 @@ def respond_to_notification(
             _record_yes(event, invite_msg, "spot_filled")
             event.status = "expired"
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5346,8 +5592,7 @@ def respond_to_notification(
             # the other offers for the missing seat are retired at once, not at the next tick.
             reconcile_vacancies(instance)
             event.save()
-            # PAD-501: no `spot_filled` message; the answer and the bubble say it.
-            _offer_waiting_list(event.player_id, instance, event.coach_id, templates, locale)
+            # PAD-501: no `spot_filled` message; PAD-621: no offer message — the bubble offers the list.
             publish(
                 {
                     "type": "notification_responded",
@@ -5376,9 +5621,10 @@ def respond_to_notification(
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
-        event.save()
+        # PAD-596: no `save()` after it — `enrol()` committed the answer with the enrolment.
 
         if coach_user_id:
             _send_system_message(
@@ -5492,11 +5738,12 @@ def coach_respond_to_notification(
         if vacancy:
             retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
-        event.save()
-        if vacancy:
-            vacancy.save()
+        # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
+        # settlement and the enrolment together and releases the lock; the two `save()` calls
+        # that followed committed nothing and cost two round-trips.
 
         return {"action": "confirmed"}
 
@@ -5586,6 +5833,21 @@ def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datet
 # Manual notifications
 # ---------------------------------------------------------------------------
 
+def players_with_live_invitation(instance_id: int, player_ids) -> set:
+    """PAD-620 (invitations rule 18): the players who already hold a live invitation (``sent`` or
+    ``queued``) for this occurrence, automatic or manual."""
+    ids = [int(p) for p in (player_ids or [])]
+    if not ids:
+        return set()
+    return {
+        pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
+            NotificationEvent.lesson_instance_id == instance_id,
+            NotificationEvent.player_id.in_(ids),
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        )
+    }
+
+
 def send_manual_notifications(
     instance_id: int, player_ids: list[int], coach_id: int
 ) -> list[NotificationEvent]:
@@ -5622,10 +5884,15 @@ def send_manual_notifications(
     blocked_ids = blocked_player_ids_for_window(
         player_ids, instance.start_datetime, instance.end_datetime
     )
+    # PAD-620 (invitations rule 18, PAD-612 R1): a student who already holds a live invitation for
+    # this occurrence gets no second one — no second event, message or push. The route names them.
+    already_invited = players_with_live_invitation(instance_id, player_ids)
 
     events = []
     for player_id in player_ids:
         if int(player_id) in blocked_ids:
+            continue
+        if int(player_id) in already_invited:
             continue
         if player_blocks_manual_invitations(player_id):
             continue
@@ -5672,6 +5939,10 @@ def send_manual_notifications(
                 "notificationEventId": event.id,
                 "lessonInstanceId": instance_id,
                 "responded": False,
+                # PAD-577 (rule 15a): the start on the club clock, as the automatic invitation
+                # carries it — a manual invitation answered after the class filled offers the
+                # waiting list too, and only while the class is ahead.
+                "startsAt": instance.start_datetime.isoformat() if instance.start_datetime else None,
             },
             conversation=conversation,
             before_commit=lambda m, event=event: setattr(event, "message_id", m.id),
@@ -5709,7 +5980,12 @@ def _offer_waiting_list(
     templates: dict,
     locale: str | None = None,
 ) -> None:
-    """Send a waiting-list offer message to the player."""
+    """Send a waiting-list offer message to the player.
+
+    PAD-621 (owner, PAD-612 D4): no engine path calls this any more — a spot that fills retires every
+    live invitation as "spot_filled" (rule 15) and the bubble offers the list (rule 15a). Kept as the
+    test and E2E seeding path (`debug_offer_waiting_list` in notification_engine_api.py).
+    """
     from padel_app.models import Coach
     coach = Coach.query.get(coach_id)
     if not coach:
@@ -5874,6 +6150,10 @@ def respond_to_waiting_list(
             lesson_instance_id=lesson_instance_id,
             player_id=player.id,
         ).first()
+        # PAD-621 (PAD-612 R3): the confirmation is for the place, not for the tap. A "yes" that finds
+        # the student already on the list (a double tap, or they joined from the bubble) confirms nothing
+        # new and sends nothing; the upsert below stays idempotent (waiting-list rule 12).
+        already_on_list = existing is not None and existing.is_active
         if existing:
             if not existing.is_active:
                 # PAD-547 (rule 20): reactivated by the student's own yes, the row is theirs now.
@@ -5889,7 +6169,7 @@ def respond_to_waiting_list(
                 added_by="student",  # PAD-547 (rule 20)
             ).create()
 
-        if coach.user_id:
+        if coach.user_id and not already_on_list:
             _send_system_message(
                 coach_user_id=coach.user_id,
                 player_user_id=acting_user_id,
@@ -6246,6 +6526,22 @@ def _waiting_list_candidates(
         ).all()
     }
     keyed = [(key, entry) for key, entry in keyed if entry.player_id not in asked_elsewhere]
+    # PAD-581 (invitations rule 2d): a member whose invitation was withdrawn for side balance is
+    # asked only for a spot of their own side or one with no side, so the list never undoes the
+    # balance. Their `both` or side-less self matches any spot.
+    if vacancy.side in ("left", "right") and keyed:
+        balanced = balance_withdrawn_player_ids(instance.id, [entry.player_id for _, entry in keyed])
+        if balanced:
+            side_of = dict(
+                db.session.query(Association_CoachPlayer.player_id, Association_CoachPlayer.side)
+                .filter(Association_CoachPlayer.coach_id == coach_id,
+                        Association_CoachPlayer.player_id.in_(balanced))
+            )
+            keyed = [
+                (key, entry) for key, entry in keyed
+                if entry.player_id not in balanced or side_of.get(entry.player_id) not in ("left", "right")
+                or side_of.get(entry.player_id) == vacancy.side
+            ]
     if not keyed:
         return []
 

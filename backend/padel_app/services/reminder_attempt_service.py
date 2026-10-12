@@ -17,6 +17,25 @@ def _query(instance_id, player_id):
     return ReminderAttempt.query.filter_by(lesson_instance_id=instance_id, player_id=player_id)
 
 
+def asked_instance_ids(player_id, instance_ids) -> set:
+    """PAD-583: the ids among ``instance_ids`` this player has at least one reminder attempt
+    for — voided rounds included, exactly what ``latest_attempt(...) is not None`` answers
+    per row (``student_may_confirm``), in ONE query for the whole candidate set."""
+    from padel_app.models import ReminderAttempt
+
+    ids = {int(i) for i in instance_ids if i is not None}
+    if not ids:
+        return set()
+    rows = (
+        db.session.query(ReminderAttempt.lesson_instance_id)
+        .filter(ReminderAttempt.player_id == player_id)
+        .filter(ReminderAttempt.lesson_instance_id.in_(ids))
+        .distinct()
+        .all()
+    )
+    return {int(r[0]) for r in rows}
+
+
 def count_attempts(instance_id, player_id) -> int:
     """How many reminders this player has had for the spot they hold NOW.
 
@@ -31,6 +50,41 @@ def count_attempts(instance_id, player_id) -> int:
     which `send_class_reminders` already refuses to send for.
     """
     return _query(instance_id, player_id).filter(_counted()).count()
+
+
+def has_answered(instance_id, player_id) -> bool:
+    """PAD-622 (notifications.reminders rule 23): the student answered — "yes" or "no" — one of the
+    reminders they had for the spot they hold now. A coach's mark and its clear (PAD-567) do not undo
+    that answer, so the next pass does not ask again. Voided attempts (a previous stint) do not
+    count, and neither does a "not_enrolled" outcome (a stale reminder tapped while the student held
+    no seat): a student the coach re-adds is asked (rules 18, 19)."""
+    return (
+        _query(instance_id, player_id).filter(_counted(), _answered()).first()
+        is not None
+    )
+
+
+def answered_pairs_bulk(instance_ids) -> set:
+    """`has_answered` for every (instance, player) of `instance_ids`, in one query (PAD-622): the
+    past-due listing reads it beside `count_attempts_bulk` instead of one query per student."""
+    from padel_app.models import ReminderAttempt
+
+    ids = list(instance_ids)
+    if not ids:
+        return set()
+    return {
+        (iid, pid)
+        for iid, pid in db.session.query(ReminderAttempt.lesson_instance_id, ReminderAttempt.player_id)
+        .filter(ReminderAttempt.lesson_instance_id.in_(ids), _counted(), _answered())
+        .distinct()
+    }
+
+
+def _answered():
+    """A real answer on the attempt: the student's "yes" or "no" (PAD-622)."""
+    from padel_app.models import ReminderAttempt
+
+    return ReminderAttempt.response.in_(("yes", "no"))
 
 
 def _counted():

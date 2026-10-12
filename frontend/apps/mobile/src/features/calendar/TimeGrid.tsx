@@ -1,4 +1,4 @@
-import { cardSurfaceNative, GRID_ROW_HEIGHT, layoutDayEvents, lightTheme, nativeCalendarSurfaces, resolveCardVariant, type HourRange } from "@levelup/config";
+import { cardSurfaceNative, GRID_ROW_HEIGHT, layoutDayEvents, lightTheme, nativeCalendarSurfaces, resolveCardVariant, showsEnrolledMark, type HourRange } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { format, isSameDay } from "date-fns";
 import * as React from "react";
@@ -8,11 +8,17 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 import { GUTTER_PT } from "./WeekHeaderRow";
+import { useCalendarViewer } from "./viewer-context";
 
 /** Points per hour on the phone grid. */
 export const ROW_HEIGHT = GRID_ROW_HEIGHT;
 
 const SURFACES = nativeCalendarSurfaces("light");
+
+/** PAD-592: a dev-only render counter the drag measurement reads from the Metro log. */
+function countGridRender(): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[render] timegrid");
+}
 
 /**
  * The Semana time grid — calendar.mobile-views rules 13 and 14. React Native
@@ -21,7 +27,7 @@ const SURFACES = nativeCalendarSurfaces("light");
  * rules, blocks positioned by minutes and sharing a column when they overlap.
  * A tap on a column's empty area selects the day; a tap on a block opens it.
  */
-export function TimeGrid({
+function TimeGridImpl({
   weekDays,
   selectedDay,
   onSelectDay,
@@ -40,7 +46,9 @@ export function TimeGrid({
   onEventPress?: (event: CalendarEvent) => void;
   rowHeight?: number;
 }) {
+  countGridRender();
   const { t } = useTranslation();
+  const viewer = useCalendarViewer();
   const locale = useDateLocale();
   const { startHour, endHour } = hourRange;
   const hours = React.useMemo(
@@ -126,6 +134,7 @@ export function TimeGrid({
                         marginRight: 1,
                         backgroundColor: isBlock ? lightTheme.muted : surface.backgroundColor,
                         borderWidth: surface.borderWidth,
+                        borderStyle: surface.borderStyle,
                         borderColor: surface.borderColor,
                       }}
                       className="overflow-hidden rounded-md px-1 py-0.5 active:opacity-90"
@@ -135,6 +144,16 @@ export function TimeGrid({
                         className="text-[8.5px] font-sans-bold leading-[10px]"
                         style={{ color: isBlock ? SURFACES.mutedForeground : surface.color }}
                       >
+                        {showsEnrolledMark(event, variant, viewer) ? (
+                          <Text
+                            testID="calendar-enrolled-mark"
+                            accessibilityLabel={t("calendar.eventCard.enrolled")}
+                            className="text-[8.5px] font-sans-bold"
+                            style={{ color: surface.color }}
+                          >
+                            {"✓ "}
+                          </Text>
+                        ) : null}
                         {event.title || t("calendar.eventCard.fallbackTitle")}
                       </Text>
                     </Pressable>
@@ -149,3 +168,10 @@ export function TimeGrid({
     </ScrollView>
   );
 }
+
+/**
+ * PAD-592: memoised — the sheet's drag no longer re-renders the container per frame (DaySheet),
+ * and when the container does re-render, the grid skips unless its week, events, range or
+ * callbacks changed.
+ */
+export const TimeGrid = React.memo(TimeGridImpl);

@@ -42,6 +42,21 @@ on:
         type: choice
         default: both
         options: [ both, backend, frontend ]
+      # PAD-588 (delivery.zero-downtime-deploy rule 7): `stop-first` for a migration the previous
+      # release cannot run against (a dropped or renamed column it still reads).
+      rollout:
+        description: "API rollout"
+        type: choice
+        default: rolling
+        options: [ rolling, stop-first ]
+      # PAD-589 (delivery.staging-data-sync): how the sync-db job refreshes staging's
+      # database. auto = the newest nightly dump, only if not restored yet (every push);
+      # reload = that dump again (e.g. after a rebased migration); live = pg_dump of prod.
+      sync_db:
+        description: "Staging database refresh"
+        type: choice
+        default: auto
+        options: [ auto, reload, live ]
 
 concurrency:
   group: deploy-staging
@@ -161,6 +176,17 @@ jobs:
         target: "/home/${{ secrets.GCE_USER }}/"
         strip_components: 1
         overwrite: true
+    # PAD-588: start-before-stop lives in a script so it has tests (test_pad588_rollout.py).
+    - name: Copy rollout script to VM
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.GCE_HOST }}
+        username: ${{ secrets.GCE_USER }}
+        key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        source: "backend/scripts/rollout.sh"
+        target: "/home/${{ secrets.GCE_USER }}/"
+        strip_components: 2
+        overwrite: true
     - name: Deploy on GCE
       uses: appleboy/ssh-action@v1.2.5
       with:
@@ -171,9 +197,15 @@ jobs:
           set -euo pipefail
           docker network create levelup_net || true
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
-          docker stop padelapp_staging || true && docker rm padelapp_staging || true
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
-          docker run -d --name padelapp_staging -p 127.0.0.1:5100:80 \
+          # PAD-588 (delivery.zero-downtime-deploy rules 4-7): rollout.sh starts padelapp_staging_next on the idle
+          # loopback port of 5100,5102, waits for /api/app/healthz (which also proves the entrypoint's
+          # migrations ran: PAD-220), stops the old container, and renames the new one padelapp_staging. Without
+          # the `levapp_api_staging` upstream on the host (owner's nginx step) it falls back to stop-then-start.
+          ROLLOUT_MODE=""
+          if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
+          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $ROLLOUT_MODE -- \
+            --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
             --memory 400m \
@@ -184,26 +216,14 @@ jobs:
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
-          # PAD-220: `docker run` succeeding proves nothing about migrations — the
-          # entrypoint runs them, and a failed one crash-loops the container
-          # while this job reports green. Wait for the entrypoint to reach
-          # "Starting app..." and fail the deploy, with the log, if it does not.
-          for i in $(seq 1 45); do
-            if docker logs padelapp_staging 2>&1 | grep -q "Starting app..."; then echo "migrations applied"; break; fi
-            restarts=$(docker inspect -f '{{.RestartCount}}' padelapp_staging)
-            if [ "$restarts" -gt 0 ] || [ "$i" -eq 45 ]; then
-              echo "::error::padelapp_staging did not finish its migrations (restarts=$restarts)"
-              docker logs --tail 60 padelapp_staging
-              exit 1
-            fi
-            sleep 2
-          done
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
 
-  # PAD-200: refresh staging's database from prod on EVERY staging deploy, so
-  # staging tests against current, realistic data. Best-effort by contract:
+  # PAD-200 / PAD-589: refresh staging's database. On a push the script restores the
+  # newest NIGHTLY DUMP from GCS, and only when that dump has not been restored yet
+  # (otherwise it exits before stopping staging), so prod's Postgres is no longer
+  # dumped on every push; `reload` and `live` are workflow_dispatch only. Best-effort by contract:
   # `continue-on-error` keeps a failed copy from failing the deploy, the script
   # itself exits 0 on every guard, and it always restarts the staging app.
   # Runs after `backend` (which may be skipped on a frontend-only push — the
@@ -235,7 +255,7 @@ jobs:
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
         script: |
-          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging || true
+          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging "${{ inputs.sync_db || 'auto' }}" || true
 
   frontend:
     needs: [ changes, backend ]
@@ -278,6 +298,7 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:staging
             docker stop levelup_frontend_staging || true && docker rm levelup_frontend_staging || true
             docker run -d --name levelup_frontend_staging \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --network levelup_net \
               --memory 100m \
@@ -329,6 +350,7 @@ jobs:
             docker stop levelup_admin_staging || true && docker rm levelup_admin_staging || true
             # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
             docker run -d --name levelup_admin_staging \
+              --log-opt max-size=10m --log-opt max-file=3 \
               --restart unless-stopped \
               --memory 100m \
               -p 127.0.0.1:3300:80 \

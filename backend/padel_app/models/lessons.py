@@ -18,7 +18,7 @@ class Lesson(db.Model, model.Model):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
 
-    start_datetime = Column(DateTime, nullable=False)
+    start_datetime = Column(DateTime, nullable=False, index=True)  # PAD-591: the calendar range bound
     end_datetime = Column(DateTime, nullable=False)
 
     is_recurring = Column(Boolean, default=False, nullable=False)
@@ -59,7 +59,7 @@ class Lesson(db.Model, model.Model):
     )
 
     club_id = Column(
-        Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True  # PAD-591
     )
     club = relationship("Club", back_populates="lessons")
 

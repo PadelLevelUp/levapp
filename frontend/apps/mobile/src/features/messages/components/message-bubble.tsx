@@ -5,7 +5,10 @@ import {
   lightTheme,
   type ClassRequestLive,
   type JoinRequestLive,
+  retiredInviteLabelKey,
 } from "@levelup/config";
+import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
+import { useInviteWaitingList } from "@levelup/hooks";
 import type { Message, MessageStatus } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +23,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
@@ -147,8 +151,13 @@ type MessageBubbleProps = {
   onAnswerJoinRequest?: (accept: boolean) => void;
 };
 
+/** PAD-592: a dev-only render counter the measurement reads from the Metro log. */
+function countBubbleRender(): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) console.log("[render] bubble");
+}
+
 /** Chat bubble: own messages right/brand-colored, others left/muted. */
-export function MessageBubble({
+function MessageBubbleImpl({
   message,
   own,
   userId,
@@ -174,6 +183,7 @@ export function MessageBubble({
   onAnswerJoinRequest,
   onScrollToReply,
 }: MessageBubbleProps) {
+  countBubbleRender();
   const { t } = useTranslation();
 
   // PAD-281 / B-077 and rule 10a (PAD-461): the coach's proposal AND the
@@ -204,6 +214,19 @@ export function MessageBubble({
   // PAD-563: the four resolved states and the "by the coach" line live in invite-state.ts.
   const invite = inviteState(message.metadata);
   const alreadyResponded = invite.waiting === false;
+  // PAD-577 (notifications.invitations rule 15a): an invitation retired because someone else took
+  // the spot offers that occurrence's waiting list — the student's own join (waiting-list rule 14).
+  // The states live in the shared hook; this shell injects its API module and its toast.
+  const inviteWaitingList = useInviteWaitingList({
+    metadata: message.metadata,
+    received: isInvite && !own,
+    api: {
+      list: academyClassesApi.listClassWaitingList,
+      join: academyClassesApi.joinClassWaitingList,
+      leave: academyClassesApi.leaveClassWaitingList,
+    },
+    notify: (key) => toast.error(t(key)),
+  });
 
   // PAD-151: attendance reminders were rendered with no buttons at all, so a
   // student could not answer one from the app. Its state rules (superseded,
@@ -950,10 +973,33 @@ export function MessageBubble({
                   </Text>
                 </View>
               ) : (
-                <View className="rounded-full bg-warning/15 px-3 py-1.5">
-                  <Text className="text-xs font-medium text-warning">
-                    {t("messages.spotFilled")}
-                  </Text>
+                <View className="flex-row flex-wrap items-center gap-2">
+                  <View className="rounded-full bg-warning/15 px-3 py-1.5">
+                    <Text className="text-xs font-medium text-warning">
+                      {t(retiredInviteLabelKey(message.metadata))}
+                    </Text>
+                  </View>
+                  {/* PAD-577 (rule 15a): the waiting list, from the message that lost the spot. */}
+                  {inviteWaitingList.onWaitingList ? (
+                    <>
+                      <View testID="invite-on-waiting-list" className="rounded-full bg-primary/10 px-3 py-1.5">
+                        <Text className="text-xs font-medium text-primary">{t("messages.onWaitingList")}</Text>
+                      </View>
+                      <Pressable testID="invite-leave-waiting-list" role="button" hitSlop={8} disabled={inviteWaitingList.busy} onPress={() => void inviteWaitingList.leave()}>
+                        <Text className="text-xs font-medium text-muted-foreground">{t("messages.leaveWaitingList")}</Text>
+                      </Pressable>
+                    </>
+                  ) : inviteWaitingList.offersJoin ? (
+                    <Pressable
+                      testID="invite-join-waiting-list"
+                      role="button"
+                      disabled={inviteWaitingList.busy}
+                      onPress={() => void inviteWaitingList.join()}
+                      className="rounded-full bg-primary px-3 py-1.5"
+                    >
+                      <Text className="text-xs font-medium text-primary-foreground">{t("messages.joinWaitingList")}</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               )
             ) : own ? (
@@ -1000,3 +1046,11 @@ export function MessageBubble({
     </GestureDetector>
   );
 }
+
+/**
+ * PAD-592: memoised, so a keystroke in the composer (now its own component) or any other state
+ * change in the 1,700-line thread screen no longer re-renders every mounted bubble. Props are
+ * compared shallowly: the screen passes stable callbacks (useCallback) and a Map-resolved
+ * `replyToMessage`, so only the row whose message or live state changed re-renders.
+ */
+export const MessageBubble = React.memo(MessageBubbleImpl);

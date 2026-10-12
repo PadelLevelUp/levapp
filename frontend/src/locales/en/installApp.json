@@ -3,6 +3,7 @@
     "title": "LevApp is on the App Store",
     "body": "Push notifications and a native chat: get the iOS app.",
     "open": "Open the App Store",
+    "openShort": "Open",
     "dismiss": "Not now"
   }
 }

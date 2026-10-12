@@ -32,7 +32,7 @@ class Conversation(db.Model, model.Model):
     # Maintained by the `after_insert` listener on `Message`, so it is written
     # in the same transaction as the insert and no writer can forget it. Nothing
     # in the app should set these two by hand.
-    last_message_at = Column(DateTime, nullable=True)
+    last_message_at = Column(DateTime, nullable=True, index=True)  # PAD-591: the list orders by it
 
     # `use_alter` + a named constraint: `conversations.last_message_id` points at
     # `messages.id` while `messages.conversation_id` points back here, so the two

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Response } from "@playwright/test";
 import { loginAsStudent } from "../helpers/auth";
 import { openDashboard } from "../helpers/navigation";
 import { GREETING_KEYS, uiIn } from "../helpers/i18n";
@@ -22,13 +22,33 @@ const SEEDED_CLASS = "E2E Academy Class";
 type Block = { id?: string; type?: string; data?: Record<string, unknown> };
 type Payload = { id?: string; blocks?: Block[] };
 
+/**
+ * The dashboard payload, read the moment its response lands. Reading `.json()` after `openDashboard`
+ * raced the page's own navigation ("Response body is not available for a response that was navigated
+ * away from" — #613 and #661): the body is now read inside the response listener, and a body a
+ * navigation wiped is skipped for the next dashboard response.
+ */
 async function loadDashboard(page: Page): Promise<Payload> {
-  const payload = page.waitForResponse(
-    (r) => /\/api\/app\/dashboard/.test(r.url()) && r.status() === 200,
-    { timeout: 15_000 }
-  );
+  const body = new Promise<Payload>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      page.off("response", onResponse);
+      reject(new Error("no readable /api/app/dashboard response within 15 s"));
+    }, 15_000);
+    async function onResponse(r: Response) {
+      if (!/\/api\/app\/dashboard/.test(r.url()) || r.status() !== 200) return;
+      try {
+        const json = (await r.json()) as Payload;
+        clearTimeout(timer);
+        page.off("response", onResponse);
+        resolve(json);
+      } catch {
+        // Navigated away before the body was read: the next dashboard response will do.
+      }
+    }
+    page.on("response", onResponse);
+  });
   await openDashboard(page);
-  return (await payload).json();
+  return body;
 }
 
 test.describe("PAD-202: student dashboard home", () => {

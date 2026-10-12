@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canConfirmAttendance, reminderAnswerOutcome, studentRowAction } from "./reminder-answer";
+import { canConfirmAttendance, reminderAnswerOutcome, reminderArrivedFor, studentRowAction } from "./reminder-answer";
 
 /**
  * PAD-315 (`attendance.confirm` rule 26) and B-074.
@@ -142,5 +142,34 @@ describe("reminderAnswerOutcome — the server's answer decides, and unknown say
       const outcome = reminderAnswerOutcome({ action } as never);
       if (outcome.messageKey !== null) expect(outcome.record).toBeNull();
     }
+  });
+});
+
+describe("reminderArrivedFor — the live event that means 'you were just asked' (rule 27, B-542)", () => {
+  const reminder = (lessonInstanceId: number | string, messageType = "notification_reminder") => ({
+    type: "message_created",
+    payload: { id: 9, messageType, metadata: { lessonInstanceId } },
+  });
+
+  it("a notification_reminder message for the open occurrence", () => {
+    expect(reminderArrivedFor(reminder(42), 42)).toBe(true);
+    expect(reminderArrivedFor(reminder("42"), 42)).toBe(true);
+    expect(reminderArrivedFor(reminder(42), "42")).toBe(true);
+  });
+
+  it("the older instanceId alias still names the occurrence", () => {
+    expect(
+      reminderArrivedFor({ type: "message_created", payload: { messageType: "notification_reminder", metadata: { instanceId: 42 } } }, 42)
+    ).toBe(true);
+  });
+
+  it("another occurrence, another message type, another event, no metadata: nothing", () => {
+    expect(reminderArrivedFor(reminder(43), 42)).toBe(false);
+    expect(reminderArrivedFor(reminder(42, "notification_invite"), 42)).toBe(false);
+    expect(reminderArrivedFor(reminder(42, "text"), 42)).toBe(false);
+    expect(reminderArrivedFor({ type: "message_edited", payload: reminder(42).payload }, 42)).toBe(false);
+    expect(reminderArrivedFor({ type: "message_created", payload: { messageType: "notification_reminder" } }, 42)).toBe(false);
+    expect(reminderArrivedFor(reminder(42), null)).toBe(false);
+    expect(reminderArrivedFor(null, 42)).toBe(false);
   });
 });

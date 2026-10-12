@@ -16,6 +16,7 @@ from padel_app.services.notification_service import (
     get_config_dict,
     update_config,
     send_class_reminders,
+    already_invited_players,
     send_manual_notifications,
     trigger_invitations,
     process_invitation_batches,
@@ -312,6 +313,10 @@ def manual_notify():
     }
     for entry in preference_blocked_players(player_ids, kind="manual"):
         blocked_by_id[entry["playerId"]] = entry
+    # PAD-620 (notifications.manual rule 9): a student who already holds a live invitation for this
+    # class is not invited twice; the coach is told by name, like the two causes above.
+    for entry in already_invited_players(instance.id, player_ids):
+        blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
     events = send_manual_notifications(instance.id, player_ids, coach.id)
     return jsonify({"sent": len(events), "blocked": blocked})
@@ -927,6 +932,26 @@ def debug_cleanup_reminder_test_classes():
     return jsonify({"removed": removed, "remaining": remaining})
 
 
+@bp.post("/debug/scheduler/release")
+@jwt_required(optional=True)
+def debug_scheduler_release():
+    """PAD-610 — E2E only. 404 unless E2E_DEBUG_ENDPOINTS is on. Playwright's
+    global-setup calls this once the test database is reseeded, so a backend that
+    booted with E2E_SCHEDULER_HELD runs its startup reschedule and starts its jobs
+    against the finished schema instead of the one being dropped. No token: the
+    runner holds none yet, and the route exists only on the flag-gated backend.
+    Idempotent — a running scheduler answers {"released": false}."""
+    from padel_app.utils.debug_flags import debug_endpoints_enabled
+    from padel_app.scheduler import release_scheduler
+
+    if not debug_endpoints_enabled():
+        abort(404)
+    try:
+        return jsonify(release_scheduler(current_app._get_current_object())), 200
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
 @bp.post("/debug/reset_presence")
 @jwt_required()
 def debug_reset_presence():
@@ -987,8 +1012,9 @@ def debug_offer_waiting_list():
     the caller presents a valid JWT.
 
     Sends a real ``waiting_list_offer`` message to a seeded student for a lesson
-    instance, through the very function the engine uses on the "sorry, that spot
-    was just filled" path (``_offer_waiting_list``). Reaching that path for real
+    instance, through ``_offer_waiting_list`` — the function the engine used on the
+    "sorry, that spot was just filled" path until PAD-621 (no engine path sends it
+    now; offers already in chats are still answered). Reaching that path for real
     takes two students racing for one vacancy; seeding the message this way keeps
     the spec about the *client wiring* PAD-124 adds, while still producing the
     production message shape rather than a hand-built row.

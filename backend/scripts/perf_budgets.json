@@ -1,98 +1,98 @@
 {
   "GET /api/app/attendance_history [coach]": {
     "bytes": 1535,
-    "statements": 10
+    "statements": 9
   },
   "GET /api/app/calendar (6 weeks) [coach]": {
     "bytes": 35406,
-    "statements": 34
+    "statements": 14
   },
   "GET /api/app/calendar (week) [coach]": {
-    "bytes": 2071,
-    "statements": 17
+    "bytes": 1727,
+    "statements": 14
   },
   "GET /api/app/calendar (week) [student]": {
     "bytes": 1045,
-    "statements": 19
+    "statements": 9
   },
   "GET /api/app/class_instances/pending_validation [coach]": {
     "bytes": 12131,
-    "statements": 7
+    "statements": 6
   },
   "GET /api/app/class_instances/pending_validation/badge [coach]": {
     "bytes": 67,
-    "statements": 7
+    "statements": 6
   },
   "GET /api/app/class_instances/pending_validation/count [coach]": {
     "bytes": 92,
-    "statements": 8
+    "statements": 6
   },
   "GET /api/app/coach_levels [coach]": {
     "bytes": 191,
-    "statements": 6
+    "statements": 5
   },
   "GET /api/app/coach_players [coach]": {
     "bytes": 31886,
-    "statements": 10
+    "statements": 9
   },
   "GET /api/app/coach_players_paginated [coach]": {
     "bytes": 13429,
-    "statements": 10
+    "statements": 9
   },
   "GET /api/app/conversation/<id> [coach]": {
     "bytes": 9155,
-    "statements": 14
+    "statements": 13
   },
   "GET /api/app/conversations [coach]": {
     "bytes": 5239,
-    "statements": 8
+    "statements": 7
   },
   "GET /api/app/conversations [student]": {
     "bytes": 289,
-    "statements": 8
+    "statements": 7
   },
   "GET /api/app/dashboard [coach]": {
-    "bytes": 6892,
-    "statements": 46
+    "bytes": 6891,
+    "statements": 26
   },
   "GET /api/app/dashboard [student]": {
-    "bytes": 3626,
-    "statements": 221
+    "bytes": 3847,
+    "statements": 35
   },
   "GET /api/app/lesson_instance/<id>/presences [coach]": {
     "bytes": 923,
-    "statements": 19
+    "statements": 12
   },
   "GET /api/app/messages/unread_count [coach]": {
     "bytes": 20,
-    "statements": 4
+    "statements": 3
   },
   "GET /api/app/presence_stats [coach]": {
     "bytes": 8597,
-    "statements": 7
+    "statements": 6
   },
   "GET /api/app/presence_trend [coach]": {
     "bytes": 241,
-    "statements": 6
+    "statements": 5
   },
   "GET /api/auth/me [coach]": {
     "bytes": 524,
-    "statements": 8
+    "statements": 7
   },
   "GET /api/auth/me [student]": {
     "bytes": 547,
-    "statements": 9
+    "statements": 8
   },
   "POST /api/app/class_instance [coach]": {
-    "bytes": 2209,
-    "statements": 33
+    "bytes": 2255,
+    "statements": 22
   },
   "POST /api/app/class_instance [student]": {
-    "bytes": 1207,
-    "statements": 30
+    "bytes": 1252,
+    "statements": 22
   },
   "POST /api/app/conversation/<id>/read [coach]": {
     "bytes": 0,
-    "statements": 6
+    "statements": 5
   }
 }
