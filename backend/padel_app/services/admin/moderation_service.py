@@ -37,6 +37,15 @@ def _person(user):
     return {"id": user.id, "name": user.name, "username": user.username}
 
 
+def _reported_text(report):
+    """What was reported (PAD-639, block-and-report rule 4a): the report's own copy, because
+    deleting the message erases its text (messaging.messages rule 3). A report filed before the
+    PAD-639 backfill has no copy and falls back to the message's text."""
+    if report.message_text is not None:
+        return report.message_text
+    return report.message.text
+
+
 def _row(report):
     message = report.message
     return {
@@ -48,7 +57,7 @@ def _row(report):
         "closedAt": report.closed_at.isoformat() if report.closed_at else None,
         "closedBy": report.closed_by,
         "reporter": _person(report.reporter),
-        "message": {"id": message.id, "text": message.text, "deleted": bool(message.is_deleted)},
+        "message": {"id": message.id, "text": _reported_text(report), "deleted": bool(message.is_deleted)},
         "author": _person(message.sender),
         "conversationId": message.conversation_id,
     }
@@ -103,7 +112,8 @@ def report_detail(report_id):
     return {
         **_row(report),
         "context": [
-            {"id": m.id, "text": m.text, "deleted": bool(m.is_deleted), "senderId": m.sender_id,
+            {"id": m.id, "text": _reported_text(report) if m.id == message.id else m.text,
+             "deleted": bool(m.is_deleted), "senderId": m.sender_id,
              # Named here, not looked up among the participants: a sender who left still has a name.
              "senderName": m.sender.name if m.sender else None,
              "sentAt": m.sent_at.isoformat() if m.sent_at else None, "reported": m.id == message.id}
